@@ -60,7 +60,7 @@ To work with this monorepo, ensure:
     ```
   - [near-cli](https://github.com/near/near-cli) and [near-sandbox](https://github.com/near/near-sandbox):
     ```bash
-    curl -fsSL https://deb.nodesource.com/setup_20.19.0 | sudo bash -
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
     sudo apt-get install -y nodejs
     npm install -g near-cli near-sandbox
     ```
