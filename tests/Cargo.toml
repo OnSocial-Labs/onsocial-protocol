@@ -1,0 +1,16 @@
+[package]
+name = "onsocial-integration-tests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+near-workspaces = "0.18.0"
+anyhow = "1.0"
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }
+auth-onsocial = { path = "../contracts/auth-onsocial" }
+ft-wrapper-onsocial = { path = "../contracts/ft-wrapper-onsocial" }
+relayer-onsocial = { path = "../contracts/relayer-onsocial" }

@@ -1,0 +1,6 @@
+target/
+*.wasm
+node_modules/
+.DS_Store
+.near/
+/tmp/near-sandbox

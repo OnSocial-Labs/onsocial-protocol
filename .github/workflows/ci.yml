@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.80.0
+          override: true
+      - name: Install cargo-near
+        run: cargo install cargo-near --version 0.13.6
+      - name: Install Node.js and NEAR tools
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+          apt-get install -y nodejs
+          npm install -g near-cli near-sandbox
+      - name: Validate Cargo lockfile
+        run: cargo metadata --locked || cargo update
+      - name: Build contracts
+        run: ./scripts/build.sh
+      - name: Generate ABIs
+        run: ./scripts/abi.sh
+      - name: Run tests
+        run: ./scripts/test.sh
+      - name: Cache artifacts
+        uses: actions/cache@v3
+        with:
+          path: |
+            target/
+            ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install near-cli
+        run: npm install -g near-cli
+      - name: Deploy contracts
+        env:
+          NEAR_MASTER_ACCOUNT: ${{ secrets.NEAR_MASTER_ACCOUNT }}
+          NEAR_PRIVATE_KEY: ${{ secrets.NEAR_PRIVATE_KEY }}
+          NETWORK: testnet
+        run: |
+          echo "NEAR_ENV=testnet" >> $GITHUB_ENV
+          ./scripts/deploy.sh
+          ./scripts/deploy.sh init

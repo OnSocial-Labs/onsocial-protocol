@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "near-workspaces": "^5.0.0"
+  }
+}
