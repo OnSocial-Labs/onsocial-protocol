@@ -90,20 +90,22 @@ Get started with these common tasks in the NEAR Sandbox:
    cd onsocial-contracts
    ./scripts/build.sh
 
-Run Sandbox:
-bash
+2. **Run Sandbox**:
+```bash
 
 ./scripts/sandbox.sh init
 ./scripts/sandbox.sh run
+```
 
-Deploy Contracts (single account):
-bash
+3. **Deploy Contracts** (single account):
+```bash
 
 ./scripts/deploy.sh
 ./scripts/deploy.sh init
+```
 
-Deploy with Different Accounts:
-bash
+4. **Deploy with Different Accounts**:
+```bash
 
 near create-account auth.test.near --masterAccount test.near --initialBalance 10 --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json
 near create-account ft-wrapper.test.near --masterAccount test.near --initialBalance 10 --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json
@@ -113,40 +115,46 @@ export FT_ACCOUNT=ft-wrapper.test.near
 export RELAYER_ACCOUNT=relayer.test.near
 ./scripts/deploy.sh
 ./scripts/deploy.sh init
+```
 
 Interact with Contracts:
-bash
+```bash
 
 near call auth.sandbox register_key '{"account_id": "test.near", "public_key": "ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU", "expiration_days": null}' --accountId test.near --nodeUrl http://localhost:3030
+```
 
 For testnet/mainnet or detailed instructions, see Resources/deployment-guide.md (#resources).
-Getting Started
+**Getting Started**
 Clone the Repository:
-bash
+```bash
 
 git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
 cd onsocial-contracts
+```
 
-Install Dependencies:
+**Install Dependencies**:
 Follow Prerequisites (#prerequisites) to set up Rust, cargo-near, near-cli, near-sandbox, and NEAR Workspaces.
 
-Clean Build Artifacts (Optional):
-bash
+**Clean Build Artifacts** (Optional):
+```bash
 
 ./scripts/build.sh clean
+```
 
-Build Contracts:
-bash
+**Build Contracts**:
+```bash
 
 ./scripts/build.sh  # Non-reproducible for local testing
 ./scripts/build.sh reproducible  # Reproducible for production
+```
 
-Generate ABIs:
-bash
+**Generate ABIs**:
+```bash
 
 ./scripts/abi.sh
+```
 
-Run Tests:
+**Run Tests**:
 Unit tests for all contracts:
 bash
 
@@ -159,20 +167,21 @@ bash
 ./scripts/sandbox.sh run
 ./scripts/test.sh integration
 
-Deploy Contracts:
+**Deploy Contracts**:
 Sandbox (Single Account):
-bash
+```bash
 
 ./scripts/sandbox.sh init
 ./scripts/sandbox.sh run
 ./scripts/deploy.sh
 ./scripts/deploy.sh init
+```
 
-Sandbox (Different Accounts):
+**Sandbox** (Different Accounts):
 See Quickstart (#quickstart) for sub-account creation and deployment.
 
 Testnet:
-bash
+```bash
 
 export NETWORK=testnet
 export AUTH_ACCOUNT=auth-account.testnet
@@ -183,10 +192,11 @@ near login --accountId ft-account.testnet
 near login --accountId relayer-account.testnet
 ./scripts/deploy.sh
 ./scripts/deploy.sh init
+```
 
-Mainnet:
+**Mainnet**:
 Use reproducible builds and funded accounts (20+ NEAR each):
-bash
+```bash
 
 export NETWORK=mainnet
 export AUTH_ACCOUNT=auth-account.near
@@ -194,6 +204,7 @@ export FT_ACCOUNT=ft-account.near
 export RELAYER_ACCOUNT=relayer-account.near
 ./scripts/deploy.sh reproducible
 ./scripts/deploy.sh init
+```
 
 For detailed deployment steps, including account creation and funding, see Resources/deployment-guide.md (#resources).
 Directory Structure
@@ -350,6 +361,3 @@ NEAR Discord: Community support.
 
 License
 Licensed under the Apache License 2.0 (LICENSE-APACHE) or MIT License (LICENSE-MIT), at your option. See LICENSE for details.
-
-
-
