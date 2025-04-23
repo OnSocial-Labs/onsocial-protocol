@@ -20,7 +20,7 @@ jobs:
         run: cargo install cargo-near --version 0.13.6
       - name: Install Node.js and NEAR tools
         run: |
-          curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+          curl -fsSL https://deb.nodesource.com/setup_v20.19.0 | bash -
           apt-get install -y nodejs
           npm install -g near-cli near-sandbox
       - name: Validate Cargo lockfile
@@ -48,7 +48,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: 'v20.19.0'
       - name: Install near-cli
         run: npm install -g near-cli
       - name: Deploy contracts
