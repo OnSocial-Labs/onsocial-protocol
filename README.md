@@ -61,10 +61,10 @@ To work with this monorepo, ensure:
   - [near-cli](https://github.com/near/near-cli) and [near-sandbox](https://github.com/near/near-sandbox):
     ```bash
     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
-    sudo apt-get install -y nodejs
+    sudo apt-get install -y nodejs=20.19.0*
     npm install -g near-cli near-sandbox
     ```
-  - [NEAR Workspaces](https://github.com/near/near-workspaces-rs) (v20.19.0, for integration tests):
+  - [NEAR Workspaces](https://github.com/near/near-workspaces-rs) (v0.18.0, for integration tests):
     Included as a dev-dependency in contract crates and `tests/`.
   - [Git](https://git-scm.com/downloads):
     ```bash
