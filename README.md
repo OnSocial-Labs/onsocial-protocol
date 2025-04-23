@@ -83,6 +83,7 @@ To work with this monorepo, ensure:
 
 ## Quickstart
 Get started with these common tasks in the NEAR Sandbox:
+
 1. **Clone and Build**:
    ```bash
    git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
@@ -196,34 +197,35 @@ export RELAYER_ACCOUNT=relayer-account.near
 
 For detailed deployment steps, including account creation and funding, see Resources/deployment-guide.md (#resources).
 Directory Structure
+plaintext
 
 onsocial-contracts/
-├── contracts/
-│   ├── auth-onsocial/          # Authentication contract
-│   ├── ft-wrapper-onsocial/    # Fungible token management contract
-│   ├── relayer-onsocial/       # Meta-transaction relayer contract
-├── scripts/
-│   ├── build.sh                # Build WASM and ABIs
-│   ├── deploy.sh               # Deploy contracts
-│   ├── test.sh                 # Run unit and integration tests
-│   ├── abi.sh                  # Generate ABIs
-│   ├── sandbox.sh              # Manage NEAR Sandbox
-│   ├── patch_state.sh          # Manipulate contract state for testing
-├── docker/
-│   ├── Dockerfile.builder      # Docker image for building
-│   ├── docker-compose.yml      # Docker Compose configuration
-├── Resources/
-│   ├── README.md               # Additional resources
-│   ├── deployment-guide.md     # Detailed deployment guide
-├── tests/
-│   ├── src/                    # Integration tests using NEAR Workspaces
-│   ├── Cargo.toml              # Integration test crate configuration
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml              # GitHub Actions workflow
-├── Cargo.toml                  # Rust workspace configuration
-├── README.md                   # This file
-├── .gitignore                  # Git ignore rules
+  - contracts/
+    - auth-onsocial/          # Authentication contract
+    - ft-wrapper-onsocial/    # Fungible token management contract
+    - relayer-onsocial/       # Meta-transaction relayer contract
+  - scripts/
+    - build.sh                # Build WASM and ABIs
+    - deploy.sh               # Deploy contracts
+    - test.sh                 # Run unit and integration tests
+    - abi.sh                  # Generate ABIs
+    - sandbox.sh              # Manage NEAR Sandbox
+    - patch_state.sh          # Manipulate contract state for testing
+  - docker/
+    - Dockerfile.builder      # Docker image for building
+    - docker-compose.yml      # Docker Compose configuration
+  - Resources/
+    - README.md               # Additional resources
+    - deployment-guide.md     # Detailed deployment guide
+  - tests/
+    - src/                    # Integration tests using NEAR Workspaces
+    - Cargo.toml              # Integration test crate configuration
+  - .github/
+    - workflows/
+      - ci.yml                # GitHub Actions workflow
+  - Cargo.toml                # Rust workspace configuration
+  - README.md                 # This file
+  - .gitignore                # Git ignore rules
 
 Scripts
 Scripts manage all contracts and scale with new additions:
@@ -348,4 +350,6 @@ NEAR Discord: Community support.
 
 License
 Licensed under the Apache License 2.0 (LICENSE-APACHE) or MIT License (LICENSE-MIT), at your option. See LICENSE for details.
+
+
 
