@@ -85,12 +85,14 @@ To work with this monorepo, ensure:
 Get started with these common tasks in the NEAR Sandbox:
 
 1. **Clone and Build**:
+
    ```bash
    git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
    cd onsocial-contracts
    ./scripts/build.sh
 
 2. **Run Sandbox**:
+
 ```bash
 
 ./scripts/sandbox.sh init
@@ -98,6 +100,7 @@ Get started with these common tasks in the NEAR Sandbox:
 ```
 
 3. **Deploy Contracts** (single account):
+
 ```bash
 
 ./scripts/deploy.sh
@@ -105,6 +108,7 @@ Get started with these common tasks in the NEAR Sandbox:
 ```
 
 4. **Deploy with Different Accounts**:
+
 ```bash
 
 near create-account auth.test.near --masterAccount test.near --initialBalance 10 --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json
@@ -117,15 +121,18 @@ export RELAYER_ACCOUNT=relayer.test.near
 ./scripts/deploy.sh init
 ```
 
-Interact with Contracts:
+**Interact with Contracts**:
+
 ```bash
 
 near call auth.sandbox register_key '{"account_id": "test.near", "public_key": "ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU", "expiration_days": null}' --accountId test.near --nodeUrl http://localhost:3030
 ```
 
 For testnet/mainnet or detailed instructions, see Resources/deployment-guide.md (#resources).
+
 **Getting Started**
 Clone the Repository:
+
 ```bash
 
 git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
@@ -136,12 +143,14 @@ cd onsocial-contracts
 Follow Prerequisites (#prerequisites) to set up Rust, cargo-near, near-cli, near-sandbox, and NEAR Workspaces.
 
 **Clean Build Artifacts** (Optional):
+
 ```bash
 
 ./scripts/build.sh clean
 ```
 
 **Build Contracts**:
+
 ```bash
 
 ./scripts/build.sh  # Non-reproducible for local testing
@@ -149,6 +158,7 @@ Follow Prerequisites (#prerequisites) to set up Rust, cargo-near, near-cli, near
 ```
 
 **Generate ABIs**:
+
 ```bash
 
 ./scripts/abi.sh
@@ -156,9 +166,11 @@ Follow Prerequisites (#prerequisites) to set up Rust, cargo-near, near-cli, near
 
 **Run Tests**:
 Unit tests for all contracts:
-bash
+
+```bash
 
 ./scripts/test.sh
+```
 
 Integration tests only (requires NEAR Sandbox):
 bash
@@ -169,6 +181,7 @@ bash
 
 **Deploy Contracts**:
 Sandbox (Single Account):
+
 ```bash
 
 ./scripts/sandbox.sh init
@@ -181,6 +194,7 @@ Sandbox (Single Account):
 See Quickstart (#quickstart) for sub-account creation and deployment.
 
 Testnet:
+
 ```bash
 
 export NETWORK=testnet
@@ -196,6 +210,7 @@ near login --accountId relayer-account.testnet
 
 **Mainnet**:
 Use reproducible builds and funded accounts (20+ NEAR each):
+
 ```bash
 
 export NETWORK=mainnet
@@ -241,71 +256,85 @@ onsocial-contracts/
 Scripts
 Scripts manage all contracts and scale with new additions:
 build.sh: Builds contracts, generates ABIs, runs tests, or cleans artifacts. Automatically detects contracts from Cargo.toml.
-bash
+
+```bash
 
 ./scripts/build.sh          # Non-reproducible build
 ./scripts/build.sh reproducible  # Reproducible build
 ./scripts/build.sh abi      # Generate ABIs
 ./scripts/build.sh test     # Run tests
 ./scripts/build.sh clean    # Remove build artifacts
+```
 
 deploy.sh: Deploys contracts to Sandbox, testnet, or mainnet, supporting different accounts per contract.
-bash
+
+```bash
 
 ./scripts/deploy.sh         # Deploy to configured network
 ./scripts/deploy.sh init    # Initialize contracts
 ./scripts/deploy.sh reproducible  # Deploy with reproducible builds
+```
 
 test.sh: Runs unit tests for all contracts or integration tests only.
-bash
+
+```bash
 
 ./scripts/test.sh           # Run unit and integration tests
 ./scripts/test.sh integration  # Run integration tests only
+```
 
 abi.sh: Generates ABI schemas for frontend integration.
-bash
+
+```bash
 
 ./scripts/abi.sh
+```
 
 sandbox.sh: Manages NEAR Sandbox for local testing.
-bash
+
+```bash
 
 ./scripts/sandbox.sh init   # Initialize Sandbox
 ./scripts/sandbox.sh run    # Run Sandbox
 ./scripts/sandbox.sh stop   # Stop Sandbox
 ./scripts/sandbox.sh clean  # Clean Sandbox data
+```
 
 patch_state.sh: Manipulates contract state in Sandbox for testing edge cases.
-bash
+```bash
 
 ./scripts/patch_state.sh
+```
 
-Docker Support (Optional)
+**Docker Support** (Optional)
 Docker provides a consistent build environment but is not required. Use native tools (Rust, cargo-near, etc.) for simpler setup, especially if encountering image issues (e.g., nearprotocol/near-sandbox pull errors).
 Build and Run:
-bash
+```bash
 
 docker-compose up
+```
 
-Clean Artifacts:
-bash
+**Clean Artifacts**:
+```bash
 
 docker-compose run builder bash -c "./scripts/build.sh clean"
+```
 
 See docker/docker-compose.yml and docker/Dockerfile.builder for details. If Docker fails, follow the native workflow in Getting Started (#getting-started).
 CI/CD
 GitHub Actions (.github/workflows/ci.yml) automates:
 Build and Test: Runs ./scripts/build.sh, ./scripts/abi.sh, and ./scripts/test.sh on push/pull requests to main.
 
-Deploy: Deploys to testnet on main branch pushes, using secrets (NEAR_MASTER_ACCOUNT, NEAR_PRIVATE_KEY).
+**Deploy**: Deploys to testnet on main branch pushes, using secrets (NEAR_MASTER_ACCOUNT, NEAR_PRIVATE_KEY).
 
 Add secrets in GitHub repository settings to enable deployment.
 Adding New Contracts
 Create Contract:
-bash
+```bash
 
 cd contracts
 cargo near new my-new-contract
+```
 
 Update Workspace:
 Add to Cargo.toml:
@@ -321,13 +350,14 @@ members = [
 ]
 
 Test and Deploy:
-bash
+```bash
 
 ./scripts/test.sh
 ./scripts/build.sh
 ./scripts/deploy.sh
+```
 
-Document:
+**Document**:
 Update Current Contracts (#current-contracts) and Resources/deployment-guide.md.
 
 Scripts automatically detect new contracts from Cargo.toml, so no manual updates to CONTRACTS arrays are needed.
