@@ -48,10 +48,10 @@ New contracts will be added to `contracts/`. Contribute or check back for update
 To work with this monorepo, ensure:
 - **Hardware**: 4GB RAM, 10GB free disk space, Linux (Ubuntu/Debian), macOS, or Windows (via WSL2).
 - **Software**:
-  - [Rust](https://www.rust-lang.org/tools/install) (1.80.0):
+  - [Rust](https://www.rust-lang.org/tools/install) (latest stable version):
     ```bash
-    rustup install 1.80.0
-    rustup default 1.80.0
+    rustup install stable
+    rustup default stable
     rustup target add wasm32-unknown-unknown
     ```
   - [cargo-near](https://crates.io/crates/cargo-near) (v0.13.6):
@@ -85,7 +85,6 @@ To work with this monorepo, ensure:
 Get started with these common tasks in the NEAR Sandbox:
 
 1. **Clone and Build**:
-
    ```bash
    git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
    cd onsocial-contracts
