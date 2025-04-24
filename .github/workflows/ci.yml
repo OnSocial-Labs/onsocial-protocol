@@ -9,6 +9,9 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        contract: [auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, all]
     steps:
       - uses: actions/checkout@v3
       - name: Build Docker image
@@ -23,7 +26,12 @@ jobs:
       - name: Generate ABIs
         run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/abi.sh"
       - name: Run tests
-        run: docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh"
+        run: |
+          if [ "${{ matrix.contract }}" == "all" ]; then
+            docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh"
+          else
+            docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh integration ${{ matrix.contract }}"
+          fi
       - name: Cache artifacts
         uses: actions/cache@v3
         with:
