@@ -11,26 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.86.0
-          override: true
-      - name: Install cargo-near
-        run: cargo install cargo-near --version 0.13.6
-      - name: Install Node.js and NEAR tools
+      - name: Build Docker image
+        run: docker build -t onsocial-builder -f docker/Dockerfile.builder .
+      - name: Start NEAR Sandbox
         run: |
-          curl -fsSL https://deb.nodesource.com/setup_v20.19.0 | bash -
-          apt-get install -y nodejs
-          npm install -g near-cli near-sandbox
-      - name: Validate Cargo lockfile
-        run: cargo metadata --locked || cargo update
+          docker run -d -p 3030:3030 --name near-sandbox -v near-data:/root/.near nearprotocol/near-sandbox:2.5.1 --fast
+          docker exec near-sandbox near-sandbox --home /root/.near init
+          sleep 5
       - name: Build contracts
-        run: ./scripts/build.sh
+        run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
       - name: Generate ABIs
-        run: ./scripts/abi.sh
+        run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/abi.sh"
       - name: Run tests
-        run: ./scripts/test.sh
+        run: docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh"
       - name: Cache artifacts
         uses: actions/cache@v3
         with:
@@ -45,18 +38,21 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v3
-      - name: Install Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 'v20.19.0'
-      - name: Install near-cli
-        run: npm install -g near-cli
-      - name: Deploy contracts
+      - name: Build Docker image
+        run: docker build -t onsocial-builder -f docker/Dockerfile.builder .
+      - name: Check secrets
+        run: |
+          [ -z "$NEAR_MASTER_ACCOUNT" ] && echo "NEAR_MASTER_ACCOUNT not set" && exit 1
+          [ -z "$NEAR_PRIVATE_KEY" ] && echo "NEAR_PRIVATE_KEY not set" && exit 1
+        env:
+          NEAR_MASTER_ACCOUNT: ${{ secrets.NEAR_MASTER_ACCOUNT }}
+          NEAR_PRIVATE_KEY: ${{ secrets.NEAR_PRIVATE_KEY }}
+      - name: Deploy single contract (example: auth-onsocial)
         env:
           NEAR_MASTER_ACCOUNT: ${{ secrets.NEAR_MASTER_ACCOUNT }}
           NEAR_PRIVATE_KEY: ${{ secrets.NEAR_PRIVATE_KEY }}
           NETWORK: testnet
+          AUTH_ACCOUNT: auth.testnet
         run: |
           echo "NEAR_ENV=testnet" >> $GITHUB_ENV
-          ./scripts/deploy.sh
-          ./scripts/deploy.sh init
+          docker run -v $(pwd):/code --rm -e NETWORK -e AUTH_ACCOUNT onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"

@@ -1,13 +1,13 @@
 # Deployment Guide
 
-This guide outlines how to deploy the `auth-onsocial`, `ft-wrapper-onsocial`, and `relayer-onsocial` smart contracts from the OnSocial Labs monorepo to a local NEAR Sandbox environment, NEAR testnet, or mainnet. The contracts are built using Rust and the NEAR SDK, with `cargo-near` (v0.13.6) for building and deployment.
+This guide outlines how to deploy individual smart contracts (e.g., `auth-onsocial`, `ft-wrapper-onsocial`, etc.) from the OnSocial Labs monorepo to a NEAR Sandbox, testnet, or mainnet using a Docker-only workflow. Each contract has a unique initialization command defined in `configs/contracts.json`. Dependencies are automatically pulled from `Cargo.toml` files, supporting 6-10 contracts with single-contract deployment via the `--contract` flag.
 
 ## Table of Contents
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Setup](#setup)
-- [Quickstart: Interacting with Contracts](#quickstart-interacting-with-contracts)
 - [Building the Contracts](#building-the-contracts)
+- [Deploying a Single Contract](#deploying-a-single-contract)
 - [Deploying to NEAR Sandbox](#deploying-to-near-sandbox)
 - [Deploying to NEAR Testnet](#deploying-to-near-testnet)
 - [Deploying to NEAR Mainnet](#deploying-to-near-mainnet)
@@ -16,380 +16,213 @@ This guide outlines how to deploy the `auth-onsocial`, `ft-wrapper-onsocial`, an
 - [Best Practices](#best-practices)
 
 ## Overview
-The monorepo contains three NEAR smart contracts:
-- **auth-onsocial**: Manages public key authentication with single and multi-signature support.
-- **ft-wrapper-onsocial**: Handles fungible token (FT) transfers, storage management, and cross-chain bridging.
-- **relayer-onsocial**: Facilitates meta-transactions, account sponsoring, and cross-chain operations.
+The monorepo contains multiple NEAR smart contracts, each with unique initialization commands and deploy accounts, configured in `configs/contracts.json`. Dependencies are resolved from `Cargo.toml` files during the Docker build. Key contracts include:
+- **auth-onsocial**: Public key authentication with multi-signature support.
+- **ft-wrapper-onsocial**: Fungible token transfers and cross-chain bridging.
+- **relayer-onsocial**: Gasless meta-transactions and account sponsoring.
+- **new-contract1, new-contract2, new-contract3**: Placeholder contracts.
 
-Deployment involves:
-- Building WebAssembly (WASM) files using `cargo-near`.
-- Deploying to a NEAR blockchain (Sandbox, testnet, or mainnet) using `near-cli` or `cargo-near deploy`.
-- Initializing the contracts with appropriate parameters.
-
-The deployment scripts (`scripts/build.sh`, `scripts/deploy.sh`, `scripts/sandbox.sh`) streamline the process, and Docker support ensures consistent environments.
+Deployment involves building WebAssembly (WASM) files, deploying via `near-cli` or `cargo-near`, and initializing with contract-specific commands.
 
 ## Prerequisites
-Before deploying, ensure you have the following:
 ### Hardware
-- A computer with at least 4GB RAM and 10GB free disk space.
-- Supported OS: Linux (Ubuntu/Debian), macOS, or Windows (via WSL2).
+- 4GB RAM, 10GB free disk space.
+- Linux (Ubuntu/Debian), macOS, or Windows (WSL2).
 
 ### Software
-- **Rust (version 1.80.0)**:
+- **Docker**:
   ```bash
-  rustup install 1.80.0
-  rustup target add wasm32-unknown-unknown
-
-cargo-near (v0.13.6):
-bash
-
-cargo install cargo-near --version 0.13.6
-
-near-cli:
-bash
-
-npm install -g near-cli
-
-near-sandbox:
-bash
-
-npm install -g near-sandbox
-
-Docker and Docker Compose (optional, for containerized builds):
-bash
-
-docker --version
-docker-compose --version
+  docker --version
 
 Git:
 bash
 
 git --version
 
-NEAR Accounts:
-For testnet/mainnet: A NEAR account with sufficient funds (create via NEAR Wallet or cargo near create-dev-account).
-
-For sandbox: No account creation is needed; use the default test.near account.
-
 Repository:
-Clone the monorepo:
 bash
 
 git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
 cd onsocial-contracts
 
+NEAR Accounts
+Testnet/Mainnet: Create accounts via NEAR Wallet or near create-account.
+
+Sandbox: Uses test.near by default.
+
 Setup
 Verify Directory Structure:
-Ensure the monorepo has the following structure:
 
 onsocial-contracts/
 ├── contracts/
 │   ├── auth-onsocial/
 │   ├── ft-wrapper-onsocial/
 │   ├── relayer-onsocial/
+│   ├── new-contract1/
+│   ├── new-contract2/
+│   ├── new-contract3/
 ├── scripts/
-│   ├── build.sh
-│   ├── deploy.sh
-│   ├── test.sh
-│   ├── abi.sh
-│   ├── sandbox.sh
 ├── docker/
-│   ├── Dockerfile.builder
-│   ├── docker-compose.yml
 ├── Resources/
-│   ├── README.md
-│   ├── deployment-guide.md
+├── tests/
+├── configs/
 ├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml
 ├── Cargo.toml
 ├── README.md
 ├── .gitignore
+├── package.json
 
-Install Dependencies:
-Run the installation commands listed in Prerequisites (#prerequisites).
-
-Configure Environment:
-For testnet/mainnet, set up near-cli credentials:
+Build Docker Image:
 bash
 
-near login
+docker build -t onsocial-builder -f docker/Dockerfile.builder .
 
-For sandbox, no additional configuration is needed.
+This pulls Rust dependencies from Cargo.toml files and installs cargo-near, near-cli, and near-sandbox.
 
-Optionally, create a .env file for sensitive data (e.g., account IDs):
+Configure Accounts:
+Set environment variables or use .env:
 bash
 
-echo "MASTER_ACCOUNT=your-account.testnet" > .env
-
-Update scripts/deploy.sh to source .env if needed.
+echo "AUTH_ACCOUNT=auth.testnet" >> .env
+echo "FT_ACCOUNT=ft.testnet" >> .env
+echo "RELAYER_ACCOUNT=relayer.testnet" >> .env
+echo "NEW1_ACCOUNT=new1.testnet" >> .env
+echo "NEW2_ACCOUNT=new2.testnet" >> .env
+echo "NEW3_ACCOUNT=new3.testnet" >> .env
 
 Building the Contracts
-Build the contracts to generate WASM files and ABIs.
 Build WASM Files:
-For local development (non-reproducible builds):
 bash
 
-./scripts/build.sh
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
 
-For production (reproducible builds):
+For production:
 bash
 
-./scripts/build.sh reproducible
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh reproducible"
 
-Output WASM files are located in:
-contracts/auth-onsocial/target/wasm32-unknown-unknown/release/auth_onsocial.wasm
-
-contracts/ft-wrapper-onsocial/target/wasm32-unknown-unknown/release/ft_wrapper_onsocial.wasm
-
-contracts/relayer-onsocial/target/wasm32-unknown-unknown/release/relayer_onsocial.wasm
+Dependencies are pulled from Cargo.toml and cached in the Docker image.
 
 Generate ABIs:
-Generate ABI schemas for frontend integration:
 bash
 
-./scripts/abi.sh
-
-ABIs are saved in each contract's directory (e.g., contracts/auth-onsocial/abi.json).
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/abi.sh"
 
 Run Tests:
-Verify contract functionality:
 bash
 
-./scripts/test.sh
+docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh"
 
-Use Docker (Optional):
-Build and run contracts in a containerized environment:
+Deploying a Single Contract
+To deploy one contract (e.g., auth-onsocial) with its unique init code:
+Start Sandbox (if needed):
 bash
 
-docker-compose up
+docker run -d -p 3030:3030 --name near-sandbox -v near-data:/root/.near nearprotocol/near-sandbox:2.5.1 --fast
+docker exec near-sandbox near-sandbox --home /root/.near init
 
-This automatically runs ./scripts/build.sh.
+Deploy:
+bash
+
+docker run -v $(pwd):/code --network host --rm -e NETWORK=sandbox -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
+
+For Other Contracts:
+Example for ft-wrapper-onsocial:
+bash
+
+docker run -v $(pwd):/code --network host --rm -e NETWORK=sandbox -e FT_ACCOUNT=test.near -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract ft-wrapper-onsocial && ./scripts/deploy.sh init --contract ft-wrapper-onsocial"
 
 Deploying to NEAR Sandbox
-NEAR Sandbox is ideal for local testing and development.
-Start NEAR Sandbox:
+Deploy Single Contract:
 bash
 
-./scripts/sandbox.sh init
-./scripts/sandbox.sh run
-
-The sandbox runs on http://localhost:3030.
-
-Data is stored in /tmp/near-sandbox.
-
-Deploy Contracts:
-Deploy to the sandbox:
-bash
-
-./scripts/deploy.sh
-
-Initialize contracts:
-bash
-
-./scripts/deploy.sh init
-
-Contracts are deployed as auth.sandbox, ft-wrapper.sandbox, and relayer.sandbox under the test.near account.
+docker run -v $(pwd):/code --network host --rm -e NETWORK=sandbox -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
 
 Test Interactions:
-Call a contract method (e.g., register a key):
 bash
 
-near call auth.sandbox register_key '{"account_id": "test.near", "public_key": "ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU", "expiration_days": null, "is_multi_sig": false, "multi_sig_threshold": null}' --accountId test.near --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json
-
-Use sandbox_patch_state for state manipulation (e.g., via near-api-js):
-javascript
-
-const nearApi = require('near-api-js');
-const { connect } = nearApi;
-
-async function patchState() {
-  const config = {
-    networkId: 'sandbox',
-    nodeUrl: 'http://localhost:3030',
-    keyPath: '/tmp/near-sandbox/validator_key.json',
-  };
-  const near = await connect(config);
-  const response = await near.connection.provider.sendJsonRpc('sandbox_patch_state', [{
-    contract_id: 'auth.sandbox',
-    key: Buffer.from('state').toString('base64'),
-    value: Buffer.from('new_state').toString('base64'),
-  }]);
-  console.log(response);
-}
-
-patchState();
+docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "near call auth.sandbox register_key '{\"account_id\": \"test.near\", \"public_key\": \"ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU\", \"expiration_days\": null}' --accountId test.near --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json"
 
 Clean Up:
 bash
 
-./scripts/sandbox.sh stop
-./scripts/sandbox.sh clean
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/sandbox.sh stop"
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/sandbox.sh clean"
 
 Deploying to NEAR Testnet
-Testnet is suitable for public testing and staging.
-Create/Fund Accounts:
-Create a testnet account:
+Create/Fund Account:
 bash
 
-cargo near create-dev-account
+near create-account auth.testnet --masterAccount your-account.testnet
 
-Fund the account via the NEAR Testnet Faucet or transfer NEAR tokens.
+Fund via NEAR Testnet Faucet.
 
-Configure deploy.sh:
-Edit scripts/deploy.sh:
+Deploy Single Contract:
 bash
 
-NETWORK="testnet"
-MASTER_ACCOUNT="your-account.testnet"
+docker run -v $(pwd):/code --rm -e NETWORK=testnet -e AUTH_ACCOUNT=auth.testnet onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
 
-Ensure your account has at least 10 NEAR for deployment and storage costs.
-
-Build and Deploy:
-Build non-reproducible WASM files:
-bash
-
-./scripts/build.sh
-
-Deploy to testnet:
-bash
-
-./scripts/deploy.sh
-./scripts/deploy.sh init
-
-Contracts are deployed as auth.testnet, ft-wrapper.testnet, and relayer.testnet.
-
-Verify Deployment:
-Check contract state:
+Verify:
 bash
 
 near state auth.testnet
 
 Deploying to NEAR Mainnet
-Mainnet is for production deployments.
-Create/Fund Accounts:
-Create a mainnet account via NEAR Wallet.
+Create/Fund Account:
+Create via NEAR Wallet; fund with 20+ NEAR.
 
-Fund the account with sufficient NEAR (at least 20 NEAR recommended).
-
-Configure deploy.sh:
-Edit scripts/deploy.sh:
+Build Reproducible WASM:
 bash
 
-NETWORK="mainnet"
-MASTER_ACCOUNT="your-account.near"
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh reproducible"
 
-Build Reproducible WASM Files:
-Ensure Cargo.lock is committed and the repository is pushed:
+Deploy Single Contract:
 bash
 
-git add Cargo.lock
-git commit -m "Add Cargo.lock for reproducible builds"
-git push origin main
-
-Build reproducible WASM files:
-bash
-
-./scripts/build.sh reproducible
-
-Deploy to Mainnet:
-Deploy with reproducible builds:
-bash
-
-./scripts/deploy.sh reproducible
-./scripts/deploy.sh init
-
-Contracts are deployed as auth.near, ft-wrapper.near, and relayer.near.
-
-Secure Credentials:
-Store private keys securely (e.g., in a hardware wallet).
-
-Use environment variables or a key store instead of hardcoding credentials.
+docker run -v $(pwd):/code --rm -e NETWORK=mainnet -e AUTH_ACCOUNT=auth.near onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial reproducible && ./scripts/deploy.sh init --contract auth-onsocial"
 
 Verifying Deployments
-Check Contract State:
-Use near-cli to verify contract deployment:
+Check State:
 bash
 
 near state auth.testnet
 near view auth.testnet get_keys '{"account_id": "your-account.testnet", "limit": 10, "offset": 0}'
 
-SourceScan Verification:
-For mainnet/testnet, verify reproducible builds on SourceScan:
-Upload the WASM files and source code from https://github.com/OnSocial-Labs/onsocial-contracts.
-
-Ensure the repository is public or accessible for verification.
+SourceScan:
+Upload WASM and source to SourceScan.
 
 Monitor Events:
-Check contract logs for events (e.g., AuthEvent, FtWrapperEvent, RelayerEvent) using NEAR Explorer or custom logging.
+Use NEAR Explorer for logs.
 
 Troubleshooting
-Build Failures:
-Ensure Rust 1.80.0 and cargo-near 0.13.6 are installed.
-
-Check for missing dependencies in Cargo.toml.
-
-Run ./scripts/build.sh clean and retry.
+Build Failures: Verify Docker image, check Cargo.toml, ensure Cargo.lock is up-to-date.
 
 Sandbox Issues:
-If near-sandbox fails to start, verify port 3030 is free:
 bash
 
-lsof -i :3030
+docker ps | grep near-sandbox
+docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/sandbox.sh clean"
 
-Clean sandbox data:
-bash
-
-./scripts/sandbox.sh clean
-
-Deployment Errors:
-Insufficient balance: Fund the account with more NEAR.
-
-Invalid credentials: Run near login or check key path.
-
-Network issues: Verify node URL (e.g., https://rpc.testnet.near.org for testnet).
+Deployment Errors: Check funds, credentials, node URL.
 
 Docker Issues:
-Rebuild images if outdated:
 bash
 
-docker-compose build
-
-Contact Support:
-For issues, open a GitHub Issue at https://github.com/OnSocial-Labs/onsocial-contracts or join the NEAR Discord.
+docker system prune
+docker build --no-cache -t onsocial-builder -f docker/Dockerfile.builder .
 
 Best Practices
-Use Reproducible Builds for Production:
-Always use ./scripts/build.sh reproducible for mainnet to ensure deterministic WASM files verifiable on SourceScan.
+Reproducible Builds: Use ./scripts/build.sh reproducible for mainnet.
 
-Test Thoroughly:
-Run ./scripts/test.sh before deployment.
+Secure Credentials: Store keys in .env or hardware wallet.
 
-Use NEAR Sandbox with sandbox_patch_state to simulate edge cases.
+Test Thoroughly: Run ./scripts/test.sh and use sandbox_patch_state.
 
-Secure Deployments:
-Use a dedicated deployment account with limited funds.
+CI/CD: Configure GitHub Secrets for testnet deployments.
 
-Store private keys in a secure key store or hardware wallet.
+Backup Data: Save /root/.near before cleaning sandbox.
 
-Automate with CI/CD:
-The .github/workflows/ci.yml automates builds, tests, and deployments. Configure GitHub Secrets (NEAR_MASTER_ACCOUNT, NEAR_PRIVATE_KEY) for automated testnet deployments.
+Version Control: Tag releases (e.g., v0.3.0) and use branches.
 
-Backup Sandbox Data:
-If testing requires persistent data, back up /tmp/near-sandbox before running ./scripts/sandbox.sh clean.
-
-Monitor Gas and Fees:
-Adjust cross_contract_gas and base_fee in contract configurations to optimize performance.
-
-Monitor LowBalance events to ensure sufficient contract funds.
-
-Version Control:
-Tag releases in Git (e.g., v0.1.0) for each deployment.
-
-Use branches for development and merge via pull requests.
-
-Integrate with dApps:
-Use generated ABIs for frontend integration with near-api-js.
-
-Test cross-chain functionality in ft-wrapper-onsocial with mock MPC signatures before mainnet deployment.
+dApp Integration: Use ABIs with near-api-js.
 

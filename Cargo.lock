@@ -195,13 +195,10 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "auth-onsocial"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "borsh",
  "near-sdk",
  "near-sdk-macros",
- "near-workspaces",
  "serde",
- "tokio",
 ]
 
 [[package]]
@@ -513,9 +510,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-near"
-version = "0.13.6"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2c2ba21ad85fa539881178a83d47e8090658c1a9eff524a383c02fc6b736043"
+checksum = "443e9aaa2458b0721b11cd6e51f03a923576fb67b9c7d7263db5e59c13ed0cc5"
 dependencies = [
  "base64 0.22.1",
  "cargo-near-build",
@@ -546,9 +543,9 @@ dependencies = [
 
 [[package]]
 name = "cargo-near-build"
-version = "0.4.6"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1621369df7842f8fcaefab24e9f922f86ec24da22d80e3c44183c3717a885dce"
+checksum = "4ccb935986eb960158118c0713998ead5d26848812617c7e992f1a06f753ae40"
 dependencies = [
  "bon",
  "bs58 0.5.1",
@@ -566,8 +563,10 @@ dependencies = [
  "near-abi",
  "near-verify-rs",
  "pathdiff",
+ "regex",
  "rustc_version",
  "schemars",
+ "semver",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -1505,13 +1504,10 @@ dependencies = [
 name = "ft-wrapper-onsocial"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "borsh",
  "near-sdk",
  "near-sdk-macros",
- "near-workspaces",
  "serde",
- "tokio",
 ]
 
 [[package]]
@@ -3173,9 +3169,9 @@ dependencies = [
 
 [[package]]
 name = "near-verify-rs"
-version = "0.1.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "493aed798fecece7a9ad24317b3562b95afc2bebfd79328d6c3f96bbd416bc3d"
+checksum = "9972223eb20e83596883c618ba974eecad30034190bd28e75409a970a89e7443"
 dependencies = [
  "bs58 0.5.1",
  "camino",
@@ -3186,6 +3182,7 @@ dependencies = [
  "hex",
  "indenter",
  "nix",
+ "pathdiff",
  "regex",
  "serde",
  "sha2 0.10.8",
@@ -3237,7 +3234,6 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bs58 0.5.1",
- "cargo-near-build",
  "chrono",
  "fs2",
  "json-patch",
@@ -4015,7 +4011,6 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 name = "relayer-onsocial"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "base64 0.22.1",
  "borsh",
  "cargo-near",
@@ -4025,10 +4020,8 @@ dependencies = [
  "near-crypto",
  "near-sdk",
  "near-sdk-macros",
- "near-workspaces",
  "serde",
  "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -5170,9 +5163,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.14"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b9590b93e6fcc1739458317cccd391ad3955e2bde8913edf6f95f9e65a8f034"
+checksum = "66a539a9ad6d5d281510d5bd368c973d636c02dbf8a67300bfb6b950696ad7df"
 dependencies = [
  "bytes",
  "futures-core",

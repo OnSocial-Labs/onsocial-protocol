@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Configuration
 SANDBOX_HOME="/tmp/near-sandbox"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -19,16 +18,24 @@ case "$1" in
     ;;
   run)
     echo "Running NEAR Sandbox..."
-    near-sandbox --home "$SANDBOX_HOME" run || handle_error "Failed to run sandbox"
+    pkill -f "near-sandbox" || true
+    near-sandbox --home "$SANDBOX_HOME" run > "$SANDBOX_HOME/sandbox.log" 2>&1 &
+    sleep 2
+    if ! lsof -i :3030 >/dev/null; then
+      cat "$SANDBOX_HOME/sandbox.log"
+      handle_error "Failed to start sandbox (port 3030 not bound)"
+    fi
+    echo -e "${GREEN}Sandbox started${NC}"
     ;;
   stop)
     echo "Stopping NEAR Sandbox..."
-    pkill -f "near-sandbox" || echo "No sandbox process found"
+    pkill -f "near-sandbox" || echo "No sandbox running"
     echo -e "${GREEN}Sandbox stopped${NC}"
     ;;
   clean)
     echo "Cleaning NEAR Sandbox data..."
-    rm -rf "$SANDBOX_HOME" || handle_error "Failed to clean sandbox data"
+    pkill -f "near-sandbox" || echo "No sandbox running"
+    rm -rf "$SANDBOX_HOME" || echo "No $SANDBOX_HOME directory found"
     echo -e "${GREEN}Sandbox data cleaned${NC}"
     ;;
   *)

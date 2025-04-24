@@ -1,6 +1,16 @@
-target/
-*.wasm
-node_modules/
+# OS and editor junk
 .DS_Store
+
+# Node & Rust dependencies
+node_modules/
+target/
+
+# NEAR artifacts
+*.wasm
 .near/
+tmp/
+.env
+
+# NEAR sandbox and local dev data
 /tmp/near-sandbox
+near-data/

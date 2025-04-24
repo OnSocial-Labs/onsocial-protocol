@@ -1,0 +1,20 @@
+[
+    {
+      "name": "auth-onsocial",
+      "id": "auth.$NETWORK",
+      "account": "${AUTH_ACCOUNT}",
+      "init": "new '{}'"
+    },
+    {
+      "name": "ft-wrapper-onsocial",
+      "id": "ft-wrapper.$NETWORK",
+      "account": "${FT_ACCOUNT}",
+      "init": "new '{\"manager\": \"${AUTH_ACCOUNT}\", \"relayer_contract\": \"relayer.$NETWORK\", \"storage_deposit\": \"1250000000000000000000\"}'"
+    },
+    {
+      "name": "relayer-onsocial",
+      "id": "relayer.$NETWORK",
+      "account": "${RELAYER_ACCOUNT}",
+      "init": "new '{\"offload_recipient\": \"${AUTH_ACCOUNT}\", \"auth_contract\": \"auth.$NETWORK\", \"ft_wrapper_contract\": \"ft-wrapper.$NETWORK\"}'"
+    }
+  ]
