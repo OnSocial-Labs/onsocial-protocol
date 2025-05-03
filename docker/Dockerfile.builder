@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     libperl-dev \
     perl-modules-5.36 \
     libssl-dev \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js, near-cli, and near-sandbox
@@ -29,6 +30,13 @@ RUN rustup default 1.86.0 \
     && rustup target add wasm32-unknown-unknown \
     && rustc --version \
     && cargo --version
+
+# Install additional Cargo tools
+RUN cargo install cargo-tarpaulin \
+    && rustup component add clippy \
+    && cargo install cargo-audit \
+    && cargo install cargo-tree \
+    && rustup component add rustfmt
 
 # Set up Rust environment
 ENV CARGO_HOME=/usr/local/cargo
@@ -69,6 +77,7 @@ RUN apt-get update && apt-get install -y \
     libperl-dev \
     perl-modules-5.36 \
     libssl-dev \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js, near-cli, and near-sandbox

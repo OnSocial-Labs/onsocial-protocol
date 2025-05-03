@@ -1,8 +1,8 @@
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
+use crate::types::StorageBalance;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
 use near_sdk::AccountId;
-use near_sdk::json_types::U128;
-use crate::types::StorageBalance;
 
 /// State for version 0.1.0
 #[derive(BorshSerialize, BorshDeserialize)]

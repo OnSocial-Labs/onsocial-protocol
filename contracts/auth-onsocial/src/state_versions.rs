@@ -1,7 +1,7 @@
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
-use near_sdk::store::{LookupMap, IterableSet, Vector};
-use near_sdk::AccountId;
 use crate::types::KeyInfo;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::store::{IterableSet, LookupMap, Vector};
+use near_sdk::AccountId;
 
 #[derive(BorshSerialize, BorshDeserialize)]
 #[borsh(crate = "near_sdk::borsh")]

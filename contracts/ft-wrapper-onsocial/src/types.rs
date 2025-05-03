@@ -1,7 +1,7 @@
-use near_sdk::{AccountId, PublicKey, Gas, NearToken};
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::serde::{Serialize, Deserialize};
-use near_sdk::borsh::{self, BorshSerialize, BorshDeserialize};
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{AccountId, Gas, NearToken, PublicKey};
 use near_sdk_macros::NearSchema;
 
 #[derive(NearSchema, Serialize, Deserialize, Clone, BorshSerialize, BorshDeserialize)]

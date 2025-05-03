@@ -1,10 +1,12 @@
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{AccountId, Gas, NearToken, PublicKey};
 use near_sdk::json_types::U128;
-use serde::{Serialize, Deserialize};
+use near_sdk::{AccountId, Gas, NearToken, PublicKey};
 use near_sdk_macros::NearSchema;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
+#[derive(
+    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
+)]
 #[abi(borsh, json)]
 pub enum Action {
     ChainSignatureRequest {
@@ -54,7 +56,9 @@ impl Action {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
+#[derive(
+    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
+)]
 #[abi(borsh, json)]
 pub struct DelegateAction {
     pub sender_id: AccountId,
@@ -64,13 +68,17 @@ pub struct DelegateAction {
     pub max_block_height: u64,
 }
 
-#[derive(Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
+#[derive(
+    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
+)]
 #[abi(borsh, json)]
 pub enum SignatureScheme {
     Ed25519,
 }
 
-#[derive(Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema)]
+#[derive(
+    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
+)]
 #[abi(borsh, json)]
 pub struct SignedDelegateAction {
     pub delegate_action: DelegateAction,
@@ -80,4 +88,17 @@ pub struct SignedDelegateAction {
     pub scheme: SignatureScheme,
     pub fee_action: Option<Action>,
     pub multi_signatures: Option<Vec<Vec<u8>>>, // Added for multi-sig support
+}
+
+#[derive(
+    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
+)]
+#[abi(borsh, json)]
+pub struct BridgeTransferResultArgs {
+    pub sender_id: AccountId,
+    pub token: String,
+    pub amount: U128,
+    pub destination_chain: String,
+    pub recipient: String,
+    pub signature: Vec<u8>,
 }

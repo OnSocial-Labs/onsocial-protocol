@@ -1,22 +1,29 @@
-use near_sdk::{near, env, AccountId, Promise, ext_contract, PanicOnDefault, NearToken, Gas};
-use near_sdk::json_types::U128;
-use crate::types::{FtTransferArgs, RequestChainSignatureArgs, BridgeTransferArgs, StorageBalance, StorageBalanceBounds, FinalizeTransferArgs}; // Added FinalizeTransferArgs
-use crate::state::FtWrapperContractState;
 use crate::errors::FtWrapperError;
 use crate::events::FtWrapperEvent;
+use crate::state::FtWrapperContractState;
+use crate::types::{
+    BridgeTransferArgs, FinalizeTransferArgs, FtTransferArgs, RequestChainSignatureArgs,
+    StorageBalance, StorageBalanceBounds,
+};
+use near_sdk::json_types::U128;
+use near_sdk::{env, ext_contract, near, AccountId, Gas, NearToken, PanicOnDefault, Promise};
 
-mod types;
+mod admin;
 mod errors;
 mod events;
-mod state;
-mod admin;
 mod ft;
+mod state;
 mod state_versions;
+mod types;
 
 #[ext_contract(ext_ft)]
 pub trait FungibleToken {
     fn ft_transfer(&mut self, receiver_id: AccountId, amount: U128, memo: Option<String>);
-    fn storage_deposit(&mut self, account_id: Option<AccountId>, registration_only: Option<bool>) -> StorageBalance;
+    fn storage_deposit(
+        &mut self,
+        account_id: Option<AccountId>,
+        registration_only: Option<bool>,
+    ) -> StorageBalance;
     fn ft_balance_of(&self, account_id: AccountId) -> U128;
     fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance>;
     fn storage_balance_bounds(&self) -> StorageBalanceBounds;
@@ -47,8 +54,8 @@ impl FtWrapperContract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        use state_versions::{StateV010, StateV011};
         use near_sdk::borsh;
+        use state_versions::{StateV010, StateV011};
 
         const CURRENT_VERSION: &str = "0.1.1";
 
@@ -82,7 +89,8 @@ impl FtWrapperContract {
                 FtWrapperEvent::StateMigrated {
                     old_version: "0.1.1".to_string(),
                     new_version: CURRENT_VERSION.to_string(),
-                }.emit();
+                }
+                .emit();
                 return Self { state: new_state };
             }
         }
@@ -106,7 +114,8 @@ impl FtWrapperContract {
                 FtWrapperEvent::StateMigrated {
                     old_version: "0.1.0".to_string(),
                     new_version: CURRENT_VERSION.to_string(),
-                }.emit();
+                }
+                .emit();
                 return Self { state: new_state };
             }
         }
@@ -142,24 +151,34 @@ impl FtWrapperContract {
     }
 
     pub fn request_chain_signature(&mut self, args: RequestChainSignatureArgs) -> Promise {
-        self.request_chain_signature_internal(args).expect("Chain signature request failed")
+        self.request_chain_signature_internal(args)
+            .expect("Chain signature request failed")
     }
 
     pub fn bridge_transfer(&mut self, args: BridgeTransferArgs) -> Promise {
-        self.bridge_transfer_internal(args).expect("Bridge transfer failed")
+        self.bridge_transfer_internal(args)
+            .expect("Bridge transfer failed")
     }
 
     pub fn finalize_transfer(&mut self, args: FinalizeTransferArgs) -> Promise {
-        self.finalize_transfer_internal(args).expect("Finalize transfer failed")
+        self.finalize_transfer_internal(args)
+            .expect("Finalize transfer failed")
     }
 
-    pub fn storage_deposit(&mut self, token: AccountId, account_id: Option<AccountId>, registration_only: Option<bool>) -> StorageBalance {
-        self.storage_deposit_internal(token, account_id, registration_only).expect("Storage deposit failed")
+    pub fn storage_deposit(
+        &mut self,
+        token: AccountId,
+        account_id: Option<AccountId>,
+        registration_only: Option<bool>,
+    ) -> StorageBalance {
+        self.storage_deposit_internal(token, account_id, registration_only)
+            .expect("Storage deposit failed")
     }
 
     #[payable]
     pub fn storage_withdraw(&mut self, token: AccountId, amount: Option<U128>) -> StorageBalance {
-        self.storage_withdraw_internal(token, amount).expect("Storage withdraw failed")
+        self.storage_withdraw_internal(token, amount)
+            .expect("Storage withdraw failed")
     }
 
     pub fn storage_balance_of(&self, token: AccountId, account_id: AccountId) -> Promise {
@@ -172,7 +191,8 @@ impl FtWrapperContract {
 
     #[payable]
     pub fn storage_unregister(&mut self, token: AccountId, force: Option<bool>) -> bool {
-        self.storage_unregister_internal(token, force).expect("Storage unregister failed")
+        self.storage_unregister_internal(token, force)
+            .expect("Storage unregister failed")
     }
 
     #[handle_result]
@@ -203,10 +223,10 @@ impl FtWrapperContract {
     }
 
     pub fn get_supported_tokens(&self) -> Vec<AccountId> {
-        self.state.supported_tokens.iter().map(|token| token.clone()).collect()
+        self.state.supported_tokens.to_vec()
     }
 
-    pub fn ft_balance_of(&mut self, token: AccountId, account_id: AccountId) -> Promise {
+    pub fn ft_balance_of(&self, token: AccountId, account_id: AccountId) -> Promise {
         self.ft_balance_of_internal(token, account_id)
     }
 
@@ -220,7 +240,8 @@ impl FtWrapperContract {
         FtWrapperEvent::ContractUpgraded {
             manager: caller.clone(),
             timestamp: env::block_timestamp_ms(),
-        }.emit();
+        }
+        .emit();
         Ok(Promise::new(env::current_account_id())
             .deploy_contract(code)
             .function_call(
@@ -242,7 +263,12 @@ impl FtWrapperContract {
     }
 
     #[private]
-    pub fn handle_balance_check(&mut self, token: AccountId, account_id: AccountId, balance: U128) -> bool {
+    pub fn handle_balance_check(
+        &mut self,
+        token: AccountId,
+        account_id: AccountId,
+        balance: U128,
+    ) -> bool {
         crate::ft::handle_balance_check(&mut self.state, token, account_id, balance)
     }
 
@@ -250,23 +276,41 @@ impl FtWrapperContract {
         crate::ft::ft_transfer(&mut self.state, args)
     }
 
-    fn request_chain_signature_internal(&mut self, args: RequestChainSignatureArgs) -> Result<Promise, FtWrapperError> {
+    fn request_chain_signature_internal(
+        &mut self,
+        args: RequestChainSignatureArgs,
+    ) -> Result<Promise, FtWrapperError> {
         crate::ft::request_chain_signature(&mut self.state, args)
     }
 
-    fn bridge_transfer_internal(&mut self, args: BridgeTransferArgs) -> Result<Promise, FtWrapperError> {
+    fn bridge_transfer_internal(
+        &mut self,
+        args: BridgeTransferArgs,
+    ) -> Result<Promise, FtWrapperError> {
         crate::ft::bridge_transfer(&mut self.state, args)
     }
 
-    fn finalize_transfer_internal(&mut self, args: FinalizeTransferArgs) -> Result<Promise, FtWrapperError> {
+    fn finalize_transfer_internal(
+        &mut self,
+        args: FinalizeTransferArgs,
+    ) -> Result<Promise, FtWrapperError> {
         crate::ft::finalize_transfer(&mut self.state, args)
     }
 
-    fn storage_deposit_internal(&mut self, token: AccountId, account_id: Option<AccountId>, registration_only: Option<bool>) -> Result<StorageBalance, FtWrapperError> {
+    fn storage_deposit_internal(
+        &mut self,
+        token: AccountId,
+        account_id: Option<AccountId>,
+        registration_only: Option<bool>,
+    ) -> Result<StorageBalance, FtWrapperError> {
         crate::ft::storage_deposit(&mut self.state, token, account_id, registration_only)
     }
 
-    fn storage_withdraw_internal(&mut self, token: AccountId, amount: Option<U128>) -> Result<StorageBalance, FtWrapperError> {
+    fn storage_withdraw_internal(
+        &mut self,
+        token: AccountId,
+        amount: Option<U128>,
+    ) -> Result<StorageBalance, FtWrapperError> {
         crate::ft::storage_withdraw(&mut self.state, token, amount)
     }
 
@@ -278,7 +322,11 @@ impl FtWrapperContract {
         crate::ft::storage_balance_bounds(&self.state, token)
     }
 
-    fn storage_unregister_internal(&mut self, token: AccountId, force: Option<bool>) -> Result<bool, FtWrapperError> {
+    fn storage_unregister_internal(
+        &mut self,
+        token: AccountId,
+        force: Option<bool>,
+    ) -> Result<bool, FtWrapperError> {
         crate::ft::storage_unregister(&mut self.state, token, force)
     }
 
@@ -294,19 +342,26 @@ impl FtWrapperContract {
         crate::admin::set_cross_contract_gas(&mut self.state, gas_tgas)
     }
 
-    fn set_storage_deposit_internal(&mut self, storage_deposit: U128) -> Result<(), FtWrapperError> {
+    fn set_storage_deposit_internal(
+        &mut self,
+        storage_deposit: U128,
+    ) -> Result<(), FtWrapperError> {
         crate::admin::set_storage_deposit(&mut self.state, storage_deposit)
     }
 
-    fn ft_balance_of_internal(&mut self, token: AccountId, account_id: AccountId) -> Promise {
-        crate::ft::ft_balance_of(&mut self.state, token, account_id)
+    fn ft_balance_of_internal(&self, token: AccountId, account_id: AccountId) -> Promise {
+        crate::ft::ft_balance_of(&self.state, token, account_id)
     }
 
     fn handle_registration_internal(&mut self, token: AccountId, account_id: AccountId) -> Promise {
         crate::ft::handle_registration(&mut self.state, token, account_id)
     }
 
-    fn handle_storage_deposit_internal(&mut self, token: AccountId, account_id: AccountId) -> Promise {
+    fn handle_storage_deposit_internal(
+        &mut self,
+        token: AccountId,
+        account_id: AccountId,
+    ) -> Promise {
         crate::ft::handle_storage_deposit(&mut self.state, token, account_id)
     }
 }

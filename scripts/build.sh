@@ -1,7 +1,6 @@
 #!/bin/bash
 
 BASE_DIR="$(pwd)/contracts"
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -29,8 +28,64 @@ fi
 
 clean_artifacts() {
   echo "Cleaning build artifacts..."
-  cargo clean 2> /tmp/error.log || handle_error "Failed to clean artifacts" "$(cat /tmp/error.log)"
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
+  cargo clean || handle_error "Failed to clean artifacts"
   echo -e "${GREEN}Artifacts cleaned${NC}"
+}
+
+clean_all() {
+  echo "Cleaning build artifacts..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
+  cargo clean || handle_error "Failed to clean artifacts"
+  echo "Cleaning sandbox data..."
+  [ "$VERBOSE" = "1" ] && echo "Removing: ../near-data/*"
+  rm -rf ../near-data/* || handle_error "Failed to clean sandbox data"
+  echo -e "${GREEN}Build artifacts and sandbox data cleaned${NC}"
+}
+
+cargo_update() {
+  echo "Cleaning build artifacts..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
+  cargo clean || handle_error "Failed to clean artifacts"
+  echo "Updating dependencies..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo update"
+  cargo update || handle_error "Failed to update Dependencies"
+  echo -e "${GREEN}Dependencies updated${NC}"
+}
+
+format_code() {
+  echo "Formatting code..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo fmt --all"
+  cargo fmt --all || handle_error "Failed to format code"
+  echo -e "${GREEN}Code formatted successfully${NC}"
+}
+
+lint_code() {
+  echo "Linting code..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo clippy --all-targets --all-features -- -D warnings"
+  cargo clippy --all-targets --all-features -- -D warnings || handle_error "Failed to lint code"
+  echo -e "${GREEN}Code linted successfully${NC}"
+}
+
+check_workspace() {
+  echo "Checking workspace..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo check --all-targets --all-features"
+  cargo check --all-targets --all-features || handle_error "Workspace check failed"
+  echo -e "${GREEN}Workspace checked successfully${NC}"
+}
+
+audit_deps() {
+  echo "Auditing dependencies..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo audit"
+  cargo audit || handle_error "Dependency audit failed"
+  echo -e "${GREEN}Dependencies audited successfully${NC}"
+}
+
+check_deps() {
+  echo "Checking dependency tree..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo tree"
+  cargo tree || handle_error "Dependency check failed"
+  echo -e "${GREEN}Dependency tree checked successfully${NC}"
 }
 
 build_contract() {
@@ -38,7 +93,8 @@ build_contract() {
   local build_type=$2
   echo "Building $contract ($build_type)..."
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
-  cargo near build "$build_type" 2> /tmp/error.log || handle_error "Failed to build $contract" "$(cat /tmp/error.log)"
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo near build $build_type"
+  cargo near build "$build_type" || handle_error "Failed to build $contract"
   echo -e "${GREEN}$contract built successfully${NC}"
 }
 
@@ -47,7 +103,8 @@ generate_abi() {
   echo "Generating ABI for $contract..."
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
   [ "$NEAR_ENV" = "sandbox" ] && curl -s http://localhost:3030 >/dev/null || handle_error "NEAR Sandbox not running"
-  cargo near abi 2> /tmp/error.log || handle_error "Failed to generate ABI for $contract" "$(cat /tmp/error.log)"
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo near abi"
+  cargo near abi || handle_error "Failed to generate ABI for $contract"
   echo -e "${GREEN}$contract ABI generated successfully${NC}"
 }
 
@@ -56,7 +113,8 @@ test_contract() {
   echo "Running tests for $contract..."
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
   [ "$NEAR_ENV" = "sandbox" ] && curl -s http://localhost:3030 >/dev/null || handle_error "NEAR Sandbox not running"
-  cargo test 2> /tmp/error.log || handle_error "Tests failed for $contract" "$(cat /tmp/error.log)"
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
+  cargo test || handle_error "Tests failed for $contract"
   echo -e "${GREEN}$contract tests passed${NC}"
 }
 
@@ -73,38 +131,89 @@ case "$1" in
   clean)
     clean_artifacts
     ;;
+  clean-all)
+    clean_all
+    ;;
+  cargo-update)
+    cargo_update
+    ;;
+  fmt)
+    format_code
+    ;;
+  lint)
+    lint_code
+    ;;
+  check)
+    check_workspace
+    ;;
+  audit)
+    audit_deps
+    ;;
+  check-deps)
+    check_deps
+    ;;
+  build-contract)
+    if [ -z "$2" ]; then
+      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., auth-onsocial)"
+    fi
+    # Default to non-reproducible, unless in CI
+    build_type="non-reproducible-wasm"
+    [ "$CI" = "true" ] && build_type="reproducible-wasm"
+    build_contract "$2" "$build_type"
+    echo -e "${GREEN}Build complete for $2 ($build_type)${NC}"
+    ;;
+  verify)
+    if [ -n "$2" ]; then
+      verify_contract "$2"
+      echo -e "${GREEN}Verification complete for $2${NC}"
+    else
+      clean_artifacts
+      ERROR_FLAG=0
+      for contract in "${CONTRACTS[@]}"; do
+        verify_contract "$contract" || ERROR_FLAG=1 &
+      done
+      wait
+      [ $ERROR_FLAG -eq 1 ] && handle_error "Verification failed for one or more contracts"
+      echo -e "${GREEN}All contracts verified successfully${NC}"
+    fi
+    ;;
   abi)
+    ERROR_FLAG=0
     for contract in "${CONTRACTS[@]}"; do
-      generate_abi "$contract"
+      generate_abi "$contract" || ERROR_FLAG=1 &
     done
+    wait
+    [ $ERROR_FLAG -eq 1 ] && handle_error "ABI generation failed for one or more contracts"
     echo -e "${GREEN}ABI generation complete!${NC}"
     ;;
   test)
+    ERROR_FLAG=0
     for contract in "${CONTRACTS[@]}"; do
-      test_contract "$contract"
+      test_contract "$contract" || ERROR_FLAG=1 &
     done
+    wait
+    [ $ERROR_FLAG -eq 1 ] && handle_error "Tests failed for one or more contracts"
     echo -e "${GREEN}All tests complete!${NC}"
     ;;
   reproducible)
+    ERROR_FLAG=0
     for contract in "${CONTRACTS[@]}"; do
-      build_contract "$contract" "reproducible-wasm"
+      build_contract "$contract" "reproducible-wasm" || ERROR_FLAG=1 &
     done
+    wait
+    [ $ERROR_FLAG -eq 1 ] && handle_error "Reproducible build failed for one or more contracts"
     echo -e "${GREEN}Reproducible build complete!${NC}"
-    ;;
-  verify)
-    clean_artifacts
-    for contract in "${CONTRACTS[@]}"; do
-      verify_contract "$contract"
-    done
-    echo -e "${GREEN}All contracts verified successfully!${NC}"
     ;;
   *)
     # Default to non-reproducible, unless in CI
     build_type="non-reproducible-wasm"
     [ "$CI" = "true" ] && build_type="reproducible-wasm"
+    ERROR_FLAG=0
     for contract in "${CONTRACTS[@]}"; do
-      build_contract "$contract" "$build_type"
+      build_contract "$contract" "$build_type" || ERROR_FLAG=1 &
     done
+    wait
+    [ $ERROR_FLAG -eq 1 ] && handle_error "Build failed for one or more contracts"
     echo -e "${GREEN}Build complete! ($build_type)${NC}"
     ;;
 esac

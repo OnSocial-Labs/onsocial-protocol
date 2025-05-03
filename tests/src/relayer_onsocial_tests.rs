@@ -1,7 +1,9 @@
-// tests/src/relayer_onsocial_tests.rs
+#[allow(unused_imports)]
+use crate::utils::{deploy_contract, get_wasm_path, setup_sandbox};
+#[allow(unused_imports)]
 use anyhow::Result;
+#[allow(unused_imports)]
 use serde_json::json;
-use crate::utils::{setup_sandbox, deploy_contract, get_wasm_path};
 
 #[tokio::test]
 async fn test_relayer_onsocial_init() -> Result<()> {

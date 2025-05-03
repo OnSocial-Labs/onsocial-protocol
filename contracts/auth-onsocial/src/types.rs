@@ -1,6 +1,7 @@
-use near_sdk::{PublicKey};
-use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::AccountId;
+use near_sdk::PublicKey;
 use near_sdk_macros::NearSchema;
 use std::cmp::Ordering;
 
@@ -11,6 +12,19 @@ use std::cmp::Ordering;
 pub struct KeyInfo {
     pub public_key: PublicKey,
     pub expiration_timestamp: Option<u64>,
+    pub is_multi_sig: bool,
+    pub multi_sig_threshold: Option<u32>,
+}
+
+#[derive(Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize, NearSchema)]
+#[serde(crate = "near_sdk::serde")]
+#[borsh(crate = "near_sdk::borsh")]
+#[abi(json, borsh)]
+pub struct RotateKeyArgs {
+    pub account_id: AccountId,
+    pub old_public_key: PublicKey,
+    pub new_public_key: PublicKey,
+    pub expiration_days: Option<u32>,
     pub is_multi_sig: bool,
     pub multi_sig_threshold: Option<u32>,
 }

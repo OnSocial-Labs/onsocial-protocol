@@ -1,17 +1,17 @@
-use near_sdk::{near, env, AccountId, PublicKey, PanicOnDefault, Promise};
-use crate::state::AuthContractState;
-use crate::state_versions::{StateV010, StateV011};
-use crate::types::KeyInfo;
 use crate::errors::AuthError;
 use crate::events::AuthEvent;
+use crate::state::AuthContractState;
+use crate::state_versions::{StateV010, StateV011};
+use crate::types::{KeyInfo, RotateKeyArgs};
+use near_sdk::{env, near, AccountId, PanicOnDefault, Promise, PublicKey};
 
-pub mod state;
-pub mod state_versions;
-pub mod types;
 pub mod errors;
 mod events;
+pub mod state;
+pub mod state_versions;
 #[cfg(test)]
 mod tests;
+pub mod types;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -34,7 +34,8 @@ impl AuthContract {
         public_key: PublicKey,
         signatures: Option<Vec<Vec<u8>>>,
     ) -> bool {
-        self.state.is_authorized(&account_id, &public_key, signatures)
+        self.state
+            .is_authorized(&account_id, &public_key, signatures)
     }
 
     #[handle_result]
@@ -62,28 +63,13 @@ impl AuthContract {
         account_id: AccountId,
         public_key: PublicKey,
     ) -> Result<(), AuthError> {
-        self.state.remove_key(&env::predecessor_account_id(), &account_id, public_key)
+        self.state
+            .remove_key(&env::predecessor_account_id(), &account_id, public_key)
     }
 
     #[handle_result]
-    pub fn rotate_key(
-        &mut self,
-        account_id: AccountId,
-        old_public_key: PublicKey,
-        new_public_key: PublicKey,
-        expiration_days: Option<u32>,
-        is_multi_sig: bool,
-        multi_sig_threshold: Option<u32>,
-    ) -> Result<(), AuthError> {
-        self.state.rotate_key(
-            &env::predecessor_account_id(),
-            &account_id,
-            old_public_key,
-            new_public_key,
-            expiration_days,
-            is_multi_sig,
-            multi_sig_threshold,
-        )
+    pub fn rotate_key(&mut self, args: RotateKeyArgs) -> Result<(), AuthError> {
+        self.state.rotate_key(&env::predecessor_account_id(), args)
     }
 
     #[handle_result]
@@ -115,7 +101,8 @@ impl AuthContract {
 
     #[handle_result]
     pub fn set_manager(&mut self, new_manager: AccountId) -> Result<(), AuthError> {
-        self.state.set_manager(&env::predecessor_account_id(), new_manager)
+        self.state
+            .set_manager(&env::predecessor_account_id(), new_manager)
     }
 
     #[private]
@@ -148,7 +135,8 @@ impl AuthContract {
                 AuthEvent::StateMigrated {
                     old_version: "0.1.1".to_string(),
                     new_version: CURRENT_VERSION.to_string(),
-                }.emit();
+                }
+                .emit();
                 return Self { state: new_state };
             }
         }
@@ -168,7 +156,8 @@ impl AuthContract {
                 AuthEvent::StateMigrated {
                     old_version: "0.1.0".to_string(),
                     new_version: CURRENT_VERSION.to_string(),
-                }.emit();
+                }
+                .emit();
                 return Self { state: new_state };
             }
         }

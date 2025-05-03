@@ -13,54 +13,50 @@ jobs:
       matrix:
         contract: [auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, all]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Install Make
+        run: sudo apt-get update && sudo apt-get install -y make
       - name: Build Docker image
-        run: docker build -t onsocial-builder -f docker/Dockerfile.builder .
+        run: make build-docker
       - name: Start NEAR Sandbox
         run: |
-          docker run -d -p 3030:3030 --name near-sandbox -v near-data:/root/.near nearprotocol/near-sandbox:2.5.1 --fast
-          docker exec near-sandbox near-sandbox --home /root/.near init
-          sleep 5
+          make start-sandbox
+          for i in {1..30}; do
+            if curl -s http://localhost:3030/status > /dev/null; then
+              echo "Sandbox is ready"
+              break
+            fi
+            echo "Waiting for sandbox..."
+            sleep 2
+          done
+          curl -s http://localhost:3030/status || exit 1
       - name: Build contracts
-        run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
+        run: make build
       - name: Generate ABIs
-        run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/abi.sh"
+        run: make abi
       - name: Run tests
         run: |
           if [ "${{ matrix.contract }}" == "all" ]; then
-            docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh"
+            make test
+            make test-integration
           else
-            docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh integration ${{ matrix.contract }}"
+            make test-unit CONTRACT=${{ matrix.contract }}
+            make test-integration CONTRACT=${{ matrix.contract }}
           fi
+      - name: Generate test coverage
+        run: make test-coverage CONTRACT=${{ matrix.contract }}
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.contract }}
+          path: coverage/
       - name: Cache artifacts
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             target/
             ~/.cargo
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build Docker image
-        run: docker build -t onsocial-builder -f docker/Dockerfile.builder .
-      - name: Check secrets
-        run: |
-          [ -z "$NEAR_MASTER_ACCOUNT" ] && echo "NEAR_MASTER_ACCOUNT not set" && exit 1
-          [ -z "$NEAR_PRIVATE_KEY" ] && echo "NEAR_PRIVATE_KEY not set" && exit 1
-        env:
-          NEAR_MASTER_ACCOUNT: ${{ secrets.NEAR_MASTER_ACCOUNT }}
-          NEAR_PRIVATE_KEY: ${{ secrets.NEAR_PRIVATE_KEY }}
-      - name: Deploy single contract (example: auth-onsocial)
-        env:
-          NEAR_MASTER_ACCOUNT: ${{ secrets.NEAR_MASTER_ACCOUNT }}
-          NEAR_PRIVATE_KEY: ${{ secrets.NEAR_PRIVATE_KEY }}
-          NETWORK: testnet
-          AUTH_ACCOUNT: auth.testnet
-        run: |
-          echo "NEAR_ENV=testnet" >> $GITHUB_ENV
-          docker run -v $(pwd):/code --rm -e NETWORK -e AUTH_ACCOUNT onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
+      - name: Clean up sandbox
+        if: always()
+        run: make clean-sandbox

@@ -1,5 +1,5 @@
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, FunctionError};
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
 
 #[derive(Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub enum RelayerError {

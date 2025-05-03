@@ -1,5 +1,9 @@
 # OS and editor junk
 .DS_Store
+*.swp
+*.swo
+*.bak
+*~                 
 
 # Node & Rust dependencies
 node_modules/
@@ -12,5 +16,5 @@ tmp/
 .env
 
 # NEAR sandbox and local dev data
-/tmp/near-sandbox
+/tmp/near-sandbox/
 near-data/

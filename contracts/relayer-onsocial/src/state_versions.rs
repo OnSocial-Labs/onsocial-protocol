@@ -1,4 +1,4 @@
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::{LazyOption, LookupMap};
 use near_sdk::AccountId;
 use near_sdk_macros::NearSchema;

@@ -1,10 +1,13 @@
-use near_sdk::{env, AccountId};
-use crate::state::FtWrapperContractState;
 use crate::errors::FtWrapperError;
 use crate::events::FtWrapperEvent;
+use crate::state::FtWrapperContractState;
 use near_sdk::json_types::U128;
+use near_sdk::{env, AccountId};
 
-pub fn add_supported_token(state: &mut FtWrapperContractState, token: AccountId) -> Result<(), FtWrapperError> {
+pub fn add_supported_token(
+    state: &mut FtWrapperContractState,
+    token: AccountId,
+) -> Result<(), FtWrapperError> {
     let caller = env::predecessor_account_id();
     if !state.is_manager(&caller) {
         return Err(FtWrapperError::Unauthorized);
@@ -17,7 +20,10 @@ pub fn add_supported_token(state: &mut FtWrapperContractState, token: AccountId)
     Ok(())
 }
 
-pub fn remove_supported_token(state: &mut FtWrapperContractState, token: AccountId) -> Result<(), FtWrapperError> {
+pub fn remove_supported_token(
+    state: &mut FtWrapperContractState,
+    token: AccountId,
+) -> Result<(), FtWrapperError> {
     let caller = env::predecessor_account_id();
     if !state.is_manager(&caller) {
         return Err(FtWrapperError::Unauthorized);
@@ -31,7 +37,10 @@ pub fn remove_supported_token(state: &mut FtWrapperContractState, token: Account
     }
 }
 
-pub fn set_cross_contract_gas(state: &mut FtWrapperContractState, gas_tgas: u64) -> Result<(), FtWrapperError> {
+pub fn set_cross_contract_gas(
+    state: &mut FtWrapperContractState,
+    gas_tgas: u64,
+) -> Result<(), FtWrapperError> {
     let caller = env::predecessor_account_id();
     if !state.is_manager(&caller) {
         return Err(FtWrapperError::Unauthorized);
@@ -41,12 +50,16 @@ pub fn set_cross_contract_gas(state: &mut FtWrapperContractState, gas_tgas: u64)
     Ok(())
 }
 
-pub fn set_storage_deposit(state: &mut FtWrapperContractState, storage_deposit: U128) -> Result<(), FtWrapperError> {
+pub fn set_storage_deposit(
+    state: &mut FtWrapperContractState,
+    storage_deposit: U128,
+) -> Result<(), FtWrapperError> {
     let caller = env::predecessor_account_id();
     if !state.is_manager(&caller) {
         return Err(FtWrapperError::Unauthorized);
     }
-    if storage_deposit.0 < 1_250_000_000_000_000_000_000 { // Minimum 0.00125 NEAR
+    if storage_deposit.0 < 1_250_000_000_000_000_000_000 {
+        // Minimum 0.00125 NEAR
         return Err(FtWrapperError::AmountTooLow);
     }
     state.storage_deposit = storage_deposit;

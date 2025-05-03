@@ -1,10 +1,10 @@
-use near_sdk::{env, Promise, AccountId, PublicKey, NearToken, Gas};
-use crate::{state::Relayer, ext_auth};
 use crate::errors::RelayerError;
 use crate::events::RelayerEvent;
-use crate::types::SignedDelegateAction;
 use crate::relay;
+use crate::types::SignedDelegateAction;
+use crate::{ext_auth, state::Relayer};
 use near_sdk::borsh::to_vec;
+use near_sdk::{env, AccountId, Gas, NearToken, Promise, PublicKey};
 
 pub fn sponsor_account_with_registrar(
     relayer: &mut Relayer,
@@ -15,7 +15,10 @@ pub fn sponsor_account_with_registrar(
 ) -> Result<Promise, RelayerError> {
     let balance = env::account_balance();
     if balance.as_yoctonear() < relayer.min_balance {
-        RelayerEvent::LowBalance { balance: balance.as_yoctonear() }.emit();
+        RelayerEvent::LowBalance {
+            balance: balance.as_yoctonear(),
+        }
+        .emit();
         return Err(RelayerError::InsufficientBalance);
     }
     let is_mainnet = env::current_account_id().to_string().ends_with(".near");
@@ -31,7 +34,7 @@ pub fn sponsor_account_with_registrar(
         .ok_or(RelayerError::InvalidAccountId)?;
     if is_mainnet {
         let len = account_name.len();
-        if len < 3 || len > 16 {
+        if !(3..=16).contains(&len) {
             return Err(RelayerError::InvalidAccountId);
         }
     } else if !account_id_str.ends_with(".testnet") {
@@ -44,10 +47,8 @@ pub fn sponsor_account_with_registrar(
     } else {
         1_820_000_000_000_000_000_000 // 0.00182 NEAR
     };
-    let args = to_vec(&(
-        new_account_id.to_string(),
-        public_key.clone()
-    )).map_err(|_| RelayerError::InvalidAccountId)?;
+    let args = to_vec(&(new_account_id.to_string(), public_key.clone()))
+        .map_err(|_| RelayerError::InvalidAccountId)?;
     let promise = Promise::new(registrar)
         .function_call(
             "create_account".to_string(),
@@ -63,9 +64,18 @@ pub fn sponsor_account_with_registrar(
         .then(
             ext_auth::ext(relayer.auth_contract.clone())
                 .with_static_gas(Gas::from_tgas(relayer.cross_contract_gas))
-                .register_key(new_account_id.clone(), public_key, Some(30), is_multi_sig, multi_sig_threshold)
+                .register_key(
+                    new_account_id.clone(),
+                    public_key,
+                    Some(30),
+                    is_multi_sig,
+                    multi_sig_threshold,
+                ),
         );
-    RelayerEvent::AccountSponsored { account_id: new_account_id.clone() }.emit();
+    RelayerEvent::AccountSponsored {
+        account_id: new_account_id.clone(),
+    }
+    .emit();
     Ok(promise)
 }
 

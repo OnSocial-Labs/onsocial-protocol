@@ -1,9 +1,9 @@
-use near_sdk::{env, log, AccountId, PublicKey, BorshStorageKey, Promise, NearToken, Gas};
-use near_sdk::store::{LookupMap, IterableSet, Vector};
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use crate::types::KeyInfo;
 use crate::errors::AuthError;
 use crate::events::AuthEvent;
+use crate::types::{KeyInfo, RotateKeyArgs};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::store::{IterableSet, LookupMap, Vector};
+use near_sdk::{env, log, AccountId, BorshStorageKey, Gas, NearToken, Promise, PublicKey};
 
 const CALL_GAS: Gas = Gas::from_tgas(200);
 const NO_ARGS: Vec<u8> = vec![];
@@ -72,7 +72,8 @@ impl AuthContractState {
         };
 
         if authorized {
-            self.last_active_timestamps.insert(account_id.clone(), env::block_timestamp_ms());
+            self.last_active_timestamps
+                .insert(account_id.clone(), env::block_timestamp_ms());
         }
 
         authorized
@@ -92,9 +93,8 @@ impl AuthContractState {
             return Err(AuthError::Unauthorized);
         }
 
-        let expiration_timestamp = expiration_days.map(|days| {
-            env::block_timestamp_ms() + (days as u64 * 24 * 60 * 60 * 1000)
-        });
+        let expiration_timestamp = expiration_days
+            .map(|days| env::block_timestamp_ms() + (days as u64 * 24 * 60 * 60 * 1000));
 
         let key_info = KeyInfo {
             public_key: public_key.clone(),
@@ -105,9 +105,12 @@ impl AuthContractState {
 
         if self.keys.get(account_id).is_none() {
             log!("Creating new key set for account: {}", account_id);
-            self.keys.insert(account_id.clone(), IterableSet::new(StorageKey::KeySet {
-                account_id: account_id.clone(),
-            }));
+            self.keys.insert(
+                account_id.clone(),
+                IterableSet::new(StorageKey::KeySet {
+                    account_id: account_id.clone(),
+                }),
+            );
             self.registered_accounts.push(account_id.clone());
         }
 
@@ -120,12 +123,14 @@ impl AuthContractState {
         }
         key_set.insert(key_info);
 
-        self.last_active_timestamps.insert(account_id.clone(), env::block_timestamp_ms());
+        self.last_active_timestamps
+            .insert(account_id.clone(), env::block_timestamp_ms());
 
         AuthEvent::KeyRegistered {
             account_id: account_id.clone(),
             public_key: format!("{:?}", public_key),
-        }.emit();
+        }
+        .emit();
 
         Ok(())
     }
@@ -140,7 +145,10 @@ impl AuthContractState {
             return Err(AuthError::Unauthorized);
         }
 
-        let key_set = self.keys.get_mut(account_id).ok_or(AuthError::KeyNotFound)?;
+        let key_set = self
+            .keys
+            .get_mut(account_id)
+            .ok_or(AuthError::KeyNotFound)?;
         let key_info = KeyInfo {
             public_key: public_key.clone(),
             expiration_timestamp: None,
@@ -154,7 +162,11 @@ impl AuthContractState {
         if key_set.is_empty() {
             self.keys.remove(account_id);
             self.last_active_timestamps.remove(account_id);
-            if let Some(index) = self.registered_accounts.iter().position(|id| id == account_id) {
+            if let Some(index) = self
+                .registered_accounts
+                .iter()
+                .position(|id| id == account_id)
+            {
                 self.registered_accounts.swap_remove(index as u32);
             }
         }
@@ -162,28 +174,23 @@ impl AuthContractState {
         AuthEvent::KeyRemoved {
             account_id: account_id.clone(),
             public_key: format!("{:?}", public_key),
-        }.emit();
+        }
+        .emit();
 
         Ok(())
     }
 
-    pub fn rotate_key(
-        &mut self,
-        caller: &AccountId,
-        account_id: &AccountId,
-        old_public_key: PublicKey,
-        new_public_key: PublicKey,
-        expiration_days: Option<u32>,
-        is_multi_sig: bool,
-        multi_sig_threshold: Option<u32>,
-    ) -> Result<(), AuthError> {
-        if caller != account_id {
+    pub fn rotate_key(&mut self, caller: &AccountId, args: RotateKeyArgs) -> Result<(), AuthError> {
+        if caller != &args.account_id {
             return Err(AuthError::Unauthorized);
         }
 
-        let key_set = self.keys.get_mut(account_id).ok_or(AuthError::KeyNotFound)?;
+        let key_set = self
+            .keys
+            .get_mut(&args.account_id)
+            .ok_or(AuthError::KeyNotFound)?;
         let old_key_info = KeyInfo {
-            public_key: old_public_key.clone(),
+            public_key: args.old_public_key.clone(),
             expiration_timestamp: None,
             is_multi_sig: false,
             multi_sig_threshold: None,
@@ -193,12 +200,12 @@ impl AuthContractState {
         }
 
         let new_key_info = KeyInfo {
-            public_key: new_public_key.clone(),
-            expiration_timestamp: expiration_days.map(|days| {
-                env::block_timestamp_ms() + (days as u64 * 24 * 60 * 60 * 1000)
-            }),
-            is_multi_sig,
-            multi_sig_threshold,
+            public_key: args.new_public_key.clone(),
+            expiration_timestamp: args
+                .expiration_days
+                .map(|days| env::block_timestamp_ms() + (days as u64 * 24 * 60 * 60 * 1000)),
+            is_multi_sig: args.is_multi_sig,
+            multi_sig_threshold: args.multi_sig_threshold,
         };
         if key_set.contains(&new_key_info) {
             return Err(AuthError::KeyAlreadyExists);
@@ -206,24 +213,32 @@ impl AuthContractState {
 
         key_set.remove(&old_key_info);
         key_set.insert(new_key_info);
-        self.last_active_timestamps.insert(account_id.clone(), env::block_timestamp_ms());
+        self.last_active_timestamps
+            .insert(args.account_id.clone(), env::block_timestamp_ms());
 
         AuthEvent::KeyRotated {
-            account_id: account_id.clone(),
-            old_public_key: format!("{:?}", old_public_key),
-            new_public_key: format!("{:?}", new_public_key),
-        }.emit();
+            account_id: args.account_id.clone(),
+            old_public_key: format!("{:?}", args.old_public_key),
+            new_public_key: format!("{:?}", args.new_public_key),
+        }
+        .emit();
 
         Ok(())
     }
 
     pub fn remove_expired_keys(&mut self, account_id: &AccountId) -> Result<(), AuthError> {
-        let key_set = self.keys.get_mut(account_id).ok_or(AuthError::KeyNotFound)?;
+        let key_set = self
+            .keys
+            .get_mut(account_id)
+            .ok_or(AuthError::KeyNotFound)?;
         let current_timestamp = env::block_timestamp_ms();
         let mut to_remove = Vec::new();
 
         for key_info in key_set.iter() {
-            if key_info.expiration_timestamp.map_or(false, |exp| current_timestamp > exp) {
+            if key_info
+                .expiration_timestamp
+                .is_some_and(|exp| current_timestamp > exp)
+            {
                 to_remove.push(key_info.clone());
             }
         }
@@ -233,13 +248,18 @@ impl AuthContractState {
             AuthEvent::KeyRemoved {
                 account_id: account_id.clone(),
                 public_key: format!("{:?}", key_info.public_key),
-            }.emit();
+            }
+            .emit();
         }
 
         if key_set.is_empty() {
             self.keys.remove(account_id);
             self.last_active_timestamps.remove(account_id);
-            if let Some(index) = self.registered_accounts.iter().position(|id| id == account_id) {
+            if let Some(index) = self
+                .registered_accounts
+                .iter()
+                .position(|id| id == account_id)
+            {
                 self.registered_accounts.swap_remove(index as u32);
             }
         }
@@ -248,7 +268,10 @@ impl AuthContractState {
     }
 
     pub fn remove_inactive_accounts(&mut self, account_id: AccountId) -> Result<(), AuthError> {
-        let last_active = self.last_active_timestamps.get(&account_id).ok_or(AuthError::KeyNotFound)?;
+        let last_active = self
+            .last_active_timestamps
+            .get(&account_id)
+            .ok_or(AuthError::KeyNotFound)?;
         let current_timestamp = env::block_timestamp_ms();
         const ONE_YEAR_MS: u64 = 31_536_000_000;
 
@@ -256,19 +279,27 @@ impl AuthContractState {
             return Err(AuthError::AccountStillActive);
         }
 
-        let key_set = self.keys.get_mut(&account_id).ok_or(AuthError::KeyNotFound)?;
+        let key_set = self
+            .keys
+            .get_mut(&account_id)
+            .ok_or(AuthError::KeyNotFound)?;
         let to_remove: Vec<_> = key_set.iter().cloned().collect();
         for key_info in to_remove {
             key_set.remove(&key_info);
             AuthEvent::KeyRemoved {
                 account_id: account_id.clone(),
                 public_key: format!("{:?}", key_info.public_key),
-            }.emit();
+            }
+            .emit();
         }
 
         self.keys.remove(&account_id);
         self.last_active_timestamps.remove(&account_id);
-        if let Some(index) = self.registered_accounts.iter().position(|id| id == &account_id) {
+        if let Some(index) = self
+            .registered_accounts
+            .iter()
+            .position(|id| id == &account_id)
+        {
             self.registered_accounts.swap_remove(index as u32);
         }
 
@@ -283,7 +314,12 @@ impl AuthContractState {
         let start = offset as usize;
         let end = (offset + limit) as usize;
 
-        for account_id in self.registered_accounts.iter().skip(start).take(end - start) {
+        for account_id in self
+            .registered_accounts
+            .iter()
+            .skip(start)
+            .take(end - start)
+        {
             if let Some(timestamp) = self.last_active_timestamps.get(account_id) {
                 if current_timestamp > timestamp + ONE_YEAR_MS {
                     inactive_accounts.push(account_id.clone());
@@ -307,7 +343,12 @@ impl AuthContractState {
         };
         let start = offset as usize;
         let end = (offset + limit) as usize;
-        key_set.iter().skip(start).take(end - start).cloned().collect()
+        key_set
+            .iter()
+            .skip(start)
+            .take(end - start)
+            .cloned()
+            .collect()
     }
 
     pub fn update_contract(&mut self) -> Result<Promise, AuthError> {
@@ -315,20 +356,30 @@ impl AuthContractState {
             return Err(AuthError::Unauthorized);
         }
         let code = env::input()
-            .filter(|input| !input.is_empty()) // Check for non-empty input
+            .filter(|input| !input.is_empty())
             .ok_or(AuthError::MissingInput)?
             .to_vec();
         log!("Upgrading contract by manager: {}", self.manager);
         AuthEvent::ContractUpgraded {
             manager: self.manager.clone(),
             timestamp: env::block_timestamp_ms(),
-        }.emit();
+        }
+        .emit();
         Ok(Promise::new(env::current_account_id())
             .deploy_contract(code)
-            .function_call("migrate".to_string(), NO_ARGS, NearToken::from_near(0), CALL_GAS))
+            .function_call(
+                "migrate".to_string(),
+                NO_ARGS,
+                NearToken::from_near(0),
+                CALL_GAS,
+            ))
     }
 
-    pub fn set_manager(&mut self, caller: &AccountId, new_manager: AccountId) -> Result<(), AuthError> {
+    pub fn set_manager(
+        &mut self,
+        caller: &AccountId,
+        new_manager: AccountId,
+    ) -> Result<(), AuthError> {
         if caller != &self.manager {
             return Err(AuthError::Unauthorized);
         }
@@ -338,7 +389,14 @@ impl AuthContractState {
             old_manager: caller.clone(),
             new_manager,
             timestamp: env::block_timestamp_ms(),
-        }.emit();
+        }
+        .emit();
         Ok(())
+    }
+}
+
+impl Default for AuthContractState {
+    fn default() -> Self {
+        Self::new()
     }
 }

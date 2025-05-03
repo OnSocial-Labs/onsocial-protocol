@@ -1,6 +1,6 @@
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, FunctionError};
 use near_sdk_macros::NearSchema;
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
 
 #[derive(Debug, PartialEq, NearSchema, BorshSerialize, BorshDeserialize)]
 #[abi(borsh)]

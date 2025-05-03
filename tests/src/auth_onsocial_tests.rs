@@ -1,8 +1,13 @@
+#[allow(unused_imports)]
+use crate::utils::{deploy_contract, get_wasm_path, setup_sandbox};
+#[allow(unused_imports)]
 use anyhow::Result;
-use near_workspaces::types::{NearToken, Gas};
+#[allow(unused_imports)]
+use near_workspaces::types::{Gas, NearToken};
+#[allow(unused_imports)]
 use near_workspaces::AccountId;
+#[allow(unused_imports)]
 use serde_json::json;
-use crate::utils::{setup_sandbox, deploy_contract, get_wasm_path};
 
 #[tokio::test]
 async fn test_auth_onsocial_register_key() -> Result<()> {
@@ -11,11 +16,7 @@ async fn test_auth_onsocial_register_key() -> Result<()> {
     let contract = deploy_contract(&worker, &wasm_path).await?;
 
     // Initialize contract
-    let outcome = contract
-        .call("new")
-        .args_json(json!({}))
-        .transact()
-        .await?;
+    let outcome = contract.call("new").args_json(json!({})).transact().await?;
     println!("auth-onsocial new outcome: {:#?}", outcome);
 
     // Test register_key
@@ -48,7 +49,11 @@ async fn test_auth_onsocial_register_key() -> Result<()> {
         .await?
         .json()?;
     println!("get_keys result: {}", result);
-    assert!(result.as_array().unwrap().iter().any(|key| key["public_key"] == public_key));
+    assert!(result
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|key| key["public_key"] == public_key));
 
     Ok(())
 }

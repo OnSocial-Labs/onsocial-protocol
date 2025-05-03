@@ -1,17 +1,18 @@
 # OnSocial Contracts Monorepo
 
-Welcome to the **OnSocial Contracts Monorepo**, hosting NEAR smart contracts for **OnSocial**, a gasless social media application built on the [NEAR Protocol](https://near.org/) by [OnSocial Labs](https://github.com/OnSocial-Labs). This repository manages multiple smart contracts, each with unique initialization commands and deploy accounts, deployable individually using a Docker-only workflow. Dependencies are resolved from `Cargo.toml` files, ensuring consistency. Built with **Rust**, **NEAR SDK (5.12.0)**, and **cargo-near (0.14.1)**, with integration tests powered by **NEAR Workspaces (0.18.0)**.
+Welcome to the **OnSocial Contracts Monorepo**, a collection of NEAR Protocol smart contracts powering **OnSocial**, a gasless, decentralized social media platform by [OnSocial Labs](https://github.com/OnSocial-Labs). Built with **Rust**, **NEAR SDK (5.12.0)**, and **cargo-near (0.14.1)**, this monorepo supports scalable, secure, and interoperable smart contracts for social networking. A Docker-only workflow ensures consistent builds, tests, and deployments, with dependencies resolved from `Cargo.toml` files.
 
 ## Table of Contents
+
 - [About OnSocial](#about-onsocial)
-- [Current Contracts](#current-contracts)
-- [Features](#features)
+- [Key Features](#key-features)
+- [Contracts](#contracts)
 - [Prerequisites](#prerequisites)
 - [Quickstart](#quickstart)
-- [Getting Started](#getting-started)
 - [Directory Structure](#directory-structure)
-- [Scripts](#scripts)
-- [Docker-Only Setup](#docker-only-setup)
+- [Using the Makefile](#using-the-makefile)
+  - [Makefile Commands](#makefile-commands)
+- [Docker Workflow](#docker-workflow)
 - [CI/CD](#cicd)
 - [Adding New Contracts](#adding-new-contracts)
 - [Contributing](#contributing)
@@ -20,28 +21,26 @@ Welcome to the **OnSocial Contracts Monorepo**, hosting NEAR smart contracts for
 
 ## About OnSocial
 
-**OnSocial** is a gasless, decentralized social media platform built on the NEAR Protocol, prioritizing user experience, security, and interoperability. The platform leverages smart contracts for secure authentication, fungible token management, and gasless meta-transactions, enabling seamless interactions without requiring users to pay gas fees. This monorepo supports scalable decentralized applications (dApps) tailored for social networking.
+**OnSocial** is a decentralized social media platform on the NEAR Protocol, designed to deliver a seamless, gasless user experience. By leveraging smart contracts for authentication, token management, and transaction relaying, OnSocial eliminates gas fees, making social interactions accessible and secure. This monorepo houses the core contracts that enable these features, optimized for scalability and interoperability.
 
-## Current Contracts
+## Key Features
 
-- **auth-onsocial**: Handles public key authentication with multi-signature support for secure user access.
-- **ft-wrapper-onsocial**: Manages fungible token transfers and cross-chain bridging for asset interoperability.
-- **relayer-onsocial**: Enables gasless meta-transactions and account sponsoring, reducing user friction.
+- **Gasless Transactions**: `relayer-onsocial` enables meta-transactions, allowing users to interact without paying gas fees.
+- **Secure Authentication**: `auth-onsocial` supports public key authentication with multi-signature capabilities.
+- **Token Interoperability**: `ft-wrapper-onsocial` facilitates fungible token transfers and cross-chain bridging.
+- **Docker-Based Workflow**: Consistent builds, tests, and deployments using a single Docker image.
+- **Modular Contracts**: Single-contract deployment with unique initialization via `configs/contracts.json`.
+- **Robust Testing**: Unit and integration tests using NEAR Workspaces (0.18.0).
+- **CI/CD Automation**: GitHub Actions for testing and testnet deployment.
+- **Reproducible Builds**: WASM builds optimized for mainnet deployment.
 
-See [Resources/README.md](#resources) for detailed contract descriptions and dependencies.
+## Contracts
 
-## Features
+- **auth-onsocial**: Manages secure user authentication with public key registration and multi-signature support.
+- **ft-wrapper-onsocial**: Handles fungible token transfers and cross-chain bridging, integrated with `auth-onsocial` and `relayer-onsocial`.
+- **relayer-onsocial**: Facilitates gasless meta-transactions and account sponsoring, reducing user costs.
 
-- Scalable monorepo supporting multiple contracts.
-- Single-contract deployment with unique initialization commands defined in `configs/contracts.json`.
-- Dependencies automatically resolved from `Cargo.toml` for consistent builds.
-- Gasless transactions via `relayer-onsocial` for enhanced user experience.
-- Secure authentication with multi-signature support in `auth-onsocial`.
-- Fungible token management and cross-chain bridging via `ft-wrapper-onsocial`.
-- Docker-only workflow for building, testing, and deploying contracts.
-- Integration testing with NEAR Workspaces for robust validation.
-- Reproducible WebAssembly (WASM) builds for mainnet deployments.
-- CI/CD pipeline with GitHub Actions for automated testing and deployment.
+For detailed contract descriptions and dependencies, see [Resources/README.md](Resources/README.md).
 
 ## Prerequisites
 
@@ -49,214 +48,209 @@ See [Resources/README.md](#resources) for detailed contract descriptions and dep
 - **Software**:
   - Docker: Verify with `docker --version`.
   - Git: Verify with `git --version`.
+  - Make: Verify with `make --version`.
 - **NEAR Accounts**:
   - Testnet/mainnet accounts via [NEAR Wallet](https://wallet.testnet.near.org/) or `near create-account`.
   - Sandbox uses `test.near` by default.
 
 ## Quickstart
 
-1. **Clone and Build**:
-    ```bash
-    git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
-    cd onsocial-contracts
-    docker build -t onsocial-builder -f docker/Dockerfile.builder .
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
-    ```
+### 1. Clone and Build
+```bash
+git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
+cd onsocial-contracts
+make build
+```
 
-   Dependencies are pulled from `Cargo.toml` files.
+### 2. Run Unit Tests
+```bash
+make test
+```
 
-2. **Run Sandbox**:
-    ```bash
-    docker run -d -p 3030:3030 --name near-sandbox -v near-data:/root/.near nearprotocol/near-sandbox:2.5.1 --fast
-    docker exec near-sandbox near-sandbox --home /root/.near init
-    ```
+### 3. Run Integration Tests
+```bash
+make clean-sandbox
+make init-sandbox
+make test-integration CONTRACT=auth-onsocial
+```
 
-3. **Deploy Single Contract (e.g., auth-onsocial)**:
-    ```bash
-    docker run -v $(pwd):/code --network host --rm -e NETWORK=sandbox -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
-    ```
+### 4. Deploy a Contract (e.g., `auth-onsocial`)
+```bash
+make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+make deploy-init CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+```
 
-4. **Interact**:
-    ```bash
-    docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "near call auth.sandbox register_key '{\"account_id\": \"test.near\", \"public_key\": \"ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU\", \"expiration_days\": null}' --accountId test.near --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json"
-    ```
+### 5. Interact with the Contract
+```bash
+docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "near call auth.sandbox register_key '{\"account_id\": \"test.near\", \"public_key\": \"ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU\", \"expiration_days\": null}' --accountId test.near --nodeUrl http://localhost:3030 --keyPath /tmp/near-sandbox/validator_key.json"
+```
 
-See [Resources/deployment-guide.md](#resources) for testnet/mainnet deployment details.
-
-## Getting Started
-
-1. **Clone Repository**:
-    ```bash
-    git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
-    cd onsocial-contracts
-    ```
-
-2. **Build Docker Image**:
-    ```bash
-    docker build -t onsocial-builder -f docker/Dockerfile.builder .
-    ```
-
-3. **Build Contracts**:
-    ```bash
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
-    ```
-
-4. **Generate ABIs**:
-    ```bash
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/abi.sh"
-    ```
-
-5. **Run Tests**:
-    ```bash
-    docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh"
-    ```
-
-6. **Deploy Single Contract**:
-    - Sandbox (e.g., ft-wrapper-onsocial):
-      ```bash
-      docker run -v $(pwd):/code --network host --rm -e NETWORK=sandbox -e FT_ACCOUNT=test.near -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract ft-wrapper-onsocial && ./scripts/deploy.sh init --contract ft-wrapper-onsocial"
-      ```
-    - Testnet (e.g., auth-onsocial):
-      ```bash
-      docker run -v $(pwd):/code --rm -e NETWORK=testnet -e AUTH_ACCOUNT=auth.testnet onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
-      ```
+> 📘 **Note:** For deploying to testnet or mainnet, refer to [`Resources/deployment-guide.md`](Resources/deployment-guide.md).
 
 ## Directory Structure
 
-- `.github/workflows/ci.yml`: GitHub Actions CI/CD pipeline for automated testing and deployment.
-- `configs/contracts.json`: Configuration for contract deployment (names, IDs, accounts, init commands).
-- `contracts/`
-  - `auth-onsocial/`: Authentication contract with multi-signature support.
-    - `src/`: Source files (`errors.rs`, `events.rs`, `lib.rs`, `state_versions.rs`, `state.rs`, `tests.rs`, `types.rs`).
-    - `.gitignore`: Ignores build artifacts.
-    - `Cargo.toml`: Contract dependencies and build settings.
-  - `ft-wrapper-onsocial/`: Fungible token wrapper for transfers and cross-chain bridging.
-    - `src/`: Source files.
-    - `.gitignore`: Ignores build artifacts.
-    - `Cargo.toml`: Contract dependencies and build settings.
-  - `relayer-onsocial/`: Gasless transaction relayer for meta-transactions and account sponsoring.
-    - `src/`: Source files.
-    - `.gitignore`: Ignores build artifacts.
-    - `Cargo.toml`: Contract dependencies and build settings.
-  - `LICENSE.md`: Contract-specific license.
-  - `README.md`: Contract documentation.
-- `docker/Dockerfile.builder`: Docker image for building and deploying contracts.
-- `near-data/`
-  - `data/`: NEAR Sandbox data storage.
-  - `config.json`: NEAR node configuration.
-  - `genesis.json`: NEAR genesis file.
-  - `node_key.json`: NEAR node key.
-  - `validator_key.json`: NEAR validator key.
-- `Resources/`
-  - `deployment-guide.md`: Detailed instructions for deploying to sandbox, testnet, or mainnet.
-  - `README.md`: Contract details and dependency information.
-- `scripts/`
-  - `abi.sh`: Generates contract ABIs.
-  - `build.sh`: Builds contracts.
-  - `deploy.sh`: Deploys contracts.
-  - `patch_state.sh`: Patches sandbox state for testing.
-  - `sandbox.sh`: Manages NEAR Sandbox.
-  - `test.sh`: Runs unit and integration tests.
-- `tests/`
-  - `src/`: Integration test source files.
-  - `Cargo.toml`: Integration test configuration and dependencies.
-  - `integration_tests.rs`: Integration tests for contracts.
-- `.dockerignore`: Excludes files from Docker builds (e.g., `target/`, `*.wasm`).
-- `.gitignore`: Excludes files from Git (e.g., `target/`, `.env`).
-- `Cargo.lock`: Rust dependency lockfile.
+- `.github/workflows/ci.yml`: GitHub Actions for CI/CD.
+- `configs/contracts.json`: Contract deployment configurations.
+- `contracts/`:
+  - `auth-onsocial/`: Authentication contract.
+  - `ft-wrapper-onsocial/`: Token transfer and bridging contract.
+  - `relayer-onsocial/`: Gasless transaction relayer.
+- `docker/Dockerfile.builder`: Docker image for builds and deployments.
+- `Resources/`:
+  - `deployment-guide.md`: Deployment instructions.
+  - `README.md`: Contract details and dependencies.
+- `scripts/`: Build, test, deploy, and sandbox management scripts.
+- `tests/src/`: Integration tests for all contracts.
 - `Cargo.toml`: Workspace configuration for Rust contracts and tests.
-- `package.json`: Node.js scripts and dependencies for convenience.
-- `README.md`: This project documentation.
+- `Makefile`: Simplifies common tasks.
+- `.dockerignore` / `.gitignore`: Excludes build artifacts and sensitive files.
 
-## Scripts
+## Using the Makefile
 
-- **build.sh**: Builds contracts, ABIs, tests, or cleans artifacts. Pulls dependencies from `Cargo.toml`.
-    ```bash
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh [reproducible|abi|test|clean]"
-    ```
-- **deploy.sh**: Deploys contracts, supports `--contract` for single contract deployment.
-    ```bash
-    docker run -v $(pwd):/code --network host --rm -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial [init|reproducible]"
-    ```
-- **test.sh**: Runs unit and integration tests.
-    ```bash
-    docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/test.sh [integration]"
-    ```
-- **abi.sh**: Generates contract ABIs.
-    ```bash
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/abi.sh"
-    ```
-- **sandbox.sh**: Manages Docker-based NEAR Sandbox.
-    ```bash
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/sandbox.sh [init|run|stop|clean]"
-    ```
-- **patch_state.sh**: Modifies sandbox state for testing.
-    ```bash
-    docker run -v $(pwd):/code --network host --rm onsocial-builder bash -c "./scripts/patch_state.sh"
-    ```
+The Makefile simplifies development tasks by wrapping script executions in a Docker environment. Use variables like `NETWORK`, `CONTRACT`, or `VERBOSE` to customize commands.
 
-## Docker-Only Setup
+### Common Commands
 
-- **Build Docker Image**:
-    ```bash
-    docker build -t onsocial-builder -f docker/Dockerfile.builder .
-    ```
-- **Run NEAR Sandbox**:
-    ```bash
-    docker run -d -p 3030:3030 --name near-sandbox -v near-data:/root/.near nearprotocol/near-sandbox:2.5.1 --fast
-    docker exec near-sandbox near-sandbox --home /root/.near init
-    ```
-- **Build and Deploy**:
-    ```bash
-    docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
-    docker run -v $(pwd):/code --network host --rm -e NETWORK=sandbox -e AUTH_ACCOUNT=test.near onsocial-builder bash -c "./scripts/deploy.sh --contract auth-onsocial && ./scripts/deploy.sh init --contract auth-onsocial"
-    ```
+**Build all contracts:**
+```bash
+make build
+```
+
+**Run unit tests:**
+```bash
+make test
+make test-unit CONTRACT=auth-onsocial
+```
+
+**Run integration tests:**
+```bash
+make test-integration
+make test-integration CONTRACT=ft-wrapper-onsocial
+```
+
+**Deploy a contract:**
+```bash
+make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+```
+
+**Start NEAR Sandbox:**
+```bash
+make start-sandbox
+```
+
+### Makefile Commands
+
+| Command | Description |
+|--------|-------------|
+| `make all` | Builds and tests all contracts (default target). |
+| `make build` | Builds all contracts as WebAssembly (WASM). |
+| `make build-contract` | Builds a specific contract (`CONTRACT=<name>` required). |
+| `make build-reproducible` | Builds reproducible WASM for mainnet deployment. |
+| `make build-docker` | Builds the Docker image for development and deployment. |
+| `make rebuild-docker` | Forces a rebuild of the Docker image. |
+| `make abi` | Generates ABI files for all contracts. |
+| `make test` | Runs unit tests for all contracts. |
+| `make test-unit` | Runs unit tests for a specific contract (`CONTRACT=<name>`). |
+| `make test-integration` | Runs integration tests for all or a specific contract. |
+| `make test-coverage` | Generates test coverage reports (`CONTRACT=<name>` optional). |
+| `make deploy` | Deploys a contract (`CONTRACT`, `NETWORK`, `AUTH_ACCOUNT` required). |
+| `make deploy-init` | Initializes a deployed contract. |
+| `make deploy-reproducible` | Deploys a contract with reproducible WASM. |
+| `make deploy-dry-run` | Simulates deployment (`DRY_RUN=1` required). |
+| `make init-sandbox` | Initializes the NEAR Sandbox environment. |
+| `make start-sandbox` | Starts the NEAR Sandbox for testing and deployment. |
+| `make stop-sandbox` | Stops the NEAR Sandbox. |
+| `make clean-sandbox` | Cleans NEAR Sandbox data. |
+| `make patch-state` | Patches sandbox state (`CONTRACT_ID`, `KEY`, `VALUE` required). |
+| `make cargo-update` | Updates Cargo dependencies. |
+| `make fmt` | Formats Rust code using `cargo fmt`. |
+| `make lint` | Lints Rust code using `cargo clippy`. |
+| `make check` | Checks workspace syntax with `cargo check`. |
+| `make audit` | Audits dependencies for vulnerabilities with `cargo audit`. |
+| `make check-deps` | Checks the dependency tree with `cargo tree`. |
+| `make update-tools` | Updates Rust and development tools. |
+| `make check-updates` | Checks for available tool updates. |
+| `make clean-all` | Cleans all build artifacts and sandbox data. |
+| `make verify-contract` | Verifies a specific contract (build, ABI, tests). |
+| `make inspect-state` | Inspects contract state (`CONTRACT_ID`, `METHOD`, `ARGS` required). |
+| `make logs-sandbox` | Displays NEAR Sandbox logs. |
+| `make help` | Shows all available Makefile commands and variables. |
+
+### Key Variables
+
+- `NETWORK`: Network to deploy to (`sandbox`, `testnet`, `mainnet`)
+- `CONTRACT`: Contract name (e.g., `auth-onsocial`)
+- `AUTH_ACCOUNT`, `FT_ACCOUNT`, `RELAYER_ACCOUNT`: Account IDs
+- `VERBOSE`: Set to `1` for detailed output
+- `DRY_RUN`: Set to `1` for dry-run deployments
+
+Run `make help` for full details.
+
+## Docker Workflow
+
+**Build Docker image:**
+```bash
+make build-docker
+```
+
+**Force rebuild:**
+```bash
+make rebuild-docker
+```
+
+**Run sandbox:**
+```bash
+make start-sandbox
+```
+
+**Build and test:**
+```bash
+make build
+make test
+make test-integration CONTRACT=auth-onsocial
+```
+
+**Deploy:**
+```bash
+make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+```
 
 ## CI/CD
 
 The GitHub Actions workflow (`.github/workflows/ci.yml`) automates:
-- Building and testing contracts using Docker, pulling dependencies from `Cargo.toml`.
-- Optional single-contract deployment to testnet (requires `NEAR_MASTER_ACCOUNT` and `NEAR_PRIVATE_KEY` secrets).
 
-Example workflow:
-```yaml
-name: CI
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Build Docker image
-        run: docker build -t onsocial-builder -f docker/Dockerfile.builder .
-      - name: Build contracts
-        run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/build.sh"
-      - name: Run tests
-        run: docker run -v $(pwd):/code --rm onsocial-builder bash -c "./scripts/test.sh"
-```
+- Building and testing contracts using Docker
+- Running unit (`make test`) and integration tests (`make test-integration`)
+- Optional testnet deployment (requires `NEAR_MASTER_ACCOUNT` and `NEAR_PRIVATE_KEY` secrets)
+
 ## Adding New Contracts
 
-- Add new contract directory under `contracts/`.
-- Implement logic in `src/` and configure `Cargo.toml`.
-- Modify `scripts/deploy.sh` to support new contract deployment.
-- Update tests in `tests/` for integration and unit tests.
+1. Create a new directory under `contracts/`.
+2. Implement logic in `src/` and configure `Cargo.toml`.
+3. Update `configs/contracts.json` with contract details.
+4. Add unit tests in `contracts/<new-contract>/src/tests.rs`.
+5. Add integration tests in `tests/src/`.
+6. Update `scripts/test.sh` to include the new contract.
+7. Verify with `make test` and `make test-integration`.
 
 ## Contributing
 
-- Submit a pull request with your changes.
+Contributions are welcome! Please:
 
-Please follow the contributing guidelines in `CONTRIBUTING.md`.
+- Fork the repository.
+- Create a feature branch (`git checkout -b feature/xyz`).
+- Ensure `make test` and `make test-integration` pass.
+- Submit a pull request with clear descriptions.
+
+See `CONTRIBUTING.md` for guidelines.
 
 ## Resources
 
-- [NEAR Protocol Docs](https://docs.near.org/)
-- [NEAR SDK Docs](https://docs.near.org/sdk/rust/introduction)
-- [OnSocial Auth Docs](https://github.com/OnSocial-Labs/onsocial-contracts/tree/main/contracts/auth-onsocial)
+- [NEAR Protocol Documentation](https://docs.near.org)
+- [NEAR SDK Documentation](https://docs.rs/near-sdk)
+- Deployment Guide: [`Resources/deployment-guide.md`](Resources/deployment-guide.md)
+- Contract Details: [`Resources/README.md`](Resources/README.md)
 
 ## License
 
-This project is licensed under the MIT License - see the `LICENSE.md` file for details.
+This project is licensed under the MIT License. See [`LICENSE.md`](contracts/relayer-onsocial/LICENSE.md)

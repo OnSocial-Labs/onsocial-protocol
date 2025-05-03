@@ -1,13 +1,18 @@
 use anyhow::Result;
 use near_workspaces::{sandbox, Contract};
-use std::fs;
 use std::env;
+use std::fs;
 
 pub async fn setup_sandbox() -> Result<near_workspaces::Worker<near_workspaces::network::Sandbox>> {
-    sandbox().await.map_err(|e| anyhow::anyhow!("Failed to set up sandbox: {}", e))
+    sandbox()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to set up sandbox: {}", e))
 }
 
-pub async fn deploy_contract(worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>, wasm_path: &str) -> Result<Contract> {
+pub async fn deploy_contract(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    wasm_path: &str,
+) -> Result<Contract> {
     let wasm = fs::read(wasm_path)?;
     let contract = worker.dev_deploy(&wasm).await?;
     Ok(contract)

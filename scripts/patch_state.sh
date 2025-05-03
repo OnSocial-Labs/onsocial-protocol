@@ -20,6 +20,7 @@ handle_error() {
 
 patch_state() {
   echo "Patching state for $CONTRACT_ID..."
+  [ "$VERBOSE" = "1" ] && echo "Running: $NEAR_CLI call $CONTRACT_ID sandbox_patch_state ..."
   $NEAR_CLI call $CONTRACT_ID sandbox_patch_state "{\"records\": [{\"contract_id\": \"$CONTRACT_ID\", \"key\": \"$KEY\", \"value\": \"$VALUE\"}]}" --accountId "$MASTER_ACCOUNT" 2> >(tee /tmp/error.log >&2) || handle_error "Failed to patch state for $CONTRACT_ID" "$(cat /tmp/error.log)"
   echo -e "${GREEN}State patched successfully${NC}"
 }

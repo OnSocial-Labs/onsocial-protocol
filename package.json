@@ -1,10 +1,14 @@
 {
   "scripts": {
-    "build": "./scripts/build.sh",
-    "test": "./scripts/test.sh",
-    "test:integration": "./scripts/test.sh integration",
-    "deploy": "./scripts/deploy.sh",
-    "deploy:init": "./scripts/deploy.sh init"
+    "build": "make build",
+    "test": "make test",
+    "test:integration": "make test-integration",
+    "deploy": "make deploy",
+    "deploy:init": "make deploy-init",
+    "abi": "make abi",
+    "start-sandbox": "make start-sandbox",
+    "stop-sandbox": "make stop-sandbox",
+    "clean-sandbox": "make clean-sandbox"
   },
   "dependencies": {
     "near-workspaces": "^0.18.0"
