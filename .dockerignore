@@ -1,8 +1,19 @@
+# Rust build artifacts
 target/
 *.wasm
-.git/
+
+# Node.js dependencies
 node_modules/
+
+# Git data (not needed in container)
+.git/
+
+# OS and editor junk
 .DS_Store
+
+# Environment variables
 .env
-/tmp/near-sandbox
+
+# NEAR sandbox and local dev data
+/tmp/near-sandbox/
 near-data/

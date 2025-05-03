@@ -3,18 +3,33 @@
 *.swp
 *.swo
 *.bak
-*~                 
+*~
 
-# Node & Rust dependencies
+# Node.js dependencies
 node_modules/
+
+# Rust build output
 target/
 
 # NEAR artifacts
 *.wasm
 .near/
-tmp/
 .env
 
-# NEAR sandbox and local dev data
-/tmp/near-sandbox/
+# Temporary and sandbox data
+tmp/
 near-data/
+/tmp/near-sandbox/
+
+# Test and coverage artifacts
+coverage/
+tarpaulin-report.html
+*.lcov
+
+# Logs and debug
+*.log
+debug/
+
+# IDE settings
+.vscode/
+.idea/
