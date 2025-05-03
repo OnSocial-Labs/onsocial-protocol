@@ -253,4 +253,4 @@ See `CONTRIBUTING.md` for guidelines.
 
 ## License
 
-This project is licensed under the MIT License. See [`LICENSE.md`](contracts/relayer-onsocial/LICENSE.md)
+This project is licensed under the MIT License. See [`LICENSE.md`](LICENSE.md)

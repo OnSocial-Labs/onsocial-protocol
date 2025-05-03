@@ -39,9 +39,7 @@ case "$1" in
     ;;
   clean)
     echo "Cleaning NEAR Sandbox data..."
-    [ "$VERBOSE" = "1" ] && echo "Running: docker stop/rm near-sandbox && rm -rf near-data"
-    docker stop near-sandbox 2>/dev/null || echo "No sandbox running"
-    docker rm near-sandbox 2>/dev/null || echo "No sandbox container"
+    [ "$VERBOSE" = "1" ] && echo "Running: rm -rf near-data"
     rm -rf "$(pwd)/near-data" || echo "No near-data directory found"
     echo -e "${GREEN}Sandbox data cleaned${NC}"
     ;;

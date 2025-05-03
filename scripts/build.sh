@@ -38,9 +38,7 @@ clean_all() {
     [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
     cargo clean || handle_error "Failed to clean artifacts"
     echo "Cleaning sandbox data..."
-    [ "$VERBOSE" = "1" ] && echo "Running: docker stop/rm near-sandbox && rm -rf $(pwd)/near-data"
-    docker stop near-sandbox 2>/dev/null || true
-    docker rm near-sandbox 2>/dev/null || true
+    [ "$VERBOSE" = "1" ] && echo "Running: rm -rf $(pwd)/near-data"
     rm -rf "$(pwd)/near-data" || handle_error "Failed to clean sandbox data"
     echo -e "${GREEN}Build artifacts and sandbox data cleaned${NC}"
 }

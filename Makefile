@@ -136,6 +136,7 @@ verify-contract: build-docker ensure-scripts-executable validate-contract
 clean-all: build-docker ensure-scripts-executable
 	@echo "Cleaning all artifacts and sandbox data..."
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh clean-all"
+	@$(MAKE) stop-sandbox
 	@/bin/echo -e "\033[0;32mAll artifacts and sandbox data cleaned successfully\033[0m"
 
 # Check dependency tree
@@ -278,6 +279,8 @@ stop-sandbox:
 clean-sandbox:
 	@echo "Cleaning NEAR Sandbox..."
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/sandbox.sh clean"
+	@$(MAKE) stop-sandbox
+	@/bin/echo -e "\033[0;32mSandbox stopped and data cleaned\033[0m"
 
 # Patch sandbox state
 .PHONY: patch-state
