@@ -10,6 +10,7 @@ node_modules/
 
 # Rust build output
 target/
+**/target/         # In case of nested crates
 
 # NEAR artifacts
 *.wasm
@@ -30,6 +31,19 @@ tarpaulin-report.html
 *.log
 debug/
 
-# IDE settings
+# IDE/editor settings
 .vscode/
 .idea/
+*.sublime*
+
+# Backup and temp files
+*.tmp
+*.old
+*.orig
+*.save
+
+# GitHub Actions
+.github/cache/
+
+# Cargo audit lock file (if used)
+cargo-audit.lock
