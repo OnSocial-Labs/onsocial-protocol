@@ -34,13 +34,15 @@ clean_artifacts() {
 }
 
 clean_all() {
-  echo "Cleaning build artifacts..."
-  [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
-  cargo clean || handle_error "Failed to clean artifacts"
-  echo "Cleaning sandbox data..."
-  [ "$VERBOSE" = "1" ] && echo "Removing: ../near-data/*"
-  rm -rf ../near-data/* || handle_error "Failed to clean sandbox data"
-  echo -e "${GREEN}Build artifacts and sandbox data cleaned${NC}"
+    echo "Cleaning build artifacts..."
+    [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
+    cargo clean || handle_error "Failed to clean artifacts"
+    echo "Cleaning sandbox data..."
+    [ "$VERBOSE" = "1" ] && echo "Running: docker stop/rm near-sandbox && rm -rf $(pwd)/near-data"
+    docker stop near-sandbox 2>/dev/null || true
+    docker rm near-sandbox 2>/dev/null || true
+    rm -rf "$(pwd)/near-data" || handle_error "Failed to clean sandbox data"
+    echo -e "${GREEN}Build artifacts and sandbox data cleaned${NC}"
 }
 
 cargo_update() {
