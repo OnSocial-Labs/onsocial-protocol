@@ -42,7 +42,7 @@ test_integration() {
     curl -s http://localhost:3030 >/dev/null || { echo "Skipping integration tests: NEAR Sandbox not running"; return 0; }
     if [ -n "$module" ]; then
         case $module in
-            auth-onsocial|ft-wrapper-onsocial|relayer-onsocial)
+            auth-onsocial|ft-wrapper-onsocial|relayer-onsocial|cross-contract)
                 # Replace hyphens with underscores for module name
                 module_name=$(echo "$module" | tr '-' '_')
                 echo "Running cargo test --lib ${module_name}_tests"

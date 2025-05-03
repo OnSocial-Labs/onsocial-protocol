@@ -215,7 +215,7 @@ test-unit: build-docker ensure-scripts-executable validate-contract
 .PHONY: test-integration
 test-integration: build-docker ensure-scripts-executable start-sandbox
 	@echo "Running integration tests for $(CONTRACT)..."
-	@if [ -n "$(CONTRACT)" ]; then $(MAKE) validate-contract; fi
+	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
 	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT)"
 	@/bin/echo -e "\033[0;32mIntegration tests completed successfully\033[0m"
 	@$(MAKE) stop-sandbox
