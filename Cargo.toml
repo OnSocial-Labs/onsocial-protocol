@@ -1,15 +1,46 @@
+# OnSocial Contracts Monorepo - Workspace Cargo.toml
+#
+# This file centralizes all dependency versions for the monorepo. Each contract
+# (auth-onsocial, ft-wrapper-onsocial, relayer-onsocial) and the tests crate
+# reference only the dependencies they need using `workspace = true` in their
+# Cargo.toml.
+#
+# Dependency Usage:
+# - auth-onsocial: near-sdk, near-sdk-macros, borsh, serde
+# - ft-wrapper-onsocial: near-sdk, near-sdk-macros, borsh, serde
+# - relayer-onsocial: near-sdk, near-sdk-macros, borsh, serde, near-crypto,
+#                     ed25519-dalek, getrandom, hex, base64
+# - tests: near-sdk, near-workspaces, near-crypto, tokio, anyhow, serde_json
+#
+# Note: near-sdk with `unit-testing` feature is used in [dev-dependencies] for
+# unit tests in auth-onsocial, ft-wrapper-onsocial, and relayer-onsocial.
+#
+# When adding a new contract or updating tests, reference the required dependencies
+# in their Cargo.toml and update the documentation here to reflect usage.
+
 [workspace]
 members = [
     "contracts/auth-onsocial",
     "contracts/ft-wrapper-onsocial",
     "contracts/relayer-onsocial",
-    "tests",
+    "tests"
 ]
 resolver = "2"
 
 [workspace.dependencies]
-near-sdk = "5.12.0"
-serde_json = "1.0"
+near-sdk = "5.12.0"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, tests
+near-sdk-macros = "5.12.0"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial
+borsh = "1.5.7"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial
+serde = { version = "1.0", features = ["derive"] }  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial
+serde_json = "1.0"  # Used by: tests (JSON serialization for integration tests)
+near-crypto = "0.30.1"  # Used by: relayer-onsocial, tests
+ed25519-dalek = "2.1.1"  # Used by: relayer-onsocial
+getrandom = { version = "0.2.16", features = ["js"] }  # Used by: relayer-onsocial
+hex = "0.4.3"  # Used by: relayer-onsocial
+base64 = "0.22.1"  # Used by: relayer-onsocial
+near-workspaces = "0.18.0"  # Used by: tests
+tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }  # Used by: tests
+anyhow = "1.0"  # Used by: tests
 
 [profile.release]
 opt-level = "z"

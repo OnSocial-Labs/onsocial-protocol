@@ -4,18 +4,14 @@ version = "0.1.0"
 edition = "2021"
 repository = "https://github.com/OnSocial-Labs/onsocial-contracts"
 
-[package.metadata.near.reproducible_build]
-rust_version = "1.86.0"
-cargo_near_version = "0.14.1"
-
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = "5.12.0"
-serde = { version = "1.0", features = ["derive"] }
-borsh = "1.5.7"
-near-sdk-macros = "5.12.0"
+near-sdk = { workspace = true }
+near-sdk-macros = { workspace = true }
+borsh = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-near-sdk = { version = "5.12.0", features = ["unit-testing"] }
+near-sdk = { workspace = true, features = ["unit-testing"] }

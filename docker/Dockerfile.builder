@@ -1,5 +1,5 @@
 # Stage 1: Fetch dependencies
-FROM rust:1.86.0-slim-bookworm AS deps
+FROM rust:slim AS deps
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,13 +20,14 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update \
     && apt-get install -y nodejs \
-    && npm install -g npm@11.3.0 \
+    && npm install -g npm@latest \
     && npm install -g near-cli \
     && npm install -g near-sandbox \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure Rust environment
-RUN rustup default 1.86.0 \
+# Install the latest stable Rust version
+RUN rustup update stable \
+    && rustup default stable \
     && rustup target add wasm32-unknown-unknown \
     && rustc --version \
     && cargo --version
@@ -63,7 +64,7 @@ RUN mkdir -p tests/src && echo "fn main() {}" > tests/src/lib.rs
 RUN cargo fetch
 
 # Stage 2: Build contracts
-FROM rust:1.86.0-slim-bookworm AS builder
+FROM rust:slim AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -84,7 +85,7 @@ RUN apt-get update && apt-get install -y \
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update \
     && apt-get install -y nodejs \
-    && npm install -g npm@11.3.0 \
+    && npm install -g npm@latest \
     && npm install -g near-cli \
     && npm install -g near-sandbox \
     && rm -rf /var/lib/apt/lists/*
@@ -103,9 +104,12 @@ WORKDIR /code
 # Copy all source code
 COPY . .
 
-# Install cargo-near
-RUN cargo install cargo-near --version 0.14.1 \
+# Install cargo-near (always fetch the latest version)
+RUN cargo install cargo-near \
     && chmod +x scripts/*.sh
+
+# Fetch dependencies for the workspace
+RUN cargo fetch
 
 # Test build one contract to verify setup
 WORKDIR /code/contracts/auth-onsocial

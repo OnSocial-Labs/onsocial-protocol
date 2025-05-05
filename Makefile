@@ -146,20 +146,6 @@ check-deps: build-docker ensure-scripts-executable
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh check-deps"
 	@/bin/echo -e "\033[0;32mDependency tree checked successfully\033[0m"
 
-# Update Rust and tools
-.PHONY: update-tools
-update-tools: build-docker ensure-scripts-executable
-	@echo "Updating Rust and tools..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/update_tools.sh"
-	@/bin/echo -e "\033[0;32mTools updated successfully\033[0m"
-
-# Check for tool updates
-.PHONY: check-updates
-check-updates: build-docker ensure-scripts-executable
-	@echo "Checking for tool updates..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/update_tools.sh check"
-	@/bin/echo -e "\033[0;32mUpdate check completed successfully\033[0m"
-
 # Build all contracts
 .PHONY: build
 build: build-docker ensure-scripts-executable
@@ -216,9 +202,16 @@ test-unit: build-docker ensure-scripts-executable validate-contract
 test-integration: build-docker ensure-scripts-executable start-sandbox
 	@echo "Running integration tests for $(CONTRACT)..."
 	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mIntegration tests completed successfully\033[0m"
-	@$(MAKE) stop-sandbox
+	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT) && exit 0 || { echo -e '\033[0;31mIntegration tests failed\033[0m'; exit 1; }" ; \
+	TEST_STATUS=$$?; \
+	echo "Stopping sandbox..."; \
+	$(MAKE) stop-sandbox; \
+	if [ $$TEST_STATUS -ne 0 ]; then \
+	/bin/echo -e "\033[0;31mIntegration tests failed\033[0m"; \
+	exit $$TEST_STATUS; \
+	else \
+	/bin/echo -e "\033[0;32mIntegration tests completed successfully\033[0m"; \
+	fi
 
 # Deploy a contract
 .PHONY: deploy
@@ -289,6 +282,16 @@ patch-state: start-sandbox
 	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e MASTER_ACCOUNT=$(AUTH_ACCOUNT) -e CONTRACT_ID=$(CONTRACT_ID) -e KEY=$(KEY) -e VALUE=$(VALUE) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/patch_state.sh"
 	@/bin/echo -e "\033[0;32mSandbox state patched successfully\033[0m"
 
+# Update near-sdk and near-sdk-macros versions
+.PHONY: update-near-sdk
+update-near-sdk:
+	@echo "Updating near-sdk and near-sdk-macros to a new version..."
+	@read -p "Enter the new version for near-sdk (e.g., 6.0): " NEW_VERSION; \
+	sed -i "s/near-sdk = \".*\"/near-sdk = \"$$NEW_VERSION\"/" Cargo.toml; \
+	sed -i "s/near-sdk-macros = \".*\"/near-sdk-macros = \"$$NEW_VERSION\"/" Cargo.toml; \
+	cargo update -p near-sdk -p near-sdk-macros; \
+	echo "near-sdk and near-sdk-macros updated to version $$NEW_VERSION successfully."
+
 # Help
 .PHONY: help
 help:
@@ -304,7 +307,7 @@ help:
 	@echo "  fmt                  Format Rust code"
 	@echo "  lint                 Lint Rust code"
 	@echo "  check                Check workspace syntax"
-	@echo "  audit                Audit dependencies for vulnerabilities"]]
+	@echo "  audit                Audit dependencies for vulnerabilities"
 	@echo "  test-coverage        Generate test coverage report (CONTRACT=contract-name)"
 	@echo "  test-all             Run all unit and integration tests"
 	@echo "  inspect-state        Inspect contract state (CONTRACT_ID=id, METHOD=method, ARGS=args)"
@@ -312,8 +315,6 @@ help:
 	@echo "  verify-contract      Verify a specific contract (CONTRACT=contract-name)"
 	@echo "  clean-all            Clean all artifacts and sandbox data"
 	@echo "  check-deps           Check dependency tree"
-	@echo "  update-tools         Update Rust and tools"
-	@echo "  check-updates        Check for available tool updates"
 	@echo "  build                Build all contracts"
 	@echo "  build-contract       Build a specific contract (CONTRACT=contract-name)"
 	@echo "  build-reproducible   Build reproducible WASM for mainnet"
@@ -330,6 +331,7 @@ help:
 	@echo "  stop-sandbox         Stop NEAR Sandbox"
 	@echo "  clean-sandbox        Clean NEAR Sandbox data"
 	@echo "  patch-state          Patch sandbox state (CONTRACT_ID=id, KEY=key, VALUE=value)"
+	@echo "  update-near-sdk      Update near-sdk version in Cargo.toml"
 	@echo ""
 	@echo "Variables:"
 	@echo "  NETWORK              Network to deploy to (default: sandbox)"
@@ -361,10 +363,9 @@ help:
 	@echo "  make verify-contract CONTRACT=auth-onsocial"
 	@echo "  make clean-all"
 	@echo "  make check-deps"
-	@echo "  make update-tools"
-	@echo "  make check-updates"
 	@echo "  make test-unit CONTRACT=auth-onsocial"
 	@echo "  make test-integration CONTRACT=ft-wrapper-onsocial"
 	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near"
 	@echo "  make deploy-dry-run CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near"
 	@echo "  make start-sandbox"
+	@echo "  make update-near-sdk"

@@ -1,6 +1,6 @@
-use near_workspaces::types::{AccountId, NearToken, SecretKey, KeyType};
-use near_workspaces::{Account, Contract, Worker};
 use near_crypto::{InMemorySigner, KeyType as CryptoKeyType};
+use near_workspaces::types::{AccountId, KeyType, NearToken, SecretKey};
+use near_workspaces::{Account, Contract, Worker};
 use serde_json::json;
 use std::path::Path;
 
@@ -13,7 +13,10 @@ async fn test_auth_contract() -> anyhow::Result<()> {
     // Suppress unused imports warning with debug assertions
     debug_assert!(std::mem::size_of::<Account>() > 0, "Account type is used");
     debug_assert!(std::mem::size_of::<Contract>() > 0, "Contract type is used");
-    debug_assert!(std::mem::size_of::<Worker<near_workspaces::network::Sandbox>>() > 0, "Worker type is used");
+    debug_assert!(
+        std::mem::size_of::<Worker<near_workspaces::network::Sandbox>>() > 0,
+        "Worker type is used"
+    );
 
     // Initialize the sandbox worker
     println!("Creating sandbox worker");
@@ -23,14 +26,19 @@ async fn test_auth_contract() -> anyhow::Result<()> {
 
     // Try to load auth-onsocial.wasm from the monorepo root target directory
     println!("Loading WASM file");
-    let standard_wasm_path = Path::new("../target/wasm32-unknown-unknown/release/auth_onsocial.wasm");
+    let standard_wasm_path =
+        Path::new("../target/wasm32-unknown-unknown/release/auth_onsocial.wasm");
     let auth_wasm = match std::fs::read(standard_wasm_path) {
         Ok(wasm) => {
             println!("WASM loaded from {}", standard_wasm_path.display());
             wasm
         }
         Err(e) => {
-            println!("Failed to read WASM from {}: {:?}", standard_wasm_path.display(), e);
+            println!(
+                "Failed to read WASM from {}: {:?}",
+                standard_wasm_path.display(),
+                e
+            );
             // Fallback to target/near path
             let fallback_wasm_path = Path::new("../target/near/auth_onsocial/auth_onsocial.wasm");
             match std::fs::read(fallback_wasm_path) {
@@ -39,7 +47,11 @@ async fn test_auth_contract() -> anyhow::Result<()> {
                     wasm
                 }
                 Err(e) => {
-                    println!("Failed to read WASM from {}: {:?}", fallback_wasm_path.display(), e);
+                    println!(
+                        "Failed to read WASM from {}: {:?}",
+                        fallback_wasm_path.display(),
+                        e
+                    );
                     return Err(anyhow::anyhow!("Could not find auth_onsocial.wasm"));
                 }
             }
@@ -50,7 +62,10 @@ async fn test_auth_contract() -> anyhow::Result<()> {
     println!("Deploying auth-onsocial contract");
     let auth_contract_id: AccountId = "auth-onsocial".parse()?;
     let auth_account = worker
-        .create_tla(auth_contract_id.clone(), SecretKey::from_random(KeyType::ED25519))
+        .create_tla(
+            auth_contract_id.clone(),
+            SecretKey::from_random(KeyType::ED25519),
+        )
         .await?
         .into_result()?;
     let auth_contract = auth_account.deploy(&auth_wasm).await?.into_result()?;

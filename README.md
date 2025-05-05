@@ -1,6 +1,6 @@
 # OnSocial Contracts Monorepo
 
-Welcome to the **OnSocial Contracts Monorepo**, a collection of NEAR Protocol smart contracts powering **OnSocial**, a gasless, decentralized social media platform by [OnSocial Labs](https://github.com/OnSocial-Labs). Built with **Rust**, **NEAR SDK (5.12.0)**, and **cargo-near (0.14.1)**, this monorepo supports scalable, secure, and interoperable smart contracts for social networking. A Docker-only workflow ensures consistent builds, tests, and deployments, with dependencies resolved from `Cargo.toml` files.
+Welcome to the **OnSocial Contracts Monorepo**, a collection of NEAR Protocol smart contracts powering **OnSocial**, a gasless, decentralized social media platform by [OnSocial Labs](https://github.com/OnSocial-Labs). Built with **NEAR SDK** and **cargo-near**, this monorepo supports scalable, secure, and interoperable smart contracts for social networking. A Docker-only workflow ensures consistent builds, tests, and deployments, with dependencies resolved from `Cargo.toml` files.
 
 ## Table of Contents
 
@@ -15,6 +15,7 @@ Welcome to the **OnSocial Contracts Monorepo**, a collection of NEAR Protocol sm
 - [Docker Workflow](#docker-workflow)
 - [CI/CD](#cicd)
 - [Adding New Contracts](#adding-new-contracts)
+- [Cargo Dependencies](#cargo-dependencies)
 - [Contributing](#contributing)
 - [Resources](#resources)
 - [License](#license)
@@ -168,13 +169,19 @@ make start-sandbox
 | `make check` | Checks workspace syntax with `cargo check`. |
 | `make audit` | Audits dependencies for vulnerabilities with `cargo audit`. |
 | `make check-deps` | Checks the dependency tree with `cargo tree`. |
-| `make update-tools` | Updates Rust and development tools. |
-| `make check-updates` | Checks for available tool updates. |
 | `make clean-all` | Cleans all build artifacts and sandbox data. |
 | `make verify-contract` | Verifies a specific contract (build, ABI, tests). |
 | `make inspect-state` | Inspects contract state (`CONTRACT_ID`, `METHOD`, `ARGS` required). |
 | `make logs-sandbox` | Displays NEAR Sandbox logs. |
-| `make help` | Shows all available Makefile commands and variables. |
+| `make help` | Shows all available Makefile commands and variables.
+
+### Update near-sdk and near-sdk-macros
+
+**Update both dependencies to a new version:**
+```bash
+make update-near-sdk
+```
+This command will prompt you to enter the new version for `near-sdk` and `near-sdk-macros`. It updates the version in the root `Cargo.toml` and runs `cargo update` to reflect the changes.
 
 ### Key Variables
 
@@ -232,6 +239,46 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) automates:
 5. Add integration tests in `tests/src/`.
 6. Update `scripts/test.sh` to include the new contract.
 7. Verify with `make test` and `make test-integration`.
+
+## Cargo Dependencies
+
+The OnSocial Contracts Monorepo uses Rust's `Cargo` package manager to manage dependencies for each contract. Each contract has its own `Cargo.toml` file, specifying the dependencies required for its functionality. The workspace-level `Cargo.toml` file aggregates these dependencies and ensures compatibility across the monorepo.
+
+### Dependency Structure
+
+- **Workspace-Level Dependencies**: The root `Cargo.toml` file defines shared dependencies and workspace members. This ensures consistent versions of common libraries across all contracts.
+- **Contract-Specific Dependencies**: Each contract directory (e.g., `auth-onsocial`, `ft-wrapper-onsocial`, `relayer-onsocial`) contains its own `Cargo.toml` file, listing dependencies specific to that contract.
+- **Updating Dependencies**: Use the `make cargo-update` command to update dependencies across the workspace. This updates the `Cargo.lock` file to reflect the latest compatible versions.
+
+### Key Dependencies
+
+- **near-sdk**: Provides tools and macros for building NEAR smart contracts.
+- **serde**: Enables serialization and deserialization of data structures.
+- **log**: Facilitates logging within contracts for debugging and monitoring.
+- **env_logger**: Configures logging for local testing and debugging.
+
+### Managing Dependencies
+
+To add a new dependency to a specific contract:
+1. Navigate to the contract's directory (e.g., `contracts/auth-onsocial`).
+2. Edit the `Cargo.toml` file to include the new dependency under `[dependencies]`.
+3. Run `cargo build` to ensure the dependency is correctly resolved.
+
+To add a shared dependency across all contracts:
+1. Edit the root `Cargo.toml` file under `[dependencies]`.
+2. Run `cargo build` to verify compatibility.
+
+### Managing Dependencies with Make Commands
+
+To simplify dependency management, the monorepo provides `make` commands:
+
+- **Update Dependencies**: Run `make cargo-update` to update all dependencies across the workspace. This updates the `Cargo.lock` file to reflect the latest compatible versions.
+- **Check Dependency Tree**: Use `make check-deps` to inspect the dependency tree and ensure there are no conflicts.
+- **Audit Dependencies**: Run `make audit` to check for vulnerabilities in the current dependencies.
+
+These commands ensure that dependencies are consistent and secure across all contracts.
+
+For more details on Rust dependencies, see the [Cargo Book](https://doc.rust-lang.org/cargo/).
 
 ## Contributing
 
