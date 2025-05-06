@@ -1,8 +1,8 @@
-# Stage 1: Fetch dependencies
-FROM rust:slim AS deps
+# Single-stage build for efficiency
+FROM rust:slim AS builder
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies and Node.js in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     clang \
     curl \
@@ -10,112 +10,49 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libudev-dev \
     jq \
-    libperl-dev \
-    perl-modules-5.36 \
     libssl-dev \
-    procps \
-    && rm -rf /var/lib/apt/lists/*
+    nodejs \
+    npm \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g npm@latest near-cli near-sandbox \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Node.js, near-cli, and near-sandbox
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get update \
-    && apt-get install -y nodejs \
-    && npm install -g npm@latest \
-    && npm install -g near-cli \
-    && npm install -g near-sandbox \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install the latest stable Rust version
+# Set up Rust environment
 RUN rustup update stable \
     && rustup default stable \
     && rustup target add wasm32-unknown-unknown \
+    && rustup component add rustfmt clippy \
+    && cargo install cargo-tarpaulin cargo-edit cargo-audit cargo-tree cargo-near \
     && rustc --version \
     && cargo --version
 
-# Install additional Cargo tools
-RUN cargo install cargo-tarpaulin \
-    && rustup component add clippy \
-    && cargo install cargo-audit \
-    && cargo install cargo-tree \
-    && rustup component add rustfmt
-
-# Set up Rust environment
+# Set environment variables
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH="$CARGO_HOME/bin:$PATH"
+ENV NEAR_ENV=sandbox
+ENV NEAR_NODE_URL=http://localhost:3030
 
 # Create working directory
 WORKDIR /code
 
-# Copy workspace Cargo.toml and Cargo.lock
+# Copy dependency files first to cache dependency fetching
 COPY Cargo.toml Cargo.lock ./
-
-# Copy contract Cargo.toml files and create dummy src/lib.rs
 COPY contracts contracts
+COPY tests/Cargo.toml tests/
+
+# Create dummy source files for dependency fetching
 RUN find contracts -type f -name Cargo.toml | while read -r toml; do \
         dir=$(dirname "$toml"); \
         mkdir -p "$dir/src" && echo "fn main() {}" > "$dir/src/lib.rs"; \
-    done
-
-# Copy tests Cargo.toml
-COPY tests/Cargo.toml tests/
-RUN mkdir -p tests/src && echo "fn main() {}" > tests/src/lib.rs
-
-# Fetch dependencies
-RUN cargo fetch
-
-# Stage 2: Build contracts
-FROM rust:slim AS builder
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    clang \
-    curl \
-    git \
-    pkg-config \
-    libudev-dev \
-    jq \
-    libperl-dev \
-    perl-modules-5.36 \
-    libssl-dev \
-    procps \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js, near-cli, and near-sandbox
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get update \
-    && apt-get install -y nodejs \
-    && npm install -g npm@latest \
-    && npm install -g near-cli \
-    && npm install -g near-sandbox \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy cached Rust dependencies
-COPY --from=deps /usr/local/cargo /usr/local/cargo
-COPY --from=deps /usr/local/rustup /usr/local/rustup
-
-# Set up Rust environment
-ENV CARGO_HOME=/usr/local/cargo
-ENV PATH="$CARGO_HOME/bin:$PATH"
-
-# Create working directory
-WORKDIR /code
+    done \
+    && mkdir -p tests/src && echo "fn main() {}" > tests/src/lib.rs \
+    && cargo fetch \
+    && rm -rf contracts/*/src tests/src
 
 # Copy all source code
 COPY . .
 
-# Install cargo-near (always fetch the latest version)
-RUN cargo install cargo-near \
-    && chmod +x scripts/*.sh
-
-# Fetch dependencies for the workspace
-RUN cargo fetch
-
-# Test build one contract to verify setup
-WORKDIR /code/contracts/auth-onsocial
-RUN cargo near build non-reproducible-wasm
-WORKDIR /code
-
-# Set up environment
-ENV NEAR_ENV=sandbox
-ENV NEAR_NODE_URL=http://localhost:3030
+# Ensure scripts are executable
+RUN chmod +x scripts/*.sh

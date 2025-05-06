@@ -11,6 +11,22 @@ handle_error() {
   exit 1
 }
 
+# Validate .env file based on NETWORK
+case "$NETWORK" in
+  mainnet)
+    [ -f .env.mainnet ] || handle_error ".env.mainnet not found"
+    ;;
+  testnet)
+    [ -f .env.testnet ] || handle_error ".env.testnet not found"
+    ;;
+  sandbox)
+    [ -f .env ] || handle_error ".env not found"
+    ;;
+  *)
+    handle_error "Invalid NETWORK: $NETWORK. Must be sandbox, testnet, or mainnet"
+    ;;
+esac
+
 # Detect contracts from Cargo.toml
 if [ -f Cargo.toml ]; then
   CONTRACTS=($(grep -oP '"contracts/[^"]+"' Cargo.toml | sed 's/"contracts\///;s/"//'))
@@ -29,17 +45,19 @@ deploy_contract() {
   [ -z "$NETWORK" ] && handle_error "NETWORK not set"
   [ -z "$AUTH_ACCOUNT" ] && handle_error "AUTH_ACCOUNT not set"
 
-  # Mainnet confirmation
-  if [ "$NETWORK" = "mainnet" ] && [ "$DRY_RUN" != "1" ]; then
-    echo "WARNING: Deploying to mainnet. Confirm (y/N):"
-    read -r confirm
-    [ "$confirm" != "y" ] && handle_error "Mainnet deployment aborted"
+  # Confirmation for testnet or mainnet
+  if [ "$NETWORK" = "mainnet" ] || [ "$NETWORK" = "testnet" ]; then
+    if [ "$DRY_RUN" != "1" ]; then
+      echo "WARNING: Deploying to $NETWORK. Confirm (y/N):"
+      read -r confirm
+      [ "$confirm" != "y" ] && handle_error "$NETWORK deployment aborted"
+    fi
   fi
 
   # Dry-run mode
   if [ "$DRY_RUN" = "1" ]; then
     echo "Dry-run: Would deploy $contract to $NETWORK with build_type=$build_type, init=$init"
-    echo "Dry-run: AUTH_ACCOUNT=$AUTH_ACCOUNT, FT_ACCOUNT=$FT_ACCOUNT, RELAYER_ACCOUNT=$RELAYER_ACCOUNT"
+    echo "Dry-run: AUTH_ACCOUNT=$AUTH_ACCOUNT, FT_ACCOUNT=$FT_ACCOUNT, RELAYER_ACCOUNT=$RELAYER_ACCOUNT, NEAR_NODE_URL=$NEAR_NODE_URL"
     return 0
   fi
 

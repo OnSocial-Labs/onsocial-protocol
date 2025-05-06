@@ -16,6 +16,8 @@ target/
 *.wasm
 .near/
 .env
+.env.testnet
+.env.mainnet
 
 # Temporary and sandbox data
 tmp/

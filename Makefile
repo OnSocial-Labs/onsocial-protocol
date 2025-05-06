@@ -1,6 +1,16 @@
 # Makefile for OnSocial Contracts Monorepo
 # Simplifies common tasks for building, testing, deploying, and managing NEAR smart contracts
 
+# Load environment variables based on NETWORK
+ifeq ($(NETWORK),mainnet)
+	include .env.mainnet
+else ifeq ($(NETWORK),testnet)
+	include .env.testnet
+else
+	include .env
+endif
+export
+
 # Default variables
 NETWORK ?= sandbox
 AUTH_ACCOUNT ?= test.near
@@ -29,11 +39,11 @@ ensure-scripts-executable:
 .PHONY: validate-contract
 validate-contract:
 	@if [ -z "$(CONTRACT)" ]; then \
-	echo -e "\033[0;31mError: CONTRACT variable not set. Use CONTRACT=<contract-name> (e.g., auth-onsocial)\033[0m"; \
+	/bin/echo -e "\033[0;31mError: CONTRACT variable not set. Use CONTRACT=<contract-name> (e.g., auth-onsocial)\033[0m"; \
 	exit 1; \
 	fi
 	@if ! echo "$(VALID_CONTRACTS)" | grep -qw "$(CONTRACT)"; then \
-	echo -e "\033[0;31mError: Invalid CONTRACT '$(CONTRACT)'. Valid options: $(VALID_CONTRACTS)\033[0m"; \
+	/bin/echo -e "\033[0;31mError: Invalid CONTRACT '$(CONTRACT)'. Valid options: $(VALID_CONTRACTS)\033[0m"; \
 	exit 1; \
 	fi
 
@@ -42,7 +52,7 @@ validate-contract:
 build-docker:
 	@echo "Checking for existing Docker image $(DOCKER_IMAGE)..."
 	@if ! docker images -q $(DOCKER_IMAGE) | grep -q .; then \
-	echo "Building Docker image $(DOCKER_IMAGE)..."; \
+	/bin/echo "Building Docker image $(DOCKER_IMAGE)..."; \
 	docker build -t $(DOCKER_IMAGE) -f docker/Dockerfile.builder .; \
 	/bin/echo -e "\033[0;32mDocker image built successfully\033[0m"; \
 	else \
@@ -65,6 +75,12 @@ cargo-update: build-docker ensure-scripts-executable
 	@echo "Updating Cargo dependencies..."
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh cargo-update"
 	@/bin/echo -e "\033[0;32mCargo dependencies updated successfully\033[0m"
+
+# Upgrade workspace dependencies with interactive selection
+.PHONY: upgrade-deps
+upgrade-deps: build-docker ensure-scripts-executable
+	@echo "Running interactive dependency upgrade..."
+	@docker run -v $(CODE_DIR):/code --rm -it -e VERBOSE=$(VERBOSE) -e INCOMPATIBLE=$(INCOMPATIBLE) $(DOCKER_IMAGE) bash -c "./scripts/upgrade_deps.sh"
 
 # Format Rust code
 .PHONY: fmt
@@ -110,7 +126,7 @@ test-all: test test-integration
 .PHONY: inspect-state
 inspect-state: build-docker ensure-scripts-executable
 	@if [ -z "$(CONTRACT_ID)" ] || [ -z "$(METHOD)" ]; then \
-	echo -e "\033[0;31mError: CONTRACT_ID and METHOD variables must be set (e.g., CONTRACT_ID=auth.sandbox METHOD=get_keys)\033[0m"; \
+	/bin/echo -e "\033[0;31mError: CONTRACT_ID and METHOD variables must be set (e.g., CONTRACT_ID=auth.sandbox METHOD=get_keys)\033[0m"; \
 	exit 1; \
 	fi
 	@echo "Inspecting state for $(CONTRACT_ID)..."
@@ -129,7 +145,7 @@ logs-sandbox:
 verify-contract: build-docker ensure-scripts-executable validate-contract
 	@echo "Verifying contract $(CONTRACT)..."
 	@docker run -v $(CODE_DIR):/code --network host --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh verify $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mContract $(CONTRACT) verified successfully\033[0m"
+	@/bin/echo -e "\033[0;31mContract $(CONTRACT) verified successfully\033[0m"
 
 # Clean all artifacts and sandbox data
 .PHONY: clean-all
@@ -187,7 +203,7 @@ abi: build-docker ensure-scripts-executable
 .PHONY: test
 test: build-docker ensure-scripts-executable
 	@echo "Running unit tests..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit"
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit" || { /bin/echo -e "\033[0;31mUnit tests failed\033[0m"; exit 1; }
 	@/bin/echo -e "\033[0;32mUnit tests completed successfully\033[0m"
 
 # Run unit tests for a specific contract
@@ -204,7 +220,7 @@ test-integration: build-docker ensure-scripts-executable start-sandbox
 	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
 	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT) && exit 0 || { echo -e '\033[0;31mIntegration tests failed\033[0m'; exit 1; }" ; \
 	TEST_STATUS=$$?; \
-	echo "Stopping sandbox..."; \
+	/bin/echo "Stopping sandbox..."; \
 	$(MAKE) stop-sandbox; \
 	if [ $$TEST_STATUS -ne 0 ]; then \
 	/bin/echo -e "\033[0;31mIntegration tests failed\033[0m"; \
@@ -217,28 +233,28 @@ test-integration: build-docker ensure-scripts-executable start-sandbox
 .PHONY: deploy
 deploy: build-docker ensure-scripts-executable validate-contract
 	@echo "Deploying contract $(CONTRACT) to $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $(CONTRACT)"
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $(CONTRACT)"
 	@/bin/echo -e "\033[0;32mContract deployed successfully\033[0m"
 
 # Initialize a deployed contract
 .PHONY: deploy-init
 deploy-init: build-docker ensure-scripts-executable validate-contract
 	@echo "Initializing contract $(CONTRACT) on $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh init --contract $(CONTRACT)"
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh init --contract $(CONTRACT)"
 	@/bin/echo -e "\033[0;32mContract initialized successfully\033[0m"
 
 # Deploy with reproducible WASM
 .PHONY: deploy-reproducible
 deploy-reproducible: build-docker ensure-scripts-executable validate-contract
 	@echo "Deploying contract $(CONTRACT) with reproducible WASM to $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh reproducible --contract $(CONTRACT)"
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh reproducible --contract $(CONTRACT)"
 	@/bin/echo -e "\033[0;32mContract deployed with reproducible WASM successfully\033[0m"
 
 # Dry-run deployment
 .PHONY: deploy-dry-run
 deploy-dry-run: build-docker ensure-scripts-executable validate-contract
 	@echo "Simulating deployment of $(CONTRACT) to $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e VERBOSE=$(VERBOSE) -e DRY_RUN=1 $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $(CONTRACT)"
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=1 $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $(CONTRACT)"
 	@/bin/echo -e "\033[0;32mDry-run deployment simulation completed successfully\033[0m"
 
 # Initialize NEAR Sandbox
@@ -282,16 +298,6 @@ patch-state: start-sandbox
 	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e MASTER_ACCOUNT=$(AUTH_ACCOUNT) -e CONTRACT_ID=$(CONTRACT_ID) -e KEY=$(KEY) -e VALUE=$(VALUE) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/patch_state.sh"
 	@/bin/echo -e "\033[0;32mSandbox state patched successfully\033[0m"
 
-# Update near-sdk and near-sdk-macros versions
-.PHONY: update-near-sdk
-update-near-sdk:
-	@echo "Updating near-sdk and near-sdk-macros to a new version..."
-	@read -p "Enter the new version for near-sdk (e.g., 6.0): " NEW_VERSION; \
-	sed -i "s/near-sdk = \".*\"/near-sdk = \"$$NEW_VERSION\"/" Cargo.toml; \
-	sed -i "s/near-sdk-macros = \".*\"/near-sdk-macros = \"$$NEW_VERSION\"/" Cargo.toml; \
-	cargo update -p near-sdk -p near-sdk-macros; \
-	echo "near-sdk and near-sdk-macros updated to version $$NEW_VERSION successfully."
-
 # Help
 .PHONY: help
 help:
@@ -304,6 +310,7 @@ help:
 	@echo "  build-docker         Build Docker image"
 	@echo "  rebuild-docker       Force rebuild Docker image"
 	@echo "  cargo-update         Clean and update Cargo dependencies"
+	@echo "  upgrade-deps         Interactively select dependencies to upgrade by number (INCOMPATIBLE=1 for incompatible upgrades)"
 	@echo "  fmt                  Format Rust code"
 	@echo "  lint                 Lint Rust code"
 	@echo "  check                Check workspace syntax"
@@ -322,7 +329,7 @@ help:
 	@echo "  test                 Run unit tests for all contracts"
 	@echo "  test-unit            Run unit tests for a specific contract (CONTRACT=contract-name)"
 	@echo "  test-integration     Run integration tests for a specific contract or all (CONTRACT=contract-name)"
-	@echo "  deploy               Deploy a contract (CONTRACT=contract-name, NETWORK=network, AUTH_ACCOUNT=account)"
+	@echo "  deploy               Deploy a contract (CONTRACT=contract-name, NETWORK=network)"
 	@echo "  deploy-init          Initialize a deployed contract"
 	@echo "  deploy-reproducible  Deploy with reproducible WASM"
 	@echo "  deploy-dry-run       Simulate deployment without executing (CONTRACT=contract-name, NETWORK=network)"
@@ -331,10 +338,9 @@ help:
 	@echo "  stop-sandbox         Stop NEAR Sandbox"
 	@echo "  clean-sandbox        Clean NEAR Sandbox data"
 	@echo "  patch-state          Patch sandbox state (CONTRACT_ID=id, KEY=key, VALUE=value)"
-	@echo "  update-near-sdk      Update near-sdk version in Cargo.toml"
 	@echo ""
 	@echo "Variables:"
-	@echo "  NETWORK              Network to deploy to (default: sandbox)"
+	@echo "  NETWORK              Network to deploy to (sandbox, testnet, mainnet; default: sandbox)"
 	@echo "  AUTH_ACCOUNT         Account for auth-onsocial (default: test.near)"
 	@echo "  FT_ACCOUNT           Account for ft-wrapper-onsocial (default: test.near)"
 	@echo "  RELAYER_ACCOUNT      Account for relayer-onsocial (default: test.near)"
@@ -346,6 +352,7 @@ help:
 	@echo "  LINT                 Set to 1 to enable linting during build (e.g., LINT=1)"
 	@echo "  VERBOSE              Set to 1 to enable detailed output (e.g., VERBOSE=1)"
 	@echo "  DRY_RUN              Set to 1 to simulate deployment (e.g., DRY_RUN=1)"
+	@echo "  INCOMPATIBLE         Set to 1 to include incompatible dependency upgrades (e.g., INCOMPATIBLE=1)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build"
@@ -365,7 +372,9 @@ help:
 	@echo "  make check-deps"
 	@echo "  make test-unit CONTRACT=auth-onsocial"
 	@echo "  make test-integration CONTRACT=ft-wrapper-onsocial"
-	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near"
-	@echo "  make deploy-dry-run CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near"
+	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=sandbox"
+	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=testnet"
+	@echo "  make deploy-dry-run CONTRACT=auth-onsocial NETWORK=mainnet"
 	@echo "  make start-sandbox"
-	@echo "  make update-near-sdk"
+	@echo "  make upgrade-deps"
+	@echo "  make upgrade-deps INCOMPATIBLE=1"

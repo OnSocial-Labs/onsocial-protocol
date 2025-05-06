@@ -17,3 +17,10 @@ node_modules/
 # NEAR sandbox and local dev data
 /tmp/near-sandbox/
 near-data/
+
+# Logs and coverage reports
+*.log
+coverage/
+
+# Resources folder
+Resources/

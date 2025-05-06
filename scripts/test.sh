@@ -13,26 +13,34 @@ handle_error() {
 }
 
 test_unit() {
-  local contract=$1
-  if [ -n "$contract" ]; then
-    echo "Running unit tests for $contract..."
-    cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
-    [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
-    cargo test || handle_error "Unit tests failed for $contract"
-    echo -e "${GREEN}$contract unit tests passed${NC}"
-  else
-    echo "Running unit tests for all contracts..."
-    ERROR_FLAG=0
-    for contract in "${CONTRACTS[@]}"; do
-      echo "Running unit tests for $contract..."
-      cd "$BASE_DIR/$contract" || { ERROR_FLAG=1; continue; }
-      [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
-      cargo test || ERROR_FLAG=1 &
-    done
-    wait
-    [ $ERROR_FLAG -eq 1 ] && handle_error "Unit tests failed for one or more contracts"
-    echo -e "${GREEN}All unit tests passed${NC}"
-  fi
+    local contract=$1
+    if [ -n "$contract" ]; then
+        echo "Running unit tests for $contract..."
+        cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
+        [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
+        if cargo test; then
+            echo -e "${GREEN}Unit tests passed for $contract${NC}"
+        else
+            echo -e "${RED}Unit tests failed for $contract${NC}"
+            handle_error "Unit tests failed for $contract"
+        fi
+    else
+        echo "Running unit tests for all contracts..."
+        ERROR_FLAG=0
+        for contract in "${CONTRACTS[@]}"; do
+            echo "Running unit tests for $contract..."
+            cd "$BASE_DIR/$contract" || { ERROR_FLAG=1; echo -e "${RED}Directory $contract not found${NC}"; continue; }
+            [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
+            if cargo test; then
+                echo -e "${GREEN}Unit tests passed for $contract${NC}"
+            else
+                echo -e "${RED}Unit tests failed for $contract${NC}"
+                ERROR_FLAG=1
+            fi
+        done
+        [ $ERROR_FLAG -eq 1 ] && handle_error "Unit tests failed for one or more contracts"
+        echo -e "${GREEN}All unit tests passed${NC}"
+    fi
 }
 
 test_integration() {

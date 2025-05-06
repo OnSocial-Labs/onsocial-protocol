@@ -38,8 +38,8 @@ ed25519-dalek = "2.1.1"  # Used by: relayer-onsocial
 getrandom = { version = "0.2.16", features = ["js"] }  # Used by: relayer-onsocial
 hex = "0.4.3"  # Used by: relayer-onsocial
 base64 = "0.22.1"  # Used by: relayer-onsocial
-near-workspaces = "0.18.0"  # Used by: tests
-tokio = { version = "1.35", features = ["macros", "rt-multi-thread"] }  # Used by: tests
+near-workspaces = "0.19.0"  # Used by: tests
+tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }  # Used by: tests
 anyhow = "1.0"  # Used by: tests
 
 [profile.release]
