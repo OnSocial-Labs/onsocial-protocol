@@ -23,9 +23,9 @@ make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 
 | Contract              | Purpose                                 | Main Entrypoints (Methods)                                                                 |
 |-----------------------|-----------------------------------------|-------------------------------------------------------------------------------------------|
-| auth-onsocial         | User authentication, multisig            | register_key, remove_key, is_key_registered, add_guardian, remove_guardian                |
-| ft-wrapper-onsocial   | Token transfer, cross-chain bridging     | transfer, deposit, withdraw, get_balance, bridge                                          |
-| relayer-onsocial      | Gasless meta-transactions, sponsoring    | relay, sponsor, get_nonce, set_relayer, remove_relayer                                     |
+| auth-onsocial         | User authentication, multisig            | *Main entry points are in development*                                                    |
+| ft-wrapper-onsocial   | Token transfer, cross-chain bridging     | *Main entry points are in development*                                                    |
+| relayer-onsocial      | Gasless meta-transactions, sponsoring    | *Main entry points are in development*                                                    |
 
 ## Makefile Quick Commands
 
