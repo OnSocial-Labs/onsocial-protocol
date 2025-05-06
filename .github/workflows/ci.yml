@@ -37,11 +37,9 @@ jobs:
       - name: Run tests
         run: |
           if [ "${{ matrix.contract }}" == "all" ]; then
-            make test
-            make test-integration
+            make test-all
           else
-            make test-unit CONTRACT=${{ matrix.contract }}
-            make test-integration CONTRACT=${{ matrix.contract }}
+            make test-all CONTRACT=${{ matrix.contract }}
           fi
       - name: Generate test coverage
         run: make test-coverage CONTRACT=${{ matrix.contract }}

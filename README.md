@@ -15,22 +15,25 @@ This monorepo contains all core smart contracts, managed and deployed using Dock
 git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
 cd onsocial-contracts
 make build           # Build all contracts
-make test            # Run all tests
+make test            # Run all unit and integration tests
 make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 ```
 
 ## Contracts Overview
 
-| Contract              | Purpose                                 | Main Entrypoints (Methods)                                                                 |
-|-----------------------|-----------------------------------------|-------------------------------------------------------------------------------------------|
-| auth-onsocial         | User authentication, multisig            | *Main entry points are in development*                                                    |
-| ft-wrapper-onsocial   | Token transfer, cross-chain bridging     | *Main entry points are in development*                                                    |
-| relayer-onsocial      | Gasless meta-transactions, sponsoring    | *Main entry points are in development*                                                    |
+| Contract              | Purpose                                 | Main Entrypoints (Methods)                        |
+|-----------------------|-----------------------------------------|---------------------------------------------------|
+| auth-onsocial         | User authentication, multisig            | *Main entry points are in development*            |
+| ft-wrapper-onsocial   | Token transfer, cross-chain bridging     | *Main entry points are in development*            |
+| relayer-onsocial      | Gasless meta-transactions, sponsoring    | *Main entry points are in development*            |
 
 ## Makefile Quick Commands
 
 - `make build` — Build all contracts
-- `make test` — Run all tests
+- `make test` — Run all unit and integration tests
+- `make test-unit [CONTRACT=...]` — Run unit tests for all or a specific contract
+- `make test-integration [CONTRACT=...]` — Run integration tests for all or a specific contract
+- `make test-all [CONTRACT=...]` — Run all unit and integration tests (optionally for a specific contract)
 - `make deploy CONTRACT=... NETWORK=... AUTH_ACCOUNT=...` — Deploy a contract
 - `make start-sandbox` — Start NEAR Sandbox
 - `make help` — List all available commands
@@ -40,8 +43,13 @@ make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 | Command                                 | Description                                                      |
 |-----------------------------------------|------------------------------------------------------------------|
 | make build                              | Build all contracts as WASM                                      |
-| make test                               | Run all unit tests                                               |
+| make test                               | Run all unit and integration tests                               |
+| make test-unit                          | Run unit tests for all contracts                                 |
+| make test-unit CONTRACT=...             | Run unit tests for a specific contract                           |
 | make test-integration                   | Run all integration tests                                        |
+| make test-integration CONTRACT=...      | Run integration tests for a specific contract                    |
+| make test-all                           | Run all unit and integration tests                               |
+| make test-all CONTRACT=...              | Run all unit and integration tests for a specific contract       |
 | make deploy CONTRACT=... NETWORK=...    | Deploy a contract to a network                                   |
 | make deploy-init                        | Initialize a deployed contract                                   |
 | make build-docker                       | Build the Docker image for development/deployment                |

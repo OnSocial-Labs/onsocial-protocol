@@ -118,9 +118,37 @@ test-coverage: build-docker ensure-scripts-executable
 	@/bin/echo -e "\033[0;32mTest coverage report generated successfully\033[0m"
 
 # Run all tests (unit and integration)
+.PHONY: test
+test:
+	@if [ "$(filter unit,$(MAKECMDGOALS))" = "unit" ]; then \
+	$(MAKE) test-unit; \
+	elif [ "$(filter integration,$(MAKECMDGOALS))" = "integration" ]; then \
+	$(MAKE) test-integration; \
+	else \
+	$(MAKE) test-all; \
+	fi
+
+# Dummy targets to allow `make test unit` and `make test integration`
+.PHONY: unit integration
+unit integration:
+	@true
+
+# Run all unit and integration tests
 .PHONY: test-all
-test-all: test test-integration
-	@/bin/echo -e "\033[0;32mAll tests completed successfully\033[0m"
+test-all: build-docker ensure-scripts-executable start-sandbox
+	@echo "Running all unit and integration tests${CONTRACT:+ for $(CONTRACT)}..."
+	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
+	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh all $(CONTRACT) > /code/test-all.log 2>&1 && exit 0 || { cat /code/test-all.log; echo -e '\033[0;31mTests failed\033[0m'; exit 1; }" ; \
+	TEST_STATUS=$$?; \
+	if [ $$TEST_STATUS -ne 0 ]; then \
+	/bin/echo -e "\033[0;31mTests failed, see test-all.log for details\033[0m"; \
+	$(MAKE) stop-sandbox; \
+	exit $$TEST_STATUS; \
+	else \
+	/bin/echo -e "\033[0;32mAll tests completed successfully\033[0m"; \
+	/bin/echo "Stopping sandbox..."; \
+	$(MAKE) stop-sandbox; \
+	fi
 
 # Inspect contract state
 .PHONY: inspect-state
@@ -145,7 +173,7 @@ logs-sandbox:
 verify-contract: build-docker ensure-scripts-executable validate-contract
 	@echo "Verifying contract $(CONTRACT)..."
 	@docker run -v $(CODE_DIR):/code --network host --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh verify $(CONTRACT)"
-	@/bin/echo -e "\033[0;31mContract $(CONTRACT) verified successfully\033[0m"
+	@/bin/echo -e "\033[0;32mContract $(CONTRACT) verified successfully\033[0m"
 
 # Clean all artifacts and sandbox data
 .PHONY: clean-all
@@ -199,35 +227,22 @@ abi: build-docker ensure-scripts-executable
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/abi.sh"
 	@/bin/echo -e "\033[0;32mABIs generated successfully\033[0m"
 
-# Run unit tests for all contracts
-.PHONY: test
-test: build-docker ensure-scripts-executable
-	@echo "Running unit tests..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit" || { /bin/echo -e "\033[0;31mUnit tests failed\033[0m"; exit 1; }
-	@/bin/echo -e "\033[0;32mUnit tests completed successfully\033[0m"
-
-# Run unit tests for a specific contract
+# Run unit tests for all or specific contract
 .PHONY: test-unit
-test-unit: build-docker ensure-scripts-executable validate-contract
-	@echo "Running unit tests for $(CONTRACT)..."
+test-unit: build-docker ensure-scripts-executable
+	@echo "Running unit tests${CONTRACT:+ for $(CONTRACT)}..."
+	@if [ -n "$(CONTRACT)" ]; then $(MAKE) validate-contract; fi
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit $(CONTRACT)"
 	@/bin/echo -e "\033[0;32mUnit tests completed successfully\033[0m"
 
 # Run integration tests for a specific contract or all
 .PHONY: test-integration
 test-integration: build-docker ensure-scripts-executable start-sandbox
-	@echo "Running integration tests for $(CONTRACT)..."
 	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT) && exit 0 || { echo -e '\033[0;31mIntegration tests failed\033[0m'; exit 1; }" ; \
+	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT)" ; \
 	TEST_STATUS=$$?; \
-	/bin/echo "Stopping sandbox..."; \
 	$(MAKE) stop-sandbox; \
-	if [ $$TEST_STATUS -ne 0 ]; then \
-	/bin/echo -e "\033[0;31mIntegration tests failed\033[0m"; \
-	exit $$TEST_STATUS; \
-	else \
-	/bin/echo -e "\033[0;32mIntegration tests completed successfully\033[0m"; \
-	fi
+	exit $$TEST_STATUS
 
 # Deploy a contract
 .PHONY: deploy
@@ -268,11 +283,38 @@ init-sandbox:
 .PHONY: start-sandbox
 start-sandbox:
 	@echo "Starting NEAR Sandbox..."
-	@$(MAKE) stop-sandbox
-	@docker run -d --cap-add=SYS_ADMIN -p $(NEAR_SANDBOX_PORT):3030 --name near-sandbox -v $(CODE_DIR)/near-data:/tmp/near-sandbox -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "near-sandbox --home /tmp/near-sandbox init && near-sandbox --home /tmp/near-sandbox run"
-	@sleep 5
-	@if ! docker ps | grep near-sandbox > /dev/null; then /bin/echo -e "\033[0;31mError: Sandbox failed to start\033[0m"; docker logs near-sandbox; exit 1; fi
-	@curl -s http://localhost:3030/status > /dev/null && /bin/echo -e "\033[0;32mSandbox started successfully\033[0m" || (/bin/echo -e "\033[0;31mError: Sandbox not responding\033[0m"; docker logs near-sandbox; exit 1)
+	@if ! docker ps | grep near-sandbox > /dev/null; then \
+	$(MAKE) stop-sandbox; \
+	if [ ! -d "$(CODE_DIR)/near-data" ]; then \
+	$(MAKE) init-sandbox; \
+	fi; \
+	if lsof -i :3030 | grep LISTEN > /dev/null; then \
+	/bin/echo -e "\033[0;31mError: Port 3030 is in use\033[0m"; \
+	lsof -i :3030; \
+	exit 1; \
+	fi; \
+	docker run -d --cap-add=SYS_ADMIN -p $(NEAR_SANDBOX_PORT):3030 --name near-sandbox -v $(CODE_DIR)/near-data:/tmp/near-sandbox -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "near-sandbox --home /tmp/near-sandbox run"; \
+	for i in {1..30}; do \
+	if curl -s http://localhost:3030/status > /dev/null; then \
+	/bin/echo -e "\033[0;32mSandbox started successfully\033[0m"; \
+	break; \
+	fi; \
+	/bin/echo "Waiting for sandbox..."; \
+	sleep 2; \
+	done; \
+	if ! docker ps | grep near-sandbox > /dev/null; then \
+	/bin/echo -e "\033[0;31mError: Sandbox failed to start\033[0m"; \
+	docker logs near-sandbox; \
+	exit 1; \
+	fi; \
+	if ! curl -s http://localhost:3030/status > /dev/null; then \
+	/bin/echo -e "\033[0;31mError: Sandbox not responding\033[0m"; \
+	docker logs near-sandbox; \
+	exit 1; \
+	fi; \
+	else \
+	/bin/echo -e "\033[0;32mSandbox already running\033[0m"; \
+	fi
 
 # Stop NEAR Sandbox
 .PHONY: stop-sandbox
@@ -316,7 +358,10 @@ help:
 	@echo "  check                Check workspace syntax"
 	@echo "  audit                Audit dependencies for vulnerabilities"
 	@echo "  test-coverage        Generate test coverage report (CONTRACT=contract-name)"
-	@echo "  test-all             Run all unit and integration tests"
+	@echo "  test                 Run all unit and integration tests"
+	@echo "  test-all             Run all unit and integration tests (optionally for CONTRACT=contract-name)"
+	@echo "  test-unit            Run unit tests for all or specific contract (CONTRACT=contract-name)"
+	@echo "  test-integration     Run integration tests for all or specific contract (CONTRACT=contract-name)"
 	@echo "  inspect-state        Inspect contract state (CONTRACT_ID=id, METHOD=method, ARGS=args)"
 	@echo "  logs-sandbox         Display NEAR Sandbox logs"
 	@echo "  verify-contract      Verify a specific contract (CONTRACT=contract-name)"
@@ -326,9 +371,6 @@ help:
 	@echo "  build-contract       Build a specific contract (CONTRACT=contract-name)"
 	@echo "  build-reproducible   Build reproducible WASM for mainnet"
 	@echo "  abi                  Generate ABIs"
-	@echo "  test                 Run unit tests for all contracts"
-	@echo "  test-unit            Run unit tests for a specific contract (CONTRACT=contract-name)"
-	@echo "  test-integration     Run integration tests for a specific contract or all (CONTRACT=contract-name)"
 	@echo "  deploy               Deploy a contract (CONTRACT=contract-name, NETWORK=network)"
 	@echo "  deploy-init          Initialize a deployed contract"
 	@echo "  deploy-reproducible  Deploy with reproducible WASM"
@@ -363,15 +405,19 @@ help:
 	@echo "  make lint"
 	@echo "  make check"
 	@echo "  make audit"
-	@echo "  make test-coverage CONTRACT=auth-onsocial"
+	@echo "  make test"
+	@echo "  make test-unit"
+	@echo "  make test-unit CONTRACT=auth-onsocial"
+	@echo "  make test-integration"
+	@echo "  make test-integration CONTRACT=ft-wrapper-onsocial"
 	@echo "  make test-all"
+	@echo "  make test-all CONTRACT=relayer-onsocial"
+	@echo "  make test-coverage CONTRACT=auth-onsocial"
 	@echo "  make inspect-state CONTRACT_ID=auth.sandbox METHOD=get_keys ARGS='{\"account_id\": \"test.near\"}'"
 	@echo "  make logs-sandbox"
 	@echo "  make verify-contract CONTRACT=auth-onsocial"
 	@echo "  make clean-all"
 	@echo "  make check-deps"
-	@echo "  make test-unit CONTRACT=auth-onsocial"
-	@echo "  make test-integration CONTRACT=ft-wrapper-onsocial"
 	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=sandbox"
 	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=testnet"
 	@echo "  make deploy-dry-run CONTRACT=auth-onsocial NETWORK=mainnet"

@@ -24,7 +24,7 @@ RUN rustup update stable \
     && rustup default stable \
     && rustup target add wasm32-unknown-unknown \
     && rustup component add rustfmt clippy \
-    && cargo install cargo-tarpaulin cargo-edit cargo-audit cargo-tree cargo-near \
+    && cargo install cargo-tarpaulin cargo-edit cargo-audit cargo-tree cargo-near cargo-nextest \
     && rustc --version \
     && cargo --version
 
