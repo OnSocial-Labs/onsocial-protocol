@@ -41,6 +41,7 @@ base64 = "0.22.1"  # Used by: relayer-onsocial
 near-workspaces = "0.19.0"  # Used by: tests
 tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }  # Used by: tests
 anyhow = "1.0"  # Used by: tests
+semver = "1.0.26"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, tests
 
 [profile.release]
 opt-level = "z"
