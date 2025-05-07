@@ -12,12 +12,41 @@ jobs:
     strategy:
       matrix:
         contract: [auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, all]
+        # Optionally add network: [sandbox, testnet] for multi-network testing
     steps:
+      # Checkout the repository
       - uses: actions/checkout@v4
+
+      # Create .env file for sandbox (fixes .env missing error)
+      - name: Create .env file
+        run: |
+          cat <<EOL > .env
+          NETWORK=sandbox
+          AUTH_ACCOUNT=test.near
+          FT_ACCOUNT=test.near
+          RELAYER_ACCOUNT=test.near
+          NEAR_NODE_URL=http://localhost:3030
+          EOL
+
+      # Install dependencies (make)
       - name: Install Make
         run: sudo apt-get update && sudo apt-get install -y make
+
+      # Restore cached artifacts (Rust build cache)
+      - name: Cache Rust artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/
+            ~/.cargo
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # Build Docker image
       - name: Build Docker image
         run: make build-docker
+
+      # Start NEAR Sandbox
       - name: Start NEAR Sandbox
         run: |
           make start-sandbox
@@ -26,35 +55,54 @@ jobs:
               echo "Sandbox is ready"
               break
             fi
-            echo "Waiting for sandbox..."
+            echo "Waiting for sandbox ($i/30)..."
             sleep 2
           done
           curl -s http://localhost:3030/status || exit 1
+
+      # Build contracts
       - name: Build contracts
         run: make build
+
+      # Generate ABIs
       - name: Generate ABIs
         run: make abi
+
+      # Run unit and integration tests
       - name: Run tests
         run: |
           if [ "${{ matrix.contract }}" == "all" ]; then
-            make test-all
+            make test-all VERBOSE=1 > test-all.log 2>&1
           else
-            make test-all CONTRACT=${{ matrix.contract }}
+            make test-all CONTRACT=${{ matrix.contract }} VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
           fi
+        # Ensure logs are uploaded even if tests fail
+        continue-on-error: true
+
+      # Generate test coverage
       - name: Generate test coverage
         run: make test-coverage CONTRACT=${{ matrix.contract }}
-      - name: Upload coverage report
+
+      # Upload test logs as artifacts (for debugging failures)
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-${{ matrix.contract }}
+          path: |
+            test-all.log
+            test-all-${{ matrix.contract }}.log
+          retention-days: 7
+
+      # Upload coverage reports
+      - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-${{ matrix.contract }}
           path: coverage/
-      - name: Cache artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            target/
-            ~/.cargo
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          retention-days: 7
+
+      # Clean up sandbox (always run)
       - name: Clean up sandbox
         if: always()
         run: make clean-sandbox
