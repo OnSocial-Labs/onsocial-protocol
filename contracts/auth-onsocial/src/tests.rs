@@ -1,8 +1,9 @@
+use crate::state::StorageKey;
 #[cfg(test)]
 use crate::{
     errors::AuthError,
     state::AuthContractState,
-    state_versions::{StateV010, StateV011},
+    state_versions::StateV010,
     types::{KeyInfo, RotateKeyArgs},
     AuthContract,
 };
@@ -130,7 +131,7 @@ fn test_rotate_key_unauthorized() {
         &caller,
         RotateKeyArgs {
             account_id: account_id.clone(),
-            old_public_key: old_pk, // Fixed: Changed `old_pbk` to `old_pk`
+            old_public_key: old_pk,
             new_public_key: new_pk,
             expiration_days: None,
             is_multi_sig: false,
@@ -231,7 +232,7 @@ fn test_set_manager_unauthorized() {
 }
 
 #[test]
-fn test_migration_from_010_to_011() {
+fn test_migration_from_010() {
     let manager = accounts(0);
     let account_id = accounts(1);
     let pk: PublicKey = "ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU"
@@ -268,8 +269,9 @@ fn test_migration_from_010_to_011() {
     let new_contract = AuthContract::migrate();
 
     assert_eq!(
-        new_contract.state.version, "0.1.1",
-        "Version should be 0.1.1"
+        new_contract.state.version,
+        env!("CARGO_PKG_VERSION"),
+        "Version should match Cargo.toml"
     );
     assert_eq!(
         new_contract.state.manager, manager,
@@ -291,13 +293,96 @@ fn test_migration_from_010_to_011() {
     let logs = get_logs();
     assert!(
         logs.contains(&"Migrating from state version 0.1.0".to_string()),
-        "Expected migration log"
+        "Expected migration log, got: {:?}",
+        logs
     );
-    assert!(logs.contains(&"EVENT_JSON:{\"standard\":\"nep297\",\"version\":\"1.0.0\",\"event\":\"state_migrated\",\"data\":{\"old_version\":\"0.1.0\",\"new_version\":\"0.1.1\"}}".to_string()), "Expected state_migrated event");
+    assert!(
+        logs.contains(&format!(
+            "EVENT_JSON:{{\"standard\":\"nep297\",\"version\":\"1.0.0\",\"event\":\"state_migrated\",\"data\":{{\"old_version\":\"0.1.0\",\"new_version\":\"{}\"}}}}",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "Expected state_migrated event, got: {:?}", logs
+    );
 }
 
 #[test]
-fn test_migration_from_011_to_011() {
+fn test_migration_no_prior_state() {
+    let manager = accounts(0);
+    let context = setup_context(&manager);
+    testing_env!(context.build());
+
+    let new_contract = AuthContract::migrate();
+
+    assert_eq!(
+        new_contract.state.version,
+        env!("CARGO_PKG_VERSION"),
+        "Version should match Cargo.toml"
+    );
+    assert_eq!(
+        new_contract.state.manager, manager,
+        "Manager should be current account"
+    );
+    assert_eq!(
+        new_contract.state.registered_accounts.len(),
+        0,
+        "No accounts should exist"
+    );
+    assert_eq!(
+        new_contract.state.max_keys_per_account, 100,
+        "Max keys should be initialized"
+    );
+
+    let logs = get_logs();
+    assert!(
+        logs.contains(
+            &"No valid prior state found or unknown version, initializing new state".to_string()
+        ),
+        "Expected no prior state log, got: {:?}",
+        logs
+    );
+}
+
+#[test]
+fn test_migration_corrupted_state() {
+    let manager = accounts(0);
+    let context = setup_context(&manager);
+    testing_env!(context.build());
+
+    env::state_write(&vec![0u8; 10]);
+
+    let new_contract = AuthContract::migrate();
+
+    assert_eq!(
+        new_contract.state.version,
+        env!("CARGO_PKG_VERSION"),
+        "Version should match Cargo.toml"
+    );
+    assert_eq!(
+        new_contract.state.manager, manager,
+        "Manager should be current account"
+    );
+    assert_eq!(
+        new_contract.state.registered_accounts.len(),
+        0,
+        "No accounts should exist"
+    );
+    assert_eq!(
+        new_contract.state.max_keys_per_account, 100,
+        "Max keys should be initialized"
+    );
+
+    let logs = get_logs();
+    assert!(
+        logs.contains(
+            &"No valid prior state found or unknown version, initializing new state".to_string()
+        ),
+        "Expected no prior state log, got: {:?}",
+        logs
+    );
+}
+
+#[test]
+fn test_migration_current_version_no_op() {
     let manager = accounts(0);
     let account_id = accounts(1);
     let pk: PublicKey = "ed25519:6E8sCci9badyRkbrr2TV5CC3oKTo7Znny8mG5k415kZU"
@@ -306,37 +391,37 @@ fn test_migration_from_011_to_011() {
     let context = setup_context(&manager);
     testing_env!(context.build());
 
-    let mut state_v011 = StateV011 {
-        version: "0.1.1".to_string(),
-        keys: LookupMap::new(b"k".to_vec()),
-        last_active_timestamps: LookupMap::new(b"t".to_vec()),
-        registered_accounts: Vector::new(b"a".to_vec()),
+    let mut state = AuthContractState {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        keys: LookupMap::new(StorageKey::Keys),
+        last_active_timestamps: LookupMap::new(StorageKey::LastActive),
+        registered_accounts: Vector::new(StorageKey::Accounts),
         manager: manager.clone(),
         max_keys_per_account: 50,
     };
-    let mut key_set = IterableSet::new(b"s".to_vec());
+    let mut key_set = IterableSet::new(StorageKey::KeySet {
+        account_id: account_id.clone(),
+    });
     key_set.insert(KeyInfo {
         public_key: pk.clone(),
         expiration_timestamp: None,
         is_multi_sig: false,
         multi_sig_threshold: None,
     });
-    key_set.flush();
-    state_v011.keys.insert(account_id.clone(), key_set);
-    state_v011.keys.flush();
-    state_v011.registered_accounts.push(account_id.clone());
-    state_v011.registered_accounts.flush();
-    state_v011
-        .last_active_timestamps
-        .insert(account_id.clone(), 0);
-    let state_bytes = borsh::to_vec(&state_v011).expect("Failed to serialize state");
+    key_set.flush(); // Added to ensure IterableSet is persisted
+    state.keys.insert(account_id.clone(), key_set);
+    state.keys.flush();
+    state.registered_accounts.push(account_id.clone());
+    state.last_active_timestamps.insert(account_id.clone(), 0);
+    let state_bytes = borsh::to_vec(&state).expect("Failed to serialize state");
     env::state_write(&state_bytes);
 
     let new_contract = AuthContract::migrate();
 
     assert_eq!(
-        new_contract.state.version, "0.1.1",
-        "Version should be 0.1.1"
+        new_contract.state.version,
+        env!("CARGO_PKG_VERSION"),
+        "Version should match Cargo.toml"
     );
     assert_eq!(
         new_contract.state.manager, manager,
@@ -357,75 +442,13 @@ fn test_migration_from_011_to_011() {
 
     let logs = get_logs();
     assert!(
-        logs.contains(&"State is already at latest version".to_string()),
-        "Expected latest version log"
+        logs.contains(&"State is at current or newer version, no migration needed".to_string()),
+        "Expected no-migration log, got: {:?}",
+        logs
     );
-}
-
-#[test]
-fn test_migration_no_prior_state() {
-    let manager = accounts(0);
-    let context = setup_context(&manager);
-    testing_env!(context.build());
-
-    let new_contract = AuthContract::migrate();
-
-    assert_eq!(
-        new_contract.state.version, "0.1.1",
-        "Version should be 0.1.1"
-    );
-    assert_eq!(
-        new_contract.state.manager, manager,
-        "Manager should be current account"
-    );
-    assert_eq!(
-        new_contract.state.registered_accounts.len(),
-        0,
-        "No accounts should exist"
-    );
-    assert_eq!(
-        new_contract.state.max_keys_per_account, 100,
-        "Max keys should be initialized"
-    );
-
-    let logs = get_logs();
     assert!(
-        logs.contains(&"No valid prior state found, initializing new state".to_string()),
-        "Expected no prior state log"
-    );
-}
-
-#[test]
-fn test_migration_corrupted_state() {
-    let manager = accounts(0);
-    let context = setup_context(&manager);
-    testing_env!(context.build());
-
-    env::state_write(&vec![0u8; 10]);
-
-    let new_contract = AuthContract::migrate();
-
-    assert_eq!(
-        new_contract.state.version, "0.1.1",
-        "Version should be 0.1.1"
-    );
-    assert_eq!(
-        new_contract.state.manager, manager,
-        "Manager should be current account"
-    );
-    assert_eq!(
-        new_contract.state.registered_accounts.len(),
-        0,
-        "No accounts should exist"
-    );
-    assert_eq!(
-        new_contract.state.max_keys_per_account, 100,
-        "Max keys should be initialized"
-    );
-
-    let logs = get_logs();
-    assert!(
-        logs.contains(&"No valid prior state found, initializing new state".to_string()),
-        "Expected no prior state log"
+        !logs.iter().any(|log| log.contains("state_migrated")),
+        "Unexpected state_migrated event, got: {:?}",
+        logs
     );
 }

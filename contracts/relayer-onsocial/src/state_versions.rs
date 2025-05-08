@@ -1,8 +1,8 @@
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
+use crate::state::PendingTransfer;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::{LazyOption, LookupMap};
 use near_sdk::AccountId;
 use near_sdk_macros::NearSchema;
-use crate::state::PendingTransfer;
 
 // State for version 0.1.0
 #[derive(BorshSerialize, BorshDeserialize, NearSchema)]

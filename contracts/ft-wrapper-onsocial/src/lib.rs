@@ -54,79 +54,8 @@ impl FtWrapperContract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        use near_sdk::borsh;
-        use state_versions::{StateV010, StateV011};
-
-        const CURRENT_VERSION: &str = "0.1.1";
-
-        // Read raw state bytes, default to empty if none
-        let state_bytes: Vec<u8> = env::state_read().unwrap_or_default();
-
-        // Try current version (0.1.1)
-        if let Ok(state) = borsh::from_slice::<FtWrapperContractState>(&state_bytes) {
-            if state.version == CURRENT_VERSION {
-                env::log_str("State is already at latest version");
-                return Self { state };
-            }
-        }
-
-        // Try version 0.1.1
-        if let Ok(old_state) = borsh::from_slice::<StateV011>(&state_bytes) {
-            if old_state.version == "0.1.1" {
-                env::log_str("Migrating from state version 0.1.1");
-                let new_state = FtWrapperContractState {
-                    version: CURRENT_VERSION.to_string(),
-                    manager: old_state.manager,
-                    relayer_contract: old_state.relayer_contract,
-                    supported_tokens: old_state.supported_tokens,
-                    storage_deposit: old_state.storage_deposit,
-                    cross_contract_gas: old_state.cross_contract_gas,
-                    storage_balances: old_state.storage_balances,
-                    min_balance: old_state.min_balance,
-                    max_balance: old_state.max_balance,
-                    fee_percentage: old_state.fee_percentage,
-                };
-                FtWrapperEvent::StateMigrated {
-                    old_version: "0.1.1".to_string(),
-                    new_version: CURRENT_VERSION.to_string(),
-                }
-                .emit();
-                return Self { state: new_state };
-            }
-        }
-
-        // Try version 0.1.0
-        if let Ok(old_state) = borsh::from_slice::<StateV010>(&state_bytes) {
-            if old_state.version == "0.1.0" {
-                env::log_str("Migrating from state version 0.1.0");
-                let new_state = FtWrapperContractState {
-                    version: CURRENT_VERSION.to_string(),
-                    manager: old_state.manager,
-                    relayer_contract: old_state.relayer_contract,
-                    supported_tokens: old_state.supported_tokens,
-                    storage_deposit: old_state.storage_deposit,
-                    cross_contract_gas: old_state.cross_contract_gas,
-                    storage_balances: old_state.storage_balances,
-                    min_balance: old_state.min_balance,
-                    max_balance: old_state.max_balance,
-                    fee_percentage: 0,
-                };
-                FtWrapperEvent::StateMigrated {
-                    old_version: "0.1.0".to_string(),
-                    new_version: CURRENT_VERSION.to_string(),
-                }
-                .emit();
-                return Self { state: new_state };
-            }
-        }
-
-        env::log_str("No valid prior state found, initializing new state");
         Self {
-            state: FtWrapperContractState::new(
-                env::current_account_id(),
-                env::current_account_id(),
-                U128(1_250_000_000_000_000_000_000),
-            ),
+            state: FtWrapperContractState::migrate(),
         }
     }
 

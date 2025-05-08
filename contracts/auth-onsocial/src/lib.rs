@@ -1,7 +1,5 @@
 use crate::errors::AuthError;
-use crate::events::AuthEvent;
 use crate::state::AuthContractState;
-use crate::state_versions::{StateV010, StateV011};
 use crate::types::{KeyInfo, RotateKeyArgs};
 use near_sdk::{env, near, AccountId, PanicOnDefault, Promise, PublicKey};
 
@@ -108,63 +106,8 @@ impl AuthContract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        const CURRENT_VERSION: &str = "0.1.1";
-
-        let state_bytes: Vec<u8> = env::state_read().unwrap_or_default();
-
-        // Try current version (0.1.1)
-        if let Ok(state) = near_sdk::borsh::from_slice::<AuthContractState>(&state_bytes) {
-            if state.version == CURRENT_VERSION {
-                env::log_str("State is already at latest version");
-                return Self { state };
-            }
-        }
-
-        // Try version 0.1.1
-        if let Ok(old_state) = near_sdk::borsh::from_slice::<StateV011>(&state_bytes) {
-            if old_state.version == "0.1.1" {
-                env::log_str("Migrating from state version 0.1.1");
-                let new_state = AuthContractState {
-                    version: CURRENT_VERSION.to_string(),
-                    keys: old_state.keys,
-                    last_active_timestamps: old_state.last_active_timestamps,
-                    registered_accounts: old_state.registered_accounts,
-                    manager: old_state.manager,
-                    max_keys_per_account: old_state.max_keys_per_account,
-                };
-                AuthEvent::StateMigrated {
-                    old_version: "0.1.1".to_string(),
-                    new_version: CURRENT_VERSION.to_string(),
-                }
-                .emit();
-                return Self { state: new_state };
-            }
-        }
-
-        // Try version 0.1.0
-        if let Ok(old_state) = near_sdk::borsh::from_slice::<StateV010>(&state_bytes) {
-            if old_state.version == "0.1.0" {
-                env::log_str("Migrating from state version 0.1.0");
-                let new_state = AuthContractState {
-                    version: CURRENT_VERSION.to_string(),
-                    keys: old_state.keys,
-                    last_active_timestamps: old_state.last_active_timestamps,
-                    registered_accounts: old_state.registered_accounts,
-                    manager: old_state.manager,
-                    max_keys_per_account: 100, // Default value
-                };
-                AuthEvent::StateMigrated {
-                    old_version: "0.1.0".to_string(),
-                    new_version: CURRENT_VERSION.to_string(),
-                }
-                .emit();
-                return Self { state: new_state };
-            }
-        }
-
-        env::log_str("No valid prior state found, initializing new state");
         Self {
-            state: AuthContractState::new(),
+            state: AuthContractState::migrate(),
         }
     }
 }

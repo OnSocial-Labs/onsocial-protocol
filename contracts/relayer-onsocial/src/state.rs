@@ -1,10 +1,10 @@
-use near_sdk::{AccountId, env};
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::store::{LazyOption, LookupMap};
-use near_sdk_macros::NearSchema;
-use crate::state_versions::StateV010;
 use crate::events::RelayerEvent;
+use crate::state_versions::StateV010;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
+use near_sdk::store::{LazyOption, LookupMap};
+use near_sdk::{env, AccountId};
+use near_sdk_macros::NearSchema;
 use semver::Version;
 
 #[derive(BorshDeserialize, BorshSerialize, NearSchema)]
@@ -65,7 +65,10 @@ impl Relayer {
             offload_recipient,
             auth_contract,
             ft_wrapper_contract,
-            omni_locker_contract: LazyOption::new(b"omni_locker".to_vec(), Some(env::current_account_id())),
+            omni_locker_contract: LazyOption::new(
+                b"omni_locker".to_vec(),
+                Some(env::current_account_id()),
+            ),
             chain_mpc_mapping: LookupMap::new(b"chain_mpc".to_vec()),
             sponsor_amount: 10_000_000_000_000_000_000_000,
             sponsor_gas: 100_000_000_000_000,
@@ -90,14 +93,17 @@ impl Relayer {
 
     pub fn add_pending_transfer(&mut self, args: PendingTransferArgs) {
         let key = format!("{}-{}", args.chain, args.nonce);
-        self.pending_transfers.insert(key, PendingTransfer {
-            nonce: args.nonce,
-            sender_id: args.sender_id,
-            token: args.token,
-            amount: args.amount,
-            recipient: args.recipient,
-            fee: args.fee,
-        });
+        self.pending_transfers.insert(
+            key,
+            PendingTransfer {
+                nonce: args.nonce,
+                sender_id: args.sender_id,
+                token: args.token,
+                amount: args.amount,
+                recipient: args.recipient,
+                fee: args.fee,
+            },
+        );
     }
 
     pub fn confirm_pending_transfer(&mut self, chain: &str, nonce: u64) {
@@ -116,7 +122,8 @@ impl Relayer {
 
     pub fn migrate() -> Self {
         const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
-        let current_version = Version::parse(CURRENT_VERSION).expect("Invalid current version in Cargo.toml");
+        let current_version =
+            Version::parse(CURRENT_VERSION).expect("Invalid current version in Cargo.toml");
 
         let state_bytes: Vec<u8> = env::state_read().unwrap_or_default();
 
@@ -134,7 +141,10 @@ impl Relayer {
         if let Ok(old_state) = borsh::from_slice::<StateV010>(&state_bytes) {
             if let Ok(old_version) = Version::parse(&old_state.version) {
                 if old_version <= Version::parse("0.1.0").unwrap() {
-                    env::log_str(&format!("Migrating from state version {}", old_state.version));
+                    env::log_str(&format!(
+                        "Migrating from state version {}",
+                        old_state.version
+                    ));
                     let new_state = Relayer {
                         version: CURRENT_VERSION.to_string(),
                         manager: old_state.manager,
@@ -157,7 +167,8 @@ impl Relayer {
                     RelayerEvent::StateMigrated {
                         old_version: old_state.version,
                         new_version: CURRENT_VERSION.to_string(),
-                    }.emit();
+                    }
+                    .emit();
                     return new_state;
                 }
             }

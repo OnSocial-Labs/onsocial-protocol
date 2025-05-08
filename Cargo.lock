@@ -107,6 +107,7 @@ dependencies = [
  "borsh",
  "near-sdk",
  "near-sdk-macros",
+ "semver",
  "serde",
 ]
 
@@ -802,6 +803,7 @@ dependencies = [
  "borsh",
  "near-sdk",
  "near-sdk-macros",
+ "semver",
  "serde",
 ]
 
