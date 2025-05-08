@@ -1,4 +1,4 @@
-[![Build Status](https://github.com/OnSocial-Labs/onsocial-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-contracts/actions)
+[![Build Status](https://github.com/OnSocial-Labs/onsocial/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.builder)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
@@ -12,8 +12,8 @@ This monorepo contains all core smart contracts, managed and deployed using Dock
 ## Quickstart
 
 ```bash
-git clone https://github.com/OnSocial-Labs/onsocial-contracts.git
-cd onsocial-contracts
+git clone https://github.com/OnSocial-Labs/onsocial.git
+cd onsocial
 make build           # Build all contracts
 make test            # Run all unit and integration tests
 make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near

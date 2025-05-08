@@ -2,7 +2,7 @@
 name = "ft-wrapper-onsocial"
 version = "0.1.0"
 edition = "2021"
-repository = "https://github.com/OnSocial-Labs/onsocial-contracts"
+repository = "https://github.com/OnSocial-Labs/onsocial"
 
 [lib]
 crate-type = ["cdylib"]
