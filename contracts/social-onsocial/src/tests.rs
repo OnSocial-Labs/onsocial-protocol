@@ -5,9 +5,7 @@ use super::*;
 
 fn setup_contract() -> (VMContextBuilder, SocialOnsocial) {
     let mut context = VMContextBuilder::new();
-    testing_env!(context
-        .predecessor_account_id(accounts(0))
-        .build());
+    testing_env!(context.predecessor_account_id(accounts(0)).build());
     let contract = SocialOnsocial::new(accounts(0));
     (context, contract)
 }

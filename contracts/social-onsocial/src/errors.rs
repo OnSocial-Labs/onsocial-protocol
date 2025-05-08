@@ -1,4 +1,4 @@
-use near_sdk::borsh::{BorshSerialize, BorshDeserialize};
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::{env, FunctionError};
 
 #[derive(Debug, PartialEq, BorshSerialize, BorshDeserialize)]

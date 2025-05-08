@@ -1,4 +1,4 @@
-use near_sdk::{near, PanicOnDefault, env, Promise, NearToken, Gas, AccountId};
+use near_sdk::{env, near, AccountId, Gas, NearToken, PanicOnDefault, Promise};
 
 mod errors;
 mod events;
@@ -36,7 +36,9 @@ impl MarketplaceOnsocial {
         if !self.state.is_manager(&caller) {
             return Err(errors::MarketplaceError::Unauthorized);
         }
-        let code = env::input().ok_or(errors::MarketplaceError::MissingInput)?.to_vec();
+        let code = env::input()
+            .ok_or(errors::MarketplaceError::MissingInput)?
+            .to_vec();
         events::MarketplaceEvent::ContractUpgraded {
             manager: caller.clone(),
             timestamp: env::block_timestamp_ms(),
