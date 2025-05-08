@@ -1451,6 +1451,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "marketplace-onsocial"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "near-sdk",
+ "near-sdk-macros",
+ "serde",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1865,8 +1875,7 @@ checksum = "d191936f902770069255b16c95d1fb8edd6f3c3817c9228933a20ec8466737a3"
 [[package]]
 name = "near-sdk"
 version = "5.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad9bb847fb4458b00b64e28c4a7adac5d0658603d988c4b4d12eb18104767b80"
+source = "git+https://github.com/near/near-sdk-rs?branch=master#4e453178d1c640137665147ed82b5c400393d120"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -1890,8 +1899,7 @@ dependencies = [
 [[package]]
 name = "near-sdk-macros"
 version = "5.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0562cf707a41f2f71976f2baa48989369175a96e75b65a4297c815f49327bde"
+source = "git+https://github.com/near/near-sdk-rs?branch=master#4e453178d1c640137665147ed82b5c400393d120"
 dependencies = [
  "Inflector",
  "darling",
@@ -1919,8 +1927,7 @@ checksum = "f292226fd8f4c7c21cf6b1da1c17e9b484ebc1b9aeb4251d69336d28b7917ace"
 [[package]]
 name = "near-sys"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ee6acd2229cde1f13daabca434022900ab371d2c19de6be6a5a0497dc942ef7"
+source = "git+https://github.com/near/near-sdk-rs?branch=master#4e453178d1c640137665147ed82b5c400393d120"
 
 [[package]]
 name = "near-time"
@@ -2923,6 +2930,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "social-onsocial"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "near-sdk",
+ "near-sdk-macros",
+ "serde",
+]
+
+[[package]]
 name = "socket2"
 version = "0.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2953,6 +2970,16 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
+name = "staking-onsocial"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "near-sdk",
+ "near-sdk-macros",
+ "serde",
+]
 
 [[package]]
 name = "static_assertions"

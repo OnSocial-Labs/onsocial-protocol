@@ -1,20 +1,38 @@
 [
     {
-      "name": "auth-onsocial",
-      "id": "auth.$NETWORK",
-      "account": "${AUTH_ACCOUNT}",
-      "init": "new '{}'"
+        "name": "auth-onsocial",
+        "id": "auth.$NETWORK",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{}'"
     },
     {
-      "name": "ft-wrapper-onsocial",
-      "id": "ft-wrapper.$NETWORK",
-      "account": "${FT_ACCOUNT}",
-      "init": "new '{\"manager\": \"${AUTH_ACCOUNT}\", \"relayer_contract\": \"relayer.$NETWORK\", \"storage_deposit\": \"1250000000000000000000\"}'"
+        "name": "ft-wrapper-onsocial",
+        "id": "ft-wrapper.$NETWORK",
+        "account": "${FT_ACCOUNT}",
+        "init": "new '{\"manager\": \"${AUTH_ACCOUNT}\", \"relayer_contract\": \"relayer.$NETWORK\", \"storage_deposit\": \"1250000000000000000000\"}'"
     },
     {
-      "name": "relayer-onsocial",
-      "id": "relayer.$NETWORK",
-      "account": "${RELAYER_ACCOUNT}",
-      "init": "new '{\"offload_recipient\": \"${AUTH_ACCOUNT}\", \"auth_contract\": \"auth.$NETWORK\", \"ft_wrapper_contract\": \"ft-wrapper.$NETWORK\"}'"
+        "name": "relayer-onsocial",
+        "id": "relayer.$NETWORK",
+        "account": "${RELAYER_ACCOUNT}",
+        "init": "new '{\"offload_recipient\": \"${AUTH_ACCOUNT}\", \"auth_contract\": \"auth.$NETWORK\", \"ft_wrapper_contract\": \"ft-wrapper.$NETWORK\"}'"
+    },
+    {
+        "name": "marketplace-onsocial",
+        "id": "marketplace.$NETWORK",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{}'"
+    },
+    {
+        "name": "staking-onsocial",
+        "id": "staking.$NETWORK",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{}'"
+    },
+    {
+        "name": "social-onsocial",
+        "id": "social.$NETWORK",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{}'"
     }
-  ]
+]

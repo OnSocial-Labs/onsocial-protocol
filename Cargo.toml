@@ -1,15 +1,18 @@
-# OnSocial Contracts Monorepo - Workspace Cargo.toml
+# OnSocial Protocol - Workspace Cargo.toml
 #
 # This file centralizes all dependency versions for the monorepo. Each contract
-# (auth-onsocial, ft-wrapper-onsocial, relayer-onsocial) and the tests crate
-# reference only the dependencies they need using `workspace = true` in their
-# Cargo.toml.
+# (auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, marketplace-onsocial,
+# staking-onsocial, social-onsocial) and the tests crate reference only the
+# dependencies they need using `workspace = true` in their Cargo.toml.
 #
 # Dependency Usage:
 # - auth-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - ft-wrapper-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - relayer-onsocial: near-sdk, near-sdk-macros, borsh, serde, near-crypto,
 #                     ed25519-dalek, getrandom, hex, base64
+# - marketplace-onsocial: near-sdk, near-sdk-macros, borsh, serde
+# - staking-onsocial: near-sdk, near-sdk-macros, borsh, serde
+# - social-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - tests: near-sdk, near-workspaces, near-crypto, tokio, anyhow, serde_json
 #
 # Note: near-sdk with `unit-testing` feature is used in [dev-dependencies] for
@@ -23,25 +26,28 @@ members = [
     "contracts/auth-onsocial",
     "contracts/ft-wrapper-onsocial",
     "contracts/relayer-onsocial",
+    "contracts/marketplace-onsocial",
+    "contracts/staking-onsocial",
+    "contracts/social-onsocial",
     "tests"
 ]
 resolver = "2"
 
 [workspace.dependencies]
-near-sdk = "5.13.0"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, tests
-near-sdk-macros = "5.13.0"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial
-borsh = "1.5.7"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial
-serde = { version = "1.0", features = ["derive"] }  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial
-serde_json = "1.0"  # Used by: tests (JSON serialization for integration tests)
-near-crypto = "0.30.1"  # Used by: relayer-onsocial, tests
-ed25519-dalek = "2.1.1"  # Used by: relayer-onsocial
-getrandom = { version = "0.2.16", features = ["js"] }  # Used by: relayer-onsocial
-hex = "0.4.3"  # Used by: relayer-onsocial
-base64 = "0.22.1"  # Used by: relayer-onsocial
-near-workspaces = "0.19.0"  # Used by: tests
-tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }  # Used by: tests
-anyhow = "1.0"  # Used by: tests
-semver = "1.0.26"  # Used by: auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, tests
+near-sdk = { git = "https://github.com/near/near-sdk-rs", branch = "master" }
+near-sdk-macros = { git = "https://github.com/near/near-sdk-rs", branch = "master" }
+borsh = "1.5.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+near-crypto = "0.30.1"
+ed25519-dalek = "2.1.1"
+getrandom = { version = "0.2.16", features = ["js"] }
+hex = "0.4.3"
+base64 = "0.22.1"
+near-workspaces = "0.19.0"
+tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }
+anyhow = "1.0"
+semver = "1.0.26"
 
 [profile.release]
 opt-level = "z"
