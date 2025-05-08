@@ -1,4 +1,4 @@
-[![Build Status](https://github.com/OnSocial-Labs/onsocial/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial/actions)
+[![Build Status](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.builder)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
