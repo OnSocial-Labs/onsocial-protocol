@@ -23,7 +23,3 @@ The OnSocial Relayer is a Rust-based smart contract on the NEAR Protocol designe
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
-
-
-
-

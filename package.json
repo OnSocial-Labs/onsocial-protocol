@@ -1,16 +1,36 @@
 {
+  "name": "onsocial-monorepo",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "build": "make build",
-    "test": "make test",
+    "build:contracts": "make build",
+    "test:contracts": "make test",
     "test:integration": "make test-integration",
-    "deploy": "make deploy",
+    "deploy:contracts": "make deploy",
     "deploy:init": "make deploy-init",
     "abi": "make abi",
     "start-sandbox": "make start-sandbox",
     "stop-sandbox": "make stop-sandbox",
-    "clean-sandbox": "make clean-sandbox"
+    "clean-sandbox": "make clean-sandbox",
+    "app:dev": "pnpm -r --filter app dev",
+    "app:build": "pnpm -r --filter app build",
+    "sdk:build": "pnpm -r --filter onsocial-js build",
+    "relayer:start": "pnpm -r --filter relayer start",
+    "test:app": "pnpm -r --filter app test",
+    "test:sdk": "pnpm -r --filter onsocial-js test",
+    "test:relayer": "pnpm -r --filter relayer test",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format"
+  },
+  "devDependencies": {
+    "eslint": "^9.26.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.5.3",
+    "vitest": "^3.1.3"
   },
   "dependencies": {
-    "near-workspaces": "^0.18.0"
+    "@typescript-eslint/eslint-plugin": "^8.32.0",
+    "@typescript-eslint/parser": "^8.32.0"
   }
 }
