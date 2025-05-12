@@ -1,18 +1,87 @@
-use near_sdk::test_utils::{accounts, VMContextBuilder};
-use near_sdk::testing_env;
-
 use super::*;
+#[cfg(test)]
+use near_sdk::{
+    test_utils::{get_logs, VMContextBuilder},
+    testing_env, AccountId,
+};
 
-fn setup_contract() -> (VMContextBuilder, StakingOnsocial) {
+fn setup_context(predecessor: AccountId) -> VMContextBuilder {
     let mut context = VMContextBuilder::new();
-    testing_env!(context.predecessor_account_id(accounts(0)).build());
-    let contract = StakingOnsocial::new(accounts(0));
-    (context, contract)
+    context
+        .predecessor_account_id(predecessor)
+        .current_account_id("staking.testnet".parse::<AccountId>().unwrap())
+        .block_timestamp(1_000_000_000_000);
+    context
 }
 
 #[test]
 fn test_new() {
-    let (_, contract) = setup_contract();
+    let manager: AccountId = "manager.testnet".parse().unwrap();
+    let context = setup_context(manager.clone());
+    testing_env!(context.build());
+
+    let contract = StakingOnsocial::new(manager.clone());
+
+    assert_eq!(
+        contract.state.version,
+        env!("CARGO_PKG_VERSION"),
+        "Version should match package version"
+    );
+    assert_eq!(
+        contract.state.manager, manager,
+        "Manager should be set correctly"
+    );
+}
+
+#[test]
+fn test_migration_from_010() {
+    let manager: AccountId = "manager.testnet".parse().unwrap();
+    let context = setup_context(manager.clone());
+    testing_env!(context.build());
+
+    // Simulate state version 0.1.0
+    let old_state = super::state_versions::StateV010 {
+        version: "0.1.0".to_string(),
+        manager: manager.clone(),
+    };
+    let state_bytes = borsh::to_vec(&old_state).expect("Failed to serialize state");
+    env::state_write(&state_bytes);
+
+    let contract = StakingOnsocial::migrate();
+
+    assert_eq!(
+        contract.state.version,
+        env!("CARGO_PKG_VERSION"),
+        "Version should match package version"
+    );
+    assert_eq!(
+        contract.state.manager, manager,
+        "Manager should be preserved"
+    );
+
+    let logs = get_logs();
+    assert!(
+        logs.contains(&"Migrating from state version 0.1.0".to_string()),
+        "Expected migration log, got: {:?}",
+        logs
+    );
+    assert!(
+        logs.contains(&format!(
+            "EVENT_JSON:{{\"standard\":\"nep297\",\"version\":\"1.0.0\",\"event\":\"state_migrated\",\"data\":{{\"old_version\":\"0.1.0\",\"new_version\":\"{}\"}}}}",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "Expected StateMigrated event, got: {:?}", logs
+    );
+}
+
+#[test]
+fn test_migration_no_prior_state() {
+    let manager: AccountId = "manager.testnet".parse().unwrap();
+    let context = setup_context(manager.clone());
+    testing_env!(context.build());
+
+    let contract = StakingOnsocial::migrate();
+
     assert_eq!(
         contract.state.version,
         env!("CARGO_PKG_VERSION"),
@@ -20,19 +89,16 @@ fn test_new() {
     );
     assert_eq!(
         contract.state.manager,
-        accounts(0),
-        "Manager should be set correctly"
+        env::current_account_id(),
+        "Manager should be current account"
     );
-}
 
-#[test]
-fn test_migrate() {
-    let (context, _) = setup_contract();
-    testing_env!(context.build());
-    let contract = StakingOnsocial::migrate();
-    assert_eq!(
-        contract.state.version,
-        env!("CARGO_PKG_VERSION"),
-        "Migrated version should match package version"
+    let logs = get_logs();
+    assert!(
+        logs.contains(
+            &"No valid prior state found or unknown version, initializing new state".to_string()
+        ),
+        "Expected no prior state log, got: {:?}",
+        logs
     );
 }

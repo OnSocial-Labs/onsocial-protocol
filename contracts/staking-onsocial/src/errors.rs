@@ -5,6 +5,8 @@ use near_sdk::{env, FunctionError};
 pub enum StakingError {
     Unauthorized,
     MissingInput,
+    InsufficientBalance,
+    InvalidStake,
 }
 
 impl FunctionError for StakingError {

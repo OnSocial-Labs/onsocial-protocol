@@ -4,6 +4,7 @@ target/
 
 # Node.js dependencies
 node_modules/
+dist/
 
 # Git data (not needed in container)
 .git/
@@ -24,3 +25,7 @@ coverage/
 
 # Resources folder
 Resources/
+
+# JavaScript build artifacts
+packages/onsocial-js/dist/
+packages/relayer/dist/

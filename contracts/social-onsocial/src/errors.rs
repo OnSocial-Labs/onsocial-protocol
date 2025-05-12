@@ -5,6 +5,8 @@ use near_sdk::{env, FunctionError};
 pub enum SocialError {
     Unauthorized,
     MissingInput,
+    InvalidPost,
+    PostNotFound,
 }
 
 impl FunctionError for SocialError {

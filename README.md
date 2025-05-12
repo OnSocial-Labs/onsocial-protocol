@@ -2,6 +2,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.builder)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
+[![Linux](https://img.shields.io/badge/OS-Linux-green)](https://www.kernel.org/)
+[![Last Updated](https://img.shields.io/badge/Last%20Updated-May%2011,%202025-blue)](README.md)
 
 # OnSocial Contracts Monorepo
 
@@ -15,22 +17,51 @@ This monorepo contains all core smart contracts, managed and deployed using Dock
 git clone https://github.com/OnSocial-Labs/onsocial.git
 cd onsocial
 make build           # Build all contracts
+make build-js        # Build onsocial-js Docker image
 make test            # Run all unit and integration tests
+make test-js         # Run onsocial-js tests
 make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 ```
 
 ## Contracts Overview
 
-| Contract            | Purpose                               | Main Entrypoints (Methods)             |
-| ------------------- | ------------------------------------- | -------------------------------------- |
-| auth-onsocial       | User authentication, multisig         | _Main entry points are in development_ |
-| ft-wrapper-onsocial | Token transfer, cross-chain bridging  | _Main entry points are in development_ |
-| relayer-onsocial    | Gasless meta-transactions, sponsoring | _Main entry points are in development_ |
+| Contract              | Purpose                               | Main Entrypoints (Methods)             |
+| --------------------- | ------------------------------------- | -------------------------------------- |
+| auth-onsocial         | User authentication, multisig         | _Main entry points are in development_ |
+| ft-wrapper-onsocial   | Token transfer, cross-chain bridging  | _Main entry points are in development_ |
+| relayer-onsocial      | Gasless meta-transactions, sponsoring | _Main entry points are in development_ |
+| marketplace-onsocial  | Marketplace for digital assets        | _Main entry points are in development_ |
+| social-onsocial       | Social media interactions             | _Main entry points are in development_ |
+| staking-onsocial      | Staking and rewards                   | _Main entry points are in development_ |
+
+## Updated Monorepo Structure
+
+The OnSocial Contracts Monorepo is organized as follows:
+
+- **contracts/**: Contains all core smart contracts, each in its own subdirectory:
+  - `auth-onsocial/`: User authentication and multisig contract.
+  - `ft-wrapper-onsocial/`: Token transfer and cross-chain bridging contract.
+  - `marketplace-onsocial/`: Marketplace for digital assets contract.
+  - `relayer-onsocial/`: Gasless meta-transactions and sponsoring contract.
+  - `social-onsocial/`: Social media interactions contract.
+  - `staking-onsocial/`: Staking and rewards contract.
+- **configs/**: Configuration files for contracts and other settings.
+- **docker/**: Dockerfiles for building and deploying the project.
+- **near-data/**: Contains NEAR protocol-related data and configurations.
+- **packages/**: Contains additional packages, including:
+  - `onsocial-js/`: JavaScript utilities and tests for OnSocial.
+  - `relayer/`: Relayer-specific utilities.
+- **scripts/**: Shell scripts for building, deploying, testing, and managing the project.
+- **tests/**: Contains integration and unit tests for the contracts.
+
+This structure ensures modularity and ease of development for contributors.
 
 ## Makefile Quick Commands
 
 - `make build` — Build all contracts
+- `make build-js` — Build onsocial-js Docker image
 - `make test` — Run all unit and integration tests
+- `make test-js` — Run onsocial-js tests
 - `make test-unit [CONTRACT=...]` — Run unit tests for all or a specific contract
 - `make test-integration [CONTRACT=...]` — Run integration tests for all or a specific contract
 - `make test-all [CONTRACT=...]` — Run all unit and integration tests (optionally for a specific contract)
@@ -43,7 +74,9 @@ make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 | Command                              | Description                                                 |
 | ------------------------------------ | ----------------------------------------------------------- |
 | make build                           | Build all contracts as WASM                                 |
+| make build-js                        | Build Docker image for onsocial-js (uses docker/Dockerfile.onsocial-js) |
 | make test                            | Run all unit and integration tests                          |
+| make test-js                         | Run tests for onsocial-js                                   |
 | make test-unit                       | Run unit tests for all contracts                            |
 | make test-unit CONTRACT=...          | Run unit tests for a specific contract                      |
 | make test-integration                | Run all integration tests                                   |
@@ -62,6 +95,8 @@ make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 | make abi                             | Generate ABI files for all contracts                        |
 | make fmt                             | Format Rust code using cargo fmt                            |
 | make lint                            | Lint Rust code using cargo clippy                           |
+| make lint-js                         | Lint onsocial-js code                                       |
+| make format-js                       | Format onsocial-js code                                     |
 | make check                           | Check workspace syntax with cargo check                     |
 | make audit                           | Audit dependencies for vulnerabilities with cargo audit     |
 | make check-deps                      | Check the dependency tree with cargo tree                   |
@@ -79,11 +114,13 @@ For more details, see the Makefile itself or run `make help`.
 
 - [Deployment Guide](Resources/deployment-guide.md)
 - [Contract Details](Resources/README.md)
+- [onsocial-js Package](packages/onsocial-js/README.md)
 
 ## Troubleshooting
 
 - **Docker permission denied:** Try `sudo usermod -aG docker $USER` and restart your session.
 - **Build fails:** Run `make rebuild-docker` to refresh the builder image.
+- **Test failures:** Ensure all dependencies are installed and the NEAR Sandbox is running.
 
 ## Contributing
 

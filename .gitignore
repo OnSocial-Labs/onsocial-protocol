@@ -49,3 +49,6 @@ debug/
 
 # Cargo audit lock file (if used)
 cargo-audit.lock
+
+# Ignore dist folders across the project
+dist/

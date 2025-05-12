@@ -5,6 +5,8 @@ use near_sdk::{env, FunctionError};
 pub enum MarketplaceError {
     Unauthorized,
     MissingInput,
+    InsufficientBalance,
+    InvalidItem,
 }
 
 impl FunctionError for MarketplaceError {

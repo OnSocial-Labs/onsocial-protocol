@@ -340,6 +340,34 @@ patch-state: start-sandbox
 	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e MASTER_ACCOUNT=$(AUTH_ACCOUNT) -e CONTRACT_ID=$(CONTRACT_ID) -e KEY=$(KEY) -e VALUE=$(VALUE) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/patch_state.sh"
 	@/bin/echo -e "\033[0;32mSandbox state patched successfully\033[0m"
 
+# Build onsocial-js Docker image
+.PHONY: build-js
+build-js:
+	@echo "Building Docker image for onsocial-js..."
+	@docker build -t $(JS_DOCKER_IMAGE) -f docker/Dockerfile.onsocial-js .
+	@/bin/echo -e "\033[0;32mDocker image $(JS_DOCKER_IMAGE) built successfully\033[0m"
+
+# Test onsocial-js
+.PHONY: test-js
+test-js: build-js
+	@echo "Running onsocial-js tests..."
+	@docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js test > $(CODE_DIR)/packages/onsocial-js/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/onsocial-js/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }
+	@/bin/echo -e "\033[0;32monsocial-js tests completed successfully\033[0m"
+
+# Lint onsocial-js
+.PHONY: lint-js
+lint-js: build-js
+	@echo "Linting onsocial-js..."
+	@docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js lint
+	@/bin/echo -e "\033[0;32monsocial-js linted successfully\033[0m"
+
+# Format onsocial-js
+.PHONY: format-js
+format-js: build-js
+	@echo "Formatting onsocial-js..."
+	@docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js format
+	@/bin/echo -e "\033[0;32monsocial-js formatted successfully\033[0m"
+
 # Help
 .PHONY: help
 help:
@@ -380,6 +408,10 @@ help:
 	@echo "  stop-sandbox         Stop NEAR Sandbox"
 	@echo "  clean-sandbox        Clean NEAR Sandbox data"
 	@echo "  patch-state          Patch sandbox state (CONTRACT_ID=id, KEY=key, VALUE=value)"
+	@echo "  build-js             Build Docker image for onsocial-js (uses docker/Dockerfile.onsocial-js)"
+	@echo "  test-js              Run tests for onsocial-js"
+	@echo "  lint-js              Lint onsocial-js code"
+	@echo "  format-js            Format onsocial-js code"
 	@echo ""
 	@echo "Variables:"
 	@echo "  NETWORK              Network to deploy to (sandbox, testnet, mainnet; default: sandbox)"
@@ -424,3 +456,7 @@ help:
 	@echo "  make start-sandbox"
 	@echo "  make upgrade-deps"
 	@echo "  make upgrade-deps INCOMPATIBLE=1"
+	@echo "  make build-js"
+	@echo "  make test-js"
+	@echo "  make lint-js"
+	@echo "  make format-js"
