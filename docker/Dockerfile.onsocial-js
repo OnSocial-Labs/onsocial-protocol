@@ -1,33 +1,27 @@
 # Stage 1: Build
 FROM node:slim AS builder
 WORKDIR /app
-# Install pnpm (latest stable version)
-RUN npm install -g pnpm
-# Update package lists, install security updates, and clean up
-RUN apt-get update && apt-get upgrade -y --no-install-recommends && apt-get clean && rm -rf /var/lib/apt/lists/*
-# Copy workspace configuration
+# Install pnpm and dependencies
+RUN npm install -g pnpm npm-check-updates
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends jq \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY package.json ./
 COPY packages/onsocial-js/package.json ./packages/onsocial-js/
-# Install dependencies
 RUN pnpm install --no-frozen-lockfile
-# Copy source code
 COPY packages/onsocial-js ./packages/onsocial-js
-# Build TypeScript
 RUN cd packages/onsocial-js && pnpm build
 
 # Stage 2: Development/Testing
 FROM node:slim
 WORKDIR /app
-# Install pnpm (latest stable version)
-RUN npm install -g pnpm
-# Update package lists, install security updates, and clean up
-RUN apt-get update && apt-get upgrade -y --no-install-recommends && apt-get clean && rm -rf /var/lib/apt/lists/*
-# Copy built artifacts and necessary files
+RUN npm install -g pnpm npm-check-updates
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends jq \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/packages/onsocial-js ./packages/onsocial-js
-# Install dependencies (including devDependencies for testing/linting)
 RUN pnpm install --no-frozen-lockfile
-# Set default command for flexibility (e.g., test, lint, build)
 CMD ["pnpm", "--dir", "packages/onsocial-js", "test"]

@@ -7,6 +7,7 @@
 
 # Node.js dependencies
 node_modules/
+.pnpm-store/
 
 # Rust build output
 target/

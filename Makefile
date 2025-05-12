@@ -108,7 +108,7 @@ upgrade-deps-rs: build-docker-rs ensure-scripts-executable
 
 # Upgrade JavaScript dependencies with interactive selection
 .PHONY: upgrade-deps-js
-upgrade-deps-js: build-docker-js ensure-scripts-executable
+upgrade-deps-js: rebuild-docker-js ensure-scripts-executable
 	@echo "Running interactive JavaScript dependency upgrade..."
 	@docker run -v $(CODE_DIR):/app --rm -it -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) bash -c "./scripts/upgrade_deps_js.sh"
 	@/bin/echo -e "\033[0;32mJavaScript dependencies upgraded successfully\033[0m"

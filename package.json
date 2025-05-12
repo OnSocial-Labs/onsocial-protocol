@@ -29,33 +29,33 @@
 	  "upgrade:deps:js": "make upgrade-deps-js"
 	},
 	"dependencies": {
-	  "@eslint/js": "^9.14.0",
-	  "@types/node": "^22.7.5",
-	  "@typescript-eslint/eslint-plugin": "^8.8.1",
-	  "@typescript-eslint/parser": "^8.8.1",
-	  "cross-fetch": "^4.0.0",
-	  "eslint": "^9.14.0",
-	  "eslint-plugin-prettier": "^5.2.1",
-	  "eslint-plugin-react": "^7.37.1",
-	  "eslint-plugin-react-hooks": "^5.0.0",
-	  "prettier": "^3.3.3",
-	  "typescript": "^5.6.3",
-	  "vitest": "^2.1.3"
+	  "@eslint/js": "^9.26.0",
+	  "@types/node": "^22.15.17",
+	  "@typescript-eslint/eslint-plugin": "^8.32.1",
+	  "@typescript-eslint/parser": "^8.32.1",
+	  "cross-fetch": "^4.1.0",
+	  "eslint": "^9.26.0",
+	  "eslint-plugin-prettier": "^5.4.0",
+	  "eslint-plugin-react": "^7.37.5",
+	  "eslint-plugin-react-hooks": "^5.2.0",
+	  "prettier": "^3.5.3",
+	  "typescript": "^5.8.3",
+	  "vitest": "^3.1.3"
 	},
 	"pnpm": {
 	  "overrides": {
-		"@eslint/js": "^9.14.0",
-		"@types/node": "^22.7.5",
-		"@typescript-eslint/eslint-plugin": "^8.8.1",
-		"@typescript-eslint/parser": "^8.8.1",
-		"cross-fetch": "^4.0.0",
+		"@eslint/js": "^9.26.0",
+		"@types/node": "^22.15.17",
+		"@typescript-eslint/eslint-plugin": "^8.32.1",
+		"@typescript-eslint/parser": "^8.32.1",
+		"cross-fetch": "^4.1.0",
 		"eslint": "^9.14.0",
-		"eslint-plugin-prettier": "^5.2.1",
-		"eslint-plugin-react": "^7.37.1",
-		"eslint-plugin-react-hooks": "^5.0.0",
-		"prettier": "^3.3.3",
-		"typescript": "^5.6.3",
-		"vitest": "^2.1.3"
+		"eslint-plugin-prettier": "^5.4.0",
+		"eslint-plugin-react": "^7.37.5",
+		"eslint-plugin-react-hooks": "^5.2.0",
+		"prettier": "^3.5.3",
+		"typescript": "^5.8.3",
+		"vitest": "^3.1.3"
 	  }
 	}
   }
