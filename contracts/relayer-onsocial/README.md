@@ -20,6 +20,18 @@ The OnSocial Relayer is a Rust-based smart contract on the NEAR Protocol designe
 - **NEAR CLI**: For deploying and interacting with the contract.
 - **NEAR Account**: Needed for deployment and testing on testnet/mainnet.
 
+## Updated Commands
+
+The `Makefile` now includes commands for managing the relayer contract:
+
+- `make build-relayer-js` - Build the relayer package.
+- `make test-relayer-js` - Run tests for the relayer package.
+- `make lint-relayer-js` - Lint the relayer package.
+- `make format-relayer-js` - Format the relayer package.
+- `make deploy-rs-relayer` - Deploy the relayer contract to a specified network.
+
+Refer to the monorepo root `README.md` for a comprehensive list of commands.
+
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.

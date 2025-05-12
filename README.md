@@ -69,6 +69,29 @@ This structure ensures modularity and ease of development for contributors.
 - `make start-sandbox` — Start NEAR Sandbox
 - `make help` — List all available commands
 
+## Updated Makefile Commands
+
+The `Makefile` has been updated to include additional commands for managing the project. Below are some of the key commands:
+
+- **Rust Contracts**:
+  - `make build-rs` - Build all Rust contracts.
+  - `make test-rs` - Run all unit and integration tests for Rust contracts.
+  - `make deploy-rs CONTRACT=<contract> NETWORK=<network>` - Deploy a specific Rust contract.
+  - `make test-all-contracts` - Run all tests for all contracts.
+
+- **JavaScript Packages**:
+  - `make build-js` - Build all JavaScript packages.
+  - `make test-js` - Run tests for all JavaScript packages.
+  - `make lint-js` - Lint all JavaScript packages.
+  - `make format-js` - Format all JavaScript packages.
+
+- **Sandbox Management**:
+  - `make start-sandbox` - Start the NEAR Sandbox.
+  - `make stop-sandbox` - Stop the NEAR Sandbox.
+  - `make clean-sandbox` - Clean NEAR Sandbox data.
+
+For a full list of commands, run `make help` in the project root.
+
 ## Makefile Reference
 
 | Command                              | Description                                                 |

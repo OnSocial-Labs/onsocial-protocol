@@ -137,7 +137,7 @@ case "$1" in
   cargo-update)
     cargo_update
     ;;
-  fmt)
+  format)
     format_code
     ;;
   lint)

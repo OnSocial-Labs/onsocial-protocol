@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build-and-test:
@@ -45,6 +45,10 @@ jobs:
       # Build Docker image
       - name: Build Docker image
         run: make build-docker
+
+      # Format code
+      - name: Format Rust code
+        run: make format-rs
 
       # Start NEAR Sandbox
       - name: Start NEAR Sandbox

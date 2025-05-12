@@ -11,8 +11,8 @@ This project is in early development. The architecture and features are still ev
 - **Issues:** Found a bug or have an idea? Open an issue!
 - **Pull Requests:** For now, please discuss big changes in an issue first.
 - **Code Style:** Follow Rust best practices. Keep code clean and well-documented.
-- **Formatting:** Run `make fmt` to format your code.
-- **Linting:** Run `make lint` to check for lint issues.
+- **Formatting:** Run `make format-rs` to format your Rust code and `make format-js` for JavaScript code.
+- **Linting:** Run `make lint-rs` or `make lint-js` to check for lint issues.
 - **Testing:** Run all tests (`make test` or `scripts/test.sh`) before submitting.
 - **Commit Messages:** Use clear, descriptive commit messages. Small, focused PRs are preferred.
 

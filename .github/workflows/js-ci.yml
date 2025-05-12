@@ -38,17 +38,19 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-pnpm-
       - name: Build JavaScript Docker image
-        run: make build-js-docker
+        run: make build-docker-js
       - name: Scan Docker image
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
           trivy image --severity HIGH,CRITICAL --exit-code 1 onsocial-js-builder
       - name: Build JavaScript packages
-        run: make build-js-all
+        run: make build-js
       - name: Run tests
-        run: make test-js-all
+        run: make test-js
       - name: Run linting
-        run: make lint-js-all
+        run: make lint-js
+      - name: Format JavaScript code
+        run: make format-js
       - name: Upload test logs
         if: failure()
         uses: actions/upload-artifact@v4
