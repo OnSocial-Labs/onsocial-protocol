@@ -24,6 +24,9 @@ VERBOSE ?= 0
 DRY_RUN ?= 0
 VALID_CONTRACTS := auth-onsocial ft-wrapper-onsocial relayer-onsocial
 
+# Define Docker image for onsocial-js
+JS_DOCKER_IMAGE := onsocial-js-builder
+
 # Default target
 .PHONY: all
 all: build test
