@@ -1,17 +1,14 @@
 # Resources
 
-- **Deployment Guide:** See [`deployment-guide.md`](deployment-guide.md) for step-by-step Docker-based deployment instructions.
+This directory contains additional guides and resources for working with the OnSocial Protocol.
 
-## Contract Details
+## Available Resources
 
-| Contract            | Purpose                               | Main Entrypoints (Methods)                                                 |
-| ------------------- | ------------------------------------- | -------------------------------------------------------------------------- |
-| auth-onsocial       | User authentication, multisig         | register_key, remove_key, is_key_registered, add_guardian, remove_guardian |
-| ft-wrapper-onsocial | Token transfer, cross-chain bridging  | transfer, deposit, withdraw, get_balance, bridge                           |
-| relayer-onsocial    | Gasless meta-transactions, sponsoring | relay, sponsor, get_nonce, set_relayer, remove_relayer                     |
+- **[Deployment Guide](deployment-guide.md):** Step-by-step instructions for deploying contracts using Docker.
+- **[AI Prompts](ai-prompts.md):** Prompts for AI-assisted development and automation.
 
-- All contracts are written in Rust using [`near-sdk`](https://docs.rs/near-sdk) and managed as a Cargo workspace.
-- Each contract has its own `Cargo.toml` for dependencies; shared dependencies are managed in the root `Cargo.toml`.
-- Contracts interact via cross-contract calls and are deployed to subaccounts (see deployment guide).
+## Purpose
 
-For contract source code, see the `contracts/` directory. For integration tests, see `tests/src/`.
+The `Resources/` folder is designed to provide supplementary documentation and tools to support development, deployment, and testing of the OnSocial Protocol.
+
+For contract-specific details, refer to the individual `README.md` files in the `contracts/` directory or the [Documentation Index](../README.md#documentation-index) in the root `README.md`.
