@@ -34,13 +34,13 @@ clean_artifacts() {
 }
 
 clean_all() {
-    echo "Cleaning build artifacts..."
-    [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
-    cargo clean || handle_error "Failed to clean artifacts"
-    echo "Cleaning sandbox data..."
-    [ "$VERBOSE" = "1" ] && echo "Running: rm -rf $(pwd)/near-data"
-    rm -rf "$(pwd)/near-data" || handle_error "Failed to clean sandbox data"
-    echo -e "${GREEN}Build artifacts and sandbox data cleaned${NC}"
+  echo "Cleaning build artifacts..."
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
+  cargo clean || handle_error "Failed to clean artifacts"
+  echo "Cleaning sandbox data..."
+  [ "$VERBOSE" = "1" ] && echo "Running: rm -rf $(pwd)/near-data"
+  rm -rf "$(pwd)/near-data" || handle_error "Failed to clean sandbox data"
+  echo -e "${GREEN}Build artifacts and sandbox data cleaned${NC}"
 }
 
 cargo_update() {
@@ -60,11 +60,81 @@ format_code() {
   echo -e "${GREEN}Code formatted successfully${NC}"
 }
 
+format_contract() {
+  local contract=$1
+  echo "Formatting $contract..."
+  cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
+
+  # Generate cache key
+  CACHE_KEY=$(find src -type f -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')
+  CACHE_DIR="$BASE_DIR/.cache"
+  CACHE_FILE="$CACHE_DIR/format-$contract-$CACHE_KEY"
+
+  if [ -f "$CACHE_FILE" ]; then
+    echo -e "${GREEN}$contract format cache hit, skipping${NC}"
+    return
+  fi
+
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo fmt"
+  cargo fmt || handle_error "Failed to format $contract"
+
+  # Save cache
+  mkdir -p "$CACHE_DIR"
+  touch "$CACHE_FILE"
+  echo -e "${GREEN}$contract formatted successfully${NC}"
+}
+
+format_all() {
+  echo "Formatting all contracts..."
+  ERROR_FLAG=0
+  for contract in "${CONTRACTS[@]}"; do
+    format_contract "$contract" || ERROR_FLAG=1 &
+  done
+  wait
+  [ $ERROR_FLAG -eq 1 ] && handle_error "Formatting failed for one or more contracts"
+  echo -e "${GREEN}All contracts formatted successfully${NC}"
+}
+
 lint_code() {
   echo "Linting code..."
   [ "$VERBOSE" = "1" ] && echo "Running: cargo clippy --all-targets --all-features -- -D warnings"
   cargo clippy --all-targets --all-features -- -D warnings || handle_error "Failed to lint code"
   echo -e "${GREEN}Code linted successfully${NC}"
+}
+
+lint_contract() {
+  local contract=$1
+  echo "Linting $contract..."
+  cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
+
+  # Generate cache key
+  CACHE_KEY=$(find src -type f -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')
+  CACHE_DIR="$BASE_DIR/.cache"
+  CACHE_FILE="$CACHE_DIR/lint-$contract-$CACHE_KEY"
+
+  if [ -f "$CACHE_FILE" ]; then
+    echo -e "${GREEN}$contract lint cache hit, skipping${NC}"
+    return
+  fi
+
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo clippy --all-targets --all-features -- -D warnings"
+  cargo clippy --all-targets --all-features -- -D warnings || handle_error "Failed to lint $contract"
+
+  # Save cache
+  mkdir -p "$CACHE_DIR"
+  touch "$CACHE_FILE"
+  echo -e "${GREEN}$contract linted successfully${NC}"
+}
+
+lint_all() {
+  echo "Linting all contracts..."
+  ERROR_FLAG=0
+  for contract in "${CONTRACTS[@]}"; do
+    lint_contract "$contract" || ERROR_FLAG=1 &
+  done
+  wait
+  [ $ERROR_FLAG -eq 1 ] && handle_error "Linting failed for one or more contracts"
+  echo -e "${GREEN}All contracts linted successfully${NC}"
 }
 
 check_workspace() {
@@ -140,8 +210,30 @@ case "$1" in
   format)
     format_code
     ;;
+  format-contract)
+    if [ -z "$2" ]; then
+      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., auth-onsocial)"
+    fi
+    format_contract "$2"
+    echo -e "${GREEN}Formatting complete for $2${NC}"
+    ;;
+  format-all)
+    format_all
+    echo -e "${GREEN}Formatting complete for all contracts${NC}"
+    ;;
   lint)
     lint_code
+    ;;
+  lint-contract)
+    if [ -z "$2" ]; then
+      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., auth-onsocial)"
+    fi
+    lint_contract "$2"
+    echo -e "${GREEN}Linting complete for $2${NC}"
+    ;;
+  lint-all)
+    lint_all
+    echo -e "${GREEN}Linting complete for all contracts${NC}"
     ;;
   check)
     check_workspace

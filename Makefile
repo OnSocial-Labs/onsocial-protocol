@@ -113,19 +113,47 @@ upgrade-deps-js: build-docker-js ensure-scripts-executable
 	@docker run -v $(CODE_DIR):/app --rm -it -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) bash -c "./scripts/upgrade_deps_js.sh"
 	@/bin/echo -e "\033[0;32mJavaScript dependencies upgraded successfully\033[0m"
 
-# Format Rust code
+# Format Rust code (all contracts)
 .PHONY: format-rs
 format-rs: build-docker-rs ensure-scripts-executable
 	@echo "Formatting Rust code..."
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format"
 	@/bin/echo -e "\033[0;32mCode formatted successfully\033[0m"
 
-# Lint Rust code
+# Format all Rust contracts (alias for format-rs)
+.PHONY: format-all-rs
+format-all-rs: build-docker-rs ensure-scripts-executable
+	@echo "Formatting all Rust contracts..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format-all"
+	@/bin/echo -e "\033[0;32mAll Rust contracts formatted successfully\033[0m"
+
+# Format specific Rust contract
+.PHONY: format-rs-contract
+format-rs-contract: build-docker-rs ensure-scripts-executable validate-contract
+	@echo "Formatting Rust contract $(CONTRACT)..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format-contract $(CONTRACT)"
+	@/bin/echo -e "\033[0;32mRust contract $(CONTRACT) formatted successfully\033[0m"
+
+# Lint Rust code (all contracts)
 .PHONY: lint-rs
 lint-rs: build-docker-rs ensure-scripts-executable
 	@echo "Linting Rust code..."
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint"
 	@/bin/echo -e "\033[0;32mCode linted successfully\033[0m"
+
+# Lint all Rust contracts (alias for lint-rs)
+.PHONY: lint-all-rs
+lint-all-rs: build-docker-rs ensure-scripts-executable
+	@echo "Linting all Rust contracts..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-all"
+	@/bin/echo -e "\033[0;32mAll Rust contracts linted successfully\033[0m"
+
+# Lint specific Rust contract
+.PHONY: lint-rs-contract
+lint-rs-contract: build-docker-rs ensure-scripts-executable validate-contract
+	@echo "Linting Rust contract $(CONTRACT)..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-contract $(CONTRACT)"
+	@/bin/echo -e "\033[0;32mRust contract $(CONTRACT) linted successfully\033[0m"
 
 # Check Rust workspace syntax
 .PHONY: check-rs
@@ -384,39 +412,45 @@ patch-state-rs: start-sandbox
 
 # Define contract-specific targets dynamically
 define CONTRACT_RULES
-build-rs-$1: CONTRACT=$1
-build-rs-$1: build-rs-contract
+build-$1-rs: CONTRACT=$1
+build-$1-rs: build-rs-contract
 
-build-$1: build-rs-$1
+build-$1: build-$1-rs
 
-test-all-rs-$1: CONTRACT=$1
-test-all-rs-$1: test-all-rs
+test-all-$1-rs: CONTRACT=$1
+test-all-$1-rs: test-all-rs
 
-test-$1: test-all-rs-$1
+test-$1: test-all-$1-rs
 
-test-unit-rs-$1: CONTRACT=$1
-test-unit-rs-$1: test-unit-rs
+test-unit-$1-rs: CONTRACT=$1
+test-unit-$1-rs: test-unit-rs
 
-test-integration-rs-$1: CONTRACT=$1
-test-integration-rs-$1: test-integration-rs
+test-integration-$1-rs: CONTRACT=$1
+test-integration-$1-rs: test-integration-rs
 
-test-coverage-rs-$1: CONTRACT=$1
-test-coverage-rs-$1: test-coverage-rs
+test-coverage-$1-rs: CONTRACT=$1
+test-coverage-$1-rs: test-coverage-rs
 
-deploy-rs-$1: CONTRACT=$1
-deploy-rs-$1: deploy-rs
+deploy-$1-rs: CONTRACT=$1
+deploy-$1-rs: deploy-rs
 
-deploy-init-rs-$1: CONTRACT=$1
-deploy-init-rs-$1: deploy-init-rs
+deploy-init-$1-rs: CONTRACT=$1
+deploy-init-$1-rs: deploy-init-rs
 
-deploy-reproducible-rs-$1: CONTRACT=$1
-deploy-reproducible-rs-$1: deploy-reproducible-rs
+deploy-reproducible-$1-rs: CONTRACT=$1
+deploy-reproducible-$1-rs: deploy-reproducible-rs
 
-deploy-dry-run-rs-$1: CONTRACT=$1
-deploy-dry-run-rs-$1: deploy-dry-run-rs
+deploy-dry-run-$1-rs: CONTRACT=$1
+deploy-dry-run-$1-rs: deploy-dry-run-rs
 
-verify-contract-rs-$1: CONTRACT=$1
-verify-contract-rs-$1: verify-contract-rs
+verify-contract-$1-rs: CONTRACT=$1
+verify-contract-$1-rs: verify-contract-rs
+
+format-$1-rs: CONTRACT=$1
+format-$1-rs: format-rs-contract
+
+lint-$1-rs: CONTRACT=$1
+lint-$1-rs: lint-rs-contract
 endef
 
 $(foreach contract,$(VALID_CONTRACTS),$(eval $(call CONTRACT_RULES,$(contract))))
@@ -639,16 +673,24 @@ help:
 	@echo "  abi-rs               Generate ABIs for all contracts"
 	@echo ""
 	@echo "Contract-Specific Rust Targets (replace <contract> with auth-onsocial, ft-wrapper-onsocial, etc.):"
-	@echo "  build-<contract>     Build a specific contract (e.g., build-auth-onsocial)"
-	@echo "  test-<contract>      Run all tests for a specific contract (e.g., test-auth-onsocial)"
-	@echo "  test-unit-rs-<contract> Run unit tests (e.g., test-unit-rs-auth-onsocial)"
-	@echo "  test-integration-rs-<contract> Run integration tests (e.g., test-integration-rs-auth-onsocial)"
-	@echo "  test-coverage-rs-<contract> Generate test coverage (e.g., test-coverage-rs-auth-onsocial)"
-	@echo "  deploy-rs-<contract> Deploy a contract to sandbox (e.g., deploy-rs-auth-onsocial)"
-	@echo "  deploy-init-rs-<contract> Initialize a deployed contract (e.g., deploy-init-rs-auth-onsocial)"
-	@echo "  deploy-reproducible-rs-<contract> Deploy with reproducible WASM"
-	@echo "  deploy-dry-run-rs-<contract> Simulate deployment"
-	@echo "  verify-contract-rs-<contract> Verify a contract (e.g., verify-contract-rs-auth-onsocial)"
+	@echo "  build-<contract>-rs     Build a specific contract (e.g., build-auth-onsocial-rs)"
+	@echo "  test-<contract>         Run all tests for a specific contract (e.g., test-auth-onsocial)"
+	@echo "  test-unit-<contract>-rs Run unit tests (e.g., test-unit-auth-onsocial-rs)"
+	@echo "  test-integration-<contract>-rs Run integration tests (e.g., test-integration-auth-onsocial-rs)"
+	@echo "  test-coverage-<contract>-rs Generate test coverage (e.g., test-coverage-auth-onsocial-rs)"
+	@echo "  deploy-<contract>-rs    Deploy a contract to sandbox (e.g., deploy-auth-onsocial-rs)"
+	@echo "  deploy-init-<contract>-rs Initialize a deployed contract (e.g., deploy-init-auth-onsocial-rs)"
+	@echo "  deploy-reproducible-<contract>-rs Deploy with reproducible WASM"
+	@echo "  deploy-dry-run-<contract>-rs Simulate deployment"
+	@echo "  verify-contract-<contract>-rs Verify a contract (e.g., verify-contract-auth-onsocial-rs)"
+	@echo "  format-<contract>-rs    Format a specific contract (e.g., format-auth-onsocial-rs)"
+	@echo "  lint-<contract>-rs      Lint a specific contract (e.g., lint-auth-onsocial-rs)"
+	@echo ""
+	@echo "Rust Formatting and Linting Targets:"
+	@echo "  format-rs            Format all Rust contracts"
+	@echo "  format-all-rs        Format all Rust contracts (alias for format-rs)"
+	@echo "  lint-rs              Lint all Rust contracts"
+	@echo "  lint-all-rs          Lint all Rust contracts (alias for lint-rs)"
 	@echo ""
 	@echo "Advanced Rust Targets:"
 	@echo "  build-rs-contract    Build a specific contract (CONTRACT=contract-name)"
@@ -720,11 +762,15 @@ help:
 	@echo "  INCOMPATIBLE         Set to 1 to include incompatible dependency upgrades (e.g., INCOMPATIBLE=1)"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make build-auth-onsocial            # Build auth-onsocial contract"
+	@echo "  make build-auth-onsocial-rs         # Build auth-onsocial contract"
 	@echo "  make test-auth-onsocial             # Run all tests for auth-onsocial"
-	@echo "  make deploy-rs-auth-onsocial        # Deploy auth-onsocial to sandbox"
+	@echo "  make deploy-auth-onsocial-rs        # Deploy auth-onsocial to sandbox"
 	@echo "  make deploy-rs CONTRACT=social-onsocial NETWORK=testnet  # Deploy to testnet"
 	@echo "  make test-all-contracts             # Run all tests for all contracts"
 	@echo "  make build-js                       # Build all JavaScript packages"
 	@echo "  make test-js                        # Run all JavaScript tests"
 	@echo "  make start-app-js                   # Start the app"
+	@echo "  make format-auth-onsocial-rs        # Format auth-onsocial contract"
+	@echo "  make lint-auth-onsocial-rs          # Lint auth-onsocial contract"
+	@echo "  make format-all-rs                  # Format all Rust contracts"
+	@echo "  make lint-all-rs                    # Lint all Rust contracts"
