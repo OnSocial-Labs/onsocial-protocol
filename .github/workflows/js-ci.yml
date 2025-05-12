@@ -4,34 +4,31 @@ on:
   push:
     branches: [main]
     paths:
-      - 'packages/onsocial-js/**'
+      - 'packages/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
       - '.github/workflows/js-ci.yml'
       - 'docker/Dockerfile.onsocial-js'
+      - 'Makefile'
   pull_request:
     branches: [main]
     paths:
-      - 'packages/onsocial-js/**'
+      - 'packages/**'
       - 'pnpm-workspace.yaml'
       - 'pnpm-lock.yaml'
       - 'package.json'
       - '.github/workflows/js-ci.yml'
       - 'docker/Dockerfile.onsocial-js'
+      - 'Makefile'
 
 jobs:
   build-and-test-js:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repository
       - uses: actions/checkout@v4
-
-      # Install Make
       - name: Install Make
         run: sudo apt-get update && sudo apt-get install -y make
-
-      # Cache pnpm dependencies
       - name: Cache pnpm dependencies
         uses: actions/cache@v4
         with:
@@ -40,32 +37,23 @@ jobs:
             node_modules
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: ${{ runner.os }}-pnpm-
-
-      # Build Docker image for onsocial-js
-      - name: Build Docker image
-        run: make build-js
-
-      # Scan Docker image for vulnerabilities with Trivy
+      - name: Build JavaScript Docker image
+        run: make build-js-docker
       - name: Scan Docker image
         run: |
-          # Install Trivy
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-          # Scan the image and fail on HIGH or CRITICAL vulnerabilities
-          trivy image --severity HIGH,CRITICAL --exit-code 1 onsocial-js
-
-      # Run tests
+          trivy image --severity HIGH,CRITICAL --exit-code 1 onsocial-js-builder
+      - name: Build JavaScript packages
+        run: make build-js-all
       - name: Run tests
-        run: make test-js
-
-      # Run linting
+        run: make test-js-all
       - name: Run linting
-        run: make lint-js
-
-      # Upload test logs (if tests fail)
+        run: make lint-js-all
       - name: Upload test logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: js-test-logs
-          path: packages/onsocial-js/test-logs.log
+          path: |
+            packages/*/test-logs.log
           retention-days: 7

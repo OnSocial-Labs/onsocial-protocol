@@ -1,5 +1,5 @@
 # Makefile for OnSocial Contracts Monorepo
-# Simplifies common tasks for building, testing, deploying, and managing NEAR smart contracts
+# Simplifies common tasks for building, testing, deploying, and managing NEAR smart contracts and JavaScript packages
 
 # Load environment variables based on NETWORK
 ifeq ($(NETWORK),mainnet)
@@ -17,15 +17,14 @@ AUTH_ACCOUNT ?= test.near
 FT_ACCOUNT ?= test.near
 RELAYER_ACCOUNT ?= test.near
 DOCKER_IMAGE := onsocial-builder
+JS_DOCKER_IMAGE := onsocial-js-builder
 CODE_DIR := $(shell pwd)
 NEAR_SANDBOX_PORT := 3030
 NEAR_NODE_URL ?= http://localhost:3030
 VERBOSE ?= 0
 DRY_RUN ?= 0
-VALID_CONTRACTS := auth-onsocial ft-wrapper-onsocial relayer-onsocial
-
-# Define Docker image for onsocial-js
-JS_DOCKER_IMAGE := onsocial-js-builder
+VALID_CONTRACTS := auth-onsocial ft-wrapper-onsocial relayer-onsocial social-onsocial marketplace-onsocial staking-onsocial
+JS_PACKAGES := onsocial-js app relayer
 
 # Default target
 .PHONY: all
@@ -50,7 +49,19 @@ validate-contract:
 	exit 1; \
 	fi
 
-# Build Docker image
+# Validate JS_PACKAGE variable
+.PHONY: validate-js-package
+validate-js-package:
+	@if [ -z "$(JS_PACKAGE)" ]; then \
+	/bin/echo -e "\033[0;31mError: JS_PACKAGE variable not set. Use JS_PACKAGE=<package> (e.g., app)\033[0m"; \
+	exit 1; \
+	fi
+	@if ! echo "$(JS_PACKAGES)" | grep -qw "$(JS_PACKAGE)"; then \
+	/bin/echo -e "\033[0;31mError: Invalid JS_PACKAGE '$(JS_PACKAGE)'. Valid options: $(JS_PACKAGES)\033[0m"; \
+	exit 1; \
+	fi
+
+# Build Docker image for contracts
 .PHONY: build-docker
 build-docker:
 	@echo "Checking for existing Docker image $(DOCKER_IMAGE)..."
@@ -62,7 +73,7 @@ build-docker:
 	/bin/echo -e "\033[0;32mDocker image $(DOCKER_IMAGE) already exists\033[0m"; \
 	fi
 
-# Force rebuild Docker image
+# Force rebuild Docker image for contracts
 .PHONY: rebuild-docker
 rebuild-docker:
 	@echo "Forcing rebuild of Docker image $(DOCKER_IMAGE)..."
@@ -70,6 +81,28 @@ rebuild-docker:
 	@docker ps -a --filter "ancestor=$(DOCKER_IMAGE)" -q | xargs -r docker rm || true
 	@docker rmi $(DOCKER_IMAGE) || true
 	@docker build -t $(DOCKER_IMAGE) -f docker/Dockerfile.builder .
+	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
+
+# Build Docker image for JavaScript
+.PHONY: build-js-docker
+build-js-docker:
+	@echo "Checking for existing Docker image $(JS_DOCKER_IMAGE)..."
+	@if ! docker images -q $(JS_DOCKER_IMAGE) | grep -q .; then \
+	/bin/echo "Building Docker image $(JS_DOCKER_IMAGE)..."; \
+	docker build -t $(JS_DOCKER_IMAGE) -f docker/Dockerfile.onsocial-js .; \
+	/bin/echo -e "\033[0;32mDocker image built successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;32mDocker image $(JS_DOCKER_IMAGE) already exists\033[0m"; \
+	fi
+
+# Force rebuild Docker image for JavaScript
+.PHONY: rebuild-js-docker
+rebuild-js-docker:
+	@echo "Forcing rebuild of Docker image $(JS_DOCKER_IMAGE)..."
+	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker stop || true
+	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker rm || true
+	@docker rmi $(JS_DOCKER_IMAGE) || true
+	@docker build -t $(JS_DOCKER_IMAGE) -f docker/Dockerfile.onsocial-js .
 	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
 
 # Clean and update Cargo dependencies
@@ -343,33 +376,197 @@ patch-state: start-sandbox
 	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e MASTER_ACCOUNT=$(AUTH_ACCOUNT) -e CONTRACT_ID=$(CONTRACT_ID) -e KEY=$(KEY) -e VALUE=$(VALUE) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/patch_state.sh"
 	@/bin/echo -e "\033[0;32mSandbox state patched successfully\033[0m"
 
-# Build onsocial-js Docker image
+# JavaScript: Build onsocial-js
 .PHONY: build-js
-build-js:
-	@echo "Building Docker image for onsocial-js..."
-	@docker build -t $(JS_DOCKER_IMAGE) -f docker/Dockerfile.onsocial-js .
-	@/bin/echo -e "\033[0;32mDocker image $(JS_DOCKER_IMAGE) built successfully\033[0m"
+build-js: build-js-docker
+	@echo "Building onsocial-js SDK..."
+	@if [ -d "packages/onsocial-js" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js build; \
+	/bin/echo -e "\033[0;32monsocial-js SDK built successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/onsocial-js not found, skipping\033[0m"; \
+	fi
 
-# Test onsocial-js
+# JavaScript: Build app
+.PHONY: build-app
+build-app: build-js-docker
+	@echo "Building Expo app..."
+	@if [ -d "packages/app" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app build; \
+	/bin/echo -e "\033[0;32mExpo app built successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/app not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Build relayer
+.PHONY: build-relayer
+build-relayer: build-js-docker
+	@echo "Building relayer..."
+	@if [ -d "packages/relayer" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer build; \
+	/bin/echo -e "\033[0;32mRelayer built successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/relayer not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Build all
+.PHONY: build-js-all
+build-js-all: build-js-docker
+	@echo "Building all JavaScript packages..."
+	@for pkg in $(JS_PACKAGES); do \
+	$(MAKE) build-$$pkg || exit 1; \
+	done
+	@/bin/echo -e "\033[0;32mAll JavaScript packages built successfully\033[0m"
+
+# JavaScript: Test onsocial-js
 .PHONY: test-js
-test-js: build-js
+test-js: build-js-docker
 	@echo "Running onsocial-js tests..."
-	@docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js test > $(CODE_DIR)/packages/onsocial-js/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/onsocial-js/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }
-	@/bin/echo -e "\033[0;32monsocial-js tests completed successfully\033[0m"
+	@if [ -d "packages/onsocial-js" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js test > $(CODE_DIR)/packages/onsocial-js/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/onsocial-js/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+	/bin/echo -e "\033[0;32monsocial-js tests completed successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/onsocial-js not found, skipping\033[0m"; \
+	fi
 
-# Lint onsocial-js
+# JavaScript: Test app
+.PHONY: test-app
+test-app: build-js-docker
+	@echo "Running Expo app tests..."
+	@if [ -d "packages/app" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app test > $(CODE_DIR)/packages/app/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/app/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+	/bin/echo -e "\033[0;32mExpo app tests completed successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/app not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Test relayer
+.PHONY: test-relayer
+test-relayer: build-js-docker
+	@echo "Running relayer tests..."
+	@if [ -d "packages/relayer" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer test > $(CODE_DIR)/packages/relayer/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/relayer/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+	/bin/echo -e "\033[0;32mRelayer tests completed successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/relayer not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Test all
+.PHONY: test-js-all
+test-js-all: build-js-docker
+	@echo "Running tests for all JavaScript packages..."
+	@for pkg in $(JS_PACKAGES); do \
+	$(MAKE) test-$$pkg || exit 1; \
+	done
+	@/bin/echo -e "\033[0;32mAll JavaScript tests completed successfully\033[0m"
+
+# JavaScript: Lint onsocial-js
 .PHONY: lint-js
-lint-js: build-js
+lint-js: build-js-docker
 	@echo "Linting onsocial-js..."
-	@docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js lint
-	@/bin/echo -e "\033[0;32monsocial-js linted successfully\033[0m"
+	@if [ -d "packages/onsocial-js" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js lint; \
+	/bin/echo -e "\033[0;32monsocial-js linted successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/onsocial-js not found, skipping\033[0m"; \
+	fi
 
-# Format onsocial-js
+# JavaScript: Lint app
+.PHONY: lint-app
+lint-app: build-js-docker
+	@echo "Linting Expo app..."
+	@if [ -d "packages/app" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app lint; \
+	/bin/echo -e "\033[0;32mExpo app linted successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/app not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Lint relayer
+.PHONY: lint-relayer
+lint-relayer: build-js-docker
+	@echo "Linting relayer..."
+	@if [ -d "packages/relayer" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer lint; \
+	/bin/echo -e "\033[0;32mRelayer linted successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/relayer not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Lint all
+.PHONY: lint-js-all
+lint-js-all: build-js-docker
+	@echo "Linting all JavaScript packages..."
+	@for pkg in $(JS_PACKAGES); do \
+	$(MAKE) lint-$$pkg || exit 1; \
+	done
+	@/bin/echo -e "\033[0;32mAll JavaScript packages linted successfully\033[0m"
+
+# JavaScript: Format onsocial-js
 .PHONY: format-js
-format-js: build-js
+format-js: build-js-docker
 	@echo "Formatting onsocial-js..."
-	@docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js format
-	@/bin/echo -e "\033[0;32monsocial-js formatted successfully\033[0m"
+	@if [ -d "packages/onsocial-js" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js format; \
+	/bin/echo -e "\033[0;32monsocial-js formatted successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/onsocial-js not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Format app
+.PHONY: format-app
+format-app: build-js-docker
+	@echo "Formatting Expo app..."
+	@if [ -d "packages/app" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app format; \
+	/bin/echo -e "\033[0;32mExpo app formatted successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/app not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Format relayer
+.PHONY: format-relayer
+format-relayer: build-js-docker
+	@echo "Formatting relayer..."
+	@if [ -d "packages/relayer" ]; then \
+	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer format; \
+	/bin/echo -e "\033[0;32mRelayer formatted successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;33mWarning: packages/relayer not found, skipping\033[0m"; \
+	fi
+
+# JavaScript: Format all
+.PHONY: format-js-all
+format-js-all: build-js-docker
+	@echo "Formatting all JavaScript packages..."
+	@for pkg in $(JS_PACKAGES); do \
+	$(MAKE) format-$$pkg || exit 1; \
+	done
+	@/bin/echo -e "\033[0;32mAll JavaScript packages formatted successfully\033[0m"
+
+# JavaScript: Start app
+.PHONY: start-app
+start-app: build-js-docker
+	@echo "Starting Expo app..."
+	@if [ -d "packages/app" ]; then \
+	docker run -v $(CODE_DIR):/app --network host --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app start; \
+	/bin/echo -e "\033[0;32mExpo app started\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
+	exit 1; \
+	fi
+
+# JavaScript: Start relayer
+.PHONY: start-relayer
+start-relayer: build-js-docker
+	@echo "Starting relayer..."
+	@if [ -d "packages/relayer" ]; then \
+	docker run -v $(CODE_DIR):/app --network host --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer start; \
+	/bin/echo -e "\033[0;32mRelayer started\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
+	exit 1; \
+	fi
 
 # Help
 .PHONY: help
@@ -380,8 +577,10 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  all                  Build and test contracts (default)"
-	@echo "  build-docker         Build Docker image"
-	@echo "  rebuild-docker       Force rebuild Docker image"
+	@echo "  build-docker         Build Docker image for contracts"
+	@echo "  rebuild-docker       Force rebuild Docker image for contracts"
+	@echo "  build-js-docker      Build Docker image for JavaScript"
+	@echo "  rebuild-js-docker    Force rebuild Docker image for JavaScript"
 	@echo "  cargo-update         Clean and update Cargo dependencies"
 	@echo "  upgrade-deps         Interactively select dependencies to upgrade by number (INCOMPATIBLE=1 for incompatible upgrades)"
 	@echo "  fmt                  Format Rust code"
@@ -411,10 +610,26 @@ help:
 	@echo "  stop-sandbox         Stop NEAR Sandbox"
 	@echo "  clean-sandbox        Clean NEAR Sandbox data"
 	@echo "  patch-state          Patch sandbox state (CONTRACT_ID=id, KEY=key, VALUE=value)"
-	@echo "  build-js             Build Docker image for onsocial-js (uses docker/Dockerfile.onsocial-js)"
+	@echo ""
+	@echo "JavaScript Targets:"
+	@echo "  build-js             Build onsocial-js SDK"
+	@echo "  build-app            Build Expo app"
+	@echo "  build-relayer        Build relayer"
+	@echo "  build-js-all         Build all JavaScript packages"
 	@echo "  test-js              Run tests for onsocial-js"
+	@echo "  test-app             Run tests for Expo app"
+	@echo "  test-relayer         Run tests for relayer"
+	@echo "  test-js-all          Run tests for all JavaScript packages"
 	@echo "  lint-js              Lint onsocial-js code"
+	@echo "  lint-app             Lint Expo app code"
+	@echo "  lint-relayer         Lint relayer code"
+	@echo "  lint-js-all          Lint all JavaScript packages"
 	@echo "  format-js            Format onsocial-js code"
+	@echo "  format-app           Format Expo app code"
+	@echo "  format-relayer       Format relayer code"
+	@echo "  format-js-all        Format all JavaScript packages"
+	@echo "  start-app            Start Expo app (mobile/web)"
+	@echo "  start-relayer        Start relayer server"
 	@echo ""
 	@echo "Variables:"
 	@echo "  NETWORK              Network to deploy to (sandbox, testnet, mainnet; default: sandbox)"
@@ -433,33 +648,11 @@ help:
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build"
-	@echo "  make build LINT=1 VERBOSE=1"
 	@echo "  make build-contract CONTRACT=auth-onsocial"
-	@echo "  make build-contract CONTRACT=auth-onsocial LINT=1 VERBOSE=1"
-	@echo "  make fmt"
-	@echo "  make lint"
-	@echo "  make check"
-	@echo "  make audit"
-	@echo "  make test"
-	@echo "  make test-unit"
-	@echo "  make test-unit CONTRACT=auth-onsocial"
-	@echo "  make test-integration"
-	@echo "  make test-integration CONTRACT=ft-wrapper-onsocial"
-	@echo "  make test-all"
-	@echo "  make test-all CONTRACT=relayer-onsocial"
-	@echo "  make test-coverage CONTRACT=auth-onsocial"
-	@echo "  make inspect-state CONTRACT_ID=auth.sandbox METHOD=get_keys ARGS='{\"account_id\": \"test.near\"}'"
-	@echo "  make logs-sandbox"
-	@echo "  make verify-contract CONTRACT=auth-onsocial"
-	@echo "  make clean-all"
-	@echo "  make check-deps"
-	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=sandbox"
-	@echo "  make deploy CONTRACT=auth-onsocial NETWORK=testnet"
-	@echo "  make deploy-dry-run CONTRACT=auth-onsocial NETWORK=mainnet"
-	@echo "  make start-sandbox"
-	@echo "  make upgrade-deps"
-	@echo "  make upgrade-deps INCOMPATIBLE=1"
 	@echo "  make build-js"
-	@echo "  make test-js"
-	@echo "  make lint-js"
-	@echo "  make format-js"
+	@echo "  make build-app"
+	@echo "  make test-js-all"
+	@echo "  make start-app"
+	@echo "  make deploy CONTRACT=social-onsocial NETWORK=testnet"
+	@echo "  make lint-js-all VERBOSE=1"
+	@echo "  make upgrade-deps"
