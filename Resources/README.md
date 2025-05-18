@@ -5,7 +5,21 @@ This directory contains additional guides and resources for working with the OnS
 ## Available Resources
 
 - **[Deployment Guide](deployment-guide.md):** Step-by-step instructions for deploying contracts using Docker.
-- **[AI Prompts](ai-prompts.md):** Prompts for AI-assisted development and automation.
+## AI Prompts
+Guides for AI-assisted development:
+- **General Project**: [project.md](prompts/project.md)
+- **Contracts**:
+  - [auth-onsocial](prompts/contracts/auth-onsocial.md)
+  - [ft-wrapper-onsocial](prompts/contracts/ft-wrapper-onsocial.md)
+  - [marketplace-onsocial](prompts/contracts/marketplace-onsocial.md)
+  - [relayer-onsocial](prompts/contracts/relayer-onsocial.md)
+  - [social-onsocial](prompts/contracts/social-onsocial.md)
+  - [staking-onsocial](prompts/contracts/staking-onsocial.md)
+- [App](prompts/app.md)
+- [SDK](prompts/sdk.md)
+- [Relayer](prompts/relayer.md)
+- [Tests](prompts/tests.md)
+- [Docs](prompts/docs.md)
 
 ## Purpose
 

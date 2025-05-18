@@ -28,4 +28,5 @@ Resources/
 
 # JavaScript build artifacts
 packages/onsocial-js/dist/
+packages/app/dist/
 packages/relayer/dist/

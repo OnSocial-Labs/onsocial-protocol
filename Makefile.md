@@ -8,6 +8,14 @@ The `Makefile` in this monorepo simplifies common tasks for building, testing, d
 - `make build-app-js` — Build the Expo app.
 - `make build-relayer-js` — Build the relayer package.
 - `make build-reproducible-rs` — Build reproducible WASM for mainnet.
+- `make build-docker-rs` — Build Docker image for Rust contracts.
+- `make rebuild-docker-rs` — Force rebuild Docker image for Rust contracts.
+- `make build-docker-js` — Build Docker image for onsocial-js and dependency updates.
+- `make rebuild-docker-js` — Force rebuild Docker image for onsocial-js.
+- `make build-docker-app` — Build Docker image for the app.
+- `make rebuild-docker-app` — Force rebuild Docker image for the app.
+- `make build-docker-relayer` — Build Docker image for the relayer.
+- `make rebuild-docker-relayer` — Force rebuild Docker image for the relayer.
 
 ## Test Commands
 - `make test-rs` — Run all unit and integration tests for Rust contracts.
@@ -17,6 +25,7 @@ The `Makefile` in this monorepo simplifies common tasks for building, testing, d
 - `make test-all-contracts` — Run all tests for all contracts.
 - `make test-unit-rs` — Run unit tests for all or specific Rust contracts.
 - `make test-integration-rs` — Run integration tests for all or specific Rust contracts.
+- `make test-onsocial-js` — Run tests for the `onsocial-js` package.
 
 ## Deployment Commands
 - `make deploy-rs` — Deploy a Rust contract (CONTRACT= required).
@@ -29,6 +38,8 @@ The `Makefile` in this monorepo simplifies common tasks for building, testing, d
 - `make lint-rs` — Lint all Rust contracts.
 - `make format-js` — Format all JavaScript packages.
 - `make lint-js` — Lint all JavaScript packages.
+- `make format-onsocial-js` — Format the `onsocial-js` package.
+- `make lint-onsocial-js` — Lint the `onsocial-js` package.
 
 ## Sandbox Management
 - `make init-sandbox` — Initialize NEAR Sandbox.
@@ -45,14 +56,5 @@ The `Makefile` in this monorepo simplifies common tasks for building, testing, d
 - `make upgrade-deps-js` — Upgrade JavaScript dependencies interactively.
 - `make cargo-update-rs` — Update Cargo dependencies.
 - `make clean-all-rs` — Clean all Rust artifacts and sandbox data.
-
-## JavaScript-Specific Commands
-- `make start-app-js` — Start the Expo app.
-- `make start-relayer-js` — Start the relayer server.
-- `make build-onsocial-js` — Build the `onsocial-js` package.
-- `make test-onsocial-js` — Run tests for the `onsocial-js` package.
-- `make lint-onsocial-js` — Lint the `onsocial-js` package.
-- `make format-onsocial-js` — Format the `onsocial-js` package.
-
-## Help
-Run `make help` to see a full list of commands and their descriptions.
+- `make clean-install-js` — Clean and reinstall JavaScript dependencies.
+- `make clean-docker-js` — Clean all JavaScript Docker images and volumes.

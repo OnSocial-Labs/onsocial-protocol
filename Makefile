@@ -49,6 +49,31 @@ validate-contract:
 	exit 1; \
 	fi
 
+# Clean and reinstall JavaScript dependencies
+.PHONY: clean-install-js
+clean-install-js: clean-docker-js rebuild-docker-js ensure-scripts-executable
+	@echo "Cleaning and reinstalling JavaScript dependencies..."
+	@rm -rf node_modules
+	@docker volume create pnpm-store
+	@docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm install --frozen-lockfile --store-dir=/app/.pnpm-store
+	@/bin/echo -e "\033[0;32mJavaScript dependencies reinstalled successfully\033[0m"
+
+# Clean all JavaScript Docker images and volumes
+.PHONY: clean-docker-js
+clean-docker-js:
+	@echo "Cleaning JavaScript Docker images and volumes..."
+	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker stop || true
+	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker rm || true
+	@docker ps -a --filter "ancestor=app-builder" -q | xargs -r docker stop || true
+	@docker ps -a --filter "ancestor=app-builder" -q | xargs -r docker rm || true
+	@docker ps -a --filter "ancestor=relayer-builder" -q | xargs -r docker stop || true
+	@docker ps -a --filter "ancestor=relayer-builder" -q | xargs -r docker rm || true
+	@docker rmi $(JS_DOCKER_IMAGE) app-builder relayer-builder || true
+	@docker volume rm pnpm-store || true
+	@docker system prune -f || true
+	@docker volume prune -f || true
+	@/bin/echo -e "\033[0;32mJavaScript Docker images and volumes cleaned successfully\033[0m"
+
 # Build Docker image for Rust contracts
 .PHONY: build-docker-rs
 build-docker-rs:
@@ -68,12 +93,15 @@ rebuild-docker-rs:
 	@docker ps -a --filter "ancestor=$(DOCKER_IMAGE)" -q | xargs -r docker stop || true
 	@docker ps -a --filter "ancestor=$(DOCKER_IMAGE)" -q | xargs -r docker rm || true
 	@docker rmi $(DOCKER_IMAGE) || true
-	@docker build -t $(DOCKER_IMAGE) -f docker/Dockerfile.builder .
+	@docker build -t $(DOCKER_IMAGE) -f docker/Dockerfile.builder . || { \
+	/bin/echo -e "\033[0;31mDocker build failed, check logs above for details\033[0m"; \
+	exit 1; \
+	}
 	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
 
-# Build Docker image for JavaScript
+# Build Docker image for JavaScript (onsocial-js and dependency updates)
 .PHONY: build-docker-js
-build-docker-js:
+build-docker-js: ensure-scripts-executable
 	@echo "Checking for existing Docker image $(JS_DOCKER_IMAGE)..."
 	@if ! docker images -q $(JS_DOCKER_IMAGE) | grep -q .; then \
 	/bin/echo "Building Docker image $(JS_DOCKER_IMAGE)..."; \
@@ -83,14 +111,73 @@ build-docker-js:
 	/bin/echo -e "\033[0;32mDocker image $(JS_DOCKER_IMAGE) already exists\033[0m"; \
 	fi
 
-# Force rebuild Docker image for JavaScript
+# Force rebuild Docker image for JavaScript (onsocial-js)
 .PHONY: rebuild-docker-js
-rebuild-docker-js:
+rebuild-docker-js: ensure-scripts-executable
 	@echo "Forcing rebuild of Docker image $(JS_DOCKER_IMAGE)..."
 	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker stop || true
 	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker rm || true
 	@docker rmi $(JS_DOCKER_IMAGE) || true
-	@docker build -t $(JS_DOCKER_IMAGE) -f docker/Dockerfile.onsocial-js .
+	@docker build -t $(JS_DOCKER_IMAGE) -f docker/Dockerfile.onsocial-js . || { \
+	/bin/echo -e "\033[0;31mDocker build failed, check logs above for details\033[0m"; \
+	exit 1; \
+	}
+	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
+
+# Build Docker image for JavaScript app
+.PHONY: build-docker-app
+build-docker-app: ensure-scripts-executable
+	@echo "Checking for existing Docker image app-builder..."
+	@if ! docker images -q app-builder | grep -q .; then \
+	/bin/echo "Building Docker image app-builder..."; \
+	docker build -t app-builder -f docker/Dockerfile.app . || { \
+	/bin/echo -e "\033[0;31mDocker build failed, check logs above for details\033[0m"; \
+	exit 1; \
+	}; \
+	/bin/echo -e "\033[0;32mDocker image built successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;32mDocker image app-builder already exists\033[0m"; \
+	fi
+
+# Force rebuild Docker image for JavaScript app
+.PHONY: rebuild-docker-app
+rebuild-docker-app: ensure-scripts-executable
+	@echo "Forcing rebuild of Docker image app-builder..."
+	@docker ps -a --filter "ancestor=app-builder" -q | xargs -r docker stop || true
+	@docker ps -a --filter "ancestor=app-builder" -q | xargs -r docker rm || true
+	@docker rmi app-builder || true
+	@docker build -t app-builder -f docker/Dockerfile.app . || { \
+	/bin/echo -e "\033[0;31mDocker build failed, check logs above for details\033[0m"; \
+	exit 1; \
+	}
+	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
+
+# Build Docker image for JavaScript relayer
+.PHONY: build-docker-relayer
+build-docker-relayer: ensure-scripts-executable
+	@echo "Checking for existing Docker image relayer-builder..."
+	@if ! docker images -q relayer-builder | grep -q .; then \
+	/bin/echo "Building Docker image relayer-builder..."; \
+	docker build -t relayer-builder -f docker/Dockerfile.relayer . || { \
+	/bin/echo -e "\033[0;31mDocker build failed, check logs above for details\033[0m"; \
+	exit 1; \
+	}; \
+	/bin/echo -e "\033[0;32mDocker image built successfully\033[0m"; \
+	else \
+	/bin/echo -e "\033[0;32mDocker image relayer-builder already exists\033[0m"; \
+	fi
+
+# Force rebuild Docker image for JavaScript relayer
+.PHONY: rebuild-docker-relayer
+rebuild-docker-relayer: ensure-scripts-executable
+	@echo "Forcing rebuild of Docker image relayer-builder..."
+	@docker ps -a --filter "ancestor=relayer-builder" -q | xargs -r docker stop || true
+	@docker ps -a --filter "ancestor=relayer-builder" -q | xargs -r docker rm || true
+	@docker rmi relayer-builder || true
+	@docker build -t relayer-builder -f docker/Dockerfile.relayer . || { \
+	/bin/echo -e "\033[0;31mDocker build failed, check logs above for details\033[0m"; \
+	exit 1; \
+	}
 	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
 
 # Clean and update Cargo dependencies
@@ -104,14 +191,14 @@ cargo-update-rs: build-docker-rs ensure-scripts-executable
 .PHONY: upgrade-deps-rs
 upgrade-deps-rs: build-docker-rs ensure-scripts-executable
 	@echo "Running interactive Rust dependency upgrade..."
-	@docker run -v $(CODE_DIR):/code --rm -it -e VERBOSE=$(VERBOSE) -e INCOMPATIBLE=$(INCOMPATIBLE) $(DOCKER_IMAGE) bash -c "./scripts/upgrade_deps.sh"
+	@docker run -v $(CODE_DIR):/code -it --rm -e VERBOSE=$(VERBOSE) -e INCOMPATIBLE=$(INCOMPATIBLE) $(DOCKER_IMAGE) bash -c "./scripts/upgrade_deps.sh"
 
-# Upgrade JavaScript dependencies with interactive selection
+# Upgrade JavaScript dependencies
 .PHONY: upgrade-deps-js
-upgrade-deps-js: rebuild-docker-js ensure-scripts-executable
-	@echo "Running interactive JavaScript dependency upgrade..."
-	@docker run -v $(CODE_DIR):/app --rm -it -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) bash -c "./scripts/upgrade_deps_js.sh"
-	@/bin/echo -e "\033[0;32mJavaScript dependencies upgraded successfully\033[0m"
+upgrade-deps-js:
+	@echo "Running JavaScript dependency upgrade..."
+	@docker run -v $(CURDIR):/app -v pnpm-store:/app/.pnpm-store --rm node:slim /bin/bash -c "npm install -g npm@latest pnpm@10.11.0 npm-check-updates@latest && chown -R $(shell id -u):$(shell id -g) /app/.pnpm-store && su node -c 'cd /app && ./scripts/upgrade_deps_js.sh'"
+	@echo "JavaScript dependencies upgraded successfully"
 
 # Format Rust code (all contracts)
 .PHONY: format-rs
@@ -460,7 +547,7 @@ $(foreach contract,$(VALID_CONTRACTS),$(eval $(call CONTRACT_RULES,$(contract)))
 build-onsocial-js: build-docker-js
 	@echo "Building onsocial-js..."
 	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js build; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js build; \
 	/bin/echo -e "\033[0;32monsocial-js built successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
@@ -468,10 +555,10 @@ build-onsocial-js: build-docker-js
 	fi
 
 .PHONY: build-app-js
-build-app-js: build-docker-js
+build-app-js: build-docker-app
 	@echo "Building app..."
 	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app build; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app build; \
 	/bin/echo -e "\033[0;32mapp built successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
@@ -479,10 +566,10 @@ build-app-js: build-docker-js
 	fi
 
 .PHONY: build-relayer-js
-build-relayer-js: build-docker-js
+build-relayer-js: build-docker-relayer
 	@echo "Building relayer..."
 	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer build; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer build; \
 	/bin/echo -e "\033[0;32mrelayer built successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
@@ -491,7 +578,7 @@ build-relayer-js: build-docker-js
 
 # JavaScript: Build all packages
 .PHONY: build-js
-build-js: build-docker-js
+build-js: build-docker-js build-docker-app build-docker-relayer
 	@echo "Building all JavaScript packages..."
 	@$(MAKE) build-onsocial-js
 	@$(MAKE) build-app-js
@@ -503,7 +590,7 @@ build-js: build-docker-js
 test-onsocial-js: build-docker-js
 	@echo "Running onsocial-js tests..."
 	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js test > $(CODE_DIR)/packages/onsocial-js/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/onsocial-js/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js test > $(CODE_DIR)/packages/onsocial-js/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/onsocial-js/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
 	/bin/echo -e "\033[0;32monsocial-js tests completed successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
@@ -511,10 +598,10 @@ test-onsocial-js: build-docker-js
 	fi
 
 .PHONY: test-app-js
-test-app-js: build-docker-js
+test-app-js: build-docker-app
 	@echo "Running app tests..."
 	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app test > $(CODE_DIR)/packages/app/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/app/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app test > $(CODE_DIR)/packages/app/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/app/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
 	/bin/echo -e "\033[0;32mapp tests completed successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
@@ -522,10 +609,10 @@ test-app-js: build-docker-js
 	fi
 
 .PHONY: test-relayer-js
-test-relayer-js: build-docker-js
+test-relayer-js: build-docker-relayer
 	@echo "Running relayer tests..."
 	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer test > $(CODE_DIR)/packages/relayer/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/relayer/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer test > $(CODE_DIR)/packages/relayer/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/relayer/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
 	/bin/echo -e "\033[0;32mrelayer tests completed successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
@@ -534,7 +621,7 @@ test-relayer-js: build-docker-js
 
 # JavaScript: Test all packages
 .PHONY: test-js
-test-js: build-docker-js
+test-js: build-docker-js build-docker-app build-docker-relayer
 	@echo "Running tests for all JavaScript packages..."
 	@$(MAKE) test-onsocial-js
 	@$(MAKE) test-app-js
@@ -546,7 +633,7 @@ test-js: build-docker-js
 lint-onsocial-js: build-docker-js
 	@echo "Linting onsocial-js..."
 	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js lint; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js lint; \
 	/bin/echo -e "\033[0;32monsocial-js linted successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
@@ -554,10 +641,10 @@ lint-onsocial-js: build-docker-js
 	fi
 
 .PHONY: lint-app-js
-lint-app-js: build-docker-js
+lint-app-js: build-docker-app
 	@echo "Linting app..."
 	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app lint; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app lint; \
 	/bin/echo -e "\033[0;32mapp linted successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
@@ -565,10 +652,10 @@ lint-app-js: build-docker-js
 	fi
 
 .PHONY: lint-relayer-js
-lint-relayer-js: build-docker-js
+lint-relayer-js: build-docker-relayer
 	@echo "Linting relayer..."
 	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer lint; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer lint; \
 	/bin/echo -e "\033[0;32mrelayer linted successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
@@ -577,7 +664,7 @@ lint-relayer-js: build-docker-js
 
 # JavaScript: Lint all packages
 .PHONY: lint-js
-lint-js: build-docker-js
+lint-js: build-docker-js build-docker-app build-docker-relayer
 	@echo "Linting all JavaScript packages..."
 	@$(MAKE) lint-onsocial-js
 	@$(MAKE) lint-app-js
@@ -589,7 +676,7 @@ lint-js: build-docker-js
 format-onsocial-js: build-docker-js
 	@echo "Formatting onsocial-js..."
 	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js format; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js format; \
 	/bin/echo -e "\033[0;32monsocial-js formatted successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
@@ -597,10 +684,10 @@ format-onsocial-js: build-docker-js
 	fi
 
 .PHONY: format-app-js
-format-app-js: build-docker-js
+format-app-js: build-docker-app
 	@echo "Formatting app..."
 	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app format; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app format; \
 	/bin/echo -e "\033[0;32mapp formatted successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
@@ -608,10 +695,10 @@ format-app-js: build-docker-js
 	fi
 
 .PHONY: format-relayer-js
-format-relayer-js: build-docker-js
+format-relayer-js: build-docker-relayer
 	@echo "Formatting relayer..."
 	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer format; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer format; \
 	/bin/echo -e "\033[0;32mrelayer formatted successfully\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
@@ -620,7 +707,7 @@ format-relayer-js: build-docker-js
 
 # JavaScript: Format all packages
 .PHONY: format-js
-format-js: build-docker-js
+format-js: build-docker-js build-docker-app build-docker-relayer
 	@echo "Formatting all JavaScript packages..."
 	@$(MAKE) format-onsocial-js
 	@$(MAKE) format-app-js
@@ -629,10 +716,10 @@ format-js: build-docker-js
 
 # JavaScript: Start app
 .PHONY: start-app-js
-start-app-js: build-docker-js
+start-app-js: build-docker-app
 	@echo "Starting app..."
 	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app --network host --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/app start; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --network host --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app start; \
 	/bin/echo -e "\033[0;32mApp started\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
@@ -641,10 +728,10 @@ start-app-js: build-docker-js
 
 # JavaScript: Start relayer
 .PHONY: start-relayer-js
-start-relayer-js: build-docker-js
+start-relayer-js: build-docker-relayer
 	@echo "Starting relayer..."
 	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app --network host --rm -e VERBOSE=$(VERBOSE) $(JS_DOCKER_IMAGE) pnpm --dir packages/relayer start; \
+	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --network host --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer start; \
 	/bin/echo -e "\033[0;32mRelayer started\033[0m"; \
 	else \
 	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
@@ -706,7 +793,7 @@ help:
 	@echo "  build-docker-rs      Build Docker image for Rust contracts"
 	@echo "  rebuild-docker-rs    Force rebuild Docker image for Rust contracts"
 	@echo "  cargo-update-rs      Clean and update Cargo dependencies"
-	@echo "  upgrade-deps-rs      Interactively select Rust dependencies to upgrade"
+	@echo "  upgrade-deps-rs      Upgrade Rust dependencies"
 	@echo "  format-rs            Format Rust code"
 	@echo "  lint-rs              Lint Rust code"
 	@echo "  check-rs             Check Rust workspace syntax"
@@ -724,6 +811,8 @@ help:
 	@echo "  logs-sandbox         Display NEAR Sandbox logs"
 	@echo ""
 	@echo "JavaScript Targets:"
+	@echo "  clean-install-js     Clean and reinstall JavaScript dependencies"
+	@echo "  clean-docker-js      Clean all JavaScript Docker images, volumes, and unused artifacts"
 	@echo "  build-js             Build all JavaScript packages"
 	@echo "  build-onsocial-js    Build onsocial-js package"
 	@echo "  build-app-js         Build app package"
@@ -742,9 +831,13 @@ help:
 	@echo "  format-relayer-js    Format relayer package"
 	@echo "  start-app-js         Start app (mobile/web)"
 	@echo "  start-relayer-js     Start relayer server"
-	@echo "  build-docker-js      Build Docker image for JavaScript"
-	@echo "  rebuild-docker-js    Force rebuild Docker image for JavaScript"
-	@echo "  upgrade-deps-js      Interactively select JavaScript dependencies to upgrade"
+	@echo "  build-docker-js      Build Docker image for onsocial-js and dependency updates"
+	@echo "  rebuild-docker-js    Force rebuild Docker image for onsocial-js"
+	@echo "  build-docker-app     Build Docker image for app"
+	@echo "  rebuild-docker-app   Force rebuild Docker image for app"
+	@echo "  build-docker-relayer Build Docker image for relayer"
+	@echo "  rebuild-docker-relayer Force rebuild Docker image for relayer"
+	@echo "  upgrade-deps-js      Upgrade JavaScript dependencies to latest versions"
 	@echo ""
 	@echo "Variables:"
 	@echo "  NETWORK              Network to deploy to (sandbox, testnet, mainnet; default: sandbox)"
@@ -762,6 +855,8 @@ help:
 	@echo "  INCOMPATIBLE         Set to 1 to include incompatible dependency upgrades (e.g., INCOMPATIBLE=1)"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make clean-install-js               # Clean and reinstall JavaScript dependencies"
+	@echo "  make clean-docker-js                # Clean all JavaScript Docker images and volumes"
 	@echo "  make build-auth-onsocial-rs         # Build auth-onsocial contract"
 	@echo "  make test-auth-onsocial             # Run all tests for auth-onsocial"
 	@echo "  make deploy-auth-onsocial-rs        # Deploy auth-onsocial to sandbox"
@@ -774,3 +869,4 @@ help:
 	@echo "  make lint-auth-onsocial-rs          # Lint auth-onsocial contract"
 	@echo "  make format-all-rs                  # Format all Rust contracts"
 	@echo "  make lint-all-rs                    # Lint all Rust contracts"
+	@echo "  make upgrade-deps-js                # Upgrade all JavaScript dependencies"

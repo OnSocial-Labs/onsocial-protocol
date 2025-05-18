@@ -1,9 +1,12 @@
-# OS and editor junk
+# OS, editor, and IDE files
 .DS_Store
 *.swp
 *.swo
 *.bak
 *~
+.vscode/
+.idea/
+*.sublime*
 
 # Node.js dependencies
 node_modules/
@@ -11,7 +14,7 @@ node_modules/
 
 # Rust build output
 target/
-**/target/         # In case of nested crates
+**/target/
 
 # NEAR artifacts
 *.wasm
@@ -34,11 +37,6 @@ tarpaulin-report.html
 *.log
 debug/
 
-# IDE/editor settings
-.vscode/
-.idea/
-*.sublime*
-
 # Backup and temp files
 *.tmp
 *.old
@@ -48,8 +46,24 @@ debug/
 # GitHub Actions
 .github/cache/
 
-# Cargo audit lock file (if used)
+# Cargo audit lock file
 cargo-audit.lock
 
-# Ignore dist folders across the project
+# Build output
 dist/
+
+# Prettier and pnpm configuration
+.pnpmrc
+.prettierrc
+.prettierignore
+
+# Ignore temp documentation files for contract code
+contracts/relayer-onsocial/relayer-rs_code.md
+contracts/marketplace-onsocial/marketplace-rs_code.md
+contracts/social-onsocial/social-rs_code.md
+contracts/auth-onsocial/auth-rs_code.md
+contracts/ft-wrapper-onsocial/ft-wrapper-rs_code.md
+contracts/marketplace-onsocial/marketplace-rs_code.md
+
+# Ignore temp prompts folder
+Resources/prompts/

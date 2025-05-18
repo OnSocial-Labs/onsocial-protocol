@@ -10,7 +10,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "express": "^5.1.0",
+    "express": "*",
     "onsocial-js": "workspace:*"
   },
   "devDependencies": {
@@ -22,6 +22,7 @@
     "eslint-plugin-prettier": "*",
     "eslint-plugin-react": "*",
     "eslint-plugin-react-hooks": "*",
+    "jest": "*",
     "prettier": "*",
     "typescript": "*",
     "vitest": "*"

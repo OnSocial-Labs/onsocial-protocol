@@ -10,15 +10,15 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "expo": "^53.0.9",
-    "nativewind": "^4.1.23",
-    "expo-local-authentication": "^16.0.4",
-    "expo-secure-store": "^14.2.3",
-    "@pinata/sdk": "^2.1.0",
-    "react-native-toast-message": "^2.3.0",
+    "@pinata/sdk": "*",
+    "expo": "*",
+    "expo-local-authentication": "*",
+    "expo-secure-store": "*",
+    "nativewind": "*",
     "onsocial-js": "workspace:*",
-    "react": "^19.1.0",
-    "react-native": "^0.79.2"
+    "react": "*",
+    "react-native": "*",
+    "react-native-toast-message": "*"
   },
   "devDependencies": {
     "@eslint/js": "*",

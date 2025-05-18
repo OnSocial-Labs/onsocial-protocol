@@ -34,8 +34,8 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-near-sdk = "5.13.0"
-near-sdk-macros = "5.13.0"
+near-sdk = "5.14.0"
+near-sdk-macros = "5.14.0"
 borsh = "1.5.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -44,7 +44,7 @@ ed25519-dalek = "2.1.1"
 getrandom = { version = "0.2.16", features = ["js"] }
 hex = "0.4.3"
 base64 = "0.22.1"
-near-workspaces = "0.19.0"
+near-workspaces = "0.20.1"
 tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }
 anyhow = "1.0"
 semver = "1.0.26"

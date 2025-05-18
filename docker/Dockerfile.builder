@@ -1,8 +1,9 @@
-# Single-stage build for efficiency
-FROM rust:slim AS builder
+# Update the default ARG to use a valid base image reference
+ARG BASE_IMAGE=debian:bookworm-slim
+FROM ${BASE_IMAGE} AS builder
 
-# Install system dependencies and Node.js in one layer
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies, Node.js, and Rust in one layer
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     clang \
     curl \
@@ -16,20 +17,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && npm install -g npm@latest near-cli near-sandbox \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Set up Rust environment
-RUN rustup update stable \
-    && rustup default stable \
+    && curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.86 \
+    && . "$HOME/.cargo/env" \
     && rustup target add wasm32-unknown-unknown \
     && rustup component add rustfmt clippy \
     && cargo install cargo-tarpaulin cargo-edit cargo-audit cargo-tree cargo-near cargo-nextest \
     && rustc --version \
-    && cargo --version
+    && cargo --version \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set environment variables
-ENV CARGO_HOME=/usr/local/cargo
+ENV CARGO_HOME=/root/.cargo
 ENV PATH="$CARGO_HOME/bin:$PATH"
 ENV NEAR_ENV=sandbox
 ENV NEAR_NODE_URL=http://localhost:3030
