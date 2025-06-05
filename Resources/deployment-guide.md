@@ -30,19 +30,17 @@ Set `NETWORK` to `sandbox`, `testnet`, or `mainnet` in your commands.
 
 ### 4. Deploy Contract
 
-Example for `auth-onsocial`:
-
 ```bash
-make deploy CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+make deploy CONTRACT=ft-wrapper-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 ```
 
-- Replace `CONTRACT` with one of: `auth-onsocial`, `ft-wrapper-onsocial`, `relayer-onsocial`
+- Replace `CONTRACT` with one of: `ft-wrapper-onsocial`, `relayer-onsocial`
 - For testnet/mainnet, set `AUTH_ACCOUNT` to your NEAR account
 
 ### 5. Initialize Contract (if required)
 
 ```bash
-make deploy-init CONTRACT=auth-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+make deploy-init CONTRACT=ft-wrapper-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 ```
 
 ### 6. Verify Deployment
@@ -55,7 +53,6 @@ make inspect-state CONTRACT_ID=auth.sandbox METHOD=get_state ARGS='{}' NETWORK=s
 
 ## Subaccount Naming
 
-- `auth.onsocial.$NETWORK` — auth-onsocial
 - `ft-wrapper.onsocial.$NETWORK` — ft-wrapper-onsocial
 - `relayer.onsocial.$NETWORK` — relayer-onsocial
 

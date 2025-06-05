@@ -1,22 +1,30 @@
-#[allow(unused_imports)]
-use crate::utils::{deploy_contract, get_wasm_path, setup_sandbox};
-#[allow(unused_imports)]
-use anyhow::Result;
-#[allow(unused_imports)]
-use serde_json::json;
+// Integration test for refund log emission on partial failure
+// This test requires a NEAR Sandbox or similar environment to simulate cross-contract failures.
 
-#[tokio::test]
-async fn test_relayer_onsocial_init() -> Result<()> {
-    let worker = setup_sandbox().await?;
-    let wasm_path = get_wasm_path("relayer-onsocial");
-    let contract = deploy_contract(&worker, &wasm_path).await?;
+use near_sdk::json_types::U128;
+use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
+use relayer_onsocial::OnSocialRelayerContract;
 
-    let outcome = contract
-        .call("new")
-        .args_json(json!({"offload_recipient": "test.near", "auth_contract": "auth.sandbox", "ft_wrapper_contract": "ft-wrapper.sandbox"}))
-        .transact()
-        .await?;
-    println!("relayer-onsocial new outcome: {:#?}", outcome);
+near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
+    RELAYER_WASM_BYTES => "../../contracts/relayer-onsocial/target/wasm32-unknown-unknown/release/relayer_onsocial.wasm",
+}
 
-    Ok(())
+#[test]
+fn test_refund_log_emitted_on_partial_failure() {
+    let root = init_simulator(None);
+    let manager = root.create_user("manager".to_string(), to_yocto("100"));
+    let contract: ContractAccount<OnSocialRelayerContract> = deploy!(
+        contract: OnSocialRelayerContract,
+        contract_id: "relayer".to_string(),
+        bytes: &RELAYER_WASM_BYTES,
+        signer_account: manager
+    );
+    // TODO: Simulate a sponsored transaction that will fail and trigger a refund.
+    // This requires setting up a delegate action and a scenario where the promise fails.
+    // After the call, fetch logs and assert the refund log is present.
+    // Example (pseudo):
+    // let outcome = call!(...);
+    // let logs = outcome.logs();
+    // assert!(logs.iter().any(|log| log.contains("insufficient balance or gas")), "Refund log not found: {:?}", logs);
+    // For now, this is a placeholder for integration logic.
 }

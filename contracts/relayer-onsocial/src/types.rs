@@ -1,104 +1,83 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+//! Types module: Declares core data structures for the relayer contract.
+//!
+//! - Defines DelegateAction and SignedDelegateAction for transaction sponsorship.
+//! - Supports all NEAR actions (FunctionCall, Transfer, AddKey, CreateAccount, Stake).
+//! - Provides AccessKey struct and Action enum with type_name helper.
+//! - Utilizes NEAR SDK traits for serialization and deserialization.
+
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
-use near_sdk::{AccountId, Gas, NearToken, PublicKey};
+use near_sdk::{AccountId, Gas, PublicKey};
 use near_sdk_macros::NearSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
-)]
-#[abi(borsh, json)]
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, NearSchema)]
+#[serde(crate = "near_sdk::serde")]
+pub struct DelegateAction {
+    pub nonce: u64,
+    pub max_block_height: u64,
+    pub sender_id: AccountId,
+    pub actions: Vec<Action>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, NearSchema)]
+#[serde(crate = "near_sdk::serde")]
+pub struct SignedDelegateAction {
+    pub delegate_action: DelegateAction,
+    pub public_key: PublicKey,
+    pub signature: Vec<u8>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, NearSchema)]
+#[serde(crate = "near_sdk::serde")]
+#[serde(tag = "type")]
 pub enum Action {
-    ChainSignatureRequest {
-        target_chain: String,
-        derivation_path: String,
-        payload: Vec<u8>,
-    },
     FunctionCall {
+        receiver_id: AccountId,
         method_name: String,
         args: Vec<u8>,
+        deposit: U128,
         gas: Gas,
-        deposit: NearToken,
     },
     Transfer {
-        deposit: NearToken,
+        receiver_id: AccountId,
+        deposit: U128,
+        gas: Gas,
     },
     AddKey {
+        receiver_id: AccountId,
         public_key: PublicKey,
-        allowance: Option<NearToken>,
+        access_key: AccessKey,
+        gas: Gas,
+    },
+    CreateAccount {
         receiver_id: AccountId,
-        method_names: Vec<String>,
+        deposit: U128,
+        gas: Gas,
     },
-    FtTransfer {
-        token: String,
+    Stake {
         receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
+        stake: U128,
+        public_key: PublicKey,
+        gas: Gas,
     },
-    BridgeTransfer {
-        token: String,
-        amount: U128,
-        destination_chain: String,
-        recipient: String,
-    },
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, NearSchema)]
+#[serde(crate = "near_sdk::serde")]
+pub struct AccessKey {
+    pub allowance: Option<U128>,
+    pub method_names: Vec<String>,
 }
 
 impl Action {
-    pub fn type_name(&self) -> &str {
+    pub fn type_name(&self) -> &'static str {
         match self {
-            Action::ChainSignatureRequest { .. } => "ChainSignatureRequest",
             Action::FunctionCall { .. } => "FunctionCall",
             Action::Transfer { .. } => "Transfer",
             Action::AddKey { .. } => "AddKey",
-            Action::FtTransfer { .. } => "FtTransfer",
-            Action::BridgeTransfer { .. } => "BridgeTransfer",
+            Action::CreateAccount { .. } => "CreateAccount",
+            Action::Stake { .. } => "Stake",
         }
     }
-}
-
-#[derive(
-    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
-)]
-#[abi(borsh, json)]
-pub struct DelegateAction {
-    pub sender_id: AccountId,
-    pub receiver_id: AccountId,
-    pub actions: Vec<Action>,
-    pub nonce: u64,
-    pub max_block_height: u64,
-}
-
-#[derive(
-    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
-)]
-#[abi(borsh, json)]
-pub enum SignatureScheme {
-    Ed25519,
-}
-
-#[derive(
-    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
-)]
-#[abi(borsh, json)]
-pub struct SignedDelegateAction {
-    pub delegate_action: DelegateAction,
-    pub signature: Vec<u8>,
-    pub public_key: PublicKey,
-    pub session_nonce: u64,
-    pub scheme: SignatureScheme,
-    pub fee_action: Option<Action>,
-    pub multi_signatures: Option<Vec<Vec<u8>>>, // Added for multi-sig support
-}
-
-#[derive(
-    Clone, Eq, PartialEq, BorshSerialize, BorshDeserialize, Serialize, Deserialize, NearSchema,
-)]
-#[abi(borsh, json)]
-pub struct BridgeTransferResultArgs {
-    pub sender_id: AccountId,
-    pub token: String,
-    pub amount: U128,
-    pub destination_chain: String,
-    pub recipient: String,
-    pub signature: Vec<u8>,
 }

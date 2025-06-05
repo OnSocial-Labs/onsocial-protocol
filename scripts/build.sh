@@ -212,7 +212,7 @@ case "$1" in
     ;;
   format-contract)
     if [ -z "$2" ]; then
-      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., auth-onsocial)"
+      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., relayer-onsocial)"
     fi
     format_contract "$2"
     echo -e "${GREEN}Formatting complete for $2${NC}"
@@ -226,7 +226,7 @@ case "$1" in
     ;;
   lint-contract)
     if [ -z "$2" ]; then
-      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., auth-onsocial)"
+      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., relayer-onsocial)"
     fi
     lint_contract "$2"
     echo -e "${GREEN}Linting complete for $2${NC}"
@@ -246,7 +246,7 @@ case "$1" in
     ;;
   build-contract)
     if [ -z "$2" ]; then
-      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., auth-onsocial)"
+      handle_error "No contract specified. Use CONTRACT=<contract-name> (e.g., relayer-onsocial)"
     fi
     # Default to non-reproducible, unless in CI
     build_type="non-reproducible-wasm"

@@ -1,29 +1,28 @@
 # OnSocial Protocol - Workspace Cargo.toml
 #
 # This file centralizes all dependency versions for the monorepo. Each contract
-# (auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, marketplace-onsocial,
-# staking-onsocial, social-onsocial) and the tests crate reference only the
-# dependencies they need using `workspace = true` in their Cargo.toml.
+# (ft-wrapper-onsocial, relayer-onsocial, marketplace-onsocial, staking-onsocial,
+# social-onsocial) and the tests crate reference only the dependencies they need
+# using `workspace = true` in their Cargo.toml.
 #
 # Dependency Usage:
-# - auth-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - ft-wrapper-onsocial: near-sdk, near-sdk-macros, borsh, serde
-# - relayer-onsocial: near-sdk, near-sdk-macros, borsh, serde, near-crypto,
-#                     ed25519-dalek, getrandom, hex, base64
+# - relayer-onsocial: near-sdk, near-sdk-macros, borsh, serde, near-crypto, semver
 # - marketplace-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - staking-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - social-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - tests: near-sdk, near-workspaces, near-crypto, tokio, anyhow, serde_json
 #
 # Note: near-sdk with `unit-testing` feature is used in [dev-dependencies] for
-# unit tests in auth-onsocial, ft-wrapper-onsocial, and relayer-onsocial.
+# unit tests in ft-wrapper-onsocial and relayer-onsocial. Dependencies like
+# ed25519-dalek, getrandom, hex, and base64 are included for potential use in
+# relayer-onsocial (e.g., signature verification) or future features.
 #
 # When adding a new contract or updating tests, reference the required dependencies
 # in their Cargo.toml and update the documentation here to reflect usage.
 
 [workspace]
 members = [
-    "contracts/auth-onsocial",
     "contracts/ft-wrapper-onsocial",
     "contracts/relayer-onsocial",
     "contracts/marketplace-onsocial",
@@ -40,14 +39,17 @@ borsh = "1.5.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 near-crypto = "0.30.1"
+near-primitives = "0.30.1"
 ed25519-dalek = "2.1.1"
 getrandom = { version = "0.2.16", features = ["js"] }
 hex = "0.4.3"
 base64 = "0.22.1"
+bs58 = "0.5.1"
 near-workspaces = "0.20.1"
-tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread"] }
 anyhow = "1.0"
 semver = "1.0.26"
+schemars = "0.8.22"
 
 [profile.release]
 opt-level = "z"

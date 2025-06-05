@@ -1,37 +1,82 @@
-# OnSocial Relayer
+<!--
+README.md for relayer-onsocial contract
+-->
+# Relayer OnSocial Contract
 
-The OnSocial Relayer is a Rust-based smart contract on the NEAR Protocol designed to facilitate gasless transactions for a social media application. It enables users to perform actions like posting, tipping, staking, and cross-chain bridging without paying gas fees by relaying meta-transactions and sponsoring accounts. The relayer integrates with authentication, fungible token, and multi-party computation (MPC) contracts to provide secure and scalable functionality.
+The `relayer-onsocial` contract is a core component of the OnSocial Protocol, enabling gasless transactions and secure relayer operations on the NEAR blockchain.
+
+## Overview
+
+- **Testnet Deployment**: `relayer.onsocial.testnet`
+- **Mainnet Target**: `relayer.onsocial.near` (January 2026)
+- **Language**: Rust
+- **Framework**: `near-sdk` (v5.14.0)
 
 ## Features
 
-- **Gasless Transactions**: Relays meta-transactions to cover gas costs for users.
-- **Account Sponsoring**: Creates and funds new accounts with customizable multi-signature settings.
-- **Key Management**: Registers and removes public keys for transaction authorization.
-- **Cross-Chain Bridging**: Supports token transfers to other blockchains using MPC signatures.
-- **Admin Controls**: Allows configuration of gas limits, fees, balance thresholds, and contract addresses.
-- **Event Logging**: Emits detailed events for actions like key registration, bridging, and configuration changes.
-- **Pause/Unpause**: Enables admins to temporarily halt operations for maintenance or upgrades.
-- **Migration Support**: Facilitates state upgrades for future enhancements.
+### Transaction Sponsorship
+- Sponsors NEAR actions (`FunctionCall`, `Transfer`, `AddKey`, `CreateAccount`, `Stake`) by covering gas (up to 300 TGas) and deposits.
+- **Authorization**:
+  - Accounts with manager or platform key can sponsor transactions.
+  - Supports developer-sponsored user transactions via `proxy_for`.
+- **Gas Management**: Dynamically allocates gas, ensuring efficient usage and refunds.
+- **Nonce Protection**: Prevents replay attacks using per-account nonces.
 
-## Prerequisites
+### Input Validation
+- Ensures valid action lists, deposits, and `AccountId` lengths (1–64 characters).
+- Validates gas usage within defined thresholds.
+- Verifies signatures for non-manager or non-platform key calls.
 
-- **Rust**: Required for compiling the contract (`rustc` and `cargo`).
-- **cargo-near**: NEAR-specific build tool for smart contracts.
-- **NEAR CLI**: For deploying and interacting with the contract.
-- **NEAR Account**: Needed for deployment and testing on testnet/mainnet.
+### Balance Management
+- Maintains `min_balance` (default: 5 NEAR) and offloads excess funds securely.
+- Accepts deposits and emits NEP-297 events for transparency and debugging.
 
-## Updated Commands
+### Security Enforcement
+- Restricts admin actions to the manager.
+- Updates nonces to prevent reentrancy.
+- Configurable events ensure auditable actions.
 
-The `Makefile` now includes commands for managing the relayer contract:
+### Manager & Platform Key Management
+- Stores `manager: AccountId` and `platform_public_key: PublicKey`.
+- Allows secure updates to manager and platform key.
 
-- `make build-relayer-js` - Build the relayer package.
-- `make test-relayer-js` - Run tests for the relayer package.
-- `make lint-relayer-js` - Lint the relayer package.
-- `make format-relayer-js` - Format the relayer package.
-- `make deploy-rs-relayer` - Deploy the relayer contract to a specified network.
+### State Management
+- Stores contract settings, including version, manager, and gas limits.
+- Supports state upgrades with version tracking and migration.
 
-Refer to the monorepo root `README.md` for a comprehensive list of commands.
+## Key Responsibilities
 
-## License
+- **Transaction Sponsorship**: Sponsors NEAR actions by covering gas and deposits, with optional proxy support for developer-sponsored transactions.
+- **Input Validation**: Validates actions, gas limits, and signatures to ensure secure and efficient operations.
+- **Balance Management**: Maintains thresholds for relayer funds and offloads excess deposits to a designated recipient.
+- **Security Enforcement**: Implements strict access control and authentication mechanisms.
+- **Manager and Platform Key Management**: Supports secure updates to manager and platform key.
+- **State Management**: Tracks state versions and supports migrations.
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+## Key Methods
+
+- **`new`**: Initializes the contract with default settings.
+- **`sponsor_transactions`**: Validates and sponsors transactions.
+- **`handle_result`**: Executes actions, updates nonces, and logs gas usage.
+- **`deposit`**: Handles deposits and offloads excess funds.
+- **`set_manager` / `set_platform_public_key`**: Updates manager or platform key details.
+- **`update_contract`**: Deploys new code and migrates state.
+- **`get_*`**: Provides view methods for contract state.
+
+## File Structure & Documentation
+
+Each Rust module in `src/` is documented inline:
+- **admin.rs**: Admin and access control logic (manager, balance, platform key, pause, refunds).
+- **balance.rs**: Deposit logic and event emission.
+- **constants.rs**: Shared constants for balances, gas, and limits.
+- **errors.rs**: Error types and codes for contract logic.
+- **events.rs**: Event emission for all contract actions.
+- **lib.rs**: Main contract logic and NEAR interface.
+- **sponsor.rs**: Sponsorship and transaction execution logic.
+- **state.rs**: State struct, nonce/refund management, reentrancy guards.
+- **state_versions.rs**: State versioning and migration logic.
+- **types.rs**: Core types for actions, delegate actions, and keys.
+
+---
+
+- **Cost**: ~0.42 TGas per `CreateAccount`, funded by the relayer’s balance.

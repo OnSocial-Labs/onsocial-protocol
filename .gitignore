@@ -59,6 +59,7 @@ dist/
 
 # Ignore temp documentation files for contract code
 contracts/relayer-onsocial/relayer-rs_code.md
+contracts/relayer-onsocial/tests_unit.md
 contracts/marketplace-onsocial/marketplace-rs_code.md
 contracts/social-onsocial/social-rs_code.md
 contracts/auth-onsocial/auth-rs_code.md
@@ -67,3 +68,6 @@ contracts/marketplace-onsocial/marketplace-rs_code.md
 
 # Ignore temp prompts folder
 Resources/prompts/
+
+# Cache files
+.cache/

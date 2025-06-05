@@ -25,8 +25,8 @@ test_unit() {
     if [ -n "$contract" ]; then
         echo "Running unit tests for $contract..."
         cd "$BASE_DIR/$contract" || { echo -e "${RED}Directory $contract not found${NC}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); return 1; }
-        [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run"
-        if ! cargo nextest run; then
+        [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
+        if ! cargo nextest run --no-fail-fast; then
             echo -e "${RED}Unit tests failed for $contract${NC}"
             UNIT_RESULTS["$contract"]="Failed"
             ERROR_FLAG=1
@@ -40,8 +40,8 @@ test_unit() {
         for contract in "${CONTRACTS[@]}"; do
             echo "Running unit tests for $contract..."
             cd "$BASE_DIR/$contract" || { echo -e "${RED}Directory $contract not found${NC}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); ERROR_FLAG=1; continue; }
-            [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run"
-            if ! cargo nextest run; then
+            [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
+            if ! cargo nextest run --no-fail-fast; then
                 echo -e "${RED}Unit tests failed for $contract${NC}"
                 UNIT_RESULTS["$contract"]="Failed"
                 ERROR_FLAG=1
@@ -79,10 +79,10 @@ test_integration() {
     fi
     if [ -n "$module" ]; then
         case $module in
-            auth-onsocial|ft-wrapper-onsocial|relayer-onsocial|cross-contract)
+            ft-wrapper-onsocial|relayer-onsocial|cross-contract)
                 module_name=$(echo "$module" | tr '-' '_')
-                [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run -- ${module_name}_tests"
-                if ! cargo nextest run -- "${module_name}_tests"; then
+                [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast -- ${module_name}_tests"
+                if ! cargo nextest run --no-fail-fast -- "${module_name}_tests"; then
                     echo -e "${RED}Integration tests failed for $module${NC}"
                     INTEGRATION_RESULTS["$module"]="Failed"
                     ((INTEGRATION_FAILURES++))
@@ -100,13 +100,13 @@ test_integration() {
                 ;;
         esac
     else
-        [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run"
+        [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
         for contract in "${CONTRACTS[@]}" cross-contract; do
             INTEGRATION_RESULTS["$contract"]="Not Run"
         done
-        if ! cargo nextest run; then
+        if ! cargo nextest run --no-fail-fast; then
             echo -e "${RED}Integration tests failed${NC}"
-            TEST_OUTPUT=$(cargo nextest run --no-capture 2>&1)
+            TEST_OUTPUT=$(cargo nextest run --no-capture --no-fail-fast 2>&1)
             for contract in "${CONTRACTS[@]}" cross-contract; do
                 module_name=$(echo "$contract" | tr '-' '_')
                 if echo "$TEST_OUTPUT" | grep -q "FAIL.*${module_name}_tests"; then
@@ -162,92 +162,29 @@ print_summary() {
         UNIT_STATUS="${UNIT_RESULTS[$contract]:-Not Run}"
         INTEGRATION_STATUS="${INTEGRATION_RESULTS[$contract]:-Not Run}"
 
-        # Initialize test counts
-        UNIT_RUN=0
-        UNIT_PASSED=0
-        UNIT_FAILED=0
-        INTEGRATION_RUN=0
-        INTEGRATION_PASSED=0
-        INTEGRATION_FAILED=0
-
-        # Mocked test counts (replace with actual parsing if available)
-        if [ "$UNIT_STATUS" = "Passed" ]; then
-            case "$contract" in
-                auth-onsocial) UNIT_RUN=13; UNIT_PASSED=13 ;;
-                ft-wrapper-onsocial) UNIT_RUN=5; UNIT_PASSED=5 ;;
-                relayer-onsocial) UNIT_RUN=5; UNIT_PASSED=5 ;;
-            esac
-        elif [ "$UNIT_STATUS" = "Failed" ]; then
-            case "$contract" in
-                auth-onsocial) UNIT_RUN=13; UNIT_PASSED=12; UNIT_FAILED=1 ;;
-                ft-wrapper-onsocial) UNIT_RUN=5; UNIT_PASSED=4; UNIT_FAILED=1 ;;
-                relayer-onsocial) UNIT_RUN=5; UNIT_PASSED=4; UNIT_FAILED=1 ;;
-            esac
-        fi
-
-        if [ "$INTEGRATION_STATUS" = "Passed" ]; then
-            case "$contract" in
-                auth-onsocial) INTEGRATION_RUN=1; INTEGRATION_PASSED=1 ;;
-                ft-wrapper-onsocial) INTEGRATION_RUN=1; INTEGRATION_PASSED=1 ;;
-                relayer-onsocial) INTEGRATION_RUN=1; INTEGRATION_PASSED=1 ;;
-                cross-contract) INTEGRATION_RUN=1; INTEGRATION_PASSED=1 ;;
-            esac
-        elif [ "$INTEGRATION_STATUS" = "Failed" ]; then
-            case "$contract" in
-                auth-onsocial) INTEGRATION_RUN=1; INTEGRATION_PASSED=0; INTEGRATION_FAILED=1 ;;
-                ft-wrapper-onsocial) INTEGRATION_RUN=1; INTEGRATION_PASSED=0; INTEGRATION_FAILED=1 ;;
-                relayer-onsocial) INTEGRATION_RUN=1; INTEGRATION_PASSED=0; INTEGRATION_FAILED=1 ;;
-                cross-contract) INTEGRATION_RUN=1; INTEGRATION_PASSED=0; INTEGRATION_FAILED=1 ;;
-            esac
-        fi
-
-        if [ "$1" = "unit" ]; then
-            INTEGRATION_STATUS="Not Run"
-            INTEGRATION_RUN=0
-            INTEGRATION_PASSED=0
-            INTEGRATION_FAILED=0
-        elif [ "$1" = "integration" ] && [ "$contract" != "cross-contract" ] && [ -z "$CONTRACT" ]; then
-            UNIT_STATUS="Not Run"
-            UNIT_RUN=0
-            UNIT_PASSED=0
-            UNIT_FAILED=0
-        fi
-
-        if [ "$UNIT_STATUS" = "Not Run" ] && [ "$INTEGRATION_STATUS" = "Not Run" ]; then
-            continue
-        fi
-
-        # Format test status
+        # Only show pass/fail, do not show fake test counts
         UNIT_TEST_STR="- Not Run"
         if [ "$UNIT_STATUS" = "Passed" ]; then
-            UNIT_TEST_STR="✅ Passed ($UNIT_PASSED/$UNIT_RUN)"
+            UNIT_TEST_STR="✅ Passed"
         elif [ "$UNIT_STATUS" = "Failed" ]; then
-            UNIT_TEST_STR="❌ Failed ($UNIT_PASSED/$UNIT_RUN)"
-            ISSUES+=("$contract: $UNIT_FAILED unit test(s) failed. Check test-all.log or run \`make test-unit CONTRACT=$contract\` for details.")
+            UNIT_TEST_STR="❌ Failed"
+            ISSUES+=("$contract: Unit test(s) failed. Check test-all.log or run \`make test-unit CONTRACT=$contract\` for details.")
         fi
 
         INTEGRATION_TEST_STR="- Not Run"
         if [ "$INTEGRATION_STATUS" = "Passed" ]; then
-            INTEGRATION_TEST_STR="✅ Passed ($INTEGRATION_PASSED/$INTEGRATION_RUN)"
+            INTEGRATION_TEST_STR="✅ Passed"
         elif [ "$INTEGRATION_STATUS" = "Failed" ]; then
-            INTEGRATION_TEST_STR="❌ Failed ($INTEGRATION_PASSED/$INTEGRATION_RUN)"
-            ISSUES+=("$contract: $INTEGRATION_FAILED integration test(s) failed. Check test-all.log or run \`make test-integration CONTRACT=$contract\` for details.")
+            INTEGRATION_TEST_STR="❌ Failed"
+            ISSUES+=("$contract: Integration test(s) failed. Check test-all.log or run \`make test-integration CONTRACT=$contract\` for details.")
         fi
 
         printf "| %-19s | %-25s | %-25s |\n" "$contract" "$UNIT_TEST_STR" "$INTEGRATION_TEST_STR"
-
-        # Update totals
-        TOTAL_UNIT_TESTS=$((TOTAL_UNIT_TESTS + UNIT_RUN))
-        TOTAL_INTEGRATION_TESTS=$((TOTAL_INTEGRATION_TESTS + INTEGRATION_RUN))
-        TOTAL_UNIT_PASSED=$((TOTAL_UNIT_PASSED + UNIT_PASSED))
-        TOTAL_INTEGRATION_PASSED=$((TOTAL_INTEGRATION_PASSED + INTEGRATION_PASSED))
-        TOTAL_UNIT_FAILED=$((TOTAL_UNIT_FAILED + UNIT_FAILED))
-        TOTAL_INTEGRATION_FAILED=$((TOTAL_INTEGRATION_FAILED + INTEGRATION_FAILED))
     done
 
     echo -e "\n#### Summary\n"
-    echo "- Unit Tests: $TOTAL_UNIT_TESTS run, $TOTAL_UNIT_PASSED passed, $TOTAL_UNIT_FAILED failed"
-    echo "- Integration Tests: $TOTAL_INTEGRATION_TESTS run, $TOTAL_INTEGRATION_PASSED passed, $TOTAL_INTEGRATION_FAILED failed"
+    echo "- Unit Tests: pass/fail status only (test counts not shown; see test-all.log for details)"
+    echo "- Integration Tests: pass/fail status only (test counts not shown; see test-all.log for details)"
 
     if [ ${#ISSUES[@]} -gt 0 ]; then
         echo -e "\nIssues Found:"

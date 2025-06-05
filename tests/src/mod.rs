@@ -1,6 +1,4 @@
 #[cfg(test)]
-pub mod auth_onsocial_tests;
-#[cfg(test)]
 pub mod cross_contract_tests;
 #[cfg(test)]
 pub mod ft_wrapper_onsocial_tests;

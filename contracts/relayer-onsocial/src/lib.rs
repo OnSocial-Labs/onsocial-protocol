@@ -1,18 +1,25 @@
-use crate::errors::RelayerError;
-use crate::events::RelayerEvent;
-use crate::state::Relayer;
-use crate::types::{Action, BridgeTransferResultArgs, SignedDelegateAction};
-use near_sdk::json_types::U128;
-use near_sdk::{borsh, PanicOnDefault};
-use near_sdk::{
-    env, ext_contract, near, AccountId, Gas, NearToken, Promise, PromiseError, PublicKey,
+use crate::admin::{
+    offload_funds as offload_funds_impl, set_manager as set_manager_impl,
+    set_platform_public_key as set_platform_public_key_impl,
 };
+use crate::constants::{CONFIRMATION_STRING, MAX_GAS_LIMIT};
+use crate::errors::RelayerError;
+use crate::events::{log_contract_initialized, log_contract_upgraded};
+use crate::sponsor::{handle_sponsor_result, sponsor_transactions as sponsor_transactions_impl};
+use crate::state::Relayer;
+use crate::state_versions::VersionedRelayer;
+use crate::types::SignedDelegateAction;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::ext_contract;
+use near_sdk::json_types::U128;
+use near_sdk::{env, log, near, AccountId, Gas, NearToken, PanicOnDefault, Promise, PublicKey};
+use near_sdk_macros::NearSchema;
 
 mod admin;
 mod balance;
+mod constants;
 mod errors;
 mod events;
-mod relay;
 mod sponsor;
 mod state;
 mod state_versions;
@@ -20,570 +27,203 @@ mod types;
 
 #[ext_contract(ext_self)]
 pub trait SelfCallback {
-    fn handle_mpc_signature(
-        &mut self,
-        chain: String,
-        request_id: u64,
-        result: Vec<u8>,
-        #[callback_result] call_result: Result<(), PromiseError>,
-    );
-    fn handle_bridge_result(
-        &mut self,
-        sender_id: AccountId,
-        action_type: String,
-        result: Vec<u8>,
-        #[callback_result] call_result: Result<(), PromiseError>,
-    );
-    fn handle_bridge_transfer_result(
-        &mut self,
-        args: BridgeTransferResultArgs,
-        #[callback_result] call_result: Result<(), PromiseError>,
-    );
-    #[handle_result]
-    fn handle_auth_result(
-        &mut self,
+    fn handle_result(
+        &self,
         sender_id: AccountId,
         signed_delegate: SignedDelegateAction,
-        is_authorized: bool,
-    ) -> Result<Promise, RelayerError>;
-    fn handle_registration(
-        &mut self,
-        account_id: AccountId,
-        token: String,
-        is_sender: bool,
-        is_registered: bool,
+        sponsor_amount: u128,
+        gas: u64,
     ) -> Promise;
 }
 
-#[ext_contract(ext_auth)]
-pub trait AuthContract {
-    fn is_authorized(
-        &self,
-        account_id: AccountId,
-        public_key: PublicKey,
-        signatures: Option<Vec<Vec<u8>>>,
-    ) -> bool;
-    fn register_key(
-        &mut self,
-        account_id: AccountId,
-        public_key: PublicKey,
-        expiration_days: Option<u32>,
-        is_multi_sig: bool,
-        multi_sig_threshold: Option<u32>,
-    );
-    fn remove_key(&mut self, account_id: AccountId, public_key: PublicKey);
+#[macro_export]
+macro_rules! require_not_paused {
+    ($relayer:expr) => {
+        if $relayer.paused {
+            return Err($crate::errors::RelayerError::Paused);
+        }
+    };
 }
 
-#[ext_contract(ext_ft_wrapper)]
-pub trait FtWrapperContract {
-    fn storage_deposit(&mut self, token: String, account_id: AccountId, deposit: U128);
-    fn ft_transfer(
-        &mut self,
-        token: String,
-        receiver_id: AccountId,
-        amount: U128,
-        memo: Option<String>,
-    );
-    fn ft_balance_of(&self, token: String, account_id: AccountId) -> U128;
-    fn is_registered(&self, token: String, account_id: AccountId) -> bool;
+#[macro_export]
+macro_rules! require_manager {
+    ($relayer:expr, $caller:expr) => {
+        if $caller != $relayer.manager {
+            return Err($crate::errors::RelayerError::Unauthorized);
+        }
+    };
 }
 
-#[ext_contract(ext_omi_locker)]
-pub trait OmniLocker {
-    fn lock(&mut self, token: String, amount: U128, destination_chain: String, recipient: String);
-}
-
-#[ext_contract(ext_mpc)]
-pub trait MpcContract {
-    fn get_nonce(&self, account_id: AccountId, tx_hash: String) -> u64;
+#[macro_export]
+macro_rules! require {
+    ($cond:expr, $err:expr) => {
+        if !$cond {
+            return Err($err);
+        }
+    };
 }
 
 #[near(contract_state)]
-#[derive(PanicOnDefault)]
+#[derive(Debug, PanicOnDefault)]
 pub struct OnSocialRelayer {
-    relayer: Relayer,
+    relayer: VersionedRelayer,
 }
 
 #[near]
 impl OnSocialRelayer {
     #[init]
+    #[private]
+    #[handle_result]
     pub fn new(
+        manager: AccountId,
+        platform_public_key: PublicKey,
         offload_recipient: AccountId,
-        auth_contract: AccountId,
-        ft_wrapper_contract: AccountId,
-    ) -> Self {
-        Self {
-            relayer: Relayer::new(
-                env::predecessor_account_id(),
-                offload_recipient,
-                auth_contract,
-                ft_wrapper_contract,
-            ),
+        offload_threshold: U128,
+    ) -> Result<Self, RelayerError> {
+        AccountId::validate(manager.as_str())
+            .map_err(|_| RelayerError::InvalidInput("Invalid manager account ID".to_string()))?;
+        AccountId::validate(offload_recipient.as_str()).map_err(|_| {
+            RelayerError::InvalidInput("Invalid offload_recipient account ID".to_string())
+        })?;
+        if env::predecessor_account_id() != env::current_account_id() {
+            return Err(RelayerError::Unauthorized);
         }
+        let relayer = Relayer::new(
+            manager,
+            platform_public_key,
+            offload_recipient,
+            offload_threshold.0,
+        );
+        let versioned_relayer = VersionedRelayer { state: relayer };
+
+        log_contract_initialized(
+            versioned_relayer.as_ref(),
+            &versioned_relayer.as_ref().manager,
+            0,
+            env::block_timestamp_ms(),
+        );
+
+        Ok(Self {
+            relayer: versioned_relayer,
+        })
+    }
+
+    #[handle_result]
+    pub fn pause(&mut self) -> Result<(), RelayerError> {
+        crate::admin::pause(self.relayer.as_mut(), &env::predecessor_account_id())
+    }
+
+    #[handle_result]
+    pub fn unpause(&mut self) -> Result<(), RelayerError> {
+        crate::admin::unpause(self.relayer.as_mut(), &env::predecessor_account_id())
+    }
+
+    pub fn get_paused(&self) -> bool {
+        self.relayer.as_ref().paused
     }
 
     #[payable]
-    pub fn deposit(&mut self) {
-        balance::deposit(&mut self.relayer).expect("Deposit failed");
+    #[handle_result]
+    pub fn deposit(&mut self) -> Result<(), RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        balance::deposit(self.relayer.as_mut())
     }
 
     #[handle_result]
-    pub fn relay_meta_transaction(
+    pub fn sponsor_transactions(
         &mut self,
-        #[serializer(borsh)] signed_delegate: SignedDelegateAction,
+        signed_delegates: Vec<SignedDelegateAction>,
+        sponsor_amounts: Vec<U128>,
+        gas: u64,
+        proxy_for: Option<AccountId>,
     ) -> Result<Promise, RelayerError> {
-        relay::relay_meta_transaction(&mut self.relayer, signed_delegate)
+        require_not_paused!(self.relayer.as_ref());
+        let relayer = self.relayer.as_mut();
+        sponsor_transactions_impl(relayer, signed_delegates, sponsor_amounts, gas, proxy_for)
     }
 
     #[handle_result]
-    pub fn relay_meta_transactions(
+    pub fn offload_funds(
         &mut self,
-        #[serializer(borsh)] signed_delegates: Vec<SignedDelegateAction>,
-    ) -> Result<Vec<Promise>, RelayerError> {
-        relay::relay_meta_transactions(&mut self.relayer, signed_delegates)
-    }
-
-    #[handle_result]
-    pub fn relay_chunked_meta_transactions(
-        &mut self,
-        #[serializer(borsh)] signed_delegates: Vec<SignedDelegateAction>,
-    ) -> Result<Vec<Promise>, RelayerError> {
-        relay::relay_chunked_meta_transactions(&mut self.relayer, signed_delegates)
-    }
-
-    #[handle_result]
-    pub fn sponsor_account(
-        &mut self,
-        #[serializer(borsh)] args: Vec<u8>,
+        amount: U128,
+        signature: Vec<u8>,
+        challenge: Vec<u8>,
     ) -> Result<Promise, RelayerError> {
-        env::log_str(&format!("Raw args: {:?}", args));
-        let (new_account_id, public_key, is_multi_sig, multi_sig_threshold): (
-            AccountId,
-            PublicKey,
-            bool,
-            Option<u32>,
-        ) = borsh::from_slice(&args).map_err(|e| {
-            env::log_str(&format!("Deserialization failed: {:?}", e));
-            RelayerError::InvalidNonce
-        })?;
-        env::log_str(&format!(
-            "Deserialized: {} {:?}",
-            new_account_id, public_key
-        ));
-        sponsor::sponsor_account_with_registrar(
-            &mut self.relayer,
-            new_account_id,
-            public_key,
-            is_multi_sig,
-            multi_sig_threshold,
-        )
+        require_not_paused!(self.relayer.as_ref());
+        // No longer require_manager! Anyone can call if signature is valid
+        offload_funds_impl(self.relayer.as_mut(), amount.0, signature, challenge)
     }
 
     #[handle_result]
-    pub fn sponsor_account_signed(
+    pub fn prune_nonces_periodic(
         &mut self,
-        #[serializer(borsh)] signed_delegate: SignedDelegateAction,
-    ) -> Result<Promise, RelayerError> {
-        sponsor::sponsor_account_signed(&mut self.relayer, signed_delegate)
+        max_age_ms: u64,
+        max_accounts: u32,
+        accounts: Vec<AccountId>,
+    ) -> Result<(u32, Option<AccountId>), RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        require_manager!(self.relayer.as_ref(), env::predecessor_account_id());
+        Ok(self
+            .relayer
+            .as_mut()
+            .prune_nonces_periodic(max_age_ms, max_accounts, accounts))
     }
 
     #[handle_result]
-    pub fn register_existing_account(
-        &mut self,
-        account_id: AccountId,
-        public_key: PublicKey,
-        expiration_days: Option<u32>,
-        is_multi_sig: bool,
-        multi_sig_threshold: Option<u32>,
-    ) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::register_existing_account(
-            &mut self.relayer,
-            account_id,
-            public_key,
-            expiration_days,
-            is_multi_sig,
-            multi_sig_threshold,
-        );
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "register_existing_account: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
+    pub fn reset_processing_flags(&mut self) -> Result<(), RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        require_manager!(self.relayer.as_ref(), env::predecessor_account_id());
+        self.relayer.as_mut().sponsorship_guard.exit();
+        self.relayer.as_mut().deposit_guard.exit();
+        Ok(())
     }
 
-    #[handle_result]
-    pub fn remove_key(
-        &mut self,
-        account_id: AccountId,
-        public_key: PublicKey,
-    ) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::remove_key(&mut self.relayer, account_id, public_key);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "remove_key: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_offload_recipient(&mut self, new_recipient: AccountId) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_offload_recipient(&mut self.relayer, new_recipient);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_offload_recipient: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_sponsor_amount(&mut self, new_amount: U128) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_sponsor_amount(&mut self.relayer, new_amount.0);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_sponsor_amount: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_sponsor_gas(&mut self, new_gas: u64) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_sponsor_gas(&mut self.relayer, new_gas);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_sponsor_gas: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_cross_contract_gas(&mut self, new_gas: u64) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_cross_contract_gas(&mut self.relayer, new_gas);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_cross_contract_gas: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_migration_gas(&mut self, new_gas: u64) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_migration_gas(&mut self.relayer, new_gas);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_migration_gas: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_omni_locker_contract(
-        &mut self,
-        new_locker_contract: AccountId,
-    ) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_omni_locker_contract(&mut self.relayer, new_locker_contract);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_omni_locker_contract: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn add_chain_mpc_mapping(
-        &mut self,
-        chain: String,
-        mpc_contract: AccountId,
-    ) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::add_chain_mpc_mapping(&mut self.relayer, chain, mpc_contract);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "add_chain_mpc_mapping: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn remove_chain_mpc_mapping(&mut self, chain: String) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::remove_chain_mpc_mapping(&mut self.relayer, chain);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "remove_chain_mpc_mapping: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_chunk_size(&mut self, new_size: usize) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_chunk_size(&mut self.relayer, new_size);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_chunk_size: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_auth_contract(&mut self, new_auth_contract: AccountId) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_auth_contract(&mut self.relayer, new_auth_contract);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_auth_contract: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_ft_wrapper_contract(
-        &mut self,
-        new_ft_wrapper_contract: AccountId,
-    ) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_ft_wrapper_contract(&mut self.relayer, new_ft_wrapper_contract);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_ft_wrapper_contract: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn set_base_fee(
-        &mut self,
-        new_fee: U128,
-        signatures: Option<Vec<Vec<u8>>>,
-    ) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_base_fee(&mut self.relayer, new_fee.0, signatures);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_base_fee: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
+    pub fn get_nonce(&self, account_id: AccountId) -> u64 {
+        self.relayer.as_ref().get_nonce(&account_id)
     }
 
     #[handle_result]
     pub fn set_manager(&mut self, new_manager: AccountId) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_manager(&mut self.relayer, new_manager);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_manager: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
-    }
-
-    #[handle_result]
-    pub fn update_contract(&mut self) -> Result<Promise, RelayerError> {
-        let caller = env::predecessor_account_id();
-        if !self.relayer.is_manager(&caller) {
-            return Err(RelayerError::Unauthorized);
-        }
-        let code = env::input().ok_or(RelayerError::MissingInput)?.to_vec();
-        RelayerEvent::ContractUpgraded {
-            manager: caller,
-            timestamp: env::block_timestamp_ms(),
-        }
-        .emit();
-        let promise = Promise::new(env::current_account_id())
-            .deploy_contract(code)
-            .function_call(
-                "migrate".to_string(),
-                vec![],
-                NearToken::from_yoctonear(0),
-                Gas::from_tgas(self.relayer.migration_gas),
-            );
-        env::log_str(&format!(
-            "Gas used in update_contract: {} TGas",
-            env::used_gas().as_tgas()
-        ));
-        Ok(promise)
+        require_not_paused!(self.relayer.as_ref());
+        set_manager_impl(self.relayer.as_mut(), new_manager)
     }
 
     #[handle_result]
     pub fn set_min_balance(&mut self, new_min: U128) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_min_balance(&mut self.relayer, new_min.0);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_min_balance: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
+        require_not_paused!(self.relayer.as_ref());
+        crate::admin::set_balance_limits(self.relayer.as_mut(), new_min.0)
     }
 
     #[handle_result]
-    pub fn set_max_balance(&mut self, new_max: U128) -> Result<(), RelayerError> {
-        let initial_storage = env::storage_usage();
-        let result = admin::set_max_balance(&mut self.relayer, new_max.0);
-        let storage_used = env::storage_usage() - initial_storage;
-        let storage_cost = storage_used as u128 * env::storage_byte_cost().as_yoctonear();
-        if env::account_balance().as_yoctonear() < self.relayer.min_balance + storage_cost {
-            RelayerEvent::LowBalance {
-                balance: env::account_balance().as_yoctonear(),
-            }
-            .emit();
-            return Err(RelayerError::InsufficientBalance);
-        }
-        env::log_str(&format!(
-            "set_max_balance: storage_used={} bytes, storage_cost={} yoctoNEAR",
-            storage_used, storage_cost
-        ));
-        result
+    pub fn set_platform_public_key(
+        &mut self,
+        new_key: PublicKey,
+        challenge: Vec<u8>,
+        signature: Vec<u8>,
+    ) -> Result<(), RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        set_platform_public_key_impl(self.relayer.as_mut(), new_key, challenge, signature)
+    }
+
+    pub fn get_platform_public_key(&self) -> &PublicKey {
+        &self.relayer.as_ref().platform_public_key
+    }
+
+    #[private]
+    pub fn handle_result(
+        &mut self,
+        sender_id: AccountId,
+        signed_delegate: SignedDelegateAction,
+        sponsor_amount: u128,
+        gas: u64,
+    ) -> Promise {
+        handle_sponsor_result(
+            self.relayer.as_mut(),
+            &sender_id,
+            signed_delegate,
+            sponsor_amount,
+            gas,
+        )
     }
 
     pub fn get_balance(&self) -> U128 {
@@ -591,255 +231,246 @@ impl OnSocialRelayer {
     }
 
     pub fn get_min_balance(&self) -> U128 {
-        U128(self.relayer.min_balance)
+        U128(self.relayer.as_ref().min_balance)
     }
 
-    pub fn get_max_balance(&self) -> U128 {
-        U128(self.relayer.max_balance)
+    pub fn get_manager(&self) -> &AccountId {
+        &self.relayer.as_ref().manager
     }
 
-    pub fn get_sponsor_amount(&self) -> U128 {
-        U128(self.relayer.sponsor_amount)
+    pub fn get_max_gas_limit(&self) -> u64 {
+        MAX_GAS_LIMIT
     }
 
-    pub fn get_sponsor_gas(&self) -> u64 {
-        self.relayer.sponsor_gas
-    }
-
-    pub fn get_cross_contract_gas(&self) -> u64 {
-        self.relayer.cross_contract_gas
-    }
-
-    pub fn get_migration_gas(&self) -> u64 {
-        self.relayer.migration_gas
-    }
-
-    pub fn get_omni_locker_contract(&self) -> AccountId {
-        self.relayer
-            .omni_locker_contract
-            .get()
-            .clone()
-            .unwrap_or(env::current_account_id())
-    }
-
-    pub fn get_chunk_size(&self) -> usize {
-        self.relayer.chunk_size
-    }
-
-    pub fn get_auth_contract(&self) -> AccountId {
-        self.relayer.auth_contract.clone()
-    }
-
-    pub fn get_ft_wrapper_contract(&self) -> AccountId {
-        self.relayer.ft_wrapper_contract.clone()
-    }
-
-    pub fn get_base_fee(&self) -> U128 {
-        U128(self.relayer.base_fee)
-    }
-}
-
-#[near]
-impl OnSocialRelayer {
-    #[private]
-    pub fn handle_mpc_signature(
-        &mut self,
-        chain: String,
-        request_id: u64,
-        result: Vec<u8>,
-        #[callback_result] call_result: Result<(), PromiseError>,
-    ) {
-        if call_result.is_err() {
-            env::log_str(&format!(
-                "MPC signature failed for chain {} request_id {}",
-                chain, request_id
-            ));
-            // No state changes to revert, just emit event
-            RelayerEvent::CrossChainSignatureResult {
-                chain,
-                request_id,
-                result: vec![],
-            }
-            .emit();
-            return;
-        }
-        RelayerEvent::CrossChainSignatureResult {
-            chain,
-            request_id,
-            result,
-        }
-        .emit();
-    }
-
-    #[private]
-    pub fn handle_bridge_result(
-        &mut self,
-        sender_id: AccountId,
-        action_type: String,
-        result: Vec<u8>,
-        #[callback_result] call_result: Result<(), PromiseError>,
-    ) {
-        if call_result.is_err() {
-            env::log_str(&format!(
-                "Bridge action {} failed for sender {}",
-                action_type, sender_id
-            ));
-            // No state changes to revert, just emit event
-            RelayerEvent::BridgeResult {
-                sender_id,
-                action_type,
-                result: vec![],
-            }
-            .emit();
-            return;
-        }
-        RelayerEvent::BridgeResult {
-            sender_id,
-            action_type,
-            result,
-        }
-        .emit();
-    }
-
-    #[private]
-    pub fn handle_bridge_transfer_result(
-        &mut self,
-        args: BridgeTransferResultArgs,
-        #[callback_result] call_result: Result<(), PromiseError>,
-    ) {
-        let nonce = self.relayer.get_pending_nonce(&args.destination_chain);
-        if call_result.is_err() {
-            env::log_str(&format!(
-                "Bridge transfer failed for sender {} to chain {}",
-                args.sender_id, args.destination_chain
-            ));
-            // Revert pending transfer and refund fee
-            if let Some(pending) = self
-                .relayer
-                .revert_pending_transfer(&args.destination_chain, nonce)
-            {
-                if pending.fee > 0 {
-                    Promise::new(args.sender_id.clone())
-                        .transfer(NearToken::from_yoctonear(pending.fee));
-                    env::log_str(&format!(
-                        "Refunded {} yoctoNEAR to {}",
-                        pending.fee, args.sender_id
-                    ));
-                }
-            }
-            RelayerEvent::BridgeTransferFailed {
-                token: args.token,
-                amount: args.amount,
-                destination_chain: args.destination_chain,
-                recipient: args.recipient,
-                sender: args.sender_id,
-                nonce,
-            }
-            .emit();
-            return;
-        }
-        // Confirm transfer and update nonce
-        self.relayer
-            .confirm_pending_transfer(&args.destination_chain, nonce);
-        RelayerEvent::BridgeTransferCompleted {
-            token: args.token,
-            amount: args.amount,
-            destination_chain: args.destination_chain,
-            recipient: args.recipient,
-            sender: args.sender_id,
-            signature: args.signature,
-        }
-        .emit();
-    }
-
-    #[private]
     #[handle_result]
-    pub fn handle_auth_result(
+    pub fn update_contract(
         &mut self,
-        sender_id: AccountId,
-        signed_delegate: SignedDelegateAction,
-        #[callback_unwrap] is_authorized: bool,
+        migrate_gas: u64,
+        force_init: Option<bool>,
+        confirmation: Option<String>,
     ) -> Result<Promise, RelayerError> {
-        if !is_authorized {
-            return Err(RelayerError::Unauthorized);
+        require_not_paused!(self.relayer.as_ref());
+        require_manager!(self.relayer.as_ref(), env::predecessor_account_id());
+        if migrate_gas > MAX_GAS_LIMIT {
+            return Err(RelayerError::InvalidInput(
+                "Gas exceeds contract max_gas_limit".to_string(),
+            ));
         }
-        let tx_hash = env::sha256(
-            &borsh::to_vec(&signed_delegate.delegate_action)
-                .map_err(|_| RelayerError::InvalidNonce)?,
+        if force_init.unwrap_or(false) && confirmation.as_deref() != Some(CONFIRMATION_STRING) {
+            return Err(RelayerError::InvalidInput(
+                "Confirmation missing or invalid".to_string(),
+            ));
+        }
+        let code = env::input().ok_or(RelayerError::MissingInput)?;
+        log_contract_upgraded(
+            self.relayer.as_ref(),
+            &env::predecessor_account_id(),
+            env::block_timestamp_ms(),
         );
-        relay::verify_signature(&signed_delegate, &tx_hash)?;
-        let delegate = signed_delegate.delegate_action;
-        let action = delegate.actions.first().unwrap();
-        let request_id = env::block_timestamp();
-        let promise = relay::execute_action(
-            &mut self.relayer,
-            action,
-            &sender_id,
-            action.type_name(),
-            Some(request_id),
-        )?;
-        let promise = match action {
-            Action::ChainSignatureRequest { target_chain, .. } => promise.then(
-                ext_self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(self.relayer.cross_contract_gas))
-                    .handle_mpc_signature(target_chain.clone(), request_id, Vec::new()),
-            ),
-            Action::BridgeTransfer {
-                token,
-                amount,
-                destination_chain,
-                recipient,
-                ..
-            } => promise.then(
-                ext_self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(self.relayer.cross_contract_gas))
-                    .handle_bridge_transfer_result(BridgeTransferResultArgs {
-                        sender_id: sender_id.clone(),
-                        token: token.clone(),
-                        amount: *amount,
-                        destination_chain: destination_chain.clone(),
-                        recipient: recipient.clone(),
-                        signature: Vec::new(),
-                    }),
-            ),
-            _ => promise.then(
-                ext_self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(self.relayer.cross_contract_gas))
-                    .handle_bridge_result(
-                        sender_id.clone(),
-                        action.type_name().to_string(),
-                        Vec::new(),
-                    ),
-            ),
+        let relayer = self.relayer.as_ref();
+        let migrate_args = MigrateArgs {
+            manager: relayer.manager.clone(),
+            platform_public_key: relayer.platform_public_key.clone(),
+            offload_recipient: relayer.offload_recipient.clone(),
+            offload_threshold: U128(relayer.offload_threshold),
+            force_init: force_init.unwrap_or(false),
+            confirmation,
         };
-        Ok(promise)
-    }
-
-    #[private]
-    pub fn handle_registration(
-        &mut self,
-        account_id: AccountId,
-        token: String,
-        _is_sender: bool,
-        #[callback_unwrap] is_registered: bool,
-    ) -> Promise {
-        if !is_registered {
-            ext_ft_wrapper::ext(self.relayer.ft_wrapper_contract.clone())
-                .with_static_gas(Gas::from_tgas(self.relayer.cross_contract_gas))
-                .with_attached_deposit(NearToken::from_yoctonear(1_250_000_000_000_000_000_000))
-                .storage_deposit(token, account_id, U128(1_250_000_000_000_000_000_000))
-        } else {
-            Promise::new(env::current_account_id())
-        }
+        Ok(Promise::new(env::current_account_id())
+            .deploy_contract(code)
+            .function_call(
+                "migrate".to_string(),
+                near_sdk::borsh::to_vec(&migrate_args).map_err(|_| {
+                    RelayerError::InvalidInput("Failed to serialize migrate args".to_string())
+                })?,
+                NearToken::from_near(0),
+                Gas::from_gas(migrate_gas),
+            ))
     }
 
     #[private]
     #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        Self {
-            relayer: Relayer::migrate(),
+    #[handle_result]
+    pub fn migrate(args: MigrateArgs) -> Result<Self, RelayerError> {
+        let MigrateArgs {
+            manager,
+            platform_public_key,
+            offload_recipient,
+            offload_threshold,
+            force_init,
+            confirmation,
+        } = args;
+        if force_init && confirmation.as_deref() != Some("I_UNDERSTAND_DATA_LOSS") {
+            return Err(RelayerError::InvalidInput(
+                "Confirmation missing or invalid".to_string(),
+            ));
         }
+        AccountId::validate(manager.as_str())
+            .map_err(|_| RelayerError::InvalidInput("Invalid AccountId".to_string()))?;
+        let state_bytes: Vec<u8> = env::state_read().unwrap_or_default();
+        let versioned_relayer = if state_bytes.is_empty() {
+            log!("[MIGRATION] State is empty. force_init: {}", force_init);
+            if force_init {
+                let relayer = Relayer::new(
+                    manager.clone(),
+                    platform_public_key.clone(),
+                    offload_recipient.clone(),
+                    offload_threshold.0,
+                );
+                let versioned = VersionedRelayer { state: relayer };
+                crate::events::log_state_migrated(
+                    &versioned.state,
+                    "EMPTY",
+                    env!("CARGO_PKG_VERSION"),
+                );
+                log!(
+                    "Migration (init from empty) to v{} complete",
+                    env!("CARGO_PKG_VERSION")
+                );
+                return Ok(Self { relayer: versioned });
+            } else {
+                log!("[MIGRATION] State is empty and force_init is false. Aborting.");
+                return Err(RelayerError::InvalidState);
+            }
+        } else {
+            VersionedRelayer::from_state_bytes_with_fallback(
+                &state_bytes,
+                force_init,
+                manager.clone(),
+                platform_public_key.clone(),
+                offload_recipient.clone(),
+                offload_threshold.0,
+            )?
+        };
+        log!("Migration to v{} complete", env!("CARGO_PKG_VERSION"));
+        let migrated_relayer = Relayer::migrate_with_versioned(versioned_relayer)?;
+        Ok(Self {
+            relayer: migrated_relayer,
+        })
     }
+
+    pub fn get_storage_usage(&self) -> u64 {
+        env::storage_usage()
+    }
+
+    #[handle_result]
+    pub fn process_pending_refunds(
+        &mut self,
+        recipient: AccountId,
+    ) -> Result<Promise, RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        let relayer = self.relayer.as_mut();
+        let amount = relayer.get_pending_refund(&recipient);
+        if amount == 0 {
+            return Err(RelayerError::InvalidInput("No pending refund".to_string()));
+        }
+        if env::account_balance().as_yoctonear() < amount {
+            return Err(RelayerError::InsufficientBalance);
+        }
+        relayer.clear_refund(&recipient);
+        crate::events::log_deposit_event(
+            relayer,
+            "withdrawn",
+            &recipient,
+            U128(amount),
+            None,
+            env::block_timestamp_ms(),
+        );
+        Ok(Promise::new(recipient).transfer(NearToken::from_yoctonear(amount)))
+    }
+
+    #[handle_result]
+    pub fn withdraw_pending_refund(&mut self) -> Result<Promise, RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        crate::admin::withdraw_pending_refund(self.relayer.as_mut())
+    }
+
+    pub fn get_pending_refund(&self, account_id: AccountId) -> U128 {
+        U128(self.relayer.as_ref().get_pending_refund(&account_id))
+    }
+
+    #[handle_result]
+    pub fn set_offload_recipient(&mut self, new_recipient: AccountId) -> Result<(), RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        require_manager!(self.relayer.as_ref(), env::predecessor_account_id());
+        AccountId::validate(new_recipient.as_str()).map_err(|_| {
+            RelayerError::InvalidInput("Invalid offload_recipient account ID".to_string())
+        })?;
+        let relayer = self.relayer.as_mut();
+        if relayer.offload_recipient == new_recipient {
+            return Ok(());
+        }
+        let old = relayer.offload_recipient.clone();
+        relayer.offload_recipient = new_recipient.clone();
+        crate::events::log_config_changed(
+            relayer,
+            "offload_recipient",
+            old.as_str(),
+            new_recipient.as_str(),
+            &env::predecessor_account_id(),
+            env::block_timestamp_ms(),
+        );
+        Ok(())
+    }
+
+    #[handle_result]
+    pub fn set_offload_threshold(&mut self, new_threshold: U128) -> Result<(), RelayerError> {
+        require_not_paused!(self.relayer.as_ref());
+        require_manager!(self.relayer.as_ref(), env::predecessor_account_id());
+        let relayer = self.relayer.as_mut();
+        // Enforce offload_threshold >= min_balance
+        if new_threshold.0 < relayer.min_balance {
+            return Err(RelayerError::InvalidInput(
+                "Offload threshold cannot be less than min_balance".to_string(),
+            ));
+        }
+        if relayer.offload_threshold == new_threshold.0 {
+            return Ok(());
+        }
+        let old = relayer.offload_threshold;
+        relayer.offload_threshold = new_threshold.0;
+        crate::events::log_config_changed(
+            relayer,
+            "offload_threshold",
+            &old.to_string(),
+            &new_threshold.0.to_string(),
+            &env::predecessor_account_id(),
+            env::block_timestamp_ms(),
+        );
+        Ok(())
+    }
+
+    pub fn get_offload_recipient(&self) -> &AccountId {
+        &self.relayer.as_ref().offload_recipient
+    }
+
+    pub fn get_offload_threshold(&self) -> U128 {
+        U128(self.relayer.as_ref().offload_threshold)
+    }
+
+    #[cfg(test)]
+    pub fn set_nonce_for_test(
+        &mut self,
+        account_id: AccountId,
+        nonce: u64,
+        last_updated: Option<u64>,
+    ) {
+        self.relayer.as_mut().set_nonce_with_timestamp(
+            &account_id,
+            nonce,
+            last_updated.unwrap_or(env::block_timestamp_ms()),
+        );
+    }
+}
+
+#[derive(NearSchema, serde::Serialize, serde::Deserialize, BorshSerialize, BorshDeserialize)]
+pub struct MigrateArgs {
+    pub manager: AccountId,
+    pub platform_public_key: PublicKey,
+    pub offload_recipient: AccountId,
+    pub offload_threshold: U128,
+    pub force_init: bool,
+    pub confirmation: Option<String>,
 }
 
 #[cfg(test)]

@@ -1,186 +1,266 @@
-use crate::events::RelayerEvent;
-use crate::state_versions::StateV010;
+use crate::constants::{DEFAULT_MIN_BALANCE, MAX_ACCOUNT_ID_LENGTH};
+use crate::errors::RelayerError;
+use crate::events::log_state_migrated;
+use crate::state_versions::VersionedRelayer;
+use near_crypto::PublicKey as CryptoPublicKey;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::json_types::U128;
+use near_sdk::bs58;
 use near_sdk::store::{LazyOption, LookupMap};
-use near_sdk::{env, AccountId};
+use near_sdk::{env, log, AccountId, BorshStorageKey, PublicKey};
 use near_sdk_macros::NearSchema;
 use semver::Version;
+use std::str::FromStr;
 
-#[derive(BorshDeserialize, BorshSerialize, NearSchema)]
-#[abi(borsh)]
-pub struct PendingTransfer {
-    pub nonce: u64,
-    pub sender_id: AccountId,
-    pub token: String,
-    pub amount: U128,
-    pub recipient: String,
-    pub fee: u128,
+pub type MigrationStep = (Version, Version, Box<dyn Fn(&mut Relayer)>);
+
+#[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
+pub enum StorageKey {
+    Nonces,
+    PendingRefunds,
+    PublicKeyCache,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, NearSchema)]
-#[abi(borsh)]
-pub struct PendingTransferArgs {
-    pub chain: String,
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct NonceEntry {
     pub nonce: u64,
-    pub sender_id: AccountId,
-    pub token: String,
-    pub amount: U128,
-    pub recipient: String,
-    pub fee: u128,
+    pub last_updated: u64,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, NearSchema)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, NearSchema)]
+#[abi(borsh)]
+pub struct ReentrancyGuard {
+    pub is_processing: bool,
+}
+
+impl ReentrancyGuard {
+    pub fn new() -> Self {
+        Self {
+            is_processing: false,
+        }
+    }
+    pub fn enter(&mut self) -> Result<(), RelayerError> {
+        if self.is_processing {
+            return Err(RelayerError::ReentrancyDetected);
+        }
+        self.is_processing = true;
+        Ok(())
+    }
+    pub fn exit(&mut self) {
+        self.is_processing = false;
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug, NearSchema)]
 #[abi(borsh)]
 pub struct Relayer {
     pub version: String,
     pub manager: AccountId,
-    pub offload_recipient: AccountId,
-    pub auth_contract: AccountId,
-    pub ft_wrapper_contract: AccountId,
-    pub omni_locker_contract: LazyOption<AccountId>,
-    pub chain_mpc_mapping: LookupMap<String, AccountId>,
-    pub sponsor_amount: u128,
-    pub sponsor_gas: u64,
-    pub cross_contract_gas: u64,
-    pub migration_gas: u64,
-    pub chunk_size: usize,
     pub min_balance: u128,
-    pub max_balance: u128,
-    pub base_fee: u128,
-    pub transfer_nonces: LookupMap<String, u64>,
-    pub pending_transfers: LookupMap<String, PendingTransfer>,
+    pub nonces: LookupMap<AccountId, NonceEntry>,
+    pub platform_public_key: PublicKey,
+    pub paused: bool,
+    pub version_history: Vec<String>,
+    pub sponsorship_guard: ReentrancyGuard,
+    pub deposit_guard: ReentrancyGuard,
+    pub pending_refunds: LookupMap<AccountId, u128>,
+    pub platform_key_cache: LazyOption<PublicKeyCache>,
+    // --- New fields for offload recipient and threshold ---
+    pub offload_recipient: AccountId,
+    pub offload_threshold: u128,
 }
 
 impl Relayer {
     pub fn new(
         manager: AccountId,
+        platform_public_key: PublicKey,
         offload_recipient: AccountId,
-        auth_contract: AccountId,
-        ft_wrapper_contract: AccountId,
+        offload_threshold: u128,
     ) -> Self {
+        // Use only the 32 bytes of the Ed25519 key
+        let key_bytes = &platform_public_key.as_bytes()[1..];
+        let pk_str = bs58::encode(key_bytes).into_string();
+        let _platform_crypto_key =
+            CryptoPublicKey::from_str(&format!("ed25519:{}", pk_str)).expect("Invalid public key");
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
+            version_history: vec![env!("CARGO_PKG_VERSION").to_string()],
             manager,
+            min_balance: DEFAULT_MIN_BALANCE,
+            nonces: LookupMap::new(StorageKey::Nonces),
+            platform_public_key,
+            paused: false,
+            sponsorship_guard: ReentrancyGuard::new(),
+            deposit_guard: ReentrancyGuard::new(),
+            pending_refunds: LookupMap::new(StorageKey::PendingRefunds),
+            platform_key_cache: LazyOption::new(StorageKey::PublicKeyCache, None),
             offload_recipient,
-            auth_contract,
-            ft_wrapper_contract,
-            omni_locker_contract: LazyOption::new(
-                b"omni_locker".to_vec(),
-                Some(env::current_account_id()),
-            ),
-            chain_mpc_mapping: LookupMap::new(b"chain_mpc".to_vec()),
-            sponsor_amount: 10_000_000_000_000_000_000_000,
-            sponsor_gas: 100_000_000_000_000,
-            cross_contract_gas: 100_000_000_000_000,
-            migration_gas: 200_000_000_000_000,
-            chunk_size: 5,
-            min_balance: 10_000_000_000_000_000_000_000_000,
-            max_balance: 1_000_000_000_000_000_000_000_000_000,
-            base_fee: 100_000_000_000_000_000_000,
-            transfer_nonces: LookupMap::new(b"nonces".to_vec()),
-            pending_transfers: LookupMap::new(b"pending_transfers".to_vec()),
+            offload_threshold,
         }
     }
 
-    pub fn is_manager(&self, account_id: &AccountId) -> bool {
-        &self.manager == account_id
+    pub fn get_nonce(&self, account_id: &AccountId) -> u64 {
+        self.nonces
+            .get(account_id)
+            .map(|entry| entry.nonce)
+            .unwrap_or(0)
     }
 
-    pub fn get_pending_nonce(&self, chain: &str) -> u64 {
-        self.transfer_nonces.get(chain).copied().unwrap_or(0)
-    }
+    pub fn prune_nonces_periodic(
+        &mut self,
+        max_age_ms: u64,
+        max_accounts: u32,
+        accounts: Vec<AccountId>,
+    ) -> (u32, Option<AccountId>) {
+        let cutoff = env::block_timestamp_ms().saturating_sub(max_age_ms);
+        let max_iterations = max_accounts;
+        let mut processed = 0;
+        let mut to_remove = Vec::with_capacity(max_iterations as usize);
 
-    pub fn add_pending_transfer(&mut self, args: PendingTransferArgs) {
-        let key = format!("{}-{}", args.chain, args.nonce);
-        self.pending_transfers.insert(
-            key,
-            PendingTransfer {
-                nonce: args.nonce,
-                sender_id: args.sender_id,
-                token: args.token,
-                amount: args.amount,
-                recipient: args.recipient,
-                fee: args.fee,
-            },
-        );
-    }
-
-    pub fn confirm_pending_transfer(&mut self, chain: &str, nonce: u64) {
-        let key = format!("{}-{}", chain, nonce);
-        self.pending_transfers.remove(&key);
-        let current_nonce = self.transfer_nonces.get(chain).copied().unwrap_or(0);
-        if nonce >= current_nonce {
-            self.transfer_nonces.insert(chain.to_string(), nonce + 1);
+        for account_id in accounts.iter().take(max_iterations as usize) {
+            if let Some(entry) = self.nonces.get(account_id) {
+                if entry.last_updated < cutoff {
+                    to_remove.push(account_id.clone());
+                }
+                processed += 1;
+            }
         }
+
+        for account_id in &to_remove {
+            self.nonces.remove(account_id);
+            if self.paused {
+                log!("[DEBUG] Pruned nonce for {}", account_id);
+            }
+        }
+
+        (processed, to_remove.last().cloned())
     }
 
-    pub fn revert_pending_transfer(&mut self, chain: &str, nonce: u64) -> Option<PendingTransfer> {
-        let key = format!("{}-{}", chain, nonce);
-        self.pending_transfers.remove(&key)
-    }
-
-    pub fn migrate() -> Self {
+    pub fn migrate_with_versioned(
+        versioned: VersionedRelayer,
+    ) -> Result<VersionedRelayer, RelayerError> {
         const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
         let current_version =
-            Version::parse(CURRENT_VERSION).expect("Invalid current version in Cargo.toml");
-
-        let state_bytes: Vec<u8> = env::state_read().unwrap_or_default();
-
-        // Try current version
-        if let Ok(state) = borsh::from_slice::<Relayer>(&state_bytes) {
-            if let Ok(state_version) = Version::parse(&state.version) {
-                if state_version >= current_version {
-                    env::log_str("State is at current or newer version, no migration needed");
-                    return state;
-                }
-            }
+            Version::parse(CURRENT_VERSION).map_err(|_| RelayerError::InvalidState)?;
+        let old_version_str = versioned.version();
+        let old_version =
+            Version::parse(&old_version_str).map_err(|_| RelayerError::InvalidState)?;
+        let mut new_relayer = versioned.state;
+        if old_version < current_version {
+            log!(
+                "Applying migration from {} to {}",
+                old_version,
+                current_version
+            );
+            new_relayer.apply_migration(&old_version, &current_version)?;
         }
-
-        // Try version 0.1.0 or earlier
-        if let Ok(old_state) = borsh::from_slice::<StateV010>(&state_bytes) {
-            if let Ok(old_version) = Version::parse(&old_state.version) {
-                if old_version <= Version::parse("0.1.0").unwrap() {
-                    env::log_str(&format!(
-                        "Migrating from state version {}",
-                        old_state.version
-                    ));
-                    let new_state = Relayer {
-                        version: CURRENT_VERSION.to_string(),
-                        manager: old_state.manager,
-                        offload_recipient: old_state.offload_recipient,
-                        auth_contract: old_state.auth_contract,
-                        ft_wrapper_contract: old_state.ft_wrapper_contract,
-                        omni_locker_contract: old_state.omni_locker_contract,
-                        chain_mpc_mapping: old_state.chain_mpc_mapping,
-                        sponsor_amount: old_state.sponsor_amount,
-                        sponsor_gas: old_state.sponsor_gas,
-                        cross_contract_gas: old_state.cross_contract_gas,
-                        migration_gas: old_state.migration_gas,
-                        chunk_size: old_state.chunk_size,
-                        min_balance: old_state.min_balance,
-                        max_balance: old_state.max_balance,
-                        base_fee: old_state.base_fee,
-                        transfer_nonces: old_state.transfer_nonces,
-                        pending_transfers: old_state.pending_transfers,
-                    };
-                    RelayerEvent::StateMigrated {
-                        old_version: old_state.version,
-                        new_version: CURRENT_VERSION.to_string(),
-                    }
-                    .emit();
-                    return new_state;
-                }
-            }
-        }
-
-        // If no valid state was found or version is unknown, initialize a new state
-        env::log_str("No valid prior state found or unknown version, initializing new state");
-        Self::new(
-            env::current_account_id(),
-            "recipient.testnet".parse::<AccountId>().unwrap(),
-            "auth.testnet".parse::<AccountId>().unwrap(),
-            "ft.testnet".parse::<AccountId>().unwrap(),
-        )
+        let new_state = VersionedRelayer { state: new_relayer };
+        log_state_migrated(&new_state.state, &old_version_str, CURRENT_VERSION);
+        log!("Gas used in migrate: {}", env::used_gas().as_gas());
+        Ok(new_state)
     }
+
+    fn apply_migration(
+        &mut self,
+        old_version: &Version,
+        current_version: &Version,
+    ) -> Result<(), RelayerError> {
+        log!(
+            "Applying migration from {} to {}",
+            old_version,
+            current_version
+        );
+        let migrations: Vec<MigrationStep> = vec![
+            (
+                Version::parse("0.1.0").unwrap(),
+                Version::parse("0.1.1").unwrap(),
+                Box::new(|relayer: &mut Relayer| {
+                    relayer.version_history.push("0.1.1".to_string());
+                }),
+            ),
+            (
+                Version::parse("0.1.1").unwrap(),
+                Version::parse("0.1.2").unwrap(),
+                Box::new(|relayer: &mut Relayer| {
+                    relayer.version_history.push("0.1.2".to_string());
+                }),
+            ),
+        ];
+
+        let mut v = old_version.clone();
+        for (from, to, migration_fn) in &migrations {
+            if &v == from && to <= current_version {
+                migration_fn(self);
+                v = to.clone();
+            }
+        }
+
+        self.version = current_version.to_string();
+        self.version_history.push(current_version.to_string());
+        if self.manager.len() > MAX_ACCOUNT_ID_LENGTH || self.manager.as_str().is_empty() {
+            return Err(RelayerError::InvalidInput(
+                "Invalid manager AccountId".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn queue_refund(&mut self, account_id: &AccountId, amount: u128) {
+        self.pending_refunds.insert(account_id.clone(), amount);
+    }
+
+    pub fn clear_refund(&mut self, account_id: &AccountId) -> u128 {
+        self.pending_refunds.remove(account_id).unwrap_or(0)
+    }
+
+    pub fn get_pending_refund(&self, account_id: &AccountId) -> u128 {
+        self.pending_refunds.get(account_id).copied().unwrap_or(0)
+    }
+
+    pub fn set_nonce(&mut self, account_id: &AccountId, nonce: u64) {
+        let entry = NonceEntry {
+            nonce,
+            last_updated: env::block_timestamp_ms(),
+        };
+        self.nonces.insert(account_id.clone(), entry);
+    }
+
+    #[cfg(test)]
+    pub fn set_nonce_with_timestamp(
+        &mut self,
+        account_id: &AccountId,
+        nonce: u64,
+        last_updated: u64,
+    ) {
+        let entry = NonceEntry {
+            nonce,
+            last_updated,
+        };
+        self.nonces.insert(account_id.clone(), entry);
+    }
+
+    pub fn get_cached_platform_public_key(&mut self) -> CryptoPublicKey {
+        let current_key_bytes = self.platform_public_key.as_bytes()[1..].to_vec(); // Use only the 32 bytes (no prefix)
+        let cache = &mut self.platform_key_cache;
+        if let Some(cached) = cache.get() {
+            if cached.key_bytes == current_key_bytes {
+                return cached.parsed_key.clone();
+            }
+        }
+        let parsed_key = CryptoPublicKey::from_str(&format!(
+            "ed25519:{}",
+            bs58::encode(current_key_bytes.clone()).into_string()
+        ))
+        .expect("Invalid platform public key");
+        cache.set(Some(PublicKeyCache {
+            key_bytes: current_key_bytes,
+            parsed_key: parsed_key.clone(),
+        }));
+        parsed_key
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct PublicKeyCache {
+    pub key_bytes: Vec<u8>,
+    pub parsed_key: CryptoPublicKey,
 }

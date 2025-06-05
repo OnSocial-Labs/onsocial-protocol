@@ -1,309 +1,163 @@
 use crate::errors::RelayerError;
-use crate::events::RelayerEvent;
-use crate::{ext_auth, state::Relayer};
-use near_sdk::{env, AccountId, Gas, PublicKey};
-
-pub fn register_existing_account(
-    relayer: &mut Relayer,
-    account_id: AccountId,
-    public_key: PublicKey,
-    expiration_days: Option<u32>,
-    is_multi_sig: bool,
-    multi_sig_threshold: Option<u32>,
-) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if caller != account_id {
-        return Err(RelayerError::Unauthorized);
-    }
-    if public_key.as_bytes().len() != 33 || public_key.as_bytes()[0] != 0 {
-        return Err(RelayerError::InvalidSignature);
-    }
-    ext_auth::ext(relayer.auth_contract.clone())
-        .with_static_gas(Gas::from_tgas(relayer.cross_contract_gas))
-        .register_key(
-            account_id.clone(),
-            public_key.clone(),
-            expiration_days,
-            is_multi_sig,
-            multi_sig_threshold,
-        );
-    let key_hash = hex::encode(env::sha256(public_key.as_bytes()));
-    RelayerEvent::AuthAdded {
-        auth_account: account_id,
-        key_hash,
-    }
-    .emit();
-    Ok(())
-}
-
-pub fn remove_key(
-    relayer: &mut Relayer,
-    account_id: AccountId,
-    public_key: PublicKey,
-) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if caller != account_id {
-        return Err(RelayerError::Unauthorized);
-    }
-    ext_auth::ext(relayer.auth_contract.clone())
-        .with_static_gas(Gas::from_tgas(relayer.cross_contract_gas))
-        .remove_key(account_id.clone(), public_key.clone());
-    let key_hash = hex::encode(env::sha256(public_key.as_bytes()));
-    RelayerEvent::AuthRemoved {
-        auth_account: account_id,
-        key_hash,
-    }
-    .emit();
-    Ok(())
-}
-
-pub fn set_cross_contract_gas(relayer: &mut Relayer, new_gas: u64) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    if !(15_000_000_000_000..=100_000_000_000_000).contains(&new_gas) {
-        return Err(RelayerError::AmountTooLow);
-    }
-    relayer.cross_contract_gas = new_gas;
-    RelayerEvent::CrossContractGasUpdated { new_gas }.emit();
-    let remaining_gas = env::prepaid_gas()
-        .as_tgas()
-        .saturating_sub(env::used_gas().as_tgas());
-    env::log_str(&format!(
-        "set_cross_contract_gas: prepaid={} TGas, used={} TGas, remaining={} TGas",
-        env::prepaid_gas().as_tgas(),
-        env::used_gas().as_tgas(),
-        remaining_gas
-    ));
-    Ok(())
-}
-
-pub fn set_migration_gas(relayer: &mut Relayer, new_gas: u64) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    if !(15_000_000_000_000..=200_000_000_000_000).contains(&new_gas) {
-        return Err(RelayerError::AmountTooLow);
-    }
-    relayer.migration_gas = new_gas;
-    RelayerEvent::MigrationGasUpdated { new_gas }.emit();
-    let remaining_gas = env::prepaid_gas()
-        .as_tgas()
-        .saturating_sub(env::used_gas().as_tgas());
-    env::log_str(&format!(
-        "set_migration_gas: prepaid={} TGas, used={} TGas, remaining={} TGas",
-        env::prepaid_gas().as_tgas(),
-        env::used_gas().as_tgas(),
-        remaining_gas
-    ));
-    Ok(())
-}
-
-pub fn set_omni_locker_contract(
-    relayer: &mut Relayer,
-    new_locker_contract: AccountId,
-) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    relayer
-        .omni_locker_contract
-        .set(Some(new_locker_contract.clone()));
-    RelayerEvent::OmniLockerContractUpdated {
-        new_locker_contract,
-    }
-    .emit();
-    Ok(())
-}
-
-pub fn set_offload_recipient(
-    relayer: &mut Relayer,
-    new_recipient: AccountId,
-) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    relayer.offload_recipient = new_recipient.clone();
-    RelayerEvent::OffloadRecipientUpdated { new_recipient }.emit();
-    Ok(())
-}
+use crate::events::{log_config_changed, log_funds_offloaded};
+use crate::require_manager;
+use crate::state::Relayer;
+use near_crypto::{KeyType, Signature};
+use near_sdk::bs58;
+use near_sdk::{env, AccountId, NearToken, Promise, PublicKey};
+use std::str::FromStr;
 
 pub fn set_manager(relayer: &mut Relayer, new_manager: AccountId) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
+    require_manager!(relayer, env::predecessor_account_id());
+    AccountId::validate(new_manager.as_str())
+        .map_err(|_| RelayerError::InvalidInput("Invalid AccountId".to_string()))?;
+    if relayer.manager == new_manager {
+        return Ok(());
     }
-    relayer.manager = new_manager.clone();
-    RelayerEvent::ManagerChanged {
-        old_manager: caller,
-        new_manager,
-        timestamp: env::block_timestamp_ms(),
-    }
-    .emit();
+    let old_manager = relayer.manager.to_string();
+    relayer.manager = new_manager;
+    log_config_changed(
+        relayer,
+        "manager",
+        &old_manager,
+        relayer.manager.as_str(),
+        &env::predecessor_account_id(),
+        env::block_timestamp_ms(),
+    );
     Ok(())
 }
 
-pub fn set_sponsor_amount(relayer: &mut Relayer, new_amount: u128) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
+pub fn set_balance_limits(relayer: &mut Relayer, min: u128) -> Result<(), RelayerError> {
+    require_manager!(relayer, env::predecessor_account_id());
+    // Enforce minimum of 6 NEAR
+    const MIN_MIN_BALANCE: u128 = 6_000_000_000_000_000_000_000_000;
+    if min < MIN_MIN_BALANCE {
+        return Err(RelayerError::InvalidInput(
+            "min_balance cannot be less than 6 NEAR".to_string(),
+        ));
     }
-    if new_amount < 10_000_000_000_000_000_000_000 {
-        return Err(RelayerError::AmountTooLow);
+    if relayer.min_balance == min {
+        return Ok(());
     }
-    relayer.sponsor_amount = new_amount;
-    RelayerEvent::SponsorAmountUpdated { new_amount }.emit();
+    let old_min = relayer.min_balance;
+    relayer.min_balance = min;
+    log_config_changed(
+        relayer,
+        "min_balance",
+        &old_min.to_string(),
+        &min.to_string(),
+        &env::predecessor_account_id(),
+        env::block_timestamp_ms(),
+    );
     Ok(())
 }
 
-pub fn set_sponsor_gas(relayer: &mut Relayer, new_gas: u64) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    if !(50_000_000_000_000..=300_000_000_000_000).contains(&new_gas) {
-        return Err(RelayerError::AmountTooLow);
-    }
-    relayer.sponsor_gas = new_gas;
-    RelayerEvent::SponsorGasUpdated { new_gas }.emit();
-    Ok(())
-}
-
-pub fn set_chunk_size(relayer: &mut Relayer, new_size: usize) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    if !(1..=5).contains(&new_size) {
-        return Err(RelayerError::AmountTooLow);
-    }
-    relayer.chunk_size = new_size;
-    RelayerEvent::ChunkSizeUpdated { new_size }.emit();
-    let remaining_gas = env::prepaid_gas()
-        .as_tgas()
-        .saturating_sub(env::used_gas().as_tgas());
-    env::log_str(&format!(
-        "set_chunk_size: prepaid={} TGas, used={} TGas, remaining={} TGas",
-        env::prepaid_gas().as_tgas(),
-        env::used_gas().as_tgas(),
-        remaining_gas
-    ));
-    Ok(())
-}
-
-pub fn add_chain_mpc_mapping(
+pub fn offload_funds(
     relayer: &mut Relayer,
-    chain: String,
-    mpc_contract: AccountId,
-) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
+    amount: u128,
+    signature: Vec<u8>,
+    challenge: Vec<u8>,
+) -> Result<Promise, RelayerError> {
+    let recipient = relayer.offload_recipient.clone();
+    crate::require!(
+        amount > 0,
+        RelayerError::InvalidInput("Amount must be greater than zero".to_string())
+    );
+    crate::require!(
+        amount >= relayer.offload_threshold,
+        RelayerError::InvalidInput("Amount is below offload threshold".to_string())
+    );
+    let available_balance = env::account_balance()
+        .as_yoctonear()
+        .saturating_sub(env::account_locked_balance().as_yoctonear());
+    crate::require!(
+        available_balance >= relayer.offload_threshold,
+        RelayerError::InsufficientBalance
+    );
+    crate::require!(
+        available_balance >= amount + relayer.min_balance,
+        RelayerError::InsufficientBalance
+    );
+    let serialized = near_sdk::borsh::to_vec(&(amount, &recipient, &challenge))
+        .map_err(|_| RelayerError::SerializationError)?;
+    let platform_key = relayer.get_cached_platform_public_key();
+    let sig = Signature::from_parts(KeyType::ED25519, &signature)
+        .map_err(|_| RelayerError::InvalidInput("Invalid signature".to_string()))?;
+    if !sig.verify(&serialized, &platform_key) {
         return Err(RelayerError::Unauthorized);
     }
-    relayer
-        .chain_mpc_mapping
-        .insert(chain.clone(), mpc_contract.clone());
-    RelayerEvent::ChainMpcMappingAdded {
-        chain,
-        mpc_contract,
-    }
-    .emit();
-    Ok(())
+    log_funds_offloaded(relayer, amount, &recipient, env::block_timestamp_ms());
+    Ok(Promise::new(recipient).transfer(NearToken::from_yoctonear(amount)))
 }
 
-pub fn remove_chain_mpc_mapping(relayer: &mut Relayer, chain: String) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    relayer.chain_mpc_mapping.remove(&chain);
-    RelayerEvent::ChainMpcMappingRemoved { chain }.emit();
-    Ok(())
-}
-
-pub fn set_auth_contract(
+pub fn set_platform_public_key(
     relayer: &mut Relayer,
-    new_auth_contract: AccountId,
+    new_key: PublicKey,
+    challenge: Vec<u8>,
+    signature: Vec<u8>,
 ) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
+    require_manager!(relayer, env::predecessor_account_id());
+    if relayer.platform_public_key == new_key {
+        return Ok(());
     }
-    relayer.auth_contract = new_auth_contract.clone();
-    RelayerEvent::AuthContractUpdated { new_auth_contract }.emit();
+    let new_key_bs58 = bs58::encode(&new_key.as_bytes()[1..]).into_string();
+    let parsed = near_crypto::PublicKey::from_str(&new_key_bs58)
+        .map_err(|_| RelayerError::InvalidInput("Invalid PublicKey".to_string()))?;
+    if !matches!(parsed.key_type(), KeyType::ED25519) || parsed.key_data().len() != 32 {
+        return Err(RelayerError::InvalidInput(
+            "PublicKey must be ED25519 and 32 bytes".to_string(),
+        ));
+    }
+    let sig = near_crypto::Signature::from_parts(KeyType::ED25519, &signature)
+        .map_err(|_| RelayerError::InvalidInput("Invalid Signature".to_string()))?;
+    if !sig.verify(&challenge, &parsed) {
+        return Err(RelayerError::InvalidInput(
+            "Signature verification failed".to_string(),
+        ));
+    }
+    let old_key_bs58 = bs58::encode(&relayer.platform_public_key.as_bytes()[1..]).into_string();
+    relayer.platform_public_key = new_key;
+    let new_key_bs58 = bs58::encode(&relayer.platform_public_key.as_bytes()[1..]).into_string();
+    log_config_changed(
+        relayer,
+        "platform_public_key",
+        &old_key_bs58,
+        &new_key_bs58,
+        &env::predecessor_account_id(),
+        env::block_timestamp_ms(),
+    );
     Ok(())
 }
 
-pub fn set_ft_wrapper_contract(
-    relayer: &mut Relayer,
-    new_ft_wrapper_contract: AccountId,
-) -> Result<(), RelayerError> {
+pub fn withdraw_pending_refund(relayer: &mut Relayer) -> Result<Promise, RelayerError> {
     let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
+    let amount = relayer.clear_refund(&caller);
+    crate::require!(
+        amount > 0,
+        RelayerError::InvalidInput("No pending refund for this account".to_string())
+    );
+    crate::events::log_refund_withdrawn(relayer, &caller, amount, env::block_timestamp_ms());
+    Ok(Promise::new(caller).transfer(NearToken::from_yoctonear(amount)))
+}
+
+pub fn pause(relayer: &mut Relayer, caller: &AccountId) -> Result<(), RelayerError> {
+    require_manager!(relayer, *caller);
+    if relayer.paused {
+        return Ok(());
     }
-    relayer.ft_wrapper_contract = new_ft_wrapper_contract.clone();
-    RelayerEvent::FtWrapperContractUpdated {
-        new_ft_wrapper_contract,
-    }
-    .emit();
+    relayer.paused = true;
+    let ts = env::block_timestamp_ms();
+    crate::events::log_paused(relayer, caller, ts);
     Ok(())
 }
 
-pub fn set_base_fee(
-    relayer: &mut Relayer,
-    new_fee: u128,
-    signatures: Option<Vec<Vec<u8>>>,
-) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
+pub fn unpause(relayer: &mut Relayer, caller: &AccountId) -> Result<(), RelayerError> {
+    require_manager!(relayer, *caller);
+    if !relayer.paused {
+        return Ok(());
     }
-    // Allow zero fee without signatures for flexibility
-    if new_fee > 0 {
-        if let Some(sigs) = signatures {
-            if sigs.len() < 2 {
-                return Err(RelayerError::InsufficientSignatures);
-            }
-        } else {
-            return Err(RelayerError::InsufficientSignatures);
-        }
-        let min_fee = 100_000_000_000_000_000_000; // 0.0001 NEAR
-        if new_fee < min_fee {
-            return Err(RelayerError::FeeTooLow);
-        }
-    }
-    relayer.base_fee = new_fee;
-    RelayerEvent::BaseFeeUpdated { new_fee }.emit();
-    Ok(())
-}
-
-pub fn set_min_balance(relayer: &mut Relayer, new_min: u128) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    if new_min > relayer.max_balance {
-        return Err(RelayerError::AmountTooLow);
-    }
-    relayer.min_balance = new_min;
-    RelayerEvent::MinBalanceUpdated { new_min }.emit();
-    Ok(())
-}
-
-pub fn set_max_balance(relayer: &mut Relayer, new_max: u128) -> Result<(), RelayerError> {
-    let caller = env::predecessor_account_id();
-    if !relayer.is_manager(&caller) {
-        return Err(RelayerError::Unauthorized);
-    }
-    if new_max < relayer.min_balance {
-        return Err(RelayerError::AmountTooLow);
-    }
-    relayer.max_balance = new_max;
-    RelayerEvent::MaxBalanceUpdated { new_max }.emit();
+    relayer.paused = false;
+    let ts = env::block_timestamp_ms();
+    crate::events::log_unpaused(relayer, caller, ts);
     Ok(())
 }

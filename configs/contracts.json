@@ -1,11 +1,5 @@
 [
     {
-        "name": "auth-onsocial",
-        "id": "auth.$NETWORK",
-        "account": "${AUTH_ACCOUNT}",
-        "init": "new '{}'"
-    },
-    {
         "name": "ft-wrapper-onsocial",
         "id": "ft-wrapper.$NETWORK",
         "account": "${FT_ACCOUNT}",
