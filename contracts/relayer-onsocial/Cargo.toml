@@ -5,6 +5,7 @@ edition = "2021"
 repository = "https://github.com/OnSocial-Labs/onsocial-protocol"
 
 [lib]
+name = "relayer_onsocial"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
@@ -12,14 +13,13 @@ near-sdk = { workspace = true }
 near-sdk-macros = { workspace = true }
 borsh = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-near-crypto = { workspace = true }
-
 getrandom = { workspace = true, features = ["js"] }
 semver = { workspace = true }
-schemars = { workspace = true }
+ed25519-dalek = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 near-sdk = { workspace = true, features = ["unit-testing"] }
 near-crypto = { workspace = true }
+rand = { workspace = true }
 bs58 = { workspace = true }

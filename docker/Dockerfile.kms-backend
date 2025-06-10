@@ -1,15 +1,15 @@
 # Use official Rust image as builder
-FROM rust:1.77-bullseye AS builder
+FROM rust:latest AS builder
 
-WORKDIR /usr/src/hsm-backend
+WORKDIR /usr/src/kms-backend
 # Copy your backend source code into the container (adjust path as needed)
-COPY ./hsm-backend/ .
+COPY ./kms-backend/ .
 
 RUN cargo build --release
 
 # Use a minimal base image for runtime
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-COPY --from=builder /usr/src/hsm-backend/target/release/hsm-backend .
+COPY --from=builder /usr/src/kms-backend/target/release/kms-backend .
 
-CMD ["./hsm-backend"]
+CMD ["./kms-backend"]

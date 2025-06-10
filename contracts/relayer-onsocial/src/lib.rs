@@ -5,14 +5,13 @@ use crate::admin::{
 use crate::constants::{CONFIRMATION_STRING, MAX_GAS_LIMIT};
 use crate::errors::RelayerError;
 use crate::events::{log_contract_initialized, log_contract_upgraded};
-use crate::sponsor::{handle_sponsor_result, sponsor_transactions as sponsor_transactions_impl};
+use crate::sponsor::sponsor_transactions as sponsor_transactions_impl;
 use crate::state::Relayer;
 use crate::state_versions::VersionedRelayer;
 use crate::types::SignedDelegateAction;
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::ext_contract;
 use near_sdk::json_types::U128;
-use near_sdk::{env, log, near, AccountId, Gas, NearToken, PanicOnDefault, Promise, PublicKey};
+use near_sdk::{env, log, near, AccountId, Gas, NearToken, PanicOnDefault, Promise};
 use near_sdk_macros::NearSchema;
 
 mod admin;
@@ -24,17 +23,6 @@ mod sponsor;
 mod state;
 mod state_versions;
 mod types;
-
-#[ext_contract(ext_self)]
-pub trait SelfCallback {
-    fn handle_result(
-        &self,
-        sender_id: AccountId,
-        signed_delegate: SignedDelegateAction,
-        sponsor_amount: u128,
-        gas: u64,
-    ) -> Promise;
-}
 
 #[macro_export]
 macro_rules! require_not_paused {
@@ -76,7 +64,7 @@ impl OnSocialRelayer {
     #[handle_result]
     pub fn new(
         manager: AccountId,
-        platform_public_key: PublicKey,
+        platform_public_key: Vec<u8>,
         offload_recipient: AccountId,
         offload_threshold: U128,
     ) -> Result<Self, RelayerError> {
@@ -85,24 +73,24 @@ impl OnSocialRelayer {
         AccountId::validate(offload_recipient.as_str()).map_err(|_| {
             RelayerError::InvalidInput("Invalid offload_recipient account ID".to_string())
         })?;
+        if platform_public_key.len() != 32 {
+            return Err(RelayerError::InvalidInput(
+                "platform_public_key must be 32 bytes".to_string(),
+            ));
+        }
         if env::predecessor_account_id() != env::current_account_id() {
             return Err(RelayerError::Unauthorized);
         }
-        let relayer = Relayer::new(
-            manager,
-            platform_public_key,
-            offload_recipient,
-            offload_threshold.0,
-        );
+        let mut pk = [0u8; 32];
+        pk.copy_from_slice(&platform_public_key);
+        let relayer = Relayer::new(manager, pk, offload_recipient, offload_threshold.0);
         let versioned_relayer = VersionedRelayer { state: relayer };
-
         log_contract_initialized(
             versioned_relayer.as_ref(),
             &versioned_relayer.as_ref().manager,
             0,
             env::block_timestamp_ms(),
         );
-
         Ok(Self {
             relayer: versioned_relayer,
         })
@@ -150,7 +138,6 @@ impl OnSocialRelayer {
         challenge: Vec<u8>,
     ) -> Result<Promise, RelayerError> {
         require_not_paused!(self.relayer.as_ref());
-        // No longer require_manager! Anyone can call if signature is valid
         offload_funds_impl(self.relayer.as_mut(), amount.0, signature, challenge)
     }
 
@@ -197,7 +184,7 @@ impl OnSocialRelayer {
     #[handle_result]
     pub fn set_platform_public_key(
         &mut self,
-        new_key: PublicKey,
+        new_key: Vec<u8>,
         challenge: Vec<u8>,
         signature: Vec<u8>,
     ) -> Result<(), RelayerError> {
@@ -205,25 +192,8 @@ impl OnSocialRelayer {
         set_platform_public_key_impl(self.relayer.as_mut(), new_key, challenge, signature)
     }
 
-    pub fn get_platform_public_key(&self) -> &PublicKey {
-        &self.relayer.as_ref().platform_public_key
-    }
-
-    #[private]
-    pub fn handle_result(
-        &mut self,
-        sender_id: AccountId,
-        signed_delegate: SignedDelegateAction,
-        sponsor_amount: u128,
-        gas: u64,
-    ) -> Promise {
-        handle_sponsor_result(
-            self.relayer.as_mut(),
-            &sender_id,
-            signed_delegate,
-            sponsor_amount,
-            gas,
-        )
+    pub fn get_platform_public_key(&self) -> Vec<u8> {
+        self.relayer.as_ref().platform_public_key.to_vec()
     }
 
     pub fn get_balance(&self) -> U128 {
@@ -270,7 +240,7 @@ impl OnSocialRelayer {
         let relayer = self.relayer.as_ref();
         let migrate_args = MigrateArgs {
             manager: relayer.manager.clone(),
-            platform_public_key: relayer.platform_public_key.clone(),
+            platform_public_key: relayer.platform_public_key.to_vec(),
             offload_recipient: relayer.offload_recipient.clone(),
             offload_threshold: U128(relayer.offload_threshold),
             force_init: force_init.unwrap_or(false),
@@ -292,6 +262,9 @@ impl OnSocialRelayer {
     #[init(ignore_state)]
     #[handle_result]
     pub fn migrate(args: MigrateArgs) -> Result<Self, RelayerError> {
+        if env::predecessor_account_id() != args.manager {
+            env::panic_str("Unauthorized");
+        }
         let MigrateArgs {
             manager,
             platform_public_key,
@@ -305,15 +278,22 @@ impl OnSocialRelayer {
                 "Confirmation missing or invalid".to_string(),
             ));
         }
+        if platform_public_key.len() != 32 {
+            return Err(RelayerError::InvalidInput(
+                "platform_public_key must be 32 bytes".to_string(),
+            ));
+        }
         AccountId::validate(manager.as_str())
             .map_err(|_| RelayerError::InvalidInput("Invalid AccountId".to_string()))?;
         let state_bytes: Vec<u8> = env::state_read().unwrap_or_default();
+        let mut pk = [0u8; 32];
+        pk.copy_from_slice(&platform_public_key);
         let versioned_relayer = if state_bytes.is_empty() {
             log!("[MIGRATION] State is empty. force_init: {}", force_init);
             if force_init {
                 let relayer = Relayer::new(
                     manager.clone(),
-                    platform_public_key.clone(),
+                    pk,
                     offload_recipient.clone(),
                     offload_threshold.0,
                 );
@@ -327,7 +307,7 @@ impl OnSocialRelayer {
                     "Migration (init from empty) to v{} complete",
                     env!("CARGO_PKG_VERSION")
                 );
-                return Ok(Self { relayer: versioned });
+                versioned
             } else {
                 log!("[MIGRATION] State is empty and force_init is false. Aborting.");
                 return Err(RelayerError::InvalidState);
@@ -337,7 +317,7 @@ impl OnSocialRelayer {
                 &state_bytes,
                 force_init,
                 manager.clone(),
-                platform_public_key.clone(),
+                pk,
                 offload_recipient.clone(),
                 offload_threshold.0,
             )?
@@ -351,42 +331,6 @@ impl OnSocialRelayer {
 
     pub fn get_storage_usage(&self) -> u64 {
         env::storage_usage()
-    }
-
-    #[handle_result]
-    pub fn process_pending_refunds(
-        &mut self,
-        recipient: AccountId,
-    ) -> Result<Promise, RelayerError> {
-        require_not_paused!(self.relayer.as_ref());
-        let relayer = self.relayer.as_mut();
-        let amount = relayer.get_pending_refund(&recipient);
-        if amount == 0 {
-            return Err(RelayerError::InvalidInput("No pending refund".to_string()));
-        }
-        if env::account_balance().as_yoctonear() < amount {
-            return Err(RelayerError::InsufficientBalance);
-        }
-        relayer.clear_refund(&recipient);
-        crate::events::log_deposit_event(
-            relayer,
-            "withdrawn",
-            &recipient,
-            U128(amount),
-            None,
-            env::block_timestamp_ms(),
-        );
-        Ok(Promise::new(recipient).transfer(NearToken::from_yoctonear(amount)))
-    }
-
-    #[handle_result]
-    pub fn withdraw_pending_refund(&mut self) -> Result<Promise, RelayerError> {
-        require_not_paused!(self.relayer.as_ref());
-        crate::admin::withdraw_pending_refund(self.relayer.as_mut())
-    }
-
-    pub fn get_pending_refund(&self, account_id: AccountId) -> U128 {
-        U128(self.relayer.as_ref().get_pending_refund(&account_id))
     }
 
     #[handle_result]
@@ -418,7 +362,6 @@ impl OnSocialRelayer {
         require_not_paused!(self.relayer.as_ref());
         require_manager!(self.relayer.as_ref(), env::predecessor_account_id());
         let relayer = self.relayer.as_mut();
-        // Enforce offload_threshold >= min_balance
         if new_threshold.0 < relayer.min_balance {
             return Err(RelayerError::InvalidInput(
                 "Offload threshold cannot be less than min_balance".to_string(),
@@ -463,10 +406,10 @@ impl OnSocialRelayer {
     }
 }
 
-#[derive(NearSchema, serde::Serialize, serde::Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(NearSchema, BorshSerialize, BorshDeserialize, serde::Serialize, serde::Deserialize)]
 pub struct MigrateArgs {
     pub manager: AccountId,
-    pub platform_public_key: PublicKey,
+    pub platform_public_key: Vec<u8>,
     pub offload_recipient: AccountId,
     pub offload_threshold: U128,
     pub force_init: bool,

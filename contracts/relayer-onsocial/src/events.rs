@@ -15,6 +15,7 @@ fn log_event(_relayer: &Relayer, event_type: &str, fields: &[(&str, Option<Strin
         "DbgChg" => 10,
         "Paused" => 11,
         "Unpaused" => 12,
+        "NRes" => 13,
         _ => 0,
     };
     let mut log = format!("{{\"t\":{},\"event\":\"{}\"", code, event_type);
@@ -32,15 +33,28 @@ pub struct TxProcMeta<'a> {
     pub error_detail: Option<&'a str>,
 }
 
-pub fn log_transaction_processed(
-    relayer: &Relayer,
-    sender_id: &AccountId,
-    action_type: &str,
-    amount: U128,
-    signature_verified: bool,
-    timestamp: u64,
-    meta: Option<TxProcMeta>,
-) {
+pub struct LogTxProcessedArgs<'a> {
+    pub relayer: &'a Relayer,
+    pub sender_id: &'a AccountId,
+    pub action_type: &'a str,
+    pub amount: U128,
+    pub signature_verified: bool,
+    pub timestamp: u64,
+    pub action_context: &'a str,
+    pub meta: Option<TxProcMeta<'a>>,
+}
+
+pub fn log_transaction_processed(args: LogTxProcessedArgs) {
+    let LogTxProcessedArgs {
+        relayer,
+        sender_id,
+        action_type,
+        amount,
+        signature_verified,
+        timestamp,
+        action_context,
+        meta,
+    } = args;
     let mut fields = vec![
         ("s", Some(format!("\"{}\"", sender_id))),
         ("at", Some(format!("\"{}\"", action_type))),
@@ -48,6 +62,7 @@ pub fn log_transaction_processed(
         ("sv", Some(signature_verified.to_string())),
         ("ts", Some(timestamp.to_string())),
     ];
+    fields.push(("ctx", Some(format!("\"{}\"", action_context))));
     if let Some(meta) = &meta {
         if let Some(gas) = meta.gas_used {
             fields.push(("gu", Some(gas.to_string())));
@@ -65,6 +80,7 @@ pub fn log_transaction_rejected(
     amount: U128,
     reason: &str,
     timestamp: u64,
+    action_context: &str, // <-- added
     meta: Option<TxProcMeta>,
 ) {
     let mut fields = vec![
@@ -73,6 +89,7 @@ pub fn log_transaction_rejected(
         ("r", Some(format!("\"{}\"", reason))),
         ("ts", Some(timestamp.to_string())),
     ];
+    fields.push(("ctx", Some(format!("\"{}\"", action_context))));
     if let Some(meta) = &meta {
         if let Some(gas) = meta.gas_used {
             fields.push(("gu", Some(gas.to_string())));
@@ -92,6 +109,7 @@ pub fn log_deposit_event(
     new_balance: Option<U128>,
     timestamp: u64,
 ) {
+    assert!(status == "received", "Invalid deposit status");
     let nb = new_balance.map(|nb| nb.0.to_string());
     log_event(
         relayer,
@@ -200,19 +218,12 @@ pub fn log_unpaused(relayer: &Relayer, unpaused_by: &AccountId, timestamp: u64) 
     );
 }
 
-pub fn log_refund_withdrawn(
-    relayer: &Relayer,
-    account_id: &AccountId,
-    amount: u128,
-    timestamp: u64,
-) {
+pub fn log_nonce_reset(relayer: &Relayer, account_id: &AccountId, timestamp: u64) {
     log_event(
         relayer,
-        "Dep",
+        "NRes",
         &[
-            ("st", Some("\"withdrawn\"".to_string())),
             ("s", Some(format!("\"{}\"", account_id))),
-            ("a", Some(amount.to_string())),
             ("ts", Some(timestamp.to_string())),
         ],
     );

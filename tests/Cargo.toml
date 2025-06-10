@@ -10,6 +10,7 @@ path = "src/mod.rs"
 near-sdk = { workspace = true }
 near-workspaces = { workspace = true }
 near-crypto = { workspace = true }
+borsh = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 serde_json = { workspace = true }

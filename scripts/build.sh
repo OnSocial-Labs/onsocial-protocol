@@ -182,7 +182,9 @@ test_contract() {
   local contract=$1
   echo "Running tests for $contract..."
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
-  [ "$NEAR_ENV" = "sandbox" ] && curl -s http://localhost:3030 >/dev/null || handle_error "NEAR Sandbox not running"
+  if [ "$NEAR_ENV" = "sandbox" ]; then
+    curl -s http://localhost:3030/status >/dev/null || handle_error "NEAR Sandbox not running"
+  fi
   [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
   cargo test || handle_error "Tests failed for $contract"
   echo -e "${GREEN}$contract tests passed${NC}"

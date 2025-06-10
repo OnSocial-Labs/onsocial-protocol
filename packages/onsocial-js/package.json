@@ -1,31 +1,44 @@
 {
   "name": "onsocial-js",
   "version": "0.1.0",
-  "type": "module",
+  "description": "Expo-safe NEAR transaction utilities for OnSocial frontend integration.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
-    "test": "vitest run",
-    "lint": "eslint .",
-    "format": "prettier --write ."
+    "build": "tsc --build",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext .ts,.tsx"
   },
+  "keywords": [
+    "near",
+    "expo",
+    "react-native",
+    "transactions",
+    "onsocial"
+  ],
+  "author": "OnSocial Labs",
+  "license": "MIT",
   "dependencies": {
-    "cross-fetch": "*",
-    "tweetnacl": "*"
+    "@near-js/transactions": "^2.0.0",
+    "@near-js/types": "^2.0.0",
+    "@near-js/utils": "^2.0.0",
+    "borsh": "^0.7.0",
+    "bs58": "^5.0.0",
+    "base64-js": "^1.5.1",
+    "tweetnacl": "^1.0.3"
   },
+  "peerDependencies": {},
   "devDependencies": {
-    "@eslint/js": "*",
-    "@types/node": "*",
-    "@typescript-eslint/eslint-plugin": "*",
-    "@typescript-eslint/parser": "*",
-    "eslint": "*",
-    "eslint-plugin-prettier": "*",
-    "eslint-plugin-react": "*",
-    "eslint-plugin-react-hooks": "*",
-    "jest": "*",
-    "prettier": "*",
-    "typescript": "*",
-    "vitest": "*"
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0"
   }
 }

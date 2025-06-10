@@ -11,6 +11,9 @@
 pub const DEFAULT_MIN_BALANCE: u128 = 6_000_000_000_000_000_000_000_000; // 6 NEAR
 pub const MAX_GAS_LIMIT: u64 = 300_000_000_000_000; // Hardcoded to 300 TGas
 
+// Default gas for refund transfers (can be overridden by SDK or passed as argument)
+// pub const DEFAULT_REFUND_GAS: u64 = 10_000_000_000_000; // 10 TGas
+
 // Allowance and argument limits
 pub const MIN_ALLOWANCE: u128 = 100_000_000_000_000_000_000; // 0.1 NEAR
 

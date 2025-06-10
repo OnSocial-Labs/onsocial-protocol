@@ -45,19 +45,19 @@ getrandom = { version = "0.2.16", features = ["js"] }
 hex = "0.4.3"
 base64 = "0.22.1"
 bs58 = "0.5.1"
+rand = "0.8"
 near-workspaces = "0.20.1"
 tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread"] }
 anyhow = "1.0"
 semver = "1.0.26"
 schemars = "0.8.22"
+itertools = "0.12"
 
 [profile.release]
 opt-level = "z"
-codegen-units = 1
 lto = true
+codegen-units = 1
 panic = "abort"
-overflow-checks = true
-debug = false
 
 [profile.test]
 opt-level = 0

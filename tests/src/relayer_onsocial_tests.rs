@@ -1,30 +1,122 @@
-// Integration test for refund log emission on partial failure
-// This test requires a NEAR Sandbox or similar environment to simulate cross-contract failures.
+#[allow(unused_imports)]
+use crate::utils::{deploy_contract, get_wasm_path, setup_sandbox};
+#[allow(unused_imports)]
+use anyhow::Result;
+#[allow(unused_imports)]
+use near_workspaces::types::{AccountId, KeyType, SecretKey};
+#[allow(unused_imports)]
+use serde_json::json;
 
-use near_sdk::json_types::U128;
-use near_sdk_sim::{call, deploy, init_simulator, to_yocto, ContractAccount, UserAccount};
-use relayer_onsocial::OnSocialRelayerContract;
+#[tokio::test]
+async fn test_relayer_onsocial_init() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let wasm_path = get_wasm_path("relayer-onsocial");
+    println!("WASM path: {}", wasm_path); // Print the WASM path for debugging
+    let contract = deploy_contract(&worker, &wasm_path).await?;
 
-near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
-    RELAYER_WASM_BYTES => "../../contracts/relayer-onsocial/target/wasm32-unknown-unknown/release/relayer_onsocial.wasm",
+    let outcome = contract
+        .call("new")
+        .args_json(json!({
+            "manager": "test.near",
+            "platform_public_key": vec![0u8; 32], // 32-byte placeholder
+            "offload_recipient": "recipient.near",
+            "offload_threshold": "10000000000000000000000000" // 10 NEAR in yocto
+        }))
+        .transact()
+        .await?;
+    println!("relayer-onsocial new outcome: {:#?}", outcome);
+
+    Ok(())
 }
 
-#[test]
-fn test_refund_log_emitted_on_partial_failure() {
-    let root = init_simulator(None);
-    let manager = root.create_user("manager".to_string(), to_yocto("100"));
-    let contract: ContractAccount<OnSocialRelayerContract> = deploy!(
-        contract: OnSocialRelayerContract,
-        contract_id: "relayer".to_string(),
-        bytes: &RELAYER_WASM_BYTES,
-        signer_account: manager
-    );
-    // TODO: Simulate a sponsored transaction that will fail and trigger a refund.
-    // This requires setting up a delegate action and a scenario where the promise fails.
-    // After the call, fetch logs and assert the refund log is present.
-    // Example (pseudo):
-    // let outcome = call!(...);
-    // let logs = outcome.logs();
-    // assert!(logs.iter().any(|log| log.contains("insufficient balance or gas")), "Refund log not found: {:?}", logs);
-    // For now, this is a placeholder for integration logic.
+#[tokio::test]
+async fn test_relayer_onsocial_get_paused() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let wasm_path = get_wasm_path("relayer-onsocial");
+    println!("WASM path: {}", wasm_path);
+    let contract = deploy_contract(&worker, &wasm_path).await?;
+
+    // Initialize the contract
+    let outcome = contract
+        .call("new")
+        .args_json(json!({
+            "manager": "test.near",
+            "platform_public_key": vec![0u8; 32], // 32-byte placeholder
+            "offload_recipient": "recipient.near",
+            "offload_threshold": "10000000000000000000000000" // 10 NEAR in yocto
+        }))
+        .transact()
+        .await?;
+    println!("relayer-onsocial new outcome: {:#?}", outcome);
+
+    // Call get_paused and verify it returns false
+    let paused: bool = contract
+        .call("get_paused")
+        .view()
+        .await?
+        .json()?;
+    println!("Paused status: {}", paused);
+    assert_eq!(paused, false, "Contract should not be paused after initialization");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_relayer_onsocial_pause_unpause() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let wasm_path = get_wasm_path("relayer-onsocial");
+    println!("WASM path: {}", wasm_path);
+    let contract = deploy_contract(&worker, &wasm_path).await?;
+
+    // Initialize the contract
+    let _ = contract
+        .call("new")
+        .args_json(json!({
+            "manager": "test.near",
+            "platform_public_key": vec![0u8; 32],
+            "offload_recipient": "recipient.near",
+            "offload_threshold": "10000000000000000000000000"
+        }))
+        .transact()
+        .await?;
+
+    // Use the root account to call pause/unpause as the manager
+    let manager = worker.root_account()?;
+
+
+    // Pause the contract as manager
+    let pause_outcome = manager
+        .call(contract.id(), "pause")
+        .args_json(json!({}))
+        .transact()
+        .await?;
+    println!("Pause outcome: {:#?}", pause_outcome);
+
+    // Check paused status is true
+    let paused: bool = contract
+        .call("get_paused")
+        .view()
+        .await?
+        .json()?;
+    println!("Paused status after pause: {}", paused);
+    assert_eq!(paused, true, "Contract should be paused after calling pause");
+
+    // Unpause the contract as manager
+    let unpause_outcome = manager
+        .call(contract.id(), "unpause")
+        .args_json(json!({}))
+        .transact()
+        .await?;
+    println!("Unpause outcome: {:#?}", unpause_outcome);
+
+    // Check paused status is false
+    let paused: bool = contract
+        .call("get_paused")
+        .view()
+        .await?
+        .json()?;
+    println!("Paused status after unpause: {}", paused);
+    assert_eq!(paused, false, "Contract should not be paused after calling unpause");
+
+    Ok(())
 }

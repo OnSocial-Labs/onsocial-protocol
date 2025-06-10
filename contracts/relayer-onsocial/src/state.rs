@@ -2,21 +2,16 @@ use crate::constants::{DEFAULT_MIN_BALANCE, MAX_ACCOUNT_ID_LENGTH};
 use crate::errors::RelayerError;
 use crate::events::log_state_migrated;
 use crate::state_versions::VersionedRelayer;
-use near_crypto::PublicKey as CryptoPublicKey;
+use ed25519_dalek::VerifyingKey as DalekPublicKey;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::bs58;
 use near_sdk::store::{LazyOption, LookupMap};
-use near_sdk::{env, log, AccountId, BorshStorageKey, PublicKey};
+use near_sdk::{env, log, AccountId, BorshStorageKey};
 use near_sdk_macros::NearSchema;
 use semver::Version;
-use std::str::FromStr;
-
-pub type MigrationStep = (Version, Version, Box<dyn Fn(&mut Relayer)>);
 
 #[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
 pub enum StorageKey {
     Nonces,
-    PendingRefunds,
     PublicKeyCache,
 }
 
@@ -57,33 +52,29 @@ pub struct Relayer {
     pub manager: AccountId,
     pub min_balance: u128,
     pub nonces: LookupMap<AccountId, NonceEntry>,
-    pub platform_public_key: PublicKey,
+    pub platform_public_key: [u8; 32],
     pub paused: bool,
-    pub version_history: Vec<String>,
     pub sponsorship_guard: ReentrancyGuard,
     pub deposit_guard: ReentrancyGuard,
-    pub pending_refunds: LookupMap<AccountId, u128>,
     pub platform_key_cache: LazyOption<PublicKeyCache>,
-    // --- New fields for offload recipient and threshold ---
     pub offload_recipient: AccountId,
     pub offload_threshold: u128,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Debug)]
+pub struct PublicKeyCache {
+    pub key_bytes: [u8; 32],
 }
 
 impl Relayer {
     pub fn new(
         manager: AccountId,
-        platform_public_key: PublicKey,
+        platform_public_key: [u8; 32],
         offload_recipient: AccountId,
         offload_threshold: u128,
     ) -> Self {
-        // Use only the 32 bytes of the Ed25519 key
-        let key_bytes = &platform_public_key.as_bytes()[1..];
-        let pk_str = bs58::encode(key_bytes).into_string();
-        let _platform_crypto_key =
-            CryptoPublicKey::from_str(&format!("ed25519:{}", pk_str)).expect("Invalid public key");
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            version_history: vec![env!("CARGO_PKG_VERSION").to_string()],
             manager,
             min_balance: DEFAULT_MIN_BALANCE,
             nonces: LookupMap::new(StorageKey::Nonces),
@@ -91,7 +82,6 @@ impl Relayer {
             paused: false,
             sponsorship_guard: ReentrancyGuard::new(),
             deposit_guard: ReentrancyGuard::new(),
-            pending_refunds: LookupMap::new(StorageKey::PendingRefunds),
             platform_key_cache: LazyOption::new(StorageKey::PublicKeyCache, None),
             offload_recipient,
             offload_threshold,
@@ -105,34 +95,61 @@ impl Relayer {
             .unwrap_or(0)
     }
 
+    pub fn batch_update_nonces<I>(&mut self, updates: I)
+    where
+        I: IntoIterator<Item = (AccountId, Option<u64>)>,
+    {
+        for (account_id, maybe_nonce) in updates {
+            match maybe_nonce {
+                Some(nonce) if nonce > 0 => {
+                    let current = self.nonces.get(&account_id).map(|e| e.nonce);
+                    if current != Some(nonce) {
+                        self.set_nonce(&account_id, nonce);
+                    }
+                }
+                _ => {
+                    if self.nonces.get(&account_id).is_some() {
+                        self.nonces.remove(&account_id);
+                        crate::events::log_nonce_reset(
+                            self,
+                            &account_id,
+                            env::block_timestamp_ms(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     pub fn prune_nonces_periodic(
         &mut self,
         max_age_ms: u64,
         max_accounts: u32,
         accounts: Vec<AccountId>,
     ) -> (u32, Option<AccountId>) {
-        let cutoff = env::block_timestamp_ms().saturating_sub(max_age_ms);
+        let current_time = env::block_timestamp_ms();
         let max_iterations = max_accounts;
         let mut processed = 0;
-        let mut to_remove = Vec::with_capacity(max_iterations as usize);
+        let mut updates = Vec::with_capacity(max_iterations as usize);
 
         for account_id in accounts.iter().take(max_iterations as usize) {
             if let Some(entry) = self.nonces.get(account_id) {
-                if entry.last_updated < cutoff {
-                    to_remove.push(account_id.clone());
+                if current_time.saturating_sub(entry.last_updated) > max_age_ms {
+                    updates.push((account_id.clone(), None));
+                    processed += 1;
                 }
-                processed += 1;
             }
         }
 
-        for account_id in &to_remove {
-            self.nonces.remove(account_id);
-            if self.paused {
-                log!("[DEBUG] Pruned nonce for {}", account_id);
-            }
-        }
-
-        (processed, to_remove.last().cloned())
+        self.batch_update_nonces(updates);
+        (
+            processed,
+            accounts
+                .iter()
+                .take(processed as usize)
+                .next_back()
+                .cloned(),
+        )
     }
 
     pub fn migrate_with_versioned(
@@ -169,33 +186,8 @@ impl Relayer {
             old_version,
             current_version
         );
-        let migrations: Vec<MigrationStep> = vec![
-            (
-                Version::parse("0.1.0").unwrap(),
-                Version::parse("0.1.1").unwrap(),
-                Box::new(|relayer: &mut Relayer| {
-                    relayer.version_history.push("0.1.1".to_string());
-                }),
-            ),
-            (
-                Version::parse("0.1.1").unwrap(),
-                Version::parse("0.1.2").unwrap(),
-                Box::new(|relayer: &mut Relayer| {
-                    relayer.version_history.push("0.1.2".to_string());
-                }),
-            ),
-        ];
-
-        let mut v = old_version.clone();
-        for (from, to, migration_fn) in &migrations {
-            if &v == from && to <= current_version {
-                migration_fn(self);
-                v = to.clone();
-            }
-        }
-
+        // No version_history logic needed
         self.version = current_version.to_string();
-        self.version_history.push(current_version.to_string());
         if self.manager.len() > MAX_ACCOUNT_ID_LENGTH || self.manager.as_str().is_empty() {
             return Err(RelayerError::InvalidInput(
                 "Invalid manager AccountId".to_string(),
@@ -204,24 +196,17 @@ impl Relayer {
         Ok(())
     }
 
-    pub fn queue_refund(&mut self, account_id: &AccountId, amount: u128) {
-        self.pending_refunds.insert(account_id.clone(), amount);
-    }
-
-    pub fn clear_refund(&mut self, account_id: &AccountId) -> u128 {
-        self.pending_refunds.remove(account_id).unwrap_or(0)
-    }
-
-    pub fn get_pending_refund(&self, account_id: &AccountId) -> u128 {
-        self.pending_refunds.get(account_id).copied().unwrap_or(0)
-    }
-
     pub fn set_nonce(&mut self, account_id: &AccountId, nonce: u64) {
         let entry = NonceEntry {
             nonce,
             last_updated: env::block_timestamp_ms(),
         };
-        self.nonces.insert(account_id.clone(), entry);
+        if nonce == 0 {
+            self.nonces.remove(account_id);
+            crate::events::log_nonce_reset(self, account_id, env::block_timestamp_ms());
+        } else {
+            self.nonces.insert(account_id.clone(), entry);
+        }
     }
 
     #[cfg(test)]
@@ -238,29 +223,22 @@ impl Relayer {
         self.nonces.insert(account_id.clone(), entry);
     }
 
-    pub fn get_cached_platform_public_key(&mut self) -> CryptoPublicKey {
-        let current_key_bytes = self.platform_public_key.as_bytes()[1..].to_vec(); // Use only the 32 bytes (no prefix)
+    pub fn get_cached_platform_public_key(&mut self) -> Result<DalekPublicKey, RelayerError> {
+        let current_key_bytes = self.platform_public_key;
         let cache = &mut self.platform_key_cache;
         if let Some(cached) = cache.get() {
             if cached.key_bytes == current_key_bytes {
-                return cached.parsed_key.clone();
+                return DalekPublicKey::from_bytes(&cached.key_bytes).map_err(|_| {
+                    RelayerError::InvalidInput("Invalid platform public key bytes".to_string())
+                });
             }
         }
-        let parsed_key = CryptoPublicKey::from_str(&format!(
-            "ed25519:{}",
-            bs58::encode(current_key_bytes.clone()).into_string()
-        ))
-        .expect("Invalid platform public key");
+        let parsed_key = DalekPublicKey::from_bytes(&current_key_bytes).map_err(|_| {
+            RelayerError::InvalidInput("Invalid platform public key bytes".to_string())
+        })?;
         cache.set(Some(PublicKeyCache {
             key_bytes: current_key_bytes,
-            parsed_key: parsed_key.clone(),
         }));
-        parsed_key
+        Ok(parsed_key)
     }
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub struct PublicKeyCache {
-    pub key_bytes: Vec<u8>,
-    pub parsed_key: CryptoPublicKey,
 }

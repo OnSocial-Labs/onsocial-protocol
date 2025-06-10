@@ -21,7 +21,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     && . "$HOME/.cargo/env" \
     && rustup target add wasm32-unknown-unknown \
     && rustup component add rustfmt clippy \
-    && cargo install cargo-tarpaulin cargo-edit cargo-audit cargo-tree cargo-near cargo-nextest \
+    && cargo install cargo-tarpaulin cargo-edit cargo-audit cargo-tree cargo-near cargo-nextest cargo-fix twiggy cargo-outdated \
     && rustc --version \
     && cargo --version \
     && apt-get clean \
@@ -41,14 +41,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY contracts contracts
 COPY tests/Cargo.toml tests/
 
-# Create dummy source files for dependency fetching
-RUN find contracts -type f -name Cargo.toml | while read -r toml; do \
-        dir=$(dirname "$toml"); \
-        mkdir -p "$dir/src" && echo "fn main() {}" > "$dir/src/lib.rs"; \
-    done \
-    && mkdir -p tests/src && echo "fn main() {}" > tests/src/lib.rs \
-    && cargo fetch \
-    && rm -rf contracts/*/src tests/src
+# Fetch all dependencies for the workspace (much faster than per-contract)
+RUN cargo fetch
 
 # Copy all source code
 COPY . .

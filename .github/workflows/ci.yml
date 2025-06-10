@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        contract: [auth-onsocial, ft-wrapper-onsocial, relayer-onsocial, all]
+        contract: [ft-wrapper-onsocial, relayer-onsocial, marketplace-onsocial, staking-onsocial, social-onsocial, all]
         # Optionally add network: [sandbox, testnet] for multi-network testing
     steps:
       # Checkout the repository
@@ -44,7 +44,7 @@ jobs:
 
       # Build Docker image
       - name: Build Docker image
-        run: make build-docker
+        run: make build-docker-rs
 
       # Format code
       - name: Format Rust code
@@ -66,26 +66,31 @@ jobs:
 
       # Build contracts
       - name: Build contracts
-        run: make build
+        run: make build-rs
 
-      # Generate ABIs
+      # Generate ABIs (update this if you have a different ABI target)
       - name: Generate ABIs
-        run: make abi
+        run: make abi-all
 
       # Run unit and integration tests
       - name: Run tests
         run: |
           if [ "${{ matrix.contract }}" == "all" ]; then
-            make test-all VERBOSE=1 > test-all.log 2>&1
+            make test-rs VERBOSE=1 > test-all.log 2>&1
           else
-            make test-all CONTRACT=${{ matrix.contract }} VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
+            make test-all-${{ matrix.contract }}-rs VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
           fi
         # Ensure logs are uploaded even if tests fail
         continue-on-error: true
 
       # Generate test coverage
       - name: Generate test coverage
-        run: make test-coverage CONTRACT=${{ matrix.contract }}
+        run: |
+          if [ "${{ matrix.contract }}" == "all" ]; then
+            echo "Skipping coverage for all-contracts meta-target"
+          else
+            make test-coverage-${{ matrix.contract }}-rs
+          fi
 
       # Upload test logs as artifacts (for debugging failures)
       - name: Upload test logs

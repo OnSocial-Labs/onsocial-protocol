@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := help
+
 # Makefile for OnSocial Contracts Monorepo
 # Simplifies common tasks for building, testing, deploying, and managing NEAR smart contracts and JavaScript packages
 
@@ -23,7 +25,7 @@ NEAR_SANDBOX_PORT := 3030
 NEAR_NODE_URL ?= http://localhost:3030
 VERBOSE ?= 0
 DRY_RUN ?= 0
-VALID_CONTRACTS := auth-onsocial ft-wrapper-onsocial relayer-onsocial social-onsocial marketplace-onsocial staking-onsocial
+VALID_CONTRACTS := ft-wrapper-onsocial relayer-onsocial social-onsocial marketplace-onsocial staking-onsocial
 JS_PACKAGES := onsocial-js app relayer
 
 # Default target
@@ -37,21 +39,9 @@ ensure-scripts-executable:
 	@chmod +x scripts/*.sh
 	@/bin/echo -e "\033[0;32mScripts permissions set successfully\033[0m"
 
-# Validate CONTRACT variable
-.PHONY: validate-contract
-validate-contract:
-	@if [ -z "$(CONTRACT)" ]; then \
-	/bin/echo -e "\033[0;31mError: CONTRACT variable not set. Use CONTRACT=<contract-name> (e.g., auth-onsocial)\033[0m"; \
-	exit 1; \
-	fi
-	@if ! echo "$(VALID_CONTRACTS)" | grep -qw "$(CONTRACT)"; then \
-	/bin/echo -e "\033[0;31mError: Invalid CONTRACT '$(CONTRACT)'. Valid options: $(VALID_CONTRACTS)\033[0m"; \
-	exit 1; \
-	fi
-
 # Clean and reinstall JavaScript dependencies
 .PHONY: clean-install-js
-clean-install-js: clean-docker-js rebuild-docker-js ensure-scripts-executable
+clean-install-js: clean-docker-js rebuild-docker-onsocial-js ensure-scripts-executable
 	@echo "Cleaning and reinstalling JavaScript dependencies..."
 	@rm -rf node_modules
 	@docker volume create pnpm-store
@@ -100,8 +90,8 @@ rebuild-docker-rs:
 	@/bin/echo -e "\033[0;32mDocker image rebuilt successfully\033[0m"
 
 # Build Docker image for JavaScript (onsocial-js and dependency updates)
-.PHONY: build-docker-js
-build-docker-js: ensure-scripts-executable
+.PHONY: build-docker-onsocial-js
+build-docker-onsocial-js: ensure-scripts-executable
 	@echo "Checking for existing Docker image $(JS_DOCKER_IMAGE)..."
 	@if ! docker images -q $(JS_DOCKER_IMAGE) | grep -q .; then \
 	/bin/echo "Building Docker image $(JS_DOCKER_IMAGE)..."; \
@@ -112,8 +102,8 @@ build-docker-js: ensure-scripts-executable
 	fi
 
 # Force rebuild Docker image for JavaScript (onsocial-js)
-.PHONY: rebuild-docker-js
-rebuild-docker-js: ensure-scripts-executable
+.PHONY: rebuild-docker-onsocial-js
+rebuild-docker-onsocial-js: ensure-scripts-executable
 	@echo "Forcing rebuild of Docker image $(JS_DOCKER_IMAGE)..."
 	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker stop || true
 	@docker ps -a --filter "ancestor=$(JS_DOCKER_IMAGE)" -q | xargs -r docker rm || true
@@ -214,13 +204,6 @@ format-all-rs: build-docker-rs ensure-scripts-executable
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format-all"
 	@/bin/echo -e "\033[0;32mAll Rust contracts formatted successfully\033[0m"
 
-# Format specific Rust contract
-.PHONY: format-rs-contract
-format-rs-contract: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Formatting Rust contract $(CONTRACT)..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format-contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mRust contract $(CONTRACT) formatted successfully\033[0m"
-
 # Lint Rust code (all contracts)
 .PHONY: lint-rs
 lint-rs: build-docker-rs ensure-scripts-executable
@@ -234,13 +217,6 @@ lint-all-rs: build-docker-rs ensure-scripts-executable
 	@echo "Linting all Rust contracts..."
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-all"
 	@/bin/echo -e "\033[0;32mAll Rust contracts linted successfully\033[0m"
-
-# Lint specific Rust contract
-.PHONY: lint-rs-contract
-lint-rs-contract: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Linting Rust contract $(CONTRACT)..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mRust contract $(CONTRACT) linted successfully\033[0m"
 
 # Check Rust workspace syntax
 .PHONY: check-rs
@@ -273,146 +249,119 @@ build-rs: build-docker-rs ensure-scripts-executable
 	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh"
 	@/bin/echo -e "\033[0;32mAll Rust contracts built successfully\033[0m"
 
-# Build a specific Rust contract (CONTRACT= required)
-.PHONY: build-rs-contract
-build-rs-contract: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Building Rust contract $(CONTRACT)..."
-	@if [ "$(LINT)" = "1" ]; then \
-	$(MAKE) lint-rs; \
-	fi
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mRust contract $(CONTRACT) built successfully\033[0m"
+# Universal pattern rules for contract actions
+.PHONY: build-%-rs
+build-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Building Rust contract $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"
+	@/bin/echo -e "\033[0;32mRust contract $* built successfully\033[0m"
 
-# Generate test coverage report for a specific contract (CONTRACT= required)
-.PHONY: test-coverage-rs
-test-coverage-rs: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Generating test coverage report for $(CONTRACT)..."
-	@docker run -v $(CODE_DIR):/code --network host --privileged --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test_coverage.sh $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mTest coverage report generated successfully\033[0m"
+.PHONY: test-%-rs
+# Runs all tests (unit+integration) for a contract
+# (test-all-%-rs is kept as an alias for backward compatibility)
+test-%-rs: test-all-%-rs
 
-# Run tests (unit, integration, or all)
-.PHONY: test-rs
-test-rs:
-	@if [ "$(filter unit,$(MAKECMDGOALS))" = "unit" ]; then \
-	$(MAKE) test-unit-rs; \
-	elif [ "$(filter integration,$(MAKECMDGOALS))" = "integration" ]; then \
-	$(MAKE) test-integration-rs; \
-	else \
-	$(MAKE) test-all-rs; \
-	fi
-
-# Dummy targets to allow `make test-rs unit` and `make test-rs integration`
-.PHONY: unit integration
-unit integration:
-	@true
-
-# Run all unit and integration tests for all contracts
-.PHONY: test-all-contracts
-test-all-contracts: build-docker-rs ensure-scripts-executable start-sandbox
-	@echo "Running all unit and integration tests for all contracts..."
-	@for contract in $(VALID_CONTRACTS); do \
-	$(MAKE) test-all-rs CONTRACT=$$contract || exit 1; \
-	done
+.PHONY: test-all-%-rs
+test-all-%-rs: build-docker-rs ensure-scripts-executable start-sandbox
+	@echo "Running all unit and integration tests for $*..."
+	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh all $* > /code/test-all.log 2>&1 && exit 0 || { cat /code/test-all.log; echo -e '\033[0;31mTests failed\033[0m'; exit 1; }"
+	@/bin/echo -e "\033[0;32mAll tests for $* completed successfully\033[0m"
 	@$(MAKE) stop-sandbox
-	@/bin/echo -e "\033[0;32mAll tests for all contracts completed successfully\033[0m"
 
-# Run all unit and integration tests (CONTRACT= optional)
-.PHONY: test-all-rs
-test-all-rs: build-docker-rs ensure-scripts-executable start-sandbox
-	@echo "Running all unit and integration tests${CONTRACT:+ for $(CONTRACT)}..."
-	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh all $(CONTRACT) > /code/test-all.log 2>&1 && exit 0 || { cat /code/test-all.log; echo -e '\033[0;31mTests failed\033[0m'; exit 1; }" ; \
-	TEST_STATUS=$$?; \
-	if [ $$TEST_STATUS -ne 0 ]; then \
-	/bin/echo -e "\033[0;31mTests failed, see test-all.log for details\033[0m"; \
-	$(MAKE) stop-sandbox; \
-	exit $$TEST_STATUS; \
+.PHONY: test-unit-%-rs
+test-unit-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Running unit tests for $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit $*"
+	@/bin/echo -e "\033[0;32mUnit tests for $* completed successfully\033[0m"
+
+.PHONY: test-integration-%-rs
+test-integration-%-rs: build-docker-rs ensure-scripts-executable start-sandbox
+	@echo "Running integration tests for $*..."
+	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $*"
+	@/bin/echo -e "\033[0;32mIntegration tests for $* completed successfully\033[0m"
+	@$(MAKE) stop-sandbox
+
+.PHONY: test-coverage-%-rs
+test-coverage-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Generating test coverage report for $*..."
+	@docker run -v $(CODE_DIR):/code --network host --privileged --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test_coverage.sh $*"
+	@/bin/echo -e "\033[0;32mTest coverage report for $* generated successfully\033[0m"
+
+.PHONY: check-%-rs
+check-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Checking Rust contract $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh check-contract $*"
+	@/bin/echo -e "\033[0;32mRust contract $* checked successfully\033[0m"
+
+.PHONY: lint-%-rs
+lint-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Linting Rust contract $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-contract $*"
+	@/bin/echo -e "\033[0;32mRust contract $* linted successfully\033[0m"
+
+.PHONY: format-%-rs
+format-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Formatting Rust contract $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format-contract $*"
+	@/bin/echo -e "\033[0;32mRust contract $* formatted successfully\033[0m"
+
+.PHONY: fix-%-rs
+fix-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Running cargo fix for contract: $*"
+	@docker run -it --rm -v $(PWD):/code -w /code $(DOCKER_IMAGE) cargo fix -p $*
+
+.PHONY: twiggy-%-rs
+twiggy-%-rs: build-%-rs
+	@echo "Running twiggy top for contract: $* (WASM bloat analysis)"
+	@NAME_UNDERSCORE=$(shell echo $* | tr '-' '_'); \
+	WASM1=target/near/$$NAME_UNDERSCORE/$$NAME_UNDERSCORE.wasm; \
+	WASM2=target/wasm32-unknown-unknown/release/$$NAME_UNDERSCORE.wasm; \
+	if [ -f "$$WASM1" ]; then \
+		echo "Using $$WASM1"; \
+		docker run -it --rm -v $(PWD):/code -w /code $(DOCKER_IMAGE) bash -c "twiggy top -n 50 $$WASM1"; \
+	elif [ -f "$$WASM2" ]; then \
+		echo "Using $$WASM2"; \
+		docker run -it --rm -v $(PWD):/code -w /code $(DOCKER_IMAGE) bash -c "twiggy top -n 50 $$WASM2"; \
 	else \
-	/bin/echo -e "\033[0;32mAll tests completed successfully\033[0m"; \
-	/bin/echo "Stopping sandbox..."; \
-	$(MAKE) stop-sandbox; \
+		echo "Error: Neither $$WASM1 nor $$WASM2 exists. Build the contract first."; \
+		exit 1; \
 	fi
 
-# Run unit tests for all or specific contract (CONTRACT= optional)
-.PHONY: test-unit-rs
-test-unit-rs: build-docker-rs ensure-scripts-executable
-	@echo "Running unit tests${CONTRACT:+ for $(CONTRACT)}..."
-	@if [ -n "$(CONTRACT)" ]; then $(MAKE) validate-contract; fi
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mUnit tests completed successfully\033[0m"
+.PHONY: audit-%-rs
+audit-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Auditing Rust contract $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo audit"
+	@/bin/echo -e "\033[0;32mRust contract $* audited successfully\033[0m"
 
-# Run integration tests for all or specific contract (CONTRACT= optional)
-.PHONY: test-integration-rs
-test-integration-rs: build-docker-rs ensure-scripts-executable start-sandbox
-	@echo "Running integration tests${CONTRACT:+ for $(CONTRACT)}..."
-	@if [ -n "$(CONTRACT)" ] && [ "$(CONTRACT)" != "cross-contract" ]; then $(MAKE) validate-contract; fi
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $(CONTRACT)" ; \
-	TEST_STATUS=$$?; \
-	$(MAKE) stop-sandbox; \
-	exit $$TEST_STATUS
+.PHONY: deploy-%-rs
+deploy-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Deploying contract $* to $(NETWORK)..."
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $*"
+	@/bin/echo -e "\033[0;32mContract $* deployed successfully\033[0m"
 
-# Deploy a contract (CONTRACT= required)
-.PHONY: deploy-rs
-deploy-rs: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Deploying contract $(CONTRACT) to $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mContract deployed successfully\033[0m"
+.PHONY: deploy-init-%-rs
+deploy-init-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Initializing contract $* on $(NETWORK)..."
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh init --contract $*"
+	@/bin/echo -e "\033[0;32mContract $* initialized successfully\033[0m"
 
-# Initialize a deployed contract (CONTRACT= required)
-.PHONY: deploy-init-rs
-deploy-init-rs: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Initializing contract $(CONTRACT) on $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh init --contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mContract initialized successfully\033[0m"
+.PHONY: deploy-reproducible-%-rs
+deploy-reproducible-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Deploying contract $* with reproducible WASM to $(NETWORK)..."
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh reproducible --contract $*"
+	@/bin/echo -e "\033[0;32mContract $* deployed with reproducible WASM successfully\033[0m"
 
-# Deploy with reproducible WASM (CONTRACT= required)
-.PHONY: deploy-reproducible-rs
-deploy-reproducible-rs: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Deploying contract $(CONTRACT) with reproducible WASM to $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=$(DRY_RUN) $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh reproducible --contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mContract deployed with reproducible WASM successfully\033[0m"
+.PHONY: deploy-dry-run-%-rs
+deploy-dry-run-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Simulating deployment of $* to $(NETWORK)..."
+	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=1 $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $*"
+	@/bin/echo -e "\033[0;32mDry-run deployment simulation for $* completed successfully\033[0m"
 
-# Dry-run deployment (CONTRACT= required)
-.PHONY: deploy-dry-run-rs
-deploy-dry-run-rs: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Simulating deployment of $(CONTRACT) to $(NETWORK)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e AUTH_ACCOUNT=$(AUTH_ACCOUNT) -e FT_ACCOUNT=$(FT_ACCOUNT) -e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) -e DRY_RUN=1 $(DOCKER_IMAGE) bash -c "./scripts/deploy.sh --contract $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mDry-run deployment simulation completed successfully\033[0m"
-
-# Verify a specific contract (CONTRACT= required)
-.PHONY: verify-contract-rs
-verify-contract-rs: build-docker-rs ensure-scripts-executable validate-contract
-	@echo "Verifying contract $(CONTRACT)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh verify $(CONTRACT)"
-	@/bin/echo -e "\033[0;32mContract $(CONTRACT) verified successfully\033[0m"
-
-# Build reproducible WASM for mainnet
-.PHONY: build-reproducible-rs
-build-reproducible-rs: build-docker-rs ensure-scripts-executable
-	@echo "Building reproducible WASM..."
-	@if [ "$(LINT)" = "1" ]; then \
-	$(MAKE) lint-rs; \
-	fi
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh reproducible"
-	@/bin/echo -e "\033[0;32mReproducible WASM built successfully\033[0m"
-
-# Generate ABIs
-.PHONY: abi-rs
-abi-rs: build-docker-rs ensure-scripts-executable
-	@echo "Generating ABIs..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/abi.sh"
-	@/bin/echo -e "\033[0;32mABIs generated successfully\033[0m"
-
-# Inspect contract state
-.PHONY: inspect-state-rs
-inspect-state-rs: build-docker-rs ensure-scripts-executable
-	@if [ -z "$(CONTRACT_ID)" ] || [ -z "$(METHOD)" ]; then \
-	/bin/echo -e "\033[0;31mError: CONTRACT_ID and METHOD variables must be set (e.g., CONTRACT_ID=auth.sandbox METHOD=get_keys)\033[0m"; \
-	exit 1; \
-	fi
-	@echo "Inspecting state for $(CONTRACT_ID)..."
-	@docker run -v $(CODE_DIR):/code --network host --rm -e NEAR_NODE_URL=$(NEAR_NODE_URL) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/inspect_state.sh $(CONTRACT_ID) $(METHOD) '$(ARGS)'"
-	@/bin/echo -e "\033[0;32mState inspected successfully\033[0m"
+.PHONY: verify-contract-%-rs
+verify-contract-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Verifying contract $*..."
+	@docker run -v $(CODE_DIR):/code --network host --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh verify $*"
+	@/bin/echo -e "\033[0;32mContract $* verified successfully\033[0m"
 
 # Clean all artifacts and sandbox data
 .PHONY: clean-all-rs
@@ -444,22 +393,22 @@ start-sandbox:
 	exit 1; \
 	fi; \
 	docker run -d --cap-add=SYS_ADMIN -p $(NEAR_SANDBOX_PORT):3030 --name near-sandbox -v $(CODE_DIR)/near-data:/tmp/near-sandbox -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "near-sandbox --home /tmp/near-sandbox run"; \
-	for i in {1..30}; do \
+	for i in {1..60}; do \
 	if curl -s http://localhost:3030/status > /dev/null; then \
 	/bin/echo -e "\033[0;32mSandbox started successfully\033[0m"; \
-	break; \
+break; \
 	fi; \
-	/bin/echo "Waiting for sandbox..."; \
-	sleep 2; \
-	done; \
+	/bin/echo "Waiting for sandbox... ($$i/60)"; \
+sleep 6; \
+done; \
 	if ! docker ps | grep near-sandbox > /dev/null; then \
 	/bin/echo -e "\033[0;31mError: Sandbox failed to start\033[0m"; \
-	docker logs near-sandbox; \
+docker logs near-sandbox; \
 	exit 1; \
 	fi; \
 	if ! curl -s http://localhost:3030/status > /dev/null; then \
 	/bin/echo -e "\033[0;31mError: Sandbox not responding\033[0m"; \
-	docker logs near-sandbox; \
+docker logs near-sandbox; \
 	exit 1; \
 	fi; \
 	else \
@@ -497,376 +446,137 @@ patch-state-rs: start-sandbox
 	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e MASTER_ACCOUNT=$(AUTH_ACCOUNT) -e CONTRACT_ID=$(CONTRACT_ID) -e KEY=$(KEY) -e VALUE=$(VALUE) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/patch_state.sh"
 	@/bin/echo -e "\033[0;32mSandbox state patched successfully\033[0m"
 
-# Define contract-specific targets dynamically
-define CONTRACT_RULES
-build-$1-rs: CONTRACT=$1
-build-$1-rs: build-rs-contract
+# Run cargo clippy for a specific Rust contract
+.PHONY: clippy-%-rs
+clippy-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Running cargo clippy for contract: $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"
+	@/bin/echo -e "\033[0;32mClippy finished for $* successfully\033[0m"
 
-build-$1: build-$1-rs
+# Run cargo doc for a specific Rust contract
+.PHONY: doc-%-rs
+doc-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Building documentation for contract: $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo doc --no-deps --all-features"
+	@/bin/echo -e "\033[0;32mDocumentation for $* built successfully\033[0m"
 
-test-all-$1-rs: CONTRACT=$1
-test-all-$1-rs: test-all-rs
+# Show dependency tree for a specific Rust contract
+.PHONY: tree-%-rs
+tree-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Showing dependency tree for contract: $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo tree --all-features"
+	@/bin/echo -e "\033[0;32mDependency tree for $* displayed successfully\033[0m"
 
-test-$1: test-all-$1-rs
+# Show outdated dependencies for a specific Rust contract
+.PHONY: outdated-%-rs
+outdated-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Checking for outdated dependencies in contract: $*..."
+	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo outdated --workspace || true"
+	@/bin/echo -e "\033[0;32mOutdated dependencies for $* checked successfully\033[0m"
 
-test-unit-$1-rs: CONTRACT=$1
-test-unit-$1-rs: test-unit-rs
+# Pattern rule to map JS package names to their docker build targets
+build-docker-onsocial-js: build-docker-onsocial-js
+build-docker-app: build-docker-app
+build-docker-relayer: build-docker-relayer
 
-test-integration-$1-rs: CONTRACT=$1
-test-integration-$1-rs: test-integration-rs
+# Pattern rules for JavaScript package tasks
+.PHONY: build-% test-% lint-% format-%
 
-test-coverage-$1-rs: CONTRACT=$1
-test-coverage-$1-rs: test-coverage-rs
-
-deploy-$1-rs: CONTRACT=$1
-deploy-$1-rs: deploy-rs
-
-deploy-init-$1-rs: CONTRACT=$1
-deploy-init-$1-rs: deploy-init-rs
-
-deploy-reproducible-$1-rs: CONTRACT=$1
-deploy-reproducible-$1-rs: deploy-reproducible-rs
-
-deploy-dry-run-$1-rs: CONTRACT=$1
-deploy-dry-run-$1-rs: deploy-dry-run-rs
-
-verify-contract-$1-rs: CONTRACT=$1
-verify-contract-$1-rs: verify-contract-rs
-
-format-$1-rs: CONTRACT=$1
-format-$1-rs: format-rs-contract
-
-lint-$1-rs: CONTRACT=$1
-lint-$1-rs: lint-rs-contract
-endef
-
-$(foreach contract,$(VALID_CONTRACTS),$(eval $(call CONTRACT_RULES,$(contract))))
-
-# JavaScript: Build packages
-.PHONY: build-onsocial-js
-build-onsocial-js: build-docker-js
-	@echo "Building onsocial-js..."
-	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js build; \
-	/bin/echo -e "\033[0;32monsocial-js built successfully\033[0m"; \
+build-%: build-docker-%
+	@echo "Building $*..."
+	@if [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* build; \
+		/bin/echo -e "\033[0;32m$* built successfully\033[0m"; \
 	else \
-	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
-	exit 1; \
+		/bin/echo -e "\033[0;31mError: packages/$* not found\033[0m"; \
+		exit 1; \
 	fi
 
-.PHONY: build-app-js
-build-app-js: build-docker-app
-	@echo "Building app..."
-	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app build; \
-	/bin/echo -e "\033[0;32mapp built successfully\033[0m"; \
+test-%: build-docker-%
+	@echo "Running $* tests..."
+	@if [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* test > $(CODE_DIR)/packages/$*/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/$*/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
+		/bin/echo -e "\033[0;32m$* tests completed successfully\033[0m"; \
 	else \
-	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
-	exit 1; \
+		/bin/echo -e "\033[0;31mError: packages/$* not found\033[0m"; \
+		exit 1; \
 	fi
 
-.PHONY: build-relayer-js
-build-relayer-js: build-docker-relayer
-	@echo "Building relayer..."
-	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer build; \
-	/bin/echo -e "\033[0;32mrelayer built successfully\033[0m"; \
+lint-%: build-docker-%
+	@echo "Linting $*..."
+	@if [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* lint; \
+		/bin/echo -e "\033[0;32m$* linted successfully\033[0m"; \
 	else \
-	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
-	exit 1; \
+		/bin/echo -e "\033[0;31mError: packages/$* not found\033[0m"; \
+		exit 1; \
 	fi
 
-# JavaScript: Build all packages
-.PHONY: build-js
-build-js: build-docker-js build-docker-app build-docker-relayer
-	@echo "Building all JavaScript packages..."
-	@$(MAKE) build-onsocial-js
-	@$(MAKE) build-app-js
-	@$(MAKE) build-relayer-js
+format-%: build-docker-%
+	@echo "Formatting $*..."
+	@if [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* format; \
+		/bin/echo -e "\033[0;32m$* formatted successfully\033[0m"; \
+	else \
+		/bin/echo -e "\033[0;31mError: packages/$* not found\033[0m"; \
+		exit 1; \
+	fi
+
+# Meta targets for all JS packages
+.PHONY: build-js test-js lint-js format-js
+build-js: $(addprefix build-,$(JS_PACKAGES))
 	@/bin/echo -e "\033[0;32mAll JavaScript packages built successfully\033[0m"
-
-# JavaScript: Test packages
-.PHONY: test-onsocial-js
-test-onsocial-js: build-docker-js
-	@echo "Running onsocial-js tests..."
-	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js test > $(CODE_DIR)/packages/onsocial-js/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/onsocial-js/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
-	/bin/echo -e "\033[0;32monsocial-js tests completed successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
-	exit 1; \
-	fi
-
-.PHONY: test-app-js
-test-app-js: build-docker-app
-	@echo "Running app tests..."
-	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app test > $(CODE_DIR)/packages/app/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/app/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
-	/bin/echo -e "\033[0;32mapp tests completed successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
-	exit 1; \
-	fi
-
-.PHONY: test-relayer-js
-test-relayer-js: build-docker-relayer
-	@echo "Running relayer tests..."
-	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer test > $(CODE_DIR)/packages/relayer/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/relayer/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
-	/bin/echo -e "\033[0;32mrelayer tests completed successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
-	exit 1; \
-	fi
-
-# JavaScript: Test all packages
-.PHONY: test-js
-test-js: build-docker-js build-docker-app build-docker-relayer
-	@echo "Running tests for all JavaScript packages..."
-	@$(MAKE) test-onsocial-js
-	@$(MAKE) test-app-js
-	@$(MAKE) test-relayer-js
+test-js: $(addprefix test-,$(JS_PACKAGES))
 	@/bin/echo -e "\033[0;32mAll JavaScript tests completed successfully\033[0m"
-
-# JavaScript: Lint packages
-.PHONY: lint-onsocial-js
-lint-onsocial-js: build-docker-js
-	@echo "Linting onsocial-js..."
-	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js lint; \
-	/bin/echo -e "\033[0;32monsocial-js linted successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
-	exit 1; \
-	fi
-
-.PHONY: lint-app-js
-lint-app-js: build-docker-app
-	@echo "Linting app..."
-	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app lint; \
-	/bin/echo -e "\033[0;32mapp linted successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
-	exit 1; \
-	fi
-
-.PHONY: lint-relayer-js
-lint-relayer-js: build-docker-relayer
-	@echo "Linting relayer..."
-	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer lint; \
-	/bin/echo -e "\033[0;32mrelayer linted successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
-	exit 1; \
-	fi
-
-# JavaScript: Lint all packages
-.PHONY: lint-js
-lint-js: build-docker-js build-docker-app build-docker-relayer
-	@echo "Linting all JavaScript packages..."
-	@$(MAKE) lint-onsocial-js
-	@$(MAKE) lint-app-js
-	@$(MAKE) lint-relayer-js
+lint-js: $(addprefix lint-,$(JS_PACKAGES))
 	@/bin/echo -e "\033[0;32mAll JavaScript packages linted successfully\033[0m"
-
-# JavaScript: Format packages
-.PHONY: format-onsocial-js
-format-onsocial-js: build-docker-js
-	@echo "Formatting onsocial-js..."
-	@if [ -d "packages/onsocial-js" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm --dir packages/onsocial-js format; \
-	/bin/echo -e "\033[0;32monsocial-js formatted successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/onsocial-js not found\033[0m"; \
-	exit 1; \
-	fi
-
-.PHONY: format-app-js
-format-app-js: build-docker-app
-	@echo "Formatting app..."
-	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app format; \
-	/bin/echo -e "\033[0;32mapp formatted successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
-	exit 1; \
-	fi
-
-.PHONY: format-relayer-js
-format-relayer-js: build-docker-relayer
-	@echo "Formatting relayer..."
-	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer format; \
-	/bin/echo -e "\033[0;32mrelayer formatted successfully\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
-	exit 1; \
-	fi
-
-# JavaScript: Format all packages
-.PHONY: format-js
-format-js: build-docker-js build-docker-app build-docker-relayer
-	@echo "Formatting all JavaScript packages..."
-	@$(MAKE) format-onsocial-js
-	@$(MAKE) format-app-js
-	@$(MAKE) format-relayer-js
+format-js: $(addprefix format-,$(JS_PACKAGES))
 	@/bin/echo -e "\033[0;32mAll JavaScript packages formatted successfully\033[0m"
-
-# JavaScript: Start app
-.PHONY: start-app-js
-start-app-js: build-docker-app
-	@echo "Starting app..."
-	@if [ -d "packages/app" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --network host --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) app-builder pnpm --dir packages/app start; \
-	/bin/echo -e "\033[0;32mApp started\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/app not found\033[0m"; \
-	exit 1; \
-	fi
-
-# JavaScript: Start relayer
-.PHONY: start-relayer-js
-start-relayer-js: build-docker-relayer
-	@echo "Starting relayer..."
-	@if [ -d "packages/relayer" ]; then \
-	docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --network host --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) relayer-builder pnpm --dir packages/relayer start; \
-	/bin/echo -e "\033[0;32mRelayer started\033[0m"; \
-	else \
-	/bin/echo -e "\033[0;31mError: packages/relayer not found\033[0m"; \
-	exit 1; \
-	fi
-
-# Default build target (alias for build-rs)
-.PHONY: build
-build: build-rs
-	@/bin/echo -e "\033[0;32mBuild completed successfully\033[0m"
 
 # Help
 .PHONY: help
 help:
 	@echo "OnSocial Contracts Monorepo Makefile"
 	@echo ""
-	@echo "Usage: make [target] [VARIABLE=value]"
+	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Core Rust Contract Targets:"
-	@echo "  all                  Build and test all Rust contracts (default)"
-	@echo "  build                Build all Rust contracts (alias for build-rs)"
-	@echo "  build-rs             Build all Rust contracts"
-	@echo "  test-rs              Run all unit and integration tests"
-	@echo "  test-all-contracts   Run all tests for all contracts"
-	@echo "  build-reproducible-rs Build reproducible WASM for mainnet"
-	@echo "  abi-rs               Generate ABIs for all contracts"
+	@echo "  build-rs                Build all Rust contracts (alias for build-all-contracts-rs)"
+	@echo "  test-rs                 Test all Rust contracts (alias for test-all-contracts-rs)"
+	@echo "  lint-rs                 Lint all Rust contracts"
+	@echo "  format-rs               Format all Rust contracts"
+	@echo "  check-rs                Check all Rust contracts"
+	@echo "  audit-rs                Audit all Rust contracts"
+	@echo "  clean-all-rs            Clean all Rust artifacts and sandbox data"
+	@echo "  cargo-update-rs         Clean and update Cargo dependencies"
+	@echo "  upgrade-deps-rs         Upgrade Rust dependencies"
 	@echo ""
-	@echo "Contract-Specific Rust Targets (replace <contract> with auth-onsocial, ft-wrapper-onsocial, etc.):"
-	@echo "  build-<contract>-rs     Build a specific contract (e.g., build-relayer-onsocial-rs)"
-	@echo "  test-<contract>         Run all tests for a specific contract (e.g., test-relayer-onsocial)"
-	@echo "  test-unit-<contract>-rs Run unit tests (e.g., test-unit-relayer-onsocial-rs)"
-	@echo "  test-integration-<contract>-rs Run integration tests (e.g., test-integration-relayer-onsocial-rs)"
-	@echo "  test-coverage-<contract>-rs Generate test coverage (e.g., test-coverage-relayer-onsocial-rs)"
-	@echo "  deploy-<contract>-rs    Deploy a contract to sandbox (e.g., deploy-relayer-onsocial-rs)"
-	@echo "  deploy-init-<contract>-rs Initialize a deployed contract (e.g., deploy-init-relayer-onsocial-rs)"
-	@echo "  deploy-reproducible-<contract>-rs Deploy with reproducible WASM"
-	@echo "  deploy-dry-run-<contract>-rs Simulate deployment"
-	@echo "  verify-contract-<contract>-rs Verify a contract (e.g., verify-contract-relayer-onsocial-rs)"
-	@echo "  format-<contract>-rs    Format a specific contract (e.g., format-auth-onsocial-rs)"
-	@echo "  lint-<contract>-rs      Lint a specific contract (e.g., lint-relayer-onsocial-rs)"
+	@echo "Universal Rust Contract Pattern Targets (replace <action> and <contract>):"
+	@echo "  <action>-<contract>-rs  Run <action> for a contract. Actions include:"
+	@echo "    build, test, check, lint, format, fix, audit, deploy, clippy, doc, tree, outdated, etc."
+	@echo "    e.g., build-relayer-onsocial-rs, clippy-relayer-onsocial-rs, doc-relayer-onsocial-rs, tree-relayer-onsocial-rs, outdated-relayer-onsocial-rs, ..."
 	@echo ""
-	@echo "Rust Formatting and Linting Targets:"
-	@echo "  format-rs            Format all Rust contracts"
-	@echo "  format-all-rs        Format all Rust contracts (alias for format-rs)"
-	@echo "  lint-rs              Lint all Rust contracts"
-	@echo "  lint-all-rs          Lint all Rust contracts (alias for lint-rs)"
-	@echo ""
-	@echo "Advanced Rust Targets:"
-	@echo "  build-rs-contract    Build a specific contract (CONTRACT=contract-name)"
-	@echo "  test-all-rs          Run all tests for all or specific contract (CONTRACT=contract-name)"
-	@echo "  test-unit-rs         Run unit tests for all or specific contract (CONTRACT=contract-name)"
-	@echo "  test-integration-rs  Run integration tests for all or specific contract (CONTRACT=contract-name)"
-	@echo "  test-coverage-rs     Generate test coverage report (CONTRACT=contract-name)"
-	@echo "  deploy-rs            Deploy a contract (CONTRACT=contract-name, NETWORK=network)"
-	@echo "  deploy-init-rs       Initialize a deployed contract (CONTRACT=contract-name)"
-	@echo "  deploy-reproducible-rs Deploy with reproducible WASM (CONTRACT=contract-name)"
-	@echo "  deploy-dry-run-rs    Simulate deployment (CONTRACT=contract-name, NETWORK=network)"
-	@echo "  verify-contract-rs   Verify a specific contract (CONTRACT=contract-name)"
-	@echo "  build-docker-rs      Build Docker image for Rust contracts"
-	@echo "  rebuild-docker-rs    Force rebuild Docker image for Rust contracts"
-	@echo "  cargo-update-rs      Clean and update Cargo dependencies"
-	@echo "  upgrade-deps-rs      Upgrade Rust dependencies"
-	@echo "  format-rs            Format Rust code"
-	@echo "  lint-rs              Lint Rust code"
-	@echo "  check-rs             Check Rust workspace syntax"
-	@echo "  audit-rs             Audit Rust dependencies for vulnerabilities"
-	@echo "  check-deps-rs        Check Rust dependency tree"
-	@echo "  clean-all-rs         Clean all Rust artifacts and sandbox data"
-	@echo "  inspect-state-rs     Inspect contract state (CONTRACT_ID=id, METHOD=method, ARGS=args)"
-	@echo "  patch-state-rs       Patch sandbox state (CONTRACT_ID=id, KEY=key, VALUE=value)"
-	@echo ""
-	@echo "Sandbox Targets:"
-	@echo "  init-sandbox         Initialize NEAR Sandbox"
-	@echo "  start-sandbox        Start NEAR Sandbox"
-	@echo "  stop-sandbox         Stop NEAR Sandbox"
-	@echo "  clean-sandbox        Clean NEAR Sandbox data"
-	@echo "  logs-sandbox         Display NEAR Sandbox logs"
-	@echo ""
-	@echo "JavaScript Targets:"
-	@echo "  clean-install-js     Clean and reinstall JavaScript dependencies"
-	@echo "  clean-docker-js      Clean all JavaScript Docker images, volumes, and unused artifacts"
-	@echo "  build-js             Build all JavaScript packages"
-	@echo "  build-onsocial-js    Build onsocial-js package"
-	@echo "  build-app-js         Build app package"
-	@echo "  build-relayer-js     Build relayer package"
-	@echo "  test-js              Test all JavaScript packages"
-	@echo "  test-onsocial-js     Test onsocial-js package"
-	@echo "  test-app-js          Test app package"
-	@echo "  test-relayer-js      Test relayer package"
-	@echo "  lint-js              Lint all JavaScript packages"
-	@echo "  lint-onsocial-js     Lint onsocial-js package"
-	@echo "  lint-app-js          Lint app package"
-	@echo "  lint-relayer-js      Lint relayer package"
-	@echo "  format-js            Format all JavaScript packages"
-	@echo "  format-onsocial-js   Format onsocial-js package"
-	@echo "  format-app-js        Format app package"
-	@echo "  format-relayer-js    Format relayer package"
-	@echo "  start-app-js         Start app (mobile/web)"
-	@echo "  start-relayer-js     Start relayer server"
-	@echo "  build-docker-js      Build Docker image for onsocial-js and dependency updates"
-	@echo "  rebuild-docker-js    Force rebuild Docker image for onsocial-js"
-	@echo "  build-docker-app     Build Docker image for app"
-	@echo "  rebuild-docker-app   Force rebuild Docker image for app"
-	@echo "  build-docker-relayer Build Docker image for relayer"
-	@echo "  rebuild-docker-relayer Force rebuild Docker image for relayer"
-	@echo "  upgrade-deps-js      Upgrade JavaScript dependencies to latest versions"
-	@echo ""
-	@echo "Variables:"
-	@echo "  NETWORK              Network to deploy to (sandbox, testnet, mainnet; default: sandbox)"
-	@echo "  AUTH_ACCOUNT         Account for auth-onsocial (default: test.near)"
-	@echo "  FT_ACCOUNT           Account for ft-wrapper-onsocial (default: test.near)"
-	@echo "  RELAYER_ACCOUNT      Account for relayer-onsocial (default: test.near)"
-	@echo "  CONTRACT             Contract name (e.g., relayer-onsocial)"
-	@echo "  CONTRACT_ID          Contract ID for state inspection (e.g., relayer.sandbox)"
-	@echo "  METHOD               View method for state inspection (e.g., get_keys)"
-	@echo "  ARGS                 JSON args for view method (e.g., {\"account_id\": \"test.near\"})"
-	@echo "  NEAR_NODE_URL        NEAR node URL (default: http://localhost:3030)"
-	@echo "  LINT                 Set to 1 to enable linting during build (e.g., LINT=1)"
-	@echo "  VERBOSE              Set to 1 to enable detailed output (e.g., VERBOSE=1)"
-	@echo "  DRY_RUN              Set to 1 to simulate deployment (e.g., DRY_RUN=1)"
-	@echo "  INCOMPATIBLE         Set to 1 to include incompatible dependency upgrades (e.g., INCOMPATIBLE=1)"
+	@echo "  clippy-<contract>-rs    Run cargo clippy (lints with warnings as errors)"
+	@echo "  doc-<contract>-rs       Build Rust documentation for the contract"
+	@echo "  tree-<contract>-rs      Show dependency tree for the contract"
+	@echo "  outdated-<contract>-rs  Check for outdated dependencies in the contract"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make clean-install-js               # Clean and reinstall JavaScript dependencies"
-	@echo "  make clean-docker-js                # Clean all JavaScript Docker images and volumes"
-	@echo "  make build-relayer-onsocial-rs         # Build relayer-onsocial contract"
-	@echo "  make test-relayer-onsocial             # Run all tests for auth-onsocial"
-	@echo "  make deploy-auth-onsocial-rs        # Deploy relayer-onsocial to sandbox"
-	@echo "  make deploy-rs CONTRACT=social-onsocial NETWORK=testnet  # Deploy to testnet"
-	@echo "  make test-all-contracts             # Run all tests for all contracts"
-	@echo "  make build-js                       # Build all JavaScript packages"
-	@echo "  make test-js                        # Run all JavaScript tests"
-	@echo "  make start-app-js                   # Start the app"
-	@echo "  make format-relayer-onsocial-rs        # Format auth-onsocial contract"
-	@echo "  make lint-relayer-onsocial-rs          # Lint auth-onsocial contract"
-	@echo "  make format-all-rs                  # Format all Rust contracts"
-	@echo "  make lint-all-rs                    # Lint all Rust contracts"
-	@echo "  make upgrade-deps-js                # Upgrade all JavaScript dependencies"
+	@echo "  make clippy-relayer-onsocial-rs         # Run cargo clippy for relayer-onsocial contract"
+	@echo "  make doc-relayer-onsocial-rs            # Build docs for relayer-onsocial contract"
+	@echo "  make tree-relayer-onsocial-rs           # Show dependency tree for relayer-onsocial contract"
+	@echo "  make outdated-relayer-onsocial-rs       # Check for outdated dependencies in relayer-onsocial contract"
+	@echo "  make build-relayer-onsocial-rs          # Build relayer-onsocial contract"
+	@echo "  make test-relayer-onsocial-rs           # Run all tests for relayer-onsocial"
+	@echo "  make lint-relayer-onsocial-rs           # Lint relayer-onsocial contract"
+	@echo "  make fix-relayer-onsocial-rs            # Run cargo fix for relayer-onsocial"
+	@echo "  make twiggy-relayer-onsocial-rs          # Run twiggy WASM bloat analysis for relayer-onsocial"
+	@echo "  make audit-relayer-onsocial-rs          # Audit relayer-onsocial contract"
+	@echo "  make deploy-relayer-onsocial-rs         # Deploy relayer-onsocial to sandbox"
+	@echo "  make format-all-rs                      # Format all Rust contracts"
+	@echo "  make lint-all-rs                        # Lint all Rust contracts"
+	@echo "  make test-all-contracts                 # Run all tests for all contracts"
+	@echo "  make build-js                           # Build all JavaScript packages"
+	@echo "  make test-js                            # Run all JavaScript tests"
+	@echo "  make start-app-js                       # Start the app"
+	@echo "  make upgrade-deps-js                    # Upgrade all JavaScript dependencies"

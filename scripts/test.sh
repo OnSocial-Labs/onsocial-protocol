@@ -58,7 +58,22 @@ test_unit() {
 test_integration() {
     local module=$1
     echo "Running integration tests${module:+ for $module}..."
-    cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+    # Build contract in release mode if a specific contract is being tested
+    if [ -n "$module" ]; then
+        case $module in
+            ft-wrapper-onsocial|relayer-onsocial|marketplace-onsocial|staking-onsocial|social-onsocial)
+                echo "Building $module in release mode for integration test..."
+                cd "$BASE_DIR/$module" || { echo -e "${RED}Directory $module not found${NC}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cargo build --release --target wasm32-unknown-unknown || { echo -e "${RED}Release build failed for $module${NC}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                ;;
+            *)
+                cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                ;;
+        esac
+    else
+        cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+    fi
     for i in {1..60}; do
         if curl -s http://localhost:3030/status >/dev/null; then
             echo "Sandbox is ready"
@@ -128,81 +143,63 @@ test_integration() {
 }
 
 print_summary() {
-    echo -e "\n### NEAR Contract Test Summary\n"
-    echo "Environment: NEAR Sandbox"
-    echo "Command: test $1${CONTRACT:+ (CONTRACT=$CONTRACT)}"
-    echo -e "\n#### Test Results\n"
-    
-    # Print table header
-    printf "| %-19s | %-25s | %-25s |\n" "Contract" "Unit Tests" "Integration Tests"
-    printf "| %-19s | %-25s | %-25s |\n" "-------------------" "-------------------------" "-------------------------"
+    echo -e "\n NEAR Contract Test Summary\n"
+    # Table header with box-drawing characters
+    printf "┌──────────────────────┬────────────────────────────┬────────────────────────────┐\n"
+    printf "│ %-20s │ %-26s │ %-26s │\n" "Contract" "Unit Tests" "Integration Tests"
+    printf "├──────────────────────┼────────────────────────────┼────────────────────────────┤\n"
 
-    TOTAL_UNIT_TESTS=0
-    TOTAL_INTEGRATION_TESTS=0
-    TOTAL_UNIT_PASSED=0
-    TOTAL_INTEGRATION_PASSED=0
-    TOTAL_UNIT_FAILED=0
-    TOTAL_INTEGRATION_FAILED=0
-    ISSUES=()
-
-    if [ -n "$CONTRACT" ] && [ "$CONTRACT" != "cross-contract" ]; then
-        DISPLAY_CONTRACTS=("$CONTRACT")
-        if [ "$1" = "integration" ] || [ "$1" = "all" ]; then
-            DISPLAY_CONTRACTS+=("cross-contract")
-        fi
+    # Use tput for color codes if possible, else fallback to ANSI codes
+    if [ -n "$TERM" ] && tput setaf 1 &>/dev/null; then
+        BOLD_GREEN=$(tput bold; tput setaf 2)
+        BOLD_RED=$(tput bold; tput setaf 1)
+        BOLD_YELLOW=$(tput bold; tput setaf 3)
+        RESET=$(tput sgr0)
     else
-        DISPLAY_CONTRACTS=("${CONTRACTS[@]}" "cross-contract")
+        BOLD_GREEN=$'\033[1;32m'
+        BOLD_RED=$'\033[1;31m'
+        BOLD_YELLOW=$'\033[1;33m'
+        RESET=$'\033[0m'
     fi
-
-    for contract in "${DISPLAY_CONTRACTS[@]}"; do
-        if [ "$contract" = "cross-contract" ] && [ "$1" != "integration" ] && [ "$1" != "all" ]; then
-            continue
-        fi
-
+    FIXED_CONTRACTS=("ft-wrapper-onsocial" "relayer-onsocial" "marketplace-onsocial" "staking-onsocial" "social-onsocial" "cross-contract")
+    for contract in "${FIXED_CONTRACTS[@]}"; do
         UNIT_STATUS="${UNIT_RESULTS[$contract]:-Not Run}"
         INTEGRATION_STATUS="${INTEGRATION_RESULTS[$contract]:-Not Run}"
-
-        # Only show pass/fail, do not show fake test counts
-        UNIT_TEST_STR="- Not Run"
+        # Pad plain status first and set color
         if [ "$UNIT_STATUS" = "Passed" ]; then
-            UNIT_TEST_STR="✅ Passed"
+            UNIT_COLOR="$BOLD_GREEN"
+            PADDED_UNIT="PASSED   "
         elif [ "$UNIT_STATUS" = "Failed" ]; then
-            UNIT_TEST_STR="❌ Failed"
-            ISSUES+=("$contract: Unit test(s) failed. Check test-all.log or run \`make test-unit CONTRACT=$contract\` for details.")
+            UNIT_COLOR="$BOLD_RED"
+            PADDED_UNIT="FAILED   "
+        else
+            UNIT_COLOR="$BOLD_YELLOW"
+            PADDED_UNIT="NOT RUN  "
         fi
-
-        INTEGRATION_TEST_STR="- Not Run"
         if [ "$INTEGRATION_STATUS" = "Passed" ]; then
-            INTEGRATION_TEST_STR="✅ Passed"
+            INT_COLOR="$BOLD_GREEN"
+            PADDED_INT="PASSED   "
         elif [ "$INTEGRATION_STATUS" = "Failed" ]; then
-            INTEGRATION_TEST_STR="❌ Failed"
-            ISSUES+=("$contract: Integration test(s) failed. Check test-all.log or run \`make test-integration CONTRACT=$contract\` for details.")
+            INT_COLOR="$BOLD_RED"
+            PADDED_INT="FAILED   "
+        else
+            INT_COLOR="$BOLD_YELLOW"
+            PADDED_INT="NOT RUN  "
         fi
-
-        printf "| %-19s | %-25s | %-25s |\n" "$contract" "$UNIT_TEST_STR" "$INTEGRATION_TEST_STR"
+        # Print the row with color only on the status fields
+        printf "│ %-20s │ %s%-26s%s │ %s%-26s%s │\n" \
+            "${contract:0:20}" \
+            "$UNIT_COLOR" "$PADDED_UNIT" "$RESET" \
+            "$INT_COLOR" "$PADDED_INT" "$RESET"
     done
+    printf "└──────────────────────┴────────────────────────────┴────────────────────────────┘\n"
 
-    echo -e "\n#### Summary\n"
-    echo "- Unit Tests: pass/fail status only (test counts not shown; see test-all.log for details)"
-    echo "- Integration Tests: pass/fail status only (test counts not shown; see test-all.log for details)"
-
-    if [ ${#ISSUES[@]} -gt 0 ]; then
-        echo -e "\nIssues Found:"
-        for issue in "${ISSUES[@]}"; do
-            echo "- $issue"
-        done
-    fi
-
-    echo -e "\nNext Steps:"
-    echo "- Review test-all.log for detailed error messages."
-    echo "- Debug failing tests using the commands above."
-    echo "- Ensure sandbox is running (\`make start-sandbox\`) before retesting."
-
+    # Minimal summary
     if [ $UNIT_FAILURES -ne 0 ] || [ $INTEGRATION_FAILURES -ne 0 ]; then
-        echo -e "\n${RED}Test Failures: Unit ($UNIT_FAILURES), Integration ($INTEGRATION_FAILURES)${NC}"
+        echo -e "\nTest Failures: Unit ($UNIT_FAILURES), Integration ($INTEGRATION_FAILURES)"
         exit 1
     else
-        echo -e "\n${GREEN}All executed tests passed successfully${NC}"
+        echo -e "\nAll executed tests passed successfully"
         exit 0
     fi
 }
