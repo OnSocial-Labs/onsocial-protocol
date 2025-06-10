@@ -48,11 +48,11 @@ jobs:
 
       # Format code
       - name: Format Rust code
-        run: make format-rs
+        run: make format-${{ matrix.contract }}-rs
 
       # Lint code
       - name: Lint Rust code
-        run: make lint-rs
+        run: make lint-${{ matrix.contract }}-rs
 
       # Start NEAR Sandbox
       - name: Start NEAR Sandbox
@@ -60,7 +60,7 @@ jobs:
 
       # Build contracts
       - name: Build contracts
-        run: make build-rs
+        run: make build-${{ matrix.contract }}-rs
 
       # Run unit and integration tests
       - name: Run tests

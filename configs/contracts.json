@@ -9,7 +9,7 @@
         "name": "relayer-onsocial",
         "id": "relayer.$NETWORK",
         "account": "${RELAYER_ACCOUNT}",
-        "init": "new '{\"offload_recipient\": \"${AUTH_ACCOUNT}\", \"auth_contract\": \"auth.$NETWORK\", \"ft_wrapper_contract\": \"ft-wrapper.$NETWORK\"}'"
+        "init": "new '{\"platform_public_key\": \"${PLATFORM_PUBLIC_KEY}\", \"offload_recipient\": \"${OFFLOAD_RECIPIENT}\", \"offload_threshold\": \"1000000000000000000000000\"}'"
     },
     {
         "name": "marketplace-onsocial",
