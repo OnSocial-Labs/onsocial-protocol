@@ -1,4 +1,5 @@
 [![Build Status](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions)
+<!-- [![JS Build Status](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml) -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.builder)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
@@ -32,9 +33,12 @@ Contributions of all kinds are welcome—code, design, documentation, and ideas.
 ## Project Structure
 
 - `contracts/` — Core smart contracts (token, relayer, marketplace, social, staking)
-- `packages/` — JavaScript SDKs and the main Expo mobile app
 - `scripts/` — Automation for deployment and testing
 - `tests/` — Integration and unit tests
+
+<!--
+- `packages/` — JavaScript SDKs and the main Expo mobile app (in development)
+-->
 
 ---
 
@@ -58,9 +62,11 @@ For full setup and deployment, see the [Deployment Guide](Resources/deployment-g
 - [Social-OnSocial](contracts/social-onsocial/README.md): Social media interactions.
 - [Staking-OnSocial](contracts/staking-onsocial/README.md): Staking and rewards.
 
+<!--
 ### Packages
 - [Main Expo App](packages/app/README.md): The primary mobile application for OnSocial.
 - [OnSocial-JS](packages/onsocial-js/README.md): JavaScript utilities for interacting with OnSocial.
+-->
 
 ### Resources
 - [Deployment Guide](Resources/deployment-guide.md): Step-by-step instructions for deploying contracts.

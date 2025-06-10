@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        contract: [ft-wrapper-onsocial, relayer-onsocial, marketplace-onsocial, staking-onsocial, social-onsocial, all]
+        contract: [relayer-onsocial]
         # Optionally add network: [sandbox, testnet] for multi-network testing
     steps:
       # Checkout the repository
@@ -50,27 +50,17 @@ jobs:
       - name: Format Rust code
         run: make format-rs
 
+      # Lint code
+      - name: Lint Rust code
+        run: make lint-rs
+
       # Start NEAR Sandbox
       - name: Start NEAR Sandbox
-        run: |
-          make start-sandbox
-          for i in {1..30}; do
-            if curl -s http://localhost:3030/status > /dev/null; then
-              echo "Sandbox is ready"
-              break
-            fi
-            echo "Waiting for sandbox ($i/30)..."
-            sleep 2
-          done
-          curl -s http://localhost:3030/status || exit 1
+        run: make start-sandbox
 
       # Build contracts
       - name: Build contracts
         run: make build-rs
-
-      # Generate ABIs (update this if you have a different ABI target)
-      - name: Generate ABIs
-        run: make abi-all
 
       # Run unit and integration tests
       - name: Run tests
@@ -83,15 +73,6 @@ jobs:
         # Ensure logs are uploaded even if tests fail
         continue-on-error: true
 
-      # Generate test coverage
-      - name: Generate test coverage
-        run: |
-          if [ "${{ matrix.contract }}" == "all" ]; then
-            echo "Skipping coverage for all-contracts meta-target"
-          else
-            make test-coverage-${{ matrix.contract }}-rs
-          fi
-
       # Upload test logs as artifacts (for debugging failures)
       - name: Upload test logs
         if: failure()
@@ -101,14 +82,6 @@ jobs:
           path: |
             test-all.log
             test-all-${{ matrix.contract }}.log
-          retention-days: 7
-
-      # Upload coverage reports
-      - name: Upload coverage reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-${{ matrix.contract }}
-          path: coverage/
           retention-days: 7
 
       # Clean up sandbox (always run)

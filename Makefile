@@ -264,7 +264,12 @@ test-%-rs: test-all-%-rs
 .PHONY: test-all-%-rs
 test-all-%-rs: build-docker-rs ensure-scripts-executable start-sandbox
 	@echo "Running all unit and integration tests for $*..."
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh all $* > /code/test-all.log 2>&1 && exit 0 || { cat /code/test-all.log; echo -e '\033[0;31mTests failed\033[0m'; exit 1; }"
+	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) \
+	bash -c 'set -o pipefail; ./scripts/test.sh all $* 2>&1 | tee /code/test-all.log'
+	@if [ $$? -ne 0 ]; then \
+		echo -e '\033[0;31mTests failed\033[0m'; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mAll tests for $* completed successfully\033[0m"
 	@$(MAKE) stop-sandbox
 
