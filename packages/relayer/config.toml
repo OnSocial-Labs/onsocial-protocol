@@ -44,5 +44,5 @@ use_shared_storage = false
 
 # testnet
 network = "testnet"
-rpc_url = "https://rpc.testnet.fastnear.com""
+rpc_url = "https://rpc.testnet.fastnear.com"
 rpc_api_key = ""
