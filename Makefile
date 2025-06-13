@@ -297,12 +297,10 @@ test-unit-%-rs: build-docker-rs ensure-scripts-executable
 	@if [ "$*" = "relayer" ]; then \
 		docker run \
 			-v $(CODE_DIR):/code \
-			-v $(CODE_DIR)/packages/relayer/config.toml:/code/packages/relayer/config.toml \
-			-v $(CODE_DIR)/packages/relayer/config.toml:/code/config.toml \
-			-v $(CODE_DIR)/packages/relayer/config.toml:/config.toml \
-			-w /code \
+			-w /code/packages/relayer \
 			--rm -e VERBOSE=$(VERBOSE) \
-			$(RS_DOCKER_IMAGE) bash -c "./scripts/test.sh unit relayer"; \
+			$(RS_DOCKER_IMAGE) \
+			cargo test --all --locked --release -- --nocapture; \
 	else \
 		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit $*"; \
 	fi
@@ -856,3 +854,25 @@ test-unit-%:
 		echo "Unknown contract or package: $*"; \
 		exit 1; \
 	fi
+
+.PHONY: test-unit-relayer
+# Run relayer unit tests inside Docker
+# Requires build-docker-rs and ensure-scripts-executable targets
+# Uses $(CODE_DIR) as the project root and $(RS_DOCKER_IMAGE) as the Rust Docker image
+
+test-unit-relayer: build-docker-rs ensure-scripts-executable
+	@echo "Running unit tests for relayer (Rust) in Docker..."
+	docker run --rm \
+		-v $(CODE_DIR):/code \
+		-w /code/packages/relayer \
+		-e VERBOSE=$(VERBOSE) \
+		$(RS_DOCKER_IMAGE) \
+		cargo test tests --locked --release -- --nocapture
+	@/bin/echo -e "\033[0;32mUnit tests for relayer completed successfully\033[0m"
+
+# Build a docker-compose service by name: make build-<service>
+.PHONY: build-%
+build-%:
+	@echo "Building docker-compose service '$*'..."
+	docker-compose build $*
+	@/bin/echo -e "\033[0;32mService '$*' built successfully\033[0m"

@@ -28,7 +28,7 @@ pnpm install --no-frozen-lockfile --store-dir=/app/.pnpm-store || { echo -e "${R
 echo -e "${GREEN}pnpm-lock.yaml regenerated successfully${NC}"
 
 # Validate workspace packages
-for pkg in packages/onsocial-js packages/app packages/relayer; do
+for pkg in packages/onsocial-js packages/onsocial-app packages/relayer; do
   if [ -d "$pkg" ]; then
     echo "Validating $pkg..."
     pnpm --dir $pkg install --frozen-lockfile --store-dir=/app/.pnpm-store || { echo -e "${RED}Failed to validate $pkg${NC}"; exit 1; }

@@ -37,5 +37,20 @@ services:
     volumes:
       - redis-data:/data
 
+  onsocial-app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: onsocial-app
+    ports:
+      - "8081:8081" # Adjust as needed for Expo or your app
+    volumes:
+      - ./packages/onsocial-app:/app
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - backend
+      - relayer
+
 volumes:
   redis-data:

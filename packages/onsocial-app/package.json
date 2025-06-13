@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "onsocial-app",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -14,7 +14,6 @@
     "expo-local-authentication": "^16.0.4",
     "expo-secure-store": "^14.2.3",
     "nativewind": "^4.1.23",
-    "onsocial-js": "workspace:*",
     "react": "^19.1.0",
     "react-native": "^0.79.2",
     "react-native-toast-message": "^2.3.0"
