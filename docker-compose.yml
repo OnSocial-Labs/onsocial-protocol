@@ -1,0 +1,41 @@
+version: '3.8'
+services:
+  relayer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.relayer
+    container_name: relayer
+    ports:
+      - "3040:3040"
+    volumes:
+      - ./packages/relayer/config.toml:/relayer-app/config.toml
+      - ./packages/relayer/account_keys:/relayer-app/account_keys
+    environment:
+      - VERBOSE=1
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: backend
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./packages/onsocial-backend:/app
+      - ./packages/onsocial-backend/.env:/app/.env
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - relayer
+      - redis
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
