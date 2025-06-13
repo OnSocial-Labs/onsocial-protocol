@@ -11,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        contract: [relayer-onsocial]
-        # Optionally add network: [sandbox, testnet] for multi-network testing
+        contract: [social-onsocial]
     steps:
       # Checkout the repository
       - uses: actions/checkout@v4
@@ -65,11 +64,7 @@ jobs:
       # Run unit and integration tests
       - name: Run tests
         run: |
-          if [ "${{ matrix.contract }}" == "all" ]; then
-            make test-rs VERBOSE=1 > test-all.log 2>&1
-          else
-            make test-all-${{ matrix.contract }}-rs VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
-          fi
+          make test-all-${{ matrix.contract }}-rs VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
         # Ensure logs are uploaded even if tests fail
         continue-on-error: true
 
@@ -80,7 +75,6 @@ jobs:
         with:
           name: test-logs-${{ matrix.contract }}
           path: |
-            test-all.log
             test-all-${{ matrix.contract }}.log
           retention-days: 7
 

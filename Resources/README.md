@@ -12,7 +12,6 @@ Guides for AI-assisted development:
   - [auth-onsocial](prompts/contracts/auth-onsocial.md)
   - [ft-wrapper-onsocial](prompts/contracts/ft-wrapper-onsocial.md)
   - [marketplace-onsocial](prompts/contracts/marketplace-onsocial.md)
-  - [relayer-onsocial](prompts/contracts/relayer-onsocial.md)
   - [social-onsocial](prompts/contracts/social-onsocial.md)
   - [staking-onsocial](prompts/contracts/staking-onsocial.md)
 - [App](prompts/app.md)

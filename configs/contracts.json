@@ -6,12 +6,6 @@
         "init": "new '{\"manager\": \"${AUTH_ACCOUNT}\", \"relayer_contract\": \"relayer.$NETWORK\", \"storage_deposit\": \"1250000000000000000000\"}'"
     },
     {
-        "name": "relayer-onsocial",
-        "id": "relayer.$NETWORK",
-        "account": "${RELAYER_ACCOUNT}",
-        "init": "new '{\"platform_public_key\": \"${PLATFORM_PUBLIC_KEY}\", \"offload_recipient\": \"${OFFLOAD_RECIPIENT}\", \"offload_threshold\": \"1000000000000000000000000\"}'"
-    },
-    {
         "name": "marketplace-onsocial",
         "id": "marketplace.$NETWORK",
         "account": "${AUTH_ACCOUNT}",

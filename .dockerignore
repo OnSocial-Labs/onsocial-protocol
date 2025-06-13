@@ -30,3 +30,4 @@ Resources/
 packages/onsocial-js/dist/
 packages/app/dist/
 packages/relayer/dist/
+packages/relayer/account_keys/

@@ -1,70 +1,21 @@
-# Add ARG for base image with default value
-ARG BASE_IMAGE=node:slim
-FROM ${BASE_IMAGE} AS builder
+FROM rust:1.86 AS builder
+# Ensure Cargo is updated inside the container
+RUN rustup update && rustup default stable
+WORKDIR /usr/src/relayer
+COPY packages/relayer/Cargo.toml ./
+COPY Cargo.lock ./
+COPY packages/relayer/src ./src
+ARG BUILD_FLAGS
+RUN if [ -z "$BUILD_FLAGS" ]; then cargo build --release; else cargo build --release --features ${BUILD_FLAGS}; fi
 
-# Update npm and install pnpm and npm-check-updates globally
-RUN npm install -g npm@latest && \
-    npm install -g pnpm@10.11.0 npm-check-updates@latest
 
-# Create directories with appropriate permissions
-RUN mkdir -p /home/node/.npm /app/.pnpm-store && \
-    chown node:node /home/node/.npm /app/.pnpm-store && \
-    chmod 700 /home/node/.npm /app/.pnpm-store
-
-WORKDIR /app
-
-# Install dependencies
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends jq \
+FROM ubuntu:22.04
+WORKDIR /relayer-app
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    jq \
     && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/src/relayer/target/release/relayer .
 
-# Copy workspace configuration and lockfile
-COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.json ./
-COPY packages/onsocial-js/package.json ./packages/onsocial-js/
-COPY packages/relayer/package.json packages/relayer/tsconfig.json ./packages/relayer/
-
-# Set ownership
-RUN chown -R node:node /app
-
-# Install dependencies without frozen lockfile
-USER node
-RUN pnpm install --store-dir=/app/.pnpm-store
-
-# Copy the rest of the application code
-COPY packages/relayer ./packages/relayer
-
-# Build the package
-RUN cd packages/relayer && pnpm build
-
-# Update runtime stage to use ARG
-FROM ${BASE_IMAGE}
-
-# Install pnpm globally
-RUN npm install -g npm@latest && \
-    npm install -g pnpm@10.11.0
-
-# Create directories with appropriate permissions
-RUN mkdir -p /home/node/.npm /app/.pnpm-store && \
-    chown node:node /home/node/.npm /app/.pnpm-store && \
-    chmod 700 /home/node/.npm /app/.pnpm-store
-
-WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends jq \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy built artifacts and configuration
-COPY --from=builder /app/pnpm-workspace.yaml /app/pnpm-lock.yaml /app/package.json /app/tsconfig.json ./
-COPY --from=builder /app/packages/onsocial-js ./packages/onsocial-js
-COPY --from=builder /app/packages/relayer ./packages/relayer
-
-# Set ownership
-RUN chown -R node:node /app
-
-# Install dependencies without frozen lockfile
-USER node
-RUN pnpm install --store-dir=/app/.pnpm-store
-
-CMD ["pnpm", "--dir", "packages/relayer", "start"]
+ENTRYPOINT ["/relayer-app/relayer", "--config", "config.toml"]

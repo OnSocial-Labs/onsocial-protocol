@@ -34,7 +34,7 @@ Set `NETWORK` to `sandbox`, `testnet`, or `mainnet` in your commands.
 make deploy CONTRACT=ft-wrapper-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
 ```
 
-- Replace `CONTRACT` with one of: `ft-wrapper-onsocial`, `relayer-onsocial`
+- Replace `CONTRACT` with one of: `ft-wrapper-onsocial`
 - For testnet/mainnet, set `AUTH_ACCOUNT` to your NEAR account
 
 ### 5. Initialize Contract (if required)
@@ -54,7 +54,6 @@ make inspect-state CONTRACT_ID=auth.sandbox METHOD=get_state ARGS='{}' NETWORK=s
 ## Subaccount Naming
 
 - `ft-wrapper.onsocial.$NETWORK` — ft-wrapper-onsocial
-- `relayer.onsocial.$NETWORK` — relayer-onsocial
 
 ## Troubleshooting
 

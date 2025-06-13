@@ -58,8 +58,6 @@ dist/
 .prettierignore
 
 # Ignore temp documentation files for contract code
-contracts/relayer-onsocial/relayer-rs_code.md
-contracts/relayer-onsocial/tests_unit.md
 contracts/marketplace-onsocial/marketplace-rs_code.md
 contracts/social-onsocial/social-rs_code.md
 contracts/auth-onsocial/auth-rs_code.md
@@ -71,3 +69,9 @@ Resources/prompts/
 
 # Cache files
 .cache/
+
+# Relayer account keys
+packages/relayer/account_keys/
+
+# AWS CLI v2 installer
+awscliv2.zip

@@ -1,9 +1,6 @@
-use crate::errors::RelayerError;
-use crate::events::RelayerEvent;
 use crate::state::{EventConfig, Relayer};
 use crate::state_versions::VersionedRelayer;
 use crate::types::SignedDelegateAction;
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
 use near_sdk::{
     env, near, require, AccountId, Gas, NearSchema, NearToken, PanicOnDefault, Promise, PublicKey,
@@ -326,7 +323,7 @@ impl OnSocialRelayer {
     // State migration
     #[private]
     #[init(ignore_state)]
-    pub fn migrate(&self) -> Self {
+    pub fn migrate() -> Self {
         let storage_before = env::storage_usage();
         let new_state = Self {
             relayer: Relayer::migrate(),

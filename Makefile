@@ -20,13 +20,22 @@ FT_ACCOUNT ?= test.near
 RELAYER_ACCOUNT ?= test.near
 DOCKER_IMAGE := onsocial-builder
 JS_DOCKER_IMAGE := onsocial-js-builder
+RS_DOCKER_IMAGE := relayer-builder
 CODE_DIR := $(shell pwd)
 NEAR_SANDBOX_PORT := 3030
 NEAR_NODE_URL ?= http://localhost:3030
 VERBOSE ?= 0
 DRY_RUN ?= 0
-VALID_CONTRACTS := ft-wrapper-onsocial relayer-onsocial social-onsocial marketplace-onsocial staking-onsocial
-JS_PACKAGES := onsocial-js app relayer
+VALID_CONTRACTS := ft-wrapper-onsocial social-onsocial marketplace-onsocial staking-onsocial
+JS_PACKAGES := onsocial-js app
+RS_PACKAGES := relayer
+
+# Relayer Docker variables
+RELAYER_CONTAINER_NAME ?= relayer
+RELAYER_PORT ?= 3040
+RELAYER_CONFIG_PATH ?= $(CODE_DIR)/packages/relayer/config.toml
+RELAYER_KEYS_PATH ?= $(CODE_DIR)/packages/relayer/account_keys
+RELAYER_DOCKER_IMAGE ?= $(RS_DOCKER_IMAGE)
 
 # Default target
 .PHONY: all
@@ -253,7 +262,11 @@ build-rs: build-docker-rs ensure-scripts-executable
 .PHONY: build-%-rs
 build-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Building Rust contract $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"; \
+	else \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"; \
+	fi
 	@/bin/echo -e "\033[0;32mRust contract $* built successfully\033[0m"
 
 .PHONY: test-%-rs
@@ -264,8 +277,13 @@ test-%-rs: test-all-%-rs
 .PHONY: test-all-%-rs
 test-all-%-rs: build-docker-rs ensure-scripts-executable start-sandbox
 	@echo "Running all unit and integration tests for $*..."
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) \
-	bash -c 'set -o pipefail; ./scripts/test.sh all $* 2>&1 | tee /code/test-all.log'
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) \
+	bash -c 'set -o pipefail; ./scripts/test.sh all $* 2>&1 | tee /code/test-all.log'; \
+	else \
+		docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) \
+	bash -c 'set -o pipefail; ./scripts/test.sh all $* 2>&1 | tee /code/test-all.log'; \
+	fi
 	@if [ $$? -ne 0 ]; then \
 		echo -e '\033[0;31mTests failed\033[0m'; \
 		exit 1; \
@@ -276,44 +294,81 @@ test-all-%-rs: build-docker-rs ensure-scripts-executable start-sandbox
 .PHONY: test-unit-%-rs
 test-unit-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Running unit tests for $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit $*"
+	@if [ "$*" = "relayer" ]; then \
+		docker run \
+			-v $(CODE_DIR):/code \
+			-v $(CODE_DIR)/packages/relayer/config.toml:/code/packages/relayer/config.toml \
+			-v $(CODE_DIR)/packages/relayer/config.toml:/code/config.toml \
+			-v $(CODE_DIR)/packages/relayer/config.toml:/config.toml \
+			-w /code \
+			--rm -e VERBOSE=$(VERBOSE) \
+			$(RS_DOCKER_IMAGE) bash -c "./scripts/test.sh unit relayer"; \
+	else \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh unit $*"; \
+	fi
 	@/bin/echo -e "\033[0;32mUnit tests for $* completed successfully\033[0m"
 
 .PHONY: test-integration-%-rs
 test-integration-%-rs: build-docker-rs ensure-scripts-executable start-sandbox
 	@echo "Running integration tests for $*..."
-	@docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $*"
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/test.sh integration $*"; \
+	else \
+		docker run -v $(CODE_DIR):/code --network host --cap-add=SYS_ADMIN --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test.sh integration $*"; \
+	fi
 	@/bin/echo -e "\033[0;32mIntegration tests for $* completed successfully\033[0m"
 	@$(MAKE) stop-sandbox
 
 .PHONY: test-coverage-%-rs
 test-coverage-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Generating test coverage report for $*..."
-	@docker run -v $(CODE_DIR):/code --network host --privileged --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test_coverage.sh $*"
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --network host --privileged --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/test_coverage.sh $*"; \
+	else \
+		docker run -v $(CODE_DIR):/code --network host --privileged --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/test_coverage.sh $*"; \
+	fi
 	@/bin/echo -e "\033[0;32mTest coverage report for $* generated successfully\033[0m"
 
 .PHONY: check-%-rs
 check-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Checking Rust contract $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh check-contract $*"
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/build.sh check-contract $*"; \
+	else \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh check-contract $*"; \
+	fi
 	@/bin/echo -e "\033[0;32mRust contract $* checked successfully\033[0m"
 
 .PHONY: lint-%-rs
 lint-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Linting Rust contract $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-contract $*"
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/build.sh lint-contract $*"; \
+	else \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh lint-contract $*"; \
+	fi
 	@/bin/echo -e "\033[0;32mRust contract $* linted successfully\033[0m"
 
 .PHONY: format-%-rs
 format-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Formatting Rust contract $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/build.sh format-contract $*"
+	@if [ -d "contracts/$*" ]; then \
+		if [ "$*" = "relayer" ]; then \
+			docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd contracts/$* && cargo fmt"; \
+		else \
+			docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo fmt"; \
+		fi; \
+	elif [ -d "packages/$*" ]; then \
+		if [ "$*" = "relayer" ]; then \
+			docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo fmt"; \
+		else \
+			docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo fmt"; \
+		fi; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mRust contract $* formatted successfully\033[0m"
-
-.PHONY: fix-%-rs
-fix-%-rs: build-docker-rs ensure-scripts-executable
-	@echo "Running cargo fix for contract: $*"
-	@docker run -it --rm -v $(PWD):/code -w /code $(DOCKER_IMAGE) cargo fix -p $*
 
 .PHONY: twiggy-%-rs
 twiggy-%-rs: build-%-rs
@@ -335,7 +390,14 @@ twiggy-%-rs: build-%-rs
 .PHONY: audit-%-rs
 audit-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Auditing Rust contract $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo audit"
+	@if [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo audit"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo audit"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mRust contract $* audited successfully\033[0m"
 
 .PHONY: deploy-%-rs
@@ -442,7 +504,7 @@ clean-sandbox:
 logs-sandbox:
 	@echo "Displaying NEAR Sandbox logs..."
 	@docker logs near-sandbox || /bin/echo -e "\033[0;31mError: Sandbox container not found\033[0m"
-	@/bin/echo -e "\033[0;32mSandbox logs displayed\033[0m"
+	@/bin/echo -e "\033[0;32mLogs displayed successfully\033[0m"
 
 # Patch sandbox state
 .PHONY: patch-state-rs
@@ -451,32 +513,64 @@ patch-state-rs: start-sandbox
 	@docker run -v $(CODE_DIR):/code --network host --rm -e NETWORK=$(NETWORK) -e MASTER_ACCOUNT=$(AUTH_ACCOUNT) -e CONTRACT_ID=$(CONTRACT_ID) -e KEY=$(KEY) -e VALUE=$(VALUE) -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "./scripts/patch_state.sh"
 	@/bin/echo -e "\033[0;32mSandbox state patched successfully\033[0m"
 
+# Relayer commands (build, test, lint, format, etc.)
+# Removed: build-relayer, test-relayer, lint-relayer, format-relayer, relayer-%
+# Use only the -rs variants for relayer Rust package tasks.
+
 # Run cargo clippy for a specific Rust contract
 .PHONY: clippy-%-rs
 clippy-%-rs: build-docker-rs ensure-scripts-executable
-	@echo "Running cargo clippy for contract: $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"
+	@echo "Running cargo clippy for: $*..."
+	@if [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo clippy --all-targets --all-features -- -D warnings"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mClippy finished for $* successfully\033[0m"
 
 # Run cargo doc for a specific Rust contract
 .PHONY: doc-%-rs
 doc-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Building documentation for contract: $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo doc --no-deps --all-features"
+	@if [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo doc --no-deps --all-features"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo doc --no-deps --all-features"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mDocumentation for $* built successfully\033[0m"
 
 # Show dependency tree for a specific Rust contract
 .PHONY: tree-%-rs
 tree-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Showing dependency tree for contract: $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo tree --all-features"
+	@if [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo tree --all-features"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo tree --all-features"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mDependency tree for $* displayed successfully\033[0m"
 
 # Show outdated dependencies for a specific Rust contract
 .PHONY: outdated-%-rs
 outdated-%-rs: build-docker-rs ensure-scripts-executable
 	@echo "Checking for outdated dependencies in contract: $*..."
-	@docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo outdated --workspace || true"
+	@if [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo outdated --workspace || true"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo outdated --workspace || true"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
 	@/bin/echo -e "\033[0;32mOutdated dependencies for $* checked successfully\033[0m"
 
 # Pattern rule to map JS package names to their docker build targets
@@ -484,11 +578,11 @@ build-docker-onsocial-js: build-docker-onsocial-js
 build-docker-app: build-docker-app
 build-docker-relayer: build-docker-relayer
 
-# Pattern rules for JavaScript package tasks
-.PHONY: build-% test-% lint-% format-%
+# Pattern rules for JavaScript package tasks (with -js suffix)
+.PHONY: build-%-js test-%-js lint-%-js format-%-js
 
-build-%: build-docker-%
-	@echo "Building $*..."
+build-%-js: build-docker-%
+	@echo "Building JS package $*..."
 	@if [ -d "packages/$*" ]; then \
 		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* build; \
 		/bin/echo -e "\033[0;32m$* built successfully\033[0m"; \
@@ -497,8 +591,8 @@ build-%: build-docker-%
 		exit 1; \
 	fi
 
-test-%: build-docker-%
-	@echo "Running $* tests..."
+test-%-js: build-docker-%
+	@echo "Running JS package $* tests..."
 	@if [ -d "packages/$*" ]; then \
 		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* test > $(CODE_DIR)/packages/$*/test-logs.log 2>&1 || { cat $(CODE_DIR)/packages/$*/test-logs.log; /bin/echo -e "\033[0;31mTests failed\033[0m"; exit 1; }; \
 		/bin/echo -e "\033[0;32m$* tests completed successfully\033[0m"; \
@@ -507,8 +601,8 @@ test-%: build-docker-%
 		exit 1; \
 	fi
 
-lint-%: build-docker-%
-	@echo "Linting $*..."
+lint-%-js: build-docker-%
+	@echo "Linting JS package $*..."
 	@if [ -d "packages/$*" ]; then \
 		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* lint; \
 		/bin/echo -e "\033[0;32m$* linted successfully\033[0m"; \
@@ -517,8 +611,8 @@ lint-%: build-docker-%
 		exit 1; \
 	fi
 
-format-%: build-docker-%
-	@echo "Formatting $*..."
+format-%-js: build-docker-%
+	@echo "Formatting JS package $*..."
 	@if [ -d "packages/$*" ]; then \
 		docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $*-builder pnpm --dir packages/$* format; \
 		/bin/echo -e "\033[0;32m$* formatted successfully\033[0m"; \
@@ -527,15 +621,15 @@ format-%: build-docker-%
 		exit 1; \
 	fi
 
-# Meta targets for all JS packages
+# Meta targets for all JS packages (with -js suffix)
 .PHONY: build-js test-js lint-js format-js
-build-js: $(addprefix build-,$(JS_PACKAGES))
+build-js: $(addsuffix -js,$(addprefix build-,$(JS_PACKAGES)))
 	@/bin/echo -e "\033[0;32mAll JavaScript packages built successfully\033[0m"
-test-js: $(addprefix test-,$(JS_PACKAGES))
+test-js: $(addsuffix -js,$(addprefix test-,$(JS_PACKAGES)))
 	@/bin/echo -e "\033[0;32mAll JavaScript tests completed successfully\033[0m"
-lint-js: $(addprefix lint-,$(JS_PACKAGES))
+lint-js: $(addsuffix -js,$(addprefix lint-,$(JS_PACKAGES)))
 	@/bin/echo -e "\033[0;32mAll JavaScript packages linted successfully\033[0m"
-format-js: $(addprefix format-,$(JS_PACKAGES))
+format-js: $(addsuffix -js,$(addprefix format-,$(JS_PACKAGES)))
 	@/bin/echo -e "\033[0;32mAll JavaScript packages formatted successfully\033[0m"
 
 # Help
@@ -567,21 +661,198 @@ help:
 	@echo "  outdated-<contract>-rs  Check for outdated dependencies in the contract"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make clippy-relayer-onsocial-rs         # Run cargo clippy for relayer-onsocial contract"
-	@echo "  make doc-relayer-onsocial-rs            # Build docs for relayer-onsocial contract"
-	@echo "  make tree-relayer-onsocial-rs           # Show dependency tree for relayer-onsocial contract"
-	@echo "  make outdated-relayer-onsocial-rs       # Check for outdated dependencies in relayer-onsocial contract"
-	@echo "  make build-relayer-onsocial-rs          # Build relayer-onsocial contract"
-	@echo "  make test-relayer-onsocial-rs           # Run all tests for relayer-onsocial"
-	@echo "  make lint-relayer-onsocial-rs           # Lint relayer-onsocial contract"
-	@echo "  make fix-relayer-onsocial-rs            # Run cargo fix for relayer-onsocial"
-	@echo "  make twiggy-relayer-onsocial-rs          # Run twiggy WASM bloat analysis for relayer-onsocial"
-	@echo "  make audit-relayer-onsocial-rs          # Audit relayer-onsocial contract"
-	@echo "  make deploy-relayer-onsocial-rs         # Deploy relayer-onsocial to sandbox"
+	@echo "  make clippy-social-onsocial-rs         # Run cargo clippy for social-onsocial contract"
+	@echo "  make doc-social-onsocial-rs            # Build docs for social-onsocial contract"
+	@echo "  make tree-social-onsocial-rs           # Show dependency tree for social-onsocial contract"
+	@echo "  make outdated-social-onsocial-rs       # Check for outdated dependencies in social-onsocial contract"
+	@echo "  make build-social-onsocial-rs          # Build social-onsocial contract"
+	@echo "  make test-social-onsocial-rs           # Run all tests for social-onsocial"
+	@echo "  make lint-social-onsocial-rs           # Lint social-onsocial contract"
+	@echo "  make fix-social-onsocial-rs            # Run cargo fix for social-onsocial"
+	@echo "  make twiggy-social-onsocial-rs          # Run twiggy WASM bloat analysis for social-onsocial"
+	@echo "  make audit-social-onsocial-rs          # Audit social-onsocial contract"
+	@echo "  make deploy-social-onsocial-rs         # Deploy social-onsocial to sandbox"
 	@echo "  make format-all-rs                      # Format all Rust contracts"
 	@echo "  make lint-all-rs                        # Lint all Rust contracts"
 	@echo "  make test-all-contracts                 # Run all tests for all contracts"
 	@echo "  make build-js                           # Build all JavaScript packages"
 	@echo "  make test-js                            # Run all JavaScript tests"
+	@echo "  make lint-js                            # Lint all JavaScript packages"
+	@echo "  make format-js                          # Format all JavaScript packages"
 	@echo "  make start-app-js                       # Start the app"
 	@echo "  make upgrade-deps-js                    # Upgrade all JavaScript dependencies"
+	@echo ""
+	@echo "Relayer Rust Package Targets:"
+	@echo "  build-relayer-rs          Build the relayer Rust package"
+	@echo "  run-relayer-rs            Run the relayer Rust package"
+	@echo "  test-relayer-rs           Test the relayer Rust package"
+	@echo "  lint-relayer-rs           Lint the relayer Rust package"
+	@echo "  format-relayer-rs         Format the relayer Rust package"
+	@echo "  clippy-relayer-rs         Run cargo clippy for the relayer Rust package"
+	@echo "  doc-relayer-rs            Build documentation for the relayer Rust package"
+	@echo "  audit-relayer-rs          Audit the relayer Rust package"
+	@echo "  clean-relayer-rs          Clean the relayer Rust package"
+	@echo ""
+	@echo "Docker Commands for Relayer:"
+	@echo "  docker-build-relayer      Build the relayer Docker image"
+	@echo "  docker-run-relayer        Run the relayer Docker container"
+	@echo "  docker-stop-relayer       Stop and remove the relayer Docker container"
+	@echo "  docker-logs-relayer       View logs for the relayer Docker container"
+	@echo "  docker-shell-relayer      Access the relayer Docker container shell"
+
+.PHONY: run-%-rs
+run-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Running Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo run"; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo run"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo run"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mRust package $* is running\033[0m"
+
+.PHONY: clean-%-rs
+clean-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Cleaning Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo clean"; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo clean"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo clean"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mRust package $* cleaned successfully\033[0m"
+
+.PHONY: fix-%-rs
+fix-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Running cargo fix for Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo fix --allow-dirty"; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo fix --allow-dirty"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo fix --allow-dirty"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mCargo fix for $* completed successfully\033[0m"
+
+.PHONY: release-%-rs
+release-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Building release for Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo build --release"; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo build --release"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo build --release"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mRelease build for $* completed successfully\033[0m"
+
+.PHONY: publish-%-rs
+publish-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Publishing Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo publish"; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo publish"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo publish"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mRust package $* published successfully\033[0m"
+
+.PHONY: install-%-rs
+install-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Installing Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo install --path ."; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo install --path ."; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo install --path ."; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mRust package $* installed successfully\033[0m"
+
+.PHONY: update-%-rs
+update-%-rs: build-docker-rs ensure-scripts-executable
+	@echo "Updating dependencies for Rust package $*..."
+	@if [ "$*" = "relayer" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "cd packages/$* && cargo update"; \
+	elif [ -d "contracts/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd contracts/$* && cargo update"; \
+	elif [ -d "packages/$*" ]; then \
+		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(DOCKER_IMAGE) bash -c "cd packages/$* && cargo update"; \
+	else \
+		echo "Error: neither contracts/$* nor packages/$* exists."; \
+		exit 1; \
+	fi
+	@/bin/echo -e "\033[0;32mDependencies for $* updated successfully\033[0m"
+
+.PHONY: docker-run-%
+docker-run-%: build-docker-%
+	@echo "Running Docker container for $*..."
+	CONTAINER_NAME=$*; \
+	if [ "$*" = "relayer" ]; then \
+	  PORT=3040; \
+	else \
+	  PORT=$(RELAYER_PORT); \
+	fi; \
+	CONFIG_PATH=$(CODE_DIR)/packages/$$CONTAINER_NAME/config.toml; \
+	KEYS_PATH=$(CODE_DIR)/packages/$$CONTAINER_NAME/account_keys; \
+	IMAGE_NAME=$*-builder; \
+	docker run -d --name $$CONTAINER_NAME -p $$PORT:3030 -v $$CONFIG_PATH:/relayer-app/config.toml -v $$KEYS_PATH:/relayer-app/account_keys $$IMAGE_NAME; \
+	/bin/echo -e "\033[0;32mDocker container $$CONTAINER_NAME started\033[0m"
+
+.PHONY: docker-stop-%
+docker-stop-%:
+	@echo "Stopping and removing Docker container for $*..."
+	docker stop $* || true
+	docker rm $* || true
+	@/bin/echo -e "\033[0;32mDocker container $* stopped and removed\033[0m"
+
+.PHONY: docker-logs-%
+docker-logs-%:
+	@echo "Showing logs for Docker container $*..."
+	docker logs $* || true
+	@/bin/echo -e "\033[0;32mDocker logs for $* displayed\033[0m"
+
+.PHONY: docker-shell-%
+docker-shell-%:
+	@echo "Opening shell in Docker container $*..."
+	docker exec -it $* /bin/bash || true
+	@/bin/echo -e "\033[0;32mShell opened in Docker container $*\033[0m"
+
+.PHONY: keys-relayer
+keys-relayer:
+	bash packages/relayer/multikey_setup.sh
+
+# Universal test-unit-% rule for contracts and packages
+.PHONY: test-unit-%
+test-unit-%:
+	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
+		$(MAKE) test-unit-$*-rs; \
+	elif echo "$(JS_PACKAGES)" | grep -wq "$*"; then \
+		$(MAKE) test-$*-js; \
+	elif echo "$(RS_PACKAGES)" | grep -wq "$*"; then \
+		$(MAKE) test-unit-$*-rs; \
+	else \
+		echo "Unknown contract or package: $*"; \
+		exit 1; \
+	fi

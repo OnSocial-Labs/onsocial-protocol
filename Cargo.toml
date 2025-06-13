@@ -24,11 +24,11 @@
 [workspace]
 members = [
     "contracts/ft-wrapper-onsocial",
-    "contracts/relayer-onsocial",
     "contracts/marketplace-onsocial",
     "contracts/staking-onsocial",
     "contracts/social-onsocial",
-    "tests"
+    "tests",
+    "packages/relayer"
 ]
 resolver = "2"
 
@@ -52,6 +52,7 @@ anyhow = "1.0"
 semver = "1.0.26"
 schemars = "0.8.22"
 itertools = "0.12"
+ft-wrapper-onsocial = { path = "contracts/ft-wrapper-onsocial" }
 
 [profile.release]
 opt-level = "z"

@@ -8,6 +8,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# List of contracts to test and report on
+CONTRACT_LIST=("ft-wrapper-onsocial" "marketplace-onsocial" "staking-onsocial" "social-onsocial" "cross-contract")
+
+# List of JS/TS/RS packages to test and report on
+PACKAGES_LIST=("onsocial-js" "app" "relayer")
+
 # Arrays to store test results
 declare -A UNIT_RESULTS
 declare -A INTEGRATION_RESULTS
@@ -37,7 +43,7 @@ test_unit() {
         fi
     else
         echo "Running unit tests for all contracts..."
-        for contract in "${CONTRACTS[@]}"; do
+        for contract in "${CONTRACT_LIST[@]}"; do
             echo "Running unit tests for $contract..."
             cd "$BASE_DIR/$contract" || { echo -e "${RED}Directory $contract not found${NC}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); ERROR_FLAG=1; continue; }
             [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
@@ -61,7 +67,7 @@ test_integration() {
     # Build contract in release mode if a specific contract is being tested
     if [ -n "$module" ]; then
         case $module in
-            ft-wrapper-onsocial|relayer-onsocial|marketplace-onsocial|staking-onsocial|social-onsocial)
+            ft-wrapper-onsocial|marketplace-onsocial|staking-onsocial|social-onsocial)
                 echo "Building $module in release mode for integration test..."
                 cd "$BASE_DIR/$module" || { echo -e "${RED}Directory $module not found${NC}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 cargo build --release --target wasm32-unknown-unknown || { echo -e "${RED}Release build failed for $module${NC}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
@@ -94,7 +100,7 @@ test_integration() {
     fi
     if [ -n "$module" ]; then
         case $module in
-            ft-wrapper-onsocial|relayer-onsocial|cross-contract)
+            ft-wrapper-onsocial|cross-contract)
                 module_name=$(echo "$module" | tr '-' '_')
                 [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast -- ${module_name}_tests"
                 if ! cargo nextest run --no-fail-fast -- "${module_name}_tests"; then
@@ -116,13 +122,13 @@ test_integration() {
         esac
     else
         [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
-        for contract in "${CONTRACTS[@]}" cross-contract; do
+        for contract in "${CONTRACT_LIST[@]}" cross-contract; do
             INTEGRATION_RESULTS["$contract"]="Not Run"
         done
         if ! cargo nextest run --no-fail-fast; then
             echo -e "${RED}Integration tests failed${NC}"
             TEST_OUTPUT=$(cargo nextest run --no-capture --no-fail-fast 2>&1)
-            for contract in "${CONTRACTS[@]}" cross-contract; do
+            for contract in "${CONTRACT_LIST[@]}"; do
                 module_name=$(echo "$contract" | tr '-' '_')
                 if echo "$TEST_OUTPUT" | grep -q "FAIL.*${module_name}_tests"; then
                     INTEGRATION_RESULTS["$contract"]="Failed"
@@ -134,7 +140,7 @@ test_integration() {
             return 1
         else
             echo -e "${GREEN}Integration tests passed${NC}"
-            for contract in "${CONTRACTS[@]}" cross-contract; do
+            for contract in "${CONTRACT_LIST[@]}"; do
                 INTEGRATION_RESULTS["$contract"]="Passed"
             done
         fi
@@ -161,8 +167,7 @@ print_summary() {
         BOLD_YELLOW=$'\033[1;33m'
         RESET=$'\033[0m'
     fi
-    FIXED_CONTRACTS=("ft-wrapper-onsocial" "relayer-onsocial" "marketplace-onsocial" "staking-onsocial" "social-onsocial" "cross-contract")
-    for contract in "${FIXED_CONTRACTS[@]}"; do
+    for contract in "${CONTRACT_LIST[@]}"; do
         UNIT_STATUS="${UNIT_RESULTS[$contract]:-Not Run}"
         INTEGRATION_STATUS="${INTEGRATION_RESULTS[$contract]:-Not Run}"
         # Pad plain status first and set color
@@ -206,9 +211,23 @@ print_summary() {
 
 case "$1" in
   unit)
-    test_unit "$2"
-    print_summary "unit"
-    exit $?
+    if [ -n "$2" ]; then
+      PKG_PATH="/code/packages/$2"
+      if [ -d "$PKG_PATH" ] && [ -f "$PKG_PATH/Cargo.toml" ]; then
+        echo "Running unit tests for Rust package: $2..."
+        cd /code || { echo -e "${RED}Workspace root not found${NC}"; exit 1; }
+        cargo test -p "$2" -- --nocapture
+        exit $?
+      else
+        test_unit "$2"
+        print_summary "unit"
+        exit $?
+      fi
+    else
+      test_unit
+      print_summary "unit"
+      exit $?
+    fi
     ;;
   integration)
     if [ -d "$TEST_DIR" ] && [ -f "$TEST_DIR/Cargo.toml" ] && cargo check -q --manifest-path "$TEST_DIR/Cargo.toml" 2>/dev/null; then

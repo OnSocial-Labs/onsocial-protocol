@@ -2,6 +2,11 @@ use anyhow::Result;
 use near_workspaces::{sandbox, Contract};
 use std::env;
 use std::fs;
+use serde::Serializer;
+use near_workspaces::types::PublicKey;
+use base64::engine::general_purpose::STANDARD as BASE64_ENGINE;
+use base64::Engine;
+use bs58;
 
 pub async fn setup_sandbox() -> Result<near_workspaces::Worker<near_workspaces::network::Sandbox>> {
     let mut last_err = None;
@@ -34,4 +39,24 @@ pub fn get_wasm_path(contract_name: &str) -> String {
             contract_name.replace("-", "_")
         )
     })
+}
+
+pub fn public_key_base58_serialize<S>(key: &PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let s = bs58::encode(key.key_data()).into_string();
+    serializer.serialize_str(&s)
+}
+
+pub fn encode_base64(bytes: &[u8]) -> String {
+    BASE64_ENGINE.encode(bytes)
+}
+
+pub fn bytes_base64_serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let s = encode_base64(bytes);
+    serializer.serialize_str(&s)
 }
