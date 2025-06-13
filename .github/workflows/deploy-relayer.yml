@@ -40,10 +40,12 @@ jobs:
           docker build -f docker/Dockerfile.relayer -t $ECR_REPOSITORY:latest .
 
       - name: Tag Docker image
+        id: tag-image
         run: |
           IMAGE_URI=$(aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION --query 'repositories[0].repositoryUri' --output text)
           docker tag $ECR_REPOSITORY:latest $IMAGE_URI:latest
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "::set-output name=IMAGE_URI::$IMAGE_URI"
 
       - name: Push Docker image to ECR
         run: |

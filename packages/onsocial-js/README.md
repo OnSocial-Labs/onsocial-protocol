@@ -1,5 +1,9 @@
 # onsocial-js
 
+> ⚠️ **Expo/React Native Compatibility Warning**
+>
+> This package is designed for Expo/React Native and browser environments only. Do **not** use the monolithic `near-api-js` package or any Node.js-only dependencies. Only use modular `@near-js/*` packages (such as `@near-js/transactions`, `@near-js/types`, etc.) to ensure compatibility.
+
 **Expo-safe NEAR transaction utilities for OnSocial frontend integration.**
 
 ## Features
