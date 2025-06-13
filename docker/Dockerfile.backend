@@ -1,0 +1,18 @@
+# Dockerfile for OnSocial Backend
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY packages/onsocial-backend/package.json ./
+COPY pnpm-lock.yaml ./
+RUN npm install -g pnpm@latest && pnpm install --no-frozen-lockfile
+
+# Copy source code
+COPY packages/onsocial-backend .
+
+# Expose backend port
+EXPOSE 4000
+
+# Start the backend
+CMD ["pnpm", "start"]
