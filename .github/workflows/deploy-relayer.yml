@@ -49,13 +49,18 @@ jobs:
         run: |
           docker push $IMAGE_URI:latest
 
+      - name: Write ECS task definition to file
+        run: echo "$ECS_TASK_DEFINITION" > ecs-task-def.json
+        env:
+          ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
+
       - name: Fill in the new image ID in the ECS task definition
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          task-definition: ecs-task-def.json
           container-name: relayer
-          image: ${{ env.IMAGE_URI }}:latest
+          image: ${{ steps.tag-image.outputs.IMAGE_URI }}:latest
 
       - name: Deploy ECS service
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
