@@ -5,7 +5,7 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.builder)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
 [![Linux](https://img.shields.io/badge/OS-Linux-green)](https://www.kernel.org/)
-[![Last Updated](https://img.shields.io/badge/Last%20Updated-May%2018,%202025-blue)](README.md)
+[![Last Updated](https://img.shields.io/badge/Last%20Updated-June%2014,%202025-blue)](README.md)
 
 # OnSocial Protocol
 

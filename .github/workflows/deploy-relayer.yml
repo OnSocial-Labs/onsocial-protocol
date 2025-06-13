@@ -1,4 +1,4 @@
-name: Deploy Relayer to AWS ECS
+name: Relayer AWS ECS Deployment
 
 on:
   push:
