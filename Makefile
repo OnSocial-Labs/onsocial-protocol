@@ -211,13 +211,17 @@ build-%-rs: ensure-scripts-executable
 			docker build -t $(CONTRACTS_DOCKER_IMAGE) -f docker/Dockerfile.contracts .; \
 		fi; \
 	fi
-	@echo "Building Rust contract $*..."
-	@if [ "$*" = "relayer" ]; then \
-		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"; \
+	@if [ "$*" != "docker" ]; then \
+		echo "Building Rust contract $*..."; \
+		if [ "$*" = "relayer" ]; then \
+			docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(RS_DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"; \
+		else \
+			docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"; \
+		fi; \
+		/bin/echo -e "\033[0;32mRust contract $* built successfully\033[0m"; \
 	else \
-		docker run -v $(CODE_DIR):/code --rm -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) bash -c "./scripts/build.sh build-contract $*"; \
+		echo "Docker images are ready for Rust contracts"; \
 	fi
-	@/bin/echo -e "\033[0;32mRust contract $* built successfully\033[0m"
 
 .PHONY: test-%-rs
 # Runs all tests (unit+integration) for a contract
