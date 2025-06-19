@@ -75,3 +75,10 @@ packages/relayer/account_keys/
 
 # AWS CLI v2 installer
 awscliv2.zip
+
+# AWS CLI v2 bundle and binaries
+aws/dist/
+aws/
+
+# Ignore example files and folders
+examples/

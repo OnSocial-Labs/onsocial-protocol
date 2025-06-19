@@ -4,9 +4,10 @@ import ts from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 
 export default [
+  js(),
   {
     files: ['src/**/*.ts', 'tests/**/*.ts'],
-    ignores: ['dist/**/*'],
+    ignores: ['dist/**/*', 'node_modules/**'],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: 'module',

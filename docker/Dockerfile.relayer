@@ -1,6 +1,7 @@
 FROM rust:1.86 AS builder
 # Ensure Cargo is updated inside the container
 RUN rustup update && rustup default stable
+RUN rustup component add clippy
 WORKDIR /usr/src/relayer
 COPY packages/relayer/Cargo.toml ./
 COPY Cargo.lock ./
@@ -8,6 +9,10 @@ COPY packages/relayer/src ./src
 ARG BUILD_FLAGS
 RUN if [ -z "$BUILD_FLAGS" ]; then cargo build --release; else cargo build --release --features ${BUILD_FLAGS}; fi
 
+
+# Test stage (for CI)
+FROM builder AS tester
+RUN cargo test --all --locked --release -- --nocapture
 
 FROM ubuntu:22.04
 WORKDIR /relayer-app
@@ -20,3 +25,7 @@ COPY --from=builder /usr/src/relayer/target/release/relayer .
 COPY packages/relayer/config.toml ./config.toml
 
 ENTRYPOINT ["/relayer-app/relayer", "--config", "config.toml"]
+
+FROM builder AS linter
+WORKDIR /usr/src/relayer
+CMD ["cargo", "clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]

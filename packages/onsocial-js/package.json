@@ -16,7 +16,9 @@
   "scripts": {
     "build": "tsc --build",
     "clean": "rm -rf dist",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest run",
+    "format": "prettier --write ."
   },
   "keywords": [
     "near",
@@ -28,17 +30,20 @@
   "author": "OnSocial Labs",
   "license": "MIT",
   "dependencies": {
-    "@near-js/transactions": "^2.0.0",
-    "@near-js/types": "^2.0.0",
-    "@near-js/utils": "^2.0.0",
+    "@near-js/transactions": "^2.0.3",
+    "@near-js/types": "^2.0.3",
+    "@near-js/utils": "^2.0.3",
+    "base64-js": "^1.5.1",
     "borsh": "^0.7.0",
     "bs58": "^5.0.0",
-    "base64-js": "^1.5.1",
-    "tweetnacl": "^1.0.3"
+    "cross-fetch": "^4.1.0",
+    "js-sha256": "^0.11.1",
+    "tweetnacl": "^1.0.3",
+    "vitest": "^3.2.3"
   },
-  "peerDependencies": {},
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "eslint": "^8.0.0"
+    "eslint": "^9.29.0",
+    "typescript": "^5.8.3",
+    "prettier": "^3.5.3"
   }
 }

@@ -31,4 +31,5 @@ This is the backend service for the OnSocial protocol. It acts as the secure gat
 Create a `.env` file for configuration (see `.env.example`).
 
 ## License
+
 MIT

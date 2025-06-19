@@ -78,6 +78,24 @@ jobs:
             test-all-${{ matrix.contract }}.log
           retention-days: 7
 
+      # Start all services (Docker Compose)
+      - name: Start all services (Docker Compose)
+        run: make compose-up
+
+      # Wait for services to be healthy
+      - name: Wait for services to be healthy
+        run: sleep 10
+
+      # Run relayer integration tests
+      - name: Run relayer integration tests
+        run: docker-compose exec relayer cargo test -- --nocapture
+        continue-on-error: true
+
+      # Tear down Docker Compose
+      - name: Tear down Docker Compose
+        if: always()
+        run: make compose-down
+
       # Clean up sandbox (always run)
       - name: Clean up sandbox
         if: always()

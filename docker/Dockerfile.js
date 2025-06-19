@@ -2,9 +2,8 @@
 ARG BASE_IMAGE=node:slim
 FROM ${BASE_IMAGE} AS builder
 
-# Update npm and install pnpm and npm-check-updates globally
-RUN npm install -g npm@latest && \
-    npm install -g pnpm@latest npm-check-updates@latest
+# Install pnpm and npm-check-updates globally (no npm upgrade)
+RUN npm install -g pnpm@latest npm-check-updates@latest
 
 # Create directories with appropriate permissions
 RUN mkdir -p /home/node/.npm /app/.pnpm-store && \
@@ -32,15 +31,19 @@ RUN pnpm install --store-dir=/app/.pnpm-store
 # Copy the rest of the application code
 COPY packages/onsocial-js ./packages/onsocial-js
 
-# Build the package
+# Switch to root to ensure chown works
+USER root
+RUN chown -R node:node /app/packages/onsocial-js
+
+# Switch back to node for build
+USER node
 RUN cd packages/onsocial-js && pnpm build
 
 # Update runtime stage to use ARG
 FROM ${BASE_IMAGE}
 
-# Install pnpm globally
-RUN npm install -g npm@latest && \
-    npm install -g pnpm@latest
+# Install pnpm globally (no npm upgrade)
+RUN npm install -g pnpm@latest
 
 # Create directories with appropriate permissions
 RUN mkdir -p /home/node/.npm /app/.pnpm-store && \

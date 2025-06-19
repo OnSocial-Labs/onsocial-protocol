@@ -1,0 +1,39 @@
+name: Auth Package CI
+
+on:
+  push:
+    paths:
+      - 'packages/onsocial-auth/**'
+      - '.github/workflows/auth-ci.yml'
+  pull_request:
+    paths:
+      - 'packages/onsocial-auth/**'
+      - '.github/workflows/auth-ci.yml'
+
+jobs:
+  build-and-test-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@8
+
+      - name: Install dependencies (pnpm)
+        run: pnpm install
+
+      - name: Build onsocial-auth (Makefile)
+        run: make build-onsocial-auth
+
+      - name: Lint onsocial-auth (Makefile)
+        run: make lint-onsocial-auth
+
+      - name: Test onsocial-auth (Makefile)
+        run: make test-onsocial-auth

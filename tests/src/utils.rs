@@ -1,12 +1,12 @@
 use anyhow::Result;
-use near_workspaces::{sandbox, Contract};
-use std::env;
-use std::fs;
-use serde::Serializer;
-use near_workspaces::types::PublicKey;
 use base64::engine::general_purpose::STANDARD as BASE64_ENGINE;
 use base64::Engine;
 use bs58;
+use near_workspaces::types::PublicKey;
+use near_workspaces::{sandbox, Contract};
+use serde::Serializer;
+use std::env;
+use std::fs;
 
 pub async fn setup_sandbox() -> Result<near_workspaces::Worker<near_workspaces::network::Sandbox>> {
     let mut last_err = None;
@@ -15,12 +15,19 @@ pub async fn setup_sandbox() -> Result<near_workspaces::Worker<near_workspaces::
             Ok(worker) => return Ok(worker),
             Err(e) => {
                 last_err = Some(e);
-                eprintln!("[setup_sandbox] Attempt {}/6 failed, retrying in 5s: {}", attempt, last_err.as_ref().unwrap());
+                eprintln!(
+                    "[setup_sandbox] Attempt {}/6 failed, retrying in 5s: {}",
+                    attempt,
+                    last_err.as_ref().unwrap()
+                );
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             }
         }
     }
-    Err(anyhow::anyhow!("Failed to set up sandbox after 6 attempts: {}", last_err.unwrap()))
+    Err(anyhow::anyhow!(
+        "Failed to set up sandbox after 6 attempts: {}",
+        last_err.unwrap()
+    ))
 }
 
 pub async fn deploy_contract(

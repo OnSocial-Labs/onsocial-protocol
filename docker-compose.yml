@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   relayer:
     build:
@@ -12,6 +11,8 @@ services:
       - ./packages/relayer/account_keys:/relayer-app/account_keys
     environment:
       - VERBOSE=1
+    depends_on:
+      - redis
 
   backend:
     build:
@@ -52,5 +53,71 @@ services:
       - backend
       - relayer
 
+  onsocial-js:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.js
+    container_name: onsocial-js
+    working_dir: /app/packages/onsocial-js
+    volumes:
+      - ./packages/onsocial-js:/app/packages/onsocial-js
+      - onsocial-js-node-modules:/app/packages/onsocial-js/node_modules
+    command: ["pnpm", "test"]
+    environment:
+      - NODE_ENV=development
+
+  onsocial-auth:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.auth
+    container_name: onsocial-auth
+    working_dir: /app/packages/onsocial-auth
+    volumes:
+      - ./packages/onsocial-auth:/app/packages/onsocial-auth
+    environment:
+      - NODE_ENV=development
+    command: ["pnpm", "run", "test"]
+
+  onsocial-auth-lint:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.auth
+    container_name: onsocial-auth-lint
+    working_dir: /app/packages/onsocial-auth
+    command: ["pnpm", "--filter", "onsocial-auth", "run", "lint"]
+    environment:
+      - NODE_ENV=development
+
+  onsocial-app-lint:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: onsocial-app-lint
+    working_dir: /app
+    command: ["pnpm", "--filter", "onsocial-app", "run", "lint"]
+    environment:
+      - NODE_ENV=development
+
+  onsocial-backend-lint:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: onsocial-backend-lint
+    working_dir: /app
+    command: ["pnpm", "--filter", "onsocial-backend", "run", "lint"]
+    environment:
+      - NODE_ENV=development
+
+  onsocial-js-lint:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.js
+    container_name: onsocial-js-lint
+    working_dir: /app/packages/onsocial-js
+    command: ["pnpm", "--filter", "onsocial-js", "run", "lint"]
+    environment:
+      - NODE_ENV=development
+
 volumes:
   redis-data:
+  onsocial-js-node-modules:
