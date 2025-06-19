@@ -49,6 +49,9 @@ debug/
 # Cargo audit lock file
 cargo-audit.lock
 
+# Relayer examples (local development only)
+packages/relayer/examples/
+
 # Build output
 dist/
 

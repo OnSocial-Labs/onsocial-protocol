@@ -27,7 +27,10 @@ coverage/
 Resources/
 
 # JavaScript build artifacts
+packages/onsocial-app/dist/
+packages/onsocial-auth/dist/
+packages/onsocial-backend/dist/
 packages/onsocial-js/dist/
-packages/app/dist/
 packages/relayer/dist/
+packages/relayer/examples/
 packages/relayer/account_keys/
