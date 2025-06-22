@@ -1,8 +1,11 @@
 <!-- [![Build Status](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions) -->
 [![Relayer Deploy](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml)
-<!-- [![JS Build Status](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml) -->
+[![OnSocial Auth](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/auth-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/auth-ci.yml)
+<!-- [![OnSocial JS](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml)
+[![OnSocial Backend](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/backend-ci.yml)
+[![OnSocial App](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/app-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/app-ci.yml) -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.builder)
+[![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.contracts)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
 [![Linux](https://img.shields.io/badge/OS-Linux-green)](https://www.kernel.org/)
 [![Last Updated](https://img.shields.io/badge/Last%20Updated-June%2014,%202025-blue)](README.md)

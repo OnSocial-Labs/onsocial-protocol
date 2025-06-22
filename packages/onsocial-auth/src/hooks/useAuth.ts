@@ -6,10 +6,10 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getToken().then((token) => {
-      setJwt(token);
-      setLoading(false);
-    });
+    getToken()
+      .then((token) => setJwt(token))
+      .catch(() => setJwt(null))
+      .finally(() => setLoading(false));
   }, []);
 
   return { jwt, loading };

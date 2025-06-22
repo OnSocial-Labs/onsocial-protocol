@@ -1,9 +1,11 @@
 import { saveToken, getToken, clearToken } from '../src/storage';
+import { vi } from 'vitest';
+import * as SecureStore from 'expo-secure-store';
 
-jest.mock('expo-secure-store', () => ({
-  setItemAsync: jest.fn(async (_k, v) => v),
-  getItemAsync: jest.fn(async (_k) => 'mock-jwt'),
-  deleteItemAsync: jest.fn(async (_k) => undefined),
+vi.mock('expo-secure-store', () => ({
+  setItemAsync: vi.fn(async (_k, v) => v),
+  getItemAsync: vi.fn(async (_k) => 'mock-jwt'),
+  deleteItemAsync: vi.fn(async (_k) => undefined),
 }));
 
 describe('storage', () => {
@@ -22,24 +24,21 @@ describe('storage', () => {
 
 describe('storage errors', () => {
   it('saveToken throws', async () => {
-    const SecureStore = require('expo-secure-store');
-    SecureStore.setItemAsync.mockImplementationOnce(async () => {
-      throw new Error('fail');
-    });
+    vi.mocked(SecureStore.setItemAsync).mockRejectedValueOnce(
+      new Error('fail')
+    );
     await expect(saveToken('jwt')).rejects.toThrow('fail');
   });
   it('getToken throws', async () => {
-    const SecureStore = require('expo-secure-store');
-    SecureStore.getItemAsync.mockImplementationOnce(async () => {
-      throw new Error('fail');
-    });
+    vi.mocked(SecureStore.getItemAsync).mockRejectedValueOnce(
+      new Error('fail')
+    );
     await expect(getToken()).rejects.toThrow('fail');
   });
   it('clearToken throws', async () => {
-    const SecureStore = require('expo-secure-store');
-    SecureStore.deleteItemAsync.mockImplementationOnce(async () => {
-      throw new Error('fail');
-    });
+    vi.mocked(SecureStore.deleteItemAsync).mockRejectedValueOnce(
+      new Error('fail')
+    );
     await expect(clearToken()).rejects.toThrow('fail');
   });
 });

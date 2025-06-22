@@ -1,0 +1,56 @@
+name: OnSocial App
+on:
+  push:
+    paths:
+      - 'packages/onsocial-app/**'
+      - '.github/workflows/app-ci.yml'
+      - 'docker/Dockerfile.nodejs'
+      - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
+  pull_request:
+    paths:
+      - 'packages/onsocial-app/**'
+      - '.github/workflows/app-ci.yml'
+      - 'docker/Dockerfile.nodejs'
+      - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
+
+jobs:
+  build-and-test-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Test App Package
+        run: |
+          echo "🔍 Building onsocial-app package..."
+          make build-onsocial-app
+          echo "✨ Formatting onsocial-app package..."
+          make format-onsocial-app
+          echo "🧪 Testing onsocial-app package..."
+          make test-onsocial-app
+          echo "🔍 Linting onsocial-app package..."
+          make lint-onsocial-app
+          echo "🔍 Type-checking onsocial-app package..."
+          make check-onsocial-app
+          
+          echo "🧹 Linting onsocial-app package..."
+          make lint-onsocial-app
+          
+          echo "🧪 Testing onsocial-app package..."
+          make test-onsocial-app
+          
+          echo "✅ All checks passed for onsocial-app package!"
+
+      - name: Clean up Docker resources
+        if: always()
+        run: |
+          docker system prune -f || true

@@ -1,7 +1,7 @@
 FROM rust:1.86 AS builder
 # Ensure Cargo is updated inside the container
 RUN rustup update && rustup default stable
-RUN rustup component add clippy
+RUN rustup component add clippy rustfmt
 WORKDIR /usr/src/relayer
 COPY packages/relayer/Cargo.toml ./
 COPY Cargo.lock ./

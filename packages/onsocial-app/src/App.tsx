@@ -1,8 +1,6 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { WalletProvider, useWallet, WalletSetup, PinEntry } from '@onsocial-labs/onsocial-auth';
-// You should implement MainWalletScreen in your app
-// import { MainWalletScreen } from './components/MainWalletScreen';
+import { useAuth } from 'onsocial-auth';
 
 const MainWalletScreen = () => (
   <>
@@ -11,24 +9,27 @@ const MainWalletScreen = () => (
   </>
 );
 
+const LoadingScreen = () => (
+  <>
+    <h1>Loading...</h1>
+  </>
+);
+
+const LoginScreen = () => (
+  <>
+    <h1>Please login to continue</h1>
+    {/* TODO: Add login functionality */}
+  </>
+);
+
 const AppContent = () => {
-  const wallet = useWallet();
-  const [hasWallet, setHasWallet] = useState<boolean | null>(null);
+  const { jwt, loading } = useAuth();
 
-  useEffect(() => {
-    wallet.hasWallet().then(setHasWallet);
-  }, [wallet]);
-
-  if (hasWallet === null) return null; // or a loading spinner
-  if (!hasWallet) return <WalletSetup />;
-  if (wallet.isLocked()) return <PinEntry />;
+  if (loading) return <LoadingScreen />;
+  if (!jwt) return <LoginScreen />;
   return <MainWalletScreen />;
 };
 
 export default function App() {
-  return (
-    <WalletProvider>
-      <AppContent />
-    </WalletProvider>
-  );
+  return <AppContent />;
 }

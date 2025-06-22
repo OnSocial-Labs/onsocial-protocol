@@ -1,14 +1,23 @@
-name: Auth Package CI
-
+name: OnSocial Auth
 on:
   push:
     paths:
       - 'packages/onsocial-auth/**'
       - '.github/workflows/auth-ci.yml'
+      - 'docker/Dockerfile.nodejs'
+      - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
   pull_request:
     paths:
       - 'packages/onsocial-auth/**'
       - '.github/workflows/auth-ci.yml'
+      - 'docker/Dockerfile.nodejs'
+      - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
 
 jobs:
   build-and-test-auth:
@@ -17,23 +26,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Install pnpm
-        run: npm install -g pnpm@8
+      - name: Build and Test Auth Package
+        run: |
+          echo "🔍 Building onsocial-auth package..."
+          make build-onsocial-auth
+          
+          echo "✨ Formatting onsocial-auth package..."
+          make format-onsocial-auth
+          
+          echo "🔍 Type-checking onsocial-auth package..."
+          make check-onsocial-auth
+          
+          echo "🧹 Linting onsocial-auth package..."
+          make lint-onsocial-auth
+          
+          echo "🧪 Testing onsocial-auth package..."
+          make test-onsocial-auth
+          
+          echo "✅ All checks passed for onsocial-auth package!"
 
-      - name: Install dependencies (pnpm)
-        run: pnpm install
-
-      - name: Build onsocial-auth (Makefile)
-        run: make build-onsocial-auth
-
-      - name: Lint onsocial-auth (Makefile)
-        run: make lint-onsocial-auth
-
-      - name: Test onsocial-auth (Makefile)
-        run: make test-onsocial-auth
+      - name: Clean up Docker resources
+        if: always()
+        run: |
+          docker system prune -f || true

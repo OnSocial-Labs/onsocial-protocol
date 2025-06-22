@@ -1,8 +1,14 @@
-import { HereWallet } from '@here-wallet/core';
+import { HereWallet, HereInitializeOptions, Action } from '@here-wallet/core';
+import { Buffer } from 'buffer';
 
-let here: any = null;
+let here: HereWallet | null = null;
 
-export async function getHereWallet(options?: any) {
+type LocalSignAndSendTransactionOptions = {
+  actions: Action[];
+  [key: string]: unknown;
+};
+
+export async function getHereWallet(options?: HereInitializeOptions) {
   if (!here) {
     // Per @here-wallet/core docs, use HereWallet.connect()
     here = await HereWallet.connect(options);
@@ -10,7 +16,7 @@ export async function getHereWallet(options?: any) {
   return here;
 }
 
-export async function connectWallet(options?: any) {
+export async function connectWallet(options?: HereInitializeOptions) {
   return getHereWallet(options);
 }
 
@@ -19,7 +25,9 @@ export async function signIn({ contractId }: { contractId: string }) {
   return await here.signIn({ contractId });
 }
 
-export async function signAndSendTransaction(tx: any) {
+export async function signAndSendTransaction(
+  tx: LocalSignAndSendTransactionOptions
+): Promise<unknown> {
   const here = await getHereWallet();
   return await here.signAndSendTransaction(tx);
 }
@@ -34,7 +42,11 @@ export async function signMessage({
   nonce: Uint8Array;
 }) {
   const here = await getHereWallet();
-  return await here.signMessage({ message, recipient, nonce });
+  return await here.signMessage({
+    message,
+    recipient,
+    nonce: Buffer.from(nonce),
+  });
 }
 
 export function _resetHereWallet() {

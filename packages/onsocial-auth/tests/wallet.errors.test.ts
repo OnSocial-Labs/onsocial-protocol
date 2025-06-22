@@ -1,42 +1,42 @@
+import { vi } from 'vitest';
+
 // wallet.errors.test.ts
 // Error-handling tests for wallet module, with no global mock for @here-wallet/core
 
-const setupWallet = (walletMethods: Record<string, any> = {}) => {
-  jest.doMock('@here-wallet/core', () => {
+const setupWallet = async (walletMethods: Record<string, any> = {}) => {
+  vi.doMock('@here-wallet/core', () => {
     class MockHereWallet {
       static async connect(options?: any) {
         return new MockHereWallet();
       }
       init: any;
       constructor() {
-        this.init = jest.fn();
+        this.init = vi.fn();
         Object.assign(this, walletMethods);
       }
     }
     return { HereWallet: MockHereWallet };
   });
-  const walletModule = require('../src/wallet');
+  const walletModule = await import('../src/wallet');
   walletModule._resetHereWallet();
   return walletModule;
 };
 
 describe('wallet errors', () => {
   afterEach(() => {
-    jest.resetModules();
-    jest.restoreAllMocks();
+    vi.resetModules();
+    vi.restoreAllMocks();
   });
 
   it('getHereWallet throws', async () => {
-    const walletModule = setupWallet();
-    jest
-      .spyOn(walletModule, 'getHereWallet')
-      .mockImplementationOnce(async () => {
-        throw new Error('fail');
-      });
+    const walletModule = await setupWallet();
+    vi.spyOn(walletModule, 'getHereWallet').mockImplementationOnce(async () => {
+      throw new Error('fail');
+    });
     await expect(walletModule.getHereWallet()).rejects.toThrow('fail');
   });
   it('signIn throws', async () => {
-    const walletModule = setupWallet({
+    const walletModule = await setupWallet({
       signIn: async () => {
         throw new Error('fail');
       },
@@ -46,17 +46,17 @@ describe('wallet errors', () => {
     );
   });
   it('signAndSendTransaction throws', async () => {
-    const walletModule = setupWallet({
+    const walletModule = await setupWallet({
       signAndSendTransaction: async () => {
         throw new Error('fail');
       },
     });
     await expect(
-      walletModule.signAndSendTransaction({ foo: 'bar' })
+      walletModule.signAndSendTransaction({ actions: [], foo: 'bar' })
     ).rejects.toThrow('fail');
   });
   it('signMessage throws', async () => {
-    const walletModule = setupWallet({
+    const walletModule = await setupWallet({
       signMessage: async () => {
         throw new Error('fail');
       },

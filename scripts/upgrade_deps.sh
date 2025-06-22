@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Color and emoji variables
+SUCCESS="✅ \033[0;32m"
+ERROR="❌ \033[0;31m"
+WARNING="⚠️  \033[0;33m"
+RESET="\033[0m"
+
 # Debug function
 debug() {
     if [ "$VERBOSE" -eq 1 ]; then
@@ -16,7 +22,7 @@ echo "Previewing dependency upgrades..."
 DRY_RUN_OUTPUT=$(cargo upgrade --dry-run ${INCOMPATIBLE:+--incompatible} 2>&1)
 CARGO_EXIT=$?
 if [ $CARGO_EXIT -ne 0 ]; then
-    echo -e "\033[0;31mError running cargo upgrade --dry-run (exit code $CARGO_EXIT)\033[0m"
+    echo -e "${ERROR}Error running cargo upgrade --dry-run (exit code $CARGO_EXIT)${RESET}"
     echo "$DRY_RUN_OUTPUT"
     exit 1
 fi
@@ -47,12 +53,12 @@ while IFS= read -r line; do
     else
         debug "Line does not match regex: $line"
     fi
-done <<< "$(echo "$DRY_RUN_OUTPUT" | grep -E '^[a-zA-Z0-9_-]+\ +[0-9.]' || { echo -e "\033[0;31mError: grep failed to find dependency lines\033[0m"; exit 1; })"
+done <<< "$(echo "$DRY_RUN_OUTPUT" | grep -E '^[a-zA-Z0-9_-]+\ +[0-9.]' || { echo -e "${ERROR}Error: grep failed to find dependency lines${RESET}"; exit 1; })"
 debug "Finished parsing, found ${#DEPENDENCIES[@]} dependencies"
 
 # Check if any dependencies are available
 if [ ${#DEPENDENCIES[@]} -eq 0 ]; then
-    echo -e "\033[0;33mNo upgradable dependencies found\033[0m"
+    echo -e "${WARNING}No upgradable dependencies found${RESET}"
     exit 0
 fi
 
@@ -72,7 +78,7 @@ debug "Raw selection input: '$selection'"
 
 # Handle empty input
 if [ -z "$selection" ]; then
-    echo -e "\033[0;33mUpgrade aborted\033[0m"
+    echo -e "${WARNING}Upgrade aborted${RESET}"
     exit 0
 fi
 
@@ -88,7 +94,7 @@ for num in "${numbers[@]}"; do
     num=$(echo "$num" | tr -d '[:space:]') # Trim whitespace
     debug "Processing number: $num"
     if [[ ! $num =~ ^[0-9]+$ ]] || [ $num -lt 1 ] || [ $num -gt ${#DEPENDENCIES[@]} ]; then
-        echo -e "\033[0;31mInvalid selection: $num\033[0m"
+        echo -e "${ERROR}Invalid selection: $num${RESET}"
         exit 1
     fi
     # Extract dependency name (format: INDEX:NAME:VERSION)
@@ -105,7 +111,7 @@ debug "Prompting for confirmation"
 read -r -p "Upgrade selected dependencies? (y/N): " confirm
 debug "Confirmation input: '$confirm'"
 if [ "$confirm" != "y" ]; then
-    echo -e "\033[0;33mUpgrade aborted\033[0m"
+    echo -e "${WARNING}Upgrade aborted${RESET}"
     exit 0
 fi
 
@@ -113,13 +119,13 @@ fi
 echo "Upgrading selected dependencies: ${SELECTED_DEPS[*]}..."
 for dep in "${SELECTED_DEPS[@]}"; do
     echo "Upgrading $dep..."
-    cargo upgrade --package "$dep" ${INCOMPATIBLE:+--incompatible} || { echo -e "\033[0;31mFailed to upgrade $dep\033[0m"; exit 1; }
+    cargo upgrade --package "$dep" ${INCOMPATIBLE:+--incompatible} || { echo -e "${ERROR}Failed to upgrade $dep${RESET}"; exit 1; }
     debug "Upgraded $dep"
 done
 
 # Update Cargo.lock
 echo "Updating Cargo.lock..."
-cargo update || { echo -e "\033[0;31mFailed to update Cargo.lock\033[0m"; exit 1; }
+cargo update || { echo -e "${ERROR}Failed to update Cargo.lock${RESET}"; exit 1; }
 debug "Cargo.lock updated"
 
-echo -e "\033[0;32mSelected dependencies upgraded successfully\033[0m"
+echo -e "${SUCCESS}Selected dependencies upgraded successfully${RESET}"

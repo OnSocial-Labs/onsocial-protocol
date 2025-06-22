@@ -2,13 +2,15 @@
 
 BASE_DIR="$(pwd)/contracts"
 TEST_DIR="$(pwd)/tests"
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+
+# Color and emoji variables
+SUCCESS="✅ \033[0;32m"
+ERROR="❌ \033[0;31m"
+WARNING="⚠️  \033[0;33m"
+RESET="\033[0m"
 
 handle_error() {
-  echo -e "${RED}Error: $1${NC}"
+  echo -e "${ERROR}Error: $1${RESET}"
   exit 1
 }
 
@@ -18,7 +20,7 @@ if [ -f Cargo.toml ]; then
 fi
 
 [ ${#CONTRACTS[@]} -eq 0 ] && {
-  echo -e "${RED}Error: No contracts found${NC}"
+  echo -e "${ERROR}Error: No contracts found${RESET}"
   exit 1
 }
 
@@ -30,12 +32,12 @@ test_coverage() {
     cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
     [ "$VERBOSE" = "1" ] && echo "Running: cargo tarpaulin --out Html --output-dir coverage --output-file tarpaulin-report-$contract.html ..."
     if ! cargo tarpaulin --out Html --output-dir coverage --output-file "tarpaulin-report-$contract.html" --exclude-files 'tests/*' --verbose; then
-      echo -e "${RED}Tarpaulin failed, falling back to cargo test${NC}"
+      echo -e "${ERROR}Tarpaulin failed, falling back to cargo test${RESET}"
       [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
       cargo test || handle_error "Cargo test failed for $contract"
-      echo -e "${YELLOW}Coverage report not generated, but tests ran${NC}"
+      echo -e "${WARNING}Coverage report not generated, but tests ran${RESET}"
     else
-      echo -e "${GREEN}Coverage report generated for $contract at coverage/tarpaulin-report-$contract.html${NC}"
+      echo -e "${SUCCESS}Coverage report generated for $contract at coverage/tarpaulin-report-$contract.html${RESET}"
     fi
   else
     echo "Generating coverage for all contracts..."
@@ -45,24 +47,24 @@ test_coverage() {
       cd "$BASE_DIR/$contract" || { ERROR_FLAG=1; continue; }
       [ "$VERBOSE" = "1" ] && echo "Running: cargo tarpaulin --out Html --output-dir coverage --output-file tarpaulin-report-$contract.html ..."
       if ! cargo tarpaulin --out Html --output-dir coverage --output-file "tarpaulin-report-$contract.html" --exclude-files 'tests/*' --verbose; then
-        echo -e "${RED}Tarpaulin failed for $contract, falling back to cargo test${NC}"
+        echo -e "${ERROR}Tarpaulin failed for $contract, falling back to cargo test${RESET}"
         [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
         cargo test || ERROR_FLAG=1
-        echo -e "${YELLOW}Coverage report not generated for $contract, but tests ran${NC}"
+        echo -e "${WARNING}Coverage report not generated for $contract, but tests ran${RESET}"
       else
-        echo -e "${GREEN}Coverage report generated for $contract at coverage/tarpaulin-report-$contract.html${NC}"
+        echo -e "${SUCCESS}Coverage report generated for $contract at coverage/tarpaulin-report-$contract.html${RESET}"
       fi
     done
     echo "Generating coverage for integration tests..."
     cd "$TEST_DIR" || handle_error "Tests directory not found"
     [ "$VERBOSE" = "1" ] && echo "Running: cargo tarpaulin --out Html --output-dir coverage --output-file tarpaulin-report-integration.html ..."
     if ! cargo tarpaulin --out Html --output-dir coverage --output-file "tarpaulin-report-integration.html" --exclude-files 'contracts/*' --verbose; then
-      echo -e "${RED}Tarpaulin failed for integration tests, falling back to cargo test${NC}"
+      echo -e "${ERROR}Tarpaulin failed for integration tests, falling back to cargo test${RESET}"
       [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
       cargo test || ERROR_FLAG=1
-      echo -e "${YELLOW}Coverage report not generated for integration tests, but tests ran${NC}"
+      echo -e "${WARNING}Coverage report not generated for integration tests, but tests ran${RESET}"
     else
-      echo -e "${GREEN}Coverage report generated for integration tests at coverage/tarpaulin-report-integration.html${NC}"
+      echo -e "${SUCCESS}Coverage report generated for integration tests at coverage/tarpaulin-report-integration.html${RESET}"
     fi
     [ $ERROR_FLAG -eq 1 ] && handle_error "Coverage generation failed for one or more contracts/tests"
   fi
@@ -74,4 +76,4 @@ case "$1" in
     ;;
 esac
 
-echo -e "${GREEN}Coverage generation complete!${NC}"
+echo -e "${SUCCESS}Coverage generation complete!${RESET}"

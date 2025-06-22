@@ -1,11 +1,13 @@
 #!/bin/bash
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+# Color and emoji variables
+SUCCESS="✅ \033[0;32m"
+ERROR="❌ \033[0;31m"
+WARNING="⚠️  \033[0;33m"
+RESET="\033[0m"
 
 handle_error() {
-  echo -e "${RED}Error: $1${NC}"
+  echo -e "${ERROR}Error: $1${RESET}"
   exit 1
 }
 
@@ -18,7 +20,7 @@ inspect_state() {
   [ -z "$method" ] && handle_error "No METHOD specified"
   [ "$VERBOSE" = "1" ] && echo "Running: near view $contract_id $method $args --nodeUrl $NEAR_NODE_URL"
   near view "$contract_id" "$method" "$args" --nodeUrl "$NEAR_NODE_URL" || handle_error "Failed to inspect state for $contract_id"
-  echo -e "${GREEN}State inspected successfully${NC}"
+  echo -e "${SUCCESS}State inspected successfully${RESET}"
 }
 
 case "$1" in
@@ -27,4 +29,4 @@ case "$1" in
     ;;
 esac
 
-echo -e "${GREEN}State inspection complete!${NC}"
+echo -e "${SUCCESS}State inspection complete!${RESET}"

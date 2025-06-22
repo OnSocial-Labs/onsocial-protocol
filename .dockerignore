@@ -1,13 +1,94 @@
-# Rust build artifacts
+# =============================================================================
+# OnSocial Protocol .dockerignore - OPTIMIZED
+# =============================================================================
+# Optimizes Docker build context by excluding unnecessary files
+# Reduces build time and image size significantly
+# =============================================================================
+
+# Rust build artifacts (not needed for JS image, but allow Cargo.lock for contracts build)
 target/
 *.wasm
+# Cargo.lock - needed for contracts build, excluded only for JS builds
 
-# Node.js dependencies
+# Node.js dependencies (will be installed in container)
 node_modules/
+.pnpm-store/
 dist/
+build/
+out/
+.next/
 
-# Git data (not needed in container)
+# Package manager logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Version control
 .git/
+.gitignore
+.gitattributes
+
+# Development and environment files
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing and coverage
+coverage/
+.nyc_output/
+.coverage/
+*.lcov
+
+# Documentation (not needed in production container)
+*.md
+docs/
+README*
+CHANGELOG*
+LICENSE*
+CONTRIBUTING*
+
+# Docker files (avoid recursion)
+Dockerfile*
+docker-compose*.yml
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# NEAR development data (huge and not needed)
+near-data/
+
+# Build scripts and resources (allow scripts for contracts build)
+# scripts/ - needed for contracts build
+aws/
+Resources/
+# tests/ - needed for contracts build
+Makefile*
+
+# Package manager caches
+.npm/
+.yarn/
+.cache/
 
 # OS and editor junk
 .DS_Store

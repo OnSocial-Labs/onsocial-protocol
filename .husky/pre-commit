@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Check dependency versions before commit
+echo "🔍 Checking dependency synchronization..."
+node scripts/check-deps.js
+
+# Auto-sync dependencies if there are mismatches
+if [ $? -ne 0 ]; then
+  echo "🔄 Auto-syncing dependencies..."
+  node scripts/sync-deps.js
+  echo "✅ Dependencies synced! Please review and commit again."
+  exit 1
+fi
+
+echo "✅ All dependencies are in sync!"

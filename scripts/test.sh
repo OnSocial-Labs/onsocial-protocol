@@ -3,10 +3,12 @@
 BASE_DIR="$(pwd)/contracts"
 TEST_DIR="$(pwd)/tests"
 CONTRACTS=($(grep -oP '"contracts/[^"]+"' Cargo.toml | sed 's/"contracts\///;s/"//'))
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
+
+# Color and emoji variables
+SUCCESS="✅ \033[0;32m"
+ERROR="❌ \033[0;31m"
+WARNING="⚠️  \033[0;33m"
+RESET="\033[0m"
 
 # List of contracts to test and report on
 CONTRACT_LIST=("ft-wrapper-onsocial" "marketplace-onsocial" "staking-onsocial" "social-onsocial" "cross-contract")
@@ -21,7 +23,7 @@ UNIT_FAILURES=0
 INTEGRATION_FAILURES=0
 
 handle_error() {
-  echo -e "${RED}Error: $1${NC}"
+  echo -e "${ERROR}Error: $1${RESET}"
   exit 1
 }
 
@@ -30,30 +32,30 @@ test_unit() {
     local ERROR_FLAG=0
     if [ -n "$contract" ]; then
         echo "Running unit tests for $contract..."
-        cd "$BASE_DIR/$contract" || { echo -e "${RED}Directory $contract not found${NC}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); return 1; }
+        cd "$BASE_DIR/$contract" || { echo -e "${ERROR}Directory $contract not found${RESET}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); return 1; }
         [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
         if ! cargo nextest run --no-fail-fast; then
-            echo -e "${RED}Unit tests failed for $contract${NC}"
+            echo -e "${ERROR}Unit tests failed for $contract${RESET}"
             UNIT_RESULTS["$contract"]="Failed"
             ERROR_FLAG=1
             ((UNIT_FAILURES++))
         else
-            echo -e "${GREEN}Unit tests passed for $contract${NC}"
+            echo -e "${SUCCESS}Unit tests passed for $contract${RESET}"
             UNIT_RESULTS["$contract"]="Passed"
         fi
     else
         echo "Running unit tests for all contracts..."
         for contract in "${CONTRACT_LIST[@]}"; do
             echo "Running unit tests for $contract..."
-            cd "$BASE_DIR/$contract" || { echo -e "${RED}Directory $contract not found${NC}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); ERROR_FLAG=1; continue; }
+            cd "$BASE_DIR/$contract" || { echo -e "${ERROR}Directory $contract not found${RESET}"; UNIT_RESULTS["$contract"]="Failed"; ((UNIT_FAILURES++)); ERROR_FLAG=1; continue; }
             [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast"
             if ! cargo nextest run --no-fail-fast; then
-                echo -e "${RED}Unit tests failed for $contract${NC}"
+                echo -e "${ERROR}Unit tests failed for $contract${RESET}"
                 UNIT_RESULTS["$contract"]="Failed"
                 ERROR_FLAG=1
                 ((UNIT_FAILURES++))
             else
-                echo -e "${GREEN}Unit tests passed for $contract${NC}"
+                echo -e "${SUCCESS}Unit tests passed for $contract${RESET}"
                 UNIT_RESULTS["$contract"]="Passed"
             fi
         done
@@ -69,16 +71,16 @@ test_integration() {
         case $module in
             ft-wrapper-onsocial|marketplace-onsocial|staking-onsocial|social-onsocial)
                 echo "Building $module in release mode for integration test..."
-                cd "$BASE_DIR/$module" || { echo -e "${RED}Directory $module not found${NC}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
-                cargo build --release --target wasm32-unknown-unknown || { echo -e "${RED}Release build failed for $module${NC}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
-                cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cd "$BASE_DIR/$module" || { echo -e "${ERROR}Directory $module not found${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cargo build --release --target wasm32-unknown-unknown || { echo -e "${ERROR}Release build failed for $module${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 ;;
             *)
-                cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 ;;
         esac
     else
-        cd "$TEST_DIR" || { echo -e "${RED}Tests directory not found${NC}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+        cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
     fi
     for i in {1..60}; do
         if curl -s http://localhost:3030/status >/dev/null; then
@@ -89,7 +91,7 @@ test_integration() {
         sleep 2
     done
     if ! curl -s http://localhost:3030/status >/dev/null; then
-        echo -e "${RED}Skipping integration tests: NEAR Sandbox not running or not responding${NC}"
+        echo -e "${WARNING}Skipping integration tests: NEAR Sandbox not running or not responding${RESET}"
         echo "Sandbox container status:"
         docker ps | grep near-sandbox || echo "No near-sandbox container running"
         echo "Sandbox logs:"
@@ -104,17 +106,17 @@ test_integration() {
                 module_name=$(echo "$module" | tr '-' '_')
                 [ "$VERBOSE" = "1" ] && echo "Running: cargo nextest run --no-fail-fast -- ${module_name}_tests"
                 if ! cargo nextest run --no-fail-fast -- "${module_name}_tests"; then
-                    echo -e "${RED}Integration tests failed for $module${NC}"
+                    echo -e "${ERROR}Integration tests failed for $module${RESET}"
                     INTEGRATION_RESULTS["$module"]="Failed"
                     ((INTEGRATION_FAILURES++))
                     return 1
                 else
-                    echo -e "${GREEN}Integration tests passed for $module${NC}"
+                    echo -e "${SUCCESS}Integration tests passed for $module${RESET}"
                     INTEGRATION_RESULTS["$module"]="Passed"
                 fi
                 ;;
             *)
-                echo -e "${RED}Unknown contract: $module${NC}"
+                echo -e "${ERROR}Unknown contract: $module${RESET}"
                 INTEGRATION_RESULTS["$module"]="Failed"
                 ((INTEGRATION_FAILURES++))
                 return 1
@@ -126,7 +128,7 @@ test_integration() {
             INTEGRATION_RESULTS["$contract"]="Not Run"
         done
         if ! cargo nextest run --no-fail-fast; then
-            echo -e "${RED}Integration tests failed${NC}"
+            echo -e "${ERROR}Integration tests failed${RESET}"
             TEST_OUTPUT=$(cargo nextest run --no-capture --no-fail-fast 2>&1)
             for contract in "${CONTRACT_LIST[@]}"; do
                 module_name=$(echo "$contract" | tr '-' '_')
@@ -139,7 +141,7 @@ test_integration() {
             done
             return 1
         else
-            echo -e "${GREEN}Integration tests passed${NC}"
+            echo -e "${SUCCESS}Integration tests passed${RESET}"
             for contract in "${CONTRACT_LIST[@]}"; do
                 INTEGRATION_RESULTS["$contract"]="Passed"
             done
@@ -215,7 +217,7 @@ case "$1" in
       PKG_PATH="/code/packages/$2"
       if [ -d "$PKG_PATH" ] && [ -f "$PKG_PATH/Cargo.toml" ]; then
         echo "Running unit tests for Rust package: $2..."
-        cd /code || { echo -e "${RED}Workspace root not found${NC}"; exit 1; }
+        cd /code || { echo -e "${ERROR}Workspace root not found${RESET}"; exit 1; }
         cargo test -p "$2" -- --nocapture
         exit $?
       else
@@ -245,7 +247,7 @@ case "$1" in
     if [ -d "$TEST_DIR" ] && [ -f "$TEST_DIR/Cargo.toml" ] && cargo check -q --manifest-path "$TEST_DIR/Cargo.toml" 2>/dev/null; then
       test_integration "$2" || INTEGRATION_STATUS=1
     else
-      echo -e "${RED}Skipping integration tests: tests/ directory or valid Cargo.toml not found${NC}"
+      echo -e "${ERROR}Skipping integration tests: tests/ directory or valid Cargo.toml not found${RESET}"
       INTEGRATION_RESULTS["all"]="Failed"
       ((INTEGRATION_FAILURES++))
       INTEGRATION_STATUS=1
@@ -260,7 +262,7 @@ case "$1" in
     if [ -d "$TEST_DIR" ] && [ -f "$TEST_DIR/Cargo.toml" ] && cargo check -q --manifest-path "$TEST_DIR/Cargo.toml" 2>/dev/null; then
       test_integration || INTEGRATION_STATUS=1
     else
-      echo -e "${RED}Skipping integration tests: tests/ directory or valid Cargo.toml not found${NC}"
+      echo -e "${ERROR}Skipping integration tests: tests/ directory or valid Cargo.toml not found${RESET}"
       INTEGRATION_RESULTS["all"]="Failed"
       ((INTEGRATION_FAILURES++))
       INTEGRATION_STATUS=1

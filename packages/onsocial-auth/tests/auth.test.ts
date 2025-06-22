@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { getJWT } from '../src/auth';
+import { vi } from 'vitest';
 
-jest.mock('axios');
-jest.mock('../src/wallet', () => ({
-  signMessage: jest.fn(async ({ message, recipient, nonce }) => ({
+vi.mock('axios');
+vi.mock('../src/wallet', () => ({
+  signMessage: vi.fn(async ({ message, recipient, nonce }) => ({
     signature: 'mock-signature',
     accountId: 'mock-account',
     publicKey: 'mock-pubkey',
@@ -12,13 +13,13 @@ jest.mock('../src/wallet', () => ({
     nonce,
   })),
 }));
-jest.mock('../src/storage', () => ({
-  saveToken: jest.fn(async (jwt) => jwt),
+vi.mock('../src/storage', () => ({
+  saveToken: vi.fn(async (jwt) => jwt),
 }));
 
 describe('auth', () => {
   it('gets JWT and saves it', async () => {
-    (axios.post as jest.Mock).mockResolvedValue({
+    (axios.post as ReturnType<typeof vi.fn>).mockResolvedValue({
       data: { token: 'jwt-token' },
     });
     const token = await getJWT({
@@ -35,7 +36,9 @@ describe('auth', () => {
   });
 
   it('throws if axios.post fails', async () => {
-    (axios.post as jest.Mock).mockRejectedValue(new Error('network error'));
+    (axios.post as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('network error')
+    );
     await expect(
       getJWT({
         message: 'msg',
@@ -47,10 +50,12 @@ describe('auth', () => {
   });
 
   it('throws if signMessage fails', async () => {
-    const wallet = require('../src/wallet');
-    wallet.signMessage.mockImplementationOnce(async () => {
-      throw new Error('sign error');
-    });
+    const wallet = await import('../src/wallet');
+    (wallet.signMessage as ReturnType<typeof vi.fn>).mockImplementationOnce(
+      async () => {
+        throw new Error('sign error');
+      }
+    );
     await expect(
       getJWT({
         message: 'msg',

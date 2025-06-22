@@ -23,6 +23,10 @@ target/
 .env.testnet
 .env.mainnet
 
+# Security: Private keys
+keys/
+configs/keys/
+
 # Temporary and sandbox data
 tmp/
 near-data/
@@ -72,6 +76,7 @@ Resources/prompts/
 
 # Cache files
 .cache/
+.make-cache/
 
 # Relayer account keys
 packages/relayer/account_keys/

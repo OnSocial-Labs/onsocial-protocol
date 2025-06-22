@@ -1,0 +1,56 @@
+name: OnSocial Backend
+on:
+  push:
+    paths:
+      - 'packages/onsocial-backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'docker/Dockerfile.nodejs'
+      - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
+  pull_request:
+    paths:
+      - 'packages/onsocial-backend/**'
+      - '.github/workflows/backend-ci.yml'
+      - 'docker/Dockerfile.nodejs'
+      - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
+
+jobs:
+  build-and-test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Test Backend Package
+        run: |
+          echo "🔍 Building onsocial-backend package..."
+          make build-onsocial-backend
+          echo "✨ Formatting onsocial-backend package..."
+          make format-onsocial-backend
+          echo "🧪 Testing onsocial-backend package..."
+          make test-onsocial-backend
+          echo "🔍 Linting onsocial-backend package..."
+          make lint-onsocial-backend
+          echo "🔍 Type-checking onsocial-backend package..."
+          make check-onsocial-backend
+          
+          echo "🧹 Linting onsocial-backend package..."
+          make lint-onsocial-backend
+          
+          echo "🧪 Testing onsocial-backend package..."
+          make test-onsocial-backend
+          
+          echo "✅ All checks passed for onsocial-backend package!"
+
+      - name: Clean up Docker resources
+        if: always()
+        run: |
+          docker system prune -f || true

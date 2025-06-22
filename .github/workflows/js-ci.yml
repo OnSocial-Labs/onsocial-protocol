@@ -1,62 +1,63 @@
-name: JavaScript CI
-
+name: OnSocial JS
 on:
   push:
-    branches: [main]
     paths:
-      - 'packages/**'
-      - 'pnpm-workspace.yaml'
-      - 'pnpm-lock.yaml'
-      - 'package.json'
+      - 'packages/onsocial-js/**'
       - '.github/workflows/js-ci.yml'
-      - 'docker/Dockerfile.onsocial-js'
+      - 'docker/Dockerfile.nodejs'
       - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
   pull_request:
-    branches: [main]
     paths:
-      - 'packages/**'
-      - 'pnpm-workspace.yaml'
-      - 'pnpm-lock.yaml'
-      - 'package.json'
+      - 'packages/onsocial-js/**'
       - '.github/workflows/js-ci.yml'
-      - 'docker/Dockerfile.onsocial-js'
+      - 'docker/Dockerfile.nodejs'
       - 'Makefile'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - 'tsconfig.json'
 
 jobs:
   build-and-test-js:
-    if: false  # Temporarily disable JS CI workflow
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Make
-        run: sudo apt-get update && sudo apt-get install -y make
-      - name: Cache pnpm dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pnpm-store
-            node_modules
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
-      - name: Build JavaScript Docker image
-        run: make build-docker-js
-      - name: Scan Docker image
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Test JS Package
         run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-          trivy image --severity HIGH,CRITICAL --exit-code 1 onsocial-js-builder
-      - name: Build JavaScript packages
-        run: make build-js
-      - name: Run tests
-        run: make test-js
-      - name: Run linting
-        run: make lint-js
-      - name: Format JavaScript code
-        run: make format-js
+          echo "🔍 Building onsocial-js package..."
+          make build-onsocial-js
+          
+          echo "✨ Formatting onsocial-js package..."
+          make format-onsocial-js
+          
+          echo "🔍 Type-checking onsocial-js package..."
+          make check-onsocial-js
+          
+          echo "🧹 Linting onsocial-js package..."
+          make lint-onsocial-js
+          
+          echo "🧪 Testing onsocial-js package..."
+          make test-onsocial-js
+          
+          echo "✅ All checks passed for onsocial-js package!"
+
       - name: Upload test logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: js-test-logs
           path: |
-            packages/*/test-logs.log
+            packages/onsocial-js/test-logs.log
           retention-days: 7
+
+      - name: Clean up Docker resources
+        if: always()
+        run: |
+          docker system prune -f || true

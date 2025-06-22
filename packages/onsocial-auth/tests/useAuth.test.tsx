@@ -1,7 +1,9 @@
-jest.mock('expo-secure-store', () => ({
-  setItemAsync: jest.fn(async (_k, v) => v),
-  getItemAsync: jest.fn(async (_k) => 'mock-jwt'),
-  deleteItemAsync: jest.fn(async (_k) => undefined),
+import { vi } from 'vitest';
+import * as SecureStore from 'expo-secure-store';
+vi.mock('expo-secure-store', () => ({
+  setItemAsync: vi.fn(async (_k, v) => v),
+  getItemAsync: vi.fn(async (_k) => 'mock-jwt'),
+  deleteItemAsync: vi.fn(async (_k) => undefined),
 }));
 
 import { render, screen } from '@testing-library/react';
@@ -36,16 +38,14 @@ describe('useAuth', () => {
   });
 
   it('handles getToken rejection', async () => {
-    const originalGetItemAsync = require('expo-secure-store').getItemAsync;
-    require('expo-secure-store').getItemAsync = jest.fn(async () => {
-      throw new Error('fail');
-    });
+    vi.mocked(SecureStore.getItemAsync).mockRejectedValueOnce(
+      new Error('fail')
+    );
     render(<UseAuthTestComponent />);
     const jwtSpan = await screen.findByTestId('jwt');
     const loadingSpan = await screen.findByTestId('loading');
     expect(jwtSpan.textContent).toBe('null');
     expect(loadingSpan.textContent).toBe('false');
-    require('expo-secure-store').getItemAsync = originalGetItemAsync;
   });
 });
 

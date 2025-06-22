@@ -1,0 +1,209 @@
+# =============================================================================
+# ULTRA-OPTIMIZED Unified Node.js Dockerfile for OnSocial JS Packages
+# =============================================================================
+# Advanced optimization techniques:
+# - BuildKit cache mounts for pnpm store
+# - Multi-platform builds ready
+# - Maximum layer caching
+# - Distroless runtime for security
+# - Optimal build parallelization
+# =============================================================================
+
+# syntax=docker/dockerfile:1.4
+FROM node:20-alpine AS base
+
+# Install system dependencies and pnpm in one layer
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git \
+    && corepack enable \
+    && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# -----------------------------------------------------------------------------
+# Stage 1: Dependency Installation with Cache Mount
+# -----------------------------------------------------------------------------
+FROM base AS deps
+
+# Copy package manager configuration
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.json ./
+
+# Create package directories first
+RUN mkdir -p packages/onsocial-js packages/onsocial-auth packages/onsocial-backend packages/onsocial-app
+
+# Copy package.json files with optimal layer caching
+COPY packages/onsocial-js/package.json ./packages/onsocial-js/
+COPY packages/onsocial-auth/package.json ./packages/onsocial-auth/
+COPY packages/onsocial-backend/package.json ./packages/onsocial-backend/
+COPY packages/onsocial-app/package.json ./packages/onsocial-app/
+
+# Copy scripts directory (needed for postinstall hook)
+COPY scripts ./scripts
+
+# Install dependencies with BuildKit cache mount
+# Use a shared cache directory with proper permissions
+RUN --mount=type=cache,target=/app/.pnpm-store,uid=1000,gid=1000 \
+    mkdir -p /app/.pnpm-store && \
+    pnpm config set store-dir /app/.pnpm-store && \
+    pnpm install --frozen-lockfile --prefer-offline
+
+# -----------------------------------------------------------------------------
+# Stage 2: Build Stage
+# -----------------------------------------------------------------------------
+FROM deps AS builder
+
+# Copy TypeScript configs that might affect compilation
+COPY tsconfig.json ./
+
+# Copy source code
+COPY packages/onsocial-js ./packages/onsocial-js
+COPY packages/onsocial-auth ./packages/onsocial-auth  
+COPY packages/onsocial-backend ./packages/onsocial-backend
+COPY packages/onsocial-app ./packages/onsocial-app
+
+# Accept build argument for selective package building
+ARG BUILD_PACKAGES=""
+
+# Build TypeScript packages with resilient error handling
+RUN set -e; \
+    if [ "$BUILD_PACKAGES" = "skip-build" ]; then \
+        echo "🔧 Skipping package builds for deps-only target"; \
+    elif [ -n "$BUILD_PACKAGES" ] && [ "$BUILD_PACKAGES" != "all" ]; then \
+        echo "🔨 Building specific packages: $BUILD_PACKAGES"; \
+        PACKAGES="$BUILD_PACKAGES"; \
+        \
+        FAILED_PACKAGES=""; \
+        SUCCESS_PACKAGES=""; \
+        \
+        # Build each specified package individually to isolate failures
+        for pkg in $PACKAGES; do \
+            echo "Building packages/$pkg..."; \
+            if cd packages/$pkg && pnpm run build 2>/dev/null; then \
+                echo "✅ $pkg build succeeded"; \
+                SUCCESS_PACKAGES="$SUCCESS_PACKAGES $pkg"; \
+            else \
+                echo "❌ $pkg build failed"; \
+                FAILED_PACKAGES="$FAILED_PACKAGES $pkg"; \
+            fi; \
+            cd /app; \
+        done; \
+        \
+        # Report results
+        echo ""; \
+        echo "📊 Build Summary:"; \
+        if [ -n "$SUCCESS_PACKAGES" ]; then \
+            echo "✅ Successful:$SUCCESS_PACKAGES"; \
+        fi; \
+        if [ -n "$FAILED_PACKAGES" ]; then \
+            echo "❌ Failed:$FAILED_PACKAGES"; \
+        fi; \
+        \
+        # Succeed if at least one package built successfully
+        if [ -z "$SUCCESS_PACKAGES" ]; then \
+            echo "💥 All packages failed to build!"; \
+            exit 1; \
+        else \
+            echo "🎉 Build completed with $(echo $SUCCESS_PACKAGES | wc -w) successful package(s)"; \
+        fi; \
+    else \
+        echo "🔨 Building all packages..."; \
+        PACKAGES="onsocial-js onsocial-auth onsocial-backend onsocial-app"; \
+        \
+        FAILED_PACKAGES=""; \
+        SUCCESS_PACKAGES=""; \
+        \
+        # Build each specified package individually to isolate failures
+        for pkg in $PACKAGES; do \
+            echo "Building packages/$pkg..."; \
+            if cd packages/$pkg && pnpm run build 2>/dev/null; then \
+                echo "✅ $pkg build succeeded"; \
+                SUCCESS_PACKAGES="$SUCCESS_PACKAGES $pkg"; \
+            else \
+                echo "❌ $pkg build failed"; \
+                FAILED_PACKAGES="$FAILED_PACKAGES $pkg"; \
+            fi; \
+            cd /app; \
+        done; \
+        \
+        # Report results
+        echo ""; \
+        echo "📊 Build Summary:"; \
+        if [ -n "$SUCCESS_PACKAGES" ]; then \
+            echo "✅ Successful:$SUCCESS_PACKAGES"; \
+        fi; \
+        if [ -n "$FAILED_PACKAGES" ]; then \
+            echo "❌ Failed:$FAILED_PACKAGES"; \
+        fi; \
+        \
+        # Succeed if at least one package built successfully
+        if [ -z "$SUCCESS_PACKAGES" ]; then \
+            echo "💥 All packages failed to build!"; \
+            exit 1; \
+        else \
+            echo "🎉 Build completed with $(echo $SUCCESS_PACKAGES | wc -w) successful package(s)"; \
+        fi; \
+    fi
+
+# Prune dev dependencies for smaller runtime image
+RUN --mount=type=cache,target=/app/.pnpm-store,uid=1000,gid=1000 \
+    pnpm config set store-dir /app/.pnpm-store && \
+    pnpm install --prod --frozen-lockfile --reporter=silent && \
+    pnpm store prune
+
+# -----------------------------------------------------------------------------
+# Stage 3: Production Runtime (Distroless for Security)
+# -----------------------------------------------------------------------------
+FROM gcr.io/distroless/nodejs20-debian12 AS runtime
+
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+
+# Distroless images don't have shell, so use exec form
+ENTRYPOINT ["node"]
+
+# Default: run a simple health check command
+CMD ["--version"]
+
+# -----------------------------------------------------------------------------
+# Stage 4: Alpine Runtime (Alternative for tools/debugging)
+# -----------------------------------------------------------------------------
+FROM node:20-alpine AS runtime-alpine
+
+# Install minimal runtime dependencies
+RUN apk add --no-cache \
+    jq \
+    dumb-init \
+    && corepack enable
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S appuser -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Copy built application with proper ownership
+COPY --from=builder --chown=appuser:nodejs /app/pnpm-workspace.yaml ./
+COPY --from=builder --chown=appuser:nodejs /app/package.json ./
+COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:nodejs /app/packages ./packages
+
+# Switch to non-root user
+USER appuser
+
+# Health check for orchestration
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD pnpm --version || exit 1
+
+# Use dumb-init to handle signals properly in containers
+ENTRYPOINT ["dumb-init", "--"]
+
+# Default command (override per service)
+CMD ["pnpm", "start"]

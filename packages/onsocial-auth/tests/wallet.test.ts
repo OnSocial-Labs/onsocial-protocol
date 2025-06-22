@@ -1,13 +1,14 @@
-jest.mock('@here-wallet/core', () => {
+import { vi } from 'vitest';
+vi.mock('@here-wallet/core', () => {
   // Mock class with static connect method
   class MockHereWallet {
     static async connect(options?: any) {
       return new MockHereWallet();
     }
-    init = jest.fn();
-    signIn = jest.fn(async ({ contractId }) => `signed-in:${contractId}`);
-    signAndSendTransaction = jest.fn(async (tx) => `tx:${JSON.stringify(tx)}`);
-    signMessage = jest.fn(async ({ message, recipient, nonce }) => ({
+    init = vi.fn();
+    signIn = vi.fn(async ({ contractId }) => `signed-in:${contractId}`);
+    signAndSendTransaction = vi.fn(async (tx) => `tx:${JSON.stringify(tx)}`);
+    signMessage = vi.fn(async ({ message, recipient, nonce }) => ({
       signature: 'mock-signature',
       accountId: 'mock-account',
       publicKey: 'mock-pubkey',
@@ -44,7 +45,7 @@ describe('wallet', () => {
   });
 
   it('signs and sends transaction', async () => {
-    const result = await signAndSendTransaction({ foo: 'bar' });
+    const result = await signAndSendTransaction({ actions: [], foo: 'bar' });
     expect(result).toContain('tx:');
   });
 

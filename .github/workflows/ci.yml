@@ -43,15 +43,15 @@ jobs:
 
       # Build Docker image
       - name: Build Docker image
-        run: make build-docker-rs
+        run: make build-docker-contracts
 
       # Format code
       - name: Format Rust code
-        run: make format-${{ matrix.contract }}-rs
+        run: make format-contracts
 
       # Lint code
       - name: Lint Rust code
-        run: make lint-${{ matrix.contract }}-rs
+        run: make lint-contract-${{ matrix.contract }}
 
       # Start NEAR Sandbox
       - name: Start NEAR Sandbox
@@ -59,12 +59,12 @@ jobs:
 
       # Build contracts
       - name: Build contracts
-        run: make build-${{ matrix.contract }}-rs
+        run: make build-contract-${{ matrix.contract }}
 
       # Run unit and integration tests
       - name: Run tests
         run: |
-          make test-all-${{ matrix.contract }}-rs VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
+          make test-contract-${{ matrix.contract }} VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
         # Ensure logs are uploaded even if tests fail
         continue-on-error: true
 
@@ -99,4 +99,4 @@ jobs:
       # Clean up sandbox (always run)
       - name: Clean up sandbox
         if: always()
-        run: make clean-sandbox
+        run: make stop-sandbox
