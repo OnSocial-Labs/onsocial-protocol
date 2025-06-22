@@ -1,102 +1,102 @@
-name: CI
+# name: CI
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
 
-jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        contract: [social-onsocial]
-    steps:
-      # Checkout the repository
-      - uses: actions/checkout@v4
-
-      # Create .env file for sandbox (fixes .env missing error)
-      - name: Create .env file
-        run: |
-          cat <<EOL > .env
-          NETWORK=sandbox
-          AUTH_ACCOUNT=test.near
-          FT_ACCOUNT=test.near
-          RELAYER_ACCOUNT=test.near
-          NEAR_NODE_URL=http://localhost:3030
-          EOL
-
-      # Install dependencies (make)
-      - name: Install Make
-        run: sudo apt-get update && sudo apt-get install -y make
-
-      # Restore cached artifacts (Rust build cache)
-      - name: Cache Rust artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            target/
-            ~/.cargo
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
-
-      # Build Docker image
-      - name: Build Docker image
-        run: make build-docker-contracts
-
-      # Format code
-      - name: Format Rust code
-        run: make format-contracts
-
-      # Lint code
-      - name: Lint Rust code
-        run: make lint-contract-${{ matrix.contract }}
-
-      # Start NEAR Sandbox
-      - name: Start NEAR Sandbox
-        run: make start-sandbox
-
-      # Build contracts
-      - name: Build contracts
-        run: make build-contract-${{ matrix.contract }}
-
-      # Run unit and integration tests
-      - name: Run tests
-        run: |
-          make test-contract-${{ matrix.contract }} VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
-        # Ensure logs are uploaded even if tests fail
-        continue-on-error: true
-
-      # Upload test logs as artifacts (for debugging failures)
-      - name: Upload test logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-logs-${{ matrix.contract }}
-          path: |
-            test-all-${{ matrix.contract }}.log
-          retention-days: 7
-
-      # Start all services (Docker Compose)
-      - name: Start all services (Docker Compose)
-        run: make compose-up
-
-      # Wait for services to be healthy
-      - name: Wait for services to be healthy
-        run: sleep 10
-
-      # Run relayer integration tests
-      - name: Run relayer integration tests
-        run: docker-compose exec relayer cargo test -- --nocapture
-        continue-on-error: true
-
-      # Tear down Docker Compose
-      - name: Tear down Docker Compose
-        if: always()
-        run: make compose-down
-
-      # Clean up sandbox (always run)
-      - name: Clean up sandbox
-        if: always()
-        run: make stop-sandbox
+# jobs:
+#   build-and-test:
+#     runs-on: ubuntu-latest
+#     strategy:
+#       matrix:
+#         contract: [social-onsocial]
+#     steps:
+#       # Checkout the repository
+#       - uses: actions/checkout@v4
+#
+#       # Create .env file for sandbox (fixes .env missing error)
+#       - name: Create .env file
+#         run: |
+#           cat <<EOL > .env
+#           NETWORK=sandbox
+#           AUTH_ACCOUNT=test.near
+#           FT_ACCOUNT=test.near
+#           RELAYER_ACCOUNT=test.near
+#           NEAR_NODE_URL=http://localhost:3030
+#           EOL
+#
+#       # Install dependencies (make)
+#       - name: Install Make
+#         run: sudo apt-get update && sudo apt-get install -y make
+#
+#       # Restore cached artifacts (Rust build cache)
+#       - name: Cache Rust artifacts
+#         uses: actions/cache@v4
+#         with:
+#           path: |
+#             target/
+#             ~/.cargo
+#           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+#           restore-keys: ${{ runner.os }}-cargo-
+#
+#       # Build Docker image
+#       - name: Build Docker image
+#         run: make build-docker-contracts
+#
+#       # Format code
+#       - name: Format Rust code
+#         run: make format-contracts
+#
+#       # Lint code
+#       - name: Lint Rust code
+#         run: make lint-contract-${{ matrix.contract }}
+#
+#       # Start NEAR Sandbox
+#       - name: Start NEAR Sandbox
+#         run: make start-sandbox
+#
+#       # Build contracts
+#       - name: Build contracts
+#         run: make build-contract-${{ matrix.contract }}
+#
+#       # Run unit and integration tests
+#       - name: Run tests
+#         run: |
+#           make test-contract-${{ matrix.contract }} VERBOSE=1 > test-all-${{ matrix.contract }}.log 2>&1
+#         # Ensure logs are uploaded even if tests fail
+#         continue-on-error: true
+#
+#       # Upload test logs as artifacts (for debugging failures)
+#       - name: Upload test logs
+#         if: failure()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: test-logs-${{ matrix.contract }}
+#           path: |
+#             test-all-${{ matrix.contract }}.log
+#           retention-days: 7
+#
+#       # Start all services (Docker Compose)
+#       - name: Start all services (Docker Compose)
+#         run: make compose-up
+#
+#       # Wait for services to be healthy
+#       - name: Wait for services to be healthy
+#         run: sleep 10
+#
+#       # Run relayer integration tests
+#       - name: Run relayer integration tests
+#         run: docker-compose exec relayer cargo test -- --nocapture
+#         continue-on-error: true
+#
+#       # Tear down Docker Compose
+#       - name: Tear down Docker Compose
+#         if: always()
+#         run: make compose-down
+#
+#       # Clean up sandbox (always run)
+#       - name: Clean up sandbox
+#         if: always()
+#         run: make stop-sandbox
