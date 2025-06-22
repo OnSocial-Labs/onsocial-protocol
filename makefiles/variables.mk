@@ -6,11 +6,11 @@
 
 # Load environment variables based on NETWORK
 ifeq ($(NETWORK),mainnet)
-	include .env.mainnet
+	-include .env.mainnet
 else ifeq ($(NETWORK),testnet)
-	include .env.testnet
+	-include .env.testnet
 else
-	include .env
+	-include .env
 endif
 
 # Core Configuration
