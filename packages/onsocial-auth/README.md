@@ -19,3 +19,4 @@ import { connectWallet, signIn, signMessage, getJWT } from 'onsocial-auth';
 ## License
 
 MIT
+Sun Jun 22 22:09:38 BST 2025
