@@ -69,11 +69,11 @@ health-check:
 	$(call log_progress,Checking Docker)
 	@docker --version
 	$(call log_progress,Checking NEAR CLI)
-	@docker run --rm -it $(CONTRACTS_DOCKER_IMAGE) near --version
+	@docker run --rm $(DOCKER_TTY) $(CONTRACTS_DOCKER_IMAGE) near --version
 	$(call log_progress,Checking Node.js)
-	@docker run --rm -it $(JS_DOCKER_IMAGE) node --version
+	@docker run --rm $(DOCKER_TTY) $(JS_DOCKER_IMAGE) node --version
 	$(call log_progress,Checking Rust)
-	@docker run --rm -it $(CONTRACTS_DOCKER_IMAGE) rustc --version
+	@docker run --rm $(DOCKER_TTY) $(CONTRACTS_DOCKER_IMAGE) rustc --version
 	$(call log_success,Health check completed)
 
 .PHONY: system-info

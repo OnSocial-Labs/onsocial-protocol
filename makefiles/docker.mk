@@ -7,6 +7,9 @@
 # Include shared variables for emoji and color support
 include makefiles/variables.mk
 
+# Always disable TTY for Docker in all environments to avoid CI errors
+DOCKER_TTY := -i
+
 # =============================================================================
 # STANDARDIZED LOGGING FUNCTIONS
 # =============================================================================
@@ -52,7 +55,7 @@ endef
 
 # Standard Docker run for contracts with common flags
 define docker_run_contracts
-	docker run --rm -it \
+	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		-e FORCE_COLOR=1 \
 		-e TERM=xterm-256color \
@@ -63,7 +66,7 @@ endef
 
 # Docker run for contracts with network access
 define docker_run_contracts_network
-	docker run --rm -it \
+	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		$(if $(2),-v $(3):$(2)) \
 		--network host \
@@ -86,7 +89,7 @@ endef
 
 # Docker run for relayer packages
 define docker_run_relayer
-	docker run --rm -it \
+	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		-w /code/packages/relayer \
 		-e FORCE_COLOR=1 \
@@ -98,7 +101,7 @@ endef
 
 # Docker run for relayer packages with network access (for Redis)
 define docker_run_relayer_network
-	docker run --rm -it \
+	docker run --rm $(DOCKER_TTY) \
 		--network host \
 		-v $(CODE_DIR):/code \
 		-w /code/packages/relayer \
@@ -112,7 +115,7 @@ endef
 # Reusable macro for running JS package commands in Docker
 # Usage: $(call docker_run_js_package,onsocial-js,lint)
 define docker_run_js_package
-	@docker run --rm -it \
+	@docker run --rm $(DOCKER_TTY) \
 		-u $(shell id -u):$(shell id -g) \
 		-v $(CODE_DIR):/app \
 		-w /app \

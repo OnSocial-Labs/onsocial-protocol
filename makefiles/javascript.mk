@@ -23,7 +23,7 @@ clean-install-js: clean-docker-nodejs rebuild-docker-nodejs ensure-scripts-execu
 	$(call log_progress,Cleaning and reinstalling JavaScript dependencies)
 	@rm -rf node_modules
 	@docker volume create pnpm-store
-	@docker run -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm install --frozen-lockfile --store-dir=/app/.pnpm-store
+	@docker run $(DOCKER_TTY) -v $(CODE_DIR):/app -v pnpm-store:/app/.pnpm-store --rm -e VERBOSE=$(VERBOSE) --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) pnpm install --frozen-lockfile --store-dir=/app/.pnpm-store
 	$(call log_success,JavaScript dependencies reinstalled successfully)
 
 .PHONY: upgrade-deps-js
@@ -31,7 +31,7 @@ upgrade-deps-js:
 	$(call log_start,JavaScript Dependencies Upgrade)
 	$(call log_progress,Running JavaScript dependency upgrade)
 	@docker volume create pnpm-store || true
-	@docker run -v $(CURDIR):/app -v pnpm-store:/app/.pnpm-store --rm --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) sh /app/scripts/upgrade_deps_js.sh
+	@docker run $(DOCKER_TTY) -v $(CURDIR):/app -v pnpm-store:/app/.pnpm-store --rm --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) sh /app/scripts/upgrade_deps_js.sh
 	$(call log_success,JavaScript dependencies upgraded successfully)
 
 # =============================================================================

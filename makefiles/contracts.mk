@@ -90,7 +90,7 @@ clippy-contract-%: build-docker-contracts ensure-scripts-executable
 	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
 		$(call log_start,Running Clippy for Contract $*); \
 		$(call log_progress,Analyzing code with clippy); \
-		docker run --rm -it -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
+		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"; \
 		$(call log_success,Clippy analysis for contract $* completed); \
 	else \
@@ -107,7 +107,7 @@ rebuild-contract-%: rebuild-docker-contracts
 	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
 		echo "$(ROCKET) Starting: Rebuilding Contract $*..."; \
 		echo "$(BUILD) Cleaning contract cache..."; \
-		docker run --rm -it -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
+		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "cd contracts/$* && cargo clean"; \
 		echo "$(BUILD) Rebuilding contract..."; \
 		$(call docker_run_contracts,cd contracts/$* && cargo build --target wasm32-unknown-unknown --release); \
@@ -122,7 +122,7 @@ rebuild-all-contracts: rebuild-docker-contracts
 	@echo "$(ROCKET) Starting: Rebuilding All Contracts..."
 	@for contract in $(VALID_CONTRACTS); do \
 		echo "$(BUILD) Rebuilding contract $$contract..."; \
-		docker run --rm -it -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
+		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "cd contracts/$$contract && cargo clean && cargo build --target wasm32-unknown-unknown --release" || exit 1; \
 	done
 	@echo "$(SUCCESS)All contracts rebuilt successfully$(RESET)"
@@ -151,7 +151,7 @@ init-contract-%: build-docker-contracts ensure-scripts-executable
 verify-contract-%: build-docker-contracts ensure-scripts-executable
 	$(call log_start,Verifying Contract $*)
 	$(call log_progress,Running contract verification)
-	@docker run --rm -it -v $(CODE_DIR):/code --network host -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) bash -c "./scripts/build.sh verify $*"
+	@docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code --network host -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) bash -c "./scripts/build.sh verify $*"
 	$(call log_success,Contract $* verified successfully)
 
 # =============================================================================
@@ -179,17 +179,17 @@ define init_contract_only
 	$(call log_start,Initializing contract $(1))
 	@if [ -n "$(KEY_FILE)" ] && [ -f "$(KEY_FILE)" ]; then \
 		$(call log_info,Using key file: $(KEY_FILE)); \
-		docker run --rm -it -v $(CODE_DIR):/code -v $(KEY_FILE):/tmp/private_key.json --network host \
+		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -v $(KEY_FILE):/tmp/private_key.json --network host \
 			-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "./scripts/deploy.sh init --contract $(1) --use-key-file"; \
 	elif [ -f "$(KEYS_DIR)/deployer.$(NETWORK).json" ]; then \
 		$(call log_info,Using auto-detected key for $(NETWORK)); \
-		docker run --rm -it -v $(CODE_DIR):/code -v $(KEYS_DIR)/deployer.$(NETWORK).json:/tmp/private_key.json --network host \
+		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -v $(KEYS_DIR)/deployer.$(NETWORK).json:/tmp/private_key.json --network host \
 			-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "./scripts/deploy.sh init --contract $(1) --use-key-file"; \
 	else \
 		$(call log_warning,No key file found - using NEAR CLI credentials); \
-		docker run --rm -it -v $(CODE_DIR):/code --network host \
+		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code --network host \
 			-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "./scripts/deploy.sh init --contract $(1)"; \
 	fi
