@@ -12,6 +12,10 @@
 # syntax=docker/dockerfile:1.4
 FROM node:20-alpine AS base
 
+# Set HOME and XDG_CACHE_HOME to ensure Corepack and pnpm can write cache
+ENV HOME=/root
+ENV XDG_CACHE_HOME=$HOME/.cache
+
 # Install system dependencies and pnpm in one layer
 RUN apk add --no-cache \
     python3 \
@@ -128,6 +132,13 @@ RUN apk add --no-cache \
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S appuser -u 1001 -G nodejs
 
+# Set HOME and XDG_CACHE_HOME for appuser
+ENV HOME=/home/appuser
+ENV XDG_CACHE_HOME=$HOME/.cache
+
+# Ensure cache directory exists and is owned by appuser
+RUN mkdir -p $XDG_CACHE_HOME/node/corepack/v1/pnpm && chown -R appuser:nodejs $HOME
+
 WORKDIR /app
 
 # Copy production artifacts from the prod-artifacts stage
@@ -138,6 +149,9 @@ COPY --from=prod-artifacts --chown=appuser:nodejs /app/packages ./packages
 
 # Switch to non-root user
 USER appuser
+
+# Set pnpm store directory for appuser
+RUN pnpm config set store-dir $XDG_CACHE_HOME/pnpm-store
 
 # Health check for orchestration
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

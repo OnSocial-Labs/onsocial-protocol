@@ -116,7 +116,6 @@ endef
 # Usage: $(call docker_run_js_package,onsocial-js,lint)
 define docker_run_js_package
 	@docker run --rm $(DOCKER_TTY) \
-		-u $(shell id -u):$(shell id -g) \
 		-v $(CODE_DIR):/app \
 		-w /app \
 		-e FORCE_COLOR=1 \
@@ -208,7 +207,12 @@ rebuild-docker-nodejs:
 .PHONY: rebuild-docker-nodejs-%
 rebuild-docker-nodejs-%:
 	@echo "$(INFO)Removing existing $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"
-	-@docker rmi -f $(JS_DOCKER_IMAGE) 2>/dev/null || true
+	@if docker images -q $(JS_DOCKER_IMAGE) | grep -q .; then \
+		docker rmi -f $(JS_DOCKER_IMAGE); \
+		echo "$(SUCCESS)Docker image $(JS_DOCKER_IMAGE) removed$(RESET)"; \
+	else \
+		echo "$(INFO)No existing Docker image $(JS_DOCKER_IMAGE) to remove$(RESET)"; \
+	fi
 	@echo "$(INFO)Rebuilding $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"
 	docker build --target builder --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=onsocial-$* -t $(JS_DOCKER_IMAGE) .
 	@echo "$(SUCCESS)Rebuilt $(JS_DOCKER_IMAGE) for onsocial-$*.$(RESET)"
