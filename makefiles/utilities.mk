@@ -203,15 +203,13 @@ clean-all:
 			else \
 				echo "pnpm not found, skipping cache cleanup"; \
 			fi; \
-			# Aggressive Docker system prune (removes all unused images, containers, networks, and volumes)
-			echo "$(CLEAN) Running: docker system prune -af --volumes ...";
-			docker system prune -af --volumes;
+			echo "$(CLEAN) Running: docker system prune -af --volumes ..."; \
+			docker system prune -af --volumes; \
 			echo "$(SUCCESS)Complete cleanup finished - all artifacts and Docker resources removed$(RESET)"; \
 			;; \
 		*) \
 			echo ""; \
 			echo "$(INFO)Operation cancelled$(RESET)"; \
-			exit 0; \
 			;; \
 	esac
 
