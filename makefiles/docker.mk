@@ -123,7 +123,9 @@ define docker_run_js_package
 		-e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
 		-e VERBOSE=$(VERBOSE) \
 		$(JS_DOCKER_IMAGE) \
-		sh -c 'if [ ! -d packages/$(1)/dist ]; then echo "Building $(1)..."; pnpm --filter $(1) run build; fi; pnpm --filter $(1) $(2)'
+		sh -c 'if [ ! -d packages/$(1)/node_modules ]; then echo "Installing dependencies for $(1)..."; pnpm --filter $(1) install; fi; \
+		if [ ! -d packages/$(1)/dist ]; then echo "Building $(1)..."; pnpm --filter $(1) run build; fi; \
+		pnpm --filter $(1) $(2)'
 endef
 
 # =============================================================================
