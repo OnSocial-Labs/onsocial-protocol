@@ -152,7 +152,7 @@ $(CONTRACTS_IMAGE_STAMP): $(CONTRACTS_DEPS)
 $(JS_IMAGE_STAMP): $(JS_DEPS)
 	$(call log_start,Building Dependencies-Only JavaScript Docker Image)
 	$(call log_progress,Building Node.js environment with dependencies only (fast build))
-	@docker build -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
+	@docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
 	@touch $@
 	$(call log_success,Dependencies-only JavaScript Docker image built successfully)
 
@@ -162,7 +162,7 @@ build-docker-nodejs-all:
 	@if ! docker images -q $(JS_DOCKER_IMAGE)-all | grep -q .; then \
 		echo "$(ROCKET) Starting: Building All-Packages Node.js Image..."; \
 		echo "$(BUILD) Building Node.js environment with all packages pre-built..."; \
-		docker build -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=all -t $(JS_DOCKER_IMAGE)-all .; \
+		docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=all -t $(JS_DOCKER_IMAGE)-all .; \
 		echo "$(SUCCESS)All-packages Docker image built successfully$(RESET)"; \
 	else \
 		echo "$(INFO)Using existing all-packages image $(JS_DOCKER_IMAGE)-all$(RESET)"; \
@@ -201,7 +201,7 @@ rebuild-docker-nodejs:
 	$(call log_progress,Removing existing image)
 	@docker rmi $(JS_DOCKER_IMAGE) 2>/dev/null || true
 	$(call log_progress,Rebuilding image with no cache)
-	docker build --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
+	docker build --target builder --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
 	@rm -f $(JS_IMAGE_STAMP)
 	$(call log_success,JavaScript Docker image rebuilt successfully)
 
@@ -210,7 +210,7 @@ rebuild-docker-nodejs-%:
 	@echo "$(INFO)Removing existing $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"
 	-@docker rmi -f $(JS_DOCKER_IMAGE) 2>/dev/null || true
 	@echo "$(INFO)Rebuilding $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"
-	docker build --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=onsocial-$* -t $(JS_DOCKER_IMAGE) .
+	docker build --target builder --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=onsocial-$* -t $(JS_DOCKER_IMAGE) .
 	@echo "$(SUCCESS)Rebuilt $(JS_DOCKER_IMAGE) for onsocial-$*.$(RESET)"
 
 .PHONY: rebuild-docker-relayer

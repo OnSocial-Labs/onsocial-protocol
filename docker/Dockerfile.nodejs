@@ -98,86 +98,27 @@ RUN set -e; \
             echo "✅ Successful:$SUCCESS_PACKAGES"; \
         fi; \
         if [ -n "$FAILED_PACKAGES" ]; then \
-            echo "❌ Failed:$FAILED_PACKAGES"; \
-        fi; \
-        \
-        # Succeed if at least one package built successfully
-        if [ -z "$SUCCESS_PACKAGES" ]; then \
-            echo "💥 All packages failed to build!"; \
+            echo "❌ Failed:   $FAILED_PACKAGES"; \
+            echo "🔥 Build failed with one or more package failures"; \
             exit 1; \
         else \
-            echo "🎉 Build completed with $(echo $SUCCESS_PACKAGES | wc -w) successful package(s)"; \
-        fi; \
-    else \
-        echo "🔨 Building all packages..."; \
-        PACKAGES="onsocial-js onsocial-auth onsocial-backend onsocial-app"; \
-        \
-        FAILED_PACKAGES=""; \
-        SUCCESS_PACKAGES=""; \
-        \
-        # Build each specified package individually to isolate failures
-        for pkg in $PACKAGES; do \
-            echo "Building packages/$pkg..."; \
-            if cd packages/$pkg && pnpm run build 2>/dev/null; then \
-                echo "✅ $pkg build succeeded"; \
-                SUCCESS_PACKAGES="$SUCCESS_PACKAGES $pkg"; \
-            else \
-                echo "❌ $pkg build failed"; \
-                FAILED_PACKAGES="$FAILED_PACKAGES $pkg"; \
-            fi; \
-            cd /app; \
-        done; \
-        \
-        # Report results
-        echo ""; \
-        echo "📊 Build Summary:"; \
-        if [ -n "$SUCCESS_PACKAGES" ]; then \
-            echo "✅ Successful:$SUCCESS_PACKAGES"; \
-        fi; \
-        if [ -n "$FAILED_PACKAGES" ]; then \
-            echo "❌ Failed:$FAILED_PACKAGES"; \
-        fi; \
-        \
-        # Succeed if at least one package built successfully
-        if [ -z "$SUCCESS_PACKAGES" ]; then \
-            echo "💥 All packages failed to build!"; \
-            exit 1; \
-        else \
-            echo "🎉 Build completed with $(echo $SUCCESS_PACKAGES | wc -w) successful package(s)"; \
-        fi; \
+            echo "🎉 Build completed with all packages successfully"; \
+        fi \
     fi
 
-# Prune dev dependencies for smaller runtime image
+# Create a new stage for production artifacts by stripping dev dependencies
+FROM builder AS prod-artifacts
 RUN --mount=type=cache,target=/app/.pnpm-store,uid=1000,gid=1000 \
     pnpm config set store-dir /app/.pnpm-store && \
     pnpm install --prod --frozen-lockfile --reporter=silent && \
     pnpm store prune
 
 # -----------------------------------------------------------------------------
-# Stage 3: Production Runtime (Distroless for Security)
-# -----------------------------------------------------------------------------
-FROM gcr.io/distroless/nodejs20-debian12 AS runtime
-
-WORKDIR /app
-
-# Copy built application
-COPY --from=builder /app/pnpm-workspace.yaml ./
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages ./packages
-
-# Distroless images don't have shell, so use exec form
-ENTRYPOINT ["node"]
-
-# Default: run a simple health check command
-CMD ["--version"]
-
-# -----------------------------------------------------------------------------
-# Stage 4: Alpine Runtime (Alternative for tools/debugging)
+# Stage 3: Production Runtime
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS runtime-alpine
 
-# Install minimal runtime dependencies
+# Install runtime dependencies
 RUN apk add --no-cache \
     jq \
     dumb-init \
@@ -189,11 +130,11 @@ RUN addgroup -g 1001 -S nodejs && \
 
 WORKDIR /app
 
-# Copy built application with proper ownership
-COPY --from=builder --chown=appuser:nodejs /app/pnpm-workspace.yaml ./
-COPY --from=builder --chown=appuser:nodejs /app/package.json ./
-COPY --from=builder --chown=appuser:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=appuser:nodejs /app/packages ./packages
+# Copy production artifacts from the prod-artifacts stage
+COPY --from=prod-artifacts --chown=appuser:nodejs /app/pnpm-workspace.yaml ./
+COPY --from=prod-artifacts --chown=appuser:nodejs /app/package.json ./
+COPY --from=prod-artifacts --chown=appuser:nodejs /app/node_modules ./node_modules
+COPY --from=prod-artifacts --chown=appuser:nodejs /app/packages ./packages
 
 # Switch to non-root user
 USER appuser
