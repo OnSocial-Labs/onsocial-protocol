@@ -43,7 +43,7 @@ upgrade-deps-js:
 build-docker-nodejs-%:
 	@if ! docker images -q $(JS_DOCKER_IMAGE) | grep -q .; then \
 		echo "$(INFO)Building Docker image $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"; \
-		docker build -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=onsocial-$* -t $(JS_DOCKER_IMAGE) .; \
+		docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=onsocial-$* -t $(JS_DOCKER_IMAGE) .; \
 		echo "$(SUCCESS)Built $(JS_DOCKER_IMAGE) for onsocial-$*.$(RESET)"; \
 	else \
 		echo "$(INFO)Using existing $(JS_DOCKER_IMAGE) for onsocial-$*.$(RESET)"; \
