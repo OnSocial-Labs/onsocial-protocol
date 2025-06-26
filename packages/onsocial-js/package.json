@@ -15,12 +15,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc --build",
+    "build": "pnpm exec tsc --build",
     "clean": "rm -rf dist",
     "lint": "eslint ./src --ext .ts,.tsx,.js,.jsx",
     "test": "vitest run",
     "format": "prettier --write .",
-    "tsc": "tsc"
+    "tsc": "pnpm exec tsc"
   },
   "keywords": [
     "near",

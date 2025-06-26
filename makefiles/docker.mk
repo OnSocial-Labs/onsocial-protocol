@@ -113,20 +113,22 @@ endef
 # Reusable macro for running JS package commands in Docker
 # Usage: $(call docker_run_js_package,onsocial-js,lint)
 define docker_run_js_package
-	@docker run --rm $(DOCKER_TTY) \
+	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/app \
 		-w /app \
+		-e PATH="/app/node_modules/.bin:$$PATH" \
 		-e FORCE_COLOR=1 \
 		-e TERM=xterm-256color \
 		-e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
 		-e VERBOSE=$(VERBOSE) \
-		-e PATH="/app/node_modules/.bin:$$PATH" \
 		$(JS_DOCKER_IMAGE) \
 		sh -c "cd /app && \
 		if echo '$(2)' | grep -q '^[a-zA-Z][a-zA-Z0-9-]*$$'; then \
 			pnpm --filter $(1) run $(2); \
 		else \
-			echo '' && echo '> $(1) exec /app/packages/$(1)' && echo '> $(2)' && pnpm --filter $(1) exec $(2); \
+			echo '> $(1) exec /app/packages/$(1)'; \
+			echo '> $(2)'; \
+			pnpm --filter $(1) exec $(2); \
 		fi"
 endef
 
