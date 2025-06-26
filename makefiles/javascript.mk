@@ -66,6 +66,7 @@ format-onsocial-%:
 
 .PHONY: check-onsocial-%
 check-onsocial-%:
+	@$(call log_progress,Type-checking onsocial-$* package)
 	@$(call docker_run_js_package,onsocial-$*,tsc --noEmit)
 	@$(call log_success,onsocial-$* type-checked successfully)
 
