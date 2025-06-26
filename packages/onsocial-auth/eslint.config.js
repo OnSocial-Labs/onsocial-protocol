@@ -6,6 +6,7 @@ import vitest from 'eslint-plugin-vitest';
 
 export default [
   js.configs.recommended,
+  vitest.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
