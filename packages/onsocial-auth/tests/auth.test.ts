@@ -1,6 +1,6 @@
+import { vi, describe, it, expect } from 'vitest';
 import axios from 'axios';
 import { getJWT } from '../src/auth';
-import { vi } from 'vitest';
 
 vi.mock('axios');
 vi.mock('../src/wallet', () => ({

@@ -1,8 +1,9 @@
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 vi.mock('@here-wallet/core', () => {
   // Mock class with static connect method
   class MockHereWallet {
-    static async connect(options?: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    static async connect(__options?: any) {
       return new MockHereWallet();
     }
     init = vi.fn();

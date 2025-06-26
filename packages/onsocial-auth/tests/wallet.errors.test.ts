@@ -1,15 +1,17 @@
-import { vi } from 'vitest';
+import { vi, describe, it, expect, afterEach } from 'vitest';
 
 // wallet.errors.test.ts
 // Error-handling tests for wallet module, with no global mock for @here-wallet/core
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const setupWallet = async (walletMethods: Record<string, any> = {}) => {
   vi.doMock('@here-wallet/core', () => {
     class MockHereWallet {
-      static async connect(options?: any) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      static async connect(__options?: any) {
         return new MockHereWallet();
       }
-      init: any;
+      init: unknown;
       constructor() {
         this.init = vi.fn();
         Object.assign(this, walletMethods);

@@ -1,9 +1,9 @@
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 import * as SecureStore from 'expo-secure-store';
 vi.mock('expo-secure-store', () => ({
-  setItemAsync: vi.fn(async (_k, v) => v),
-  getItemAsync: vi.fn(async (_k) => 'mock-jwt'),
-  deleteItemAsync: vi.fn(async (_k) => undefined),
+  setItemAsync: vi.fn(async (__k, v) => v),
+  getItemAsync: vi.fn(async (__k) => 'mock-jwt'),
+  deleteItemAsync: vi.fn(async (__k) => undefined),
 }));
 
 import { render, screen, act } from '@testing-library/react';

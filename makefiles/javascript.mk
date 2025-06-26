@@ -105,50 +105,91 @@ rebuild-onsocial-%: rebuild-docker-nodejs ensure-scripts-executable
 .PHONY: build-all-js
 build-all-js: build-docker-nodejs ensure-scripts-executable
 	@$(call log_info,Building all JS packages using $(JS_DOCKER_IMAGE) Docker image)
-	@$(foreach package,$(JS_PACKAGES), \
-		$(call log_progress,Building $(package) package) && \
-		$(call docker_run_js_package,$(package),build) && \
-		$(call log_success,$(package) built successfully);)
+ifeq ($(CI),true)
+	@for package in $(JS_PACKAGES); do \
+		$(call log_progress,Building $$package package); \
+		$(call docker_run_js_package_ci,$$package,build) || exit 1; \
+		$(call log_success,$$package built successfully); \
+	done
+else
+	@for package in $(JS_PACKAGES); do \
+		$(call log_progress,Building $$package package); \
+		$(call docker_run_js_package,$$package,build) || exit 1; \
+		$(call log_success,$$package built successfully); \
+	done
+endif
 	@$(call log_success,All JavaScript packages built successfully)
 
 .PHONY: test-all-js
 test-all-js: build-all-js
 	@$(call log_start,Testing All JavaScript Packages)
+ifeq ($(CI),true)
+	@for package in $(JS_PACKAGES); do \
+		$(call log_progress,Testing $$package package); \
+		$(call docker_run_js_package_ci,$$package,test) || exit 1; \
+		$(call log_success,$$package tested successfully); \
+	done
+else
 	@for package in $(JS_PACKAGES); do \
 		$(call log_progress,Testing $$package package); \
 		$(call docker_run_js_package,$$package,test) || exit 1; \
 		$(call log_success,$$package tested successfully); \
 	done
+endif
 	@$(call log_success,All JavaScript packages tested successfully)
 
 .PHONY: lint-all-js
 lint-all-js: build-docker-nodejs ensure-scripts-executable
 	@$(call log_start,Linting All JavaScript Packages)
+ifeq ($(CI),true)
+	@for package in $(JS_PACKAGES); do \
+		$(call log_progress,Linting $$package package); \
+		$(call docker_run_js_package_ci,$$package,lint) || exit 1; \
+		$(call log_success,$$package linted successfully); \
+	done
+else
 	@for package in $(JS_PACKAGES); do \
 		$(call log_progress,Linting $$package package); \
 		$(call docker_run_js_package,$$package,lint) || exit 1; \
 		$(call log_success,$$package linted successfully); \
 	done
+endif
 	@$(call log_success,All JavaScript packages linted successfully)
 
 .PHONY: format-all-js
 format-all-js: build-docker-nodejs ensure-scripts-executable
 	@$(call log_start,Formatting All JavaScript Packages)
+ifeq ($(CI),true)
+	@for package in $(JS_PACKAGES); do \
+		$(call log_progress,Formatting $$package package); \
+		$(call docker_run_js_package_ci,$$package,format) || exit 1; \
+		$(call log_success,$$package formatted successfully); \
+	done
+else
 	@for package in $(JS_PACKAGES); do \
 		$(call log_progress,Formatting $$package package); \
 		$(call docker_run_js_package,$$package,format) || exit 1; \
 		$(call log_success,$$package formatted successfully); \
 	done
+endif
 	@$(call log_success,All JavaScript packages formatted successfully)
 
 .PHONY: check-all-js
 check-all-js: build-docker-nodejs ensure-scripts-executable
 	@$(call log_start,Type-checking All JavaScript Packages)
+ifeq ($(CI),true)
+	@for package in $(JS_PACKAGES); do \
+		$(call log_progress,Type-checking $$package package); \
+		$(call docker_run_js_package_ci,$$package,tsc --noEmit) || exit 1; \
+		$(call log_success,$$package type-checked successfully); \
+	done
+else
 	@for package in $(JS_PACKAGES); do \
 		$(call log_progress,Type-checking $$package package); \
 		$(call docker_run_js_package,$$package,tsc --noEmit) || exit 1; \
 		$(call log_success,$$package type-checked successfully); \
 	done
+endif
 	@$(call log_success,All JavaScript packages type-checked successfully)
 
 # =============================================================================
