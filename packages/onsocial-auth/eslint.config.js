@@ -59,6 +59,12 @@ export default [
     },
   },
   {
+    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
+    rules: {
+      'no-undef': 'off',
+    },
+  },
+  {
     ignores: [
       'dist/**',
       'node_modules/**',
