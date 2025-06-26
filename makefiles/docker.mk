@@ -128,7 +128,7 @@ define docker_run_js_package
 		else \
 			echo '> $(1) exec /app/packages/$(1)'; \
 			echo '> $(2)'; \
-			pnpm --filter $(1) exec $(2); \
+			pnpm --filter $(1) exec -- $(2); \
 		fi"
 endef
 
@@ -148,7 +148,7 @@ define docker_run_js_package_ci
 		else \
 			echo '> $(1) exec /app/packages/$(1)'; \
 			echo '> $(2)'; \
-			pnpm --filter $(1) exec $(2); \
+			pnpm --filter $(1) exec -- $(2); \
 		fi"
 endef
 

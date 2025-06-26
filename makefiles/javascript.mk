@@ -50,29 +50,45 @@ else
 endif
 	@$(call log_success,onsocial-$* built successfully)
 
-.PHONY: test-onsocial-%
-test-onsocial-%: build-onsocial-%
-	@$(call log_progress,Testing onsocial-$* package)
-	@$(call docker_run_js_package,onsocial-$*,test)
-	@$(call log_success,onsocial-$* tested successfully)
+.PHONY: format-onsocial-%
+format-onsocial-%:
+	@$(call log_progress,Formatting onsocial-$* package)
+ifeq ($(CI),true)
+	@$(call docker_run_js_package_ci,onsocial-$*,prettier --write .)
+else
+	@$(call docker_run_js_package,onsocial-$*,prettier --write .)
+endif
+	@$(call log_success,onsocial-$* formatted successfully)
 
 .PHONY: lint-onsocial-%
 lint-onsocial-%:
 	@$(call log_progress,Linting onsocial-$* package)
-	@$(call docker_run_js_package,onsocial-$*,lint)
+ifeq ($(CI),true)
+	@$(call docker_run_js_package_ci,onsocial-$*,eslint .)
+else
+	@$(call docker_run_js_package,onsocial-$*,eslint .)
+endif
 	@$(call log_success,onsocial-$* linted successfully)
-
-.PHONY: format-onsocial-%
-format-onsocial-%:
-	@$(call log_progress,Formatting onsocial-$* package)
-	@$(call docker_run_js_package,onsocial-$*,format)
-	@$(call log_success,onsocial-$* formatted successfully)
 
 .PHONY: check-onsocial-%
 check-onsocial-%:
 	@$(call log_progress,Type-checking onsocial-$* package)
+ifeq ($(CI),true)
+	@$(call docker_run_js_package_ci,onsocial-$*,tsc --noEmit)
+else
 	@$(call docker_run_js_package,onsocial-$*,tsc --noEmit)
+endif
 	@$(call log_success,onsocial-$* type-checked successfully)
+
+.PHONY: test-onsocial-%
+test-onsocial-%: build-onsocial-%
+	@$(call log_progress,Testing onsocial-$* package)
+ifeq ($(CI),true)
+	@$(call docker_run_js_package_ci,onsocial-$*,vitest run)
+else
+	@$(call docker_run_js_package,onsocial-$*,vitest run)
+endif
+	@$(call log_success,onsocial-$* tested successfully)
 
 # =============================================================================
 # JAVASCRIPT REBUILD TARGETS  
