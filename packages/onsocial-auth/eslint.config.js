@@ -59,16 +59,6 @@ export default [
     },
   },
   {
-    files: ['tests/**/*.ts', 'tests/**/*.tsx'],
-    plugins: { vitest },
-    languageOptions: {
-      globals: vitest.environments.globals.globals,
-    },
-    rules: {
-      // Add Vitest-specific rules here if needed
-    },
-  },
-  {
     ignores: [
       'dist/**',
       'node_modules/**',
