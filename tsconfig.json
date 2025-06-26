@@ -10,7 +10,6 @@
 	  "outDir": "./dist",
 	  "declaration": true,
 	  "sourceMap": true,
-	  "types": ["node", "jest"],
 	  "typeRoots": [
 		"./node_modules/@types",
 		"./packages/*/node_modules/@types"

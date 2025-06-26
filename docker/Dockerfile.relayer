@@ -14,7 +14,7 @@ RUN if [ -z "$BUILD_FLAGS" ]; then cargo build --release; else cargo build --rel
 FROM builder AS tester
 RUN cargo test --all --locked --release -- --nocapture
 
-FROM ubuntu:22.04
+FROM ubuntu:22.04 AS production
 WORKDIR /relayer-app
 RUN apt-get update && apt-get install -y \
     openssl \

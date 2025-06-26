@@ -3,9 +3,7 @@
 # =============================================================================
 # OnSocial Protocol - Docker Functions and Utilities
 # Note: Color and emoji variables are defined in variables.mk
-
-# Include shared variables for emoji and color support
-include makefiles/variables.mk
+# Variables are already included via the main Makefile
 
 # Always disable TTY for Docker in all environments to avoid CI errors
 DOCKER_TTY := -i
@@ -16,37 +14,37 @@ DOCKER_TTY := -i
 
 # Log informational messages with consistent formatting
 define log_info
-	@echo "$(INFO)$(1)$(RESET)"
+	echo "$(INFO)$(1)$(RESET)"
 endef
 
 # Log success messages with consistent formatting
 define log_success
-	@echo "$(SUCCESS)$(1)$(RESET)"
+	echo "$(SUCCESS)$(1)$(RESET)"
 endef
 
 # Log warning messages with consistent formatting
 define log_warning
-	@echo "$(WARNING)$(1)$(RESET)"
+	echo "$(WARNING)$(1)$(RESET)"
 endef
 
 # Log error messages with consistent formatting
 define log_error
-	@echo "$(ERROR)$(1)$(RESET)"
+	echo "$(ERROR)$(1)$(RESET)"
 endef
 
 # Log operation start with consistent formatting
 define log_start
-	@echo "$(ROCKET) Starting: $(1)..."
+	echo "$(ROCKET) Starting: $(1)..."
 endef
 
 # Log operation progress with consistent formatting
 define log_progress
-	@echo "$(BUILD) $(1)..."
+	echo "$(BUILD) $(1)..."
 endef
 
 # Log operation completion with consistent formatting
 define log_complete
-	@echo "$(SUCCESS)✨ $(1) completed successfully$(RESET)"
+	echo "$(SUCCESS)✨ $(1) completed successfully$(RESET)"
 endef
 
 # =============================================================================
@@ -115,7 +113,7 @@ endef
 # Reusable macro for running JS package commands in Docker
 # Usage: $(call docker_run_js_package,onsocial-js,lint)
 define docker_run_js_package
-	@docker run --rm $(DOCKER_TTY) \
+	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/app \
 		-w /app \
 		-e FORCE_COLOR=1 \
@@ -123,9 +121,7 @@ define docker_run_js_package
 		-e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
 		-e VERBOSE=$(VERBOSE) \
 		$(JS_DOCKER_IMAGE) \
-		sh -c 'if [ ! -d packages/$(1)/node_modules ]; then echo "Installing dependencies for $(1)..."; pnpm --filter $(1) install; fi; \
-		if [ ! -d packages/$(1)/dist ]; then echo "Building $(1)..."; pnpm --filter $(1) run build; fi; \
-		pnpm --filter $(1) $(2)'
+		pnpm --filter $(1) $(2)
 endef
 
 # =============================================================================
@@ -144,37 +140,25 @@ RELAYER_DEPS := docker/Dockerfile.relayer packages/relayer/Cargo.toml
 
 # Build Docker images with intelligent caching
 $(CONTRACTS_IMAGE_STAMP): $(CONTRACTS_DEPS)
-	$(call log_start,Building Contracts Docker Image)
-	$(call log_progress,Building optimized Rust environment)
+	@$(call log_start,Building Contracts Docker Image)
+	@$(call log_progress,Building optimized Rust environment)
 	@docker build -f docker/Dockerfile.contracts -t $(CONTRACTS_DOCKER_IMAGE) .
 	@touch $@
-	$(call log_success,Contracts Docker image built successfully)
+	@$(call log_success,Contracts Docker image built successfully)
 
 $(JS_IMAGE_STAMP): $(JS_DEPS)
-	$(call log_start,Building Dependencies-Only JavaScript Docker Image)
-	$(call log_progress,Building Node.js environment with dependencies only (fast build))
+	@$(call log_start,Building Dependencies-Only JavaScript Docker Image)
+	@$(call log_progress,Building Node.js environment with dependencies only (fast build))
 	@docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
 	@touch $@
-	$(call log_success,Dependencies-only JavaScript Docker image built successfully)
-
-# Alternative target for all-packages builds (slower, for complete builds)
-.PHONY: build-docker-nodejs-all
-build-docker-nodejs-all:
-	@if ! docker images -q $(JS_DOCKER_IMAGE)-all | grep -q .; then \
-		echo "$(ROCKET) Starting: Building All-Packages Node.js Image..."; \
-		echo "$(BUILD) Building Node.js environment with all packages pre-built..."; \
-		docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=all -t $(JS_DOCKER_IMAGE)-all .; \
-		echo "$(SUCCESS)All-packages Docker image built successfully$(RESET)"; \
-	else \
-		echo "$(INFO)Using existing all-packages image $(JS_DOCKER_IMAGE)-all$(RESET)"; \
-	fi
+	@$(call log_success,Dependencies-only JavaScript Docker image built successfully)
 
 $(RELAYER_IMAGE_STAMP): $(RELAYER_DEPS)
-	$(call log_start,Building Relayer Docker Image)
-	$(call log_progress,Building Rust relayer environment)
+	@$(call log_start,Building Relayer Docker Image)
+	@$(call log_progress,Building Rust relayer environment)
 	@docker build -f docker/Dockerfile.relayer -t $(RS_DOCKER_IMAGE) .
 	@touch $@
-	$(call log_success,Relayer Docker image built successfully)
+	@$(call log_success,Relayer Docker image built successfully)
 
 # Public Docker build targets
 .PHONY: build-docker-contracts
@@ -197,27 +181,12 @@ rebuild-docker-contracts:
 .PHONY: rebuild-docker-nodejs
 rebuild-docker-nodejs:
 	$(call log_start,Rebuilding JavaScript Docker Image)
-	$(call log_progress,Cleaning local dist folders)
-	@rm -rf packages/*/dist && echo "Dist folders cleaned"
 	$(call log_progress,Removing existing image)
 	@docker rmi $(JS_DOCKER_IMAGE) 2>/dev/null || true
 	$(call log_progress,Rebuilding image with no cache)
 	docker build --target builder --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
 	@rm -f $(JS_IMAGE_STAMP)
 	$(call log_success,JavaScript Docker image rebuilt successfully)
-
-.PHONY: rebuild-docker-nodejs-%
-rebuild-docker-nodejs-%:
-	@echo "$(INFO)Removing existing $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"
-	@if docker images -q $(JS_DOCKER_IMAGE) | grep -q .; then \
-		docker rmi -f $(JS_DOCKER_IMAGE); \
-		echo "$(SUCCESS)Docker image $(JS_DOCKER_IMAGE) removed$(RESET)"; \
-	else \
-		echo "$(INFO)No existing Docker image $(JS_DOCKER_IMAGE) to remove$(RESET)"; \
-	fi
-	@echo "$(INFO)Rebuilding $(JS_DOCKER_IMAGE) for onsocial-$*...$(RESET)"
-	docker build --target builder --no-cache -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=onsocial-$* -t $(JS_DOCKER_IMAGE) .
-	@echo "$(SUCCESS)Rebuilt $(JS_DOCKER_IMAGE) for onsocial-$*.$(RESET)"
 
 .PHONY: rebuild-docker-relayer
 rebuild-docker-relayer:
@@ -234,22 +203,22 @@ rebuild-docker-all: rebuild-docker-contracts rebuild-docker-nodejs rebuild-docke
 # Dynamic clean for any service's Docker images and containers
 .PHONY: clean-docker-%
 clean-docker-%:
-	$(call log_start,Docker Cleanup for $*)
-	$(call log_progress,Stopping containers)
+	@$(call log_start,Docker Cleanup for $*)
+	@$(call log_progress,Stopping containers)
 	@if docker ps -q --filter "ancestor=$*-builder" | grep -q .; then \
 		docker stop $$(docker ps -q --filter "ancestor=$*-builder"); \
 		echo "$(SUCCESS)Containers stopped$(RESET)"; \
 	else \
 		echo "$(INFO)No running containers found$(RESET)"; \
 	fi
-	$(call log_progress,Removing containers)
+	@$(call log_progress,Removing containers)
 	@if docker ps -aq --filter "ancestor=$*-builder" | grep -q .; then \
 		docker rm $$(docker ps -aq --filter "ancestor=$*-builder"); \
 		echo "$(SUCCESS)Containers removed$(RESET)"; \
 	else \
 		echo "$(INFO)No containers to remove$(RESET)"; \
 	fi
-	$(call log_progress,Removing base image)
+	@$(call log_progress,Removing base image)
 	@if docker images -q "$*-builder" | grep -q .; then \
 		docker rmi "$*-builder"; \
 		echo "$(SUCCESS)Base image removed$(RESET)"; \
@@ -267,14 +236,14 @@ clean-docker-%:
 			echo "$(SUCCESS)All-packages Node.js image removed$(RESET)"; \
 		fi; \
 	fi
-	$(call log_progress,Pruning unused volumes)
+	@$(call log_progress,Pruning unused volumes)
 	@docker volume prune -f >/dev/null 2>&1
-	$(call log_success,Docker cleanup for $* completed)
+	@$(call log_success,Docker cleanup for $* completed)
 
 .PHONY: clean-docker-all
 clean-docker-all: clean-docker-contracts clean-docker-nodejs clean-docker-relayer
-	$(call log_start,Complete Docker Cleanup)
-	$(call log_progress,Cleaning all OnSocial Docker resources)
+	@$(call log_start,Complete Docker Cleanup)
+	@$(call log_progress,Cleaning all OnSocial Docker resources)
 	@docker system prune -f >/dev/null 2>&1
 	@rm -f $(CONTRACTS_IMAGE_STAMP) $(JS_IMAGE_STAMP) $(RELAYER_IMAGE_STAMP)
-	$(call log_success,All Docker resources cleaned)
+	@$(call log_success,All Docker resources cleaned)

@@ -59,6 +59,7 @@ RUN --mount=type=cache,target=/app/.pnpm-store,uid=1000,gid=1000 \
 # -----------------------------------------------------------------------------
 FROM deps AS builder
 
+# Remove selective build logic; always copy all sources, do not build in Dockerfile
 # Copy TypeScript configs that might affect compilation
 COPY tsconfig.json ./
 
@@ -67,55 +68,6 @@ COPY packages/onsocial-js ./packages/onsocial-js
 COPY packages/onsocial-auth ./packages/onsocial-auth  
 COPY packages/onsocial-backend ./packages/onsocial-backend
 COPY packages/onsocial-app ./packages/onsocial-app
-
-# Accept build argument for selective package building
-ARG BUILD_PACKAGES=""
-
-# Build TypeScript packages with resilient error handling
-RUN set -e; \
-    if [ "$BUILD_PACKAGES" = "skip-build" ]; then \
-        echo "🔧 Skipping package builds for deps-only target"; \
-    elif [ -n "$BUILD_PACKAGES" ] && [ "$BUILD_PACKAGES" != "all" ]; then \
-        echo "🔨 Building specific packages: $BUILD_PACKAGES"; \
-        PACKAGES="$BUILD_PACKAGES"; \
-        \
-        FAILED_PACKAGES=""; \
-        SUCCESS_PACKAGES=""; \
-        \
-        # Build each specified package individually to isolate failures
-        for pkg in $PACKAGES; do \
-            echo "Building packages/$pkg..."; \
-            if cd packages/$pkg && pnpm run build 2>/dev/null; then \
-                echo "✅ $pkg build succeeded"; \
-                SUCCESS_PACKAGES="$SUCCESS_PACKAGES $pkg"; \
-            else \
-                echo "❌ $pkg build failed"; \
-                FAILED_PACKAGES="$FAILED_PACKAGES $pkg"; \
-            fi; \
-            cd /app; \
-        done; \
-        \
-        # Report results
-        echo ""; \
-        echo "📊 Build Summary:"; \
-        if [ -n "$SUCCESS_PACKAGES" ]; then \
-            echo "✅ Successful:$SUCCESS_PACKAGES"; \
-        fi; \
-        if [ -n "$FAILED_PACKAGES" ]; then \
-            echo "❌ Failed:   $FAILED_PACKAGES"; \
-            echo "🔥 Build failed with one or more package failures"; \
-            exit 1; \
-        else \
-            echo "🎉 Build completed with all packages successfully"; \
-        fi \
-    fi
-
-# Create a new stage for production artifacts by stripping dev dependencies
-FROM builder AS prod-artifacts
-RUN --mount=type=cache,target=/app/.pnpm-store,uid=1000,gid=1000 \
-    pnpm config set store-dir /app/.pnpm-store && \
-    pnpm install --prod --frozen-lockfile --reporter=silent && \
-    pnpm store prune
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production Runtime

@@ -37,7 +37,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -f docker/Dockerfile.relayer -t $ECR_REPOSITORY:latest .
+          docker build -f docker/Dockerfile.relayer --target production -t $ECR_REPOSITORY:latest .
 
       - name: Tag Docker image
         id: tag-image

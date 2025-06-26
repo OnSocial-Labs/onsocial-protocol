@@ -11,17 +11,18 @@ This guide explains how to deploy OnSocial contracts to NEAR (sandbox, testnet, 
 
 ## Deployment Steps
 
-### 1. Build Contracts
+### 1. Initial Setup
 
 ```bash
-make build
+make status   # Check system requirements
+make setup    # Build Docker images and setup environment
 ```
 
-### 2. Run Tests (Recommended)
+### 2. Build and Test (Recommended)
 
 ```bash
-make test
-make test-integration
+make build-all-contracts   # Build all contracts
+make test-all-contracts    # Run all tests
 ```
 
 ### 3. Choose Network
@@ -31,34 +32,80 @@ Set `NETWORK` to `sandbox`, `testnet`, or `mainnet` in your commands.
 ### 4. Deploy Contract
 
 ```bash
-make deploy CONTRACT=ft-wrapper-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+make deploy-contract-ft-wrapper-onsocial NETWORK=sandbox
 ```
 
-- Replace `CONTRACT` with one of: `ft-wrapper-onsocial`
-- For testnet/mainnet, set `AUTH_ACCOUNT` to your NEAR account
+**Available contracts:**
+- `ft-wrapper-onsocial` — Token transfers and cross-chain bridging
+- `social-onsocial` — Social media interactions  
+- `marketplace-onsocial` — Marketplace for digital assets
+- `staking-onsocial` — Staking and rewards
 
-### 5. Initialize Contract (if required)
+**Deployment options:**
+```bash
+# Standard deployment
+make deploy-contract-<name> NETWORK=testnet
+
+# Deploy with initialization
+make deploy-contract-<name> NETWORK=testnet INIT=1
+
+# Deploy with specific key file
+make deploy-contract-<name> NETWORK=testnet KEY_FILE=./configs/keys/deployer.testnet.json
+
+# Reproducible WASM deployment
+make deploy-contract-<name> NETWORK=testnet REPRODUCIBLE=1
+
+# Dry-run simulation
+make deploy-contract-<name> NETWORK=testnet DRY_RUN=1
+```
+
+### 5. Initialize Contract (Optional)
 
 ```bash
-make deploy-init CONTRACT=ft-wrapper-onsocial NETWORK=sandbox AUTH_ACCOUNT=test.near
+make init-contract-ft-wrapper-onsocial NETWORK=sandbox
 ```
+
+Note: Most contracts auto-initialize when deployed with `INIT=1` flag.
 
 ### 6. Verify Deployment
 
-Check logs or call a view method:
-
 ```bash
-make inspect-state CONTRACT_ID=auth.sandbox METHOD=get_state ARGS='{}' NETWORK=sandbox
+make verify-contract-ft-wrapper-onsocial NETWORK=sandbox
 ```
 
-## Subaccount Naming
+Or check the contract state manually via NEAR CLI.
 
-- `ft-wrapper.onsocial.$NETWORK` — ft-wrapper-onsocial
+## Contract Subaccounts
+
+Contracts are deployed to these subaccounts:
+
+- `ft-wrapper.$NETWORK` — ft-wrapper-onsocial
+- `social.$NETWORK` — social-onsocial  
+- `marketplace.$NETWORK` — marketplace-onsocial
+- `staking.$NETWORK` — staking-onsocial
+
+Where `$NETWORK` is `sandbox`, `testnet`, or `mainnet`.
 
 ## Troubleshooting
 
 - **Docker issues:** Ensure Docker is running and you have permissions (`sudo usermod -aG docker $USER`)
 - **Account errors:** Make sure your NEAR account exists and has enough balance
-- **Build errors:** Run `make rebuild-docker`
+- **Build errors:** Run `make clean-docker-all` and then `make setup`
+- **Deployment key issues:** Run `make setup-deployment-keys` for help with key management
 
-For advanced usage and more details, see the [README.md](../README.md).
+## Key Management
+
+For production deployments, use secure key files:
+
+```bash
+# Setup deployment keys
+make setup-deployment-keys
+
+# List available keys  
+make list-deployment-keys
+
+# Validate a key file
+make validate-deployment-key KEY_FILE=./configs/keys/deployer.testnet.json
+```
+
+For advanced usage and complete make targets, see the [Make Targets Reference](../docs/MAKE_TARGETS.md).

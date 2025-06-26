@@ -30,6 +30,7 @@ KEYS_DIR        ?= ./configs/keys
 # Docker image names
 JS_DOCKER_IMAGE := nodejs-builder
 RS_DOCKER_IMAGE := relayer-builder
+RS_PRODUCTION_IMAGE := relayer-production
 CONTRACTS_DOCKER_IMAGE := contracts-builder
 
 # External Docker images (for version consistency and easy updates)

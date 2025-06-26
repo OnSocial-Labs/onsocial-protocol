@@ -12,19 +12,19 @@
 
 .PHONY: build-all-contracts
 build-all-contracts: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Building All Contracts)
-	$(call log_progress,Building all contracts with optimized WASM)
+	@$(call log_start,Building All Contracts)
+	@$(call log_progress,Building all contracts with optimized WASM)
 	@$(call docker_run_contracts,./scripts/build.sh)
-	$(call log_success,All contracts built successfully)
+	@$(call log_success,All contracts built successfully)
 
 .PHONY: build-contract-%
 build-contract-%: build-docker-contracts ensure-scripts-executable
 	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		$(call log_start,Building Contract $*); \
-		$(call docker_run_contracts,./scripts/build.sh build-contract $*); \
-		$(call log_success,Contract $* built successfully); \
+		@$(call log_start,Building Contract $*); \
+		@$(call docker_run_contracts,./scripts/build.sh build-contract $*); \
+		@$(call log_success,Contract $* built successfully); \
 	else \
-		$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
+		@$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
 		exit 1; \
 	fi
 
@@ -34,31 +34,31 @@ build-contract-%: build-docker-contracts ensure-scripts-executable
 
 .PHONY: test-all-contracts
 test-all-contracts: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Running All Contract Tests)
-	$(call log_progress,Running comprehensive test suite)
+	@$(call log_start,Running All Contract Tests)
+	@$(call log_progress,Running comprehensive test suite)
 	@$(call docker_run_contracts_network,set -o pipefail; ./scripts/test.sh all $* 2>&1 | tee /code/test-all.log)
-	$(call log_success,All contract tests completed)
+	@$(call log_success,All contract tests completed)
 
 .PHONY: test-unit-contract-%
 test-unit-contract-%: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Running Unit Tests for Contract $*)
-	$(call log_progress,Executing unit test suite)
+	@$(call log_start,Running Unit Tests for Contract $*)
+	@$(call log_progress,Executing unit test suite)
 	@$(call docker_run_contracts,./scripts/test.sh unit $*)
-	$(call log_success,Unit tests for contract $* completed)
+	@$(call log_success,Unit tests for contract $* completed)
 
 .PHONY: test-integration-contract-%
 test-integration-contract-%: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Running Integration Tests for Contract $*)
-	$(call log_progress,Executing integration test suite)
+	@$(call log_start,Running Integration Tests for Contract $*)
+	@$(call log_progress,Executing integration test suite)
 	@$(call docker_run_contracts_network,./scripts/test.sh integration $*)
-	$(call log_success,Integration tests for contract $* completed)
+	@$(call log_success,Integration tests for contract $* completed)
 
 .PHONY: test-coverage-contract-%
 test-coverage-contract-%: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Generating Test Coverage for Contract $*)
-	$(call log_progress,Running coverage analysis)
+	@$(call log_start,Generating Test Coverage for Contract $*)
+	@$(call log_progress,Running coverage analysis)
 	@$(call docker_run_contracts,./scripts/test_coverage.sh $*)
-	$(call log_success,Test coverage report generated for contract $*)
+	@$(call log_success,Test coverage report generated for contract $*)
 
 # =============================================================================
 # CONTRACT QUALITY TARGETS
@@ -66,35 +66,35 @@ test-coverage-contract-%: build-docker-contracts ensure-scripts-executable
 
 .PHONY: lint-all-contracts
 lint-all-contracts: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Linting All Contracts)
-	$(call log_progress,Running lint checks on all contracts)
+	@$(call log_start,Linting All Contracts)
+	@$(call log_progress,Running lint checks on all contracts)
 	@$(call docker_run_contracts,./scripts/build.sh lint)
-	$(call log_success,All contracts linted successfully)
+	@$(call log_success,All contracts linted successfully)
 
 .PHONY: format-all-contracts
 format-all-contracts: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Formatting All Contracts)
-	$(call log_progress,Applying code formatting to all contracts)
+	@$(call log_start,Formatting All Contracts)
+	@$(call log_progress,Applying code formatting to all contracts)
 	@$(call docker_run_contracts,./scripts/build.sh format)
-	$(call log_success,All contracts formatted successfully)
+	@$(call log_success,All contracts formatted successfully)
 
 .PHONY: check-contract-%
 check-contract-%: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Checking Contract $*)
-	$(call log_progress,Running cargo check)
+	@$(call log_start,Checking Contract $*)
+	@$(call log_progress,Running cargo check)
 	@$(call docker_run_contracts,./scripts/build.sh check-contract $*)
-	$(call log_success,Contract $* check completed)
+	@$(call log_success,Contract $* check completed)
 
 .PHONY: clippy-contract-%
 clippy-contract-%: build-docker-contracts ensure-scripts-executable
 	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		$(call log_start,Running Clippy for Contract $*); \
-		$(call log_progress,Analyzing code with clippy); \
+		@$(call log_start,Running Clippy for Contract $*); \
+		@$(call log_progress,Analyzing code with clippy); \
 		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
 			bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"; \
-		$(call log_success,Clippy analysis for contract $* completed); \
+		@$(call log_success,Clippy analysis for contract $* completed); \
 	else \
-		$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
+		@$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
 		exit 1; \
 	fi
 
@@ -149,10 +149,10 @@ init-contract-%: build-docker-contracts ensure-scripts-executable
 
 .PHONY: verify-contract-%
 verify-contract-%: build-docker-contracts ensure-scripts-executable
-	$(call log_start,Verifying Contract $*)
-	$(call log_progress,Running contract verification)
+	@$(call log_start,Verifying Contract $*)
+	@$(call log_progress,Running contract verification)
 	@docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code --network host -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) bash -c "./scripts/build.sh verify $*"
-	$(call log_success,Contract $* verified successfully)
+	@$(call log_success,Contract $* verified successfully)
 
 # =============================================================================
 # DEPLOYMENT HELPER FUNCTIONS

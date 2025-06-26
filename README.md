@@ -8,7 +8,7 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.contracts)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
 [![Linux](https://img.shields.io/badge/OS-Linux-green)](https://www.kernel.org/)
-[![Last Updated](https://img.shields.io/badge/Last%20Updated-June%2014,%202025-blue)](README.md)
+[![Last Updated](https://img.shields.io/badge/Last%20Updated-June%2026,%202025-blue)](README.md)
 
 # OnSocial Protocol
 
@@ -37,21 +37,19 @@ Contributions of all kinds are welcome—code, design, documentation, and ideas.
 ## Project Structure
 
 - `contracts/` — Core smart contracts (token, relayer, marketplace, social, staking)
+- `packages/` — JavaScript SDKs and relayer service
 - `scripts/` — Automation for deployment and testing
 - `tests/` — Integration and unit tests
-
-<!--
-- `packages/` — JavaScript SDKs and the main Expo mobile app (in development)
--->
 
 ---
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/OnSocial-Labs/onsocial.git
-cd onsocial
-make build   # Build contracts (see Makefile for more)
+git clone https://github.com/OnSocial-Labs/onsocial-protocol.git
+cd onsocial-protocol
+make setup   # Initial setup with Docker
+make build   # Build all contracts and packages
 ```
 For full setup and deployment, see the [Deployment Guide](Resources/deployment-guide.md).
 
@@ -65,11 +63,12 @@ For full setup and deployment, see the [Deployment Guide](Resources/deployment-g
 - [Social-OnSocial](contracts/social-onsocial/README.md): Social media interactions.
 - [Staking-OnSocial](contracts/staking-onsocial/README.md): Staking and rewards.
 
-<!--
 ### Packages
-- [Main Expo App](packages/app/README.md): The primary mobile application for OnSocial.
+- [OnSocial-Auth](packages/onsocial-auth/README.md): Expo-compatible wallet authentication SDK.
 - [OnSocial-JS](packages/onsocial-js/README.md): JavaScript utilities for interacting with OnSocial.
--->
+- [OnSocial-Backend](packages/onsocial-backend/README.md): Backend services and APIs.
+- [OnSocial-App](packages/onsocial-app/README.md): Frontend application components.
+- [Relayer](packages/relayer/README.md): Rust-based transaction relayer service.
 
 ### Resources
 - [Deployment Guide](Resources/deployment-guide.md): Step-by-step instructions for deploying contracts.

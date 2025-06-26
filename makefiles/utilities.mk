@@ -36,32 +36,32 @@ logs-sandbox: ensure-scripts-executable
 
 .PHONY: status
 status:
-	$(call log_start,System Status Check)
+	@$(call log_start,System Status Check)
 	@echo "==================================================================="
 	@echo "OnSocial Protocol Build System Status"
 	@echo "==================================================================="
-	$(call log_info,System Information)
+	@$(call log_info,System Information)
 	@echo "   CPU Cores: $(shell nproc) (tip: use make -j$(shell nproc) for parallel builds)"
 	@echo "   Make Jobs: $(shell echo $$MAKEFLAGS | grep -o '\-j[0-9]*' || echo 'single-threaded (default)')"
 	@echo "   Network: $(NETWORK)"
 	@echo "   Working Dir: $(CODE_DIR)"
 	@echo ""
-	$(call log_info,Build Tools Status)
+	@$(call log_info,Build Tools Status)
 	@echo "   Rust: $(shell rustc --version 2>/dev/null || echo 'not found')"
-	@echo "   Node.js: $(shell node --version 2>/dev/null || echo 'not found')" 
+	@echo "   Node.js: $(shell node --version 2>/dev/null || echo 'not found')"
 	@echo "   pnpm: $(shell pnpm --version 2>/dev/null || echo 'not found')"
 	@echo "   Docker: $(shell docker --version 2>/dev/null || echo 'not found')"
 	@echo "   NEAR CLI: $(shell near --version 2>/dev/null || echo 'not found')"
 	@echo ""
-	$(call log_info,Project Packages)
+	@$(call log_info,Project Packages)
 	@echo "   Contracts: $(VALID_CONTRACTS)"
-	@echo "   JS Packages: $(JS_PACKAGES)"; 
+	@echo "   JS Packages: $(JS_PACKAGES)"
 	@echo "   Rust Packages: $(RS_PACKAGES)"
 	@echo ""
-	$(call log_info,Docker Images Status)
+	@$(call log_info,Docker Images Status)
 	@docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "(onsocial|contracts|relayer|builder)" || echo "   No OnSocial images found"
 	@echo "=================================================================="
-	$(call log_complete,System Status Check)
+	@$(call log_complete,System Status Check)
 
 .PHONY: health-check
 health-check:
@@ -144,9 +144,7 @@ cache-clean:
 
 .PHONY: clean-all
 clean-all:
-	@echo ""
-	@echo "$(WARNING)⚠️  DESTRUCTIVE OPERATION WARNING ⚠️$(RESET)"
-	@echo ""
+	@echo "$(WARNING)  DESTRUCTIVE OPERATION WARNING $(RESET)"
 	@echo "$(CLEAN) This will completely clean the OnSocial Protocol workspace:"
 	@echo "  $(ERROR)• Remove ALL Docker images and containers$(RESET)"
 	@echo "  $(ERROR)• Stop and remove Redis container$(RESET)"
@@ -154,62 +152,33 @@ clean-all:
 	@echo "  $(ERROR)• Delete all dist, build, and target directories$(RESET)"
 	@echo "  $(ERROR)• Clean all package manager caches$(RESET)"
 	@echo "  $(ERROR)• Clean sandbox environment$(RESET)"
-	@echo ""
 	@echo "$(INFO)This operation cannot be undone!$(RESET)"
 	@echo "$(WARNING)Note: May require sudo for Docker and Rust target cleanup$(RESET)"
-	@echo ""
 	@printf "$(WARNING)Are you sure you want to continue? (y/N): $(RESET)"; \
 	read -r answer; \
 	case "$$answer" in \
 		[yY]|[yY][eE][sS]) \
-			echo ""; \
-			echo "$(ROCKET) Proceeding with comprehensive cleanup..."; \
 			$(MAKE) clean-sandbox clean-docker-all; \
-			echo "$(CLEAN) Stopping Redis container..."; \
+			@echo "$(CLEAN) Stopping Redis container..."; \
 			if docker ps -q --filter "name=redis-onsocial" | grep -q .; then \
 				docker stop redis-onsocial >/dev/null 2>&1; \
 				docker rm redis-onsocial >/dev/null 2>&1; \
-				echo "Redis container stopped and removed"; \
+				@echo "Redis container stopped and removed"; \
 			else \
-				echo "Redis container was not running"; \
+				@echo "Redis container was not running"; \
 			fi; \
-			echo "$(CLEAN) Cleaning remaining build artifacts..."; \
-			echo "Cleaning JavaScript dependencies..."; \
-			if [ -d "node_modules" ]; then rm -rf node_modules && echo "Root node_modules removed"; fi; \
-			for dir in packages/*/node_modules; do \
-				if [ -d "$$dir" ]; then \
-					rm -rf "$$dir" && echo "$$dir removed"; \
-				fi; \
-			done; \
-			for dir in packages/*/dist packages/*/build; do \
-				if [ -d "$$dir" ]; then \
-					rm -rf "$$dir" && echo "$$dir removed"; \
-				fi; \
-			done; \
-			echo "Cleaning Rust target directories..."; \
-			for dir in target contracts/*/target packages/relayer/target; do \
-				if [ -d "$$dir" ]; then \
-					if rm -rf "$$dir" 2>/dev/null; then \
-						echo "$$dir removed"; \
-					else \
-						echo "Permission denied for $$dir, trying with sudo..."; \
-						sudo rm -rf "$$dir" && echo "$$dir removed (with sudo)"; \
-					fi; \
-				fi; \
-			done; \
-			echo "Cleaning pnpm cache..."; \
-			if command -v pnpm >/dev/null 2>&1; then \
-				pnpm store prune && echo "pnpm cache cleaned"; \
-			else \
-				echo "pnpm not found, skipping cache cleanup"; \
-			fi; \
-			echo "$(CLEAN) Running: docker system prune -af --volumes ..."; \
-			docker system prune -af --volumes; \
-			echo "$(SUCCESS)Complete cleanup finished - all artifacts and Docker resources removed$(RESET)"; \
+			@echo "$(CLEAN) Cleaning remaining build artifacts..."; \
+			@echo "Cleaning JavaScript dependencies..."; \
+			[ -d "node_modules" ] && rm -rf node_modules && @echo "Root node_modules removed"; \
+			find packages -type d \( -name node_modules -o -name dist -o -name build \) -exec sudo rm -rf {} +; \
+			@echo "Cleaning Rust target directories..."; \
+			find . -type d -name target -exec sudo rm -rf {} +; \
+			@echo "Cleaning pnpm cache..."; \
+			command -v pnpm >/dev/null 2>&1 && pnpm store prune && @echo "pnpm cache cleaned" || @echo "pnpm not found, skipping cache cleanup"; \
+			@echo "$(SUCCESS)Complete cleanup finished - all artifacts and Docker resources removed$(RESET)"; \
 			;; \
 		*) \
-			echo ""; \
-			echo "$(INFO)Operation cancelled$(RESET)"; \
+			@echo "$(INFO)Operation cancelled$(RESET)"; \
 			;; \
 	esac
 
@@ -237,7 +206,7 @@ clean-dev: clean-sandbox
 
 .PHONY: start-redis
 start-redis:
-	$(call log_start,Starting Redis Container)
+	@$(call log_start,Starting Redis Container)
 	@if docker ps -q --filter "name=redis-onsocial" | grep -q .; then \
 		echo "$(INFO)Redis container already running$(RESET)"; \
 	else \
@@ -255,11 +224,11 @@ start-redis:
 			exit 1; \
 		fi; \
 	fi
-	$(call log_success,Redis startup completed)
+	@$(call log_success,Redis startup completed)
 
 .PHONY: stop-redis
 stop-redis:
-	$(call log_start,Stopping Redis Container)
+	@$(call log_start,Stopping Redis Container)
 	@if docker ps -q --filter "name=redis-onsocial" | grep -q .; then \
 		echo "$(BUILD) Stopping Redis container...$(RESET)"; \
 		docker stop redis-onsocial >/dev/null 2>&1; \
@@ -268,17 +237,7 @@ stop-redis:
 	else \
 		echo "$(INFO)Redis container is not running$(RESET)"; \
 	fi
-
-.PHONY: redis-status
-redis-status:
-	@if docker ps -q --filter "name=redis-onsocial" | grep -q .; then \
-		echo "$(SUCCESS)Redis container is running$(RESET)"; \
-		echo "$(INFO)Port: 6379$(RESET)"; \
-		echo "$(INFO)Container: redis-onsocial$(RESET)"; \
-	else \
-		echo "$(WARNING)Redis container is not running$(RESET)"; \
-		echo "$(INFO)Start with: make start-redis$(RESET)"; \
-	fi
+	@$(call log_success,Redis stop completed)
 
 # =============================================================================
 # UTILITY TARGETS
@@ -286,6 +245,6 @@ redis-status:
 
 .PHONY: ensure-scripts-executable
 ensure-scripts-executable:
-	$(call log_progress,Ensuring scripts are executable)
+	@$(call log_progress,Ensuring scripts are executable)
 	@chmod +x scripts/*.sh
-	$(call log_success,Scripts permissions set successfully)
+	@$(call log_success,Scripts permissions set successfully)

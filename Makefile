@@ -51,8 +51,8 @@ lint: lint-all-contracts lint-all-js lint-relayer
 
 .PHONY: setup-deployment-keys
 setup-deployment-keys:
-	$(call log_start,Setting Up Deployment Keys)
-	$(call log_info,This will help you create secure deployment keys)
+	@$(call log_start,Setting Up Deployment Keys)
+	@$(call log_info,This will help you create secure deployment keys)
 	@echo ""
 	@echo "$(WARNING)IMPORTANT: Deployment keys should be kept secure and never committed to git$(RESET)"
 	@echo ""
@@ -72,26 +72,25 @@ setup-deployment-keys:
 
 .PHONY: list-deployment-keys
 list-deployment-keys:
-	$(call log_start,Available Deployment Keys)
+	@$(call log_start,Available Deployment Keys)
 	@echo "$(INFO)Deployment keys directory: $(KEYS_DIR)$(RESET)"
 	@if [ -d "$(KEYS_DIR)" ]; then \
-		echo "$(INFO)Found key files:$(RESET)"; \
+		@echo "$(INFO)Found key files:$(RESET)"; \
 		for key in $(KEYS_DIR)/*.json; do \
 			if [ -f "$$key" ]; then \
-				echo "  $(SUCCESS)$$(basename $$key)$(RESET)"; \
+				@echo "  $(SUCCESS)$$(basename $$key)$(RESET)"; \
 				if command -v jq >/dev/null 2>&1; then \
 					account=$$(jq -r '.account_id' "$$key" 2>/dev/null || echo "invalid format"); \
-					echo "    Account: $$account"; \
+					@echo "    Account: $$account"; \
 				fi; \
 			fi; \
 		done; \
 		if ! ls $(KEYS_DIR)/*.json >/dev/null 2>&1; then \
-			echo "  $(WARNING)No key files found$(RESET)"; \
-			echo "  $(INFO)Run 'make setup-deployment-keys' to get started$(RESET)"; \
+			@echo "  $(WARNING)No key files found$(RESET)"; \
+			@echo "  $(INFO)Run 'make setup-deployment-keys' to get started$(RESET)"; \
 		fi; \
 	else \
-		echo "$(ERROR)Keys directory not found$(RESET)"; \
-		echo "$(INFO)Run 'make setup-deployment-keys' to create it$(RESET)"; \
+		@echo "$(WARNING)Deployment keys directory not found$(RESET)"; \
 	fi
 
 .PHONY: validate-deployment-key
@@ -160,14 +159,12 @@ help:
 	@echo "  test-relayer                  # Test relayer with Redis"
 	@echo "  run-relayer                   # Run relayer service"
 	@echo "  lint-relayer                  # Lint relayer code"
-	@echo "  relayer-dev-setup             # Setup relayer development environment"
 	@echo ""
 	@echo "$(TOOLS) **System Management:**"
 	@echo "  status                        # Show system status"
 	@echo "  clean-all                     # Clean everything"
 	@echo "  cache-clean                   # Clean caches"
 	@echo "  start-redis                   # Start Redis for development"
-	@echo "  test-relayer                  # Test relayer package"
 	@echo ""
 	@echo "$(INFO) **For detailed documentation:** docs/MAKE_TARGETS.md$(RESET)"
 	@echo "$(INFO) **For deployment help:** make setup-deployment-keys$(RESET)"

@@ -6,7 +6,8 @@
     "rootDir": "src",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "lib": ["esnext", "dom"]
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

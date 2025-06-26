@@ -90,3 +90,6 @@ aws/
 
 # Ignore example files and folders
 examples/
+
+# TypeScript incremental build info
+**/tsconfig.tsbuildinfo

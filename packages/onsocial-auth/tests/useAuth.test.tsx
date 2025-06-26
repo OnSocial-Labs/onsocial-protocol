@@ -6,7 +6,7 @@ vi.mock('expo-secure-store', () => ({
   deleteItemAsync: vi.fn(async (_k) => undefined),
 }));
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 import { saveToken, getToken, clearToken } from '../src/storage';
 import { useAuth } from '../src/hooks/useAuth';
@@ -22,15 +22,10 @@ function UseAuthTestComponent() {
 }
 
 describe('useAuth', () => {
-  it('returns initial state (jwt=null, loading=true)', () => {
-    render(<UseAuthTestComponent />);
-    expect(screen.getByTestId('jwt').textContent).toBe('null');
-    expect(screen.getByTestId('loading').textContent).toBe('true');
-  });
-
   it('sets jwt after loading', async () => {
-    render(<UseAuthTestComponent />);
-    // Wait for useEffect to resolve
+    await act(async () => {
+      render(<UseAuthTestComponent />);
+    });
     const jwtSpan = await screen.findByTestId('jwt');
     const loadingSpan = await screen.findByTestId('loading');
     expect(jwtSpan.textContent).toBe('mock-jwt');

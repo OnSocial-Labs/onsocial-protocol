@@ -1,14 +1,6 @@
 # OnSocial Protocol - Make Targets Reference
 
-## 🚀 Quick Star#### Contract Build Operations
-| Target | Description |
-|--------|-------------|
-| `build-all-contracts` | Build all contracts with optimized WASM |
-| `rebuild-all-contracts` | Rebuild all contracts (fresh, no cache) |
-| `build-contract-<name>` | Build specific contract |
-| `rebuild-contract-<name>` | Rebuild specific contract (fresh, no cache) |
-| `check-contract-<name>` | Check specific contract compilation |
-| `clippy-contract-<name>` | Run clippy analysis on contract |nds
+## 🚀 Quick Start
 
 ```bash
 # Get started with the project
@@ -29,6 +21,17 @@ make test-all-contracts  # Run all tests
 | `system-info` | Show detailed system configuration |
 | `ensure-scripts-executable` | Make all scripts executable |
 
+### 🚀 **High-Level Convenience Targets**
+
+| Target | Description |
+|--------|-------------|
+| `all` | Build and test everything |
+| `setup` | Initial project setup (Docker images) |
+| `dev` | Setup development environment |
+| `build` | Build all contracts and JavaScript packages |
+| `test` | Run all tests (contracts + JavaScript + relayer unit) |
+| `lint` | Lint all code (contracts + JavaScript + relayer) |
+
 ### 🐳 **Docker Management**
 
 | Target | Description |
@@ -40,8 +43,8 @@ make test-all-contracts  # Run all tests
 | `rebuild-docker-contracts` | Force rebuild contracts Docker image |
 | `rebuild-docker-nodejs` | Force rebuild Node.js Docker image |
 | `rebuild-docker-relayer` | Force rebuild relayer Docker image |
-| `clean-docker-all` | Clean all Docker images and containers |
-| `clean-docker-<service>` | Clean specific service Docker resources |
+| `clean-docker-all` | Clean all Docker images, containers, and Docker image stamp files |
+| `clean-docker-<service>` | Clean specific service Docker resources (for `nodejs`, also removes builder/all-packages images and prunes volumes) |
 
 ### 📦 **JavaScript/TypeScript Packages**
 
@@ -50,6 +53,7 @@ make test-all-contracts  # Run all tests
 |--------|-------------|
 | `clean-install-js` | Clean reinstall JavaScript dependencies |
 | `upgrade-deps-js` | Upgrade JavaScript dependencies |
+| `clean-docker-nodejs` | Clean Node.js Docker image and all JS package `dist` and `node_modules` folders |
 
 #### Package Operations
 | Target | Description |
@@ -58,9 +62,13 @@ make test-all-contracts  # Run all tests
 | `rebuild-onsocial-<package>` | Rebuild specific package (fresh, no cache) |
 | `test-onsocial-<package>` | Test specific package |
 | `lint-onsocial-<package>` | Lint specific package |
+| `format-onsocial-<package>` | Format specific package |
+| `check-onsocial-<package>` | Type-check specific package |
 | `build-all-js` | Build all JavaScript packages |
 | `test-all-js` | Test all JavaScript packages |
 | `lint-all-js` | Lint all JavaScript packages |
+| `format-all-js` | Format all JavaScript packages |
+| `check-all-js` | Type-check all JavaScript packages |
 
 **Valid packages:** `js`, `auth`, `app`, `backend`
 
@@ -70,7 +78,9 @@ make test-all-contracts  # Run all tests
 | Target | Description |
 |--------|-------------|
 | `build-all-contracts` | Build all contracts with optimized WASM |
+| `rebuild-all-contracts` | Rebuild all contracts (fresh, no cache) |
 | `build-contract-<name>` | Build specific contract |
+| `rebuild-contract-<name>` | Rebuild specific contract (fresh, no cache) |
 | `check-contract-<name>` | Check specific contract compilation |
 | `clippy-contract-<name>` | Run clippy analysis on contract |
 
@@ -102,40 +112,35 @@ make test-all-contracts  # Run all tests
 | Target | Description |
 |--------|-------------|
 | `build-relayer` | Build relayer package (release mode) |
-| `rebuild-relayer` | Rebuild relayer package (fresh, no cache) |
-| `build-relayer-dev` | Build relayer package (development mode) |
-| `check-relayer` | Check relayer compilation |
-| `doc-relayer` | Generate relayer documentation |
+| `build-docker-relayer-production` | Build production relayer Docker image |
+| `clean-relayer` | Clean relayer build artifacts |
 
 #### Relayer Testing
 | Target | Description |
 |--------|-------------|
 | `test-relayer` | Run all relayer tests (requires Redis) |
 | `test-relayer-unit` | Run unit tests only (no Redis required) |
-| `test-relayer-integration` | Run integration tests (requires Redis) |
 
 #### Relayer Quality Assurance
 | Target | Description |
 |--------|-------------|
 | `lint-relayer` | Run clippy on relayer code |
 | `format-relayer` | Format relayer code with rustfmt |
-| `audit-relayer` | Security audit relayer dependencies |
 
-#### Relayer Development
+#### Relayer Service Management
 | Target | Description |
 |--------|-------------|
 | `run-relayer` | Run relayer service (requires Redis) |
-| `run-relayer-dev` | Run relayer in development mode |
-| `watch-relayer` | Run relayer with auto-rebuild on changes |
-| `clean-relayer` | Clean relayer build artifacts |
-| `setup-relayer-keys` | Setup relayer cryptographic keys |
+| `docker-run-relayer` | Run relayer in Docker container |
+| `docker-stop-relayer` | Stop relayer Docker container |
+| `stop-relayer` | Stop relayer service |
+| `stop-relayer-all` | Stop all relayer services |
+| `logs-relayer` | Show relayer Docker container logs |
 
-#### Relayer Comprehensive Targets
+#### Relayer Setup & Utilities
 | Target | Description |
 |--------|-------------|
-| `relayer-full-check` | Complete relayer validation (check + lint + test + audit) |
-| `relayer-ci` | CI pipeline (format + lint + unit tests) |
-| `relayer-dev-setup` | Complete development environment setup |
+| `keys-relayer` | Setup relayer cryptographic keys |
 
 ### 🔴 **Redis Management (for Relayer)**
 
@@ -143,14 +148,13 @@ make test-all-contracts  # Run all tests
 |--------|-------------|
 | `start-redis` | Start Redis container for relayer |
 | `stop-redis` | Stop and remove Redis container |
-| `redis-status` | Check Redis container status |
 
 ### 🛠️ **Relayer Package**
 
 | Target | Description |
 |--------|-------------|
 | `build-docker-relayer` | Build relayer Docker image |
-| `clean-package-relayer` | Clean relayer package |
+| `clean-relayer` | Clean relayer package |
 | `test-relayer` | Test relayer package (requires Redis) |
 | `keys-relayer` | Setup relayer keys (multikey_setup.sh) |
 
@@ -160,7 +164,6 @@ make test-all-contracts  # Run all tests
 |--------|-------------|
 | `start-redis` | Start Redis container for development |
 | `stop-redis` | Stop and remove Redis container |
-| `redis-status` | Check Redis container status |
 
 **Valid contract names:** `social-onsocial`, `marketplace-onsocial`, `ft-wrapper-onsocial`, `staking-onsocial`
 
@@ -182,6 +185,22 @@ make test-all-contracts  # Run all tests
 | `clean-dev` | Development cleanup (preserve Docker) |
 | `cache-clean` | Clean build caches |
 | `cache-status` | Show cache status |
+
+### 🔐 **Deployment Key Management**
+
+| Target | Description |
+|--------|-------------|
+| `setup-deployment-keys` | Setup secure deployment keys |
+| `list-deployment-keys` | List available deployment keys |
+| `validate-deployment-key` | Validate deployment key file (use KEY_FILE=path) |
+
+### 📚 **Help and Information**
+
+| Target | Description |
+|--------|-------------|
+| `help` | Show main help with common targets |
+| `help-deployment` | Show deployment-specific help |
+| `targets-count` | Show number of available make targets |
 
 ### ⚙️ **Advanced Options**
 
