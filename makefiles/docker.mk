@@ -121,7 +121,7 @@ define docker_run_js_package
 		-e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
 		-e VERBOSE=$(VERBOSE) \
 		$(JS_DOCKER_IMAGE) \
-		sh -c "export PATH=\"/app/node_modules/.bin:$$PATH\" && pnpm --filter $(1) $(2)"
+		pnpm --filter $(1) $(2)
 endef
 
 # =============================================================================
