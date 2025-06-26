@@ -142,6 +142,7 @@ RELAYER_DEPS := docker/Dockerfile.relayer packages/relayer/Cargo.toml
 $(CONTRACTS_IMAGE_STAMP): $(CONTRACTS_DEPS)
 	@$(call log_start,Building Contracts Docker Image)
 	@$(call log_progress,Building optimized Rust environment)
+	@mkdir -p $(DOCKER_CACHE_DIR)
 	@docker build -f docker/Dockerfile.contracts -t $(CONTRACTS_DOCKER_IMAGE) .
 	@touch $@
 	@$(call log_success,Contracts Docker image built successfully)
@@ -149,6 +150,7 @@ $(CONTRACTS_IMAGE_STAMP): $(CONTRACTS_DEPS)
 $(JS_IMAGE_STAMP): $(JS_DEPS)
 	@$(call log_start,Building Dependencies-Only JavaScript Docker Image)
 	@$(call log_progress,Building Node.js environment with dependencies only (fast build))
+	@mkdir -p $(DOCKER_CACHE_DIR)
 	@docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
 	@touch $@
 	@$(call log_success,Dependencies-only JavaScript Docker image built successfully)
@@ -156,6 +158,7 @@ $(JS_IMAGE_STAMP): $(JS_DEPS)
 $(RELAYER_IMAGE_STAMP): $(RELAYER_DEPS)
 	@$(call log_start,Building Relayer Docker Image)
 	@$(call log_progress,Building Rust relayer environment)
+	@mkdir -p $(DOCKER_CACHE_DIR)
 	@docker build -f docker/Dockerfile.relayer -t $(RS_DOCKER_IMAGE) .
 	@touch $@
 	@$(call log_success,Relayer Docker image built successfully)
