@@ -4,9 +4,11 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import vitest from 'eslint-plugin-vitest';
 
 export default [
   js.configs.recommended,
+  vitest.configs.recommended,
   {
     files: ['**/*.{ts,tsx,js,jsx}'],
     languageOptions: {
@@ -39,6 +41,7 @@ export default [
       react,
       'react-hooks': reactHooks,
       '@typescript-eslint': tseslint,
+      vitest,
     },
     rules: {
       // TypeScript specific rules
@@ -79,6 +82,23 @@ export default [
     },
   },
   {
+    files: ['**/*.test.{ts,tsx,js,jsx}', '**/tests/**/*.{ts,tsx,js,jsx}'],
+    plugins: { vitest },
+    rules: {
+      'vitest/no-disabled-tests': 'warn',
+      'vitest/no-focused-tests': 'error',
+      'vitest/no-identical-title': 'error',
+      'vitest/no-conditional-expect': 'error',
+      'vitest/no-async-in-loop': 'warn',
+      'vitest/expect-expect': 'warn',
+      'no-undef': 'off', // Vitest provides globals
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
     files: ['**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
@@ -101,6 +121,7 @@ export default [
     },
     rules: {
       'no-undef': 'off', // TypeScript handles this
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
   {
