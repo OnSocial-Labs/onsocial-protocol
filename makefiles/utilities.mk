@@ -159,26 +159,26 @@ clean-all:
 	case "$$answer" in \
 		[yY]|[yY][eE][sS]) \
 			$(MAKE) clean-sandbox clean-docker-all; \
-			@echo "$(CLEAN) Stopping Redis container..."; \
+			echo "$(CLEAN) Stopping Redis container..."; \
 			if docker ps -q --filter "name=redis-onsocial" | grep -q .; then \
 				docker stop redis-onsocial >/dev/null 2>&1; \
 				docker rm redis-onsocial >/dev/null 2>&1; \
-				@echo "Redis container stopped and removed"; \
+				echo "Redis container stopped and removed"; \
 			else \
-				@echo "Redis container was not running"; \
+				echo "Redis container was not running"; \
 			fi; \
-			@echo "$(CLEAN) Cleaning remaining build artifacts..."; \
-			@echo "Cleaning JavaScript dependencies..."; \
-			[ -d "node_modules" ] && rm -rf node_modules && @echo "Root node_modules removed"; \
+			echo "$(CLEAN) Cleaning remaining build artifacts..."; \
+			echo "Cleaning JavaScript dependencies..."; \
+			[ -d "node_modules" ] && rm -rf node_modules && echo "Root node_modules removed"; \
 			find packages -type d \( -name node_modules -o -name dist -o -name build \) -exec sudo rm -rf {} +; \
-			@echo "Cleaning Rust target directories..."; \
+			echo "Cleaning Rust target directories..."; \
 			find . -type d -name target -exec sudo rm -rf {} +; \
-			@echo "Cleaning pnpm cache..."; \
-			command -v pnpm >/dev/null 2>&1 && pnpm store prune && @echo "pnpm cache cleaned" || @echo "pnpm not found, skipping cache cleanup"; \
-			@echo "$(SUCCESS)Complete cleanup finished - all artifacts and Docker resources removed$(RESET)"; \
+			echo "Cleaning pnpm cache..."; \
+			command -v pnpm >/dev/null 2>&1 && pnpm store prune && echo "pnpm cache cleaned" || echo "pnpm not found, skipping cache cleanup"; \
+			echo "$(SUCCESS)Complete cleanup finished - all artifacts and Docker resources removed$(RESET)"; \
 			;; \
 		*) \
-			@echo "$(INFO)Operation cancelled$(RESET)"; \
+			echo "$(INFO)Operation cancelled$(RESET)"; \
 			;; \
 	esac
 

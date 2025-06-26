@@ -43,7 +43,11 @@ upgrade-deps-js:
 build-onsocial-%: build-docker-nodejs ensure-scripts-executable
 	@$(call log_info,Building onsocial-$* using $(JS_DOCKER_IMAGE) Docker image)
 	@$(call log_progress,Building onsocial-$* package)
+ifeq ($(CI),true)
+	@$(call docker_run_js_package_ci,onsocial-$*,build)
+else
 	@$(call docker_run_js_package,onsocial-$*,build)
+endif
 	@$(call log_success,onsocial-$* built successfully)
 
 .PHONY: test-onsocial-%
