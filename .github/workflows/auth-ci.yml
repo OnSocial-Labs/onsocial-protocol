@@ -39,6 +39,12 @@ jobs:
       - name: Build Docker Image with All Tools
         run: make build-docker-nodejs
 
+      - name: Debug node_modules and tsc
+        run: |
+          docker run --rm nodejs-builder ls /app/node_modules/.bin || true
+          docker run --rm nodejs-builder pnpm --version || true
+          docker run --rm nodejs-builder pnpm exec tsc --version || true
+
       - name: Build and Test Auth Package
         run: |
           echo "🔍 Building onsocial-auth package..."
