@@ -10,6 +10,8 @@
 
 # Node.js dependencies
 node_modules/
+.npm/
+.pnpm/
 .pnpm-store/
 .npm-cache/
 

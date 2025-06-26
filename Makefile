@@ -2,7 +2,7 @@
 # OnSocial Protocol - Main Makefile
 # =============================================================================
 # Simplified main entry point for the OnSocial Protocol build system
-# For detailed target documentation, see: docs/MAKE_TARGETS.md
+# For detailed target documentation, see: Resources/MAKE_TARGETS.md
 
 .DEFAULT_GOAL := help
 
@@ -166,7 +166,7 @@ help:
 	@echo "  cache-clean                   # Clean caches"
 	@echo "  start-redis                   # Start Redis for development"
 	@echo ""
-	@echo "$(INFO) **For detailed documentation:** docs/MAKE_TARGETS.md$(RESET)"
+	@echo "$(INFO) **For detailed documentation:** Resources/MAKE_TARGETS.md$(RESET)"
 	@echo "$(INFO) **For deployment help:** make setup-deployment-keys$(RESET)"
 	@echo ""
 	@echo "$(SUCCESS)Use VERBOSE=1 for detailed output$(RESET)"
@@ -192,7 +192,7 @@ help-deployment:
 	@echo "  validate-deployment-key       # Validate key file (use KEY_FILE=path)"
 	@echo ""
 	@echo "$(INFO) **Security:** Always use KEY_FILE for production deployments$(RESET)"
-	@echo "$(INFO) **Documentation:** See docs/MAKE_TARGETS.md for complete reference$(RESET)"
+	@echo "$(INFO) **Documentation:** See Resources/MAKE_TARGETS.md for complete reference$(RESET)"
 
 # Include target count for reference
 .PHONY: targets-count

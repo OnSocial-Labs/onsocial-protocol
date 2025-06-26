@@ -36,21 +36,20 @@
   },
   "private": true,
   "scripts": {
-    "build": "make build-js",
+    "build": "make build-all-js",
     "check-deps": "node scripts/check-deps.js",
     "clean": "pnpm -r run clean",
     "dev": "pnpm -r run dev",
     "format": "pnpm -r run format",
     "format-deps": "syncpack format",
-    "lint": "make lint-js",
+    "lint": "make lint-all-js",
     "postinstall": "node scripts/sync-deps.js",
     "prepare": "husky",
     "start": "pnpm -r run start",
     "sync-deps": "node scripts/sync-deps.js",
-    "test": "make test-js",
-    "typecheck": "make check-js",
-    "upgrade:deps": "make deps-upgrade-js",
-    "upgrade:deps-auto": "make deps-upgrade-js-auto"
+    "test": "make test-all-js",
+    "typecheck": "make check-all-js",
+    "upgrade:deps": "make upgrade-deps-js"
   },
   "workspaces": [
     "packages/*"

@@ -1,14 +1,29 @@
 {
   "name": "onsocial-app",
   "version": "0.1.0",
+  "description": "OnSocial main application (Expo/React Native)",
+  "author": "OnSocial Labs",
+  "license": "MIT",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "onsocial",
+    "app",
+    "expo",
+    "react-native"
+  ],
   "scripts": {
     "start": "expo start",
     "build": "pnpm exec tsc",
     "test": "vitest run",
     "lint": "eslint ./src --ext .ts,.tsx,.js,.jsx",
     "format": "prettier --write .",
-    "tsc": "pnpm exec tsc"
+    "tsc": "pnpm exec tsc",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "expo": "^53.0.13",

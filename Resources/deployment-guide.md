@@ -108,4 +108,4 @@ make list-deployment-keys
 make validate-deployment-key KEY_FILE=./configs/keys/deployer.testnet.json
 ```
 
-For advanced usage and complete make targets, see the [Make Targets Reference](../docs/MAKE_TARGETS.md).
+For advanced usage and complete make targets, see the [Make Targets Reference](MAKE_TARGETS.md).

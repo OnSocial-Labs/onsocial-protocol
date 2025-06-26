@@ -2,17 +2,20 @@
   "name": "onsocial-js",
   "version": "0.1.0",
   "description": "Expo-safe NEAR transaction utilities for OnSocial frontend integration.",
+  "author": "OnSocial Labs",
+  "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
-    }
-  },
   "files": [
     "dist"
+  ],
+  "keywords": [
+    "near",
+    "expo",
+    "react-native",
+    "transactions",
+    "onsocial"
   ],
   "scripts": {
     "build": "pnpm exec tsc --build",
@@ -22,15 +25,6 @@
     "format": "prettier --write .",
     "tsc": "pnpm exec tsc"
   },
-  "keywords": [
-    "near",
-    "expo",
-    "react-native",
-    "transactions",
-    "onsocial"
-  ],
-  "author": "OnSocial Labs",
-  "license": "MIT",
   "dependencies": {
     "@near-js/transactions": "^2.1.0",
     "@near-js/types": "^2.1.0",
@@ -50,6 +44,7 @@
     "eslint-plugin-vitest": "^0.5.4",
     "prettier": "^3.6.1",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@eslint/js": "^9.29.0"
   }
 }
