@@ -33,22 +33,22 @@
   "license": "MIT",
   "dependencies": {
     "@near-js/transactions": "^2.1.0",
-    "@near-js/types": "^2.0.3",
+    "@near-js/types": "^2.1.0",
     "@near-js/utils": "^2.1.0",
     "base64-js": "^1.5.1",
-    "borsh": "^0.7.0",
-    "bs58": "^5.0.0",
+    "borsh": "^2.0.0",
+    "bs58": "^6.0.0",
     "cross-fetch": "^4.1.0",
     "js-sha256": "^0.11.1",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.34.1",
-    "@typescript-eslint/parser": "^8.34.1",
+    "@typescript-eslint/eslint-plugin": "^8.35.0",
+    "@typescript-eslint/parser": "^8.35.0",
     "eslint": "^9.29.0",
-    "eslint-plugin-prettier": "^5.5.0",
+    "eslint-plugin-prettier": "^5.5.1",
     "eslint-plugin-vitest": "^0.5.4",
-    "prettier": "^3.5.3",
+    "prettier": "^3.6.1",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

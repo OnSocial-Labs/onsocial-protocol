@@ -170,6 +170,7 @@ clean-all:
 			echo "$(CLEAN) Cleaning remaining build artifacts..."; \
 			echo "Cleaning JavaScript dependencies..."; \
 			[ -d "node_modules" ] && rm -rf node_modules && echo "Root node_modules removed"; \
+			[ -d ".npm-cache" ] && rm -rf .npm-cache && echo ".npm-cache removed"; \
 			find packages -type d \( -name node_modules -o -name dist -o -name build \) -exec sudo rm -rf {} +; \
 			echo "Cleaning Rust target directories..."; \
 			find . -type d -name target -exec sudo rm -rf {} +; \

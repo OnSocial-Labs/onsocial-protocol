@@ -11,6 +11,7 @@
 # Node.js dependencies
 node_modules/
 .pnpm-store/
+.npm-cache/
 
 # Rust build output
 target/
@@ -93,3 +94,6 @@ examples/
 
 # TypeScript incremental build info
 **/tsconfig.tsbuildinfo
+
+# Local files and directories
+.local

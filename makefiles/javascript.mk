@@ -31,8 +31,12 @@ upgrade-deps-js:
 	@$(call log_start,JavaScript Dependencies Upgrade)
 	@$(call log_progress,Running JavaScript dependency upgrade)
 	@docker volume create pnpm-store || true
-	@docker run $(DOCKER_TTY) -v $(CURDIR):/app -v pnpm-store:/app/.pnpm-store --rm --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) sh /app/scripts/upgrade_deps_js.sh
-	@$(call log_success,JavaScript dependencies upgraded successfully)
+	@docker run -it $(DOCKER_TTY) \
+		-e HOME=/app \
+		-e COREPACK_HOME=/app/.corepack \
+		-e PNPM_HOME=/app/.pnpm \
+		-e XDG_CACHE_HOME=/app/.cache \
+		-v $(CURDIR):/app -v pnpm-store:/app/.pnpm-store --rm --user $(shell id -u):$(shell id -g) $(JS_DOCKER_IMAGE) sh /app/scripts/upgrade_deps_js.sh
 
 # =============================================================================
 # JAVASCRIPT PACKAGE-SPECIFIC TARGETS
