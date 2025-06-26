@@ -120,6 +120,7 @@ define docker_run_js_package
 		-e TERM=xterm-256color \
 		-e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
 		-e VERBOSE=$(VERBOSE) \
+		-e PATH="/app/node_modules/.bin:$$PATH" \
 		$(JS_DOCKER_IMAGE) \
 		sh -c "cd /app && \
 		if echo '$(2)' | grep -q '^[a-zA-Z][a-zA-Z0-9-]*$$'; then \
