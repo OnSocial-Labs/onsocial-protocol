@@ -1,0 +1,21 @@
+[package]
+name = "core-onsocial"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/OnSocial-Labs/onsocial-protocol"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = { workspace = true }
+near-sdk-macros = { workspace = true }
+borsh = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+xxhash-rust = { workspace = true, features = ["xxh3"] }
+near-gas = { workspace = true }
+
+[dev-dependencies]
+near-sdk = { workspace = true, features = ["unit-testing"] }
+

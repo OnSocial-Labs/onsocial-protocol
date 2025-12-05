@@ -1,58 +1,53 @@
 # OnSocial Protocol - Workspace Cargo.toml
 #
 # This file centralizes all dependency versions for the monorepo. Each contract
-# (ft-wrapper-onsocial, relayer-onsocial, marketplace-onsocial, staking-onsocial,
-# social-onsocial) and the tests crate reference only the dependencies they need
-# using `workspace = true` in their Cargo.toml.
+# (marketplace-onsocial, staking-onsocial, core-onsocial) and the tests crate
+# reference only the dependencies they need using `workspace = true` in their
+# Cargo.toml.
 #
 # Dependency Usage:
-# - ft-wrapper-onsocial: near-sdk, near-sdk-macros, borsh, serde
-# - relayer-onsocial: near-sdk, near-sdk-macros, borsh, serde, near-crypto, semver
 # - marketplace-onsocial: near-sdk, near-sdk-macros, borsh, serde
 # - staking-onsocial: near-sdk, near-sdk-macros, borsh, serde
-# - social-onsocial: near-sdk, near-sdk-macros, borsh, serde
+# - core-onsocial: near-sdk, near-sdk-macros, borsh, serde
+# - relayer: near-sdk, near-sdk-macros, borsh, serde, near-crypto, semver
 # - tests: near-sdk, near-workspaces, near-crypto, tokio, anyhow, serde_json
-#
-# Note: near-sdk with `unit-testing` feature is used in [dev-dependencies] for
-# unit tests in ft-wrapper-onsocial and relayer-onsocial. Dependencies like
-# ed25519-dalek, getrandom, hex, and base64 are included for potential use in
-# relayer-onsocial (e.g., signature verification) or future features.
 #
 # When adding a new contract or updating tests, reference the required dependencies
 # in their Cargo.toml and update the documentation here to reflect usage.
 
 [workspace]
 members = [
-    "contracts/ft-wrapper-onsocial",
     "contracts/marketplace-onsocial",
     "contracts/staking-onsocial",
-    "contracts/social-onsocial",
+    "contracts/core-onsocial",
     "tests",
     "packages/relayer"
 ]
 resolver = "2"
 
 [workspace.dependencies]
-near-sdk = "5.14.0"
-near-sdk-macros = "5.14.0"
-borsh = "1.5.7"
+near-sdk = "5.20.0"
+near-sdk-macros = "5.20.0"
+borsh = "1.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-near-crypto = "0.30.1"
-near-primitives = "0.30.1"
-ed25519-dalek = "2.1.1"
+near-crypto = "0.30.3"
+near-primitives = "0.30.3"
+ed25519-dalek = "2.2.0"
 getrandom = { version = "0.2.16", features = ["js"] }
 hex = "0.4.3"
 base64 = "0.22.1"
 bs58 = "0.5.1"
 rand = "0.8"
 near-workspaces = "0.20.1"
-tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
 anyhow = "1.0"
-semver = "1.0.26"
+semver = "1.0.27"
 schemars = "0.8.22"
+near-gas = "0.3.3"
 itertools = "0.12"
-ft-wrapper-onsocial = { path = "contracts/ft-wrapper-onsocial" }
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+prost = "0.14.1"
 
 [profile.release]
 opt-level = "z"

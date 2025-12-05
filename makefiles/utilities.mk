@@ -249,3 +249,13 @@ ensure-scripts-executable:
 	@$(call log_progress,Ensuring scripts are executable)
 	@chmod +x scripts/*.sh
 	@$(call log_success,Scripts permissions set successfully)
+
+# =============================================================================
+# CARGO UPDATE TARGET
+# =============================================================================
+
+.PHONY: cargo-update
+cargo-update:
+	@echo "$(INFO)Running cargo update to refresh Rust dependencies$(RESET)"
+	@cargo update
+	@echo "$(SUCCESS)Cargo dependencies updated$(RESET)"

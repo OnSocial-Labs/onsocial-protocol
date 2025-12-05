@@ -1,0 +1,44 @@
+{
+  "name": "onsocial-intents",
+  "version": "0.1.0",
+  "description": "NEAR Intents API client for multi-token payments and currency pricing oracle",
+  "author": "OnSocial Labs",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "near",
+    "intents",
+    "multi-token",
+    "pricing",
+    "oracle",
+    "onsocial"
+  ],
+  "scripts": {
+    "build": "pnpm exec tsc --build",
+    "clean": "rm -rf dist",
+    "lint": "eslint ./src --ext .ts,.tsx,.js,.jsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "tsc": "pnpm exec tsc"
+  },
+  "dependencies": {
+    "cross-fetch": "^4.1.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.35.1",
+    "@typescript-eslint/parser": "^8.35.1",
+    "eslint": "^9.30.1",
+    "eslint-plugin-prettier": "^5.5.1",
+    "eslint-plugin-vitest": "^0.5.4",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
+    "@eslint/js": "^9.30.1"
+  }
+}

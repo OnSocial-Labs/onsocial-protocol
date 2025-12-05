@@ -28,9 +28,9 @@ chmod -R 775 "$PNPM_STORE_DIR"
 # Always use npx npm-check-updates for reliability
 NCU_CMD="npx -y npm-check-updates@latest --color"
 
-# Upgrade dependencies in all workspace packages interactively
+# Upgrade dependencies in all workspace packages and indexers interactively
 any_outdated=0
-for pkg in packages/*; do
+for pkg in packages/* indexers/*; do
   if [ -f "$pkg/package.json" ]; then
     echo "Checking $pkg/package.json"
     UPGRADE_LIST=$(cd "$pkg" && FORCE_COLOR=1 npx -y npm-check-updates@latest --color)

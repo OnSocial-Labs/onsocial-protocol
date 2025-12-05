@@ -1,11 +1,5 @@
 [
     {
-        "name": "ft-wrapper-onsocial",
-        "id": "ft-wrapper.$NETWORK",
-        "account": "${FT_ACCOUNT}",
-        "init": "new '{\"manager\": \"${AUTH_ACCOUNT}\", \"relayer_contract\": \"relayer.$NETWORK\", \"storage_deposit\": \"1250000000000000000000\"}'"
-    },
-    {
         "name": "marketplace-onsocial",
         "id": "marketplace.$NETWORK",
         "account": "${AUTH_ACCOUNT}",
@@ -18,7 +12,7 @@
         "init": "new '{}'"
     },
     {
-        "name": "social-onsocial",
+        "name": "core-onsocial",
         "id": "social.$NETWORK",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"

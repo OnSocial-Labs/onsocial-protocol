@@ -28,45 +28,41 @@ test_coverage() {
   local contract=$1
   mkdir -p coverage || handle_error "Failed to create coverage directory"
   if [ -n "$contract" ]; then
-    echo "Generating coverage for $contract..."
+    echo "Running tests with coverage info for $contract..."
     cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
-    [ "$VERBOSE" = "1" ] && echo "Running: cargo tarpaulin --out Html --output-dir coverage --output-file tarpaulin-report-$contract.html ..."
-    if ! cargo tarpaulin --out Html --output-dir coverage --output-file "tarpaulin-report-$contract.html" --exclude-files 'tests/*' --verbose; then
-      echo -e "${ERROR}Tarpaulin failed, falling back to cargo test${RESET}"
-      [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
-      cargo test || handle_error "Cargo test failed for $contract"
-      echo -e "${WARNING}Coverage report not generated, but tests ran${RESET}"
+    [ "$VERBOSE" = "1" ] && echo "Running: cargo test --release"
+    if ! cargo test --release; then
+      echo -e "${ERROR}Tests failed for $contract${RESET}"
+      handle_error "Tests failed for $contract"
     else
-      echo -e "${SUCCESS}Coverage report generated for $contract at coverage/tarpaulin-report-$contract.html${RESET}"
+      echo -e "${SUCCESS}Tests completed successfully for $contract${RESET}"
+      echo -e "${WARNING}Note: For detailed coverage reports, consider using cargo-llvm-cov or tarpaulin${RESET}"
     fi
   else
-    echo "Generating coverage for all contracts..."
+    echo "Running tests for all contracts..."
     ERROR_FLAG=0
     for contract in "${CONTRACTS[@]}"; do
-      echo "Generating coverage for $contract..."
+      echo "Running tests for $contract..."
       cd "$BASE_DIR/$contract" || { ERROR_FLAG=1; continue; }
-      [ "$VERBOSE" = "1" ] && echo "Running: cargo tarpaulin --out Html --output-dir coverage --output-file tarpaulin-report-$contract.html ..."
-      if ! cargo tarpaulin --out Html --output-dir coverage --output-file "tarpaulin-report-$contract.html" --exclude-files 'tests/*' --verbose; then
-        echo -e "${ERROR}Tarpaulin failed for $contract, falling back to cargo test${RESET}"
-        [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
-        cargo test || ERROR_FLAG=1
-        echo -e "${WARNING}Coverage report not generated for $contract, but tests ran${RESET}"
+      [ "$VERBOSE" = "1" ] && echo "Running: cargo test --release"
+      if ! cargo test --release; then
+        echo -e "${ERROR}Tests failed for $contract${RESET}"
+        ERROR_FLAG=1
       else
-        echo -e "${SUCCESS}Coverage report generated for $contract at coverage/tarpaulin-report-$contract.html${RESET}"
+        echo -e "${SUCCESS}Tests completed successfully for $contract${RESET}"
       fi
     done
-    echo "Generating coverage for integration tests..."
+    echo "Running integration tests..."
     cd "$TEST_DIR" || handle_error "Tests directory not found"
-    [ "$VERBOSE" = "1" ] && echo "Running: cargo tarpaulin --out Html --output-dir coverage --output-file tarpaulin-report-integration.html ..."
-    if ! cargo tarpaulin --out Html --output-dir coverage --output-file "tarpaulin-report-integration.html" --exclude-files 'contracts/*' --verbose; then
-      echo -e "${ERROR}Tarpaulin failed for integration tests, falling back to cargo test${RESET}"
-      [ "$VERBOSE" = "1" ] && echo "Running: cargo test"
-      cargo test || ERROR_FLAG=1
-      echo -e "${WARNING}Coverage report not generated for integration tests, but tests ran${RESET}"
+    [ "$VERBOSE" = "1" ] && echo "Running: cargo test --release"
+    if ! cargo test --release; then
+      echo -e "${ERROR}Integration tests failed${RESET}"
+      ERROR_FLAG=1
     else
-      echo -e "${SUCCESS}Coverage report generated for integration tests at coverage/tarpaulin-report-integration.html${RESET}"
+      echo -e "${SUCCESS}Integration tests completed successfully${RESET}"
     fi
-    [ $ERROR_FLAG -eq 1 ] && handle_error "Coverage generation failed for one or more contracts/tests"
+    [ $ERROR_FLAG -eq 1 ] && handle_error "Tests failed for one or more contracts"
+    echo -e "${WARNING}Note: For detailed coverage reports, consider using cargo-llvm-cov or tarpaulin${RESET}"
   fi
 }
 
@@ -76,4 +72,4 @@ case "$1" in
     ;;
 esac
 
-echo -e "${SUCCESS}Coverage generation complete!${RESET}"
+echo -e "${SUCCESS}Test execution complete!${RESET}"

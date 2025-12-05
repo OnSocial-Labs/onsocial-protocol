@@ -56,6 +56,7 @@ define docker_run_contracts
 	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		-e FORCE_COLOR=1 \
+		-e CARGO_TERM_COLOR=always \
 		-e TERM=xterm-256color \
 		-e VERBOSE=$(VERBOSE) \
 		$(CONTRACTS_DOCKER_IMAGE) \
@@ -69,6 +70,7 @@ define docker_run_contracts_network
 		$(if $(2),-v $(3):$(2)) \
 		--network host \
 		-e FORCE_COLOR=1 \
+		-e CARGO_TERM_COLOR=always \
 		-e TERM=xterm-256color \
 		-e NETWORK=$(NETWORK) \
 		-e AUTH_ACCOUNT=$(AUTH_ACCOUNT) \

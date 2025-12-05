@@ -2,7 +2,7 @@
 ARG BASE_IMAGE=debian:bookworm-slim
 FROM ${BASE_IMAGE} AS builder
 
-# Install system dependencies, Node.js, and Rust in one layer
+# Install system dependencies
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     clang \
@@ -14,18 +14,27 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     libssl-dev \
     nodejs \
     npm \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Node.js 20 and NEAR CLI tools
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
     && npm install -g npm@latest near-cli near-sandbox \
-    && curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.86 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install Rust toolchain
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.86.0 \
     && . "$HOME/.cargo/env" \
     && rustup target add wasm32-unknown-unknown \
     && rustup component add rustfmt clippy \
-    && cargo install cargo-tarpaulin cargo-audit cargo-near cargo-nextest twiggy cargo-edit \
     && rustc --version \
-    && cargo --version \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && cargo --version
+
+# Install cargo-near (this is the slowest step - separate for better caching)
+RUN . "$HOME/.cargo/env" \
+    && cargo install --locked --verbose cargo-near
 
 # Set environment variables
 ENV CARGO_HOME=/root/.cargo

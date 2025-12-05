@@ -11,7 +11,7 @@
 #     runs-on: ubuntu-latest
 #     strategy:
 #       matrix:
-#         contract: [social-onsocial]
+#         contract: [core-onsocial]
 #     steps:
 #       # Checkout the repository
 #       - uses: actions/checkout@v4

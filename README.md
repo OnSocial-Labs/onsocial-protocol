@@ -58,9 +58,8 @@ For full setup and deployment, see the [Deployment Guide](Resources/deployment-g
 ## Documentation Index
 
 ### Contracts
-- [FT-Wrapper-OnSocial](contracts/ft-wrapper-onsocial/README.md): Token transfers and cross-chain bridging.
 - [Marketplace-OnSocial](contracts/marketplace-onsocial/README.md): Marketplace for digital assets.
-- [Social-OnSocial](contracts/social-onsocial/README.md): Social media interactions.
+- [Core-OnSocial](contracts/core-onsocial/README.md): Social media interactions.
 - [Staking-OnSocial](contracts/staking-onsocial/README.md): Staking and rewards.
 
 ### Packages

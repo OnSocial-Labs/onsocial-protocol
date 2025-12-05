@@ -26,26 +26,28 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "expo": "^53.0.13",
-    "expo-local-authentication": "^16.0.4",
+    "expo": "^53.0.16",
+    "expo-linking": "^8.0.8",
+    "expo-local-authentication": "^16.0.5",
     "expo-secure-store": "^14.2.3",
     "nativewind": "^4.1.23",
     "onsocial-auth": "workspace:*",
     "react": "^19.1.0",
-    "react-native": "^0.80.0",
-    "react-native-toast-message": "^2.3.1"
+    "react-native": "^0.80.1",
+    "react-native-toast-message": "^2.3.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.29.0",
-    "@types/node": "^24.0.4",
-    "@typescript-eslint/eslint-plugin": "^8.35.0",
-    "@typescript-eslint/parser": "^8.35.0",
-    "eslint": "^9.29.0",
+    "@eslint/js": "^9.30.1",
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "@typescript-eslint/eslint-plugin": "^8.35.1",
+    "@typescript-eslint/parser": "^8.35.1",
+    "eslint": "^9.30.1",
     "eslint-plugin-prettier": "^5.5.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-vitest": "^0.5.4",
-    "prettier": "^3.6.1",
+    "prettier": "^3.6.2",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }

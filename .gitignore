@@ -69,10 +69,10 @@ dist/
 
 # Ignore temp documentation files for contract code
 contracts/marketplace-onsocial/marketplace-rs_code.md
-contracts/social-onsocial/social-rs_code.md
+contracts/core-onsocial/social-rs_code.md
 contracts/auth-onsocial/auth-rs_code.md
-contracts/ft-wrapper-onsocial/ft-wrapper-rs_code.md
 contracts/marketplace-onsocial/marketplace-rs_code.md
+contracts/rewards-onsocial/
 
 # Ignore temp prompts folder
 Resources/prompts/
@@ -97,5 +97,28 @@ examples/
 # TypeScript incremental build info
 **/tsconfig.tsbuildinfo
 
+# Ignore all markdown files except essential ones
+*.md
+!README.md
+!*/README.md
+!**/README.md
+!LICENSE.md
+!CONTRIBUTING.md
+!AGENTS.md
+
+# Keep Resources documentation
+!Resources/MAKE_TARGETS.md
+!Resources/deployment-guide.md
+
+# Ignore contract internal docs
+contracts/**/*.md
+!contracts/**/README.md
+
+# Ignore package internal docs  
+packages/**/*.md
+!packages/**/README.md
+
 # Local files and directories
 .local
+
+test onsocial/

@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 215 20% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 20% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 20% 13%;
+    /* Primary in light mode: dark blue-gray #1A1E23 */
+    --primary: 215 20% 13%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 215 20% 13%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 217 15% 48%;
+    /* Accent purple #A05CFF */
+    --accent: 265 100% 68%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 215 20% 13%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Base: #1A1E23 - Sharp dark blue-gray */
+    --background: 215 20% 13%;
+    --foreground: 210 40% 98%;
+    
+    /* Cards with slightly lighter background */
+    --card: 215 20% 16%;
+    --card-foreground: 210 40% 98%;
+    
+    /* Popovers */
+    --popover: 215 20% 16%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Primary - Neon green #00ec96 (only in dark mode) */
+    --primary: 162 100% 46%;
+    --primary-foreground: 215 20% 13%;
+    
+    /* Secondary - Subtle variation */
+    --secondary: 215 20% 20%;
+    --secondary-foreground: 210 40% 98%;
+    
+    /* Muted elements - #69758C */
+    --muted: 215 20% 20%;
+    --muted-foreground: 217 15% 48%;
+    
+    /* Accent - Purple #A05CFF */
+    --accent: 265 100% 68%;
+    --accent-foreground: 210 40% 98%;
+    
+    /* Destructive */
+    --destructive: 0 62.8% 55%;
+    --destructive-foreground: 210 40% 98%;
+    
+    /* Borders - Subtle */
+    --border: 215 20% 22%;
+    --input: 215 20% 22%;
+    --ring: 162 100% 46%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Smooth scroll */
+html.lenis {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}

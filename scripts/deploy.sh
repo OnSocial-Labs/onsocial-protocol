@@ -117,16 +117,16 @@ ENVIRONMENT VARIABLES:
 
 EXAMPLES:
     # Deploy using NEAR CLI credentials
-    ./deploy.sh --contract social-onsocial
+    ./deploy.sh --contract core-onsocial
 
     # Deploy and initialize
-    ./deploy.sh --contract ft-wrapper-onsocial init
+    ./deploy.sh --contract core-onsocial init
 
     # Deploy using private key file
-    PRIVATE_KEY_FILE=./configs/keys/deployer.testnet.json ./deploy.sh --contract social-onsocial
+    PRIVATE_KEY_FILE=./configs/keys/deployer.testnet.json ./deploy.sh --contract core-onsocial
 
     # Dry run deployment
-    DRY_RUN=1 ./deploy.sh --contract social-onsocial
+    DRY_RUN=1 ./deploy.sh --contract core-onsocial
 
 KEY FILE FORMAT:
     {

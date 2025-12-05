@@ -1,0 +1,439 @@
+/**
+ * BuyWithAnyToken Component (React Native/Expo)
+ *
+ * React Native component for purchasing NFTs with any supported token.
+ * Uses NEAR Intents (1Click API) to enable multi-token payments.
+ *
+ * Flow:
+ * 1. User selects payment token (NEAR, SOCIAL, USDC, etc.)
+ * 2. Request quote from 1Click API
+ * 3. Display deposit instructions (address, amount, deadline)
+ * 4. Monitor swap status with useSwapStatus hook
+ * 5. Notify on completion or error
+ *
+ * @example
+ * ```tsx
+ * <BuyWithAnyToken
+ *   nftTokenId="123"
+ *   nftContractId="nft.onsocial.near"
+ *   priceYoctoNear="1000000000000000000000000"
+ *   marketplaceContractId="marketplace.onsocial.near"
+ *   userAccountId="alice.near"
+ *   onSuccess={() => console.log('NFT purchased!')}
+ *   onError={(error) => console.error('Purchase failed:', error)}
+ * />
+ * ```
+ */
+
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  ScrollView, 
+  ActivityIndicator,
+  StyleSheet,
+  Alert
+} from 'react-native';
+import { getQuote, type QuoteResponse } from '../services/nearIntents';
+import { SUPPORTED_TOKENS, getDefaultToken, formatTokenAmount, type TokenConfig } from '../config/supportedTokens';
+import { useSwapStatus } from '../hooks/useSwapStatus';
+
+interface BuyWithAnyTokenProps {
+  /** NFT token ID to purchase */
+  nftTokenId: string;
+  /** NFT contract address */
+  nftContractId: string;
+  /** NFT price in yoctoNEAR (NEAR's smallest unit: 1 NEAR = 10^24 yoctoNEAR) */
+  priceYoctoNear: string;
+  /** Marketplace contract address (receives NEAR payment) */
+  marketplaceContractId: string;
+  /** User's NEAR account ID */
+  userAccountId: string;
+  /** Callback when purchase succeeds */
+  onSuccess?: () => void;
+  /** Callback when purchase fails */
+  onError?: (error: string) => void;
+}
+
+import React, { useState } from 'react';
+import {
+  getQuote,
+  submitDeposit,
+  pollSwapStatus,
+  SwapStatus,
+  type QuoteResponse,
+  type StatusResponse,
+} from '../services/nearIntents';
+import {
+  SUPPORTED_TOKENS,
+  getDefaultToken,
+  formatTokenAmount,
+  parseTokenAmount,
+  type Token,
+} from '../config/supportedTokens';
+
+interface BuyWithAnyTokenProps {
+  /** NFT token ID */
+  nftTokenId: string;
+  /** NFT contract ID */
+  nftContractId: string;
+  /** Sale price in yoctoNEAR */
+  priceYoctoNear: string;
+  /** Marketplace contract ID */
+  marketplaceContractId: string;
+  /** User's wallet account ID */
+  userAccountId: string;
+  /** Callback when purchase completes successfully */
+  onSuccess?: (txHash: string) => void;
+  /** Callback when purchase fails */
+  onError?: (error: string) => void;
+}
+
+type PurchaseStep =
+  | 'select-token'
+  | 'requesting-quote'
+  | 'waiting-deposit'
+  | 'processing-swap'
+  | 'success'
+  | 'error';
+
+export function BuyWithAnyToken({
+  nftTokenId,
+  nftContractId,
+  priceYoctoNear,
+  marketplaceContractId,
+  userAccountId,
+  onSuccess,
+  onError,
+}: BuyWithAnyTokenProps) {
+  const [currentStep, setCurrentStep] = useState<'select-token' | 'requesting-quote' | 'waiting-deposit' | 'processing-swap'>('select-token');
+  const [selectedToken, setSelectedToken] = useState<TokenConfig>(getDefaultToken());
+  const [quote, setQuote] = useState<QuoteResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showTokenPicker, setShowTokenPicker] = useState(false);
+
+  /**
+   * Step 1: Request quote from 1Click API
+   */
+  const handleRequestQuote = async () => {
+    try {
+      setCurrentStep('requesting-quote');
+      setErrorMessage('');
+
+      const quoteResponse = await getQuote({
+        dry: false, // Set to true for testing
+        swapType: 'EXACT_OUTPUT', // We need exact NEAR amount for NFT price
+        originAsset: selectedToken.assetId,
+        destinationAsset: 'near',
+        amount: priceYoctoNear,
+        recipient: marketplaceContractId,
+        recipientType: 'INTENTS',
+        refundTo: userAccountId,
+        refundType: 'INTENTS',
+        slippageTolerance: 100, // 1% slippage
+        deadline: new Date(Date.now() + 3600000).toISOString(), // 1 hour
+        // Optional: Pass custom message to marketplace contract
+        // customRecipientMsg: JSON.stringify({ action: 'offer', nft_contract_id: nftContractId, token_id: nftTokenId }),
+      });
+
+      setQuote(quoteResponse);
+      setCurrentStep('waiting-deposit');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to get quote';
+      setErrorMessage(message);
+      setCurrentStep('error');
+      onError?.(message);
+    }
+  };
+
+  /**
+   * Step 2: User deposits tokens (triggered externally via wallet)
+   * After user confirms deposit, we submit it and start monitoring
+   */
+  const handleDepositConfirmed = async (txHash: string) => {
+    if (!quote) return;
+
+    try {
+      // Submit deposit to trigger faster processing
+      await submitDeposit(quote.depositAddress, txHash);
+
+      // Start monitoring swap status
+      setCurrentStep('processing-swap');
+
+      const finalStatus = await pollSwapStatus(
+        quote.depositAddress,
+        (status) => {
+          setSwapStatus(status);
+        },
+        60, // Max 60 attempts (5 minutes at 5-second intervals)
+        5000 // Poll every 5 seconds
+      );
+
+      if (finalStatus.status === SwapStatus.SUCCESS) {
+        setCurrentStep('success');
+        onSuccess?.(finalStatus.txHash || '');
+      } else if (finalStatus.status === SwapStatus.FAILED) {
+        const message = finalStatus.error || 'Swap failed';
+        setErrorMessage(message);
+        setCurrentStep('error');
+        onError?.(message);
+      } else if (finalStatus.status === SwapStatus.REFUNDED) {
+        const message = 'Swap was refunded to your account';
+        setErrorMessage(message);
+        setCurrentStep('error');
+        onError?.(message);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to process swap';
+      setErrorMessage(message);
+      setCurrentStep('error');
+      onError?.(message);
+    }
+  };
+
+  /**
+   * Reset to initial state
+   */
+  const handleReset = () => {
+    setCurrentStep('select-token');
+    setQuote(null);
+    setSwapStatus(null);
+    setErrorMessage('');
+  };
+
+  return (
+    <div className="buy-with-any-token">
+      <h3>Buy NFT with Any Token</h3>
+
+      {/* Step 1: Select Payment Token */}
+      {currentStep === 'select-token' && (
+        <div className="token-selection">
+          <label htmlFor="payment-token">Payment Token:</label>
+          <select
+            id="payment-token"
+            value={selectedToken.symbol}
+            onChange={(e) => {
+              const token = SUPPORTED_TOKENS.find((t) => t.symbol === e.target.value);
+              if (token) setSelectedToken(token);
+            }}
+          >
+            {SUPPORTED_TOKENS.map((token) => (
+              <option key={token.symbol} value={token.symbol}>
+                {token.icon} {token.symbol} - {token.name}
+              </option>
+            ))}
+          </select>
+
+          <div className="price-info">
+            <p>NFT Price: {formatTokenAmount(priceYoctoNear, getDefaultToken())}</p>
+            <p>
+              You'll pay approximately the equivalent in {selectedToken.symbol}
+              {selectedToken.symbol !== 'NEAR' && ' (exact amount shown after quote)'}
+            </p>
+          </div>
+
+          <button onClick={handleRequestQuote}>Get Quote</button>
+        </div>
+      )}
+
+      {/* Step 2: Requesting Quote */}
+      {currentStep === 'requesting-quote' && (
+        <div className="loading">
+          <p>⏳ Requesting quote from solvers...</p>
+        </div>
+      )}
+
+      {/* Step 3: Waiting for User Deposit */}
+      {currentStep === 'waiting-deposit' && quote && (
+        <div className="deposit-instructions">
+          <h4>📤 Send Payment</h4>
+          <div className="quote-details">
+            <p>
+              <strong>You pay:</strong> {formatTokenAmount(quote.amountIn, selectedToken)}
+            </p>
+            <p>
+              <strong>Recipient receives:</strong> {formatTokenAmount(quote.amountOut, getDefaultToken())}
+            </p>
+            <p>
+              <strong>Send to address:</strong>
+              <code>{quote.depositAddress}</code>
+            </p>
+            <p>
+              <strong>Deadline:</strong> {new Date(quote.deadline).toLocaleString()}
+            </p>
+          </div>
+
+          <div className="instructions">
+            <ol>
+              <li>Open your NEAR wallet</li>
+              <li>
+                Send <strong>{formatTokenAmount(quote.amountIn, selectedToken)}</strong> to:
+                <br />
+                <code>{quote.depositAddress}</code>
+              </li>
+              <li>Come back and enter the transaction hash</li>
+            </ol>
+          </div>
+
+          <div className="deposit-confirmation">
+            <label htmlFor="tx-hash">Transaction Hash:</label>
+            <input
+              id="tx-hash"
+              type="text"
+              placeholder="Enter transaction hash after sending tokens"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleDepositConfirmed(e.currentTarget.value);
+                }
+              }}
+            />
+            <button
+              onClick={() => {
+                const input = document.getElementById('tx-hash') as HTMLInputElement;
+                if (input?.value) {
+                  handleDepositConfirmed(input.value);
+                }
+              }}
+            >
+              Confirm Deposit
+            </button>
+          </div>
+
+          <button onClick={handleReset}>Cancel</button>
+        </div>
+      )}
+
+      {/* Step 4: Processing Swap */}
+      {currentStep === 'processing-swap' && swapStatus && (
+        <div className="swap-processing">
+          <h4>⚡ Processing Swap</h4>
+          <div className="status-details">
+            <p>
+              <strong>Status:</strong> {swapStatus.status}
+            </p>
+            {swapStatus.amountIn && (
+              <p>
+                <strong>Deposited:</strong> {formatTokenAmount(swapStatus.amountIn, selectedToken)}
+              </p>
+            )}
+            {swapStatus.amountOut && (
+              <p>
+                <strong>Swapped:</strong> {formatTokenAmount(swapStatus.amountOut, getDefaultToken())}
+              </p>
+            )}
+          </div>
+
+          <div className="progress-indicator">
+            <div className="progress-step">
+              <span className={swapStatus.status !== 'PENDING_DEPOSIT' ? 'completed' : ''}>
+                ✓ Deposit Received
+              </span>
+            </div>
+            <div className="progress-step">
+              <span className={swapStatus.status === 'SUCCESS' ? 'completed' : ''}>
+                {swapStatus.status === 'PROCESSING' ? '⏳' : '○'} Swapping Tokens
+              </span>
+            </div>
+            <div className="progress-step">
+              <span className={swapStatus.status === 'SUCCESS' ? 'completed' : ''}>
+                {swapStatus.status === 'SUCCESS' ? '✓' : '○'} NFT Transfer
+              </span>
+            </div>
+          </div>
+
+          <p className="waiting-message">
+            Please wait while solvers process your swap. This usually takes 10-30 seconds.
+          </p>
+        </div>
+      )}
+
+      {/* Step 5: Success */}
+      {currentStep === 'success' && swapStatus && (
+        <div className="success">
+          <h4>✅ Purchase Complete!</h4>
+          <p>Your NFT has been transferred to your account.</p>
+          {swapStatus.txHash && (
+            <p>
+              <strong>Transaction:</strong>{' '}
+              <a
+                href={`https://nearblocks.io/txns/${swapStatus.txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {swapStatus.txHash}
+              </a>
+            </p>
+          )}
+          <button onClick={handleReset}>Buy Another NFT</button>
+        </div>
+      )}
+
+      {/* Error State */}
+      {currentStep === 'error' && (
+        <div className="error">
+          <h4>❌ Purchase Failed</h4>
+          <p>{errorMessage}</p>
+          <button onClick={handleReset}>Try Again</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Example CSS (add to your stylesheet):
+ * 
+ * .buy-with-any-token {
+ *   max-width: 500px;
+ *   padding: 20px;
+ *   border: 1px solid #ccc;
+ *   border-radius: 8px;
+ * }
+ * 
+ * .token-selection select {
+ *   width: 100%;
+ *   padding: 10px;
+ *   margin: 10px 0;
+ * }
+ * 
+ * .price-info {
+ *   background: #f5f5f5;
+ *   padding: 10px;
+ *   margin: 10px 0;
+ *   border-radius: 4px;
+ * }
+ * 
+ * .deposit-instructions code {
+ *   background: #f5f5f5;
+ *   padding: 2px 6px;
+ *   border-radius: 3px;
+ *   font-family: monospace;
+ * }
+ * 
+ * .progress-indicator {
+ *   display: flex;
+ *   flex-direction: column;
+ *   gap: 10px;
+ *   margin: 20px 0;
+ * }
+ * 
+ * .progress-step span.completed {
+ *   color: green;
+ *   font-weight: bold;
+ * }
+ * 
+ * button {
+ *   padding: 10px 20px;
+ *   margin: 5px;
+ *   border: none;
+ *   border-radius: 4px;
+ *   background: #0066cc;
+ *   color: white;
+ *   cursor: pointer;
+ * }
+ * 
+ * button:hover {
+ *   background: #0052a3;
+ * }
+ */

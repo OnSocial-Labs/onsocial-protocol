@@ -48,11 +48,9 @@ lint: lint-all-contracts lint-all-js lint-relayer
 # =============================================================================
 # DEPLOYMENT KEY MANAGEMENT
 # =============================================================================
-
 .PHONY: setup-deployment-keys
 setup-deployment-keys:
-	@$(call log_start,Setting Up Deployment Keys)
-	@$(call log_info,This will help you create secure deployment keys)
+	@$(call log_start,Setting up secure deployment keys)
 	@echo ""
 	@echo "$(WARNING)IMPORTANT: Deployment keys should be kept secure and never committed to git$(RESET)"
 	@echo ""
@@ -165,6 +163,10 @@ help:
 	@echo "  clean-all                     # Clean everything"
 	@echo "  cache-clean                   # Clean caches"
 	@echo "  start-redis                   # Start Redis for development"
+	@echo "  upgrade-deps-rs               # Interactively upgrade Rust dependencies"
+	@echo "  upgrade-deps-rs-incompatible  # Upgrade Rust deps including incompatible versions"
+	@echo "  upgrade-deps-js               # Interactively upgrade JavaScript dependencies"
+	@echo "  cargo-update                  # Simple cargo update (refresh Cargo.lock)"
 	@echo ""
 	@echo "$(INFO) **For detailed documentation:** Resources/MAKE_TARGETS.md$(RESET)"
 	@echo "$(INFO) **For deployment help:** make setup-deployment-keys$(RESET)"
