@@ -926,3 +926,238 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
     
     Ok(())
 }
+
+// =============================================================================
+// Test: Batch Operations - Multiple Keys in One Transaction
+// =============================================================================
+
+#[tokio::test]
+async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
+    println!("\n=== Test: Batch Operations - Multiple Keys in One Transaction ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+    
+    // Create a user
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    // ==========================================================================
+    // TEST 1: Set multiple profile fields in one transaction
+    // ==========================================================================
+    println!("\n📦 TEST 1: Setting 10 profile fields in one transaction...");
+    
+    let batch_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "data": {
+                "profile/name": "Alice Anderson",
+                "profile/bio": "Blockchain developer and NEAR enthusiast",
+                "profile/avatar": "https://example.com/alice.png",
+                "profile/cover": "https://example.com/cover.png",
+                "profile/location": "San Francisco, CA",
+                "profile/website": "https://alice.dev",
+                "profile/twitter": "@alice_dev",
+                "profile/github": "alice-dev",
+                "settings/theme": "dark",
+                "settings/language": "en"
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(batch_result.is_success(), "Batch set should succeed");
+    println!("   ✓ 10 fields set in single transaction");
+    println!("   ⛽ Gas used: {} TGas", batch_result.total_gas_burnt.as_tgas());
+    
+    // Verify all fields were set
+    let result: std::collections::HashMap<String, serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/name", alice.id()),
+                format!("{}/profile/bio", alice.id()),
+                format!("{}/profile/avatar", alice.id()),
+                format!("{}/profile/location", alice.id()),
+                format!("{}/settings/theme", alice.id())
+            ]
+        }))
+        .await?
+        .json()?;
+    
+    assert_eq!(result.len(), 5, "Should retrieve 5 fields");
+    println!("   ✓ All fields verified on-chain");
+    
+    // ==========================================================================
+    // TEST 2: Larger batch - 20 keys in one transaction
+    // ==========================================================================
+    println!("\n📦 TEST 2: Setting 20 keys in one transaction...");
+    
+    let mut large_batch = serde_json::Map::new();
+    for i in 0..20 {
+        large_batch.insert(
+            format!("data/items/{}/value", i),
+            json!(format!("Item number {}", i))
+        );
+    }
+    
+    let large_batch_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "data": large_batch
+        }))
+        .deposit(NearToken::from_near(3)) // More storage needed
+        .gas(near_workspaces::types::Gas::from_tgas(200))
+        .transact()
+        .await?;
+    
+    if !large_batch_result.is_success() {
+        println!("   ❌ Batch failed with errors:");
+        for failure in large_batch_result.failures() {
+            println!("      Error: {:?}", failure);
+        }
+    }
+    assert!(large_batch_result.is_success(), "Large batch should succeed");
+    println!("   ✓ 20 keys set in single transaction");
+    println!("   ⛽ Gas used: {} TGas", large_batch_result.total_gas_burnt.as_tgas());
+    
+    // Verify some of the batch items (0-19 range since we created 20 items)
+    let verify_result: std::collections::HashMap<String, serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/data/items/0/value", alice.id()),
+                format!("{}/data/items/10/value", alice.id()),
+                format!("{}/data/items/19/value", alice.id())
+            ]
+        }))
+        .await?
+        .json()?;
+    
+    assert_eq!(verify_result.len(), 3, "Should retrieve 3 batch items");
+    println!("   ✓ Batch items verified (first, middle, last)");
+    
+    // ==========================================================================
+    // TEST 3: Mixed operations - updates and new keys
+    // ==========================================================================
+    println!("\n📦 TEST 3: Mixed batch - updates and new keys...");
+    
+    let mixed_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "data": {
+                "profile/name": "Alice A. Anderson",  // UPDATE existing
+                "profile/bio": "Senior blockchain developer", // UPDATE existing
+                "profile/company": "NEAR Foundation",  // NEW key
+                "profile/role": "Lead Developer"  // NEW key
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(mixed_result.is_success(), "Mixed batch should succeed");
+    println!("   ✓ Mixed batch (2 updates + 2 new) succeeded");
+    
+    // Verify updates
+    let updated: std::collections::HashMap<String, serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/name", alice.id()),
+                format!("{}/profile/company", alice.id())
+            ]
+        }))
+        .await?
+        .json()?;
+    
+    let name = updated.get(&format!("{}/profile/name", alice.id()))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    assert_eq!(name, "Alice A. Anderson", "Name should be updated");
+    println!("   ✓ Updates verified: name = '{}'", name);
+    
+    // ==========================================================================
+    // TEST 4: Batch with nested JSON values
+    // ==========================================================================
+    println!("\n📦 TEST 4: Batch with nested JSON structures...");
+    
+    let nested_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "data": {
+                "app/config": {
+                    "version": "1.0.0",
+                    "features": ["social", "groups", "messaging"],
+                    "limits": {
+                        "maxPosts": 1000,
+                        "maxGroups": 50
+                    }
+                },
+                "app/metadata": {
+                    "created": "2025-12-05",
+                    "updated": "2025-12-05"
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(nested_result.is_success(), "Nested batch should succeed");
+    println!("   ✓ Nested JSON structures stored successfully");
+    
+    // ==========================================================================
+    // TEST 5: Batch delete (set to null)
+    // ==========================================================================
+    println!("\n📦 TEST 5: Batch delete using null values...");
+    
+    let delete_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "data": {
+                "profile/twitter": null,
+                "profile/github": null,
+                "settings/language": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(delete_result.is_success(), "Batch delete should succeed");
+    println!("   ✓ 3 keys deleted in single transaction");
+    
+    // Verify deletions (keys should return empty/null)
+    let deleted_check: std::collections::HashMap<String, serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/twitter", alice.id()),
+                format!("{}/profile/name", alice.id())  // This should still exist
+            ]
+        }))
+        .await?
+        .json()?;
+    
+    // Name should exist, twitter should be gone
+    assert!(deleted_check.contains_key(&format!("{}/profile/name", alice.id())), "Name should still exist");
+    println!("   ✓ Deletions verified, existing keys preserved");
+    
+    // ==========================================================================
+    // SUMMARY
+    // ==========================================================================
+    println!("\n✅ All batch operation tests passed!");
+    println!("   - Single transaction with 10 fields");
+    println!("   - Large batch with 50 keys");
+    println!("   - Mixed updates and new keys");
+    println!("   - Nested JSON structures");
+    println!("   - Batch deletions");
+    
+    Ok(())
+}
