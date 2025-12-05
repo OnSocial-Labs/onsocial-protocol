@@ -969,8 +969,20 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .await?;
     
     assert!(batch_result.is_success(), "Batch set should succeed");
+    
+    // Query the contract for storage balance - this shows actual bytes used
+    let storage_balance: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    
+    let bytes_used = storage_balance["used_bytes"].as_u64().unwrap_or(0);
+    let storage_near = bytes_used as f64 * 0.00001; // 1 byte = 0.00001 NEAR
+    
     println!("   ✓ 10 fields set in single transaction");
     println!("   ⛽ Gas used: {} TGas", batch_result.total_gas_burnt.as_tgas());
+    println!("   💾 Storage used: {} bytes (~{:.4} NEAR)", bytes_used, storage_near);
     
     // Verify all fields were set
     let result: std::collections::HashMap<String, serde_json::Value> = contract
@@ -1020,8 +1032,21 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         }
     }
     assert!(large_batch_result.is_success(), "Large batch should succeed");
+    
+    // Query storage after 20 keys added
+    let storage_balance_2: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    
+    let bytes_used_2 = storage_balance_2["used_bytes"].as_u64().unwrap_or(0);
+    let storage_near_2 = bytes_used_2 as f64 * 0.00001;
+    let bytes_for_20_keys = bytes_used_2 - bytes_used; // delta from Test 1
+    
     println!("   ✓ 20 keys set in single transaction");
     println!("   ⛽ Gas used: {} TGas", large_batch_result.total_gas_burnt.as_tgas());
+    println!("   💾 Storage: +{} bytes (total: {} bytes, ~{:.4} NEAR)", bytes_for_20_keys, bytes_used_2, storage_near_2);
     
     // Verify some of the batch items (0-19 range since we created 20 items)
     let verify_result: std::collections::HashMap<String, serde_json::Value> = contract
