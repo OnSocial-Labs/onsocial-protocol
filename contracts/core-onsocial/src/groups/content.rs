@@ -17,17 +17,24 @@ impl GroupContentManager {
     /// Returns the user-owned storage path where content was stored
     pub fn create_group_content(
         platform: &mut SocialPlatform,
-        group_path: &str,        // Original path like "groups/mygroup/posts"
+        group_path: &str,        // Original path like "groups/mygroup/posts" or "user/groups/mygroup/posts"
         content: &Value,         // The content to store
         author: &AccountId,      // Who is creating the content
         event_batch: &mut EventBatch,
     ) -> Result<String, SocialError> {
+        // Handle both user-prefixed paths (user/groups/...) and direct paths (groups/...)
+        let normalized_path = if group_path.starts_with("groups/") {
+            group_path.to_string()
+        } else if let Some(groups_idx) = group_path.find("/groups/") {
+            // Strip user prefix: "bob.near/groups/foo/..." -> "groups/foo/..."
+            group_path[groups_idx + 1..].to_string()
+        } else {
+            return Err(crate::invalid_input!("Invalid group path format"));
+        };
+        
         // Parse group path directly
         let groups_prefix = "groups/";
-        if !group_path.starts_with(groups_prefix) {
-            return Err(crate::invalid_input!("Invalid group path format"));
-        }
-        let remaining = &group_path[groups_prefix.len()..];
+        let remaining = &normalized_path[groups_prefix.len()..];
         let slash_pos = remaining.find('/').ok_or_else(|| crate::invalid_input!("Invalid group path format"))?;
         let group_id = &remaining[..slash_pos];
         let content_path = &remaining[slash_pos + 1..];
@@ -42,10 +49,10 @@ impl GroupContentManager {
         let group_owner = config.get("owner").and_then(|o| o.as_str())
             .ok_or_else(|| crate::invalid_input!("Group config invalid"))?;
 
-        // Check permissions directly
-        let can_write = crate::groups::kv_permissions::can_write(platform, group_owner, author.as_str(), group_path);
+        // Check permissions directly using the normalized path (without user prefix)
+        let can_write = crate::groups::kv_permissions::can_write(platform, group_owner, author.as_str(), &normalized_path);
         if !can_write {
-            return Err(crate::permission_denied!("write", group_path));
+            return Err(crate::permission_denied!("write", &normalized_path));
         }
 
         // Validate content
@@ -60,7 +67,7 @@ impl GroupContentManager {
             "content": content,
             "group_id": group_id,
             "group_path": content_path,
-            "full_group_path": group_path,
+            "full_group_path": &normalized_path,
             "created_by": author.as_str(),
             "created_at": timestamp,
             "content_id": format!("c_{}", timestamp)
@@ -71,7 +78,7 @@ impl GroupContentManager {
             .map_err(|e| crate::invalid_input!(format!("Failed to serialize content: {}", e)))?;
         
         // Create metadata once and reuse for both storage and events
-        let metadata = crate::data::metadata::MetadataBuilder::from_path(group_path, author, Some(&enriched_content))
+        let metadata = crate::data::metadata::MetadataBuilder::from_path(&normalized_path, author, Some(&enriched_content))
             .with_field("created_by", author.as_str())
             .build();
         let serialized_metadata = serde_json::to_vec(&metadata)

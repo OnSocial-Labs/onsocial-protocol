@@ -7,7 +7,7 @@ edition = "2021"
 path = "src/mod.rs"
 
 [dependencies]
-near-sdk = { workspace = true }
+near-sdk = { workspace = true, features = ["unit-testing"] }
 near-workspaces = { workspace = true }
 near-crypto = { workspace = true }
 borsh = { workspace = true }

@@ -55,6 +55,7 @@ endef
 define docker_run_contracts
 	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
+		--tmpfs /tmp:exec,size=2G \
 		-e FORCE_COLOR=1 \
 		-e CARGO_TERM_COLOR=always \
 		-e TERM=xterm-256color \
@@ -68,6 +69,7 @@ define docker_run_contracts_network
 	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		$(if $(2),-v $(3):$(2)) \
+		--tmpfs /tmp:exec,size=2G \
 		--network host \
 		-e FORCE_COLOR=1 \
 		-e CARGO_TERM_COLOR=always \

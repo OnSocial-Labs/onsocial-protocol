@@ -92,6 +92,15 @@ make test-all-contracts  # Run all tests
 | `test-integration-contract-<name>` | Run integration tests for contract |
 | `test-coverage-contract-<name>` | Generate coverage report for contract |
 
+#### Sandbox Integration Tests (near-workspaces)
+| Target | Description |
+|--------|-------------|
+| `test-sandbox` | Run all sandbox integration tests (embedded sandbox) |
+| `test-sandbox-verbose` | Run sandbox tests with full output |
+| `test-sandbox-<test_name>` | Run specific sandbox test by name |
+
+> **Note:** Sandbox tests use `near-workspaces` which spins up an isolated NEAR sandbox per test. More stable than external sandbox containers, with better test isolation.
+
 #### Contract Quality Assurance
 | Target | Description |
 |--------|-------------|

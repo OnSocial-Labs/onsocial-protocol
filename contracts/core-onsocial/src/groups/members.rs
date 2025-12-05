@@ -80,18 +80,20 @@ impl crate::groups::core::GroupStorage {
 
         platform.storage_set(&member_path, &member_data)?;
 
-        // Grant actual path-based permissions to the member
+        // Grant actual path-based permissions to the member on the GROUP ROOT path
+        // This allows permissions to inherit to all sub-paths (posts, content, etc.)
+        let group_root_path = format!("groups/{}", group_id);
         let group_owner_str = crate::groups::kv_permissions::extract_path_owner(platform, &config_path)
             .ok_or_else(|| invalid_input!("Group owner not found"))?;
         let group_owner = AccountId::try_from(group_owner_str.to_string())
             .map_err(|_| invalid_input!("Invalid group owner account ID"))?;
         
-        // Grant permissions on group config path (allows member to moderate/manage)
+        // Grant permissions on group root path (allows member to write/moderate/manage group content)
         crate::groups::kv_permissions::grant_permissions(
             platform,
             &group_owner,
             member_id,
-            &config_path,
+            &group_root_path,
             permission_flags,
             None, // No expiration
             None  // No event batch
