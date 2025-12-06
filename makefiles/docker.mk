@@ -19,32 +19,32 @@ endef
 
 # Log success messages with consistent formatting
 define log_success
-	echo "$(SUCCESS)$(1)$(RESET)"
+	@echo "$(SUCCESS)$(1)$(RESET)"
 endef
 
 # Log warning messages with consistent formatting
 define log_warning
-	echo "$(WARNING)$(1)$(RESET)"
+	@echo "$(WARNING)$(1)$(RESET)"
 endef
 
 # Log error messages with consistent formatting
 define log_error
-	echo "$(ERROR)$(1)$(RESET)"
+	@echo "$(ERROR)$(1)$(RESET)"
 endef
 
 # Log operation start with consistent formatting
 define log_start
-	echo "$(ROCKET) Starting: $(1)..."
+	@echo "$(ROCKET) Starting: $(1)..."
 endef
 
 # Log operation progress with consistent formatting
 define log_progress
-	echo "$(BUILD) $(1)..."
+	@echo "$(BUILD) $(1)..."
 endef
 
 # Log operation completion with consistent formatting
 define log_complete
-	echo "$(SUCCESS)✨ $(1) completed successfully$(RESET)"
+	@echo "$(SUCCESS)✨ $(1) completed successfully$(RESET)"
 endef
 
 # =============================================================================

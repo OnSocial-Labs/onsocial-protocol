@@ -450,11 +450,17 @@ impl crate::groups::core::GroupStorage {
             return Err(invalid_input!("You are blacklisted from this group"));
         }
 
-        // Check if join request already exists
+        // Check if a PENDING join request already exists
+        // Allow resubmission if previous request was rejected/approved (history preserved)
         let request_path = format!("groups/{}/join_requests/{}", group_id, requester_id);
 
-        if platform.storage_get(&request_path).is_some() {
-            return Err(invalid_input!("Join request already exists"));
+        if let Some(existing) = platform.storage_get(&request_path) {
+            if let Some(status) = existing.get("status").and_then(|s| s.as_str()) {
+                if status == "pending" {
+                    return Err(invalid_input!("Join request already exists"));
+                }
+                // If status is "rejected" or "approved", allow overwriting with new request
+            }
         }
 
         // Create join request with requested permissions
