@@ -113,9 +113,6 @@ pub const EVENT_TYPE_PERMISSION_UPDATE: &str = "PERMISSION_UPDATE";
 /// Group management and membership events.
 pub const EVENT_TYPE_GROUP_UPDATE: &str = "GROUP_UPDATE";
 
-/// Account-level configuration changes.
-pub const EVENT_TYPE_ACCOUNT_UPDATE: &str = "ACCOUNT_UPDATE";
-
 /// Contract governance and status changes.
 pub const EVENT_TYPE_CONTRACT_UPDATE: &str = "CONTRACT_UPDATE";
 
