@@ -4254,6 +4254,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "xxhash-rust",
 ]
 
 [[package]]
