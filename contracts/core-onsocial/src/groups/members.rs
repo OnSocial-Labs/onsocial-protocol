@@ -51,6 +51,11 @@ impl crate::groups::core::GroupStorage {
             return Err(permission_denied!("add_member", "You are blacklisted from this group"));
         }
 
+        // Check if member being added is blacklisted (prevent re-adding blacklisted users)
+        if Self::is_blacklisted(platform, group_id, member_id) {
+            return Err(invalid_input!("Cannot add blacklisted user. Remove from blacklist first using unblacklist_group_member."));
+        }
+
         // Allow self-join for public groups (user pays their own storage, no security risk)
         let is_self_join = member_id == granter_id;
         let is_public = !Self::is_private_group(platform, group_id);

@@ -1015,8 +1015,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let root = worker.root_account()?;
     let contract = deploy_core_onsocial(&worker).await?;
     
-    // Create a user with more balance for extended tests (50 NEAR for all 34 tests)
-    let alice = create_user(&root, "alice", NearToken::from_near(50)).await?;
+    // Create a user with more balance for extended tests (100 NEAR for all 45+ tests)
+    let alice = create_user(&root, "alice", NearToken::from_near(100)).await?;
     
     // ==========================================================================
     // TEST 1: Set multiple profile fields in one transaction
@@ -2390,6 +2390,47 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(!is_still_blacklisted, "Carol should not be blacklisted anymore");
     println!("   ✓ Carol is no longer blacklisted");
     
+    // SECURITY TEST: Verify Carol can now be re-added after unblacklisting
+    let readd_carol = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": carol.id().to_string(),
+            "permission_flags": 1
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(readd_carol.is_success(), "Should be able to re-add Carol after unblacklisting");
+    println!("   ✓ Carol successfully re-added to group after unblacklisting");
+    
+    // Verify Carol is now a member
+    let is_carol_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": carol.id().to_string()
+        }))
+        .await?
+        .json()?;
+    
+    assert!(is_carol_member, "Carol should be a member after re-adding");
+    
+    // Carol leaves the group to test join request flow
+    let carol_leave = carol
+        .call(contract.id(), "leave_group")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(carol_leave.is_success(), "Carol should be able to leave group");
+    println!("   ✓ Carol left group to test join request flow");
+    
     // Now test that Carol can resubmit after rejection (bug fix verification)
     // Carol's previous request was rejected in Test 21, she should be able to resubmit
     let carol_resubmit = carol
@@ -2409,6 +2450,85 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(carol_resubmit.is_success(), "Carol should be able to resubmit after rejection (bug fix)");
     println!("   ✓ Carol can resubmit join request after previous rejection (bug fix verified)");
     println!("   ✓ Carol can now request to join again");
+    
+    // ==========================================================================
+    // TEST 24b: Security - Cannot re-add blacklisted user without unblacklisting
+    // ==========================================================================
+    println!("\n📦 TEST 24b: Security - Cannot re-add blacklisted user without unblacklisting...");
+    
+    // Create a new user (David) to test blacklist security
+    let david = worker.dev_create_account().await?;
+    
+    // Alice adds David to group
+    let add_david = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": david.id().to_string(),
+            "permission_flags": 1
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(add_david.is_success(), "Adding David should succeed");
+    println!("   ✓ David added to group");
+    
+    // Alice blacklists David
+    let blacklist_david = alice
+        .call(contract.id(), "blacklist_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": david.id().to_string()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(blacklist_david.is_success(), "Blacklisting David should succeed");
+    println!("   ✓ David blacklisted from group");
+    
+    // SECURITY TEST: Try to re-add David while still blacklisted (should FAIL)
+    let readd_blacklisted_david = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": david.id().to_string(),
+            "permission_flags": 1
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!readd_blacklisted_david.is_success(), "Should NOT be able to re-add blacklisted user without unblacklisting first");
+    println!("   ✓ SECURITY: Correctly blocked attempt to re-add blacklisted user");
+    
+    // Verify David is still blacklisted and NOT a member
+    let is_david_blacklisted: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "private-club",
+            "user_id": david.id().to_string()
+        }))
+        .await?
+        .json()?;
+    
+    assert!(is_david_blacklisted, "David should still be blacklisted");
+    
+    let is_david_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": david.id().to_string()
+        }))
+        .await?
+        .json()?;
+    
+    assert!(!is_david_member, "David should NOT be a member");
+    println!("   ✓ SECURITY: Blacklist security verified - must unblacklist before re-adding");
     
     // ==========================================================================
     // TEST 25: Remove group member

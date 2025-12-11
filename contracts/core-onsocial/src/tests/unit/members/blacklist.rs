@@ -90,6 +90,13 @@ mod blacklist_tests {
         // Verify member is blacklisted
         assert!(contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should be blacklisted");
 
+        // SECURITY TEST: Try to re-add blacklisted member WITHOUT unblacklisting first (should fail)
+        let readd_blacklisted_result = contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None);
+        assert!(readd_blacklisted_result.is_err(), "Should not be able to add blacklisted user without unblacklisting first");
+        let error_msg = format!("{:?}", readd_blacklisted_result.unwrap_err());
+        assert!(error_msg.contains("blacklist"), "Error should mention blacklist: {}", error_msg);
+        println!("✅ Correctly blocked attempt to re-add blacklisted user");
+
         // Owner unblacklists member
         let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone(), None);
         assert!(unblacklist_result.is_ok(), "Owner should be able to unblacklist member: {:?}", unblacklist_result);
@@ -101,7 +108,12 @@ mod blacklist_tests {
         // Note: Unblacklisting doesn't automatically re-add member to group - they need to rejoin
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Member should not be automatically re-added to group");
 
-        println!("✅ Owner can successfully unblacklist members");
+        // After unblacklisting, should be able to re-add successfully
+        let readd_after_unblacklist = contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None);
+        assert!(readd_after_unblacklist.is_ok(), "Should be able to add member after unblacklisting: {:?}", readd_after_unblacklist);
+        assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be in group after re-adding");
+
+        println!("✅ Owner can successfully unblacklist members and re-add them");
     }
 
     #[test]

@@ -1686,7 +1686,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         
         use crate::groups::permission_types::VoteTally;
         
-        let mut tally = VoteTally {
+        let tally = VoteTally {
             yes_votes: 0,
             total_votes: 2, // 2 NO votes already
             created_at: 0,
