@@ -25,9 +25,11 @@ mod permission_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Add members to the group first (required for group-based permissions)
-        contract.add_group_member("testgroup".to_string(), member1.clone(), WRITE, None).unwrap();
-        contract.add_group_member("testgroup".to_string(), member2.clone(), WRITE, None).unwrap();
+        // Add members to the group first with NO permissions (required for path-specific isolation test)
+        // Using 0 permission_flags ensures members have no group-root permissions,
+        // allowing us to test path-specific grants in isolation
+        contract.add_group_member("testgroup".to_string(), member1.clone(), 0, None).unwrap();
+        contract.add_group_member("testgroup".to_string(), member2.clone(), 0, None).unwrap();
 
         // Define different paths within the group
         let events_path = "groups/testgroup/events".to_string();
@@ -230,9 +232,9 @@ mod permission_tests {
             None,
         ).unwrap();
 
-        // Owner adds basic members with minimal permissions
-        contract.add_group_member("testgroup".to_string(), member1.clone(), WRITE, None).unwrap();
-        contract.add_group_member("testgroup".to_string(), member2.clone(), WRITE, None).unwrap();
+        // Owner adds basic members with NO group-root permissions (for path-specific isolation testing)
+        contract.add_group_member("testgroup".to_string(), member1.clone(), 0, None).unwrap();
+        contract.add_group_member("testgroup".to_string(), member2.clone(), 0, None).unwrap();
 
         // Define specific paths within the group
         let events_path = "groups/testgroup/events".to_string();
@@ -296,27 +298,28 @@ mod permission_tests {
         );
         assert!(grant_manage_delegation.is_ok(), "Manager with MANAGE on moderation should be able to grant WRITE permissions: {:?}", grant_manage_delegation);
 
-        // Test for negative case: Give manager only MODERATE permission on admin path and verify they cannot delegate
+        // Test for negative case: Create a DIFFERENT user (member2) with only MODERATE permission on admin path
+        // Note: Manager has MANAGE at group root, so we need a separate user to test MODERATE-only access
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
         let owner_grant_moderate_only = contract.set_permission(
-            manager.clone(),
+            member2.clone(), // Use member2 who has NO group-level permissions
             admin_path.clone(),
             MODERATE, // Only MODERATE, not MANAGE
             None,
         );
         assert!(owner_grant_moderate_only.is_ok(), "Owner should be able to grant MODERATE to admin path: {:?}", owner_grant_moderate_only);
 
-        // Switch back to manager and try to delegate with only MODERATE permission
-        near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
+        // Switch to member2 and try to delegate with only MODERATE permission
+        near_sdk::testing_env!(get_context_with_deposit(member2.clone(), 1_000_000_000_000_000_000_000_000).build());
         let moderate_cannot_delegate = contract.set_permission(
             member1.clone(),
             admin_path.clone(),
             WRITE,
             None,
         );
-        assert!(moderate_cannot_delegate.is_err(), "Manager with only MODERATE should NOT be able to delegate permissions");
+        assert!(moderate_cannot_delegate.is_err(), "User with only MODERATE should NOT be able to delegate permissions");
 
-        // Test 3: Manager tries to grant permission to path where they have no authority at all
+        // Test 3: member2 tries to grant permission to path where they have no authority at all
         let no_permission_path = "groups/testgroup/secret".to_string();
         let grant_unauthorized = contract.set_permission(
             member1.clone(),
@@ -324,7 +327,7 @@ mod permission_tests {
             WRITE,
             None,
         );
-        assert!(grant_unauthorized.is_err(), "Manager should NOT be able to grant permissions to paths they have no authority on");
+        assert!(grant_unauthorized.is_err(), "User should NOT be able to grant permissions to paths they have no authority on");
 
         // Verify the granted permissions work - check with manager as the granter
         assert!(
@@ -453,8 +456,9 @@ mod permission_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Add member to the group first (required for group-based permissions)
-        contract.add_group_member("testgroup".to_string(), member.clone(), WRITE, None).unwrap();
+        // Add member to the group first with NO group-root permissions
+        // This allows us to test path-specific permission grant/revoke in isolation
+        contract.add_group_member("testgroup".to_string(), member.clone(), 0, None).unwrap();
 
         let test_path = "groups/testgroup/content".to_string();
 
@@ -576,16 +580,20 @@ mod permission_tests {
 
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
         
-        // Create group and add member with full admin privileges
+        // Create group and add member with NO group-root permissions
+        // This allows us to test path-specific permission demotion
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("demotion_test".to_string(), config).unwrap();
-        contract.add_group_member("demotion_test".to_string(), admin_member.clone(), MANAGE, None).unwrap();
+        contract.add_group_member("demotion_test".to_string(), admin_member.clone(), 0, None).unwrap();
+
+        // Grant MANAGE permission to the config path
+        contract.set_permission(admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE, None).unwrap();
 
         // Verify initial admin role
         assert!(contract.has_permission(owner.clone(), admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE), 
-               "Member should start with MANAGE permissions");
+               "Member should start with MANAGE permissions on path");
 
-        // Demote to MODERATE role using set_permission
+        // Demote to MODERATE role using set_permission (replaces the path permission)
         contract.set_permission(admin_member.clone(), "groups/demotion_test/config".to_string(), MODERATE, None).unwrap();
 
         // Verify they no longer have admin permissions but retain moderate
@@ -727,7 +735,7 @@ mod permission_tests {
             "demo_group".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES (alice automatically voted YES when creating)
@@ -821,7 +829,7 @@ mod permission_tests {
             "revoke_demo".to_string(),
             "path_permission_grant".to_string(),
             grant_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES on grant proposal
@@ -846,7 +854,7 @@ mod permission_tests {
             "revoke_demo".to_string(),
             "path_permission_revoke".to_string(),
             revoke_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice votes YES on revoke proposal (charlie already voted YES automatically)
@@ -963,7 +971,7 @@ mod permission_tests {
             "multi_path".to_string(),
             "path_permission_grant".to_string(),
             bob_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice and Charlie vote YES on bob's proposal (dave already voted YES automatically)
@@ -987,7 +995,7 @@ mod permission_tests {
             "multi_path".to_string(),
             "path_permission_grant".to_string(),
             charlie_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice and Dave vote YES on charlie's proposal (bob already voted YES automatically)

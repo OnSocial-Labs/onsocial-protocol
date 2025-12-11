@@ -234,7 +234,8 @@ mod storage_flow_tests {
                 "permission_flags": WRITE,
                 "message": "Adding new member via vote"
             }),
-            None // event_config
+            None, // event_config
+            None, // auto_vote
         );
         assert!(proposal_result.is_ok(), "Proposal creation should succeed: {:?}", proposal_result);
         let proposal_id = proposal_result.unwrap();

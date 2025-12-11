@@ -70,6 +70,11 @@ impl VoteTally {
     }
 
     pub fn meets_thresholds(&self, participation_quorum: f64, majority_threshold: f64) -> bool {
+        // Cannot meet thresholds with zero votes or zero members (corrupted state)
+        if self.total_votes == 0 || self.locked_member_count == 0 {
+            return false;
+        }
+        
         let participation = (self.total_votes as f64) / (self.locked_member_count as f64);
         let majority = (self.yes_votes as f64) / (self.total_votes as f64);
 
@@ -77,12 +82,20 @@ impl VoteTally {
     }
 
     pub fn is_expired(&self, voting_period: u64) -> bool {
-        env::block_timestamp() >= self.created_at + voting_period
+        // Use saturating_add to prevent overflow
+        // If overflow would occur, saturating_add returns u64::MAX
+        let expiration_time = self.created_at.saturating_add(voting_period);
+        env::block_timestamp() >= expiration_time
     }
 
     /// Check if proposal defeat is mathematically inevitable
     /// Returns true if even with all remaining members voting YES, the proposal cannot reach the majority threshold
     pub fn is_defeat_inevitable(&self, participation_quorum: f64, majority_threshold: f64) -> bool {
+        // Cannot determine defeat if no members (corrupted state)
+        if self.locked_member_count == 0 {
+            return false;
+        }
+        
         let total_members = self.locked_member_count as f64;
         let votes_cast = self.total_votes as f64;
         let remaining_votes = total_members - votes_cast;
@@ -96,8 +109,8 @@ impl VoteTally {
         let max_majority = max_possible_yes / max_possible_total;
         
         // Defeat is inevitable if even in the best case we can't meet thresholds
-        // Note: We check if max_participation < quorum, but since max is 100%, we only need to check majority
-        max_participation >= participation_quorum && max_majority <= majority_threshold
+        // Note: We use < (not <=) because if max_majority == threshold, it could still pass
+        max_participation >= participation_quorum && max_majority < majority_threshold
     }
 }
 

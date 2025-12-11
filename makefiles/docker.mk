@@ -14,7 +14,7 @@ DOCKER_TTY := -i
 
 # Log informational messages with consistent formatting
 define log_info
-	echo "$(INFO)$(1)$(RESET)"
+	@echo "$(INFO)$(1)$(RESET)"
 endef
 
 # Log success messages with consistent formatting

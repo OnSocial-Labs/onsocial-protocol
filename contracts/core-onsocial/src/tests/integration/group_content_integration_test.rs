@@ -259,17 +259,14 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.create_group("restricted".to_string(), json!({"is_private": false})).unwrap();
+        // Create private group so we can control member permissions exactly
+        contract.create_group("restricted".to_string(), json!({"is_private": true})).unwrap();
 
-        let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
-        testing_env!(context.build());
-
-        contract.join_group("restricted".to_string(), WRITE).unwrap();
+        // Add member with NO group-root permissions (permission_flags: 0)
+        // This allows us to test path-specific permission isolation
+        contract.add_group_member("restricted".to_string(), member.clone(), 0, None).unwrap();
 
         // Grant permission only for posts/, NOT comments/
-        let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
-        testing_env!(context.build());
-
         contract.set_permission(
             member.clone(),
             "groups/restricted/posts/".to_string(),
@@ -314,16 +311,13 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.create_group("revoke_test".to_string(), json!({"is_private": false})).unwrap();
+        // Create private group so we can control member permissions exactly
+        contract.create_group("revoke_test".to_string(), json!({"is_private": true})).unwrap();
 
-        let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
-        testing_env!(context.build());
+        // Add member with NO group-root permissions (permission_flags: 0)
+        contract.add_group_member("revoke_test".to_string(), member.clone(), 0, None).unwrap();
 
-        contract.join_group("revoke_test".to_string(), WRITE).unwrap();
-
-        let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
-        testing_env!(context.build());
-
+        // Grant path-specific permission
         contract.set_permission(
             member.clone(),
             "groups/revoke_test/posts/".to_string(),

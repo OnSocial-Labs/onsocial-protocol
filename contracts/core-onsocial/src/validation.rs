@@ -245,6 +245,10 @@ pub fn validate_proposal(
             if !GroupStorage::is_member(platform, group_id, proposer) {
                 return Err(permission_denied!("create_proposal", &format!("groups/{}", group_id)));
             }
+            // Explicit blacklist check as additional security layer
+            if GroupStorage::is_blacklisted(platform, group_id, proposer) {
+                return Err(permission_denied!("create_proposal", "Blacklisted members cannot create proposals"));
+            }
         }
     }
 

@@ -89,7 +89,10 @@ make test-all-contracts  # Run all tests
 |--------|-------------|
 | `test-all-contracts` | Run comprehensive test suite |
 | `test-unit-contract-<name>` | Run unit tests for contract |
+| `test-unit-contract-<name>-test TEST=<test_name>` | Run specific unit test for contract |
 | `test-integration-contract-<name>` | Run integration tests for contract |
+| `test-integration-contract-<name> TEST=<test_name>` | Run specific integration test for contract |
+| `test-integration-contract-<name>-test TEST=<test_name>` | Run specific integration test for contract (alternative) |
 | `test-coverage-contract-<name>` | Generate coverage report for contract |
 
 #### Sandbox Integration Tests (near-workspaces)

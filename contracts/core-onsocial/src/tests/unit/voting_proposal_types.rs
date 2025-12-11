@@ -55,7 +55,7 @@ mod voting_proposal_types_tests {
             "path_test".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES (alice already voted YES automatically)
@@ -106,7 +106,7 @@ mod voting_proposal_types_tests {
             "reject_path".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie and Dave vote NO (alice voted YES automatically)
@@ -150,7 +150,7 @@ mod voting_proposal_types_tests {
             "validation_test".to_string(),
             "path_permission_grant".to_string(),
             invalid_path_proposal,
-            None,
+            None, None,
         );
         assert!(result.is_err(), "Should reject path outside group");
 
@@ -166,7 +166,7 @@ mod voting_proposal_types_tests {
             "validation_test".to_string(),
             "path_permission_grant".to_string(),
             zero_perms_proposal,
-            None,
+            None, None,
         );
         assert!(result.is_err(), "Should reject zero permission flags");
 
@@ -209,7 +209,7 @@ mod voting_proposal_types_tests {
             "revoke_test".to_string(),
             "path_permission_grant".to_string(),
             grant_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to approve grant (alice already voted YES automatically)
@@ -231,7 +231,7 @@ mod voting_proposal_types_tests {
             "revoke_test".to_string(),
             "path_permission_revoke".to_string(),
             revoke_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Step 3: Alice votes YES to approve revoke (bob already voted YES automatically as proposer)
@@ -279,7 +279,7 @@ mod voting_proposal_types_tests {
             "edge_revoke".to_string(),
             "path_permission_revoke".to_string(),
             revoke_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to approve the revoke
@@ -336,7 +336,7 @@ mod voting_proposal_types_tests {
             "quorum_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob and Charlie vote YES (alice already voted YES automatically)
@@ -397,7 +397,7 @@ mod voting_proposal_types_tests {
             "threshold_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES (alice already voted YES automatically)
@@ -457,7 +457,7 @@ mod voting_proposal_types_tests {
             "period_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES (alice already voted YES automatically)
@@ -522,7 +522,7 @@ mod voting_proposal_types_tests {
             "self_ref_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Vote with only 3 YES votes out of 5 members (60% participation)
@@ -554,7 +554,7 @@ mod voting_proposal_types_tests {
             "self_ref_test".to_string(),
             "custom_proposal".to_string(),
             future_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Try to pass with only 3 YES votes (60% participation) - should FAIL under new 80% quorum
@@ -627,7 +627,7 @@ mod voting_proposal_types_tests {
             "custom_approval_test".to_string(),
             "custom_proposal".to_string(),
             proposal_data.clone(),
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal was created and has correct initial state
@@ -717,7 +717,7 @@ mod voting_proposal_types_tests {
             "custom_rejection_test".to_string(),
             "custom_proposal".to_string(),
             proposal_data.clone(),
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes NO
@@ -755,7 +755,7 @@ mod voting_proposal_types_tests {
             "custom_rejection_test".to_string(),
             "custom_proposal".to_string(),
             quorum_test_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob already voted YES when creating the proposal
@@ -848,7 +848,7 @@ mod voting_proposal_types_tests {
             "metadata_test".to_string(),
             "custom_proposal".to_string(),
             complex_data.clone(),
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES to execute
@@ -897,7 +897,7 @@ mod voting_proposal_types_tests {
             "metadata_test".to_string(),
             "custom_proposal".to_string(),
             minimal_data.clone(),
-            None,
+            None, None,
         ).unwrap();
 
         // Alice votes YES to execute (Bob already voted YES automatically as proposer)
@@ -967,7 +967,7 @@ mod voting_proposal_types_tests {
             "metadata_test".to_string(),
             "custom_proposal".to_string(),
             large_custom_data.clone(),
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to execute (Alice already auto-voted as proposer)
@@ -1023,7 +1023,7 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             missing_title,
-            None,
+            None, None,
         );
         assert!(result.is_err(), "Should fail without title");
         let error_msg = result.unwrap_err().to_string();
@@ -1040,7 +1040,7 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             missing_desc,
-            None,
+            None, None,
         );
         assert!(result2.is_err(), "Should fail without description");
 
@@ -1054,7 +1054,7 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             empty_title,
-            None,
+            None, None,
         );
         assert!(result3.is_err(), "Should fail with empty title");
 
@@ -1068,7 +1068,7 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             empty_desc,
-            None,
+            None, None,
         );
         assert!(result4.is_err(), "Should fail with empty description");
 
@@ -1107,7 +1107,7 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             extreme_data.clone(),
-            None,
+            None, None,
         ).unwrap();
 
         // Execute the extreme proposal
@@ -1138,7 +1138,7 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             vote_change_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice tries to change her vote (from automatic YES to NO)
@@ -1162,14 +1162,14 @@ mod voting_proposal_types_tests {
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             concurrent1_data,
-            None,
+            None, None,
         ).unwrap();
 
         let concurrent2_id = contract.create_group_proposal(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             concurrent2_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Both should be active initially

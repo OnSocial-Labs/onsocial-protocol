@@ -336,6 +336,10 @@ impl crate::Contract {
     }
 
     /// Create a proposal for group changes
+    /// 
+    /// # Arguments
+    /// * `auto_vote` - Whether proposer automatically votes YES. Default is true (None = true).
+    ///                 Set to Some(false) for discussion-first proposals where proposer votes later.
     #[payable]
     #[handle_result]
     pub fn create_group_proposal(
@@ -344,6 +348,7 @@ impl crate::Contract {
         proposal_type: String,
         changes: Value,
         event_config: Option<EventConfig>,
+        auto_vote: Option<bool>,
     ) -> Result<String, SocialError> {
         let caller = near_sdk::env::predecessor_account_id();
 
@@ -351,7 +356,7 @@ impl crate::Contract {
         let mut attached_balance = near_sdk::env::attached_deposit().as_yoctonear();
         self.allocate_storage_for_operation(&caller, &mut attached_balance)?;
 
-        let result = self.platform.create_group_proposal(group_id, proposal_type, changes, &caller, event_config);
+        let result = self.platform.create_group_proposal(group_id, proposal_type, changes, &caller, event_config, auto_vote);
 
         // Refund unused balance
         if attached_balance > 0 {

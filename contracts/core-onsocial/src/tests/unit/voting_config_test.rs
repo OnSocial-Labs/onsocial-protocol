@@ -102,7 +102,7 @@ mod voting_config_tests {
         // Alice creates proposal (auto YES vote: 1/3 = 33.33% participation < 50% quorum, doesn't execute yet)
         testing_env!(get_context(alice.clone()).build());
         let proposal_data = json!({"update_type": "metadata", "changes": {"description": "Test supermajority"}});
-        let proposal_id = contract.create_group_proposal("supermajority".to_string(), "group_update".to_string(), proposal_data, None).unwrap();
+        let proposal_id = contract.create_group_proposal("supermajority".to_string(), "group_update".to_string(), proposal_data, None, None).unwrap();
 
         // Verify not executed yet (insufficient participation)
         let proposal = contract.platform.storage_get(&format!("groups/supermajority/proposals/{}", proposal_id)).unwrap();
@@ -146,7 +146,7 @@ mod voting_config_tests {
             "evolving_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_ok(), "Should be able to propose voting config change");
@@ -175,7 +175,7 @@ mod voting_config_tests {
             "solo_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal executed
@@ -232,7 +232,7 @@ mod voting_config_tests {
             "changing_dao".to_string(),
             "voting_config_change".to_string(),
             config_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice's vote: 1/4 = 25% participation < 51% quorum, should NOT execute yet
@@ -263,7 +263,7 @@ mod voting_config_tests {
             "changing_dao".to_string(),
             "group_update".to_string(),
             test_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify IDs are different
@@ -303,7 +303,7 @@ mod voting_config_tests {
             "partial_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify config - period changed, others remain default
@@ -338,7 +338,7 @@ mod voting_config_tests {
             "invalid_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -350,7 +350,7 @@ mod voting_config_tests {
             "invalid_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -376,7 +376,7 @@ mod voting_config_tests {
             "invalid_dao2".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -402,7 +402,7 @@ mod voting_config_tests {
             "invalid_dao3".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -414,7 +414,7 @@ mod voting_config_tests {
             "invalid_dao3".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -440,7 +440,7 @@ mod voting_config_tests {
             "empty_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -509,15 +509,15 @@ mod voting_config_tests {
         // First config change
         testing_env!(get_context(alice.clone()).build());
         let proposal1 = json!({"majority_threshold": 0.6});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal1, None).unwrap();
+        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal1, None, None).unwrap();
 
         // Second config change
         let proposal2 = json!({"participation_quorum": 0.3});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal2, None).unwrap();
+        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal2, None, None).unwrap();
 
         // Third config change
         let proposal3 = json!({"voting_period": 259200000000000u64});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal3, None).unwrap();
+        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal3, None, None).unwrap();
 
         // Verify all changes were applied
         let group_config = contract.get_group_config("evolving".to_string()).unwrap();
@@ -548,7 +548,7 @@ mod voting_config_tests {
             "traditional".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(result.is_err());
@@ -595,7 +595,7 @@ mod voting_config_tests {
             "vote_test_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal is active (not executed yet)
@@ -654,7 +654,7 @@ mod voting_config_tests {
             "metadata_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify metadata was set

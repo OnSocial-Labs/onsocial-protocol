@@ -247,8 +247,9 @@ pub mod test_deposits {
     use super::*;
     
     /// Sufficient for adding 5-10 members (~300 bytes each)
+    /// Plus proposal index and vote tracking storage (~500 bytes extra per proposal)
     pub fn member_operations() -> u128 {
-        calculate_test_deposit_for_operations(10, 300)
+        calculate_test_deposit_for_operations(15, 400)
     }
     
     /// Legacy: 10 NEAR (kept for backward compatibility)

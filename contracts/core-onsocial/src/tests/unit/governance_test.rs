@@ -38,7 +38,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(proposal_result.is_ok(), "Owner should be able to create member invite proposal: {:?}", proposal_result);
@@ -90,7 +90,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(proposal_result.is_ok(), "Owner should be able to create member invite proposal: {:?}", proposal_result);
@@ -127,7 +127,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(proposal_result.is_ok(), "Owner should be able to create path permission proposal: {:?}", proposal_result);
@@ -173,7 +173,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None,
+            None, None,
         );
 
         assert!(proposal_result.is_err(), "Non-member should not be able to create proposals");
@@ -265,7 +265,7 @@ mod governance_tests {
             "message": "Basic member invitation"
         });
 
-        let basic_result = contract.create_group_proposal("demogroup".to_string(), "member_invite".to_string(), basic_proposal, None);
+        let basic_result = contract.create_group_proposal("demogroup".to_string(), "member_invite".to_string(), basic_proposal, None, None);
         assert!(basic_result.is_ok(), "Owner should be able to create basic proposals: {:?}", basic_result);
 
         // Test: Owner can create proposals for elevated permissions
@@ -276,7 +276,7 @@ mod governance_tests {
             "reason": "Granting admin permissions"
         });
 
-        let elevated_result = contract.create_group_proposal("demogroup".to_string(), "path_permission_grant".to_string(), elevated_proposal, None);
+        let elevated_result = contract.create_group_proposal("demogroup".to_string(), "path_permission_grant".to_string(), elevated_proposal, None, None);
         assert!(elevated_result.is_ok(), "Owner should be able to create elevated permission proposals: {:?}", elevated_result);
 
         println!("✅ Proposal validation: Owner can create all types of proposals in member-driven groups");
@@ -322,7 +322,7 @@ mod governance_tests {
                 "permission_flags": MODERATE,
                 "reason": "Event management permissions"
             }),
-            None,
+            None, None,
         );
         assert!(permission_result.is_ok(), "Should create path permission proposal");
 
@@ -336,7 +336,7 @@ mod governance_tests {
                 "permission_flags": WRITE,
                 "message": "Unauthorized attempt"
             }),
-            None,
+            None, None,
         );
         assert!(non_member_result.is_err(), "Non-members should not be able to create proposals");
 
@@ -379,7 +379,7 @@ mod governance_tests {
             "community".to_string(),
             "join_request".to_string(),
             join_request_data,
-            None,
+            None, None,
         );
 
         assert!(join_request_result.is_ok(), "Non-members should be able to create join request proposals: {:?}", join_request_result);
@@ -395,7 +395,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             member_invite_data,
-            None,
+            None, None,
         );
 
         assert!(member_invite_result.is_err(), "Non-members should not be able to create member invite proposals");
@@ -504,7 +504,7 @@ mod governance_tests {
             "democratic".to_string(),
             "member_invite".to_string(),
             owner_proposal_data,
-            None,
+            None, None,
         );
 
         assert!(owner_proposal_result.is_ok(), "Owner should be able to create proposals");
@@ -551,7 +551,7 @@ mod governance_tests {
             "traditional".to_string(),
             "path_permission_grant".to_string(),
             traditional_proposal,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Traditional groups should not support permission grant proposals");
@@ -571,7 +571,7 @@ mod governance_tests {
             "democratic".to_string(),
             "path_permission_grant".to_string(),
             member_driven_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Member-driven group should support permission grant proposals");
@@ -623,7 +623,7 @@ mod governance_tests {
             "traditional".to_string(),
             "group_update".to_string(),
             ban_proposal_traditional,
-            None
+            None, None
         );
 
         // Traditional groups don't use ban proposals - they use direct blacklist_group_member
@@ -642,7 +642,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!ban_proposal_id.is_empty(), "Ban proposal should be created successfully");
@@ -660,7 +660,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!unban_proposal_id.is_empty(), "Unban proposal should be created successfully");
@@ -678,7 +678,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             invalid_ban_proposal,
-            None
+            None, None
         );
 
         // Should succeed at creation (validation happens at execution)
@@ -762,7 +762,7 @@ mod governance_tests {
             "testgroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None
+            None, None
         );
 
         assert!(proposal_result.is_err(), "Banned user should not be able to create proposals");
@@ -789,7 +789,7 @@ mod governance_tests {
             "democratic".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None
+            None, None
         ).unwrap();
 
         // Simulate voting and execution would happen here...
@@ -846,7 +846,7 @@ mod governance_tests {
             "democratic_ban".to_string(),
             "group_update".to_string(),
             ban_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Test 2: Alice votes YES (owner)
@@ -884,7 +884,7 @@ mod governance_tests {
             "democratic_ban".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "Test"}}),
-            None,
+            None, None,
         );
         assert!(charlie_proposal.is_err(), "Banned user should not be able to create proposals");
 
@@ -895,7 +895,7 @@ mod governance_tests {
             "democratic_ban".to_string(),
             "group_update".to_string(),
             test_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Now try to vote as Charlie (who is banned)
@@ -950,7 +950,7 @@ mod governance_tests {
             "democratic_unban".to_string(),
             "group_update".to_string(),
             ban_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice votes YES (creator already voted), execution happens at 2/3 = 67% participation
@@ -973,7 +973,7 @@ mod governance_tests {
             "democratic_unban".to_string(),
             "group_update".to_string(),
             unban_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Test 2: Alice votes YES (owner can vote even without member data - 2 out of 3 participants = 67% participation, 67% YES - meets majority)
@@ -1044,7 +1044,7 @@ mod governance_tests {
             "ban_rejection_test".to_string(),
             "group_update".to_string(),
             ban_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Only Bob votes YES (1 out of 4 = 25% participation - doesn't meet quorum)
@@ -1066,7 +1066,7 @@ mod governance_tests {
             "ban_rejection_test".to_string(),
             "group_update".to_string(),
             rejection_proposal_data,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice votes YES (automatic), Bob votes YES (2 YES), but Dave votes NO
@@ -1090,7 +1090,7 @@ mod governance_tests {
             "ban_rejection_test".to_string(),
             "group_update".to_string(),
             invalid_ban_data,
-            None,
+            None, None,
         );
 
         // Should succeed at creation but fail at execution
@@ -1133,7 +1133,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Transfer ownership proposal should be created successfully");
@@ -1159,7 +1159,7 @@ mod governance_tests {
             "traditional".to_string(),
             "group_update".to_string(),
             traditional_transfer,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Traditional groups should not support transfer ownership proposals");
@@ -1177,7 +1177,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             invalid_transfer,
-            None
+            None, None
         );
 
         // Should succeed at creation (validation happens at execution)
@@ -1224,7 +1224,7 @@ mod governance_tests {
             "community".to_string(),
             "permission_change".to_string(),
             permission_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Permission change proposal should be created successfully");
@@ -1251,7 +1251,7 @@ mod governance_tests {
             "traditional".to_string(),
             "permission_change".to_string(),
             traditional_permission,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Traditional groups should not support permission change proposals");
@@ -1268,7 +1268,7 @@ mod governance_tests {
             "community".to_string(),
             "permission_change".to_string(),
             invalid_permission,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Permission change proposal should require target_user and permission_flags");
@@ -1285,7 +1285,7 @@ mod governance_tests {
             "community".to_string(),
             "permission_change".to_string(),
             invalid_flags,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Permission flags must be valid (0-255)");
@@ -1331,7 +1331,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             invite_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Member invite proposal should be created successfully");
@@ -1348,7 +1348,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             default_perms_proposal,
-            None
+            None, None
         ).unwrap();
 
         assert!(!proposal_id2.is_empty(), "Member invite proposal should work with default permissions");
@@ -1373,7 +1373,7 @@ mod governance_tests {
             "traditional".to_string(),
             "member_invite".to_string(),
             traditional_invite,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Traditional groups should not support member invite proposals");
@@ -1391,7 +1391,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             invalid_invite,
-            None
+            None, None
         );
 
         assert!(result.is_err(), "Member invite proposal should require target_user");

@@ -117,7 +117,7 @@ impl SocialPlatform {
                 };
 
                 crate::groups::governance::GroupGovernance::create_proposal(
-                    platform, group_id, caller, proposal_type, event_config
+                    platform, group_id, caller, proposal_type, event_config, None
                 )?;
                 Ok(())
             },
@@ -180,7 +180,7 @@ impl SocialPlatform {
                 };
 
                 crate::groups::governance::GroupGovernance::create_proposal(
-                    platform, group_id, caller, proposal_type, event_config
+                    platform, group_id, caller, proposal_type, event_config, None
                 )?;
                 Ok(())
             },
@@ -217,7 +217,7 @@ impl SocialPlatform {
                 };
 
                 crate::groups::governance::GroupGovernance::create_proposal(
-                    platform, group_id, caller, proposal_type, event_config
+                    platform, group_id, caller, proposal_type, event_config, None
                 )?;
                 Ok(())
             },
@@ -324,7 +324,7 @@ impl SocialPlatform {
                 };
 
                 crate::groups::governance::GroupGovernance::create_proposal(
-                    platform, group_id, caller, proposal_type, event_config
+                    platform, group_id, caller, proposal_type, event_config, None
                 )?;
                 Ok(())
             },
@@ -361,7 +361,7 @@ impl SocialPlatform {
                 };
 
                 crate::groups::governance::GroupGovernance::create_proposal(
-                    platform, group_id, caller, proposal_type, event_config
+                    platform, group_id, caller, proposal_type, event_config, None
                 )?;
                 Ok(())
             },
@@ -400,7 +400,7 @@ impl SocialPlatform {
                 };
 
                 crate::groups::governance::GroupGovernance::create_proposal(
-                    platform, group_id, caller, proposal_type, event_config
+                    platform, group_id, caller, proposal_type, event_config, None
                 )?;
                 Ok(())
             },
@@ -438,6 +438,10 @@ impl SocialPlatform {
     // --- Group Governance (Proposals & Voting) ---
 
     /// Create a proposal for group changes
+    /// 
+    /// # Arguments
+    /// * `auto_vote` - Whether proposer automatically votes YES. Default is true (None = true).
+    ///                 Set to Some(false) for discussion-first proposals where proposer votes later.
     pub fn create_group_proposal(
         &mut self,
         group_id: String,
@@ -445,6 +449,7 @@ impl SocialPlatform {
         changes: Value,
         caller: &AccountId,
         event_config: Option<EventConfig>,
+        auto_vote: Option<bool>,
     ) -> Result<String, SocialError> {
         // Validate contract is in Live status for write operations
         self.validate_state(false)?;
@@ -588,7 +593,7 @@ impl SocialPlatform {
         };
 
         crate::groups::governance::GroupGovernance::create_proposal(
-            self, &group_id, caller, proposal_type_enum, &event_config
+            self, &group_id, caller, proposal_type_enum, &event_config, auto_vote
         )
     }
 

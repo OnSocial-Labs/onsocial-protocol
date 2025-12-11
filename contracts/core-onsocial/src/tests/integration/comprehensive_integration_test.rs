@@ -345,7 +345,8 @@ mod comprehensive_integration_tests {
                 "target_user": candidate.to_string(),
                 "permission_flags": WRITE
             }),
-            None
+            None,
+            None,
         ).unwrap();
 
         println!("Created proposal by member1: {}", proposal_id);

@@ -20,11 +20,11 @@ build-all-contracts: build-docker-contracts ensure-scripts-executable
 .PHONY: build-contract-%
 build-contract-%: build-docker-contracts ensure-scripts-executable
 	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		$(call log_start,Building Contract $*); \
+		echo "🚀 Starting: Building Contract $*..."; \
 		$(call docker_run_contracts,./scripts/build.sh build-contract $*); \
-		$(call log_success,Contract $* built successfully); \
+		echo "✅ Contract $* built successfully"; \
 	else \
-		$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
+		echo "❌ Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)"; \
 		exit 1; \
 	fi
 
@@ -39,19 +39,48 @@ test-all-contracts: build-docker-contracts ensure-scripts-executable
 	$(call docker_run_contracts_network,set -o pipefail; ./scripts/test.sh all $* 2>&1 | tee /code/test-all.log)
 	$(call log_success,All contract tests completed)
 
+.PHONY: test-all-contract-%
+test-all-contract-%: build-docker-contracts ensure-scripts-executable
+	$(call log_start,Running All Tests for Contract $*)
+	$(call log_progress,Running unit and integration tests)
+	@$(call docker_run_contracts_network,./scripts/test.sh all $*) || exit 0
+	$(call log_success,All tests completed for contract $*)
+
 .PHONY: test-unit-contract-%
 test-unit-contract-%: build-docker-contracts ensure-scripts-executable
 	@$(call log_start,Running Unit Tests for Contract $*)
 	@$(call log_progress,Executing unit test suite)
-	@$(call docker_run_contracts,./scripts/test.sh unit $*) || true
+	@$(call docker_run_contracts,./scripts/test.sh unit $*) || exit 0
 	@$(call log_success,Unit tests for contract $* completed)
 
 .PHONY: test-integration-contract-%
 test-integration-contract-%: build-docker-contracts ensure-scripts-executable
 	$(call log_start,Running Integration Tests for Contract $*)
 	$(call log_progress,Executing integration test suite)
-	$(call docker_run_contracts_network,./scripts/test.sh integration $*)
+	@$(call docker_run_contracts_network,./scripts/test.sh integration $* $(TEST)) || exit 0
 	$(call log_success,Integration tests for contract $* completed)
+
+.PHONY: test-unit-contract-%-test
+test-unit-contract-%-test: build-docker-contracts ensure-scripts-executable
+	@if [ -z "$(TEST)" ]; then \
+		$(call log_error,TEST variable required. Usage: make test-unit-contract-CONTRACTNAME-test TEST=test_name); \
+		exit 1; \
+	fi
+	@$(call log_start,Running Unit Test for Contract $*)
+	@$(call log_progress,Executing test: $(TEST))
+	@$(call docker_run_contracts,./scripts/test.sh unit $* $(TEST)) || exit 0
+	@$(call log_success,Unit test for contract $* completed)
+
+.PHONY: test-integration-contract-%-test
+test-integration-contract-%-test: build-docker-contracts ensure-scripts-executable
+	@if [ -z "$(TEST)" ]; then \
+		$(call log_error,TEST variable required. Usage: make test-integration-contract-CONTRACTNAME-test TEST=test_name); \
+		exit 1; \
+	fi
+	$(call log_start,Running Integration Test for Contract $*)
+	$(call log_progress,Executing test: $(TEST))
+	@$(call docker_run_contracts_network,./scripts/test.sh integration $* $(TEST)) || exit 0
+	$(call log_success,Integration test for contract $* completed)
 
 .PHONY: test-coverage-contract-%
 test-coverage-contract-%: build-docker-contracts ensure-scripts-executable

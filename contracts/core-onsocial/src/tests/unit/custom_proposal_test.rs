@@ -39,7 +39,7 @@ fn test_custom_proposal_creation_and_voting() {
                 "timeline": "3 months"
             }
         }),
-        None,
+        None, None,
     ).unwrap();
 
     // Proposal created successfully (if it failed, unwrap above would panic)
@@ -87,7 +87,7 @@ fn test_custom_proposal_rejection() {
             "description": "Remove all meme content from the community",
             "custom_data": {"policy": "strict_no_memes"}
         }),
-        None,
+        None, None,
     ).unwrap();
 
     // Bob votes NO
@@ -122,7 +122,7 @@ fn test_custom_proposal_validation_errors() {
         json!({
             "description": "Some description",
         }),
-        None,
+        None, None,
     );
     assert!(result.is_err(), "Should fail without title");
     assert!(result.unwrap_err().to_string().contains("title required"));
@@ -134,7 +134,7 @@ fn test_custom_proposal_validation_errors() {
         json!({
             "title": "Some title",
         }),
-        None,
+        None, None,
     );
     assert!(result2.is_err(), "Should fail without description");
     assert!(result2.unwrap_err().to_string().contains("description required"));
@@ -147,7 +147,7 @@ fn test_custom_proposal_validation_errors() {
             "title": "",
             "description": "Some description",
         }),
-        None,
+        None, None,
     );
     assert!(result3.is_err(), "Should fail with empty title");
 
@@ -159,7 +159,7 @@ fn test_custom_proposal_validation_errors() {
             "title": "Some title",
             "description": "",
         }),
-        None,
+        None, None,
     );
     assert!(result4.is_err(), "Should fail with empty description");
 
@@ -197,6 +197,7 @@ fn test_custom_proposal_budget_decision() {
                 "duration": "Q1 2025"
             }
         }),
+        None,
         None,
     ).unwrap();
 
@@ -245,6 +246,7 @@ fn test_custom_proposal_community_poll() {
             }
         }),
         None,
+        None,
     ).unwrap();
 
     // Bob votes YES - triggers execution (2/3 = 67% meets thresholds)
@@ -280,7 +282,7 @@ fn test_custom_proposal_non_member_cannot_create() {
             "title": "I'm not a member",
             "description": "But I want to propose something",
         }),
-        None,
+        None, None,
     );
 
     assert!(result.is_err(), "Non-member should not be able to create proposal");
@@ -309,7 +311,7 @@ fn test_custom_proposal_with_optional_custom_data() {
             "title": "Simple yes/no question",
             "description": "Should we proceed with plan A?",
         }),
-        None,
+        None, None,
     ).unwrap();
 
     let proposal_path = format!("groups/dao/proposals/{}", proposal_id);

@@ -48,7 +48,7 @@ mod voting_group_updates_tests {
             "ban_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to approve (alice already voted YES automatically)
@@ -71,7 +71,7 @@ mod voting_group_updates_tests {
             "ban_test".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "test"}}),
-            None,
+            None, None,
         );
         assert!(create_proposal_result.is_err(), "Banned member should not be able to create proposals");
 
@@ -108,7 +108,7 @@ mod voting_group_updates_tests {
             "reject_ban".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes NO to reject (alice voted YES automatically)
@@ -129,7 +129,7 @@ mod voting_group_updates_tests {
             "reject_ban".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "test"}}),
-            None,
+            None, None,
         );
         assert!(create_proposal_result.is_ok(), "Bob should still be able to create proposals");
 
@@ -168,7 +168,7 @@ mod voting_group_updates_tests {
             "auto_remove".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to reach threshold (alice already voted YES)
@@ -212,7 +212,7 @@ mod voting_group_updates_tests {
             "owner_protect".to_string(),
             "group_update".to_string(),
             ban_owner_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES (bob already voted YES)
@@ -266,7 +266,7 @@ mod voting_group_updates_tests {
             "restrict_banned".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to execute (2 YES out of 3 = 66% participation, 100% approval)
@@ -282,7 +282,7 @@ mod voting_group_updates_tests {
             "restrict_banned".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "test"}}),
-            None,
+            None, None,
         );
         assert!(create_result.is_err(), "Banned member should not be able to create proposals");
 
@@ -293,7 +293,7 @@ mod voting_group_updates_tests {
             "restrict_banned".to_string(),
             "group_update".to_string(),
             test_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob tries to vote
@@ -342,7 +342,7 @@ mod voting_group_updates_tests {
             "unban_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to execute ban (2 YES out of 3 = 66% participation, 100% approval)
@@ -366,7 +366,7 @@ mod voting_group_updates_tests {
             "unban_test".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to execute unban (2 YES out of 2 remaining = 100%)
@@ -419,7 +419,7 @@ mod voting_group_updates_tests {
             "no_auto_readd".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to execute ban
@@ -442,7 +442,7 @@ mod voting_group_updates_tests {
             "no_auto_readd".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Charlie votes YES to execute unban
@@ -490,7 +490,7 @@ mod voting_group_updates_tests {
             "unban_edge".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None,
+            None, None,
         );
 
         // Unban should succeed (idempotent operation - safe to unban non-banned user)
@@ -542,7 +542,7 @@ mod voting_group_updates_tests {
             "ownership_transfer".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Step 3: Vote and approve
@@ -613,7 +613,7 @@ mod voting_group_updates_tests {
             "ownership_validation".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES to reach threshold (alice already voted YES)
@@ -674,7 +674,7 @@ mod voting_group_updates_tests {
             "owner_stays".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice votes YES (2/3 = 66% participation, 100% approval = executes)
@@ -698,7 +698,7 @@ mod voting_group_updates_tests {
             "owner_stays".to_string(),
             "group_update".to_string(),
             test_proposal,
-            None,
+            None, None,
         );
         assert!(alice_proposal_result.is_ok(), "Alice should still be able to create proposals as regular member");
 
@@ -709,7 +709,7 @@ mod voting_group_updates_tests {
             "owner_stays".to_string(),
             "group_update".to_string(),
             bob_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
@@ -749,7 +749,7 @@ mod voting_group_updates_tests {
             "self_transfer".to_string(),
             "group_update".to_string(),
             self_transfer_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES to reach threshold (alice already voted YES)
@@ -811,7 +811,7 @@ mod voting_group_updates_tests {
             "meta_update".to_string(),
             "group_update".to_string(),
             metadata_updates,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES to approve (alice already voted YES automatically)
@@ -878,7 +878,7 @@ mod voting_group_updates_tests {
             "reject_meta".to_string(),
             "group_update".to_string(),
             metadata_updates,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob and Charlie vote NO to reject (alice voted YES automatically)
@@ -931,7 +931,7 @@ mod voting_group_updates_tests {
             "validation_meta".to_string(),
             "group_update".to_string(),
             valid_metadata,
-            None,
+            None, None,
         );
         assert!(result.is_ok(), "Valid metadata proposal should be created: {:?}", result.err());
 
@@ -945,7 +945,7 @@ mod voting_group_updates_tests {
             "validation_meta".to_string(),
             "group_update".to_string(),
             empty_changes,
-            None,
+            None, None,
         );
         assert!(result.is_err(), "Empty changes should be rejected");
 
@@ -959,7 +959,7 @@ mod voting_group_updates_tests {
             "validation_meta".to_string(),
             "group_update".to_string(),
             null_changes,
-            None,
+            None, None,
         );
         assert!(result.is_err(), "Null changes should be rejected");
 
@@ -1008,7 +1008,7 @@ mod voting_group_updates_tests {
             "full_cycle".to_string(),
             "group_update".to_string(),
             ban_changes,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES (alice already voted YES)
@@ -1044,7 +1044,7 @@ mod voting_group_updates_tests {
             "full_cycle".to_string(),
             "group_update".to_string(),
             unban_changes,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES (alice already voted YES)
@@ -1118,7 +1118,7 @@ mod voting_group_updates_tests {
             "transfer_chain".to_string(),
             "group_update".to_string(),
             transfer1_changes,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES (alice already voted)
@@ -1153,7 +1153,7 @@ mod voting_group_updates_tests {
             "transfer_chain".to_string(),
             "group_update".to_string(),
             transfer2_changes,
-            None,
+            None, None,
         ).unwrap();
 
         // Alice votes YES (bob already voted)
@@ -1189,7 +1189,7 @@ mod voting_group_updates_tests {
             "transfer_chain".to_string(),
             "group_update".to_string(),
             transfer3_changes,
-            None,
+            None, None,
         ).unwrap();
 
         // Bob votes YES (charlie already voted)

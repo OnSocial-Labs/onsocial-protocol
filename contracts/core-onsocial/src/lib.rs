@@ -264,6 +264,27 @@ impl Contract {
             false
         }
     }
+
+    // --- Governance Query API ---
+
+    /// Get proposal data by ID (O(1) direct lookup)
+    pub fn get_proposal(&self, group_id: String, proposal_id: String) -> Option<Value> {
+        let proposal_path = format!("groups/{}/proposals/{}", group_id, proposal_id);
+        self.platform.storage_get(&proposal_path)
+    }
+
+    /// Get vote tally for a proposal (O(1) direct lookup)
+    pub fn get_proposal_tally(&self, group_id: String, proposal_id: String) -> Option<Value> {
+        let tally_path = format!("groups/{}/votes/{}", group_id, proposal_id);
+        self.platform.storage_get(&tally_path)
+    }
+
+    /// Get individual vote record (O(1) direct lookup)
+    pub fn get_vote(&self, group_id: String, proposal_id: String, voter: AccountId) -> Option<Value> {
+        let vote_path = format!("groups/{}/votes/{}/{}", group_id, proposal_id, voter);
+        self.platform.storage_get(&vote_path)
+    }
+
 }
 
 // --- Group Operations (Payable Wrappers) ---
@@ -477,6 +498,10 @@ impl Contract {
     }
 
     /// Create a proposal for group changes
+    /// 
+    /// # Arguments
+    /// * `auto_vote` - Whether proposer automatically votes YES. Default is true (None = true).
+    ///                 Set to Some(false) for discussion-first proposals where proposer votes later.
     #[payable]
     #[handle_result]
     pub fn create_group_proposal(
@@ -485,9 +510,10 @@ impl Contract {
         proposal_type: String,
         changes: Value,
         event_config: Option<EventConfig>,
+        auto_vote: Option<bool>,
     ) -> Result<String, SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
-            platform.create_group_proposal(group_id, proposal_type, changes, caller, event_config)
+            platform.create_group_proposal(group_id, proposal_type, changes, caller, event_config, auto_vote)
         })
     }
 
@@ -505,4 +531,5 @@ impl Contract {
             platform.vote_on_proposal(group_id, proposal_id, approve, caller, event_config)
         })
     }
+
 }

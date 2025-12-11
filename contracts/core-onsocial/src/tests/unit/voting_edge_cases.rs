@@ -52,7 +52,7 @@ mod voting_edge_cases_tests {
             "early_exec_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Bob and charlie vote YES (3 total YES votes including alice = 60% participation, 100% approval)
@@ -107,7 +107,7 @@ mod voting_edge_cases_tests {
             "rejection_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Bob and charlie vote NO (3 votes total: 1 YES from alice, 2 NO)
@@ -170,7 +170,7 @@ mod voting_edge_cases_tests {
             "quorum_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Bob votes YES (2 total YES votes = 40% participation < 51% quorum)
@@ -231,7 +231,7 @@ mod voting_edge_cases_tests {
             "join_test".to_string(),
             "group_update".to_string(),
             metadata_proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Advance time to ensure eve joins AFTER the proposal was created
@@ -254,8 +254,8 @@ mod voting_edge_cases_tests {
         // Verify security: new member cannot vote on pre-existing proposals
         assert!(result.is_err(), "New member should NOT be able to vote on proposals created before they joined");
         let error_msg = format!("{:?}", result.unwrap_err());
-        assert!(error_msg.contains("Cannot vote on proposals created before you joined"),
-                "Error should indicate proposal predates membership, got: {}", error_msg);
+        assert!(error_msg.contains("joined the group after"),
+                "Error should indicate member joined after proposal, got: {}", error_msg);
         
         println!("✅ Security: New members cannot vote on proposals created before they joined");
     }
@@ -291,7 +291,7 @@ mod voting_edge_cases_tests {
             "removal_test".to_string(),
             "group_update".to_string(),
             metadata_proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Bob votes YES on Proposal A
@@ -362,7 +362,7 @@ mod voting_edge_cases_tests {
             "threshold_test".to_string(),
             "group_update".to_string(),
             metadata_proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Alice (auto-voted YES) and bob vote YES (2 votes)
@@ -447,7 +447,7 @@ mod voting_edge_cases_tests {
             "concurrent_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None,
+            None, None,
         ).unwrap();
         
         // Proposal B: Update metadata to "Description B"
@@ -460,7 +460,7 @@ mod voting_edge_cases_tests {
             "concurrent_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None,
+            None, None,
         ).unwrap();
         
         // Proposal C: Update metadata to "Description C"
@@ -473,7 +473,7 @@ mod voting_edge_cases_tests {
             "concurrent_test".to_string(),
             "group_update".to_string(),
             proposal_c,
-            None,
+            None, None,
         ).unwrap();
         
         // Members vote DIFFERENTLY on each proposal (Alice auto-votes YES on each):
@@ -598,7 +598,7 @@ mod voting_edge_cases_tests {
             "conflict_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None,
+            None, None,
         ).unwrap();
         
         // Proposal B: Set description to "Version B" (conflicts with A)
@@ -611,7 +611,7 @@ mod voting_edge_cases_tests {
             "conflict_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None,
+            None, None,
         ).unwrap();
         
         // Proposal A gets 4 votes to execute (Alice auto-voted, Bob, Charlie, Dave = 4/7 = 57% > 51%)
@@ -700,7 +700,7 @@ mod voting_edge_cases_tests {
             "execution_order_test".to_string(),
             "group_update".to_string(),
             proposal_1,
-            None,
+            None, None,
         ).unwrap();
         
         // Bob and Charlie vote on Proposal 1 (Alice YES, Bob YES, Charlie NO = 3 votes, 27% < 51%)
@@ -720,7 +720,7 @@ mod voting_edge_cases_tests {
             "execution_order_test".to_string(),
             "group_update".to_string(),
             proposal_2,
-            None,
+            None, None,
         ).unwrap();
         
         // Proposal 2 gets 6 votes and executes FIRST (even though created second)
@@ -831,7 +831,7 @@ mod voting_edge_cases_tests {
             "large_community".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // 25 members vote YES to reach quorum (26/50 = 52% participation)
@@ -926,7 +926,7 @@ mod voting_edge_cases_tests {
             "massive_community".to_string(),
             "group_update".to_string(),
             proposal_insufficient,
-            None,
+            None, None,
         ).unwrap();
         
         // Simulate 49 more votes (alice + 49 = 50 total votes = 50% < 51% quorum)
@@ -958,7 +958,7 @@ mod voting_edge_cases_tests {
             "massive_community".to_string(),
             "group_update".to_string(),
             proposal_sufficient,
-            None,
+            None, None,
         ).unwrap();
         
         // Have a few real members vote
@@ -1046,7 +1046,7 @@ mod voting_edge_cases_tests {
             "gas_test_community".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Each vote should be O(1) - gas usage should not scale with member count
@@ -1087,7 +1087,7 @@ mod voting_edge_cases_tests {
             "gas_test_community".to_string(),
             "group_update".to_string(),
             proposal_2,
-            None,
+            None, None,
         ).unwrap();
         
         // Multiple members voting on different proposals simultaneously
@@ -1156,7 +1156,7 @@ mod voting_edge_cases_tests {
             "expiration_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Verify proposal is initially active
@@ -1252,7 +1252,7 @@ mod voting_edge_cases_tests {
             "resubmission_test".to_string(),
             "group_update".to_string(),
             proposal_content.clone(),
-            None,
+            None, None,
         ).unwrap();
         
         // Vote to REJECT the first proposal
@@ -1289,7 +1289,7 @@ mod voting_edge_cases_tests {
             "resubmission_test".to_string(),
             "group_update".to_string(),
             proposal_content.clone(), // IDENTICAL CONTENT
-            None,
+            None, None,
         ).unwrap();
         
         // Verify second proposal was created successfully (different ID)
@@ -1374,7 +1374,7 @@ mod voting_edge_cases_tests {
             "expiration_state_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Get some votes but not enough for execution
@@ -1408,7 +1408,7 @@ mod voting_edge_cases_tests {
                 "expiration_state_test".to_string(),
                 "group_update".to_string(),
                 second_proposal,
-                None,
+                None, None,
             ).unwrap();
             
             // Don't vote on this one - just alice auto-vote (1/5 = 20% < 51% quorum)
@@ -1523,7 +1523,7 @@ mod voting_edge_cases_tests {
             "timing_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
         
         // Verify proposal created successfully
@@ -1620,7 +1620,7 @@ mod voting_edge_cases_tests {
             "membership_timing_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal A exists and is active
@@ -1641,7 +1641,7 @@ mod voting_edge_cases_tests {
             "membership_timing_test".to_string(),
             "group_update".to_string(),
             proposal_c,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal C exists and is active
@@ -1775,7 +1775,7 @@ mod voting_edge_cases_tests {
             "storage_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal data is stored correctly
@@ -1885,7 +1885,7 @@ mod voting_edge_cases_tests {
             "deposit_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal was created successfully
@@ -1905,7 +1905,7 @@ mod voting_edge_cases_tests {
             "deposit_test".to_string(),
             "group_update".to_string(),
             proposal_2,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify second proposal was created
@@ -1972,7 +1972,7 @@ mod voting_edge_cases_tests {
             "gas_limit_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Get 3 votes to reach quorum (alice auto-voted, need 2 more for 3/5 = 60% > 51%)
@@ -2009,7 +2009,7 @@ mod voting_edge_cases_tests {
             "gas_limit_test".to_string(),
             "group_update".to_string(),
             permission_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Get enough votes for execution
@@ -2044,7 +2044,7 @@ mod voting_edge_cases_tests {
             "gas_limit_test".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Get votes for unban
@@ -2110,7 +2110,7 @@ mod voting_edge_cases_tests {
             "cascading_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal A is active with Alice's auto-vote
@@ -2132,7 +2132,7 @@ mod voting_edge_cases_tests {
             "cascading_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify proposal B is active
@@ -2229,7 +2229,7 @@ mod voting_edge_cases_tests {
             "permission_cascade_test".to_string(),
             "group_update".to_string(),
             bob_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Verify Bob's proposal is active
@@ -2248,7 +2248,7 @@ mod voting_edge_cases_tests {
             "permission_cascade_test".to_string(),
             "group_update".to_string(),
             permission_change_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Step 3: Vote to execute permission change (downgrade Bob to READ)
@@ -2340,7 +2340,7 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None,
+            None, None,
         ).unwrap();
 
         // Step 2: Bob votes YES on proposal A
@@ -2366,7 +2366,7 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None,
+            None, None,
         ).unwrap();
 
         // Step 4: Bob votes YES on proposal B as well
@@ -2387,7 +2387,7 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None,
+            None, None,
         ).unwrap();
 
         // Step 6: Vote to execute ban proposal
@@ -2448,7 +2448,7 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             proposal_c,
-            None,
+            None, None,
         ).unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 10000).build());
