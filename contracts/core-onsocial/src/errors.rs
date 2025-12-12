@@ -13,7 +13,6 @@ pub const ERR_INVALID_ACCOUNT_ID: &str = "Invalid account id in path";
 // Group and content errors
 pub const ERR_GROUP_NOT_FOUND: &str = "Group not found";
 pub const ERR_MEMBER_DRIVEN_JOIN_REQUESTS: &str = "Member-driven groups handle join requests through proposals only";
-pub const ERR_JOIN_REQUEST_NOT_FOUND: &str = "Join request not found";
 pub const ERR_GROUP_ID_TOO_SHORT: &str = "Group ID must be 1-64 characters";
 pub const ERR_GROUP_ID_INVALID_CHARS: &str = "Group ID can only contain alphanumeric characters, underscores, and hyphens";
 pub const ERR_CONFIG_NOT_OBJECT: &str = "Config must be a JSON object";

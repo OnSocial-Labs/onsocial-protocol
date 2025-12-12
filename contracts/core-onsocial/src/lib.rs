@@ -402,10 +402,11 @@ impl Contract {
         &mut self,
         group_id: String,
         requester_id: AccountId,
+        permission_flags: u8,
         event_config: Option<EventConfig>,
     ) -> Result<(), SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
-            platform.approve_join_request(group_id, requester_id, caller, event_config)
+            platform.approve_join_request(group_id, requester_id, permission_flags, caller, event_config)
         })
     }
 

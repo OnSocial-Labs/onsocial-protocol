@@ -173,9 +173,9 @@ fn test_private_group_allows_requesting_any_permission() {
     // User should NOT be a member yet (pending approval)
     assert!(!contract.is_group_member("privategroup".to_string(), joiner.clone()));
     
-    // Switch back to owner to approve
+    // Switch back to owner to approve with MODERATE permission
     near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-    let approve_result = contract.approve_join_request("privategroup".to_string(), joiner.clone(), None);
+    let approve_result = contract.approve_join_request("privategroup".to_string(), joiner.clone(), MODERATE, None);
     assert!(approve_result.is_ok(), "Owner should approve request: {:?}", approve_result);
     
     // Now user should be a member with MODERATE permission

@@ -26,8 +26,8 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-near-sdk = "5.20.0"
-near-sdk-macros = "5.20.0"
+near-sdk = "5.22.0"
+near-sdk-macros = "5.22.0"
 borsh = "1.6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

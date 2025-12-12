@@ -160,6 +160,7 @@ impl crate::Contract {
         &mut self,
         group_id: String,
         requester_id: AccountId,
+        permission_flags: u8,
         event_config: Option<EventConfig>,
     ) -> Result<(), SocialError> {
         let caller = near_sdk::env::predecessor_account_id();
@@ -168,7 +169,7 @@ impl crate::Contract {
         let mut attached_balance = near_sdk::env::attached_deposit().as_yoctonear();
         self.allocate_storage_for_operation(&caller, &mut attached_balance)?;
 
-        let result = self.platform.approve_join_request(group_id, requester_id, &caller, event_config);
+        let result = self.platform.approve_join_request(group_id, requester_id, permission_flags, &caller, Some(event_config));
 
         // Refund unused balance
         if attached_balance > 0 {

@@ -16,9 +16,10 @@ use crate::events::{EventBatch, EventBuilder};
 
 /// Permission flags - compact 1-byte representation using bit flags
 /// Note: READ permission removed - everything is readable by default on public blockchains
+/// HIERARCHICAL DESIGN: MANAGE includes MODERATE+WRITE, MODERATE includes WRITE
 pub const WRITE: u8 = 1 << 0;       // 0b00000001 = 1 (Create/edit content)
-pub const MODERATE: u8 = 1 << 1;    // 0b00000010 = 2 (Approve joins, view requests)
-pub const MANAGE: u8 = 1 << 2;      // 0b00000100 = 4 (Remove members, blacklist users)
+pub const MODERATE: u8 = 1 << 1;    // 0b00000010 = 2 (Approve joins, view requests) + WRITE
+pub const MANAGE: u8 = 1 << 2;      // 0b00000100 = 4 (Remove members, blacklist users) + MODERATE + WRITE
 pub const FULL_ACCESS: u8 = 0xFF;   // 0b11111111 = 255 (all permissions)
 
 /// Build permission key using sharded path format
@@ -62,7 +63,7 @@ fn build_permission_key(owner_or_group_id: &str, grantee: &str, path: &str) -> S
 /// Storage format: Sharded permission paths that leverage the 67M slot sharding system
 /// - Group paths: groups/{group_id}/permissions/{grantee}/{subpath} -> {flags}:{expires_at}
 /// - Account paths: {account_id}/permissions/{grantee}/{subpath} -> {flags}:{expires_at}
-/// Example: groups/company/permissions/bob.near/posts -> 3:0 (WRITE + MODERATE)
+/// Example: groups/company/permissions/bob.near/posts -> 2:0 (MODERATE, includes WRITE hierarchically)
 /// This format enables:
 /// 1. Automatic sharding (no special cases)
 /// 2. Ownership transfer without migration
@@ -174,8 +175,39 @@ pub fn revoke_permissions(
     Ok(())
 }
 
+/// Hierarchical permission check - MANAGE includes MODERATE+WRITE, MODERATE includes WRITE
+/// This provides intuitive role-based permissions where higher roles include lower capabilities
+fn has_required_permissions(granted_flags: u8, required_flags: u8) -> bool {
+    // Check each permission hierarchically
+    let has_write = if required_flags & WRITE != 0 {
+        // WRITE is satisfied by WRITE, MODERATE, or MANAGE
+        granted_flags & (WRITE | MODERATE | MANAGE) != 0
+    } else {
+        true // Not requiring WRITE
+    };
+    
+    let has_moderate = if required_flags & MODERATE != 0 {
+        // MODERATE is satisfied by MODERATE or MANAGE (not just WRITE)
+        granted_flags & (MODERATE | MANAGE) != 0
+    } else {
+        true // Not requiring MODERATE
+    };
+    
+    let has_manage = if required_flags & MANAGE != 0 {
+        // MANAGE is only satisfied by MANAGE itself
+        granted_flags & MANAGE != 0
+    } else {
+        true // Not requiring MANAGE
+    };
+    
+    has_write && has_moderate && has_manage
+}
+
 /// Check if user has specific permissions at a path
-/// Returns true if user has ALL required permissions (bitwise AND check)
+/// Returns true if user has required permissions using hierarchical checking:
+/// - MANAGE (4) includes MODERATE + WRITE automatically
+/// - MODERATE (2) includes WRITE automatically
+/// - WRITE (1) is the base permission
 /// OWNERS ALWAYS HAVE FULL PERMISSIONS - no explicit grant needed
 /// PATH HIERARCHY: Checks specific path, then parent paths for broader permissions
 ///
@@ -186,7 +218,7 @@ pub fn revoke_permissions(
 /// - owner: For group paths, this is the group_id; for account paths, the account_id
 /// - grantee: The user whose permissions are being checked
 /// - path: The path to check permissions for
-/// - required_flags: The permission flags needed (bitwise AND)
+/// - required_flags: The permission flags needed (checked hierarchically)
 pub fn has_permissions(
     platform: &SocialPlatform,
     owner: &str,
@@ -241,7 +273,7 @@ pub fn has_permissions(
         
         if let Some(value_str) = platform.storage_get_string(&key) {
             if let Some((flags, expires_at)) = parse_permission_value(&value_str) {
-                if (expires_at == 0 || expires_at > env::block_timestamp()) && (flags & required_flags) == required_flags {
+                if (expires_at == 0 || expires_at > env::block_timestamp()) && has_required_permissions(flags, required_flags) {
                     return true;
                 }
             }
@@ -252,7 +284,7 @@ pub fn has_permissions(
         
         if let Some(value_str) = platform.storage_get_string(&key_with_slash) {
             if let Some((flags, expires_at)) = parse_permission_value(&value_str) {
-                if (expires_at == 0 || expires_at > env::block_timestamp()) && (flags & required_flags) == required_flags {
+                if (expires_at == 0 || expires_at > env::block_timestamp()) && has_required_permissions(flags, required_flags) {
                     return true;
                 }
             }
@@ -407,7 +439,7 @@ fn extract_group_id_from_path(path: &str) -> Option<&str> {
 //
 // UNIFIED WORKFLOW:
 // 1. join_group(requested_permissions) - Single entry point for both group types
-//    - Public groups (is_private: false): Auto-approve with requested permissions
+//    - Public groups (is_private: false): Auto-approve with WRITE permission only (security: prevents self-elevation)
 //    - Private groups (is_private: true): Create join request with requested permissions
 //
 // 2. approve_join_request() - For private groups, uses originally requested permissions
@@ -416,9 +448,9 @@ fn extract_group_id_from_path(path: &str) -> Option<&str> {
 // PERMISSION BUILDING:
 // Both group types use identical permission flags and hierarchical checking:
 // - WRITE (1) - Create/edit content
-// - MODERATE (2) - Approve joins, view requests
-// - MANAGE (4) - Remove members, blacklist users
+// - MODERATE (2) - Approve joins, view requests (includes WRITE)
+// - MANAGE (4) - Remove members, blacklist users (includes MODERATE + WRITE)
 //
-// Example: User requests WRITE + MODERATE permissions
-// - Public group: Immediately granted
-// - Private group: Request created, approver can grant same or different permissions
+// Example: User requests MODERATE permission
+// - Public group: Only WRITE granted (security: prevents self-elevation to moderator)
+// - Private group: Request created with MODERATE, approver can grant it (includes WRITE automatically)

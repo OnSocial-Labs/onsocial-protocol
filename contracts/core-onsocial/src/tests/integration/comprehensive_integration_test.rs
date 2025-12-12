@@ -275,6 +275,7 @@ mod comprehensive_integration_tests {
         let approve_result = contract.approve_join_request(
             "private-group".to_string(),
             requester.clone(),
+            WRITE, // Approve with WRITE permission
             None,
         );
         assert!(approve_result.is_ok(), "Join approval should succeed: {:?}", approve_result.err());

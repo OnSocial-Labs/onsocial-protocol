@@ -236,6 +236,7 @@ impl SocialPlatform {
         &mut self,
         group_id: String,
         requester_id: AccountId,
+        permission_flags: u8,
         caller: &AccountId,
         event_config: Option<EventConfig>,
     ) -> Result<(), SocialError> {
@@ -245,19 +246,8 @@ impl SocialPlatform {
             &event_config,
             crate::errors::ERR_MEMBER_DRIVEN_JOIN_REQUESTS,
             |platform| {
-                // Get the requested permissions from the join request
-                let request_data = crate::groups::core::GroupStorage::get_join_request(
-                    platform, &group_id, &requester_id
-                ).ok_or_else(|| invalid_input!(crate::errors::ERR_JOIN_REQUEST_NOT_FOUND))?;
-
-                let requested_permissions = request_data
-                    .get("requested_permissions")
-                    .and_then(|v| v.as_u64())
-                    .and_then(|f| if f <= 255 { Some(f as u8) } else { None })
-                    .unwrap_or(crate::groups::kv_permissions::WRITE); // Default fallback
-
                 crate::groups::core::GroupStorage::approve_join_request(
-                    platform, &group_id, &requester_id, caller, requested_permissions, &event_config
+                    platform, &group_id, &requester_id, caller, permission_flags, &event_config
                 )
             }
         )

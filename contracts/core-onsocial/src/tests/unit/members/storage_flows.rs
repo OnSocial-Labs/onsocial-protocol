@@ -172,7 +172,7 @@ mod storage_flow_tests {
         let mod_context = get_context_with_deposit(moderator.clone(), 2_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(mod_context.build());
         
-        let approve_result = contract.approve_join_request("privategroup".to_string(), requester.clone(), None);
+        let approve_result = contract.approve_join_request("privategroup".to_string(), requester.clone(), WRITE, None);
         assert!(approve_result.is_ok(), "Approval should succeed: {:?}", approve_result);
 
         // Verify requester is now a member
@@ -373,7 +373,7 @@ mod storage_flow_tests {
         let app_context = get_context_with_deposit(approver.clone(), 2_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(app_context.build());
         
-        let approve_result = contract.approve_join_request("approvalgroup".to_string(), requester.clone(), None);
+        let approve_result = contract.approve_join_request("approvalgroup".to_string(), requester.clone(), WRITE, None);
         assert!(approve_result.is_ok(), "Approval should succeed: {:?}", approve_result);
 
         // Verify requester is now a member

@@ -157,7 +157,7 @@ mod member_security_tests {
         let owner_context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(owner_context.build());
 
-        let approve_result = contract.approve_join_request("test_group".to_string(), bad_user.clone(), None);
+        let approve_result = contract.approve_join_request("test_group".to_string(), bad_user.clone(), WRITE, None);
         assert!(approve_result.is_err(), "Should not be able to approve join request for blacklisted user");
 
         println!("✅ Prevented blacklist bypass via rejoin attempts");

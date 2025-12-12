@@ -310,7 +310,7 @@ mod member_edge_cases {
         assert!(blacklist_result.is_ok(), "Blacklist should succeed");
 
         // Try to approve join request after blacklisting
-        let approve_result = contract.approve_join_request("private_group".to_string(), member.clone(), None);
+        let approve_result = contract.approve_join_request("private_group".to_string(), member.clone(), WRITE, None);
         
         // This should fail - cannot approve join request for blacklisted user
         assert!(approve_result.is_err(), "Should not be able to approve join request for blacklisted user");

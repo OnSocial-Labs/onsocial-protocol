@@ -7,7 +7,6 @@ use crate::state::models::SocialPlatform;
 use crate::{invalid_input, permission_denied, SocialError};
 
 impl crate::groups::core::GroupStorage {
-    /// Add member to group
     /// Add member to group with specific permissions (fully flexible permission-based)
     pub fn add_member(
         platform: &mut SocialPlatform,
@@ -38,7 +37,7 @@ impl crate::groups::core::GroupStorage {
         }
 
         // Check if member already exists (prevents duplicate addition and permission escalation)
-        let member_path = format!("groups/{}/members/{}", group_id, member_id);
+        let member_path = Self::group_member_path(group_id, member_id.as_str());
         if let Some(entry) = platform.get_entry(&member_path) {
             // Only fail if member data exists and is not soft deleted
             if matches!(entry.value, crate::state::models::DataValue::Value(_)) {
@@ -59,17 +58,17 @@ impl crate::groups::core::GroupStorage {
         // Allow self-join for public groups (user pays their own storage, no security risk)
         let is_self_join = member_id == granter_id;
         let is_public = !Self::is_private_group(platform, group_id);
-        let is_not_member = platform.storage_get(&member_path).is_none();
+        let is_new_member = platform.storage_get(&member_path).is_none();
         
         // Security: self-join in public groups can only grant WRITE permission
         // Higher permissions (MODERATE, MANAGE) must be granted by existing members
-        if is_self_join && is_public && is_not_member {
+        if is_self_join && is_public && is_new_member {
             if permission_flags != crate::groups::kv_permissions::WRITE {
                 return Err(invalid_input!("Self-join in public groups is limited to WRITE permission only"));
             }
         }
         
-        let should_bypass = bypass_permissions || (is_self_join && is_public && is_not_member);
+        let should_bypass = bypass_permissions || (is_self_join && is_public && is_new_member);
 
         // Verify granter has permission to grant these permissions (optimization: reuse path)
         if !should_bypass && !Self::can_grant_permissions(platform, group_id, granter_id, permission_flags) {
@@ -122,6 +121,10 @@ impl crate::groups::core::GroupStorage {
     }
 
     /// Check if a user can grant specific permissions to another user (optimized)
+    /// With hierarchical permissions:
+    /// - Owner can grant any permissions
+    /// - MANAGE users can grant WRITE or MODERATE (but not MANAGE - no self-propagation)
+    /// - MODERATE users can grant WRITE only (prevents moderator self-propagation)
     pub fn can_grant_permissions(platform: &SocialPlatform, group_id: &str, granter_id: &AccountId, permission_flags: u8) -> bool {
         // Check if group is member-driven (pure democracy) - early return
         if Self::is_member_driven_group(platform, group_id) {
@@ -138,8 +141,16 @@ impl crate::groups::core::GroupStorage {
         // Optimization: create path once and reuse
         let group_config_path = Self::group_config_path(group_id);
 
-        // MANAGE users can grant WRITE/MODERATE permissions (limited delegation)
-        if permission_flags != crate::groups::kv_permissions::MANAGE {
+        // MANAGE users can grant WRITE or MODERATE permissions (limited delegation)
+        // But CANNOT grant MANAGE permission (no self-propagation)
+        if permission_flags == crate::groups::kv_permissions::MANAGE {
+            // Only owner can grant MANAGE, so if we're here (not owner), deny
+            return false;
+        }
+        
+        // For WRITE or MODERATE, check if granter has MANAGE permission
+        // Note: With hierarchical permissions, granting MODERATE gives MODERATE+WRITE automatically
+        if permission_flags == crate::groups::kv_permissions::WRITE || permission_flags == crate::groups::kv_permissions::MODERATE {
             if let Some(group_owner) = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path) {
                 if crate::groups::kv_permissions::can_manage(platform, &group_owner, granter_id.as_str(), &group_config_path) {
                     return true;
@@ -147,13 +158,18 @@ impl crate::groups::core::GroupStorage {
             }
         }
 
-        // Check if granter has all the permissions they're trying to grant
-        // (can't grant permissions you don't have)
-        if let Some(group_owner) = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path) {
-            crate::groups::kv_permissions::has_permissions(platform, &group_owner, granter_id.as_str(), &group_config_path, permission_flags)
-        } else {
-            false
+        // MODERATE users can ONLY grant WRITE permission (prevents moderator self-propagation)
+        // This ensures only MANAGE users can expand the moderation team
+        if permission_flags == crate::groups::kv_permissions::WRITE {
+            if let Some(group_owner) = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path) {
+                if crate::groups::kv_permissions::can_moderate(platform, &group_owner, granter_id.as_str(), &group_config_path) {
+                    return true;
+                }
+            }
         }
+
+        // All other cases: user cannot grant permissions
+        false
     }
 
     /// Remove member from group
@@ -175,14 +191,14 @@ impl crate::groups::core::GroupStorage {
         event_config: &Option<EventConfig>,
         from_governance: bool,
     ) -> Result<(), SocialError> {
-        let member_path = format!("groups/{}/members/{}", group_id, member_id);
+        let member_path = Self::group_member_path(group_id, member_id.as_str());
 
         if platform.storage_get(&member_path).is_none() {
             return Err(invalid_input!("Member not found"));
         }
 
         // Check permissions: owner can remove anyone, MANAGE_USERS can remove regular members, users can remove themselves
-        let group_config_path = format!("groups/{}/config", group_id);
+        let group_config_path = Self::group_config_path(group_id);
         let can_remove = if from_governance || member_id == remover_id {
             true // Governance-approved removals are always allowed, users can always remove themselves (leave group)
         } else {
@@ -233,13 +249,20 @@ impl crate::groups::core::GroupStorage {
         // Update member count
         Self::decrement_member_count(platform, group_id, event_config)?;
 
-        // Emit event
+        // Emit event with actor info for app reconstruction
         if event_config.as_ref().is_none_or(|c| c.emit) {
+            let is_self_removal = member_id == remover_id;
+            let remove_event_data = Value::Object(serde_json::Map::from_iter([
+                ("removed_by".to_string(), Value::String(remover_id.to_string())),
+                ("removed_at".to_string(), Value::Number(env::block_timestamp().into())),
+                ("is_self_removal".to_string(), Value::Bool(is_self_removal)),
+                ("from_governance".to_string(), Value::Bool(from_governance)),
+            ]));
             let mut event_batch = EventBatch::new();
             EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "remove_member", member_id.clone())
                 .with_target(member_id)
                 .with_path(&format!("groups/{}/members/{}", group_id, member_id))
-                .with_value(Value::Null)
+                .with_value(remove_event_data)
                 .emit(&mut event_batch);
             event_batch.emit(event_config)?;
         }
@@ -310,7 +333,7 @@ impl crate::groups::core::GroupStorage {
             }
 
             // Check permissions: only owner or admin can blacklist (traditional groups only)
-            let group_config_path = format!("groups/{}/config", group_id);
+            let group_config_path = Self::group_config_path(group_id);
             if !Self::is_owner(platform, group_id, adder_id) {
                 // Get the group owner for permission check
                 let group_owner = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
@@ -336,13 +359,19 @@ impl crate::groups::core::GroupStorage {
             Self::remove_member_internal(platform, group_id, target_id, adder_id, event_config, from_governance)?;
         }
 
-        // Emit event
+        // Emit event with actor info for app reconstruction
         if event_config.as_ref().is_none_or(|c| c.emit) {
+            let blacklist_event_data = Value::Object(serde_json::Map::from_iter([
+                ("blacklisted".to_string(), Value::Bool(true)),
+                ("added_by".to_string(), Value::String(adder_id.to_string())),
+                ("added_at".to_string(), Value::Number(env::block_timestamp().into())),
+                ("from_governance".to_string(), Value::Bool(from_governance)),
+            ]));
             let mut event_batch = EventBatch::new();
             EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "add_to_blacklist", target_id.clone())
                 .with_target(target_id)
                 .with_path(&format!("groups/{}/blacklist/{}", group_id, target_id))
-                .with_value(Value::Bool(true))
+                .with_value(blacklist_event_data)
                 .emit(&mut event_batch);
             event_batch.emit(event_config)?;
         }
@@ -379,7 +408,7 @@ impl crate::groups::core::GroupStorage {
         // Skip permission checks if called from governance (democratic approval)
         if !from_governance {
             // Check permissions: only owner or admin can unblacklist (traditional groups only)
-            let group_config_path = format!("groups/{}/config", group_id);
+            let group_config_path = Self::group_config_path(group_id);
             if !Self::is_owner(platform, group_id, remover_id) {
                 // Get the group owner for permission check  
                 let group_owner = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
@@ -404,13 +433,19 @@ impl crate::groups::core::GroupStorage {
         }
         // If entry doesn't exist at all, unbanning is idempotent (no-op)
 
-        // Emit event
+        // Emit event with actor info for app reconstruction
         if event_config.as_ref().is_none_or(|c| c.emit) {
+            let unblacklist_event_data = Value::Object(serde_json::Map::from_iter([
+                ("blacklisted".to_string(), Value::Bool(false)),
+                ("removed_by".to_string(), Value::String(remover_id.to_string())),
+                ("removed_at".to_string(), Value::Number(env::block_timestamp().into())),
+                ("from_governance".to_string(), Value::Bool(from_governance)),
+            ]));
             let mut event_batch = EventBatch::new();
             EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "remove_from_blacklist", target_id.clone())
                 .with_target(target_id)
                 .with_path(&format!("groups/{}/blacklist/{}", group_id, target_id))
-                .with_value(Value::Null)
+                .with_value(unblacklist_event_data)
                 .emit(&mut event_batch);
             event_batch.emit(event_config)?;
         }
@@ -438,8 +473,13 @@ impl crate::groups::core::GroupStorage {
         requested_permissions: u8,
         event_config: &Option<EventConfig>,
     ) -> Result<(), SocialError> {
+        // Validate requested permissions are valid flags
+        if requested_permissions == 0 || requested_permissions > (crate::groups::kv_permissions::WRITE | crate::groups::kv_permissions::MODERATE | crate::groups::kv_permissions::MANAGE) {
+            return Err(invalid_input!("Invalid permission flags requested"));
+        }
+
         // Check if group exists
-        let config_path = format!("groups/{}/config", group_id);
+        let config_path = Self::group_config_path(group_id);
 
         if platform.storage_get(&config_path).is_none() {
             return Err(invalid_input!("Group does not exist"));
@@ -512,7 +552,7 @@ impl crate::groups::core::GroupStorage {
         }
 
         // Verify approver has permission to approve (must have MODERATE permission)
-        let group_config_path = format!("groups/{}/config", group_id);
+        let group_config_path = Self::group_config_path(group_id);
         let group_owner = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
             .ok_or_else(|| invalid_input!("Group owner not found"))?;
         
@@ -595,7 +635,7 @@ impl crate::groups::core::GroupStorage {
         }
 
         // Verify rejector has permission (must have MODERATE permission)
-        let group_config_path = format!("groups/{}/config", group_id);
+        let group_config_path = Self::group_config_path(group_id);
         let group_owner = crate::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
             .ok_or_else(|| invalid_input!("Group owner not found"))?;
             
