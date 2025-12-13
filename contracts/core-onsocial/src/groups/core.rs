@@ -1,10 +1,10 @@
 // --- Group Storage ---
-// KV-based group operations with deterministic sharding
+// KV-based group operations with simple key paths
 
 use near_sdk::{AccountId, serde_json::Value};
 use crate::state::models::SocialPlatform;
 
-/// Group storage operations using KV with sharding
+/// Group storage operations using KV with simple keys
 pub struct GroupStorage;
 
 impl GroupStorage {

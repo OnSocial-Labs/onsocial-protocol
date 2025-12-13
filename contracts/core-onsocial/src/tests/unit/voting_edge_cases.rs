@@ -140,7 +140,7 @@ mod voting_edge_cases_tests {
     #[test]
     fn test_no_early_execution_if_quorum_not_met() {
         // Test that early execution respects participation quorum requirement
-        // Note: Default quorum is 51% for member-driven groups (from SHARDING_ARCHITECTURE.md)
+        // Note: Default quorum is 51% for member-driven groups
         // This test demonstrates that even with 100% approval, insufficient participation blocks execution
         let mut contract = init_live_contract();
         let alice = test_account(0); // Owner

@@ -19,46 +19,23 @@ pub const MIN_STORAGE_BYTES: u64 = 2000;
 /// Balance between expressiveness and gas costs.
 pub const MAX_EVENT_TYPE_LENGTH: usize = 32;
 
-/// Shard key prefix for storage optimization.
-/// Single character to minimize key length while maintaining uniqueness.
-pub const SHARD_KEY_PREFIX: &str = "s";
-
 /// Group key prefix for namespace separation.
 /// Single character for efficient path parsing and storage.
 pub const GROUP_KEY_PREFIX: &str = "g";
 
-// --- Sharding Configuration ---
-/// Number of top-level shards for data distribution.
-///
+// --- Partition Configuration (for indexers) ---
+/// Number of partitions for event routing to off-chain indexers.
+/// 
 /// DESIGN DECISIONS:
-/// - Must be power of 2 (8192 = 2^13) for efficient modulo operations
-/// - Provides 67M total storage slots (8192 × 8192)
-/// - Balances collision resistance with memory efficiency
+/// - Partitions are namespace-based (all user data in same partition)
+/// - 256 partitions = power of 2 for efficient modulo
+/// - Small enough to avoid over-sharding indexer infrastructure
+/// - Large enough to enable horizontal scaling
 ///
-/// PERFORMANCE IMPACT:
-/// - Lower values = more collisions, higher load per shard
-/// - Higher values = more memory for shard lookups, better distribution
-/// - Current value optimized for 1M+ accounts with 100+ paths each
-///
-/// COLLISION ANALYSIS:
-/// - 128-bit hash space divided by 8192 = ~2^107 possibilities per shard
-/// - Effectively eliminates collision risk for foreseeable usage
-pub const NUM_SHARDS: u16 = 8192;
-
-/// Subshards per shard for fine-grained distribution.
-///
-/// DESIGN DECISIONS:
-/// - Same value as NUM_SHARDS for symmetric distribution
-/// - Provides deterministic O(1) lookups via double hashing
-/// - Reduces hot spots while maintaining cache efficiency
-/// - Allows horizontal scaling without rebalancing
-///
-/// LOAD DISTRIBUTION:
-/// - Two-level hashing prevents shard/subshard correlation
-/// - Lower 64 bits of hash → shard selection
-/// - Upper 64 bits of hash → subshard selection
-/// - Independent distributions prevent clustering
-pub const NUM_SUBSHARDS: u32 = 8192;
+/// NOTE: This does NOT affect on-chain storage distribution.
+/// NEAR stores all contract data in a single Merkle-Patricia Trie.
+/// Partitions only affect how indexers route and process events.
+pub const NUM_PARTITIONS: u16 = 4096;
 
 // --- Event System ---
 /// Standard identifier for OnSocial events.

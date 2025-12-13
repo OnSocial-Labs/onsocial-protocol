@@ -8,17 +8,17 @@ use crate::state::models::{DataEntry, SocialPlatform};
 // This matches the social-db pattern where tracking wraps the entire operation
 
 impl SocialPlatform {
-    /// Get entry from unified sharded storage using plan3.md scheme.
+    /// Get entry from storage using simple key format.
     /// Returns None if the entry doesn't exist.
     /// Note: This method returns soft-deleted entries; filtering happens in the get() method.
     pub fn get_entry(&self, full_path: &str) -> Option<DataEntry> {
-        // NOTE: Permission keys now use normal sharded paths (groups/{id}/permissions/* or {account}/permissions/*)
-        // No special case needed - they go through the standard sharding system below
+        // NOTE: Permission keys use normal paths (groups/{id}/permissions/* or {account}/permissions/*)
+        // No special case needed - they go through the standard system below
         
         // Special case for shared storage keys (they don't follow normal path structure)
         if full_path.contains(crate::constants::SHARED_STORAGE_KEY_SUFFIX) {
-            let unified_key = crate::storage::sharding::make_unified_key("accounts", full_path, "");
-            if let Some(serialized) = near_sdk::env::storage_read(unified_key.as_bytes()) {
+            let key = crate::storage::keys::make_key("accounts", full_path, "");
+            if let Some(serialized) = near_sdk::env::storage_read(key.as_bytes()) {
                 if let Ok(entry) = borsh::from_slice::<DataEntry>(&serialized) {
                     return Some(entry);
                 }
@@ -35,11 +35,11 @@ impl SocialPlatform {
             return None; // Invalid path format
         };
 
-        // Generate unified key using plan3.md scheme
-        let unified_key = crate::storage::sharding::make_unified_key(namespace, namespace_id, relative_path);
+        // Generate simple storage key
+        let key = crate::storage::keys::make_key(namespace, namespace_id, relative_path);
         
-        // Direct storage lookup using unified sharding
-        if let Some(serialized) = near_sdk::env::storage_read(unified_key.as_bytes()) {
+        // Direct storage lookup
+        if let Some(serialized) = near_sdk::env::storage_read(key.as_bytes()) {
             if let Ok(entry) = borsh::from_slice::<DataEntry>(&serialized) {
                 // Check if entry is soft deleted - soft deleted entries should be visible
                 // to preserve data integrity
@@ -54,20 +54,19 @@ impl SocialPlatform {
         None
     }
 
-    /// Insert or replace an entry at `full_path` using unified sharding.
-    /// Uses plan3.md scheme for O(1) storage operations with runtime tracking.
+    /// Insert or replace an entry at `full_path` using simple key format.
     /// Follows social-db pattern: track entire operation including serialization overhead.
     /// Returns previous entry if any.
     pub fn insert_entry(&mut self, full_path: &str, entry: DataEntry) -> Result<Option<DataEntry>, crate::errors::SocialError> {
-        // NOTE: Permission keys now use normal sharded paths (groups/{id}/permissions/* or {account}/permissions/*)
-        // No special case needed - they go through the standard sharding system below
+        // NOTE: Permission keys use normal paths (groups/{id}/permissions/* or {account}/permissions/*)
+        // No special case needed - they go through the standard system below
         
         // Special case for shared storage keys (they don't follow normal path structure)
         if full_path.contains(crate::constants::SHARED_STORAGE_KEY_SUFFIX) {
-            let unified_key = crate::storage::sharding::make_unified_key("accounts", full_path, "");
+            let key = crate::storage::keys::make_key("accounts", full_path, "");
             
             // Get existing entry for return value (before tracking starts)
-            let existing_entry = if let Some(serialized) = near_sdk::env::storage_read(unified_key.as_bytes()) {
+            let existing_entry = if let Some(serialized) = near_sdk::env::storage_read(key.as_bytes()) {
                 borsh::from_slice::<DataEntry>(&serialized).ok()
             } else {
                 None
@@ -91,7 +90,7 @@ impl SocialPlatform {
             storage.storage_tracker.start_tracking();
 
             // Perform storage write
-            near_sdk::env::storage_write(unified_key.as_bytes(), &serialized_entry);
+            near_sdk::env::storage_write(key.as_bytes(), &serialized_entry);
 
             // Stop tracking AFTER storage operations
             storage.storage_tracker.stop_tracking();
@@ -150,11 +149,11 @@ impl SocialPlatform {
             return Ok(None); // Invalid path format
         };
 
-        // Generate unified key using plan3.md scheme
-        let unified_key = crate::storage::sharding::make_unified_key(namespace, namespace_id, relative_path);
+        // Generate simple storage key
+        let key = crate::storage::keys::make_key(namespace, namespace_id, relative_path);
 
         // Get existing entry for return value (before tracking starts)
-        let existing_entry = if let Some(serialized) = near_sdk::env::storage_read(unified_key.as_bytes()) {
+        let existing_entry = if let Some(serialized) = near_sdk::env::storage_read(key.as_bytes()) {
             borsh::from_slice::<DataEntry>(&serialized).ok()
         } else {
             None
@@ -183,7 +182,7 @@ impl SocialPlatform {
         storage.storage_tracker.start_tracking();
 
         // Perform storage write
-        near_sdk::env::storage_write(unified_key.as_bytes(), &serialized_entry);
+        near_sdk::env::storage_write(key.as_bytes(), &serialized_entry);
 
         // Stop tracking AFTER storage operations
         storage.storage_tracker.stop_tracking();

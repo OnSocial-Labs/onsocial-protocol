@@ -42,7 +42,7 @@ impl GroupContentManager {
             return Err(crate::invalid_input!("Invalid group path format"));
         }
 
-        // Validate group and get owner - use simple path, platform handles sharding
+        // Validate group and get owner - use simple path
         let config_path = format!("groups/{}/config", group_id);
         let config = platform.storage_get(&config_path)
             .ok_or_else(|| crate::invalid_input!("Group does not exist"))?;

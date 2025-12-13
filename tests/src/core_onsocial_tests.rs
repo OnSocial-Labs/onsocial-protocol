@@ -39,9 +39,7 @@ pub struct BaseEventData {
     pub block_height: u64,
     pub timestamp: u64,
     pub author: String,
-    pub shard_id: Option<u16>,
-    pub subshard_id: Option<u32>,
-    pub path_hash: Option<u128>,
+    pub partition_id: Option<u16>,
     pub extra: Vec<BorshExtra>,
     pub evt_id: String,
     pub log_index: u32,
@@ -81,6 +79,7 @@ fn get_extra_string(event: &Event, key: &str) -> Option<String> {
 }
 
 /// Helper to extract a boolean value from event extra fields
+#[allow(dead_code)]
 fn get_extra_bool(event: &Event, key: &str) -> Option<bool> {
     event.data.as_ref()?.extra.iter()
         .find(|e| e.key == key)
@@ -128,12 +127,14 @@ fn verify_event_path_contains(event: &Event, expected_substring: &str) -> bool {
 }
 
 /// Assert that an event of given op_type exists in logs
+#[allow(dead_code)]
 fn assert_event_emitted(logs: &[String], op_type: &str) {
     let events = find_events_by_op_type(logs, op_type);
     assert!(!events.is_empty(), "Expected '{}' event to be emitted", op_type);
 }
 
 /// Print event details for debugging
+#[allow(dead_code)]
 fn print_event_details(event: &Event, prefix: &str) {
     println!("{}Event details:", prefix);
     println!("{}  - standard: {}", prefix, event.evt_standard);
@@ -157,64 +158,41 @@ fn print_event_details(event: &Event, prefix: &str) {
 }
 
 // =============================================================================
-// Sharding Algorithm (mirrored from contract for verification)
+// Partition Algorithm (mirrored from contract for verification)
 // =============================================================================
 
-const NUM_SHARDS: u16 = 8192;
-const NUM_SUBSHARDS: u32 = 8192;
+const NUM_PARTITIONS: u16 = 4096;
 
 /// Calculate xxh3_128 hash (same as contract)
 fn fast_hash(data: &[u8]) -> u128 {
     xxhash_rust::xxh3::xxh3_128(data)
 }
 
-/// Calculate expected shard and subshard for a path
-/// This mirrors the contract's sharding algorithm exactly
-fn calculate_expected_shard(account_id: &str, relative_path: &str) -> (u16, u32, u128) {
-    let path_hash = fast_hash(relative_path.as_bytes());
-    let namespace_hash = fast_hash(account_id.as_bytes());
-    let combined = namespace_hash ^ path_hash;
-    
-    let shard = (combined % NUM_SHARDS as u128) as u16;
-    let subshard = ((combined >> 64) % NUM_SUBSHARDS as u128) as u32;
-    
-    (shard, subshard, path_hash)
+/// Calculate expected partition for a namespace_id
+/// Partitions are based on namespace only (user or group)
+/// All events for same user/group go to same partition
+fn calculate_expected_partition(namespace_id: &str) -> u16 {
+    let hash = fast_hash(namespace_id.as_bytes());
+    (hash % NUM_PARTITIONS as u128) as u16
 }
 
-/// Calculate expected shard and subshard for a group path
-/// Group paths use group_id as namespace instead of account_id
-/// Format: groups/{group_id}/{relative_path}
-fn calculate_expected_group_shard(group_id: &str, relative_path: &str) -> (u16, u32, u128) {
-    let path_hash = fast_hash(relative_path.as_bytes());
-    let namespace_hash = fast_hash(group_id.as_bytes());
-    let combined = namespace_hash ^ path_hash;
-    
-    let shard = (combined % NUM_SHARDS as u128) as u16;
-    let subshard = ((combined >> 64) % NUM_SUBSHARDS as u128) as u32;
-    
-    (shard, subshard, path_hash)
-}
-
-/// Verify event sharding is present and correct for group events
-fn verify_event_sharding(event: &Event, group_id: &str, relative_path: &str) -> bool {
+/// Verify event partition is present and correct
+fn verify_event_partition(event: &Event, namespace_id: &str) -> bool {
     let data = match &event.data {
         Some(d) => d,
         None => return false,
     };
     
-    // Verify sharding fields are present
-    if data.shard_id.is_none() || data.subshard_id.is_none() || data.path_hash.is_none() {
+    // Verify partition field is present
+    if data.partition_id.is_none() {
         return false;
     }
     
-    // Calculate expected values
-    let (expected_shard, expected_subshard, expected_hash) = 
-        calculate_expected_group_shard(group_id, relative_path);
+    // Calculate expected partition
+    let expected_partition = calculate_expected_partition(namespace_id);
     
-    // Verify values match
-    data.shard_id == Some(expected_shard) &&
-    data.subshard_id == Some(expected_subshard) &&
-    data.path_hash == Some(expected_hash)
+    // Verify value matches
+    data.partition_id == Some(expected_partition)
 }
 
 /// Helper to load the core-onsocial wasm
@@ -1178,7 +1156,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   📣 Events emitted: {}", event_logs.len());
     assert!(!event_logs.is_empty(), "Should emit events for batch operations");
     
-    // Decode first event and verify it has shard/subshard info
+    // Decode first event and verify it has partition info
     if let Some(first_event_log) = event_logs.first() {
         if let Some(event) = decode_event(first_event_log) {
             println!("   📋 Event structure verified:");
@@ -1187,50 +1165,25 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             println!("      - operation: {}", event.op_type);
             if let Some(data) = &event.data {
                 println!("      - author: {}", data.author);
-                println!("      - shard_id: {:?}", data.shard_id);
-                println!("      - subshard_id: {:?}", data.subshard_id);
-                println!("      - path_hash: {:?}", data.path_hash);
+                println!("      - partition_id: {:?}", data.partition_id);
                 println!("      - log_index: {}", data.log_index);
                 
-                // Verify shard/subshard are present (not None)
-                assert!(data.shard_id.is_some(), "Event should have shard_id");
-                assert!(data.subshard_id.is_some(), "Event should have subshard_id");
-                assert!(data.path_hash.is_some(), "Event should have path_hash");
+                // Verify partition is present (not None)
+                assert!(data.partition_id.is_some(), "Event should have partition_id");
                 
                 // Verify author matches alice
                 assert_eq!(data.author, alice.id().to_string(), "Event author should be alice");
                 
-                // Extract the path from the event extras to verify sharding
-                let path = data.extra.iter()
-                    .find(|e| e.key == "path")
-                    .and_then(|e| match &e.value {
-                        BorshValue::String(s) => Some(s.clone()),
-                        _ => None,
-                    });
+                // Verify partition matches expected value (based on account_id/namespace)
+                let expected_partition = calculate_expected_partition(alice.id().as_str());
                 
-                if let Some(full_path) = path {
-                    // Path format is "alice.test.near/profile/name" - extract relative path
-                    let relative_path = full_path.strip_prefix(&format!("{}/", alice.id()))
-                        .unwrap_or(&full_path);
-                    
-                    // Calculate expected shard/subshard using same algorithm as contract
-                    let (expected_shard, expected_subshard, expected_hash) = 
-                        calculate_expected_shard(alice.id().as_str(), relative_path);
-                    
-                    println!("   🔍 Sharding verification:");
-                    println!("      - path: {}", full_path);
-                    println!("      - relative_path: {}", relative_path);
-                    println!("      - expected shard: {}, got: {:?}", expected_shard, data.shard_id);
-                    println!("      - expected subshard: {}, got: {:?}", expected_subshard, data.subshard_id);
-                    println!("      - expected path_hash: {}, got: {:?}", expected_hash, data.path_hash);
-                    
-                    // Verify shard/subshard match expected values
-                    assert_eq!(data.shard_id, Some(expected_shard), "Shard ID should match expected");
-                    assert_eq!(data.subshard_id, Some(expected_subshard), "Subshard ID should match expected");
-                    assert_eq!(data.path_hash, Some(expected_hash), "Path hash should match expected");
-                    
-                    println!("   ✅ Sharding verified: shard={}, subshard={}", expected_shard, expected_subshard);
-                }
+                println!("   🔍 Partition verification:");
+                println!("      - expected partition: {}, got: {:?}", expected_partition, data.partition_id);
+                
+                // Verify partition matches expected value
+                assert_eq!(data.partition_id, Some(expected_partition), "Partition ID should match expected");
+                
+                println!("   ✅ Partition verified: partition_id={}", expected_partition);
             }
         } else {
             panic!("Failed to decode event");
@@ -2019,23 +1972,23 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     assert!(cross_shard_result.is_success(), "Cross-shard write should succeed");
     
-    // Check events for different shards
+    // Check events for different partitions
     let cross_shard_events: Vec<_> = cross_shard_result.logs()
         .iter()
         .filter(|log| log.starts_with("EVENT:"))
         .filter_map(|log| decode_event(log))
         .collect();
     
-    // Extract unique shard IDs
-    let unique_shards: std::collections::HashSet<_> = cross_shard_events
+    // Extract unique partition IDs (with simplified partitioning, all same-user events go to same partition)
+    let unique_partitions: std::collections::HashSet<_> = cross_shard_events
         .iter()
         .filter_map(|e| e.data.as_ref())
-        .filter_map(|d| d.shard_id)
+        .filter_map(|d| d.partition_id)
         .collect();
     
-    println!("   📊 Unique shards used: {:?}", unique_shards);
-    println!("   📣 Events: {} total, {} unique shards", cross_shard_events.len(), unique_shards.len());
-    println!("   ✓ Cross-shard operations completed");
+    println!("   📊 Unique partitions used: {:?}", unique_partitions);
+    println!("   📣 Events: {} total, {} unique partitions", cross_shard_events.len(), unique_partitions.len());
+    println!("   ✓ Cross-partition operations completed");
     
     // ==========================================================================
     // TEST 16: Large value storage
@@ -2155,22 +2108,20 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(value_json.get("owner").is_some(), "Event value should contain owner");
     assert!(value_json.get("is_private").is_some(), "Event value should contain is_private");
     
-    // VERIFY SHARDING - ensure shard/subshard are calculated correctly for group paths
+    // VERIFY PARTITION - ensure partition is calculated correctly for group paths
     let create_data = create_event.data.as_ref().expect("Event should have data");
-    assert!(create_data.shard_id.is_some(), "Event should have shard_id");
-    assert!(create_data.subshard_id.is_some(), "Event should have subshard_id");
-    assert!(create_data.path_hash.is_some(), "Event should have path_hash");
+    assert!(create_data.partition_id.is_some(), "Event should have partition_id");
     
-    // Verify sharding is calculated correctly for group path: groups/test-community/config
-    assert!(verify_event_sharding(create_event, "test-community", "config"),
-        "Event sharding should match expected values for group path");
+    // Verify partition is calculated correctly for group path: groups/test-community/config
+    assert!(verify_event_partition(create_event, "test-community"),
+        "Event partition should match expected value for group");
     
     println!("   ✓ create_group event verified:");
     println!("      - standard: onsocial, version: 1.0.0");
     println!("      - author: {}", alice.id());
     println!("      - path: groups/test-community/config");
     println!("      - value: contains owner, is_private fields");
-    println!("      - shard_id: {:?}, subshard_id: {:?}", create_data.shard_id, create_data.subshard_id);
+    println!("      - partition_id: {:?}", create_data.partition_id);
     
     // Verify group exists - query with just the group_id
     let group_config: Option<serde_json::Value> = contract
@@ -2231,21 +2182,19 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(member_json.get("permission_flags").is_some(), "Member data should have permission_flags");
     assert!(member_json.get("granted_by").is_some(), "Member data should have granted_by");
     
-    // VERIFY SHARDING for add_member event
+    // VERIFY PARTITION for add_member event
     let add_data = add_event.data.as_ref().expect("add_member event should have data");
-    assert!(add_data.shard_id.is_some(), "add_member event should have shard_id");
-    assert!(add_data.subshard_id.is_some(), "add_member event should have subshard_id");
-    assert!(add_data.path_hash.is_some(), "add_member event should have path_hash");
+    assert!(add_data.partition_id.is_some(), "add_member event should have partition_id");
     
-    // Verify sharding for member path: groups/{group_id}/members/{member_id}
-    let member_relative_path = format!("members/{}", bob.id());
-    assert!(verify_event_sharding(add_event, group_id, &member_relative_path),
-        "add_member event sharding should match expected values");
+    // Verify partition for member path: groups/{group_id}/members/{member_id}
+    let _member_relative_path = format!("members/{}", bob.id());
+    assert!(verify_event_partition(add_event, group_id),
+        "add_member event partition should match expected value");
     
     println!("   ✓ add_member event verified:");
     println!("      - author: {}", bob.id());
     println!("      - path: groups/{}/members/{}", group_id, bob.id());
-    println!("      - shard_id: {:?}, subshard_id: {:?}", add_data.shard_id, add_data.subshard_id);
+    println!("      - partition_id: {:?}", add_data.partition_id);
     
     // Verify Bob is a member
     let is_member: bool = contract
@@ -2300,19 +2249,18 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert_eq!(remove_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
         "from_governance should be false for direct leave");
     
-    // VERIFY SHARDING for remove_member event
+    // VERIFY PARTITION for remove_member event
     let remove_data = remove_event.data.as_ref().expect("remove_member event should have data");
-    assert!(remove_data.shard_id.is_some(), "remove_member event should have shard_id");
-    assert!(remove_data.subshard_id.is_some(), "remove_member event should have subshard_id");
-    let remove_member_path = format!("members/{}", bob.id());
-    assert!(verify_event_sharding(remove_event, group_id, &remove_member_path),
-        "remove_member event sharding should match expected values");
+    assert!(remove_data.partition_id.is_some(), "remove_member event should have partition_id");
+    let _remove_member_path = format!("members/{}", bob.id());
+    assert!(verify_event_partition(remove_event, group_id),
+        "remove_member event partition should match expected value");
     
     println!("   ✓ remove_member event verified:");
     println!("      - author: {}", bob.id());
     println!("      - is_self_removal: true");
     println!("      - from_governance: false");
-    println!("      - shard_id: {:?}, subshard_id: {:?}", remove_data.shard_id, remove_data.subshard_id);
+    println!("      - partition_id: {:?}", remove_data.partition_id);
     
     // Verify Bob is no longer a member
     let is_still_member: bool = contract
@@ -2906,13 +2854,12 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert_eq!(bl_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
         "from_governance should be false for direct blacklist");
     
-    // VERIFY SHARDING for add_to_blacklist event
+    // VERIFY PARTITION for add_to_blacklist event
     let bl_data = bl_event.data.as_ref().expect("add_to_blacklist event should have data");
-    assert!(bl_data.shard_id.is_some(), "add_to_blacklist event should have shard_id");
-    assert!(bl_data.subshard_id.is_some(), "add_to_blacklist event should have subshard_id");
-    let blacklist_relative_path = format!("blacklist/{}", carol.id());
-    assert!(verify_event_sharding(bl_event, "private-club", &blacklist_relative_path),
-        "add_to_blacklist event sharding should match expected values");
+    assert!(bl_data.partition_id.is_some(), "add_to_blacklist event should have partition_id");
+    let _blacklist_relative_path = format!("blacklist/{}", carol.id());
+    assert!(verify_event_partition(bl_event, "private-club"),
+        "add_to_blacklist event partition should match expected value");
     
     // Also verify remove_member event was emitted (blacklist removes member)
     let remove_events = find_events_by_op_type(&blacklist_logs, "remove_member");
@@ -2922,7 +2869,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("      - author: {} (target)", carol.id());
     println!("      - added_by: {}", alice.id());
     println!("      - from_governance: false");
-    println!("      - shard_id: {:?}, subshard_id: {:?}", bl_data.shard_id, bl_data.subshard_id);
+    println!("      - partition_id: {:?}", bl_data.partition_id);
     println!("   ✓ remove_member event also emitted (blacklist removes member)");
     println!("   ✓ Carol blacklisted from group");
     
@@ -3051,19 +2998,18 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert_eq!(unbl_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
         "from_governance should be false for direct unblacklist");
     
-    // VERIFY SHARDING for remove_from_blacklist event
+    // VERIFY PARTITION for remove_from_blacklist event
     let unbl_data = unbl_event.data.as_ref().expect("remove_from_blacklist event should have data");
-    assert!(unbl_data.shard_id.is_some(), "remove_from_blacklist event should have shard_id");
-    assert!(unbl_data.subshard_id.is_some(), "remove_from_blacklist event should have subshard_id");
-    let unbl_relative_path = format!("blacklist/{}", carol.id());
-    assert!(verify_event_sharding(unbl_event, "private-club", &unbl_relative_path),
-        "remove_from_blacklist event sharding should match expected values");
+    assert!(unbl_data.partition_id.is_some(), "remove_from_blacklist event should have partition_id");
+    let _unbl_relative_path = format!("blacklist/{}", carol.id());
+    assert!(verify_event_partition(unbl_event, "private-club"),
+        "remove_from_blacklist event partition should match expected value");
     
     println!("   ✓ remove_from_blacklist event verified:");
     println!("      - author: {} (target)", carol.id());
     println!("      - removed_by: {}", alice.id());
     println!("      - from_governance: false");
-    println!("      - shard_id: {:?}, subshard_id: {:?}", unbl_data.shard_id, unbl_data.subshard_id);
+    println!("      - partition_id: {:?}", unbl_data.partition_id);
     println!("   ✓ Carol removed from blacklist");
     
     // Verify Carol is no longer blacklisted
@@ -3280,20 +3226,19 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert_eq!(remove_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
         "from_governance should be false for direct removal");
     
-    // VERIFY SHARDING for remove_member event
+    // VERIFY PARTITION for remove_member event
     let remove_data = remove_event.data.as_ref().expect("remove_member event should have data");
-    assert!(remove_data.shard_id.is_some(), "remove_member event should have shard_id");
-    assert!(remove_data.subshard_id.is_some(), "remove_member event should have subshard_id");
-    let remove_relative_path = format!("members/{}", bob.id());
-    assert!(verify_event_sharding(remove_event, "private-club", &remove_relative_path),
-        "remove_member event sharding should match expected values");
+    assert!(remove_data.partition_id.is_some(), "remove_member event should have partition_id");
+    let _remove_relative_path = format!("members/{}", bob.id());
+    assert!(verify_event_partition(remove_event, "private-club"),
+        "remove_member event partition should match expected value");
     
     println!("   ✓ remove_member event verified (admin removal):");
     println!("      - author: {} (removed member)", bob.id());
     println!("      - removed_by: {}", alice.id());
     println!("      - is_self_removal: false");
     println!("      - from_governance: false");
-    println!("      - shard_id: {:?}, subshard_id: {:?}", remove_data.shard_id, remove_data.subshard_id);
+    println!("      - partition_id: {:?}", remove_data.partition_id);
     println!("   ✓ Bob removed from group");
     
     // Verify Bob is no longer a member
@@ -12525,3 +12470,166 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
     Ok(())
 }
 
+// =============================================================================
+// VIEW STATE TESTS - Testing RPC prefix queries
+// =============================================================================
+
+#[tokio::test]
+async fn test_view_state_prefix_query() -> anyhow::Result<()> {
+    println!("\n=== Test: View State Prefix Query ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    
+    // Alice creates multiple posts
+    println!("\n1. Alice creates 3 posts...");
+    for i in 1..=3 {
+        let set_result = alice
+            .call(contract.id(), "set")
+            .args_json(json!({
+                "data": {
+                    format!("posts/{}", i): format!("Alice's post {}", i)
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?;
+        assert!(set_result.is_success(), "Set post {} should succeed", i);
+    }
+    
+    // Alice also sets profile data
+    println!("2. Alice sets profile data...");
+    let set_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "data": {
+                "profile/name": "Alice",
+                "profile/bio": "Hello world"
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(set_result.is_success(), "Set profile should succeed");
+    
+    // Bob creates posts too
+    println!("3. Bob creates 2 posts...");
+    for i in 1..=2 {
+        let set_result = bob
+            .call(contract.id(), "set")
+            .args_json(json!({
+                "data": {
+                    format!("posts/{}", i): format!("Bob's post {}", i)
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?;
+        assert!(set_result.is_success(), "Bob's set post {} should succeed", i);
+    }
+    
+    // Query all contract state
+    println!("\n4. Fetching all contract state via view_state...");
+    let state = contract.view_state().await?;
+    println!("   Total keys in contract state: {}", state.len());
+    
+    // Filter for Alice's posts (simulating prefix query)
+    let alice_id = alice.id().to_string();
+    let alice_posts_prefix = format!("{}/posts", alice_id);
+    
+    let alice_posts: Vec<_> = state
+        .iter()
+        .filter_map(|(key_bytes, value_bytes)| {
+            let key = String::from_utf8(key_bytes.clone()).ok()?;
+            if key.starts_with(&alice_posts_prefix) {
+                let value = String::from_utf8(value_bytes.clone()).ok()?;
+                Some((key, value))
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    println!("\n5. Alice's posts (filtered by prefix '{}'):", alice_posts_prefix);
+    for (key, value) in &alice_posts {
+        println!("   {} = {}", key, value);
+    }
+    
+    assert_eq!(alice_posts.len(), 3, "Alice should have 3 posts");
+    
+    // Filter for Alice's profile
+    let alice_profile_prefix = format!("{}/profile", alice_id);
+    let alice_profile: Vec<_> = state
+        .iter()
+        .filter_map(|(key_bytes, value_bytes)| {
+            let key = String::from_utf8(key_bytes.clone()).ok()?;
+            if key.starts_with(&alice_profile_prefix) {
+                let value = String::from_utf8(value_bytes.clone()).ok()?;
+                Some((key, value))
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    println!("\n6. Alice's profile (filtered by prefix '{}'):", alice_profile_prefix);
+    for (key, value) in &alice_profile {
+        println!("   {} = {}", key, value);
+    }
+    
+    assert_eq!(alice_profile.len(), 2, "Alice should have 2 profile fields");
+    
+    // Filter for Bob's posts
+    let bob_id = bob.id().to_string();
+    let bob_posts_prefix = format!("{}/posts", bob_id);
+    
+    let bob_posts: Vec<_> = state
+        .iter()
+        .filter_map(|(key_bytes, value_bytes)| {
+            let key = String::from_utf8(key_bytes.clone()).ok()?;
+            if key.starts_with(&bob_posts_prefix) {
+                let value = String::from_utf8(value_bytes.clone()).ok()?;
+                Some((key, value))
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    println!("\n7. Bob's posts (filtered by prefix '{}'):", bob_posts_prefix);
+    for (key, value) in &bob_posts {
+        println!("   {} = {}", key, value);
+    }
+    
+    assert_eq!(bob_posts.len(), 2, "Bob should have 2 posts");
+    
+    // Demonstrate pagination (client-side)
+    println!("\n8. Pagination demo (page_size=2):");
+    let page_size = 2;
+    let page_0: Vec<_> = alice_posts.iter().skip(0).take(page_size).collect();
+    let page_1: Vec<_> = alice_posts.iter().skip(page_size).take(page_size).collect();
+    
+    println!("   Page 0: {} items", page_0.len());
+    for (key, _) in &page_0 {
+        println!("     - {}", key);
+    }
+    println!("   Page 1: {} items", page_1.len());
+    for (key, _) in &page_1 {
+        println!("     - {}", key);
+    }
+    
+    println!("\n✅ View state prefix query test passed!");
+    println!("   • view_state() returns all contract state");
+    println!("   • Client-side filtering by prefix works");
+    println!("   • Client-side pagination works");
+    println!("   • Keys follow format: account_id/path");
+    
+    Ok(())
+}

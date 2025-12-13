@@ -6,9 +6,6 @@ use near_sdk::BorshStorageKey;
 /// Keys used to differentiate serialized collections in contract storage.
 #[derive(BorshSerialize, BorshDeserialize, BorshStorageKey)]
 pub enum StorageKey {
-    /// Key for global shard lookup mapping (top-level)
-    ShardLookup,
-
     /// Key for shared storage pools.
     SharedStoragePools,
 

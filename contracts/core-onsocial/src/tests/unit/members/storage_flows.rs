@@ -504,9 +504,10 @@ mod storage_flow_tests {
 
         let blacklist_cost = mod_balance_after.used_bytes;
         println!("✅ Moderator paid {} bytes for blacklist record", blacklist_cost);
-        println!("   Expected: ~100-200 bytes (blacklist flag)");
+        println!("   Expected: ~20-100 bytes (simplified storage keys)");
         
-        assert!(blacklist_cost >= 50 && blacklist_cost <= 300,
+        // With simplified storage keys, blacklist records are more efficient
+        assert!(blacklist_cost >= 20 && blacklist_cost <= 150,
                "Blacklist storage should be reasonable: {} bytes", blacklist_cost);
         
         println!("✅ Moderator pays for blacklist storage");

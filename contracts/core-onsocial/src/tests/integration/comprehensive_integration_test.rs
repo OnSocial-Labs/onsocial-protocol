@@ -3,7 +3,7 @@
 //
 // This test suite covers:
 // 1. Cross-account data operations with permissions
-// 2. Sharding integration with real operations
+// 2. Storage integration with real operations
 // 3. Complete group workflows
 // 4. Storage tracking across complex operations
 // 5. Event emission verification
@@ -121,18 +121,18 @@ mod comprehensive_integration_tests {
     }
 
     // ============================================================================
-    // 2. SHARDING INTEGRATION WITH REAL OPERATIONS
+    // 2. STORAGE INTEGRATION WITH REAL OPERATIONS
     // ============================================================================
 
     #[test]
-    fn test_sharded_storage_end_to_end() {
+    fn test_storage_end_to_end() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
 
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        // Write data that will be distributed across shards
+        // Write data across different paths
         let result = contract.set(json!({
             "profile/name": "Alice",
             "profile/bio": "Developer",
@@ -144,9 +144,9 @@ mod comprehensive_integration_tests {
             "settings/privacy": "public"
         }), None);
 
-        assert!(result.is_ok(), "Sharded writes should succeed");
+        assert!(result.is_ok(), "Writes should succeed");
 
-        // Retrieve data from different shards
+        // Retrieve data from different paths
         let keys = vec![
             format!("{}/profile/name", alice),
             format!("{}/posts/1", alice),
@@ -158,17 +158,17 @@ mod comprehensive_integration_tests {
         assert_eq!(retrieved.len(), 4, "All data should be retrievable");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
 
-        println!("✓ Sharded storage end-to-end test passed");
+        println!("✓ Storage end-to-end test passed");
     }
 
     #[test]
-    fn test_concurrent_writes_to_different_shards() {
+    fn test_concurrent_writes_to_different_namespaces() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
         let charlie = test_account(3);
 
-        // Simulate concurrent writes from different users (different shards)
+        // Simulate concurrent writes from different users (different namespaces)
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract.set(json!({"posts/1": "Alice's post"}), None).unwrap();
@@ -190,7 +190,7 @@ mod comprehensive_integration_tests {
         assert!(!bob_data.is_empty(), "Bob's data should exist");
         assert!(!charlie_data.is_empty(), "Charlie's data should exist");
 
-        println!("✓ Concurrent writes to different shards test passed");
+        println!("✓ Concurrent writes to different namespaces test passed");
     }
 
     // ============================================================================

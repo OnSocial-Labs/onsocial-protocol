@@ -1,5 +1,5 @@
 // --- Event Emission Tests ---
-// Tests to validate event format, sharding metadata, and emission behavior
+// Tests to validate event format, partition metadata, and emission behavior
 
 #[cfg(test)]
 mod event_emission_tests {
@@ -85,7 +85,7 @@ mod event_emission_tests {
     }
 
     #[test]
-    fn test_event_contains_sharding_metadata() {
+    fn test_event_contains_partition_metadata() {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
@@ -94,31 +94,29 @@ mod event_emission_tests {
         let _ = get_logs();
         
         let config = json!({ "is_private": false });
-        contract.create_group("shard_meta_test".to_string(), config).unwrap();
+        contract.create_group("partition_meta_test".to_string(), config).unwrap();
 
         let logs = get_logs();
 
-        let mut found_sharding_metadata = false;
+        let mut found_partition_metadata = false;
         
         for log in logs {
             if let Some(event) = decode_event(&log) {
                 if let Some(ref data) = event.data {
-                    if data.shard_id.is_some() && data.subshard_id.is_some() {
-                        found_sharding_metadata = true;
-                        let shard = data.shard_id.unwrap();
-                        let subshard = data.subshard_id.unwrap();
+                    if data.partition_id.is_some() {
+                        found_partition_metadata = true;
+                        let partition = data.partition_id.unwrap();
                         
-                        assert!(shard < NUM_SHARDS, "Shard ID should be < {}", NUM_SHARDS);
-                        assert!(subshard < NUM_SUBSHARDS, "Subshard ID should be < {}", NUM_SUBSHARDS);
+                        assert!(partition < NUM_PARTITIONS as u16, "Partition ID should be < {}", NUM_PARTITIONS);
                         
-                        println!("✓ Sharding metadata: shard={}, subshard={}", shard, subshard);
+                        println!("✓ Partition metadata: partition_id={}", partition);
                     }
                 }
             }
         }
 
-        assert!(found_sharding_metadata, "At least one event should have sharding metadata");
-        println!("✅ Sharding metadata test passed");
+        assert!(found_partition_metadata, "At least one event should have partition metadata");
+        println!("✅ Partition metadata test passed");
     }
 
     #[test]

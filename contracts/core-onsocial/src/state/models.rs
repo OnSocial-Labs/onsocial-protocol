@@ -104,8 +104,6 @@ pub struct SocialPlatform {
     pub status: ContractStatus,
     pub manager: AccountId,
     pub config: GovernanceConfig,
-    /// Top-level shard lookup. Maps shard id -> shard prefix bytes (opaque).
-    pub shard_lookup: LookupMap<u16, Vec<u8>>,
     pub shared_storage_pools: LookupMap<AccountId, SharedStoragePool>,
     /// Consolidated user storage data: balance, usage, and shared allocations
     pub user_storage: LookupMap<AccountId, crate::storage::Storage>,

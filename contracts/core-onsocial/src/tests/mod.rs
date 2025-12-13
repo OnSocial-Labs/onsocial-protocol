@@ -15,7 +15,6 @@ pub mod unit {
     pub mod group_test;
     pub mod members;  // Comprehensive modular member tests
     pub mod set_permission_signer_test;  // Security test: set_permission uses signer not predecessor
-    pub mod sharding_storage_integration_test;  // Explicit sharding + storage tracking integration tests
     pub mod storage_tracking_test;  // Storage tracking correctness tests (validates storage.rs fixes)
     pub mod voting;   // Voting mechanics tests (core)
     pub mod voting_config_test;     // Per-group voting configuration tests
@@ -40,6 +39,5 @@ pub mod security {
 
 // --- Performance Tests ---
 pub mod performance {
-    pub mod comprehensive_sharding_audit;
-    pub mod sharding_audit;
+    pub mod partition_audit;  // Tests partition distribution (namespace-based)
 }

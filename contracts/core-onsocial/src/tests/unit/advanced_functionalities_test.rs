@@ -1150,9 +1150,9 @@ mod test_advanced_functionalities {
     }
 
     #[test]
-    fn test_sharding_integration_end_to_end() {
+    fn test_storage_integration_end_to_end() {
         println!("=========================================");
-        println!("SHARDING INTEGRATION END-TO-END TEST");
+        println!("STORAGE INTEGRATION END-TO-END TEST");
         println!("=========================================");
 
         let alice = test_account(0);
@@ -1162,10 +1162,10 @@ mod test_advanced_functionalities {
         near_sdk::testing_env!(context.build());
         let mut contract = init_live_contract();
 
-        // Create diverse data across multiple accounts to test sharding distribution
+        // Create diverse data across multiple accounts to test storage distribution
         let alice_data = json!({
             "profile/name": "Alice",
-            "profile/bio": "Test user for sharding verification",
+            "profile/bio": "Test user for storage verification",
             "posts/1": {"text": "Alice's first post", "timestamp": 1730000000},
             "posts/2": {"text": "Alice's second post", "timestamp": 1730001000},
             "settings/theme": "dark"
@@ -1180,7 +1180,7 @@ mod test_advanced_functionalities {
 
         let bob_data = json!({
             "profile/name": "Bob",
-            "profile/bio": "Another test user for sharding",
+            "profile/bio": "Another test user",
             "posts/1": {"text": "Bob's post", "timestamp": 1730002000},
             "projects/project1": {"name": "Bob's Project", "status": "active"}
         });
@@ -1239,28 +1239,23 @@ mod test_advanced_functionalities {
         assert!(!charlie_retrieved.is_empty(), "Charlie's data should be retrievable");
         assert_eq!(charlie_retrieved.len(), 2, "Should retrieve all 2 Charlie keys");
 
-        // Verify sharding distribution by checking that different accounts are in different shards
-        // We can't directly inspect the storage keys in the test environment, but we can verify
-        // that the sharding logic produces different shard assignments for different accounts
+        // Verify partition distribution by checking that different accounts get partitions
+        use crate::storage::keys::{fast_hash, get_partition, make_key};
+        use crate::constants::NUM_PARTITIONS;
 
-        use crate::storage::sharding::{fast_hash, get_shard_subshard};
+        let alice_partition = get_partition(alice.as_str());
+        let bob_partition = get_partition(bob.as_str());
+        let charlie_partition = get_partition(charlie.as_str());
 
-        let alice_path_hash = fast_hash("profile/name".as_bytes());
-        let bob_path_hash = fast_hash("profile/name".as_bytes());
-        let charlie_path_hash = fast_hash("profile/name".as_bytes());
+        println!("Partition distribution:");
+        println!("  Alice ({}): partition {}", alice.as_str(), alice_partition);
+        println!("  Bob ({}): partition {}", bob.as_str(), bob_partition);
+        println!("  Charlie ({}): partition {}", charlie.as_str(), charlie_partition);
 
-        let (alice_shard, alice_subshard) = get_shard_subshard(alice.as_str(), alice_path_hash);
-        let (bob_shard, bob_subshard) = get_shard_subshard(bob.as_str(), bob_path_hash);
-        let (charlie_shard, charlie_subshard) = get_shard_subshard(charlie.as_str(), charlie_path_hash);
-
-        println!("Sharding distribution:");
-        println!("  Alice ({}): shard {}, subshard {}", alice.as_str(), alice_shard, alice_subshard);
-        println!("  Bob ({}): shard {}, subshard {}", bob.as_str(), bob_shard, bob_subshard);
-        println!("  Charlie ({}): shard {}, subshard {}", charlie.as_str(), charlie_shard, charlie_subshard);
-
-        // Verify that different accounts get different shard assignments (very likely with good hash distribution)
-        let unique_shards: std::collections::HashSet<u16> = [alice_shard, bob_shard, charlie_shard].into_iter().collect();
-        assert!(unique_shards.len() >= 2, "Different accounts should be distributed across shards");
+        // Verify that partitions are within valid range
+        assert!(alice_partition < NUM_PARTITIONS, "Partition should be within range");
+        assert!(bob_partition < NUM_PARTITIONS, "Partition should be within range");
+        assert!(charlie_partition < NUM_PARTITIONS, "Partition should be within range");
 
         // Test cross-account data transparency - Alice CAN read Bob's public data (blockchain transparency)
         let alice_context = get_context(alice.clone());
@@ -1275,62 +1270,38 @@ mod test_advanced_functionalities {
         let bob_data = &alice_reading_bob_data[&format!("{}/profile/name", bob.as_str())];
         assert_eq!(bob_data.as_str().unwrap(), "Bob", "Should read Bob's name correctly");
 
-        // Test that the unified key generation is deterministic
-        let alice_key1 = crate::storage::sharding::make_unified_key("accounts", alice.as_str(), "profile/name");
-        let alice_key2 = crate::storage::sharding::make_unified_key("accounts", alice.as_str(), "profile/name");
-        assert_eq!(alice_key1, alice_key2, "Unified key generation should be deterministic");
+        // Test that the key generation is deterministic
+        let alice_key1 = make_key("accounts", alice.as_str(), "profile/name");
+        let alice_key2 = make_key("accounts", alice.as_str(), "profile/name");
+        assert_eq!(alice_key1, alice_key2, "Key generation should be deterministic");
 
         // Test that different paths for same account get different keys
-        let alice_profile_key = crate::storage::sharding::make_unified_key("accounts", alice.as_str(), "profile/name");
-        let alice_post_key = crate::storage::sharding::make_unified_key("accounts", alice.as_str(), "posts/1");
+        let alice_profile_key = make_key("accounts", alice.as_str(), "profile/name");
+        let alice_post_key = make_key("accounts", alice.as_str(), "posts/1");
         assert_ne!(alice_profile_key, alice_post_key, "Different paths should generate different keys");
 
         // Test that same path for different accounts get different keys
-        let alice_profile_key = crate::storage::sharding::make_unified_key("accounts", alice.as_str(), "profile/name");
-        let bob_profile_key = crate::storage::sharding::make_unified_key("accounts", bob.as_str(), "profile/name");
+        let alice_profile_key = make_key("accounts", alice.as_str(), "profile/name");
+        let bob_profile_key = make_key("accounts", bob.as_str(), "profile/name");
         assert_ne!(alice_profile_key, bob_profile_key, "Same path for different accounts should generate different keys");
 
-        // Test that the new directory structure format is correct
-        let test_key = crate::storage::sharding::make_unified_key("accounts", "test.near", "profile/name");
-        assert!(test_key.starts_with("shards/"), "Key should start with 'shards/'");
-        assert!(test_key.contains("/accounts/test.near/subshards/"), "Key should contain accounts namespace");
+        // Test that the new simple key format is correct
+        let test_key = make_key("accounts", "test.near", "profile/name");
+        assert_eq!(test_key, "test.near/profile/name", "Key should be simple path format");
+        assert!(!test_key.contains("shards/"), "Key should NOT contain old shards prefix");
         
-        // Validate the hex directory levels exist in the format
-        let parts: Vec<&str> = test_key.split('/').collect();
-        assert!(parts.len() >= 8, "Key should have enough parts for hex levels: {}", test_key);
-        
-        // Check that we have two hex levels between subshards and custom
-        let subshard_index = parts.iter().position(|&x| x == "subshards").expect("Should have subshards");
-        let custom_index = parts.iter().position(|&x| x == "custom").expect("Should have custom");
-        assert_eq!(custom_index - subshard_index, 4, "Should have 2 hex levels between subshards and custom: {}", test_key);
-        
-        // Validate hex levels are valid 2-digit hex
-        let hex1 = parts[subshard_index + 2];
-        let hex2 = parts[subshard_index + 3];
-        assert_eq!(hex1.len(), 2, "First hex level should be 2 characters: {}", test_key);
-        assert_eq!(hex2.len(), 2, "Second hex level should be 2 characters: {}", test_key);
-        assert!(u8::from_str_radix(hex1, 16).is_ok(), "First hex level should be valid hex: {}", hex1);
-        assert!(u8::from_str_radix(hex2, 16).is_ok(), "Second hex level should be valid hex: {}", hex2);
-        
-        println!("✅ New directory structure format validated: {}", test_key);
+        println!("✅ Simple key format validated: {}", test_key);
         
         // Test group namespace format as well
-        let group_key = crate::storage::sharding::make_unified_key("groups", "testgroup", "members/alice");
-        assert!(group_key.starts_with("shards/"), "Group key should start with 'shards/'");
-        assert!(group_key.contains("/groups/testgroup/subshards/"), "Group key should contain groups namespace");
-        assert!(group_key.contains("/custom/"), "Group key should contain custom directory");
+        let group_key = make_key("groups", "testgroup", "members/alice");
+        assert_eq!(group_key, "groups/testgroup/members/alice", "Group key should be simple path format");
+        assert!(!group_key.contains("shards/"), "Group key should NOT contain old shards prefix");
         
-        // Validate group key has hex levels too
-        let group_parts: Vec<&str> = group_key.split('/').collect();
-        let group_subshard_index = group_parts.iter().position(|&x| x == "subshards").expect("Group should have subshards");
-        let group_custom_index = group_parts.iter().position(|&x| x == "custom").expect("Group should have custom");
-        assert_eq!(group_custom_index - group_subshard_index, 4, "Group should have 2 hex levels: {}", group_key);
-        
-        println!("✅ Group directory structure format validated: {}", group_key);
-        println!("✅ Sharding integration end-to-end test passed");
-        println!("✅ Data correctly stored and retrievable through sharded keys");
+        println!("✅ Group key format validated: {}", group_key);
+        println!("✅ Simple key generation end-to-end test passed");
+        println!("✅ Data correctly stored and retrievable through simple keys");
         println!("✅ Cross-account data isolation maintained");
         println!("✅ Deterministic key generation verified");
-        println!("✅ Sharding distribution working correctly");
+        println!("✅ Partition distribution working correctly for indexers");
     }
 }

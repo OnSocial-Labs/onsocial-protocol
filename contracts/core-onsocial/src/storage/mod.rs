@@ -1,9 +1,9 @@
 // --- Modules ---
 pub mod atomic;
 pub mod key;
+pub mod keys;
 pub mod models;
 pub mod operations;
-pub mod sharding;
 pub mod tracker;
 pub mod utils;
 
@@ -11,7 +11,6 @@ pub mod utils;
 pub use key::StorageKey;
 pub use models::Storage;
 // StorageOperation enum retained internally for parsing but no longer re-exported; unified `set` API handles all mutations.
-pub use sharding::fast_hash;
 
 // --- Utility function re-exports ---
 pub use utils::{

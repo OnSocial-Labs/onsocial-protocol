@@ -45,14 +45,12 @@ impl SocialPlatform {
             status: ContractStatus::Genesis, // Start in Genesis mode for production safety
             manager,
             config: config.clone(),
-            // shard_lookup stores per-shard prefixes or metadata bytes. Stored under ShardLookup key.
-            shard_lookup: LookupMap::new(StorageKey::ShardLookup.as_vec()),
             shared_storage_pools: LookupMap::new(StorageKey::SharedStoragePools.as_vec()),
             user_storage: LookupMap::new(StorageKey::UserStorage.as_vec()),
         }
     }
 
-    /// Unified sharded storage get operation - O(1) lookup using plan3.md scheme
+    /// Simple storage get operation - O(1) lookup
     pub fn storage_get(&self, key: &str) -> Option<Value> {
         // Use the updated get_entry method which handles both KV and IterableMap storage
         if let Some(entry) = self.get_entry(key) {
@@ -66,7 +64,7 @@ impl SocialPlatform {
         }
     }
 
-    /// Unified sharded storage set operation - O(1) write using plan3.md scheme
+    /// Simple storage set operation - O(1) write
     pub fn storage_set(&mut self, key: &str, value: &Value) -> Result<(), SocialError> {
         let serialized = serde_json::to_vec(value)
             .map_err(|_| invalid_input!("Serialization failed"))?;

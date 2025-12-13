@@ -57,9 +57,9 @@ pub struct BaseEventData {
     pub block_height: u64,
     pub timestamp: u64,
     pub author: String,
-    pub shard_id: Option<u16>,
-    pub subshard_id: Option<u32>,
-    pub path_hash: Option<u128>, // Add path_hash for sharding support
+    /// Partition ID for off-chain indexer routing (namespace-based)
+    /// All data from same user/group goes to same partition for cache locality
+    pub partition_id: Option<u16>,
     pub extra: Vec<BorshExtra>, // Direct Borsh extras - no string conversion
     // Substreams-compatible fields
     pub evt_id: String,

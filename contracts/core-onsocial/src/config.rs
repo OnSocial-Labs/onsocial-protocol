@@ -39,8 +39,6 @@ pub struct GovernanceConfig {
     pub min_promise_gas_tgas: u64,
 }
 
-// --- Sharding Configuration ---
-
 // --- Default Implementation ---
 impl Default for GovernanceConfig {
     fn default() -> Self {
