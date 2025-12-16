@@ -37,6 +37,11 @@ pub struct GovernanceConfig {
     /// Ensures called contracts have sufficient gas to execute.
     /// Default: 10 TGas - reasonable minimum for most operations.
     pub min_promise_gas_tgas: u64,
+
+    /// Default storage allocation per user in bytes (for platform sponsorship).
+    /// When platform pool has funds, new users get sponsored up to this limit.
+    /// Default: 100KB (102400 bytes) - enough for profile + moderate activity.
+    pub default_user_storage_bytes: u64,
 }
 
 // --- Default Implementation ---
@@ -48,6 +53,7 @@ impl Default for GovernanceConfig {
             max_path_depth: 12,     // Allows hierarchies, prevents recursion
             max_batch_size: 100,    // Allows bulk ops, prevents spam
             min_promise_gas_tgas: 10, // Reasonable minimum for cross-contract calls
+            default_user_storage_bytes: 102_400, // 100KB per user
         }
     }
 }
@@ -74,6 +80,12 @@ impl GovernanceConfig {
         if self.min_promise_gas_tgas < 10 {
             return Err("Minimum promise gas cannot be less than 10 TGas");
         }
+
+        // Storage allocation can only increase (protects existing users)
+        if self.default_user_storage_bytes < current.default_user_storage_bytes {
+            return Err("Default user storage can only be increased");
+        }
+
         Ok(())
     }
 }

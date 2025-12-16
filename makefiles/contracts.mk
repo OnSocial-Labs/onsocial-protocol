@@ -54,7 +54,7 @@ test-unit-contract-%: build-docker-contracts ensure-scripts-executable
 	@$(call log_success,Unit tests for contract $* completed)
 
 .PHONY: test-integration-contract-%
-test-integration-contract-%: build-docker-contracts ensure-scripts-executable
+test-integration-contract-%: build-docker-contracts ensure-scripts-executable start-sandbox
 	$(call log_start,Running Integration Tests for Contract $*)
 	$(call log_progress,Executing integration test suite)
 	@$(call docker_run_contracts_network,./scripts/test.sh integration $* $(TEST)) || exit 0
@@ -72,7 +72,7 @@ test-unit-contract-%-test: build-docker-contracts ensure-scripts-executable
 	@$(call log_success,Unit test for contract $* completed)
 
 .PHONY: test-integration-contract-%-test
-test-integration-contract-%-test: build-docker-contracts ensure-scripts-executable
+test-integration-contract-%-test: build-docker-contracts ensure-scripts-executable start-sandbox
 	@if [ -z "$(TEST)" ]; then \
 		$(call log_error,TEST variable required. Usage: make test-integration-contract-CONTRACTNAME-test TEST=test_name); \
 		exit 1; \

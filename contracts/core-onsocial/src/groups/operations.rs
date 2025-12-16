@@ -96,13 +96,15 @@ impl crate::groups::core::GroupStorage {
         is_private: bool,
         event_config: &Option<EventConfig>,
     ) -> Result<(), SocialError> {
+        // Get config path using helper for consistency
+        let config_path = Self::group_config_path(group_id);
+
         // Verify caller is the owner
         if !Self::is_owner(platform, group_id, owner_id) {
-            return Err(permission_denied!("set_group_privacy", &format!("groups/{}/config", group_id)));
+            return Err(permission_denied!("set_group_privacy", &config_path));
         }
 
         // Get current group config
-        let config_path = format!("groups/{}/config", group_id);
         let config_data = match platform.storage_get(&config_path) {
             Some(data) => data,
             None => return Err(invalid_input!("Group not found")),
@@ -146,7 +148,7 @@ impl crate::groups::core::GroupStorage {
         if event_config.as_ref().is_none_or(|c| c.emit) {
             let mut event_batch = EventBatch::new();
             EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "privacy_changed", owner_id.clone())
-                .with_path(&format!("groups/{}/config", group_id))
+                .with_path(&config_path)
                 .with_field("group_id", group_id)
                 .with_field("is_private", is_private)
                 .with_field("changed_at", env::block_timestamp())
@@ -166,7 +168,7 @@ impl crate::groups::core::GroupStorage {
         event_config: &Option<EventConfig>,
     ) -> Result<(), SocialError> {
         // Get the current owner before transfer (like governance does)
-        let config_path = format!("groups/{}/config", group_id);
+        let config_path = Self::group_config_path(group_id);
         let config = platform.storage_get(&config_path)
             .ok_or_else(|| invalid_input!("Group config not found"))?;
         let old_owner = config.get("owner")
@@ -290,10 +292,10 @@ impl crate::groups::core::GroupStorage {
         stat_updates: &Value,
         event_config: &Option<EventConfig>,
     ) -> Result<(), SocialError> {
-        let stats_path = format!("groups/{}/stats", group_id);
+        let stats_path = Self::group_stats_path(group_id);
 
         // Get existing stats or create new ones
-        let existing_stats = platform.storage_get(&stats_path).unwrap_or_else(|| {
+        let mut updated_stats = platform.storage_get(&stats_path).unwrap_or_else(|| {
             json!({
                 "total_members": 0,
                 "total_join_requests": 0,
@@ -303,7 +305,6 @@ impl crate::groups::core::GroupStorage {
         });
 
         // Merge updates
-        let mut updated_stats = existing_stats.clone();
         if let Some(updates_obj) = stat_updates.as_object() {
             if let Some(stats_obj) = updated_stats.as_object_mut() {
                 for (key, value) in updates_obj {
@@ -315,11 +316,12 @@ impl crate::groups::core::GroupStorage {
 
         platform.storage_set(&stats_path, &updated_stats)?;
 
-        // Emit event
+        // Emit event - use predecessor as actor (the account that triggered the stats update)
         if event_config.as_ref().is_none_or(|c| c.emit) {
+            let actor = env::predecessor_account_id();
             let mut event_batch = EventBatch::new();
-            EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "stats_updated", AccountId::try_from(group_id.to_string()).unwrap_or_else(|_| env::predecessor_account_id()))
-                .with_target(&AccountId::try_from(group_id.to_string()).unwrap_or_else(|_| env::predecessor_account_id()))
+            EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "stats_updated", actor.clone())
+                .with_field("group_id", group_id)
                 .with_path(&stats_path)
                 .with_value(updated_stats.clone())
                 .emit(&mut event_batch);

@@ -68,11 +68,11 @@ impl GroupGovernance {
         let sequence_number = Self::get_and_increment_proposal_counter(platform, group_id)?;
 
         // Create proposal ID with sequence number and nonce to prevent collision
-        // Format: {group_id}_{sequence}_{timestamp}_{proposer}_{nonce}
+        // Format: {group_id}_{sequence}_{block_height}_{proposer}_{nonce}
         // Sequence number makes it easy to reference as "Proposal #5"
         let seed = env::random_seed();
         let nonce = u32::from_le_bytes([seed[0], seed[1], seed[2], seed[3]]);
-        let proposal_id = format!("{}_{}_{}_{}_{}", group_id, sequence_number, env::block_timestamp(), proposer, nonce);
+        let proposal_id = format!("{}_{}_{}_{}_{}", group_id, sequence_number, env::block_height(), proposer, nonce);
 
         // Pre-compute storage keys
         let proposal_path = format!("groups/{}/proposals/{}", group_id, proposal_id);

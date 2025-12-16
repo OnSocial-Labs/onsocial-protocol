@@ -24,6 +24,9 @@ mod storage;
 mod utils;
 mod validation;
 
+// --- Re-exports ---
+pub use state::SetOptions;
+
 // --- Permission Types ---
 // (Removed - simplified to inline logic)
 
@@ -34,6 +37,28 @@ mod validation;
 mod tests;
 
 // --- Structs ---
+
+/// Platform pool information for universal storage sponsorship
+#[derive(
+    near_sdk_macros::NearSchema,
+    near_sdk::serde::Serialize,
+    near_sdk::serde::Deserialize,
+    Clone,
+)]
+#[serde(crate = "near_sdk::serde")]
+pub struct PlatformPoolInfo {
+    /// Total NEAR deposited in the pool (yoctoNEAR)
+    pub storage_balance: u128,
+    /// Total storage capacity in bytes
+    pub total_bytes: u64,
+    /// Currently used storage in bytes
+    pub used_bytes: u64,
+    /// Total bytes allocated to specific users (for shared storage allocations)
+    pub shared_bytes: u64,
+    /// Available bytes for new operations
+    pub available_bytes: u64,
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
@@ -117,9 +142,10 @@ impl Contract {
     pub fn set(
         &mut self,
         data: Value,
+        options: Option<crate::SetOptions>,
         event_config: Option<EventConfig>,
     ) -> Result<(), SocialError> {
-        self.platform.set(data, event_config)
+        self.platform.set(data, options, event_config)
     }
 
     #[payable]
@@ -128,9 +154,10 @@ impl Contract {
         &mut self,
         target_account: AccountId,
         data: Value,
+        options: Option<crate::SetOptions>,
         event_config: Option<EventConfig>,
     ) -> Result<(), SocialError> {
-        self.platform.set_for(target_account, data, event_config)
+        self.platform.set_for(target_account, data, options, event_config)
     }
 
     pub fn get(
@@ -147,12 +174,46 @@ impl Contract {
         self.platform.get_account_storage(account_id.as_str())
     }
 
+    /// Get the platform storage pool status (the pool used for universal storage sponsorship)
+    /// Returns None if the pool hasn't been funded yet
+    pub fn get_platform_pool(&self) -> Option<PlatformPoolInfo> {
+        self.platform.shared_storage_pools.get(&self.platform.manager).map(|pool| {
+            let total_capacity_bytes = (pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear()) as u64;
+            PlatformPoolInfo {
+                storage_balance: pool.storage_balance,
+                total_bytes: total_capacity_bytes,
+                used_bytes: pool.used_bytes,
+                shared_bytes: pool.shared_bytes,
+                available_bytes: total_capacity_bytes.saturating_sub(pool.used_bytes),
+            }
+        })
+    }
+
     pub fn get_contract_status(&self) -> ContractStatus {
         self.platform.status
     }
 
     pub fn get_config(&self) -> GovernanceConfig {
         self.platform.config.clone()
+    }
+
+    /// Update governance configuration (manager only)
+    /// Used to adjust safety limits and platform settings
+    #[handle_result]
+    pub fn update_config(&mut self, config: GovernanceConfig) -> Result<(), SocialError> {
+        // Only manager can update config
+        let caller = near_sdk::env::predecessor_account_id();
+        if caller != self.platform.manager {
+            return Err(crate::unauthorized!("update_config", caller.to_string()));
+        }
+        
+        // Validate config update (only allow increases for safety limits)
+        if let Err(msg) = config.validate_update(&self.platform.config) {
+            return Err(crate::invalid_input!(msg));
+        }
+        
+        self.platform.config = config;
+        Ok(())
     }
 
     pub fn has_permission(

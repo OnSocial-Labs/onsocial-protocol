@@ -654,7 +654,7 @@ mod storage_flow_tests {
             }
         });
         
-        let post_result = contract.set(content, None);
+        let post_result = contract.set(content, None, None);
         
         if post_result.is_ok() {
             // Get author's storage balance after posting

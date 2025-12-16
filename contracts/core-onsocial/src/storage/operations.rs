@@ -55,9 +55,9 @@ pub enum StorageOperation {
         depositor: AccountId,
     },
 
-    /// Deposit into a shared storage pool owned by `owner_id`.
+    /// Deposit into a shared storage pool identified by `pool_id`.
     SharedPoolDeposit {
-        owner_id: AccountId,
+        pool_id: AccountId,
         amount: Balance,
     },
 
@@ -109,18 +109,18 @@ pub fn parse_storage_operation(path: &str, value: &Value) -> Result<StorageOpera
             Ok(StorageOperation::Withdraw { amount, depositor })
         }
         "shared_pool_deposit" => {
-            let owner_id = value
-                .get("owner_id")
+            let pool_id = value
+                .get("pool_id")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse().ok())
-                .ok_or_else(|| invalid_input!("owner_id required"))?;
+                .ok_or_else(|| invalid_input!("pool_id required"))?;
             let amount = parse_amount(
                 value
                     .get("amount")
                     .ok_or_else(|| invalid_input!("amount required"))?,
             )?
             .ok_or_else(|| invalid_input!("amount cannot be null for shared_pool_deposit"))?;
-            Ok(StorageOperation::SharedPoolDeposit { owner_id, amount })
+            Ok(StorageOperation::SharedPoolDeposit { pool_id, amount })
         }
         "share_storage" => {
             let target_id = value

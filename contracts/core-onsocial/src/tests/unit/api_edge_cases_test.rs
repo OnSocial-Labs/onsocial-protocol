@@ -230,7 +230,7 @@ mod api_edge_cases_tests {
         // Test with unicode characters in path (using correct set format)
         let result = contract.set(json!({
             "profile/unicode_测试": "value_🚀"
-        }), None);
+        }), None, None);
 
         // Check if unicode is supported
         match result {
@@ -251,7 +251,7 @@ mod api_edge_cases_tests {
         // Test with dashes and underscores
         let result = contract.set(json!({
             "posts/path-with-dash_and_underscore": "value"
-        }), None);
+        }), None, None);
 
         // Dashes and underscores should be allowed
         assert!(result.is_ok(), "Dashes and underscores should be allowed: {:?}", result.err());
@@ -269,7 +269,7 @@ mod api_edge_cases_tests {
         // Store deep data
         contract.set(json!({
             "level1/level2/level3/level4/deep_value": "test"
-        }), None).unwrap();
+        }), None, None).unwrap();
         
         // Verify we can read it back
         let keys = vec![format!("{}/level1/level2/level3/level4/deep_value", alice)];
@@ -316,7 +316,7 @@ mod api_edge_cases_tests {
         contract.set(json!({
             "profile/name": "Alice",
             "posts/1": "First post"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Get multiple keys
         let key1 = format!("{}/profile/name", alice);

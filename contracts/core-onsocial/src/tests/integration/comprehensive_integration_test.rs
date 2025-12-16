@@ -10,28 +10,23 @@
 // 6. Error recovery and atomicity
 // 7. Real-world user flows
 // 8. Get API integration
-
 #[cfg(test)]
 mod comprehensive_integration_tests {
     use crate::tests::test_utils::*;
     use crate::groups::kv_permissions::{WRITE, MODERATE};
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
-
     // ============================================================================
     // 1. CROSS-ACCOUNT DATA OPERATIONS
     // ============================================================================
-
     #[test]
     fn test_cross_account_write_with_permissions() {
         let mut contract = init_live_contract();
         let alice = test_account(0);
         let bob = test_account(1);
-
         // Setup: Alice deposits storage and grants Bob write permission
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000); // 10 NEAR
         testing_env!(context.build());
-
         // Alice grants Bob permission to write to her posts path
         let grant_result = contract.set_permission(
             bob.clone(),
@@ -40,98 +35,77 @@ mod comprehensive_integration_tests {
             None
         );
         assert!(grant_result.is_ok(), "Permission grant should succeed: {:?}", grant_result.err());
-
         // Verify Bob has permission
         let has_perm = contract.has_permission(alice.clone(), bob.clone(), format!("{}/posts", alice), WRITE);
         assert!(has_perm, "Bob should have write permission on Alice's posts");
-
         // Switch context to Bob
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Bob writes to Alice's posts path using set_for
         let write_result = contract.set_for(alice.clone(), json!({
             "posts/shared": {
                 "text": "Bob writing to Alice's space",
                 "author": bob.to_string()
             }
-        }), None);
+        }), None, None);
         assert!(write_result.is_ok(), "Bob should be able to write with permission: {:?}", write_result.err());
-
         println!("✓ Cross-account write with permissions test passed");
     }
-
     #[test]
     fn test_cross_account_write_without_permissions_fails() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         // Setup storage for Alice
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let _ = contract.set(json!({"profile/name": "Alice"}), None);
-
+        let _ = contract.set(json!({"profile/name": "Alice"}), None, None);
         // Bob tries to write to Alice's data without permission
         let bob = test_account(2);
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let write_result = contract.set_for(alice.clone(), json!({
             "posts/unauthorized": "Bob's unauthorized post"
-        }), None);
-
+        }), None, None);
         assert!(write_result.is_err(), "Write without permission should fail");
-
         println!("✓ Cross-account write without permissions correctly fails");
     }
-
     #[test]
     fn test_permission_boundary_enforcement() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
-
         // Alice grants Bob permission to posts/ but not profile/
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set_permission(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
             None
         ).unwrap();
-
         // Bob can write to posts/
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let posts_write = contract.set_for(alice.clone(), json!({
             "posts/test": "Allowed"
-        }), None);
+        }), None, None);
         assert!(posts_write.is_ok(), "Write to posts/ should succeed: {:?}", posts_write.err());
-
         // Bob cannot write to profile/
         let profile_write = contract.set_for(alice.clone(), json!({
             "profile/bio": "Unauthorized"
-        }), None);
+        }), None, None);
         assert!(profile_write.is_err(), "Write to profile/ should fail");
-
         println!("✓ Permission boundary enforcement test passed");
     }
-
     // ============================================================================
     // 2. STORAGE INTEGRATION WITH REAL OPERATIONS
     // ============================================================================
-
     #[test]
     fn test_storage_end_to_end() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Write data across different paths
         let result = contract.set(json!({
             "profile/name": "Alice",
@@ -142,10 +116,8 @@ mod comprehensive_integration_tests {
             "friends/bob": {"status": "friend"},
             "friends/charlie": {"status": "friend"},
             "settings/privacy": "public"
-        }), None);
-
+        }), None, None);
         assert!(result.is_ok(), "Writes should succeed");
-
         // Retrieve data from different paths
         let keys = vec![
             format!("{}/profile/name", alice),
@@ -153,60 +125,47 @@ mod comprehensive_integration_tests {
             format!("{}/friends/bob", alice),
             format!("{}/settings/privacy", alice),
         ];
-
         let retrieved = contract.get(keys, None, None, None);
         assert_eq!(retrieved.len(), 4, "All data should be retrievable");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
-
         println!("✓ Storage end-to-end test passed");
     }
-
     #[test]
     fn test_concurrent_writes_to_different_namespaces() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
         let charlie = test_account(3);
-
         // Simulate concurrent writes from different users (different namespaces)
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"posts/1": "Alice's post"}), None).unwrap();
-
+        contract.set(json!({"posts/1": "Alice's post"}), None, None).unwrap();
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"posts/1": "Bob's post"}), None).unwrap();
-
+        contract.set(json!({"posts/1": "Bob's post"}), None, None).unwrap();
         let context = get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"posts/1": "Charlie's post"}), None).unwrap();
-
+        contract.set(json!({"posts/1": "Charlie's post"}), None, None).unwrap();
         // Verify all writes succeeded independently
         let alice_data = contract.get(vec![format!("{}/posts/1", alice)], None, None, None);
         let bob_data = contract.get(vec![format!("{}/posts/1", bob)], None, None, None);
         let charlie_data = contract.get(vec![format!("{}/posts/1", charlie)], None, None, None);
-
         assert!(!alice_data.is_empty(), "Alice's data should exist");
         assert!(!bob_data.is_empty(), "Bob's data should exist");
         assert!(!charlie_data.is_empty(), "Charlie's data should exist");
-
         println!("✓ Concurrent writes to different namespaces test passed");
     }
-
     // ============================================================================
     // 3. COMPLETE GROUP WORKFLOWS
     // ============================================================================
-
     #[test]
     fn test_complete_public_group_workflow() {
         let mut contract = init_live_contract();
         let owner = test_account(1);
         let member = test_account(2);
-
         // Step 1: Owner creates public group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let create_result = contract.create_group(
             "test-group".to_string(),
             json!({
@@ -216,39 +175,31 @@ mod comprehensive_integration_tests {
             }),
         );
         assert!(create_result.is_ok(), "Group creation should succeed: {:?}", create_result.err());
-
         // Step 2: Member joins public group (self-join)
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let join_result = contract.join_group(
             "test-group".to_string(),
             WRITE,
         );
         assert!(join_result.is_ok(), "Public group join should succeed: {:?}", join_result.err());
-
         // Verify member was added
         let is_member = contract.is_group_member("test-group".to_string(), member.clone());
         assert!(is_member, "Member should be in the group");
-
         // Step 3: Member can now read public group data (thanks to public read fix!)
         let keys = vec!["groups/test-group/config".to_string()];
         let retrieved = contract.get(keys, None, None, None);
         assert!(!retrieved.is_empty(), "Public group config should be readable");
-
         println!("✓ Complete public group workflow test passed");
     }
-
     #[test]
     fn test_complete_private_group_workflow() {
         let mut contract = init_live_contract();
         let owner = test_account(1);
         let requester = test_account(2);
-
         // Step 1: Owner creates private group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.create_group(
             "private-group".to_string(),
             json!({
@@ -257,21 +208,17 @@ mod comprehensive_integration_tests {
                 "member_driven": false
             }),
         ).unwrap();
-
         // Step 2: User requests to join
         let context = get_context_with_deposit(requester.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let request_result = contract.join_group(
             "private-group".to_string(),
             WRITE,
         );
         assert!(request_result.is_ok(), "Join request should be created");
-
         // Step 3: Owner approves request
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let approve_result = contract.approve_join_request(
             "private-group".to_string(),
             requester.clone(),
@@ -279,14 +226,11 @@ mod comprehensive_integration_tests {
             None,
         );
         assert!(approve_result.is_ok(), "Join approval should succeed: {:?}", approve_result.err());
-
         // Verify member was added
         let is_member = contract.is_group_member("private-group".to_string(), requester.clone());
         assert!(is_member, "Approved user should be a member");
-
         println!("✓ Complete private group workflow test passed");
     }
-
     #[test]
     fn test_member_driven_group_proposal_workflow() {
         let mut contract = init_live_contract();
@@ -294,11 +238,9 @@ mod comprehensive_integration_tests {
         let member1 = test_account(2);
         let member2 = test_account(3);
         let candidate = test_account(4);
-
         // Create member-driven group (must be private)
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.create_group(
             "demo-group".to_string(),
             json!({
@@ -312,17 +254,14 @@ mod comprehensive_integration_tests {
                 }
             }),
         ).unwrap();
-
         // Owner is automatically a member
         assert!(contract.is_group_member("demo-group".to_string(), owner.clone()), 
                 "Owner should be a group member");
-
         // In member-driven groups, adding members creates proposals
         // Owner proposes member1 (auto-executes since owner is only voter)
         contract.add_group_member("demo-group".to_string(), member1.clone(), WRITE, None).unwrap();
         assert!(contract.is_group_member("demo-group".to_string(), member1.clone()), 
                 "Member1 should be added (auto-executed proposal)");
-
         // Now we have 2 members (owner + member1), so next proposal needs 2 votes
         // Owner proposes member2
         let _proposal_id1 = contract.add_group_member("demo-group".to_string(), member2.clone(), WRITE, None).unwrap();
@@ -349,44 +288,34 @@ mod comprehensive_integration_tests {
             None,
             None,
         ).unwrap();
-
         println!("Created proposal by member1: {}", proposal_id);
-
         // Member1 votes YES (creator auto-votes YES: 1/2)
         // Now owner votes YES to reach quorum
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract.vote_on_proposal("demo-group".to_string(), proposal_id.clone(), true, None).unwrap();
-
         // With 2/2 members voting YES (100% participation, 100% approval), proposal should execute
         // Verify candidate was added after democratic vote
         assert!(contract.is_group_member("demo-group".to_string(), candidate.clone()), 
                 "Candidate should be added after successful democratic vote (2/2 members approved)");
-
         println!("✓ Member-driven group proposal workflow test passed");
     }
-
     // ============================================================================
     // 4. STORAGE TRACKING ACROSS COMPLEX OPERATIONS
     // ============================================================================
-
     #[test]
     fn test_storage_balance_across_multiple_operations() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let initial_deposit = 5_000_000_000_000_000_000_000_000u128; // 5 NEAR
         let context = get_context_with_deposit(alice.clone(), initial_deposit);
         testing_env!(context.build());
-
         // Deposit storage
         contract.set(json!({
             "storage/deposit": {"amount": "3000000000000000000000000"}
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         let balance_1 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_1.balance >= 3_000_000_000_000_000_000_000_000u128, "Initial deposit should be recorded");
-
         // Write data (consumes storage)
         contract.set(json!({
             "profile/name": "Alice",
@@ -394,135 +323,103 @@ mod comprehensive_integration_tests {
             "posts/1": {"text": "Post 1", "timestamp": 12345},
             "posts/2": {"text": "Post 2", "timestamp": 12346},
             "posts/3": {"text": "Post 3", "timestamp": 12347},
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         let balance_2 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_2.used_bytes > 0, "Storage should be consumed");
-
         // Delete data (releases storage)
         contract.set(json!({
             "posts/1": null,
             "posts/2": null,
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         let balance_3 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_3.used_bytes < balance_2.used_bytes, "Deleted data should release storage");
-
         println!("✓ Storage balance tracking across operations test passed");
     }
-
     #[test]
     fn test_shared_storage_pool_workflow() {
         let mut contract = init_live_contract();
         let pool_owner = test_account(1);
         let user1 = test_account(2);
         let user2 = test_account(3);
-
         // Pool owner creates shared storage pool
         let context = get_context_with_deposit(pool_owner.clone(), 10_000_000_000_000_000_000_000_000u128);
         testing_env!(context.build());
-
         contract.set(json!({
             "storage/deposit": {"amount": "5000000000000000000000000"}
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // User 1 writes data with their own storage
         let context = get_context_with_deposit(user1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set(json!({
             "profile/name": "User 1",
             "posts/1": "Using storage"
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // User 2 writes data with their own storage
         let context = get_context_with_deposit(user2.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set(json!({
             "profile/name": "User 2",
             "posts/1": "Using storage"
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Verify storage tracking works
         let user1_balance = contract.get_storage_balance(user1.clone()).unwrap();
         assert!(user1_balance.balance > 0, "User should have storage balance");
-
         println!("✓ Shared storage pool workflow test passed");
     }
-
     #[test]
     fn test_storage_refunds_on_failed_operations() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
-
         // Alice deposits storage
         let initial_deposit = 2_000_000_000_000_000_000_000_000u128;
         let context = get_context_with_deposit(alice.clone(), initial_deposit);
         testing_env!(context.build());
-
         contract.set(json!({
             "storage/deposit": {"amount": initial_deposit.to_string()}
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         let initial_balance = contract.get_storage_balance(alice.clone()).unwrap();
-
         // Try to write to Bob's account without permission (should fail and refund)
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let failed_write = contract.set_for(bob.clone(), json!({
             "posts/unauthorized": "Should fail"
-        }), None);
-
+        }), None, None);
         assert!(failed_write.is_err(), "Unauthorized write should fail");
-
         // Alice's storage balance should remain unchanged (refunded)
         let final_balance = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(initial_balance.balance, final_balance.balance, "Storage should be refunded on failure");
-
         println!("✓ Storage refunds on failed operations test passed");
     }
-
     // ============================================================================
     // 5. EVENT EMISSION VERIFICATION
     // ============================================================================
-
     #[test]
     fn test_event_emission_for_operations() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Perform operations that should emit events
         use crate::EventConfig;
         let result = contract.set(json!({
             "profile/name": "Alice",
             "posts/1": {"text": "Hello world"}
-        }), Some(EventConfig { emit: true, event_type: None }));
-
+        }), None, Some(EventConfig { emit: true, event_type: None }));
         assert!(result.is_ok(), "Operations with events should succeed");
-
         // In a real scenario, we'd check logs here
         // For now, verify the operation succeeded
         let keys = vec![format!("{}/profile/name", alice)];
         let retrieved = contract.get(keys, None, None, None);
         assert!(!retrieved.is_empty(), "Data should exist");
-
         println!("✓ Event emission verification test passed");
     }
-
     #[test]
     fn test_event_batching_across_operations() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Multiple operations in one call should batch events
         use crate::EventConfig;
         let result = contract.set(json!({
@@ -536,84 +433,65 @@ mod comprehensive_integration_tests {
                 "path": format!("{}/posts", alice),
                 "flags": WRITE
             }
-        }), Some(EventConfig { emit: true, event_type: None }));
-
+        }), None, Some(EventConfig { emit: true, event_type: None }));
         assert!(result.is_ok(), "Batched operations should succeed");
-
         println!("✓ Event batching across operations test passed");
     }
-
     // ============================================================================
     // 6. ERROR RECOVERY AND ATOMICITY
     // ============================================================================
-
     #[test]
     fn test_partial_operation_failure() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Mix of valid and invalid operations
         let result = contract.set(json!({
             "profile/name": "Alice",  // Valid
             "profile/bio": "Developer",  // Valid
             // The following would fail if we tried to write to Bob's account
             // "bob.testnet/posts/hack": "Invalid",  // Would fail
-        }), None);
-
+        }), None, None);
         // Valid operations should succeed
         assert!(result.is_ok(), "Valid operations should succeed");
-
         // Verify only valid data was written
         let keys = vec![format!("{}/profile/name", alice)];
         let retrieved = contract.get(keys, None, None, None);
         assert!(!retrieved.is_empty(), "Valid data should exist");
-
         println!("✓ Partial operation failure test passed");
     }
-
     #[test]
     fn test_state_consistency_after_errors() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Write initial data
         contract.set(json!({
             "profile/name": "Alice",
             "profile/version": 1
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Write empty string (valid operation that overwrites)
         contract.set(json!({
             "profile/name": "".to_string(),
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Verify the empty string was written (contract allows it)
         let keys = vec![format!("{}/profile/name", alice)];
         let retrieved = contract.get(keys, None, None, None);
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("")), 
                    "Empty string should overwrite data");
-
         println!("✓ State consistency after errors test passed");
     }
-
     // ============================================================================
     // 7. REAL-WORLD USER FLOWS
     // ============================================================================
-
     #[test]
     fn test_social_media_post_lifecycle() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Create post
         let post_id = "post-123";
         contract.set(json!({
@@ -622,8 +500,7 @@ mod comprehensive_integration_tests {
                 "timestamp": 1234567890,
                 "likes": 0
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Edit post
         contract.set(json!({
             format!("posts/{}", post_id): {
@@ -632,40 +509,33 @@ mod comprehensive_integration_tests {
                 "edited": true,
                 "likes": 0
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Add reaction
         contract.set(json!({
             format!("posts/{}/reactions/user1", post_id): {
                 "type": "like",
                 "timestamp": 1234567900
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Delete post
         contract.set(json!({
             format!("posts/{}", post_id): null
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Verify deletion
         let keys = vec![format!("{}/posts/{}", alice, post_id)];
         let retrieved = contract.get(keys, None, None, None);
         assert!(retrieved.is_empty() || retrieved.get(&format!("{}/posts/{}", alice, post_id)).is_none(), 
                 "Deleted post should not be retrievable");
-
         println!("✓ Social media post lifecycle test passed");
     }
-
     #[test]
     fn test_friend_follower_management() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
         let charlie = test_account(3);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Alice adds friends
         contract.set(json!({
             format!("friends/{}", bob): {
@@ -676,40 +546,33 @@ mod comprehensive_integration_tests {
                 "status": "friend",
                 "since": 1234567891
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Alice adds followers
         contract.set(json!({
             "followers/user1": {"since": 1234567900},
             "followers/user2": {"since": 1234567901},
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Alice unfriends Bob
         contract.set(json!({
             format!("friends/{}", bob): null
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Verify friend list
         let keys = vec![
             format!("{}/friends/{}", alice, charlie),
         ];
         let retrieved = contract.get(keys, None, None, None);
         assert!(!retrieved.is_empty(), "Charlie should still be a friend");
-
         println!("✓ Friend/follower management test passed");
     }
-
     #[test]
     fn test_content_moderation_flow() {
         let mut contract = init_live_contract();
         let owner = test_account(1);
         let moderator = test_account(2);
         let user = test_account(3);
-
         // Create group with moderation
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.create_group(
             "moderated-group".to_string(),
             json!({
@@ -718,24 +581,19 @@ mod comprehensive_integration_tests {
                 "member_driven": false
             }),
         ).unwrap();
-
         // Add moderator with MODERATE permission
         contract.add_group_member("moderated-group".to_string(), moderator.clone(), MODERATE, None).unwrap();
-
         // Add regular user with WRITE permission
         contract.add_group_member("moderated-group".to_string(), user.clone(), WRITE, None).unwrap();
-
         // User posts content to their own space (not group path)
         let context = get_context_with_deposit(user.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set(json!({
             format!("{}/posts/user-post", user): {
                 "text": "User's post",
                 "author": user.to_string()
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Moderator can read the post via get()
         let keys = vec![format!("{}/posts/user-post", user)];
         let retrieved = contract.get(keys.clone(), None, None, None);
@@ -744,26 +602,20 @@ mod comprehensive_integration_tests {
         // Owner can remove content from their group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Verify moderation permissions are set up correctly
         assert!(contract.is_group_member("moderated-group".to_string(), moderator.clone()),
                 "Moderator should be a group member");
-
         println!("✓ Content moderation flow test passed");
     }
-
     // ============================================================================
     // 8. GET API INTEGRATION
     // ============================================================================
-
     #[test]
     fn test_multi_key_retrieval() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Write diverse data
         contract.set(json!({
             "profile/name": "Alice",
@@ -773,8 +625,7 @@ mod comprehensive_integration_tests {
             "posts/2": {"text": "Post 2"},
             "settings/theme": "dark",
             "settings/language": "en"
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Retrieve multiple keys at once
         let keys = vec![
             format!("{}/profile/name", alice),
@@ -782,78 +633,61 @@ mod comprehensive_integration_tests {
             format!("{}/posts/1", alice),
             format!("{}/settings/theme", alice),
         ];
-
         let retrieved = contract.get(keys.clone(), None, None, None);
         assert_eq!(retrieved.len(), keys.len(), "All keys should be retrieved");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
         assert_eq!(retrieved.get(&format!("{}/settings/theme", alice)), Some(&json!("dark")));
-
         println!("✓ Multi-key retrieval test passed");
     }
-
     #[test]
     fn test_get_with_metadata() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set(json!({
             "profile/name": "Alice"
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Get with metadata
         let keys = vec![format!("{}/profile/name", alice)];
         let retrieved = contract.get(keys, None, None, Some(true));
-
         assert!(!retrieved.is_empty(), "Data with metadata should be retrieved");
         // In real implementation, metadata would include timestamps, versions, etc.
-
         println!("✓ Get with metadata test passed");
     }
-
     #[test]
     fn test_cross_account_data_retrieval() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
-
         // Alice writes her data
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"profile/name": "Alice"}), None).unwrap();
-
+        contract.set(json!({"profile/name": "Alice"}), None, None).unwrap();
         // Bob writes his data
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"profile/name": "Bob"}), None).unwrap();
-
+        contract.set(json!({"profile/name": "Bob"}), None, None).unwrap();
         // Retrieve data from both accounts
         let keys = vec![
             format!("{}/profile/name", alice),
             format!("{}/profile/name", bob),
         ];
-
         let retrieved = contract.get(keys, None, None, None);
         assert_eq!(retrieved.len(), 2, "Both accounts' data should be retrieved");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
         assert_eq!(retrieved.get(&format!("{}/profile/name", bob)), Some(&json!("Bob")));
-
         println!("✓ Cross-account data retrieval test passed");
     }
-
     #[test]
     fn test_public_vs_private_data_visibility() {
         let mut contract = init_live_contract();
         let owner = test_account(1);
         let member = test_account(2);
         let _outsider = test_account(3);
-
         // Create private group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.create_group(
             "secret-group".to_string(),
             json!({
@@ -862,70 +696,55 @@ mod comprehensive_integration_tests {
                 "member_driven": false
             }),
         ).unwrap();
-
         // Add member
         contract.add_group_member("secret-group".to_string(), member.clone(), WRITE, None).unwrap();
-
         // Member writes private content to their own space
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set(json!({
             format!("{}/private-data", member): "Secret information"
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Member can read their own data
         let keys = vec![format!("{}/private-data", member)];
         let member_view = contract.get(keys.clone(), None, None, None);
         assert!(!member_view.is_empty(), "Member should see their own data");
-
         // Group config is readable (public read by default)
         let group_keys = vec!["groups/secret-group/config".to_string()];
         let config_view = contract.get(group_keys, None, None, None);
         assert!(!config_view.is_empty(), "Group config should be readable with public read fix");
-
         println!("✓ Public vs private data visibility test passed");
     }
-
     #[test]
     fn test_get_nonexistent_keys() {
         let contract = init_live_contract();
         let alice = test_account(1);
-
         // Try to get keys that don't exist
         let keys = vec![
             format!("{}/nonexistent/path", alice),
             format!("{}/another/missing", alice),
         ];
-
         let retrieved = contract.get(keys, None, None, None);
         assert!(retrieved.is_empty(), "Nonexistent keys should return empty");
-
         println!("✓ Get nonexistent keys test passed");
     }
-
     // ============================================================================
     // 9. COMPLEX INTEGRATION SCENARIOS
     // ============================================================================
-
     #[test]
     fn test_multi_user_collaboration() {
         let mut contract = init_live_contract();
         let owner = test_account(1);
         let editor1 = test_account(2);
         let editor2 = test_account(3);
-
         // Owner creates collaborative space
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set(json!({
             "projects/project1": {
                 "name": "Collaborative Project",
                 "status": "active"
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Grant permissions to editors
         contract.set(json!({
             "permission/grant": {
@@ -933,37 +752,31 @@ mod comprehensive_integration_tests {
                 "path": format!("{}/projects/project1", owner),
                 "flags": WRITE
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         contract.set(json!({
             "permission/grant": {
                 "grantee": editor2.to_string(),
                 "path": format!("{}/projects/project1", owner),
                 "flags": WRITE
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Editors collaborate
         let context = get_context_with_deposit(editor1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set_for(owner.clone(), json!({
             "projects/project1/tasks/task1": {
                 "title": "Task 1",
                 "assignee": editor1.to_string()
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         let context = get_context_with_deposit(editor2.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         contract.set_for(owner.clone(), json!({
             "projects/project1/tasks/task2": {
                 "title": "Task 2",
                 "assignee": editor2.to_string()
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Verify collaboration
         let keys = vec![
             format!("{}/projects/project1/tasks/task1", owner),
@@ -971,19 +784,15 @@ mod comprehensive_integration_tests {
         ];
         let retrieved = contract.get(keys, None, None, None);
         assert_eq!(retrieved.len(), 2, "Both tasks should exist");
-
         println!("✓ Multi-user collaboration test passed");
     }
-
     #[test]
     fn test_cascading_permissions() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
         let bob = test_account(2);
-
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         // Grant directory-level permission
         contract.set(json!({
             "permission/grant": {
@@ -991,48 +800,38 @@ mod comprehensive_integration_tests {
                 "path": format!("{}/posts", alice),
                 "flags": WRITE
             }
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Bob should be able to write to any path under posts/
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-
         let write1 = contract.set_for(alice.clone(), json!({
             "posts/2024/january/post1": "Post in January"
-        }), None);
-
+        }), None, None);
         let write2 = contract.set_for(alice.clone(), json!({
             "posts/2024/february/post2": "Post in February"
-        }), None);
-
+        }), None, None);
         assert!(write1.is_ok(), "Subdirectory write 1 should succeed");
         assert!(write2.is_ok(), "Subdirectory write 2 should succeed");
-
         println!("✓ Cascading permissions test passed");
     }
-
     #[test]
     fn test_storage_quota_enforcement() {
         let mut contract = init_live_contract();
         let alice = test_account(1);
-
         // Alice deposits limited storage
         let small_deposit = 1_000_000_000_000_000_000_000_000u128; // 1 NEAR
         let context = get_context_with_deposit(alice.clone(), small_deposit);
         testing_env!(context.build());
-
         contract.set(json!({
             "storage/deposit": {"amount": small_deposit.to_string()}
-        }), None).unwrap();
-
+        }), None, None).unwrap();
         // Try to write more data than storage allows
         let large_data = "x".repeat(100000); // Large string
         let result = contract.set(json!({
             "large/data1": large_data.clone(),
             "large/data2": large_data.clone(),
             "large/data3": large_data,
-        }), None);
-
+        }), None, None);
         // Should either succeed with available storage or fail gracefully
         // The important thing is consistent behavior
         match result {
@@ -1047,7 +846,6 @@ mod comprehensive_integration_tests {
                 println!("Storage quota correctly enforced");
             }
         }
-
         println!("✓ Storage quota enforcement test passed");
     }
 }

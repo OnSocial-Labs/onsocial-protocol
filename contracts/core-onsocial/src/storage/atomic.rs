@@ -120,9 +120,18 @@ impl SocialPlatform {
         // Save updated storage
         self.user_storage.insert(account_id.clone(), storage);
 
+        // Emit event with allocation details for event sourcing
         EventBuilder::new(crate::constants::EVENT_TYPE_STORAGE_UPDATE, "return_storage", account_id.clone())
+            .with_field("pool_id", shared.pool_id.to_string())
+            .with_field("max_bytes", shared.max_bytes.to_string())
+            .with_field("used_bytes", shared.used_bytes.to_string())
             .emit(event_batch);
 
         Ok(())
     }
+
+    // NOTE: auto_allocate_platform_storage was removed in favor of on-demand sponsorship.
+    // Instead of pre-allocating fixed amounts, we now use the `platform_sponsored` flag
+    // which tracks usage against the platform pool in real-time (more efficient).
+    // See: handle_api_data_operation() in data.rs
 }

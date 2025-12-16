@@ -80,6 +80,8 @@ impl SocialPlatform {
             };
 
             // No permission checks - blockchain data is public by design
+            // Note: Group content is stored at {author}/groups/{group_id}/... 
+            // UI should use the path returned from create_group_content() for reads
             if include_metadata.unwrap_or(false) {
                 // Return both data and metadata
                 if let Some(entry) = self.get_entry(&full_path) {
@@ -99,7 +101,7 @@ impl SocialPlatform {
                     }
                 }
             } else {
-                // Use storage_get for direct key lookup with full path
+                // Use storage_get for direct key lookup
                 if let Some(value) = self.storage_get(&full_path) {
                     results.insert(key.clone(), value);
                 }

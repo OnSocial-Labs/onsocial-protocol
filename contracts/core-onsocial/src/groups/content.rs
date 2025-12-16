@@ -1,5 +1,23 @@
 // --- Group Content Module ---
 // Clean, centralized group content operations for new development
+//
+// USER-OWNED STORAGE DESIGN:
+// - User sends: groups/{group_id}/posts/1
+// - Contract stores at: {author}/groups/{group_id}/posts/1
+// - Contract returns: {author}/groups/{group_id}/posts/1 (use this for reads)
+// - User reads using the returned path directly (O(1) lookup)
+//
+// METADATA (via MetadataBuilder):
+// - author, timestamp, block_height (standard fields)
+// - group_id, id, type (auto-derived from path)
+// - No enrichment wrapper - raw content stored, metadata separate
+//
+// Benefits:
+// - User owns their content (under their namespace)
+// - No cross-group collision (path includes author + group_id)
+// - Consistent with individual content storage
+// - Single write, single read
+// - Only author can modify/delete their content
 
 use near_sdk::{AccountId, serde_json::{Value, json}};
 use crate::events::{EventBatch, EventBuilder};
@@ -13,12 +31,17 @@ use crate::{SocialError};
 pub struct GroupContentManager;
 
 impl GroupContentManager {
-    /// Handle group content creation with full validation and transformation
+    /// Handle group content creation/update/deletion with full validation
+    /// 
+    /// Write path transformation:
+    /// - Input: groups/{group_id}/posts/1
+    /// - Output: {author}/groups/{group_id}/posts/1
+    ///
     /// Returns the user-owned storage path where content was stored
     pub fn create_group_content(
         platform: &mut SocialPlatform,
-        group_path: &str,        // Original path like "groups/mygroup/posts" or "user/groups/mygroup/posts"
-        content: &Value,         // The content to store
+        group_path: &str,        // Original path like "groups/mygroup/posts/1"
+        content: &Value,         // The content to store (null for deletion)
         author: &AccountId,      // Who is creating the content
         event_batch: &mut EventBatch,
     ) -> Result<String, SocialError> {
@@ -55,31 +78,39 @@ impl GroupContentManager {
             return Err(crate::permission_denied!("write", &normalized_path));
         }
 
+        // User-owned storage path: {author}/groups/{group_id}/{content_path}
+        // This ensures user owns the data and no cross-group collision
+        let user_storage_path = format!("{}/groups/{}/{}", author, group_id, content_path);
+
+        // Handle deletion (null content)
+        if content.is_null() {
+            if let Some(entry) = platform.get_entry(&user_storage_path) {
+                crate::storage::soft_delete_entry(platform, &user_storage_path, entry)?;
+                
+                // Emit deletion event
+                EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "delete", author.clone())
+                    .with_path(&user_storage_path)
+                    .with_field("group_id", group_id)
+                    .with_field("content_path", content_path)
+                    .emit(event_batch);
+            }
+            // If entry doesn't exist, deletion is idempotent (no-op)
+            return Ok(user_storage_path);
+        }
+
         // Validate content
         validate_json_value_simple(content, platform)?;
 
-        // Create user storage path
-        let user_storage_path = format!("{}/{}", author, content_path);
+        // Check if this is an update (entry already exists)
+        let is_update = platform.get_entry(&user_storage_path).is_some();
 
-        // Create enriched content once with minimal operations
-        let timestamp = near_sdk::env::block_timestamp();
-        let enriched_content = json!({
-            "content": content,
-            "group_id": group_id,
-            "group_path": content_path,
-            "full_group_path": &normalized_path,
-            "created_by": author.as_str(),
-            "created_at": timestamp,
-            "content_id": format!("c_{}", timestamp)
-        });
-
-        // Store directly
-        let serialized_content = serde_json::to_vec(&enriched_content)
+        // Store raw content (no enrichment wrapper)
+        // Metadata is handled by MetadataBuilder and stored separately in DataEntry.metadata
+        let serialized_content = serde_json::to_vec(content)
             .map_err(|e| crate::invalid_input!(format!("Failed to serialize content: {}", e)))?;
         
-        // Create metadata once and reuse for both storage and events
-        let metadata = crate::data::metadata::MetadataBuilder::from_path(&normalized_path, author, Some(&enriched_content))
-            .with_field("created_by", author.as_str())
+        // MetadataBuilder auto-derives: author, timestamp, block_height, group_id, id, type
+        let metadata = crate::data::metadata::MetadataBuilder::from_path(&user_storage_path, author, Some(content))
             .build();
         let serialized_metadata = serde_json::to_vec(&metadata)
             .map_err(|_| crate::invalid_input!("Metadata serialization failed"))?;
@@ -92,10 +123,11 @@ impl GroupContentManager {
         };
         platform.insert_entry(&user_storage_path, data_entry)?;
 
-        // Emit event directly - reuse the metadata object
-        EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, "create", author.clone())
+        // Emit event with correct operation (create vs update)
+        let operation = if is_update { "update" } else { "create" };
+        EventBuilder::new(crate::constants::EVENT_TYPE_GROUP_UPDATE, operation, author.clone())
             .with_path(&user_storage_path)
-            .with_value(enriched_content)
+            .with_value(content.clone())
             .with_tags(json!([]))
             .with_structured_data(metadata)
             .emit(event_batch);

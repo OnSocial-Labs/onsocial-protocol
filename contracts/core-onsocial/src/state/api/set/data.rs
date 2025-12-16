@@ -110,7 +110,9 @@ impl SocialPlatform {
             }
             // If entry doesn't exist, deletion is idempotent (no-op)
         } else {
-            self.insert_entry(data_ctx.full_path, data_entry)?;
+            // Use insert_entry_with_fallback to enable attached deposit as final fallback
+            // Priority: Platform Pool → Shared Pool → Personal Balance → Attached Deposit
+            self.insert_entry_with_fallback(data_ctx.full_path, data_entry, ctx.attached_balance.as_deref_mut())?;
         }
 
         ctx.success_paths.push(data_ctx.full_path.to_string());
@@ -126,23 +128,82 @@ impl SocialPlatform {
         predecessor: &AccountId,
         ctx: &mut ApiOperationContext,
     ) -> Result<(), SocialError> {
-        // Ensure account has storage for data operations
+        // Ensure account has storage coverage for data operations
         if !ctx.processed_accounts.contains(account_id) {
             let storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
-            if *ctx.attached_balance > 0 {
-                // Allocate the full attached deposit for automatic storage handling
-                // This allows users to store data without manual deposit operations
+            
+            // PLATFORM-FIRST PRIORITY ORDER:
+            // 1. Platform pool (if pool has funds) → FREE for everyone
+            // 2. Group shared storage → Sponsor pays
+            // 3. User's existing personal balance → User's reserve
+            // 4. User's attached deposit → Pay-as-you-go fallback
+            //
+            // This maximizes adoption by making platform sponsorship the default
+            // Users with their own balance benefit too (their balance is preserved)
+            // Platform sponsorship is automatically enabled when pool has funds.
+            
+            let already_sponsored = storage.platform_sponsored;
+            let has_shared = storage.shared_storage.is_some();
+            let has_personal_balance = storage.balance > 0;
+            
+            // Priority 1: Try platform sponsorship first (best UX - free for user)
+            // Auto-enabled when platform pool has funds (no config toggle needed)
+            let platform_account = Self::platform_pool_account();
+            let pool = self.shared_storage_pools.get(&platform_account).cloned().unwrap_or_default();
+            let pool_has_funds = pool.storage_balance > 0 && pool.available_bytes() > 0;
+            
+            if pool_has_funds && !already_sponsored {
+                // Platform pool has capacity - mark user as sponsored
+                // This works even if user has their own balance (preserves it)
+                let mut new_storage = storage.clone();
+                new_storage.platform_sponsored = true;
+                new_storage.storage_tracker.reset();
+                self.user_storage.insert(account_id.clone(), new_storage);
+                
+                // Emit event for platform sponsorship activation
+                crate::events::EventBuilder::new(
+                    crate::constants::EVENT_TYPE_STORAGE_UPDATE,
+                    "platform_sponsor",
+                    account_id.clone()
+                )
+                .with_field("pool_account", platform_account.to_string())
+                .emit(ctx.event_batch);
+                
+                ctx.processed_accounts.insert(account_id.clone());
+                // Continue to process - user is now sponsored
+            } else if !pool_has_funds && !already_sponsored && !has_shared && !has_personal_balance {
+                // Pool empty and user has no other coverage
+                // Fall through to check attached deposit
+                if *ctx.attached_balance > 0 {
+                    // User attached deposit - use it as fallback
+                    let deposit_amount = *ctx.attached_balance;
+                    let mut new_storage = storage;
+                    new_storage.balance = new_storage.balance.saturating_add(deposit_amount);
+                    new_storage.storage_tracker.reset();
+                    self.user_storage.insert(account_id.clone(), new_storage);
+                    *ctx.attached_balance = 0;
+                }
+                // If no deposit either, operation will fail with "insufficient storage"
+                ctx.processed_accounts.insert(account_id.clone());
+            } else if !pool_has_funds && !already_sponsored && (has_shared || has_personal_balance) {
+                // Pool empty but user has shared or personal coverage
+                ctx.processed_accounts.insert(account_id.clone());
+            } else if already_sponsored || has_shared || has_personal_balance {
+                // Priority 2-3: Already has coverage (sponsored, shared, or personal)
+                ctx.processed_accounts.insert(account_id.clone());
+            } else if *ctx.attached_balance > 0 {
+                // Priority 4: No coverage, but user attached deposit (pay-as-you-go)
                 let deposit_amount = *ctx.attached_balance;
-
                 let mut new_storage = storage;
                 new_storage.balance = new_storage.balance.saturating_add(deposit_amount);
-                self.user_storage.insert(account_id.clone(), new_storage.clone());
-                // Reset any active trackers after storing
                 new_storage.storage_tracker.reset();
-
-                *ctx.attached_balance = ctx.attached_balance.saturating_sub(deposit_amount);
+                self.user_storage.insert(account_id.clone(), new_storage);
+                *ctx.attached_balance = 0;
+                ctx.processed_accounts.insert(account_id.clone());
+            } else {
+                // No coverage at all - operation will fail
+                ctx.processed_accounts.insert(account_id.clone());
             }
-            ctx.processed_accounts.insert(account_id.clone());
         }
 
         // Process the data operation
@@ -152,6 +213,7 @@ impl SocialPlatform {
             event_batch: ctx.event_batch,
             success_paths: &mut success_paths,
             errors: &mut errors,
+            attached_balance: Some(ctx.attached_balance),
         };
         self.process_operation(path, value, account_id, predecessor, &mut op_ctx)?;
 

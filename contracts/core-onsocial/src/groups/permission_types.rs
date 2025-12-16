@@ -356,14 +356,18 @@ impl ProposalType {
     fn execute_permission_change(platform: &mut SocialPlatform, group_id: &str, proposal_id: &str, target_user: &AccountId, permission_flags: u8, reason: Option<&str>, executor: &AccountId, event_config: &Option<EventConfig>) -> Result<(), SocialError> {
         let member_key = GroupStorage::group_member_path(group_id, target_user.as_str());
 
-        let mut member_data = json!({
-            "permission_flags": permission_flags,
-            "updated_at": env::block_timestamp(),
-            "updated_by": executor
-        });
+        // Read existing member data to preserve joined_at, granted_by, is_creator
+        let mut member_data = platform.storage_get(&member_key)
+            .ok_or_else(|| invalid_input!("Member not found"))?;
 
-        if let Some(reason) = reason {
-            member_data["reason"] = json!(reason);
+        // Update only the permission-related fields, preserving original membership data
+        if let Some(obj) = member_data.as_object_mut() {
+            obj.insert("permission_flags".to_string(), json!(permission_flags));
+            obj.insert("updated_at".to_string(), json!(env::block_timestamp()));
+            obj.insert("updated_by".to_string(), json!(executor.to_string()));
+            if let Some(reason) = reason {
+                obj.insert("reason".to_string(), json!(reason));
+            }
         }
 
         platform.storage_set(&member_key, &member_data)?;
@@ -413,7 +417,7 @@ impl ProposalType {
             EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "join_request_approved", executor.clone())
                 .with_field("group_id", group_id)
                 .with_field("proposal_id", proposal_id)
-                .with_field("requester", requester.as_str())
+                .with_target(requester)
                 .with_field("permission_flags", requested_permissions)
                 .with_field("message", message)
                 .emit(&mut event_batch);

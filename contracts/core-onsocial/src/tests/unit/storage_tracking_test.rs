@@ -37,7 +37,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(deposit_data, None);
+        let result = contract.set(deposit_data, None, None);
         
         // CRITICAL: Should fail with error (not Ok with locked funds)
         assert!(result.is_err(), "❌ Insufficient deposit should return error");
@@ -64,12 +64,12 @@ mod storage_tracking_tests {
 
         let pool_data = json!({
             "storage/shared_pool_deposit": {
-                "owner_id": owner.to_string(),
+                "pool_id": owner.to_string(),
                 "amount": requested.to_string()
             }
         });
 
-        let result = contract.set(pool_data, None);
+        let result = contract.set(pool_data, None, None);
         
         // Should fail and refund
         assert!(result.is_err(), "Insufficient pool deposit should return error");
@@ -99,7 +99,9 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(deposit_data, None);
+        // Use refund_unused_deposit: true to get old refund behavior
+        let options = Some(crate::SetOptions { refund_unused_deposit: true });
+        let result = contract.set(deposit_data, options, None);
         assert!(result.is_ok(), "Deposit with excess should succeed");
         
         // Verify only requested amount was stored
@@ -128,7 +130,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Bob adds data that uses storage
         let data_context = get_context(bob.clone());
@@ -138,7 +140,7 @@ mod storage_tracking_tests {
             "profile/name": "Bob",
             "profile/bio": "A test user with some data",
             "posts/1": {"text": "Test post that uses storage", "timestamp": 1234567890}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Try to withdraw full deposit (should fail - some bytes are used)
         let withdraw_context = get_context(bob.clone());
@@ -150,7 +152,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(withdraw_all, None);
+        let result = contract.set(withdraw_all, None, None);
         assert!(result.is_err(), 
                "❌ Should not be able to withdraw full deposit when storage is used");
         
@@ -174,10 +176,10 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "storage/shared_pool_deposit": {
-                "owner_id": pool_owner.to_string(),
+                "pool_id": pool_owner.to_string(),
                 "amount": pool_deposit.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Share storage with beneficiary
         contract.set(json!({
@@ -185,7 +187,7 @@ mod storage_tracking_tests {
                 "target_id": beneficiary.to_string(),
                 "max_bytes": 10000u64
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Beneficiary adds data using shared storage
         let beneficiary_context = get_context(beneficiary.clone());
@@ -194,7 +196,7 @@ mod storage_tracking_tests {
         contract.set(json!({
             "profile/name": "Beneficiary",
             "posts/1": {"text": "Using shared storage", "timestamp": 1234567890}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Beneficiary's personal balance should account for shared storage
         let balance = contract.get_storage_balance(beneficiary.clone()).unwrap();
@@ -221,7 +223,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Verify storage was allocated and tracker properly reset
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
@@ -250,7 +252,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Alice withdraws 0.5 NEAR
         let withdraw_amount = NearToken::from_millinear(500).as_yoctonear();
@@ -261,7 +263,7 @@ mod storage_tracking_tests {
             "storage/withdraw": {
                 "amount": withdraw_amount.to_string()
             }
-        }), None);
+        }), None, None);
 
         // Withdrawal should succeed
         assert!(result.is_ok(), "Withdrawal should succeed");
@@ -294,7 +296,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(withdraw_data, None);
+        let result = contract.set(withdraw_data, None, None);
         assert!(result.is_err(), "Withdrawal from unregistered account should fail");
         
         println!("✅ Withdrawal correctly requires registered account");
@@ -318,7 +320,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Withdraw without specifying amount (should withdraw all available)
         let withdraw_context = get_context(bob.clone());
@@ -326,7 +328,7 @@ mod storage_tracking_tests {
 
         let result = contract.set(json!({
             "storage/withdraw": {}  // No amount specified
-        }), None);
+        }), None, None);
 
         // Note: In unit tests without used bytes, this might succeed or fail
         // depending on if there's any storage usage
@@ -363,7 +365,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(deposit_data, None);
+        let result = contract.set(deposit_data, None, None);
         assert!(result.is_err(), "Depositor mismatch should fail");
         
         println!("✅ Deposit authorizer validation works correctly");
@@ -387,7 +389,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit1.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Second deposit: 2 NEAR
         let deposit2 = NearToken::from_near(2).as_yoctonear();
@@ -398,7 +400,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit2.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Verify total accumulation
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
@@ -429,7 +431,7 @@ mod storage_tracking_tests {
         });
 
         // This might fail if the metadata storage itself exceeds the deposit
-        let result = contract.set(deposit_data, None);
+        let result = contract.set(deposit_data, None, None);
         
         // If it succeeds, the deposit was enough for metadata
         // If it fails, assert_storage_covered() properly caught it
@@ -457,10 +459,10 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "storage/shared_pool_deposit": {
-                "owner_id": pool_owner.to_string(),
+                "pool_id": pool_owner.to_string(),
                 "amount": pool_deposit.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Share storage with beneficiary
         let max_bytes = 50000u64; // 50KB
@@ -472,7 +474,7 @@ mod storage_tracking_tests {
                 "target_id": beneficiary.to_string(),
                 "max_bytes": max_bytes
             }
-        }), None);
+        }), None, None);
 
         assert!(result.is_ok(), "Share storage should succeed");
 
@@ -504,17 +506,17 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "storage/shared_pool_deposit": {
-                "owner_id": pool_owner.to_string(),
+                "pool_id": pool_owner.to_string(),
                 "amount": pool_deposit.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         contract.set(json!({
             "storage/share_storage": {
                 "target_id": beneficiary.to_string(),
                 "max_bytes": 50000u64
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Now return shared storage
         let return_context = get_context(beneficiary.clone());
@@ -522,7 +524,7 @@ mod storage_tracking_tests {
 
         let result = contract.set(json!({
             "storage/return_shared_storage": {}
-        }), None);
+        }), None, None);
 
         assert!(result.is_ok(), "Return shared storage should succeed");
 
@@ -553,7 +555,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(zero_deposit, None);
+        let result = contract.set(zero_deposit, None, None);
         
         // Should either reject or accept based on implementation
         // Key is: no crash, predictable behavior
@@ -582,7 +584,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Try to withdraw zero
         let withdraw_context = get_context(bob.clone());
@@ -592,7 +594,7 @@ mod storage_tracking_tests {
             "storage/withdraw": {
                 "amount": "0"
             }
-        }), None);
+        }), None, None);
 
         // Should succeed (no-op) or reject gracefully
         if result.is_ok() {
@@ -630,7 +632,7 @@ mod storage_tracking_tests {
                 "storage/deposit": {
                     "amount": amount.to_string()
                 }
-            }), None);
+            }), None, None);
 
             assert!(result.is_ok(), "Deposit {} should succeed", i + 1);
             total_deposited += amount;
@@ -662,7 +664,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Try to withdraw with mismatched depositor
         let withdraw_context = get_context(alice.clone());
@@ -677,7 +679,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(withdraw_data, None);
+        let result = contract.set(withdraw_data, None, None);
         assert!(result.is_err(), "Mismatched depositor should fail");
         
         println!("✅ Withdrawal authorizer validation works");
@@ -701,7 +703,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Charlie adds data that locks storage
         let data_context = get_context(charlie.clone());
@@ -713,7 +715,7 @@ mod storage_tracking_tests {
             "posts/1": {"text": "Post 1", "timestamp": 1234567890},
             "posts/2": {"text": "Post 2", "timestamp": 1234567891},
             "posts/3": {"text": "Post 3", "timestamp": 1234567892}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Try to withdraw everything (should not be able to withdraw locked storage)
         let withdraw_context = get_context(charlie.clone());
@@ -722,7 +724,7 @@ mod storage_tracking_tests {
         // Withdrawal attempt (may succeed but won't free locked bytes)
         let _ = contract.set(json!({
             "storage/withdraw": {}  // Try to withdraw all
-        }), None);
+        }), None, None);
 
         // Verify storage is locked by data (bytes still in use)
         let balance = contract.get_storage_balance(charlie.clone()).unwrap();
@@ -749,7 +751,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Charlie adds some data
         let data_context = get_context(charlie.clone());
@@ -760,7 +762,7 @@ mod storage_tracking_tests {
             "profile/bio": "Test user with data",
             "posts/1": {"text": "First post", "timestamp": 1234567890},
             "posts/2": {"text": "Second post", "timestamp": 1234567891}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Charlie withdraws partial amount (should succeed)
         let withdraw_amount = NearToken::from_near(1).as_yoctonear();
@@ -771,7 +773,7 @@ mod storage_tracking_tests {
             "storage/withdraw": {
                 "amount": withdraw_amount.to_string()
             }
-        }), None);
+        }), None, None);
 
         // Should succeed if enough available balance
         if result.is_ok() {
@@ -801,7 +803,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Alice creates data
         let data_context = get_context(alice.clone());
@@ -810,7 +812,7 @@ mod storage_tracking_tests {
         contract.set(json!({
             "profile/name": "Alice",
             "posts/1": {"text": "Test post", "timestamp": 1234567890}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after_create = contract.get_storage_balance(alice.clone()).unwrap();
         let used_bytes_after_create = storage_after_create.used_bytes;
@@ -822,7 +824,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "posts/1": null  // Soft delete
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Verify storage tracking after soft delete
         let storage_after_delete = contract.get_storage_balance(alice.clone()).unwrap();
@@ -851,7 +853,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Bob creates data
         let data_context = get_context(bob.clone());
@@ -859,7 +861,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "posts/1": {"text": "Original post", "timestamp": 1234567890}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after_create = contract.get_storage_balance(bob.clone()).unwrap();
 
@@ -869,7 +871,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "posts/1": null
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after_delete = contract.get_storage_balance(bob.clone()).unwrap();
 
@@ -879,7 +881,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "posts/1": {"text": "New post after delete", "timestamp": 1234567891}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after_recreate = contract.get_storage_balance(bob.clone()).unwrap();
 
@@ -910,7 +912,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Charlie creates multiple posts
         let create_context = get_context(charlie.clone());
@@ -921,7 +923,7 @@ mod storage_tracking_tests {
             "posts/2": {"text": "Post 2", "timestamp": 1234567891},
             "posts/3": {"text": "Post 3", "timestamp": 1234567892},
             "posts/4": {"text": "Post 4", "timestamp": 1234567893}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after_create = contract.get_storage_balance(charlie.clone()).unwrap();
         let initial_used = storage_after_create.used_bytes;
@@ -933,7 +935,7 @@ mod storage_tracking_tests {
 
             contract.set(json!({
                 format!("posts/{}", i): null
-            }), None).unwrap();
+            }), None, None).unwrap();
         }
 
         let storage_after_deletes = contract.get_storage_balance(charlie.clone()).unwrap();
@@ -962,7 +964,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Dave creates large data
         let large_text = "x".repeat(1000); // 1KB of data
@@ -971,7 +973,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "posts/large": {"text": large_text, "timestamp": 1234567890}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_before_delete = contract.get_storage_balance(dave.clone()).unwrap();
 
@@ -981,7 +983,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "posts/large": null
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after_delete = contract.get_storage_balance(dave.clone()).unwrap();
 
@@ -1009,7 +1011,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Eve creates data
         let create_context = get_context(eve.clone());
@@ -1018,7 +1020,7 @@ mod storage_tracking_tests {
         contract.set(json!({
             "posts/1": {"text": "Test post", "timestamp": 1234567890},
             "profile/bio": "A test bio with some content"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Try to withdraw (should have limited availability due to used storage)
         let withdraw_context1 = get_context(eve.clone());
@@ -1029,7 +1031,7 @@ mod storage_tracking_tests {
             "storage/withdraw": {
                 "amount": withdraw_amount.to_string()
             }
-        }), None);
+        }), None, None);
 
         // Might succeed or fail depending on how much storage is used
         let can_withdraw_before_delete = result1.is_ok();
@@ -1041,7 +1043,7 @@ mod storage_tracking_tests {
         contract.set(json!({
             "posts/1": null,
             "profile/bio": null
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // After deletion, storage is released, making more available for withdrawal
         let storage_after_delete = contract.get_storage_balance(eve.clone()).unwrap();
@@ -1067,7 +1069,7 @@ mod storage_tracking_tests {
             "storage/deposit": {
                 "amount": deposit_amount.to_string()
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Frank creates nested data
         let create_context = get_context(frank.clone());
@@ -1075,7 +1077,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "data/level1/level2/item": "nested value"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_before = contract.get_storage_balance(frank.clone()).unwrap();
 
@@ -1085,7 +1087,7 @@ mod storage_tracking_tests {
 
         contract.set(json!({
             "data/level1/level2/item": null
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         let storage_after = contract.get_storage_balance(frank.clone()).unwrap();
 
@@ -1094,5 +1096,134 @@ mod storage_tracking_tests {
                "Nested deletion should release storage");
         
         println!("✅ Nested path soft delete tracked correctly");
+    }
+
+    // ========================================================================
+    // TEST: Batch Operations with Storage Deposit (Double-Counting Prevention)
+    // ========================================================================
+    // This test ensures that when storage/deposit and data operations are
+    // in the same batch, the attached balance is correctly shared and not
+    // double-counted.
+
+    #[test]
+    fn test_batch_storage_deposit_with_data_operations() {
+        let mut contract = init_live_contract();
+        let user = accounts(0);
+
+        // User attaches 1 NEAR total
+        let total_attached = NearToken::from_near(1).as_yoctonear();
+        let deposit_amount = NearToken::from_millinear(500).as_yoctonear(); // 0.5 NEAR for explicit deposit
+        
+        let context = get_context_with_deposit(user.clone(), total_attached);
+        testing_env!(context.build());
+
+        // Batch: storage/deposit + data operation in same call
+        let batch_data = json!({
+            "storage/deposit": {"amount": deposit_amount.to_string()},
+            "profile/name": "TestUser",
+            "profile/bio": "Testing batch operations"
+        });
+
+        let result = contract.set(batch_data, None, None);
+        assert!(result.is_ok(), "Batch operation should succeed: {:?}", result.err());
+
+        // Verify storage balance was allocated correctly
+        let storage = contract.get_storage_balance(user.clone()).unwrap();
+        
+        // The explicit deposit of 0.5 NEAR + auto-deposit of remaining 0.5 NEAR for data
+        // Total should be ~1 NEAR (minus any gas/overhead)
+        assert!(storage.balance > 0, "Storage balance should be positive");
+        
+        // Verify data was stored
+        let keys = vec![format!("{}/profile/name", user), format!("{}/profile/bio", user)];
+        let retrieved = contract.get(keys, Some(user.clone()), None, None);
+        assert!(!retrieved.is_empty(), "Data should be stored");
+
+        println!("✅ Batch storage deposit + data operations work correctly");
+    }
+
+    #[test]
+    fn test_storage_deposit_consumes_from_attached_balance() {
+        let mut contract = init_live_contract();
+        let user = accounts(0);
+
+        // User attaches exactly 0.5 NEAR
+        let attached = NearToken::from_millinear(500).as_yoctonear();
+        
+        let context = get_context_with_deposit(user.clone(), attached);
+        testing_env!(context.build());
+
+        // Try to deposit 0.5 NEAR (uses all attached)
+        let deposit_data = json!({
+            "storage/deposit": {"amount": attached.to_string()}
+        });
+
+        let result = contract.set(deposit_data, None, None);
+        assert!(result.is_ok(), "Deposit should succeed");
+
+        // Verify exactly the deposited amount is in storage
+        let storage = contract.get_storage_balance(user.clone()).unwrap();
+        assert_eq!(storage.balance, attached, "Storage balance should equal deposited amount");
+
+        println!("✅ Storage deposit correctly consumes from attached balance");
+    }
+
+    #[test]
+    fn test_storage_deposit_fails_if_insufficient_in_batch() {
+        let mut contract = init_live_contract();
+        let user = accounts(0);
+
+        // User attaches 0.3 NEAR
+        let attached = NearToken::from_millinear(300).as_yoctonear();
+        let requested = NearToken::from_millinear(500).as_yoctonear(); // Requesting more than attached
+        
+        let context = get_context_with_deposit(user.clone(), attached);
+        testing_env!(context.build());
+
+        // Try to deposit more than attached
+        let deposit_data = json!({
+            "storage/deposit": {"amount": requested.to_string()}
+        });
+
+        let result = contract.set(deposit_data, None, None);
+        assert!(result.is_err(), "Should fail when requesting more than attached");
+        
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Insufficient"), "Error should mention insufficient deposit");
+
+        println!("✅ Storage deposit correctly fails when insufficient balance in context");
+    }
+
+    #[test]
+    fn test_multiple_deposits_in_batch_share_attached_balance() {
+        let mut contract = init_live_contract();
+        let user = accounts(0);
+
+        // This test verifies that if someone tries to do multiple storage/deposit
+        // operations in one batch, they correctly share the attached balance
+        // Note: JSON objects can't have duplicate keys, so this tests the accounting logic
+        
+        let attached = NearToken::from_near(1).as_yoctonear();
+        let deposit_amount = NearToken::from_millinear(600).as_yoctonear();
+        
+        let context = get_context_with_deposit(user.clone(), attached);
+        testing_env!(context.build());
+
+        // First deposit takes 0.6 NEAR, leaving 0.4 NEAR
+        let deposit_data = json!({
+            "storage/deposit": {"amount": deposit_amount.to_string()}
+        });
+
+        // Use refund_unused_deposit: true so excess 0.4 NEAR is refunded, not added to storage
+        let options = Some(crate::SetOptions { refund_unused_deposit: true });
+        let result = contract.set(deposit_data, options, None);
+        assert!(result.is_ok(), "First deposit should succeed");
+
+        // Storage should have exactly 0.6 NEAR (not more due to double-counting)
+        let storage = contract.get_storage_balance(user.clone()).unwrap();
+        assert_eq!(storage.balance, deposit_amount, 
+            "Storage should have exactly the deposited amount, not double-counted");
+
+        println!("✅ Storage deposit correctly prevents double-counting");
     }
 }

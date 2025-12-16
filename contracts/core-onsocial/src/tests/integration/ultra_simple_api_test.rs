@@ -22,7 +22,7 @@ mod ultra_simple_api_tests {
             "posts/1": {"text": "Hello world!", "timestamp": 1234567890}
         });
 
-        let result = contract.set(data, None);
+        let result = contract.set(data, None, None);
         assert!(result.is_ok(), "Simple set operation should succeed");
 
         // Verify data was set
@@ -47,7 +47,7 @@ mod ultra_simple_api_tests {
             "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
         });
 
-        let result = contract.set(deposit_data, None);
+        let result = contract.set(deposit_data, None, None);
         assert!(result.is_ok(), "Storage deposit should succeed");
 
         // Verify storage balance
@@ -60,7 +60,7 @@ mod ultra_simple_api_tests {
             "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
         });
 
-        let result = contract.set(withdraw_data, None);
+        let result = contract.set(withdraw_data, None, None);
         assert!(result.is_ok(), "Storage withdraw should succeed");
 
         println!("✓ Simple storage operations test passed");
@@ -85,7 +85,7 @@ mod ultra_simple_api_tests {
             }
         });
 
-        let result = contract.set(permission_data, None);
+        let result = contract.set(permission_data, None, None);
         assert!(result.is_ok(), "Permission grant should succeed");
 
         // Verify permission was granted
@@ -105,7 +105,7 @@ mod ultra_simple_api_tests {
             }
         });
 
-        let result = contract.set(revoke_data, None);
+        let result = contract.set(revoke_data, None, None);
         assert!(result.is_ok(), "Permission revoke should succeed");
 
         // Verify permission was revoked
@@ -141,7 +141,7 @@ mod ultra_simple_api_tests {
             }
         });
 
-        let result = contract.set(mixed_data, None);
+        let result = contract.set(mixed_data, None, None);
         assert!(result.is_ok(), "Mixed operations should succeed");
 
         // Verify storage was deposited

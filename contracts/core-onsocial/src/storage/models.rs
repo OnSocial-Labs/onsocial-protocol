@@ -22,8 +22,14 @@ pub struct Storage {
     /// Bytes used by the account.
     pub used_bytes: u64,
 
-    /// Optional shared storage allocation from a pool.
+    /// Optional shared storage allocation from a pool (for group-level sponsorship).
     pub shared_storage: Option<AccountSharedStorage>,
+
+    /// Whether this user's storage is sponsored by the platform pool on-demand.
+    /// When true, storage costs are paid from the platform pool as usage occurs.
+    /// This is more efficient than pre-allocating fixed amounts.
+    #[serde(default)]
+    pub platform_sponsored: bool,
 
     /// Storage usage tracker for account operations.
     #[serde(skip)]

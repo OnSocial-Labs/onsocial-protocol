@@ -25,7 +25,7 @@ mod test_get_api {
         contract.set(json!({
             "profile/name": "Alice",
             "posts/1": {"text": "Hello world"}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Test 1: Full path (with account prefix)
         let full_keys = vec![
@@ -126,7 +126,7 @@ mod test_get_api {
         // Write data (metadata is managed internally)
         contract.set(json!({
             "profile/name": "Alice"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Test: Get with include_metadata = true
         let keys = vec![format!("{}/profile/name", alice.as_str())];
@@ -178,7 +178,7 @@ mod test_get_api {
         // Write only one key
         contract.set(json!({
             "profile/name": "Alice"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Request multiple keys where only one exists
         let keys = vec![
@@ -206,12 +206,12 @@ mod test_get_api {
         let mut contract = init_live_contract();
 
         // Alice writes her data
-        contract.set(json!({"profile/name": "Alice"}), None).unwrap();
+        contract.set(json!({"profile/name": "Alice"}), None, None).unwrap();
 
         // Bob writes his data
         let context_bob = get_context_with_deposit(bob.clone(), 5_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(context_bob.build());
-        contract.set(json!({"profile/name": "Bob"}), None).unwrap();
+        contract.set(json!({"profile/name": "Bob"}), None, None).unwrap();
 
         // Retrieve both accounts' data in one call
         let keys = vec![
@@ -237,7 +237,7 @@ mod test_get_api {
         contract.set(json!({
             "profile/name": "Alice",
             "posts/1": "Post 1"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Test: Using full paths (recommended approach)
         let keys_full = vec![
@@ -296,7 +296,7 @@ mod test_get_api {
         // Alice writes "private" data
         contract.set(json!({
             "private/secrets": "Alice's secret data"
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Bob tries to read Alice's "private" data
         let context_bob = get_context(bob.clone());

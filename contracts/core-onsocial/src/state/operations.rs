@@ -58,6 +58,17 @@ impl SocialPlatform {
     /// Follows social-db pattern: track entire operation including serialization overhead.
     /// Returns previous entry if any.
     pub fn insert_entry(&mut self, full_path: &str, entry: DataEntry) -> Result<Option<DataEntry>, crate::errors::SocialError> {
+        self.insert_entry_with_fallback(full_path, entry, None)
+    }
+
+    /// Insert entry with optional attached_balance fallback for auto-deposit when pool exhausts.
+    /// Priority: Platform Pool → Shared Pool → Personal Balance → Attached Deposit
+    pub fn insert_entry_with_fallback(
+        &mut self,
+        full_path: &str,
+        entry: DataEntry,
+        mut attached_balance: Option<&mut u128>,
+    ) -> Result<Option<DataEntry>, crate::errors::SocialError> {
         // NOTE: Permission keys use normal paths (groups/{id}/permissions/* or {account}/permissions/*)
         // No special case needed - they go through the standard system below
         
@@ -100,7 +111,7 @@ impl SocialPlatform {
             if delta > 0 {
                 storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
                 
-                // Handle shared storage allocation if present
+                // Handle shared storage allocation if present (group-level sponsorship)
                 if let Some(shared) = storage.shared_storage.as_mut() {
                     shared.used_bytes = shared.used_bytes.saturating_add(delta as u64);
                     
@@ -111,11 +122,35 @@ impl SocialPlatform {
                         self.shared_storage_pools.insert(shared.pool_id.clone(), updated_pool);
                     }
                 }
+                // Handle platform-sponsored users (on-demand from platform pool)
+                else if storage.platform_sponsored {
+                    let platform_account = Self::platform_pool_account();
+                    // Check if pool has enough capacity for this delta
+                    let pool_has_capacity = if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
+                        let total_capacity = (pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear()) as u64;
+                        pool.used_bytes.saturating_add(delta as u64) <= total_capacity
+                    } else {
+                        false
+                    };
+                    
+                    if pool_has_capacity {
+                        // Pool can cover - add to pool
+                        if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
+                            let mut updated_pool = pool.clone();
+                            updated_pool.used_bytes = updated_pool.used_bytes.saturating_add(delta as u64);
+                            self.shared_storage_pools.insert(platform_account, updated_pool);
+                        }
+                    } else {
+                        // Pool exhausted - gracefully fall back to personal balance
+                        // The assert_storage_covered check at the end will verify personal balance
+                        storage.platform_sponsored = false;
+                    }
+                }
             } else if delta < 0 {
                 let abs_bytes = delta.unsigned_abs();
                 storage.used_bytes = storage.used_bytes.saturating_sub(abs_bytes);
                 
-                // Handle shared storage deallocation if present
+                // Handle shared storage deallocation if present (group-level sponsorship)
                 if let Some(shared) = storage.shared_storage.as_mut() {
                     shared.used_bytes = shared.used_bytes.saturating_sub(abs_bytes);
                     
@@ -126,13 +161,42 @@ impl SocialPlatform {
                         self.shared_storage_pools.insert(shared.pool_id.clone(), updated_pool);
                     }
                 }
+                // Handle platform-sponsored users (on-demand from platform pool)
+                else if storage.platform_sponsored {
+                    let platform_account = Self::platform_pool_account();
+                    // Update platform pool usage in real-time
+                    if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
+                        let mut updated_pool = pool.clone();
+                        updated_pool.used_bytes = updated_pool.used_bytes.saturating_sub(abs_bytes);
+                        self.shared_storage_pools.insert(platform_account, updated_pool);
+                    }
+                }
             }
             
             // Reset tracker after applying changes
             storage.storage_tracker.reset();
             
-            // Assert storage coverage
-            storage.assert_storage_covered()?;
+            // Assert storage coverage with attached deposit fallback
+            // Priority chain: Platform Pool → Shared Pool → Personal Balance → Attached Deposit
+            if let Err(_) = self.assert_storage_covered_with_platform(&storage) {
+                // Coverage failed - try auto-deposit from attached_balance as final fallback
+                if let Some(ref mut balance) = attached_balance {
+                    if **balance > 0 {
+                        // Auto-deposit remaining attached balance
+                        let deposit_amount = **balance;
+                        storage.balance = storage.balance.saturating_add(deposit_amount);
+                        **balance = 0;
+                        // Re-check coverage after deposit
+                        self.assert_storage_covered_with_platform(&storage)?;
+                    } else {
+                        // No attached balance - fail with original error
+                        self.assert_storage_covered_with_platform(&storage)?;
+                    }
+                } else {
+                    // No attached_balance context - fail with original error
+                    self.assert_storage_covered_with_platform(&storage)?;
+                }
+            }
             
             // Save updated storage
             self.user_storage.insert(account_id, storage);
@@ -192,7 +256,7 @@ impl SocialPlatform {
         if delta > 0 {
             storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
             
-            // Handle shared storage allocation if present
+            // Handle shared storage allocation if present (group-level sponsorship)
             if let Some(shared) = storage.shared_storage.as_mut() {
                 shared.used_bytes = shared.used_bytes.saturating_add(delta as u64);
                 
@@ -203,11 +267,35 @@ impl SocialPlatform {
                     self.shared_storage_pools.insert(shared.pool_id.clone(), updated_pool);
                 }
             }
+            // Handle platform-sponsored users (on-demand from platform pool)
+            else if storage.platform_sponsored {
+                let platform_account = Self::platform_pool_account();
+                // Check if pool has enough capacity for this delta
+                let pool_has_capacity = if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
+                    let total_capacity = (pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear()) as u64;
+                    pool.used_bytes.saturating_add(delta as u64) <= total_capacity
+                } else {
+                    false
+                };
+                
+                if pool_has_capacity {
+                    // Pool can cover - add to pool
+                    if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
+                        let mut updated_pool = pool.clone();
+                        updated_pool.used_bytes = updated_pool.used_bytes.saturating_add(delta as u64);
+                        self.shared_storage_pools.insert(platform_account, updated_pool);
+                    }
+                } else {
+                    // Pool exhausted - gracefully fall back to personal balance
+                    // The assert_storage_covered check at the end will verify personal balance
+                    storage.platform_sponsored = false;
+                }
+            }
         } else if delta < 0 {
             let abs_bytes = delta.unsigned_abs();
             storage.used_bytes = storage.used_bytes.saturating_sub(abs_bytes);
             
-            // Handle shared storage deallocation if present
+            // Handle shared storage deallocation if present (group-level sponsorship)
             if let Some(shared) = storage.shared_storage.as_mut() {
                 shared.used_bytes = shared.used_bytes.saturating_sub(abs_bytes);
                 
@@ -218,13 +306,42 @@ impl SocialPlatform {
                     self.shared_storage_pools.insert(shared.pool_id.clone(), updated_pool);
                 }
             }
+            // Handle platform-sponsored users (on-demand from platform pool)
+            else if storage.platform_sponsored {
+                let platform_account = Self::platform_pool_account();
+                // Update platform pool usage in real-time
+                if let Some(pool) = self.shared_storage_pools.get(&platform_account) {
+                    let mut updated_pool = pool.clone();
+                    updated_pool.used_bytes = updated_pool.used_bytes.saturating_sub(abs_bytes);
+                    self.shared_storage_pools.insert(platform_account, updated_pool);
+                }
+            }
         }
         
         // Reset tracker after applying changes
         storage.storage_tracker.reset();
         
-        // Assert storage coverage
-        storage.assert_storage_covered()?;
+        // Assert storage coverage with attached deposit fallback
+        // Priority chain: Platform Pool → Shared Pool → Personal Balance → Attached Deposit
+        if let Err(_) = self.assert_storage_covered_with_platform(&storage) {
+            // Coverage failed - try auto-deposit from attached_balance as final fallback
+            if let Some(ref mut balance) = attached_balance {
+                if **balance > 0 {
+                    // Auto-deposit remaining attached balance
+                    let deposit_amount = **balance;
+                    storage.balance = storage.balance.saturating_add(deposit_amount);
+                    **balance = 0;
+                    // Re-check coverage after deposit
+                    self.assert_storage_covered_with_platform(&storage)?;
+                } else {
+                    // No attached balance - fail with original error
+                    self.assert_storage_covered_with_platform(&storage)?;
+                }
+            } else {
+                // No attached_balance context - fail with original error
+                self.assert_storage_covered_with_platform(&storage)?;
+            }
+        }
         
         // Save updated storage
         self.user_storage.insert(account_id, storage);

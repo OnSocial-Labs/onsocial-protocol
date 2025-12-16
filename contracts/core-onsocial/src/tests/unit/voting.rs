@@ -574,8 +574,32 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // The proposal mechanism should work
         assert!(vote_result.is_ok(), "Permission change proposal voting should work");
+
+        // CRITICAL: Verify that original member data is preserved after permission change
+        let member_path = format!("groups/votetest11/members/{}", alice.as_str());
+        let updated_member = contract.platform.storage_get(&member_path)
+            .expect("Member data should exist after permission change");
+        
+        // Verify permission flags were updated
+        let new_flags = updated_member.get("permission_flags")
+            .and_then(|v| v.as_u64())
+            .expect("permission_flags should exist");
+        assert_eq!(new_flags, MANAGE as u64, "Permission flags should be updated to MANAGE");
+
+        // Verify original membership data is preserved (regression test for bug fix)
+        assert!(updated_member.get("joined_at").is_some(), 
+            "joined_at should be preserved after permission change");
+        assert!(updated_member.get("granted_by").is_some(), 
+            "granted_by should be preserved after permission change");
+        
+        // Verify update metadata was added
+        assert!(updated_member.get("updated_at").is_some(), 
+            "updated_at should be set after permission change");
+        assert!(updated_member.get("updated_by").is_some(), 
+            "updated_by should be set after permission change");
         
         println!("✅ Permission change proposal voting workflow works");
+        println!("✅ Member data preserved after permission change");
     }
 
     // ============================================================================

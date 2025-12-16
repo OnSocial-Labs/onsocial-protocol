@@ -13,7 +13,7 @@
 //
 // Group content is stored at user-owned paths but associated with groups:
 // - Write path: "groups/mygroup/posts/1" (checked for permissions)
-// - Storage path: "alice.near/posts/1" (actual storage location)
+// - Storage path: "alice.near/groups/mygroup/posts/1" (actual storage location)
 // - Permission check: alice.near needs WRITE permission on groups/mygroup/posts/
 
 #[cfg(test)]
@@ -75,7 +75,7 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/tech_discussion/posts/post1": post_content
-        }), None);
+        }), None, None);
 
         assert!(
             result.is_ok(),
@@ -83,14 +83,14 @@ mod group_content_integration_tests {
             result.err()
         );
 
-        // Verify content is stored at user-owned path
-        let keys = vec![format!("{}/posts/post1", member)];
+        // Verify content is stored at user-owned path (includes group in path)
+        let keys = vec![format!("{}/groups/tech_discussion/posts/post1", member)];
         let retrieved = contract.get(keys, None, None, None);
         
         assert!(!retrieved.is_empty(), "Content should be retrievable");
         
         // Get API returns data directly at the key path
-        let stored_content = retrieved.get(&format!("{}/posts/post1", member));
+        let stored_content = retrieved.get(&format!("{}/groups/tech_discussion/posts/post1", member));
         
         assert!(stored_content.is_some(), "Post should exist at user-owned path");
         
@@ -139,21 +139,21 @@ mod group_content_integration_tests {
             "groups/blog_group/posts/post1": {"title": "First Post", "text": "Content 1"},
             "groups/blog_group/posts/post2": {"title": "Second Post", "text": "Content 2"},
             "groups/blog_group/posts/post3": {"title": "Third Post", "text": "Content 3"}
-        }), None);
+        }), None, None);
 
         assert!(result.is_ok(), "Multiple posts should be created: {:?}", result.err());
 
-        // Verify all posts exist
+        // Verify all posts exist (paths include group)
         let keys = vec![
-            format!("{}/posts/post1", member),
-            format!("{}/posts/post2", member),
-            format!("{}/posts/post3", member),
+            format!("{}/groups/blog_group/posts/post1", member),
+            format!("{}/groups/blog_group/posts/post2", member),
+            format!("{}/groups/blog_group/posts/post3", member),
         ];
         let retrieved = contract.get(keys, None, None, None);
         
-        assert!(retrieved.get(&format!("{}/posts/post1", member)).is_some(), "Post 1 should exist");
-        assert!(retrieved.get(&format!("{}/posts/post2", member)).is_some(), "Post 2 should exist");
-        assert!(retrieved.get(&format!("{}/posts/post3", member)).is_some(), "Post 3 should exist");
+        assert!(retrieved.get(&format!("{}/groups/blog_group/posts/post1", member)).is_some(), "Post 1 should exist");
+        assert!(retrieved.get(&format!("{}/groups/blog_group/posts/post2", member)).is_some(), "Post 2 should exist");
+        assert!(retrieved.get(&format!("{}/groups/blog_group/posts/post3", member)).is_some(), "Post 3 should exist");
 
         println!("✓ Member created multiple posts successfully");
     }
@@ -191,21 +191,21 @@ mod group_content_integration_tests {
             "groups/community/posts/blog1": {"title": "Blog Post", "type": "article"},
             "groups/community/comments/c1": {"text": "Nice post!", "parent": "post123"},
             "groups/community/media/photo1": {"url": "ipfs://...", "caption": "Sunset"}
-        }), None);
+        }), None, None);
 
         assert!(result.is_ok(), "Different content types should work: {:?}", result.err());
 
-        // Verify all stored correctly
+        // Verify all stored correctly (paths include group)
         let keys = vec![
-            format!("{}/posts/blog1", member),
-            format!("{}/comments/c1", member),
-            format!("{}/media/photo1", member),
+            format!("{}/groups/community/posts/blog1", member),
+            format!("{}/groups/community/comments/c1", member),
+            format!("{}/groups/community/media/photo1", member),
         ];
         let retrieved = contract.get(keys, None, None, None);
 
-        assert!(retrieved.get(&format!("{}/posts/blog1", member)).is_some());
-        assert!(retrieved.get(&format!("{}/comments/c1", member)).is_some());
-        assert!(retrieved.get(&format!("{}/media/photo1", member)).is_some());
+        assert!(retrieved.get(&format!("{}/groups/community/posts/blog1", member)).is_some());
+        assert!(retrieved.get(&format!("{}/groups/community/comments/c1", member)).is_some());
+        assert!(retrieved.get(&format!("{}/groups/community/media/photo1", member)).is_some());
 
         println!("✓ Different content types created successfully");
     }
@@ -235,7 +235,7 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/private_group/posts/hack": {"text": "Unauthorized post"}
-        }), None);
+        }), None, None);
 
         assert!(
             result.is_err(),
@@ -280,14 +280,14 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/restricted/posts/allowed": {"text": "This should work"}
-        }), None);
+        }), None, None);
 
         assert!(result.is_ok(), "Should be able to write to posts/: {:?}", result.err());
 
         // Member CANNOT create comments (no permission)
         let result = contract.set(json!({
             "groups/restricted/comments/denied": {"text": "This should fail"}
-        }), None);
+        }), None, None);
 
         assert!(
             result.is_err(),
@@ -331,7 +331,7 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/revoke_test/posts/before": {"text": "Posted with permission"}
-        }), None);
+        }), None, None);
         assert!(result.is_ok(), "Should work before revocation");
 
         // Owner revokes permission
@@ -351,7 +351,7 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/revoke_test/posts/after": {"text": "Should fail"}
-        }), None);
+        }), None, None);
 
         assert!(
             result.is_err(),
@@ -404,7 +404,7 @@ mod group_content_integration_tests {
                 "text": "A".repeat(1000), // Large content to ensure measurable storage
                 "metadata": {"key": "value"}
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Get member's storage balance after content creation
         let balance_after = contract.get_storage_balance(member.clone()).unwrap();
@@ -458,7 +458,7 @@ mod group_content_integration_tests {
 
         contract.set(json!({
             "groups/event_test/posts/event_post": {"title": "Event Test Post"}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Verify event was emitted
         let logs = near_sdk::test_utils::get_logs();
@@ -509,7 +509,7 @@ mod group_content_integration_tests {
 
         contract.set(json!({
             "groups/collab/posts/thread1": {"text": "Alice's post", "id": "thread1"}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Bob creates a reply
         let context = get_context_with_deposit(bob.clone(), 5_000_000_000_000_000_000_000_000);
@@ -517,16 +517,16 @@ mod group_content_integration_tests {
 
         contract.set(json!({
             "groups/collab/posts/reply1": {"text": "Bob's reply", "parent": "thread1"}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
-        // Verify both posts exist at their respective user-owned paths
-        let alice_keys = vec![format!("{}/posts/thread1", alice)];
+        // Verify both posts exist at their respective user-owned paths (paths include group)
+        let alice_keys = vec![format!("{}/groups/collab/posts/thread1", alice)];
         let alice_data = contract.get(alice_keys, None, None, None);
-        assert!(alice_data.get(&format!("{}/posts/thread1", alice)).is_some(), "Alice's post should exist");
+        assert!(alice_data.get(&format!("{}/groups/collab/posts/thread1", alice)).is_some(), "Alice's post should exist");
 
-        let bob_keys = vec![format!("{}/posts/reply1", bob)];
+        let bob_keys = vec![format!("{}/groups/collab/posts/reply1", bob)];
         let bob_data = contract.get(bob_keys, None, None, None);
-        assert!(bob_data.get(&format!("{}/posts/reply1", bob)).is_some(), "Bob's reply should exist");
+        assert!(bob_data.get(&format!("{}/groups/collab/posts/reply1", bob)).is_some(), "Bob's reply should exist");
 
         println!("✓ Multi-member content collaboration works correctly");
     }
@@ -568,12 +568,12 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/private_club/posts/secret": {"text": "Private content", "visibility": "private"}
-        }), None);
+        }), None, None);
 
         assert!(result.is_ok(), "Approved member should create content in private group: {:?}", result.err());
 
-        // Verify content exists
-        let keys = vec![format!("{}/posts/secret", approved_member)];
+        // Verify content exists (path includes group)
+        let keys = vec![format!("{}/groups/private_club/posts/secret", approved_member)];
         let retrieved = contract.get(keys, None, None, None);
         assert!(!retrieved.is_empty(), "Private group content should be retrievable");
 
@@ -595,7 +595,7 @@ mod group_content_integration_tests {
         // (Owner has implicit full permissions)
         let result = contract.set(json!({
             "groups/owner_group/posts/owner_post": {"text": "Owner's post"}
-        }), None);
+        }), None, None);
 
         assert!(
             result.is_ok(),
@@ -628,7 +628,7 @@ mod group_content_integration_tests {
         for invalid_path in invalid_paths {
             let result = contract.set(json!({
                 invalid_path: {"text": "Test"}
-            }), None);
+            }), None, None);
 
             assert!(
                 result.is_err(),
@@ -650,7 +650,7 @@ mod group_content_integration_tests {
 
         let result = contract.set(json!({
             "groups/nonexistent_group/posts/1": {"text": "This should fail"}
-        }), None);
+        }), None, None);
 
         assert!(
             result.is_err(),
@@ -705,7 +705,7 @@ mod group_content_integration_tests {
             }
         });
 
-        let result = contract.set(large_content, None);
+        let result = contract.set(large_content, None, None);
 
         // Should fail due to insufficient storage
         assert!(
@@ -756,7 +756,7 @@ mod group_content_integration_tests {
                 "text": "Version 1",
                 "version": 1
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Update content
         contract.set(json!({
@@ -764,13 +764,13 @@ mod group_content_integration_tests {
                 "text": "Version 2 - Updated",
                 "version": 2
             }
-        }), None).unwrap();
+        }), None, None).unwrap();
 
-        // Verify latest version is stored
-        let keys = vec![format!("{}/posts/article1", member)];
+        // Verify latest version is stored (path includes group)
+        let keys = vec![format!("{}/groups/versioning/posts/article1", member)];
         let retrieved = contract.get(keys, None, None, None);
         
-        let content = retrieved.get(&format!("{}/posts/article1", member))
+        let content = retrieved.get(&format!("{}/groups/versioning/posts/article1", member))
             .expect("Content should exist");
 
         // Content is enriched, version is inside the stored data
@@ -813,14 +813,14 @@ mod group_content_integration_tests {
 
         contract.set(json!({
             "groups/public_read/posts/public_post": {"text": "Public content"}
-        }), None).unwrap();
+        }), None, None).unwrap();
 
         // Reader (not a member) tries to read content
         let context = get_context_with_deposit(reader.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        // Blockchain data is publicly readable
-        let keys = vec![format!("{}/posts/public_post", author)];
+        // Blockchain data is publicly readable (path includes group)
+        let keys = vec![format!("{}/groups/public_read/posts/public_post", author)];
         let retrieved = contract.get(keys, None, None, None);
 
         assert!(

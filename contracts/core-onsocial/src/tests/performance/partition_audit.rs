@@ -239,9 +239,21 @@ mod partition_audit_tests {
         println!("Used partitions: {} out of {}", used_partitions, NUM_PARTITIONS);
         println!("Empty partitions: {} out of {}", empty_partitions, NUM_PARTITIONS);
 
-        // With 304 accounts across 256 partitions, we expect good coverage
-        assert!(used_partitions > NUM_PARTITIONS as usize / 2, 
-            "Should use more than half of partitions");
+        // With 304 accounts across 4096 partitions, we check for uniform distribution:
+        // 1. No single partition should have too many accounts (no clustering)
+        // 2. Used partitions should be close to account count (good spread)
+        let max_per_partition = partition_hits.values().max().copied().unwrap_or(0);
+        
+        // With good hash distribution, max accounts per partition should be small
+        // (birthday paradox: some collisions expected, but not excessive)
+        assert!(max_per_partition <= 5, 
+            "No partition should have more than 5 accounts with uniform distribution, found {}", max_per_partition);
+        
+        // Most accounts should land in unique partitions (expect ~95%+ unique with 304/4096)
+        let min_expected_unique = (test_accounts.len() as f64 * 0.90) as usize;
+        assert!(used_partitions >= min_expected_unique, 
+            "Should have at least {}% unique partitions, got {} out of {} accounts", 
+            90, used_partitions, test_accounts.len());
 
         println!("=== Large Scale Partition Distribution Analysis PASSED ===");
     }

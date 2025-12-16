@@ -158,18 +158,24 @@ test_integration() {
                 # Clean up any stale sandbox temp files first
                 rm -rf /tmp/.tmp* 2>/dev/null || true
                 
-                local test_filter="core_onsocial_tests"
+                # Run all tests in the integration test package (includes core_onsocial_tests and storage_batch_tests)
+                # When a specific test is requested, use that as the filter
+                local test_filter=""
                 if [ -n "$test_name" ]; then
                     test_filter="$test_name"
                     echo "Running specific integration test: $test_name"
                 fi
                 
-                [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- $test_filter --test-threads=1"
-                
-                # Run tests, filter out sandbox kernel parameter warnings (they're performance hints, not errors)
-                # Use a temp file to preserve exit code while filtering output
-                local test_output
-                test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- "$test_filter" --test-threads=1 2>&1)
+                if [ -n "$test_filter" ]; then
+                    [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- $test_filter --test-threads=1"
+                    local test_output
+                    test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- "$test_filter" --test-threads=1 2>&1)
+                else
+                    # Run all tests except cross_contract_tests (which has its own make target)
+                    [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- --skip cross_contract_tests --test-threads=1"
+                    local test_output
+                    test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- --skip cross_contract_tests --test-threads=1 2>&1)
+                fi
                 local test_exit_code=$?
                 
                 # Filter and display output (remove kernel param warnings)

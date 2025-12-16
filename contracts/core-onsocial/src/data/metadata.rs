@@ -19,16 +19,10 @@ use near_sdk::{
 /// // The method automatically derives:
 /// // - id: "post123"
 /// // - type: "content"
-/// // - content_id: "post123"
-/// // - content_type: "post"
 /// // - group_id, group_path, is_group_content (auto-detected for group paths)
+/// // - author, timestamp, block_height (always included)
 /// // - parent_id, thread_root_id, group_id (client-provided in metadata)
 /// // - access control based on permissions
-///
-/// // Add custom fields if needed:
-/// let metadata = MetadataBuilder::from_path(path, &author, Some(&value))
-///     .with_field("custom_field", "value")
-///     .build();
 /// ```
 /// Builder for constructing metadata objects with custom fields and access control.
 /// Optimized for path/wildcard-driven unified set operations.
@@ -56,17 +50,6 @@ impl MetadataBuilder {
         Self::derive_universal_fields(&mut data, &parts, full_path, value);
 
         Self { data }
-    }
-
-    /// Adds a custom field to metadata.
-    pub fn with_field(mut self, key: &str, value: impl serde::Serialize) -> Self {
-        // Direct Value creation for common types to avoid serde overhead
-        let v = match serde_json::to_value(&value) {
-            Ok(val) if !val.is_null() => val,
-            _ => return self, // Skip on error or null
-        };
-        self.data.insert(key.to_string(), v);
-        self
     }
 
     /// Builds the final metadata Value.
@@ -112,18 +95,26 @@ impl MetadataBuilder {
     }
 
     /// Automatically extract group metadata from group paths (optimized to reuse parsed parts)
+    /// Handles both formats:
+    /// - Direct: groups/{group_id}/posts/1
+    /// - User-prefixed: {author}/groups/{group_id}/posts/1
     fn extract_group_metadata(data: &mut serde_json::Map<String, Value>, parts: &[&str]) {
+        // Check for direct group path: groups/{group_id}/...
         if parts.len() >= 3 && parts[0] == "groups" {
-            // Extract group_id from second segment
             data.insert("group_id".into(), Value::String(parts[1].to_string()));
-
-            // Extract group_path from remaining segments (efficient join)
             if parts.len() > 2 {
                 let group_path = parts[2..].join("/");
                 data.insert("group_path".into(), Value::String(group_path));
             }
-
-            // Mark as group content
+            data.insert("is_group_content".into(), Value::Bool(true));
+        }
+        // Check for user-prefixed group path: {author}/groups/{group_id}/...
+        else if parts.len() >= 4 && parts[1] == "groups" {
+            data.insert("group_id".into(), Value::String(parts[2].to_string()));
+            if parts.len() > 3 {
+                let group_path = parts[3..].join("/");
+                data.insert("group_path".into(), Value::String(group_path));
+            }
             data.insert("is_group_content".into(), Value::Bool(true));
         }
     }

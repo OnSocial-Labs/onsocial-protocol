@@ -157,7 +157,7 @@ mod permission_tests {
                 "title": "Member1's Event",
                 "organizer": member1.to_string()
             }
-        }), None);
+        }), None, None);
 
         assert!(
             member1_write.is_ok(),
@@ -170,7 +170,7 @@ mod permission_tests {
             "groups/testgroup/posts/post1": {
                 "title": "Unauthorized Post"
             }
-        }), None);
+        }), None, None);
 
         assert!(
             member1_unauthorized.is_err(),
@@ -185,7 +185,7 @@ mod permission_tests {
                 "title": "Member2's Post",
                 "author": member2.to_string()
             }
-        }), None);
+        }), None, None);
 
         assert!(
             member2_write.is_ok(),
@@ -198,7 +198,7 @@ mod permission_tests {
             "groups/testgroup/events/event2": {
                 "title": "Unauthorized Event"
             }
-        }), None);
+        }), None, None);
 
         assert!(
             member2_unauthorized.is_err(),
@@ -760,7 +760,7 @@ mod permission_tests {
                 "organizer": bob.to_string(),
                 "date": "2025-10-15"
             }
-        }), None);
+        }), None, None);
 
         assert!(
             write_result.is_ok(),
@@ -775,7 +775,7 @@ mod permission_tests {
             "groups/demo_group/admin/config": {
                 "setting": "unauthorized"
             }
-        }), None);
+        }), None, None);
 
         assert!(
             unauthorized_write.is_err(),
@@ -876,7 +876,7 @@ mod permission_tests {
                 "title": "Unauthorized Event",
                 "organizer": bob.to_string()
             }
-        }), None);
+        }), None, None);
 
         assert!(
             write_attempt.is_err(),
@@ -1048,7 +1048,7 @@ mod permission_tests {
                 "title": "Bob's Meeting",
                 "organizer": bob.to_string()
             }
-        }), None);
+        }), None, None);
 
         assert!(
             bob_write.is_ok(),
@@ -1061,7 +1061,7 @@ mod permission_tests {
             "groups/multi_path/events/event1": {
                 "title": "Bob's Unauthorized Event"
             }
-        }), None);
+        }), None, None);
 
         assert!(
             bob_unauthorized.is_err(),
@@ -1076,7 +1076,7 @@ mod permission_tests {
                 "title": "Charlie's Event",
                 "moderator": charlie.to_string()
             }
-        }), None);
+        }), None, None);
 
         assert!(
             charlie_write.is_ok(),
@@ -1089,7 +1089,7 @@ mod permission_tests {
             "groups/multi_path/meetings/meeting2": {
                 "title": "Charlie's Unauthorized Meeting"
             }
-        }), None);
+        }), None, None);
 
         assert!(
             charlie_unauthorized.is_err(),
