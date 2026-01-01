@@ -1,4 +1,4 @@
-use crate::json_api::set::types::{Auth, SetRequest};
+use crate::protocol::set::types::{Auth, SetRequest};
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 

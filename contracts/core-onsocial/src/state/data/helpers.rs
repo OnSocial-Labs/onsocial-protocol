@@ -3,7 +3,7 @@ use near_sdk::json_types::{Base64VecU8, U64};
 use near_sdk::serde_json::Value;
 
 use crate::events::EventBatch;
-use crate::json_api::set::types::{ApiOperationContext, SetOptions, VerifiedContext};
+use crate::protocol::set::types::{ApiOperationContext, SetOptions, VerifiedContext};
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
@@ -45,13 +45,13 @@ impl SocialPlatform {
         let domain = format!("{}:{}", domain_prefix, env::current_account_id());
 
         // Canonicalize JSON for stable signing.
-        let data = crate::json_api::set::canonical_json::canonicalize_json_value(&data);
+        let data = crate::protocol::set::canonical_json::canonicalize_json_value(&data);
         let action = action
             .as_ref()
-            .map(crate::json_api::set::canonical_json::canonicalize_json_value);
+            .map(crate::protocol::set::canonical_json::canonicalize_json_value);
 
         // Sign exactly what will be executed.
-        let payload = crate::json_api::set::signed_payload::SignedSetPayload {
+        let payload = crate::protocol::set::signed_payload::SignedSetPayload {
             target_account: target_account.clone(),
             public_key: public_key.clone(),
             nonce,
@@ -90,16 +90,16 @@ impl SocialPlatform {
         };
 
         // Storage/permission ops require MANAGE at root.
-        let data_obj = crate::json_api::set::operation::require_non_empty_object(&data)?;
+        let data_obj = crate::protocol::set::operation::require_non_empty_object(&data)?;
         self.require_batch_size_within_limit(data_obj.len())?;
 
         // Require an explicit key grant for non-group *data paths*.
         // Reserved operation keys are authorized separately and must not be treated as writable paths.
         for key in data_obj.keys() {
-            use crate::json_api::set::operation::classify_api_operation_key;
+            use crate::protocol::set::operation::classify_api_operation_key;
 
             let kind = classify_api_operation_key(key.as_str())?;
-            if !matches!(kind, crate::json_api::set::operation::ApiOperationKey::DataPath(_)) {
+            if !matches!(kind, crate::protocol::set::operation::ApiOperationKey::DataPath(_)) {
                 continue;
             }
 
@@ -128,7 +128,7 @@ impl SocialPlatform {
 
         let mut requires_manage_root = false;
         for key in data_obj.keys() {
-            use crate::json_api::set::operation::classify_api_operation_key;
+            use crate::protocol::set::operation::classify_api_operation_key;
             let kind = classify_api_operation_key(key.as_str())?;
             if kind.requires_target_owner() {
                 requires_manage_root = true;
@@ -208,7 +208,7 @@ impl SocialPlatform {
             )?;
         }
 
-        let data_obj = crate::json_api::set::operation::require_non_empty_object(&data)?;
+        let data_obj = crate::protocol::set::operation::require_non_empty_object(&data)?;
         self.require_batch_size_within_limit(data_obj.len())?;
 
         for (key, value) in data_obj {
@@ -247,7 +247,7 @@ impl SocialPlatform {
         verified: &VerifiedContext,
         ctx: &mut ApiOperationContext,
     ) -> Result<(), SocialError> {
-        use crate::json_api::set::operation::{classify_api_operation_key, ApiOperationKey};
+        use crate::protocol::set::operation::{classify_api_operation_key, ApiOperationKey};
 
         match classify_api_operation_key(key)? {
             ApiOperationKey::StorageDeposit => self.handle_api_storage_deposit(value, account_id, ctx),

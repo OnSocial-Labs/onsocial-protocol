@@ -6,7 +6,7 @@ use near_sdk::{testing_env, AccountId, NearToken};
 use ed25519_dalek::{Signer, SigningKey};
 
 use crate::tests::test_utils::{get_context_with_deposit, init_live_contract, test_account, TEST_BASE_TIMESTAMP};
-use crate::json_api::set::signed_payload::SignedSetPayload;
+use crate::protocol::set::signed_payload::SignedSetPayload;
 use crate::{Auth, SetRequest};
 
 fn set_context(builder: VMContextBuilder) {
@@ -31,8 +31,8 @@ fn sign_payload(contract_id: &AccountId, payload: &SignedSetPayload, sk: &Signin
         action: payload
             .action
             .as_ref()
-            .map(crate::json_api::set::canonical_json::canonicalize_json_value),
-        data: crate::json_api::set::canonical_json::canonicalize_json_value(&payload.data),
+            .map(crate::protocol::set::canonical_json::canonicalize_json_value),
+        data: crate::protocol::set::canonical_json::canonicalize_json_value(&payload.data),
         ..payload.clone()
     };
     let payload_bytes = near_sdk::serde_json::to_vec(&payload).expect("payload JSON");

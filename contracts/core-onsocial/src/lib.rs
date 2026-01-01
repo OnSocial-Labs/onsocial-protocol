@@ -8,7 +8,7 @@ pub mod constants;
 mod errors;
 mod events;
 mod api;
-mod json_api;
+mod protocol;
 
 pub use errors::SocialError;
 
@@ -18,7 +18,7 @@ mod state;
 mod status;
 mod storage;
 mod validation;
-pub use json_api::{Auth, SetOptions, SetRequest};
+pub use protocol::{Auth, SetOptions, SetRequest};
 #[cfg(test)]
 mod tests;
 

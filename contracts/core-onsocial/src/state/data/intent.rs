@@ -2,7 +2,7 @@ use near_sdk::{env, AccountId};
 use near_sdk::serde_json::Value;
 
 use crate::events::EventBatch;
-use crate::json_api::set::types::{SetOptions, VerifiedContext};
+use crate::protocol::set::types::{SetOptions, VerifiedContext};
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
@@ -37,7 +37,7 @@ impl SocialPlatform {
             false,
         )?;
 
-        let intent = crate::json_api::set::canonical_json::canonicalize_json_value(&intent);
+        let intent = crate::protocol::set::canonical_json::canonicalize_json_value(&intent);
         let intent_bytes = crate::validation::serialize_json_with_max_len(
             &intent,
             crate::constants::MAX_INTENT_BYTES,

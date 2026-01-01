@@ -2,7 +2,7 @@ use near_sdk::{env, AccountId};
 use near_sdk::serde_json::Value;
 
 use crate::events::EventBatch;
-use crate::json_api::set::types::{SetOptions, VerifiedContext};
+use crate::protocol::set::types::{SetOptions, VerifiedContext};
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 

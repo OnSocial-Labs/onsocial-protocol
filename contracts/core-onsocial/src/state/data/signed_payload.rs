@@ -3,7 +3,7 @@ use near_sdk::json_types::{Base64VecU8, U64};
 use near_sdk::serde_json::Value;
 use near_sdk::PublicKey;
 
-use crate::json_api::set::types::SetOptions;
+use crate::protocol::set::types::SetOptions;
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
