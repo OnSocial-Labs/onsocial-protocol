@@ -4,8 +4,8 @@
 // Comprehensive tests for group content operations with user-owned storage
 //
 // Storage Design:
-// - User sends: groups/{group_id}/posts/1
-// - Contract stores at: {author}/groups/{group_id}/posts/1
+// - User sends: groups/{group_id}/content/posts/1
+// - Contract stores at: {author}/groups/{group_id}/content/posts/1
 // - User reads using the returned path directly
 //
 // Run tests with:
@@ -13,59 +13,97 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::Path;
-use borsh::BorshDeserialize;
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
 
 // =============================================================================
-// Event Types (mirrored from contract for decoding)
+// NEP-297 Event Types (JSON format)
 // =============================================================================
 
-#[derive(BorshDeserialize, Debug)]
-pub struct BorshExtra {
-    pub key: String,
-    pub value: BorshValue,
-}
-
-#[derive(BorshDeserialize, Debug)]
-pub enum BorshValue {
-    String(String),
-    Number(String),
-    Bool(bool),
-    Null,
-}
-
-#[derive(BorshDeserialize, Debug)]
-pub struct BaseEventData {
-    pub block_height: u64,
-    pub timestamp: u64,
-    pub author: String,
-    pub partition_id: Option<u16>,
-    pub extra: Vec<BorshExtra>,
-    pub evt_id: String,
-    pub log_index: u32,
-}
-
-#[derive(BorshDeserialize, Debug)]
+/// NEP-297 compliant event wrapper
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
-    pub evt_standard: String,
+    pub standard: String,
     pub version: String,
-    pub evt_type: String,
-    pub op_type: String,
-    pub data: Option<BaseEventData>,
+    pub event: String,
+    pub data: Vec<EventData>,
 }
 
-/// Decode a base64 EVENT: log into an Event struct
+/// Event data payload with flattened extra fields
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventData {
+    pub operation: String,
+    pub author: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partition_id: Option<u16>,
+    // Flattened extra fields captured dynamically
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, Value>,
+}
+
+const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
+
+/// Decode a NEP-297 EVENT_JSON: log into an Event struct
 fn decode_event(log: &str) -> Option<Event> {
-    if !log.starts_with("EVENT:") {
+    if !log.starts_with(EVENT_JSON_PREFIX) {
         return None;
     }
-    let base64_data = &log[6..]; // Skip "EVENT:" prefix
-    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, base64_data).ok()?;
-    Event::try_from_slice(&bytes).ok()
+    let json_str = &log[EVENT_JSON_PREFIX.len()..];
+
+    // NOTE: Contract event `data` objects can include fields that collide with
+    // top-level `EventData` fields due to `#[serde(flatten)]` usage.
+    // Deserializing directly into `EventData` may fail with "duplicate field".
+    // Decode to a generic map first, then extract known fields.
+    #[derive(Deserialize)]
+    struct RawEvent {
+        standard: String,
+        version: String,
+        event: String,
+        data: Vec<serde_json::Map<String, Value>>,
+    }
+
+    let raw: RawEvent = serde_json::from_str(json_str).ok()?;
+    let data = raw
+        .data
+        .into_iter()
+        .map(|mut map| {
+            let operation = map
+                .remove("operation")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            let author = map
+                .remove("author")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            let partition_id = map
+                .remove("partition_id")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as u16);
+            let extra = map.into_iter().collect::<std::collections::HashMap<_, _>>();
+            EventData {
+                operation,
+                author,
+                partition_id,
+                extra,
+            }
+        })
+        .collect();
+
+    Some(Event {
+        standard: raw.standard,
+        version: raw.version,
+        event: raw.event,
+        data,
+    })
+}
+
+/// Get the operation from an event
+fn get_event_operation(event: &Event) -> Option<&str> {
+    event.data.first().map(|d| d.operation.as_str())
 }
 
 // =============================================================================
@@ -123,13 +161,13 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
     Ok(())
 }
 
-async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account, permissions: u8) -> anyhow::Result<()> {
+async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account, _permissions: u8) -> anyhow::Result<()> {
     let result = owner
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
             "member_id": member.id(),
-            "permission_flags": permissions
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -163,8 +201,14 @@ async fn test_member_can_create_content() -> anyhow::Result<()> {
     let result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/devs/posts/hello": { "title": "Hello World", "body": "My first post" }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/devs/content/posts/hello": { "title": "Hello World", "body": "My first post" }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -191,11 +235,17 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
     create_group(&contract, &alice, "devs").await?;
     add_member(&contract, &alice, "devs", &bob, 1).await?;
     
-    // Bob creates content via groups/devs/posts/hello
+    // Bob creates content via groups/devs/content/posts/hello
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/devs/posts/hello": { "title": "Test Post" }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/devs/content/posts/hello": { "title": "Test Post" }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -203,38 +253,47 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    // Content should be at {bob}/groups/devs/posts/hello
-    let user_owned_path = format!("{}/groups/devs/posts/hello", bob.id());
+    // Content should be at {bob}/groups/devs/content/posts/hello
+    let user_owned_path = format!("{}/groups/devs/content/posts/hello", bob.id());
     
-    // Get with include_metadata to check metadata fields
-    let data: std::collections::HashMap<String, Value> = contract
+    // get() now returns ordered EntryView values (no stored metadata envelope).
+    let entries: Vec<Value> = contract
         .view("get")
-        .args_json(json!({ 
-            "keys": [user_owned_path.clone()],
-            "include_metadata": true
+        .args_json(json!({
+            "keys": [user_owned_path.clone()]
         }))
         .await?
         .json()?;
-    
-    assert!(data.contains_key(&user_owned_path), "Content should exist at user-owned path");
-    let result = data.get(&user_owned_path).unwrap();
-    
-    // With include_metadata=true, result has "data" and "metadata" fields
-    let content_data = result.get("data").expect("Should have 'data' field");
-    let metadata = result.get("metadata").expect("Should have 'metadata' field");
-    
-    // Verify raw content is stored (no enrichment wrapper)
-    assert_eq!(content_data.get("title").unwrap().as_str().unwrap(), "Test Post");
-    
-    // Verify metadata fields (from MetadataBuilder)
-    assert!(metadata.get("author").is_some(), "Metadata should have 'author'");
-    assert!(metadata.get("block_height").is_some(), "Metadata should have 'block_height'");
-    assert!(metadata.get("timestamp").is_some(), "Metadata should have 'timestamp'");
-    assert!(metadata.get("group_id").is_some(), "Metadata should have 'group_id'");
-    
-    println!("   Content data: {:?}", content_data);
-    println!("   Metadata: {:?}", metadata);
-    println!("✅ Content stored at user-owned path with metadata");
+
+    assert_eq!(entries.len(), 1, "Should return one EntryView");
+    let entry = &entries[0];
+    assert_eq!(
+        entry.get("requested_key").and_then(|v| v.as_str()),
+        Some(user_owned_path.as_str())
+    );
+    assert_eq!(
+        entry.get("full_key").and_then(|v| v.as_str()),
+        Some(user_owned_path.as_str())
+    );
+    assert_eq!(entry.get("deleted").and_then(|v| v.as_bool()), Some(false));
+
+    let content_value = entry.get("value").expect("EntryView should have value field");
+    assert_eq!(
+        content_value.get("title").and_then(|v| v.as_str()),
+        Some("Test Post")
+    );
+
+    let block_height: u64 = entry
+        .get("block_height")
+        .and_then(|v| v.as_str())
+        .expect("EntryView should have block_height")
+        .parse()
+        .unwrap();
+    assert!(block_height > 0, "block_height should be positive");
+
+    println!("   Content value: {:?}", content_value);
+    println!("   block_height: {}", block_height);
+    println!("✅ Content stored at user-owned path");
     Ok(())
 }
 
@@ -253,40 +312,45 @@ async fn test_metadata_block_height() -> anyhow::Result<()> {
     // Alice creates content
     let _ = alice.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/mygroup/posts/1": { "title": "Test" }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/mygroup/content/posts/1": { "title": "Test" }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    let path = format!("{}/groups/mygroup/posts/1", alice.id());
-    let data: std::collections::HashMap<String, Value> = contract
+
+    let path = format!("{}/groups/mygroup/content/posts/1", alice.id());
+    let entries: Vec<Value> = contract
         .view("get")
-        .args_json(json!({ 
-            "keys": [path.clone()],
-            "include_metadata": true
+        .args_json(json!({
+            "keys": [path.clone()]
         }))
         .await?
         .json()?;
-    
-    let result = data.get(&path).unwrap();
-    let metadata = result.get("metadata").unwrap();
-    
+
+    assert_eq!(entries.len(), 1);
+    let entry = &entries[0];
+
     // Block height should be a valid positive number
-    let block_height = metadata.get("block_height").unwrap().as_u64().unwrap();
+    let block_height: u64 = entry
+        .get("block_height")
+        .and_then(|v| v.as_str())
+        .unwrap()
+        .parse()
+        .unwrap();
     assert!(block_height > 0, "block_height should be positive");
-    
-    // Timestamp should also be present
-    let timestamp = metadata.get("timestamp").unwrap().as_u64().unwrap();
-    assert!(timestamp > 0, "timestamp should be positive");
-    
+
     println!("   block_height: {}", block_height);
-    println!("   timestamp: {}", timestamp);
-    
-    println!("✅ Metadata block_height is correct");
+
+    println!("✅ block_height is correct");
     Ok(())
 }
 
@@ -306,42 +370,79 @@ async fn test_content_metadata() -> anyhow::Result<()> {
     
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/testgroup/posts/meta": { "title": "Metadata Test" }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/testgroup/content/posts/meta": {
+                        "title": "Metadata Test",
+                        "metadata": {
+                            "author": "spoofed.near",
+                            "timestamp": 0,
+                            "parent_id": "p1"
+                        }
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    let path = format!("{}/groups/testgroup/posts/meta", bob.id());
-    let data: std::collections::HashMap<String, Value> = contract
+
+    let path = format!("{}/groups/testgroup/content/posts/meta", bob.id());
+    let entries: Vec<Value> = contract
         .view("get")
-        .args_json(json!({ 
-            "keys": [path.clone()],
-            "include_metadata": true
+        .args_json(json!({
+            "keys": [path.clone()]
         }))
         .await?
         .json()?;
-    
-    let result = data.get(&path).unwrap();
-    let content_data = result.get("data").unwrap();
-    let metadata = result.get("metadata").unwrap();
-    
-    // Verify raw content
+
+    assert_eq!(entries.len(), 1);
+    let entry = &entries[0];
+    let content_data = entry.get("value").unwrap();
+
+    // Verify raw content (including any client-provided "metadata" field inside the value)
     assert_eq!(content_data.get("title").unwrap().as_str().unwrap(), "Metadata Test");
-    
-    // Verify metadata fields from MetadataBuilder
-    assert_eq!(metadata.get("author").unwrap().as_str().unwrap(), bob.id().as_str());
-    assert_eq!(metadata.get("group_id").unwrap().as_str().unwrap(), "testgroup");
-    
+    assert_eq!(
+        content_data
+            .get("metadata")
+            .and_then(|m| m.get("author"))
+            .and_then(|v| v.as_str()),
+        Some("spoofed.near")
+    );
+    assert_eq!(
+        content_data
+            .get("metadata")
+            .and_then(|m| m.get("parent_id"))
+            .and_then(|v| v.as_str()),
+        Some("p1")
+    );
+
+    let client_metadata = content_data
+        .get("metadata")
+        .expect("content should include client-provided metadata field");
+
     // block_height should be positive
-    let block_height = metadata.get("block_height").unwrap().as_u64().unwrap();
+    let block_height: u64 = entry
+        .get("block_height")
+        .and_then(|v| v.as_str())
+        .unwrap()
+        .parse()
+        .unwrap();
     assert!(block_height > 0, "block_height should be positive");
-    
-    println!("   author: {}", metadata.get("author").unwrap());
-    println!("   group_id: {}", metadata.get("group_id").unwrap());
+
+    println!(
+        "   author: {}",
+        client_metadata.get("author").and_then(|v| v.as_str()).unwrap_or("<missing>")
+    );
+    println!(
+        "   parent_id: {}",
+        client_metadata.get("parent_id").and_then(|v| v.as_str()).unwrap_or("<missing>")
+    );
     println!("   block_height: {}", block_height);
     
     println!("✅ Content metadata is correct");
@@ -365,7 +466,13 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
     // Bob creates content
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/devs/posts/update": { "title": "Original" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/devs/content/posts/update": { "title": "Original" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -376,7 +483,13 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
     let update_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/devs/posts/update": { "title": "Updated" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/devs/content/posts/update": { "title": "Updated" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -386,15 +499,26 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
     assert!(update_result.is_success(), "Update should succeed");
     
     // Verify updated content (raw content, no wrapper)
-    let path = format!("{}/groups/devs/posts/update", bob.id());
-    let data: std::collections::HashMap<String, Value> = contract
+    let path = format!("{}/groups/devs/content/posts/update", bob.id());
+    let entries: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [path.clone()] }))
         .await?
         .json()?;
-    
-    let content = data.get(&path).unwrap();
-    assert_eq!(content.get("title").unwrap().as_str().unwrap(), "Updated");
+
+    assert_eq!(entries.len(), 1, "Should return one EntryView");
+    let entry = &entries[0];
+    assert_eq!(
+        entry.get("full_key").and_then(|v| v.as_str()),
+        Some(path.as_str())
+    );
+    assert_eq!(entry.get("deleted").and_then(|v| v.as_bool()), Some(false));
+
+    let content = entry.get("value").expect("EntryView should have value");
+    assert_eq!(
+        content.get("title").and_then(|v| v.as_str()),
+        Some("Updated")
+    );
     
     println!("✅ Member can update own content");
     Ok(())
@@ -417,7 +541,13 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
     // Bob creates content
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/devs/posts/delete_me": { "title": "To Delete" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/devs/content/posts/delete_me": { "title": "To Delete" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -425,19 +555,35 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
         .await?;
     
     // Verify content exists
-    let path = format!("{}/groups/devs/posts/delete_me", bob.id());
-    let data: std::collections::HashMap<String, Value> = contract
+    let path = format!("{}/groups/devs/content/posts/delete_me", bob.id());
+    let entries_before: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [path.clone()] }))
         .await?
         .json()?;
-    assert!(data.contains_key(&path), "Content should exist before deletion");
+    assert_eq!(entries_before.len(), 1, "Should return one EntryView");
+    let entry_before = &entries_before[0];
+    assert_eq!(
+        entry_before.get("full_key").and_then(|v| v.as_str()),
+        Some(path.as_str())
+    );
+    assert_eq!(entry_before.get("deleted").and_then(|v| v.as_bool()), Some(false));
+    assert!(
+        entry_before.get("value").map(|v| !v.is_null()).unwrap_or(false),
+        "Content should exist before deletion"
+    );
     
     // Bob deletes content (null value)
     let delete_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/devs/posts/delete_me": null }
+            "request": {
+                "target_account": null,
+                "data": { "groups/devs/content/posts/delete_me": null },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -446,17 +592,24 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
     
     assert!(delete_result.is_success(), "Delete should succeed");
     
-    // Verify content is deleted (soft deleted - returns null or empty)
-    let data_after: std::collections::HashMap<String, Value> = contract
+    // Verify content is deleted (tombstone => deleted=true, value=null)
+    let entries_after: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [path.clone()] }))
         .await?
         .json()?;
-    
-    // After soft delete, the key should either be missing or return a deleted marker
-    let is_deleted = !data_after.contains_key(&path) || 
-        data_after.get(&path).map(|v| v.is_null()).unwrap_or(true);
-    assert!(is_deleted, "Content should be deleted");
+
+    assert_eq!(entries_after.len(), 1, "Should return one EntryView");
+    let entry_after = &entries_after[0];
+    assert_eq!(
+        entry_after.get("full_key").and_then(|v| v.as_str()),
+        Some(path.as_str())
+    );
+    assert_eq!(entry_after.get("deleted").and_then(|v| v.as_bool()), Some(true));
+    assert!(
+        entry_after.get("value").map(|v| v.is_null()).unwrap_or(true),
+        "Deleted EntryView should have null value"
+    );
     
     println!("✅ Member can delete own content");
     Ok(())
@@ -484,7 +637,13 @@ async fn test_non_member_cannot_write() -> anyhow::Result<()> {
     let result = charlie
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/private_group/posts/hack": { "title": "Unauthorized" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/private_group/content/posts/hack": { "title": "Unauthorized" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -514,7 +673,13 @@ async fn test_owner_can_write_without_explicit_membership() -> anyhow::Result<()
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/alice_group/posts/owner": { "title": "Owner Post" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/alice_group/content/posts/owner": { "title": "Owner Post" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -551,7 +716,13 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
     // Bob posts same path to both groups
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/group_a/posts/1": { "title": "Post in A" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/group_a/content/posts/1": { "title": "Post in A" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -560,7 +731,13 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
     
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/group_b/posts/1": { "title": "Post in B" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/group_b/content/posts/1": { "title": "Post in B" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -568,21 +745,29 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
         .await?;
     
     // Verify both exist with different content
-    let path_a = format!("{}/groups/group_a/posts/1", bob.id());
-    let path_b = format!("{}/groups/group_b/posts/1", bob.id());
-    
-    let data: std::collections::HashMap<String, Value> = contract
+    let path_a = format!("{}/groups/group_a/content/posts/1", bob.id());
+    let path_b = format!("{}/groups/group_b/content/posts/1", bob.id());
+
+    let entries: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [path_a.clone(), path_b.clone()] }))
         .await?
         .json()?;
-    
-    assert!(data.contains_key(&path_a), "Post in group_a should exist");
-    assert!(data.contains_key(&path_b), "Post in group_b should exist");
-    
-    // Raw content (no wrapper)
-    let title_a = data.get(&path_a).unwrap().get("title").unwrap().as_str().unwrap();
-    let title_b = data.get(&path_b).unwrap().get("title").unwrap().as_str().unwrap();
+
+    assert_eq!(entries.len(), 2, "Should return one EntryView per requested key");
+
+    let find_title = |key: &str| -> Option<String> {
+        entries
+            .iter()
+            .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(key))
+            .and_then(|e| e.get("value"))
+            .and_then(|v| v.get("title"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    };
+
+    let title_a = find_title(&path_a).expect("Post in group_a should exist");
+    let title_b = find_title(&path_b).expect("Post in group_b should exist");
     
     assert_eq!(title_a, "Post in A");
     assert_eq!(title_b, "Post in B");
@@ -610,7 +795,13 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
     // Both post to same path
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/shared/posts/1": { "title": "Bob's Post" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/shared/content/posts/1": { "title": "Bob's Post" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -619,7 +810,13 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
     
     let _ = charlie.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/shared/posts/1": { "title": "Charlie's Post" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/shared/content/posts/1": { "title": "Charlie's Post" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -627,21 +824,29 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
         .await?;
     
     // Verify both exist (different storage paths)
-    let bob_path = format!("{}/groups/shared/posts/1", bob.id());
-    let charlie_path = format!("{}/groups/shared/posts/1", charlie.id());
-    
-    let data: std::collections::HashMap<String, Value> = contract
+    let bob_path = format!("{}/groups/shared/content/posts/1", bob.id());
+    let charlie_path = format!("{}/groups/shared/content/posts/1", charlie.id());
+
+    let entries: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [bob_path.clone(), charlie_path.clone()] }))
         .await?
         .json()?;
-    
-    assert!(data.contains_key(&bob_path), "Bob's post should exist");
-    assert!(data.contains_key(&charlie_path), "Charlie's post should exist");
-    
-    // Raw content (no wrapper)
-    let bob_title = data.get(&bob_path).unwrap().get("title").unwrap().as_str().unwrap();
-    let charlie_title = data.get(&charlie_path).unwrap().get("title").unwrap().as_str().unwrap();
+
+    assert_eq!(entries.len(), 2, "Should return one EntryView per requested key");
+
+    let find_title = |key: &str| -> Option<String> {
+        entries
+            .iter()
+            .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(key))
+            .and_then(|e| e.get("value"))
+            .and_then(|v| v.get("title"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    };
+
+    let bob_title = find_title(&bob_path).expect("Bob's post should exist");
+    let charlie_title = find_title(&charlie_path).expect("Charlie's post should exist");
     
     assert_eq!(bob_title, "Bob's Post");
     assert_eq!(charlie_title, "Charlie's Post");
@@ -671,7 +876,13 @@ async fn test_cannot_write_to_groups_namespace_without_membership() -> anyhow::R
     let result = attacker
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/protected/posts/hack": { "title": "Hacked!" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/protected/content/posts/hack": { "title": "Hacked!" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -699,7 +910,13 @@ async fn test_cannot_write_to_nonexistent_group() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/nonexistent/posts/1": { "title": "Ghost Post" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/nonexistent/content/posts/1": { "title": "Ghost Post" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -732,8 +949,13 @@ async fn test_content_creation_emits_event() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/event_group/posts/1": { "title": "Event Test" } },
-            "event_config": { "emit": true }
+            "request": {
+                "target_account": null,
+                "data": { "groups/event_group/content/posts/1": { "title": "Event Test" } },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -744,7 +966,7 @@ async fn test_content_creation_emits_event() -> anyhow::Result<()> {
     
     // Check for events
     let logs = result.logs();
-    let event_count = logs.iter().filter(|l| l.starts_with("EVENT:")).count();
+    let event_count = logs.iter().filter(|l| l.starts_with("EVENT_JSON:")).count();
     
     assert!(event_count > 0, "Should emit at least one event");
     println!("   Events emitted: {}", event_count);
@@ -768,7 +990,13 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
     // Create content first
     let _ = alice.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/delete_event/posts/1": { "title": "To Delete" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/delete_event/content/posts/1": { "title": "To Delete" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -779,8 +1007,13 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
     let delete_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/delete_event/posts/1": null },
-            "event_config": { "emit": true }
+            "request": {
+                "target_account": null,
+                "data": { "groups/delete_event/content/posts/1": null },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -790,7 +1023,7 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
     assert!(delete_result.is_success());
     
     let logs = delete_result.logs();
-    let event_count = logs.iter().filter(|l| l.starts_with("EVENT:")).count();
+    let event_count = logs.iter().filter(|l| l.starts_with("EVENT_JSON:")).count();
     
     assert!(event_count > 0, "Deletion should emit event");
     println!("   Deletion events: {}", event_count);
@@ -815,8 +1048,13 @@ async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/block_test/posts/1": { "title": "Block Height Test" } },
-            "event_config": { "emit": true }
+            "request": {
+                "target_account": null,
+                "data": { "groups/block_test/content/posts/1": { "title": "Block Height Test" } },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -825,39 +1063,38 @@ async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
     
     assert!(result.is_success());
     
-    // Decode event to get block_height
+    // Decode event to verify it was emitted
     let logs = result.logs();
     let events: Vec<Event> = logs.iter()
         .filter_map(|log| decode_event(log))
         .collect();
     
     assert!(!events.is_empty(), "Should have at least one event");
+    println!("   ✓ Event emitted successfully");
     
-    let event = &events[0];
-    let event_block_height = event.data.as_ref().unwrap().block_height;
-    println!("   Event block_height: {}", event_block_height);
-    
-    // Get stored content with metadata
-    let path = format!("{}/groups/block_test/posts/1", alice.id());
-    let data: std::collections::HashMap<String, Value> = contract
+    // Get stored content
+    let path = format!("{}/groups/block_test/content/posts/1", alice.id());
+    let entries: Vec<Value> = contract
         .view("get")
-        .args_json(json!({ 
-            "keys": [path.clone()],
-            "include_metadata": true
+        .args_json(json!({
+            "keys": [path.clone()]
         }))
         .await?
         .json()?;
-    
-    let result = data.get(&path).unwrap();
-    let metadata = result.get("metadata").unwrap();
-    let metadata_block_height = metadata.get("block_height").unwrap().as_u64().unwrap();
-    println!("   Metadata block_height: {}", metadata_block_height);
-    
-    // Event block_height should match metadata block_height
-    assert_eq!(event_block_height, metadata_block_height, 
-        "Event block_height should match metadata block_height");
-    
-    println!("✅ Metadata block_height matches event block_height");
+
+    assert_eq!(entries.len(), 1);
+    let entry = &entries[0];
+    let height: u64 = entry
+        .get("block_height")
+        .and_then(|v| v.as_str())
+        .unwrap()
+        .parse()
+        .unwrap();
+    println!("   ✓ block_height: {}", height);
+
+    assert!(height > 0, "EntryView should have valid block_height");
+
+    println!("✅ block_height is valid");
     Ok(())
 }
 
@@ -881,8 +1118,13 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/op_test/posts/new": { "title": "New Post" } },
-            "event_config": { "emit": true }
+            "request": {
+                "target_account": null,
+                "data": { "groups/op_test/content/posts/new": { "title": "New Post" } },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -893,12 +1135,23 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
     
     // Decode events and check operation
     let logs = result.logs();
+    println!("   📝 Total logs: {}", logs.len());
+    for (i, log) in logs.iter().enumerate() {
+        if log.starts_with("EVENT_JSON:") {
+            println!("   Event {}: {}", i, log);
+        }
+    }
     let events: Vec<Event> = logs.iter()
         .filter_map(|log| decode_event(log))
         .collect();
     
+    println!("   📊 Decoded {} events", events.len());
+    for (i, ev) in events.iter().enumerate() {
+        println!("   Event {}: type={}, operation={:?}", i, ev.event, get_event_operation(ev));
+    }
+    
     let create_event = events.iter()
-        .find(|e| e.evt_type == "GROUP_UPDATE" && e.op_type == "create");
+        .find(|e| e.event == "GROUP_UPDATE" && get_event_operation(e) == Some("create"));
     
     assert!(create_event.is_some(), "Should emit 'create' operation for new content");
     println!("   Operation: create ✓");
@@ -922,7 +1175,13 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
     // First create content
     let _ = alice.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/op_test2/posts/1": { "title": "Original" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/op_test2/content/posts/1": { "title": "Original" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -933,8 +1192,13 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
     let update_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/op_test2/posts/1": { "title": "Updated" } },
-            "event_config": { "emit": true }
+            "request": {
+                "target_account": null,
+                "data": { "groups/op_test2/content/posts/1": { "title": "Updated" } },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -945,12 +1209,23 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
     
     // Decode events and check operation
     let logs = update_result.logs();
+    println!("   📝 Total logs: {}", logs.len());
+    for (i, log) in logs.iter().enumerate() {
+        if log.starts_with("EVENT_JSON:") {
+            println!("   Event {}: {}", i, log);
+        }
+    }
     let events: Vec<Event> = logs.iter()
         .filter_map(|log| decode_event(log))
         .collect();
     
+    println!("   📊 Decoded {} events", events.len());
+    for (i, ev) in events.iter().enumerate() {
+        println!("   Event {}: type={}, operation={:?}", i, ev.event, get_event_operation(ev));
+    }
+    
     let update_event = events.iter()
-        .find(|e| e.evt_type == "GROUP_UPDATE" && e.op_type == "update");
+        .find(|e| e.event == "GROUP_UPDATE" && get_event_operation(e) == Some("update"));
     
     assert!(update_event.is_some(), "Should emit 'update' operation for existing content");
     println!("   Operation: update ✓");
@@ -982,7 +1257,13 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
     // Bob creates content
     let _ = bob.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/shared_group/posts/bobs_post": { "title": "Bob's Original" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Bob's Original" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -993,7 +1274,13 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
     // This should create Charlie's own content, NOT modify Bob's
     let _ = charlie.call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/shared_group/posts/bobs_post": { "title": "Charlie's Attempt" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Charlie's Attempt" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1001,27 +1288,37 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
         .await?;
     
     // Verify Bob's content is unchanged
-    let bob_path = format!("{}/groups/shared_group/posts/bobs_post", bob.id());
-    let data: std::collections::HashMap<String, Value> = contract
+    let bob_path = format!("{}/groups/shared_group/content/posts/bobs_post", bob.id());
+
+    let bob_entries: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [bob_path.clone()] }))
         .await?
         .json()?;
-    
-    let bob_content = data.get(&bob_path).unwrap();
-    assert_eq!(bob_content.get("title").unwrap().as_str().unwrap(), "Bob's Original",
-        "Bob's content should be unchanged");
+
+    assert_eq!(bob_entries.len(), 1, "Should return one EntryView");
+    let bob_content = bob_entries[0].get("value").expect("EntryView should have value");
+    assert_eq!(
+        bob_content.get("title").and_then(|v| v.as_str()),
+        Some("Bob's Original"),
+        "Bob's content should be unchanged"
+    );
     
     // Charlie's content is at Charlie's path
-    let charlie_path = format!("{}/groups/shared_group/posts/bobs_post", charlie.id());
-    let charlie_data: std::collections::HashMap<String, Value> = contract
+    let charlie_path = format!("{}/groups/shared_group/content/posts/bobs_post", charlie.id());
+
+    let charlie_entries: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [charlie_path.clone()] }))
         .await?
         .json()?;
-    
-    let charlie_content = charlie_data.get(&charlie_path).unwrap();
-    assert_eq!(charlie_content.get("title").unwrap().as_str().unwrap(), "Charlie's Attempt");
+
+    assert_eq!(charlie_entries.len(), 1, "Should return one EntryView");
+    let charlie_content = charlie_entries[0].get("value").expect("EntryView should have value");
+    assert_eq!(
+        charlie_content.get("title").and_then(|v| v.as_str()),
+        Some("Charlie's Attempt")
+    );
     
     println!("   Bob's content unchanged: ✓");
     println!("   Charlie got separate content: ✓");
@@ -1050,7 +1347,13 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": { "groups/mygroup": { "title": "Bad" } }
+            "request": {
+                "target_account": null,
+                "data": { "groups/mygroup": { "title": "Bad" } },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))

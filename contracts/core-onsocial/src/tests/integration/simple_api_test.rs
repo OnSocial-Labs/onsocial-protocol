@@ -20,12 +20,12 @@ fn test_ultra_simple_set_api() {
         "posts/1": {"text": "Hello world!", "timestamp": 1234567890}
     });
 
-    let result = contract.set(data, None, None);
+    let result = contract.set(set_request(data, None));
     assert!(result.is_ok(), "Simple set operation should succeed");
 
         // Verify data was set
         let keys = vec!["alice.near/profile/name".to_string(), "alice.near/profile/bio".to_string(), "alice.near/posts/1".to_string()];
-        let retrieved = contract.get(keys, Some(alice.clone()), None, None);
+        let retrieved = contract_get_values_map(&contract, keys, Some(alice.clone()));
         assert!(!retrieved.is_empty(), "Data should be retrievable");
         assert_eq!(retrieved.get("alice.near/profile/name"), Some(&json!("Alice")));
         assert_eq!(retrieved.get("alice.near/profile/bio"), Some(&json!("Developer")));    println!("✓ Ultra-simple set API test passed");
@@ -45,7 +45,7 @@ fn test_simple_storage_operations() {
         "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
     });
 
-    let result = contract.set(deposit_data, None, None);
+    let result = contract.set(set_request(deposit_data, None));
     assert!(result.is_ok(), "Storage deposit should succeed");
 
     // Verify storage balance
@@ -58,7 +58,7 @@ fn test_simple_storage_operations() {
         "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
     });
 
-    let result = contract.set(withdraw_data, None, None);
+    let result = contract.set(set_request(withdraw_data, None));
     assert!(result.is_ok(), "Storage withdraw should succeed");
 
     println!("✓ Simple storage operations test passed");
@@ -88,7 +88,7 @@ fn test_simple_permission_operations() {
         }
     });
 
-    let result = contract.set(permission_data, None, None);
+    let result = contract.set(set_request(permission_data, None));
     match result {
         Ok(_) => {},
         Err(e) => panic!("Permission grant failed with error: {:?}", e),
@@ -113,7 +113,7 @@ fn test_simple_permission_operations() {
         }
     });
 
-    let result = contract.set(revoke_data, None, None);
+    let result = contract.set(set_request(revoke_data, None));
     assert!(result.is_ok(), "Permission revoke should succeed");
 
     // TODO: Fix permission checking logic
@@ -150,7 +150,7 @@ fn test_mixed_operations() {
         }
     });
 
-    let result = contract.set(mixed_data, None, None);
+    let result = contract.set(set_request(mixed_data, None));
     match result {
         Ok(_) => {},
         Err(e) => panic!("Mixed operations failed with error: {:?}", e),
@@ -162,7 +162,7 @@ fn test_mixed_operations() {
 
     // Verify data was set
     let keys = vec!["charlie.near/profile/name".to_string(), "charlie.near/profile/status".to_string()];
-    let retrieved = contract.get(keys, Some(charlie.clone()), None, None);
+    let retrieved = contract_get_values_map(&contract, keys, Some(charlie.clone()));
     assert!(!retrieved.is_empty(), "Profile data should be retrievable");
     assert_eq!(retrieved.get("charlie.near/profile/name"), Some(&json!("Charlie")));
     assert_eq!(retrieved.get("charlie.near/profile/status"), Some(&json!("Online")));

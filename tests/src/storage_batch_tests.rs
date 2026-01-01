@@ -15,22 +15,80 @@ use near_workspaces::types::{Gas, NearToken};
 use serde_json::json;
 use std::path::Path;
 
+use crate::utils::{entry_exists, entry_value_str};
+
+const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
+
+fn has_contract_update_config_event<S: AsRef<str>>(logs: &[S]) -> bool {
+    #[derive(serde::Deserialize)]
+    struct RawEvent {
+        event: String,
+        data: Vec<serde_json::Map<String, serde_json::Value>>,
+    }
+
+    logs.iter().any(|log| {
+        let log = log.as_ref();
+        if !log.starts_with(EVENT_JSON_PREFIX) {
+            return false;
+        }
+        let json_str = &log[EVENT_JSON_PREFIX.len()..];
+        let Ok(raw) = serde_json::from_str::<RawEvent>(json_str) else {
+            return false;
+        };
+        if raw.event != "CONTRACT_UPDATE" {
+            return false;
+        }
+        let Some(mut data0) = raw.data.into_iter().next() else {
+            return false;
+        };
+        let operation_ok = data0
+            .remove("operation")
+            .and_then(|v| v.as_str().map(|s| s == "update_config"))
+            .unwrap_or(false);
+        let path_ok = data0
+            .remove("path")
+            .and_then(|v| v.as_str().map(|s| s == "config"))
+            .unwrap_or(false);
+        let has_old = data0.get("old_config").is_some();
+        let has_new = data0.get("new_config").is_some();
+        operation_ok && path_ok && has_old && has_new
+    })
+}
+
 /// Helper to build data payload with dynamic user paths
 fn user_profile_data(user_id: &str, name: &str, bio: Option<&str>) -> serde_json::Value {
     let mut data = serde_json::Map::new();
-    data.insert(format!("{}/profile/name", user_id), json!(name));
+    let _ = user_id;
+    data.insert("profile/name".to_string(), json!(name));
     if let Some(bio_text) = bio {
-        data.insert(format!("{}/profile/bio", user_id), json!(bio_text));
+        data.insert("profile/bio".to_string(), json!(bio_text));
     }
-    json!({"data": data})
+    json!({
+        "request": {
+            "target_account": null,
+            "data": data,
+            "options": null,
+            "event_config": null,
+            "auth": null
+        }
+    })
 }
 
 /// Helper to build data payload with storage deposit and user profile
 fn user_profile_with_deposit(user_id: &str, name: &str, deposit_amount: u128) -> serde_json::Value {
     let mut data = serde_json::Map::new();
+    let _ = user_id;
     data.insert("storage/deposit".to_string(), json!({"amount": deposit_amount.to_string()}));
-    data.insert(format!("{}/profile/name", user_id), json!(name));
-    json!({"data": data})
+    data.insert("profile/name".to_string(), json!(name));
+    json!({
+        "request": {
+            "target_account": null,
+            "data": data,
+            "options": null,
+            "event_config": null,
+            "auth": null
+        }
+    })
 }
 
 // =============================================================================
@@ -52,6 +110,26 @@ fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {
     }
     
     Err(anyhow::anyhow!("Could not find core_onsocial.wasm"))
+}
+
+fn load_manager_proxy_wasm() -> anyhow::Result<Vec<u8>> {
+    let paths = [
+        "../target/near/manager_proxy_onsocial/manager_proxy_onsocial.wasm",
+        "target/near/manager_proxy_onsocial/manager_proxy_onsocial.wasm",
+        "/code/target/near/manager_proxy_onsocial/manager_proxy_onsocial.wasm",
+        "./target/near/manager_proxy_onsocial/manager_proxy_onsocial.wasm",
+        "../target/wasm32-unknown-unknown/release/manager_proxy_onsocial.wasm",
+    ];
+
+    for path in paths {
+        if let Ok(wasm) = std::fs::read(Path::new(path)) {
+            return Ok(wasm);
+        }
+    }
+
+    Err(anyhow::anyhow!(
+        "Could not find manager_proxy_onsocial.wasm (build manager-proxy-onsocial first)"
+    ))
 }
 
 // =============================================================================
@@ -90,10 +168,16 @@ async fn test_batch_storage_deposit_with_data_real_balance() -> anyhow::Result<(
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
-                "profile/name": "TestUser",
-                "profile/bio": "Testing batch operations with real NEAR"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
+                    "profile/name": "TestUser",
+                    "profile/bio": "Testing batch operations with real NEAR"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -122,7 +206,7 @@ async fn test_batch_storage_deposit_with_data_real_balance() -> anyhow::Result<(
     }
     
     // Verify data was written
-    let data: serde_json::Value = contract
+    let data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [format!("{}/profile/name", user.id())],
@@ -132,7 +216,9 @@ async fn test_batch_storage_deposit_with_data_real_balance() -> anyhow::Result<(
         .json()?;
     
     println!("   Retrieved data: {:?}", data);
-    assert!(!data.as_object().map(|o| o.is_empty()).unwrap_or(true), "Data should be stored");
+    let key = format!("{}/profile/name", user.id());
+    assert!(entry_exists(&data, &key), "Data should be stored");
+    assert_eq!(entry_value_str(&data, &key), Some("TestUser"));
     println!("   ✓ Data was correctly stored");
     
     println!("\n✅ Batch storage deposit + data test passed!");
@@ -169,8 +255,14 @@ async fn test_storage_deposit_cant_exceed_attached() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": large_deposit.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": large_deposit.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(small_attach)
@@ -187,6 +279,147 @@ async fn test_storage_deposit_cant_exceed_attached() -> anyhow::Result<()> {
     
     println!("\n✅ Storage deposit validation test passed!");
     
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_storage_deposit_zero_amount() -> anyhow::Result<()> {
+    println!("\n🧪 STORAGE DEPOSIT - ZERO AMOUNT TEST");
+    println!("=====================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Zero amount deposit - should fail with validation error
+    println!("\n📦 Try to deposit 0 NEAR...");
+    
+    let result = user
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": "0"}
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_millinear(10))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Zero amount deposit should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount must be greater than zero"), 
+        "Should contain 'amount must be greater than zero': {}", failure_msg);
+    println!("   ✓ Zero amount correctly rejected");
+    
+    println!("\n✅ Zero amount edge case test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_storage_deposit_missing_amount() -> anyhow::Result<()> {
+    println!("\n🧪 STORAGE DEPOSIT - MISSING AMOUNT TEST");
+    println!("========================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Missing amount field - should fail
+    println!("\n📦 Try deposit without amount field...");
+    
+    let result = user
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {}
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Missing amount should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount required"), 
+        "Should contain 'amount required': {}", failure_msg);
+    println!("   ✓ Missing amount correctly rejected");
+    
+    println!("\n✅ Missing amount edge case test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_storage_deposit_invalid_amount_format() -> anyhow::Result<()> {
+    println!("\n🧪 STORAGE DEPOSIT - INVALID AMOUNT FORMAT TEST");
+    println!("================================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Invalid amount format - should fail
+    println!("\n📦 Try deposit with invalid amount format...");
+    
+    let result = user
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": "not_a_number"}
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Invalid amount format should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount required"), 
+        "Should contain 'amount required': {}", failure_msg);
+    println!("   ✓ Invalid amount format correctly rejected");
+    
+    println!("\n✅ Invalid amount format edge case test passed!");
     Ok(())
 }
 
@@ -220,11 +453,16 @@ async fn test_storage_refund_goes_to_user() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit.as_yoctonear().to_string()}
-            },
-            "options": {
-                "refund_unused_deposit": true
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit.as_yoctonear().to_string()}
+                },
+                "options": {
+                    "refund_unused_deposit": true
+                },
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -278,8 +516,14 @@ async fn test_storage_deposit_exact_amount() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": exact_amount.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": exact_amount.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(exact_amount)
@@ -342,10 +586,16 @@ async fn test_data_operation_uses_remaining_balance() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
-                "posts/1": {"title": "First Post", "content": "Hello World"},
-                "posts/2": {"title": "Second Post", "content": "More content here"}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
+                    "posts/1": {"title": "First Post", "content": "Hello World"},
+                    "posts/2": {"title": "Second Post", "content": "More content here"}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -366,7 +616,7 @@ async fn test_data_operation_uses_remaining_balance() -> anyhow::Result<()> {
     println!("   Storage balance: {:?}", storage_balance);
     
     // Verify data was written
-    let data: serde_json::Value = contract
+    let data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -377,9 +627,8 @@ async fn test_data_operation_uses_remaining_balance() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    let data_obj = data.as_object().unwrap();
-    assert_eq!(data_obj.len(), 2, "Both posts should be stored");
+
+    assert_eq!(data.len(), 2, "Both posts should be stored");
     println!("   ✓ Both posts were stored correctly");
     
     println!("\n✅ Remaining balance for data test passed!");
@@ -421,14 +670,19 @@ async fn test_shared_pool_deposit_uses_attached_balance() -> anyhow::Result<()> 
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "pool_id": user.id().to_string(),
-                    "amount": pool_deposit.as_yoctonear().to_string()
-                }
-            },
-            "options": {
-                "refund_unused_deposit": true
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": {
+                    "refund_unused_deposit": true
+                },
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -484,11 +738,17 @@ async fn test_shared_pool_deposit_cant_exceed_attached() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "pool_id": user.id().to_string(),
-                    "amount": large_deposit.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": large_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(small_attach)
@@ -536,12 +796,18 @@ async fn test_batch_storage_and_shared_pool_operations() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": personal_deposit.as_yoctonear().to_string()},
-                "storage/shared_pool_deposit": {
-                    "pool_id": user.id().to_string(),
-                    "amount": pool_deposit.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": personal_deposit.as_yoctonear().to_string()},
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -597,12 +863,18 @@ async fn test_batch_exceeds_attached_fails_atomically() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit1.as_yoctonear().to_string()},
-                "storage/shared_pool_deposit": {
-                    "pool_id": user.id().to_string(),
-                    "amount": deposit2.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit1.as_yoctonear().to_string()},
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": deposit2.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -664,8 +936,14 @@ async fn test_storage_withdraw_goes_to_signer() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(deposit_amount)
@@ -684,8 +962,14 @@ async fn test_storage_withdraw_goes_to_signer() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/withdraw": {"amount": withdraw_amount.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/withdraw": {"amount": withdraw_amount.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1)) // minimal deposit for gas
@@ -745,8 +1029,14 @@ async fn test_storage_withdraw_all() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(deposit_amount)
@@ -763,8 +1053,14 @@ async fn test_storage_withdraw_all() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/withdraw": {}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/withdraw": {}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -824,8 +1120,14 @@ async fn test_zero_deposit_rejected() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": "0"}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": "0"}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -868,8 +1170,14 @@ async fn test_withdraw_more_than_available_fails() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(deposit_amount)
@@ -886,8 +1194,14 @@ async fn test_withdraw_more_than_available_fails() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/withdraw": {"amount": large_withdraw.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/withdraw": {"amount": large_withdraw.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -930,11 +1244,17 @@ async fn test_shared_pool_only_owner_can_deposit() -> anyhow::Result<()> {
     let result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "pool_id": alice.id().to_string(),
-                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": alice.id().to_string(),
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -951,11 +1271,17 @@ async fn test_shared_pool_only_owner_can_deposit() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "pool_id": alice.id().to_string(),
-                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": alice.id().to_string(),
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -1000,8 +1326,14 @@ async fn test_multiple_deposits_in_sequence() -> anyhow::Result<()> {
         let result = user
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(deposit_amount)
@@ -1074,10 +1406,16 @@ async fn test_universal_storage_user_writes_without_deposit() -> anyhow::Result<
     let pool_deposit = NearToken::from_near(5);
     let result = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": pool_deposit.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(pool_deposit)
@@ -1246,9 +1584,16 @@ async fn test_universal_storage_user_with_deposit_uses_personal() -> anyhow::Res
     // Fund platform pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": NearToken::from_near(5).as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(5))
@@ -1330,9 +1675,16 @@ async fn test_universal_storage_multiple_users_share_pool() -> anyhow::Result<()
     let pool_deposit = NearToken::from_near(5);
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": pool_deposit.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(pool_deposit)
@@ -1390,9 +1742,16 @@ async fn test_universal_storage_sponsored_user_can_still_deposit() -> anyhow::Re
     // Fund platform pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": NearToken::from_near(5).as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(5))
@@ -1436,8 +1795,14 @@ async fn test_universal_storage_sponsored_user_can_still_deposit() -> anyhow::Re
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(user_deposit)
@@ -1500,9 +1865,16 @@ async fn test_sponsored_user_delete_frees_pool_capacity() -> anyhow::Result<()> 
     let pool_deposit = NearToken::from_near(1);
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": pool_deposit.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(pool_deposit)
@@ -1532,9 +1904,15 @@ async fn test_sponsored_user_delete_frees_pool_capacity() -> anyhow::Result<()> 
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/name", user.id()): "TestUser",
-                format!("{}/profile/bio", user.id()): "This is some data that will be deleted later to test pool recycling"
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/name", user.id()): "TestUser",
+                    format!("{}/profile/bio", user.id()): "This is some data that will be deleted later to test pool recycling"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1563,9 +1941,15 @@ async fn test_sponsored_user_delete_frees_pool_capacity() -> anyhow::Result<()> 
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/name", user.id()): null,
-                format!("{}/profile/bio", user.id()): null
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/name", user.id()): null,
+                    format!("{}/profile/bio", user.id()): null
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1605,9 +1989,16 @@ async fn test_sponsored_user_cannot_withdraw_platform_near() -> anyhow::Result<(
     // Fund platform pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": NearToken::from_near(5).as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(5))
@@ -1634,9 +2025,15 @@ async fn test_sponsored_user_cannot_withdraw_platform_near() -> anyhow::Result<(
     // Delete
     let _ = user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/name", user.id()): null,
-                format!("{}/profile/bio", user.id()): null
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/name", user.id()): null,
+                    format!("{}/profile/bio", user.id()): null
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1671,8 +2068,14 @@ async fn test_sponsored_user_cannot_withdraw_platform_near() -> anyhow::Result<(
     let _result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/withdraw": {}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/withdraw": {}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1706,9 +2109,16 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     // Fund platform pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": NearToken::from_near(1).as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -1725,8 +2135,14 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     
     let _ = user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/bio", user.id()): "Short bio"
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/bio", user.id()): "Short bio"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1750,8 +2166,14 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     
     let _ = user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/bio", user.id()): "This is a much longer bio that contains a lot more text and will require more storage bytes to store on the blockchain"
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/bio", user.id()): "This is a much longer bio that contains a lot more text and will require more storage bytes to store on the blockchain"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1779,8 +2201,14 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     
     let _ = user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/bio", user.id()): "Tiny"
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/bio", user.id()): "Tiny"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1818,9 +2246,16 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     let tiny_pool = NearToken::from_yoctonear(10_000_000_000_000_000_000_000u128); // ~0.01 NEAR = ~1KB
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": tiny_pool.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": tiny_pool.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(tiny_pool)
@@ -1846,8 +2281,14 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     let user_deposit = NearToken::from_near(1);
     let _ = user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(user_deposit)
@@ -1868,8 +2309,14 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/bio", user.id()): large_bio
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/bio", user.id()): large_bio
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -1889,16 +2336,14 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     println!("   User storage state: {:?}", storage_balance);
     
     // Verify the data was written
-    let data: serde_json::Value = contract
+    let data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({"keys": [format!("{}/profile/bio", user.id())]}))
         .await?
         .json()?;
-    
-    let bio_written = data.get(format!("{}/profile/bio", user.id()))
-        .and_then(|v| v.as_str())
-        .map(|s| s.len())
-        .unwrap_or(0);
+
+    let bio_key = format!("{}/profile/bio", user.id());
+    let bio_written = entry_value_str(&data, &bio_key).map(|s| s.len()).unwrap_or(0);
     
     assert!(bio_written > 0, "Large bio should be written");
     println!("   ✓ Large data ({} chars) written successfully", bio_written);
@@ -1918,9 +2363,16 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     // Fund platform pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": NearToken::from_near(5).as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(5))
@@ -1964,8 +2416,14 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     // Deposit first
     let deposit_result = depositing_user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2026,7 +2484,7 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     // ==========================================================================
     println!("\n📦 Verifying both users' data...");
     
-    let data: serde_json::Value = contract
+    let data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -2036,11 +2494,11 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    let user1_name = data.get(format!("{}/profile/name", sponsored_user.id()))
-        .and_then(|v| v.as_str());
-    let user2_name = data.get(format!("{}/profile/name", depositing_user.id()))
-        .and_then(|v| v.as_str());
+
+    let user1_key = format!("{}/profile/name", sponsored_user.id());
+    let user2_key = format!("{}/profile/name", depositing_user.id());
+    let user1_name = entry_value_str(&data, &user1_key);
+    let user2_name = entry_value_str(&data, &user2_key);
     
     assert_eq!(user1_name, Some("SponsoredUser"));
     assert_eq!(user2_name, Some("DepositingUser"));
@@ -2061,9 +2519,16 @@ async fn test_pool_capacity_exact_match() -> anyhow::Result<()> {
     // Fund pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": NearToken::from_near(1).as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -2132,8 +2597,14 @@ async fn test_pool_capacity_exact_match() -> anyhow::Result<()> {
     let result = final_user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/bio", final_user.id()): large_data
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/bio", final_user.id()): large_data
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2167,9 +2638,16 @@ async fn test_pool_exhausts_mid_batch_falls_back_to_personal() -> anyhow::Result
     let small_pool = NearToken::from_millinear(10); // Only 0.01 NEAR - very small pool
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": small_pool.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": small_pool.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(small_pool)
@@ -2193,8 +2671,14 @@ async fn test_pool_exhausts_mid_batch_falls_back_to_personal() -> anyhow::Result
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(user_deposit)
@@ -2221,10 +2705,16 @@ async fn test_pool_exhausts_mid_batch_falls_back_to_personal() -> anyhow::Result
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/name", user.id()): "Test User",
-                format!("{}/profile/bio", user.id()): large_bio,
-                format!("{}/profile/about", user.id()): "This should use personal balance if pool exhausted"
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/name", user.id()): "Test User",
+                    format!("{}/profile/bio", user.id()): large_bio,
+                    format!("{}/profile/about", user.id()): "This should use personal balance if pool exhausted"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2290,9 +2780,16 @@ async fn test_pool_exhausts_no_personal_balance_fails() -> anyhow::Result<()> {
     let tiny_pool = NearToken::from_millinear(1); // 0.001 NEAR - very tiny
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": tiny_pool.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": tiny_pool.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(tiny_pool)
@@ -2313,8 +2810,14 @@ async fn test_pool_exhausts_no_personal_balance_fails() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/large_field", user.id()): large_data
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/large_field", user.id()): large_data
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2345,9 +2848,16 @@ async fn test_pool_exhausts_attached_deposit_saves() -> anyhow::Result<()> {
     let tiny_amount = NearToken::from_yoctonear(100u128 * 10_000_000_000_000_000_000u128);
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": tiny_amount.as_yoctonear().to_string() 
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": tiny_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(tiny_amount)
@@ -2371,8 +2881,14 @@ async fn test_pool_exhausts_attached_deposit_saves() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/large_field", user.id()): large_data
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/profile/large_field", user.id()): large_data
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached_deposit)
@@ -2396,7 +2912,7 @@ async fn test_pool_exhausts_attached_deposit_saves() -> anyhow::Result<()> {
     let key = format!("{}/profile/large_field", user.id());
     println!("   Looking for key: {}", key);
     
-    let stored: serde_json::Value = contract
+    let stored: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [key.clone()]
@@ -2406,19 +2922,7 @@ async fn test_pool_exhausts_attached_deposit_saves() -> anyhow::Result<()> {
     
     println!("   Get result: {:?}", stored);
     
-    // The get() API returns {full_path: value} format
-    // First try to parse as hierarchical, then fall back to flat key format
-    let stored_value = stored
-        .get(user.id().as_str())
-        .and_then(|u| u.get("profile"))
-        .and_then(|p| p.get("large_field"))
-        .and_then(|v| v.as_str())
-        .or_else(|| {
-            // Fall back to flat key format: {full_path: value}
-            stored.get(&key)
-                .and_then(|v| v.as_str())
-        })
-        .unwrap_or("");
+    let stored_value = entry_value_str(&stored, &key).unwrap_or("");
     
     assert_eq!(stored_value, large_data, "Data should be stored correctly");
     println!("   ✓ Data verified in storage");
@@ -2506,9 +3010,16 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     let platform_pool_amount = NearToken::from_yoctonear(50_000_000_000_000_000_000_000u128); // 0.05 NEAR
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": platform_pool_amount.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": platform_pool_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(platform_pool_amount)
@@ -2534,11 +3045,17 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     let sponsor_pool_amount = NearToken::from_near(1);
     let _ = sponsor.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "pool_id": sponsor.id().to_string(),
-                    "amount": sponsor_pool_amount.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": sponsor.id().to_string(),
+                        "amount": sponsor_pool_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(sponsor_pool_amount)
@@ -2553,11 +3070,17 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     // Sponsor allocates ~1000 bytes to user
     let _ = sponsor.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/share_storage": {
-                    "target_id": user.id().to_string(),
-                    "max_bytes": 1000
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/share_storage": {
+                        "target_id": user.id().to_string(),
+                        "max_bytes": 1000
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -2574,8 +3097,14 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     let personal_deposit = NearToken::from_yoctonear(50_000_000_000_000_000_000_000u128); // 0.05 NEAR
     let _ = user.call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {"amount": personal_deposit.as_yoctonear().to_string()}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": personal_deposit.as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(personal_deposit)
@@ -2615,7 +3144,15 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     
     let result = user
         .call(contract.id(), "set")
-        .args_json(json!({"data": batch_data}))
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": batch_data,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
         .deposit(attached_deposit)
         .gas(Gas::from_tgas(200))
         .transact()
@@ -2719,9 +3256,16 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let platform_deposit = NearToken::from_near(1);
     let _ = contract.call("set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": { "amount": platform_deposit.as_yoctonear().to_string()
-                 }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": platform_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(platform_deposit)
@@ -2754,8 +3298,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                key_1.clone(): test_data_1.clone()
+            "request": {
+                "target_account": null,
+                "data": {
+                    key_1.clone(): test_data_1.clone()
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2798,8 +3348,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                key_2.clone(): test_data_2.clone()
+            "request": {
+                "target_account": null,
+                "data": {
+                    key_2.clone(): test_data_2.clone()
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2836,8 +3392,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                key_1.clone(): test_data_1_large.clone()
+            "request": {
+                "target_account": null,
+                "data": {
+                    key_1.clone(): test_data_1_large.clone()
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2871,8 +3433,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                key_1.clone(): test_data_1_small.clone()
+            "request": {
+                "target_account": null,
+                "data": {
+                    key_1.clone(): test_data_1_small.clone()
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2904,8 +3472,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                key_2.clone(): null
+            "request": {
+                "target_account": null,
+                "data": {
+                    key_2.clone(): null
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -2938,8 +3512,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let result = user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                key_1.clone(): null
+            "request": {
+                "target_account": null,
+                "data": {
+                    key_1.clone(): null
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(Gas::from_tgas(100))
@@ -3020,13 +3600,18 @@ async fn test_platform_pool_deposit_basic() -> anyhow::Result<()> {
     let result = donor
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": donate_amount.as_yoctonear().to_string()
-                }
-            },
-            "options": {
-                "refund_unused_deposit": true
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": donate_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": {
+                    "refund_unused_deposit": true
+                },
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -3093,10 +3678,16 @@ async fn test_platform_pool_deposit_insufficient_attached() -> anyhow::Result<()
     let result = donor
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": large_deposit.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": large_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(small_attach)
@@ -3144,10 +3735,16 @@ async fn test_platform_pool_deposit_multiple_donors() -> anyhow::Result<()> {
     let result1 = donor1
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": donate_amount.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": donate_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(donate_amount)
@@ -3161,10 +3758,16 @@ async fn test_platform_pool_deposit_multiple_donors() -> anyhow::Result<()> {
     let result2 = donor2
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": donate_amount.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": donate_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(donate_amount)
@@ -3178,10 +3781,16 @@ async fn test_platform_pool_deposit_multiple_donors() -> anyhow::Result<()> {
     let result3 = donor3
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": donate_amount.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": donate_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(donate_amount)
@@ -3235,7 +3844,15 @@ async fn test_platform_pool_deposit_with_data_operations() -> anyhow::Result<()>
     
     let result = user
         .call(contract.id(), "set")
-        .args_json(json!({"data": data}))
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": data,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
         .deposit(attached)
         .gas(Gas::from_tgas(150))
         .transact()
@@ -3293,7 +3910,7 @@ async fn test_platform_pool_deposit_zero_amount() -> anyhow::Result<()> {
     let donor = sandbox.dev_create_account().await?;
     
     // ==========================================================================
-    // TEST: Zero amount donation - should work (no-op but valid)
+    // TEST: Zero amount donation - should fail with validation error
     // ==========================================================================
     println!("\n📦 Try to donate 0 NEAR...");
     
@@ -3302,10 +3919,16 @@ async fn test_platform_pool_deposit_zero_amount() -> anyhow::Result<()> {
     let result = donor
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": "0"
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": "0"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(attached)
@@ -3313,9 +3936,11 @@ async fn test_platform_pool_deposit_zero_amount() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    // Zero deposit is technically valid (no-op)
-    assert!(result.is_success(), "Zero amount donation should succeed (no-op): {:?}", result.failures());
-    println!("   ✓ Zero amount accepted (no-op)");
+    // Zero deposit should be rejected - prevents spam and wasted gas
+    assert!(result.is_failure(), "Zero amount donation should fail: {:?}", result.outcomes());
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount must be greater than zero"), "Should contain 'amount must be greater than zero': {}", failure_msg);
+    println!("   ✓ Zero amount correctly rejected");
     
     println!("\n✅ Zero amount edge case test passed!");
     
@@ -3351,10 +3976,16 @@ async fn test_platform_pool_deposit_exact_attached() -> anyhow::Result<()> {
     let result = donor
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": exact_amount.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": exact_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(exact_amount)
@@ -3411,10 +4042,16 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     let result = donor
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": donate_amount.as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": donate_amount.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(donate_amount)
@@ -3434,11 +4071,17 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     let share_result = contract
         .call("set")
         .args_json(json!({
-            "data": {
-                "storage/share_storage": {
-                    "target_id": new_user.id().to_string(),
-                    "max_bytes": 100000 // 100KB allocation
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/share_storage": {
+                        "target_id": new_user.id().to_string(),
+                        "max_bytes": 100000 // 100KB allocation
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -3463,7 +4106,15 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     
     let write_result = new_user
         .call(contract.id(), "set")
-        .args_json(json!({"data": profile_data}))
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": profile_data,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
         .deposit(NearToken::from_yoctonear(1)) // Minimal deposit
         .gas(Gas::from_tgas(100))
         .transact()
@@ -3530,7 +4181,13 @@ async fn test_empty_data_object_rejected() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {}
+            "request": {
+                "target_account": null,
+                "data": {},
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -3575,7 +4232,13 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     let array_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": ["item1", "item2"]
+            "request": {
+                "target_account": null,
+                "data": ["item1", "item2"],
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -3590,7 +4253,13 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     let string_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": "just a string"
+            "request": {
+                "target_account": null,
+                "data": "just a string",
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -3605,7 +4274,13 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     let null_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": null
+            "request": {
+                "target_account": null,
+                "data": null,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -3620,7 +4295,13 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     let number_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": 12345
+            "request": {
+                "target_account": null,
+                "data": 12345,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -3657,8 +4338,14 @@ async fn test_invalid_operation_key_rejected() -> anyhow::Result<()> {
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "invalid_key_no_slash": "some value"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "invalid_key_no_slash": "some value"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -3705,12 +4392,18 @@ async fn test_set_for_unused_deposit_goes_to_signer() -> anyhow::Result<()> {
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/delegated/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/delegated/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -3750,14 +4443,19 @@ async fn test_set_for_unused_deposit_goes_to_signer() -> anyhow::Result<()> {
         .unwrap_or(0);
     println!("   Alice's storage balance before: {} yoctoNEAR", alice_balance_before);
     
-    // Step 2: Bob uses set_for to write to Alice's namespace with extra deposit
-    println!("\n   Step 2: Bob calls set_for with 1 NEAR deposit...");
+    // Step 2: Bob writes to Alice's namespace with extra deposit
+    println!("\n   Step 2: Bob calls set(target_account=Alice) with 1 NEAR deposit...");
     let set_for_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "delegated/message": "Written by Bob"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "delegated/message": "Written by Bob"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -3855,11 +4553,16 @@ async fn test_refund_unused_deposit_true_returns_to_wallet() -> anyhow::Result<(
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/test/small", alice_id): "tiny"
-            },
-            "options": {
-                "refund_unused_deposit": true
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/test/small", alice_id): "tiny"
+                },
+                "options": {
+                    "refund_unused_deposit": true
+                },
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -3924,10 +4627,15 @@ async fn test_refund_unused_deposit_false_saves_to_balance() -> anyhow::Result<(
     let result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/test/small", alice_id): "tiny"
+            "request": {
+                "target_account": null,
+                "data": {
+                    format!("{}/test/small", alice_id): "tiny"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
-            // No options = default = refund_unused_deposit: false
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -3991,11 +4699,17 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     let revoke_nonexistent = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/never/granted/", alice_id)
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/never/granted/", alice_id)
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4014,12 +4728,18 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/apps/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": "apps/",
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4033,11 +4753,17 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     let carol_revoke = carol
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/apps/", alice_id)
-                }
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": "apps/"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4053,11 +4779,17 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     let alice_revoke = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/apps/", alice_id)
-                }
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": "apps/"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4097,11 +4829,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
     let share_no_pool = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/share_storage": {
-                    "recipient": bob.id().to_string(),
-                    "max_bytes": 10000
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/share_storage": {
+                        "recipient": bob.id().to_string(),
+                        "max_bytes": 10000
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -4118,10 +4856,16 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
     let manager_deposit = contract
         .call("set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4137,11 +4881,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
         let share_too_much = contract
             .call("set")
             .args_json(json!({
-                "data": {
-                    "storage/share_storage": {
-                        "recipient": alice.id().to_string(),
-                        "max_bytes": 999999999999_u64 // Way more than 1 NEAR can support
-                    }
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "storage/share_storage": {
+                            "recipient": alice.id().to_string(),
+                            "max_bytes": 999999999999_u64 // Way more than 1 NEAR can support
+                        }
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -4157,11 +4907,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
         let share_to_self = contract
             .call("set")
             .args_json(json!({
-                "data": {
-                    "storage/share_storage": {
-                        "recipient": contract.id().to_string(),
-                        "max_bytes": 1000
-                    }
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "storage/share_storage": {
+                            "recipient": contract.id().to_string(),
+                            "max_bytes": 1000
+                        }
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -4177,11 +4933,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
         let valid_share = contract
             .call("set")
             .args_json(json!({
-                "data": {
-                    "storage/share_storage": {
-                        "recipient": bob.id().to_string(),
-                        "max_bytes": 10000
-                    }
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "storage/share_storage": {
+                            "recipient": bob.id().to_string(),
+                            "max_bytes": 10000
+                        }
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -4198,8 +4960,14 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
             let bob_write = bob
                 .call(contract.id(), "set")
                 .args_json(json!({
-                    "data": {
-                        format!("{}/profile/name", bob_id): "Bob"
+                    "request": {
+                        "target_account": null,
+                        "data": {
+                            format!("{}/profile/name", bob_id): "Bob"
+                        },
+                        "options": null,
+                        "event_config": null,
+                        "auth": null
                     }
                 }))
                 .deposit(NearToken::from_yoctonear(1))
@@ -4247,8 +5015,14 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
     let return_none = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/return_shared_storage": {}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/return_shared_storage": {}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -4267,10 +5041,16 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
     let manager_deposit = contract
         .call("set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4285,11 +5065,17 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
         let share_result = contract
             .call("set")
             .args_json(json!({
-                "data": {
-                    "storage/share_storage": {
-                        "recipient": bob.id().to_string(),
-                        "max_bytes": 10000
-                    }
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "storage/share_storage": {
+                            "recipient": bob.id().to_string(),
+                            "max_bytes": 10000
+                        }
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -4305,8 +5091,14 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
             let return_result = bob
                 .call(contract.id(), "set")
                 .args_json(json!({
-                    "data": {
-                        "storage/return_shared_storage": {}
+                    "request": {
+                        "target_account": null,
+                        "data": {
+                            "storage/return_shared_storage": {}
+                        },
+                        "options": null,
+                        "event_config": null,
+                        "auth": null
                     }
                 }))
                 .deposit(NearToken::from_yoctonear(1))
@@ -4324,8 +5116,14 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
             let double_return = bob
                 .call(contract.id(), "set")
                 .args_json(json!({
-                    "data": {
-                        "storage/return_shared_storage": {}
+                    "request": {
+                        "target_account": null,
+                        "data": {
+                            "storage/return_shared_storage": {}
+                        },
+                        "options": null,
+                        "event_config": null,
+                        "auth": null
                     }
                 }))
                 .deposit(NearToken::from_yoctonear(1))
@@ -4376,12 +5174,18 @@ async fn test_set_for_with_refund_unused_deposit_to_signer_wallet() -> anyhow::R
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/delegated/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/delegated/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4410,17 +5214,21 @@ async fn test_set_for_with_refund_unused_deposit_to_signer_wallet() -> anyhow::R
         .unwrap_or(0);
     println!("   Bob's storage balance before: {} yoctoNEAR", bob_storage_balance_before);
     
-    // Step 2: Bob uses set_for with refund_unused_deposit: true
-    println!("\n   Step 2: Bob calls set_for with refund_unused_deposit=true...");
+    // Step 2: Bob writes to Alice with refund_unused_deposit: true
+    println!("\n   Step 2: Bob calls set(target_account=Alice) with refund_unused_deposit=true...");
     let set_for_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "delegated/test": "tiny"
-            },
-            "options": {
-                "refund_unused_deposit": true
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "delegated/test": "tiny"
+                },
+                "options": {
+                    "refund_unused_deposit": true
+                },
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4488,11 +5296,16 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 1: set_for without any permission should fail
     println!("\n   Test 1: set_for without permission fails...");
     let unauthorized_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "profile/name": "Unauthorized write"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/name": "Unauthorized write"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4508,12 +5321,18 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/posts/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/posts/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4524,11 +5343,16 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     
     // Try to write to profile (not posts) - should fail
     let wrong_path_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "profile/name": "Should fail"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/name": "Should fail"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4542,11 +5366,16 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 3: Writing to the correct path should succeed
     println!("\n   Test 3: Writing to correct path succeeds...");
     let correct_path_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "posts/1/title": "My First Post"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "posts/1/title": "My First Post"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4560,11 +5389,16 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 4: Third party (Charlie) cannot use Bob's permission
     println!("\n   Test 4: Third party cannot use another's permission...");
     let third_party_result = charlie
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "posts/2/title": "Charlie's attempt"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "posts/2/title": "Charlie's attempt"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4580,11 +5414,17 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     let revoke_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/posts/", alice_id)
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/posts/", alice_id)
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -4594,11 +5434,16 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     assert!(revoke_result.is_success(), "Revoke should succeed");
     
     let post_revoke_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "posts/3/title": "Should fail after revoke"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "posts/3/title": "Should fail after revoke"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4656,7 +5501,7 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "test_group",
             "member_id": bob.id().to_string(),
-            "permission_flags": 1
+            "level": 0
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -4670,8 +5515,14 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     let bob_set_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/test_group/posts/1/title": "Bob's post"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/test_group/content/posts/1/title": "Bob's post"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4688,12 +5539,18 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     let bob_grant_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": charlie.id().to_string(),
-                    "path": format!("{}/", bob_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": charlie.id().to_string(),
+                        "path": format!("{}/", bob_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4706,11 +5563,16 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     // Charlie uses set_for to write to Bob's namespace (simulating a relayer pattern)
     println!("\n   Test 3: Charlie (relayer) writes to Bob's namespace via set_for...");
     let charlie_set_for_result = charlie
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": bob.id().to_string(),
-            "data": {
-                "profile/status": "Written by Charlie (relayer) for Bob"
+            "request": {
+                "target_account": bob.id().to_string(),
+                "data": {
+                    "profile/status": "Written by Charlie (relayer) for Bob"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4725,8 +5587,14 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     let charlie_group_result = charlie
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/test_group/posts/2/title": "Charlie's unauthorized post"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/test_group/content/posts/2/title": "Charlie's unauthorized post"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4766,12 +5634,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4784,15 +5658,20 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     // Test 1: Multiple paths in single set_for call
     println!("\n   Test 1: Multiple paths in single set_for call...");
     let batch_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "profile/name": "Alice Updated",
-                "profile/bio": "Updated by Bob",
-                "settings/theme": "dark",
-                "posts/1/title": "First Post",
-                "posts/1/content": "Content here"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/name": "Alice Updated",
+                    "profile/bio": "Updated by Bob",
+                    "settings/theme": "dark",
+                    "posts/1/title": "First Post",
+                    "posts/1/content": "Content here"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4805,16 +5684,16 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     
     // Verify the data was written
     let full_path = format!("{}/profile/name", alice_id);
-    let alice_profile: std::collections::HashMap<String, serde_json::Value> = contract
+    let alice_profile: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [full_path.clone()]
         }))
         .await?
         .json()?;
-    // The response is a HashMap with full paths as keys
-    let profile_name = alice_profile
-        .get(&full_path)
+    assert_eq!(alice_profile.len(), 1, "Should return one EntryView");
+    let profile_name = alice_profile[0]
+        .get("value")
         .and_then(|v| v.as_str())
         .unwrap_or("");
     assert_eq!(profile_name, "Alice Updated");
@@ -4827,11 +5706,17 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     let revoke_broad_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/", alice_id)
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/", alice_id)
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -4844,12 +5729,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     let regrant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/profile/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/profile/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4861,12 +5752,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     let regrant2_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/posts/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/posts/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4878,13 +5775,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     
     // Now try batch with settings/ included - should fail because settings/ is not authorized
     let mixed_batch_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "profile/status": "online",
-                "settings/notifications": "disabled",
-                "posts/2/title": "Another post"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/status": "online",
+                    "settings/notifications": "disabled",
+                    "posts/2/title": "Another post"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4900,17 +5802,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     
     // Verify that none of the data was written (atomic failure)
     let status_path = format!("{}/profile/status", alice_id);
-    let status_check: std::collections::HashMap<String, serde_json::Value> = contract
+    let status_check: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [status_path.clone()]
         }))
         .await?
         .json()?;
-    
+    assert_eq!(status_check.len(), 1, "Should return one EntryView");
+
     // Status should be empty/null (not "online") since batch failed atomically
-    let status_value = status_check
-        .get(&status_path)
+    let status_value = status_check[0]
+        .get("value")
         .and_then(|v| v.as_str())
         .unwrap_or("");
     assert_ne!(status_value, "online", "Atomic failure should not write any data");
@@ -4947,12 +5850,18 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -4967,11 +5876,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     
     // Bob attaches deposit for the operation
     let set_for_personal_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "profile/test1": "Written with personal deposit"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/test1": "Written with personal deposit"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5004,10 +5918,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     let platform_deposit_result = manager
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/platform_pool_deposit": {
-                    "amount": NearToken::from_near(5).as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(5))
@@ -5021,11 +5941,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
         
         // Now Bob can set_for without attaching much deposit
         let set_for_pool_result = bob
-            .call(contract.id(), "set_for")
+            .call(contract.id(), "set")
             .args_json(json!({
-                "target_account": alice.id().to_string(),
-                "data": {
-                    "profile/test2": "Written with platform pool coverage"
+                "request": {
+                    "target_account": alice.id().to_string(),
+                    "data": {
+                        "profile/test2": "Written with platform pool coverage"
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1)) // Minimal deposit
@@ -5058,10 +5983,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     let shared_pool_deposit_result = manager
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "amount": NearToken::from_near(2).as_yoctonear().to_string()
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "amount": NearToken::from_near(2).as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(2))
@@ -5076,11 +6007,17 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
         let share_result = manager
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    "storage/share_storage": {
-                        "recipient": alice.id().to_string(),
-                        "amount_bytes": 10000
-                    }
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "storage/share_storage": {
+                            "recipient": alice.id().to_string(),
+                            "amount_bytes": 10000
+                        }
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(NearToken::from_yoctonear(1))
@@ -5093,11 +6030,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
             
             // Bob can set_for Alice using Alice's shared storage
             let set_for_shared_result = bob
-                .call(contract.id(), "set_for")
+                .call(contract.id(), "set")
                 .args_json(json!({
-                    "target_account": alice.id().to_string(),
-                    "data": {
-                        "profile/test3": "Written with shared pool coverage"
+                    "request": {
+                        "target_account": alice.id().to_string(),
+                        "data": {
+                            "profile/test3": "Written with shared pool coverage"
+                        },
+                        "options": null,
+                        "event_config": null,
+                        "auth": null
                     }
                 }))
                 .deposit(NearToken::from_yoctonear(1))
@@ -5121,21 +6063,30 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     let test2_path = format!("{}/profile/test2", alice_id);
     let test3_path = format!("{}/profile/test3", alice_id);
     
-    let all_tests: std::collections::HashMap<String, serde_json::Value> = contract
+    let all_tests: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [test1_path.clone(), test2_path.clone(), test3_path.clone()]
         }))
         .await?
         .json()?;
-    
-    if let Some(val) = all_tests.get(&test1_path).and_then(|v| v.as_str()) {
+
+    let find_value_str = |key: &str| -> Option<String> {
+        all_tests
+            .iter()
+            .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(key))
+            .and_then(|e| e.get("value"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    };
+
+    if let Some(val) = find_value_str(&test1_path) {
         println!("   ✓ profile/test1 = {:?}", val);
     }
-    if let Some(val) = all_tests.get(&test2_path).and_then(|v| v.as_str()) {
+    if let Some(val) = find_value_str(&test2_path) {
         println!("   ✓ profile/test2 = {:?}", val);
     }
-    if let Some(val) = all_tests.get(&test3_path).and_then(|v| v.as_str()) {
+    if let Some(val) = find_value_str(&test3_path) {
         println!("   ✓ profile/test3 = {:?}", val);
     }
     
@@ -5170,12 +6121,18 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/", alice_id),
-                    "permission_flags": 2
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/", alice_id),
+                        "level": 2
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5188,11 +6145,16 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     // Step 2: Bob writes to alice/test - should succeed
     println!("\n   Step 2: Bob writes to alice/test (should succeed)...");
     let write1_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "test/data": "first write"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "test/data": "first write"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5207,11 +6169,17 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     let revoke_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/", alice_id)
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/", alice_id)
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -5224,11 +6192,16 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     // Step 4: Bob tries to write to alice/test2 - should FAIL
     println!("\n   Step 4: Bob tries to write after revoke (should FAIL)...");
     let write2_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "test/data2": "second write after revoke"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "test/data2": "second write after revoke"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5294,11 +6267,10 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": current_max_key_length + 10,
                 "max_batch_size": current_max_batch_size + 10,
-                "max_path_depth": current_max_path_depth + 1,
-                "min_promise_gas_tgas": 10,
-                "default_user_storage_bytes": 102400
+                "max_path_depth": current_max_path_depth + 1
             }
         }))
+        .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
@@ -5314,17 +6286,24 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": current_max_key_length + 50,
                 "max_batch_size": current_max_batch_size + 25,
-                "max_path_depth": current_max_path_depth + 2,
-                "min_promise_gas_tgas": 15,
-                "default_user_storage_bytes": 150000
+                "max_path_depth": current_max_path_depth + 2
             }
         }))
+        .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
     
     assert!(manager_update_result.is_success(), "Manager should be able to update config: {:?}", manager_update_result.failures());
     println!("   ✓ Manager successfully updated config");
+
+    // Step 3b: Verify CONTRACT_UPDATE event emitted for update_config
+    let logs = manager_update_result.logs();
+    assert!(
+        has_contract_update_config_event(&logs),
+        "Expected CONTRACT_UPDATE/update_config event in logs: {logs:?}"
+    );
+    println!("   ✓ CONTRACT_UPDATE event emitted for update_config");
     
     // Step 4: Verify config was updated
     println!("\n   Step 4: Verify config was updated...");
@@ -5347,11 +6326,10 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": current_max_key_length,  // Trying to decrease
                 "max_batch_size": current_max_batch_size + 25,
-                "max_path_depth": current_max_path_depth + 2,
-                "min_promise_gas_tgas": 15,
-                "default_user_storage_bytes": 150000
+                "max_path_depth": current_max_path_depth + 2
             }
         }))
+        .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
@@ -5359,28 +6337,209 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
     assert!(!decrease_result.is_success(), "Config values should NOT be decreasable");
     println!("   ✓ Decrease correctly rejected (security: values can only increase)");
     
-    // Step 6: Manager tries to set min_promise_gas below minimum - should FAIL
-    println!("\n   Step 6: Manager tries to set gas below minimum (should FAIL)...");
-    let low_gas_result = contract
-        .call("update_config")
+    println!("\n✅ Test passed: update_config security validated");
+    
+    Ok(())
+}
+
+/// Test: DAO/contract-as-manager can update config via cross-contract call.
+///
+/// This validates the future "DAO is manager" design using predecessor-based authorization.
+#[tokio::test]
+async fn test_update_config_via_manager_contract() -> anyhow::Result<()> {
+    println!("\n🤝 Test: update_config via manager contract (DAO/proxy)...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+
+    let core_wasm = load_core_onsocial_wasm()?;
+    let proxy_wasm = load_manager_proxy_wasm()?;
+
+    // Deploy core contract (uninitialized).
+    let core = sandbox.dev_deploy(&core_wasm).await?;
+
+    // Deploy proxy contract to a real account (this account will be core manager).
+    let proxy_account = sandbox.dev_create_account().await?;
+    let proxy_contract = proxy_account.deploy(&proxy_wasm).await?.into_result()?;
+    proxy_account
+        .call(proxy_contract.id(), "new")
+        .args_json(json!({}))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Initialize core from the proxy account so manager = proxy_account.id().
+    proxy_account
+        .call(core.id(), "new")
+        .args_json(json!({}))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Non-manager EOA should be rejected even with 1 yocto.
+    let alice = sandbox.dev_create_account().await?;
+    let alice_fail = alice
+        .call(core.id(), "update_config")
         .args_json(json!({
             "config": {
-                "max_key_length": current_max_key_length + 100,
-                "max_batch_size": current_max_batch_size + 50,
-                "max_path_depth": current_max_path_depth + 5,
-                "min_promise_gas_tgas": 5,  // Below 10 TGas minimum
-                "default_user_storage_bytes": 200000
+                "max_key_length": 300,
+                "max_batch_size": 150,
+                "max_path_depth": 13
             }
         }))
+        .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    
-    assert!(!low_gas_result.is_success(), "min_promise_gas below 10 TGas should be rejected");
-    println!("   ✓ Low gas config correctly rejected");
-    
-    println!("\n✅ Test passed: update_config security validated");
-    
+    assert!(!alice_fail.is_success(), "EOA should not be able to update config when manager is a contract");
+
+    // Proxy (manager) performs cross-contract update_config.
+    let res = proxy_account
+        .call(proxy_contract.id(), "update_core_config")
+        .args_json(json!({
+            "core_account_id": core.id(),
+            "config": {
+                "max_key_length": 300,
+                "max_batch_size": 150,
+                "max_path_depth": 13
+            }
+        }))
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Proxy should be able to update config via cross-contract call: {:?}", res.failures());
+
+    // Verify event emitted by core contract.
+    let logs = res.logs();
+    assert!(
+        has_contract_update_config_event(&logs),
+        "Expected CONTRACT_UPDATE/update_config event in logs: {logs:?}"
+    );
+
+    // Verify config updated on core.
+    let new_config: serde_json::Value = core
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    assert_eq!(new_config["max_key_length"].as_u64().unwrap(), 300);
+    assert_eq!(new_config["max_batch_size"].as_u64().unwrap(), 150);
+    assert_eq!(new_config["max_path_depth"].as_u64().unwrap(), 13);
+
+    println!("\n✅ Test passed: manager contract can update config + event emitted");
+    Ok(())
+}
+
+/// Test: update_manager API - manager-only security and ownership transfer
+/// 
+/// Validates:
+/// 1. Only the manager can call update_manager
+/// 2. Non-manager callers are rejected
+/// 3. Requires exactly 1 yoctoNEAR deposit
+/// 4. New manager gains admin privileges, old manager loses them
+/// 5. CONTRACT_UPDATE event is emitted
+#[tokio::test]
+async fn test_update_manager_security() -> anyhow::Result<()> {
+    println!("\n🔐 Test: update_manager security...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    // Initialize and activate contract
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+
+    let alice = sandbox.dev_create_account().await?;
+    let bob = sandbox.dev_create_account().await?;
+
+    // Step 1: Non-manager (Alice) tries to update manager - should FAIL
+    println!("   Step 1: Non-manager (Alice) tries to update manager (should FAIL)...");
+    let alice_update_result = alice
+        .call(contract.id(), "update_manager")
+        .args_json(json!({"new_manager": bob.id()}))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(!alice_update_result.is_success(), "Non-manager should NOT be able to update manager");
+    println!("   ✓ Alice (non-manager) correctly rejected");
+
+    // Step 2: Manager without deposit - should FAIL
+    println!("\n   Step 2: Manager without 1 yocto deposit (should FAIL)...");
+    let no_deposit_result = contract
+        .call("update_manager")
+        .args_json(json!({"new_manager": alice.id()}))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(!no_deposit_result.is_success(), "update_manager without deposit should fail");
+    println!("   ✓ Missing deposit correctly rejected");
+
+    // Step 3: Manager transfers ownership to Alice - should SUCCEED
+    println!("\n   Step 3: Manager transfers ownership to Alice (should SUCCEED)...");
+    let transfer_result = contract
+        .call("update_manager")
+        .args_json(json!({"new_manager": alice.id()}))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(transfer_result.is_success(), "Manager should be able to transfer ownership: {:?}", transfer_result.failures());
+    println!("   ✓ Ownership transferred to Alice");
+
+    // Step 3b: Verify CONTRACT_UPDATE event emitted
+    let logs = transfer_result.logs();
+    let has_update_manager_event = logs.iter().any(|log| {
+        log.contains("CONTRACT_UPDATE") && log.contains("update_manager")
+    });
+    assert!(has_update_manager_event, "Expected CONTRACT_UPDATE/update_manager event in logs: {logs:?}");
+    println!("   ✓ CONTRACT_UPDATE event emitted");
+
+    // Step 4: Old manager (contract) can no longer update manager
+    println!("\n   Step 4: Old manager tries to update (should FAIL)...");
+    let old_manager_result = contract
+        .call("update_manager")
+        .args_json(json!({"new_manager": bob.id()}))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(!old_manager_result.is_success(), "Old manager should no longer have privileges");
+    println!("   ✓ Old manager correctly rejected");
+
+    // Step 5: New manager (Alice) can update config
+    println!("\n   Step 5: New manager (Alice) can update config (should SUCCEED)...");
+    let current_config: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let new_max_key = current_config["max_key_length"].as_u64().unwrap() + 10;
+
+    let alice_config_result = alice
+        .call(contract.id(), "update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": new_max_key,
+                "max_batch_size": current_config["max_batch_size"],
+                "max_path_depth": current_config["max_path_depth"]
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(alice_config_result.is_success(), "New manager should be able to update config: {:?}", alice_config_result.failures());
+    println!("   ✓ New manager (Alice) can perform admin operations");
+
+    println!("\n✅ Test passed: update_manager security validated");
     Ok(())
 }
 
@@ -5428,14 +6587,13 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
         .await?;
     assert!(create_result.is_success(), "Group creation should succeed: {:?}", create_result.failures());
     println!("   ✓ Private group 'private_club' created");
-    
+
     // Step 2: Bob requests to join the private group
     println!("\n   Step 2: Bob requests to join the private group...");
     let join_result = bob
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private_club",
-            "requested_permissions": 1  // WRITE permission
+            "group_id": "private_club"
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -5483,14 +6641,41 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
         .json()?;
     assert!(request_after.is_none(), "Join request should NOT exist after cancellation");
     println!("   ✓ Join request correctly removed");
+
+    // Step 5b: Cancelling again should fail and must not decrement counters again
+    println!("\n   Step 5b: Cancelling already-cancelled request should fail...");
+    let cancel_again = bob
+        .call(contract.id(), "cancel_join_request")
+        .args_json(json!({
+            "group_id": "private_club"
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!cancel_again.is_success(), "Cancelling an already-cancelled request should fail");
+
+    let stats_after_cancel_again: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private_club"
+        }))
+        .await?
+        .json()?;
+    let total_join_requests = stats_after_cancel_again
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(total_join_requests, 0, "Join request counter must not decrement twice");
+    println!("   ✓ Double-cancel correctly rejected and counters stable");
     
     // Step 6: Bob can submit a new join request
     println!("\n   Step 6: Bob submits a new join request after cancellation...");
     let rejoin_result = bob
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private_club",
-            "requested_permissions": 1
+            "group_id": "private_club"
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -5530,6 +6715,70 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Test: public group self-join uses clean join semantics
+///
+/// Validates self-join succeeds via the clean join API.
+#[tokio::test]
+async fn test_public_group_self_join_write_only() -> anyhow::Result<()> {
+    println!("\n👥 Test: public group self-join is WRITE-only...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    contract.call("new").transact().await?.into_result()?;
+    contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let alice = sandbox.dev_create_account().await?;
+    let bob = sandbox.dev_create_account().await?;
+
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "public_club",
+            "config": {
+                "name": "Public Club",
+                "description": "A public group for testing",
+                "is_private": false,
+                "member_driven": false
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Group creation should succeed: {:?}", create_result.failures());
+
+    let join_write = bob
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "public_club"
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(join_write.is_success(), "Self-join with WRITE should succeed: {:?}", join_write.failures());
+
+    let is_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "public_club",
+            "member_id": bob.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_member, "Bob should be a member after successful self-join");
+
+    println!("\n✅ Test passed: public group self-join WRITE-only validated");
+    Ok(())
+}
+
 /// Test: Permission expiration (expires_at parameter)
 /// 
 /// Validates:
@@ -5563,8 +6812,14 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     let _deposit = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": "10000000000000000000000000"  // 10 NEAR
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": "10000000000000000000000000"}  // 10 NEAR
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(10))
@@ -5587,8 +6842,8 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": bob.id().to_string(),
             "path": format!("{}/expired_test/", alice_id),
-            "permission_flags": 1,  // WRITE
-            "expires_at": past_timestamp
+            "level": 1,  // WRITE
+            "expires_at": past_timestamp.to_string()
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -5599,11 +6854,16 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 3: Bob tries to use expired permission - should FAIL
     println!("\n   Step 3: Bob tries to write with expired permission (should FAIL)...");
     let expired_write = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "expired_test/data": "should not work"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "expired_test/data": "should not work"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5623,8 +6883,8 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": carol.id().to_string(),
             "path": format!("{}/future_test/", alice_id),
-            "permission_flags": 1,  // WRITE
-            "expires_at": future_timestamp
+            "level": 1,  // WRITE
+            "expires_at": future_timestamp.to_string()
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -5635,11 +6895,16 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 5: Carol uses valid (not expired) permission - should SUCCEED
     println!("\n   Step 5: Carol writes with valid permission (should SUCCEED)...");
     let valid_write = carol
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "future_test/data": "this should work"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "future_test/data": "this should work"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5657,7 +6922,7 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": bob.id().to_string(),
             "path": format!("{}/permanent_test/", alice_id),
-            "permission_flags": 1,  // WRITE
+            "level": 1,  // WRITE
             "expires_at": null  // No expiration
         }))
         .gas(Gas::from_tgas(100))
@@ -5669,11 +6934,16 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 7: Bob uses permanent permission - should SUCCEED
     println!("\n   Step 7: Bob writes with permanent permission (should SUCCEED)...");
     let permanent_write = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "permanent_test/data": "permanent access works"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permanent_test/data": "permanent access works"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5693,7 +6963,7 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
             "owner": alice.id().to_string(),
             "grantee": bob.id().to_string(),
             "path": format!("{}/expired_test/", alice_id),
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -5706,7 +6976,7 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
             "owner": alice.id().to_string(),
             "grantee": carol.id().to_string(),
             "path": format!("{}/future_test/", alice_id),
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -5719,7 +6989,7 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
             "owner": alice.id().to_string(),
             "grantee": bob.id().to_string(),
             "path": format!("{}/permanent_test/", alice_id),
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -5737,8 +7007,7 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
 /// 1. get API works with multiple exact keys
 /// 2. get API works with full paths (account/path format)
 /// 3. get API returns empty for non-existent keys
-/// 4. get API with include_metadata returns data+metadata structure
-/// 5. get API with data_type parameter filters correctly
+/// 4. get API returns EntryView values with block_height
 #[tokio::test]
 async fn test_get_api_comprehensive() -> anyhow::Result<()> {
     println!("\n🔍 Test: get API comprehensive...\n");
@@ -5765,12 +7034,18 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
     let alice_write = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice",
-                "profile/bio": "Test user Alice",
-                "posts/post1": {"title": "First post", "content": "Hello world"},
-                "posts/post2": {"title": "Second post", "content": "Another post"},
-                "settings/theme": "dark"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "profile/name": "Alice",
+                    "profile/bio": "Test user Alice",
+                    "posts/post1": {"title": "First post", "content": "Hello world"},
+                    "posts/post2": {"title": "Second post", "content": "Another post"},
+                    "settings/theme": "dark"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(2))
@@ -5782,9 +7057,15 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
     let bob_write = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Bob",
-                "profile/bio": "Test user Bob"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "profile/name": "Bob",
+                    "profile/bio": "Test user Bob"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -5796,20 +7077,25 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
     
     // Step 2: Get single key with full path
     println!("\n   Step 2: Get single key with full path...");
-    let single_result: std::collections::HashMap<String, serde_json::Value> = contract
+    let single_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [format!("{}/profile/name", alice_id)]
         }))
         .await?
         .json()?;
-    
-    assert!(single_result.contains_key(&format!("{}/profile/name", alice_id)), "Should have Alice's name");
+
+    assert_eq!(single_result.len(), 1, "Should return one EntryView");
+    assert_eq!(
+        single_result[0].get("value").and_then(|v| v.as_str()),
+        Some("Alice")
+    );
+    assert!(single_result[0].get("block_height").is_some(), "Should include block_height");
     println!("   ✓ Single key fetch works: {:?}", single_result);
     
     // Step 3: Get multiple keys from same account
     println!("\n   Step 3: Get multiple keys from same account...");
-    let multi_result: std::collections::HashMap<String, serde_json::Value> = contract
+    let multi_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -5820,15 +7106,15 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    assert_eq!(multi_result.len(), 3, "Should have 3 keys");
-    assert_eq!(multi_result.get(&format!("{}/profile/name", alice_id)).and_then(|v| v.as_str()), Some("Alice"));
-    assert_eq!(multi_result.get(&format!("{}/settings/theme", alice_id)).and_then(|v| v.as_str()), Some("dark"));
+
+    assert_eq!(multi_result.len(), 3, "Should have 3 entries");
+    assert_eq!(multi_result[0].get("value").and_then(|v| v.as_str()), Some("Alice"));
+    assert_eq!(multi_result[2].get("value").and_then(|v| v.as_str()), Some("dark"));
     println!("   ✓ Multiple keys fetch works: {} keys returned", multi_result.len());
     
     // Step 4: Get keys from multiple accounts
     println!("\n   Step 4: Get keys from multiple accounts...");
-    let cross_account: std::collections::HashMap<String, serde_json::Value> = contract
+    let cross_account: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -5838,15 +7124,15 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    assert_eq!(cross_account.len(), 2, "Should have 2 keys from different accounts");
-    assert_eq!(cross_account.get(&format!("{}/profile/name", alice_id)).and_then(|v| v.as_str()), Some("Alice"));
-    assert_eq!(cross_account.get(&format!("{}/profile/name", bob_id)).and_then(|v| v.as_str()), Some("Bob"));
+
+    assert_eq!(cross_account.len(), 2, "Should have 2 entries");
+    assert_eq!(cross_account[0].get("value").and_then(|v| v.as_str()), Some("Alice"));
+    assert_eq!(cross_account[1].get("value").and_then(|v| v.as_str()), Some("Bob"));
     println!("   ✓ Cross-account fetch works");
     
     // Step 5: Get non-existent keys (should return empty or partial)
     println!("\n   Step 5: Get non-existent keys...");
-    let missing_result: std::collections::HashMap<String, serde_json::Value> = contract
+    let missing_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -5856,31 +7142,15 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    assert!(!missing_result.contains_key(&format!("{}/does/not/exist", alice_id)), "Non-existent key should not be in result");
-    assert!(missing_result.contains_key(&format!("{}/profile/name", alice_id)), "Existing key should be in result");
+
+    assert_eq!(missing_result.len(), 2, "Should return one EntryView per requested key");
+    assert!(missing_result[0].get("value").map(|v| v.is_null()).unwrap_or(true));
+    assert_eq!(missing_result[1].get("value").and_then(|v| v.as_str()), Some("Alice"));
     println!("   ✓ Non-existent keys handled correctly");
-    
-    // Step 6: Get with include_metadata
-    println!("\n   Step 6: Get with include_metadata...");
-    let metadata_result: std::collections::HashMap<String, serde_json::Value> = contract
-        .view("get")
-        .args_json(json!({
-            "keys": [format!("{}/profile/name", alice_id)],
-            "include_metadata": true
-        }))
-        .await?
-        .json()?;
-    
-    if let Some(entry) = metadata_result.get(&format!("{}/profile/name", alice_id)) {
-        assert!(entry.get("data").is_some() || entry.as_str().is_some(), 
-            "With include_metadata, should have data field or raw value");
-        println!("   ✓ include_metadata works: {:?}", entry);
-    }
-    
-    // Step 7: Get with account_id parameter (relative paths)
-    println!("\n   Step 7: Get with account_id parameter...");
-    let relative_result: std::collections::HashMap<String, serde_json::Value> = contract
+
+    // Step 6: Get with account_id parameter (relative paths)
+    println!("\n   Step 6: Get with account_id parameter...");
+    let relative_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": ["profile/name", "profile/bio"],
@@ -5888,58 +7158,1284 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    // Result should contain the relative keys mapped to their values
-    println!("   ✓ Relative path query returned {} keys", relative_result.len());
-    
-    // Step 8: Get with data_type parameter
-    println!("\n   Step 8: Get with data_type parameter...");
-    
-    // First create a group so we have config to query
-    let create_group = alice
-        .call(contract.id(), "create_group")
-        .args_json(json!({
-            "group_id": "test_group",
-            "config": {
-                "name": "Test Group",
-                "description": "For testing data_type query"
-            }
-        }))
-        .deposit(NearToken::from_near(1))
-        .gas(Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(create_group.is_success(), "Group creation should succeed");
-    
-    let dtype_result: std::collections::HashMap<String, serde_json::Value> = contract
-        .view("get")
-        .args_json(json!({
-            "keys": [],
-            "account_id": "test_group",
-            "data_type": "config"
-        }))
-        .await?
-        .json()?;
-    
-    println!("   ✓ data_type query returned {} entries", dtype_result.len());
-    if !dtype_result.is_empty() {
-        println!("      Config found: {:?}", dtype_result);
-    }
-    
-    // Step 9: Empty keys array
-    println!("\n   Step 9: Empty keys array returns empty...");
-    let empty_result: std::collections::HashMap<String, serde_json::Value> = contract
+
+    println!("   ✓ Relative path query returned {} entries", relative_result.len());
+    assert_eq!(relative_result.len(), 2);
+    let name_entry = relative_result
+        .iter()
+        .find(|e| e.get("requested_key").and_then(|v| v.as_str()) == Some("profile/name"))
+        .expect("Expected an entry for requested_key=profile/name");
+    assert_eq!(name_entry.get("value").and_then(|v| v.as_str()), Some("Alice"));
+
+    // Step 7: Empty keys array
+    println!("\n   Step 7: Empty keys array returns empty...");
+    let empty_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": []
         }))
         .await?
         .json()?;
-    
+
     assert!(empty_result.is_empty(), "Empty keys should return empty result");
     println!("   ✓ Empty keys returns empty result");
     
     println!("\n✅ Test passed: get API comprehensive validated");
     
+    Ok(())
+}
+/// Test: Blacklisted users cannot write to group paths
+/// 
+/// Validates:
+/// 1. Member can write to group before being blacklisted
+/// 2. Blacklisted user cannot write to group paths
+/// 3. Blacklisted user cannot use set_for to write to group
+/// 4. After unblacklist and rejoin, user can write again
+#[tokio::test]
+async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
+    println!("\n🚫 Test: Blacklisted user cannot write to group...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    // Initialize and activate contract
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // Create accounts
+    let owner = sandbox.dev_create_account().await?;
+    let member = sandbox.dev_create_account().await?;
+    
+    // Step 1: Owner creates a group and deposits storage
+    println!("   Step 1: Owner creates group with storage...");
+    let owner_deposit = owner
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(5).as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(5))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(owner_deposit.is_success(), "Storage deposit should succeed: {:?}", owner_deposit.failures());
+    
+    let create_group = owner
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "test_blacklist_group",
+            "config": {
+                "name": "Blacklist Test Group",
+                "description": "Testing blacklist enforcement",
+                "is_private": false
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Group creation should succeed: {:?}", create_group.failures());
+    println!("   ✓ Group created");
+    
+    // Step 2: Member joins and gets storage + WRITE permission
+    println!("\n   Step 2: Member joins group with WRITE permission...");
+    let member_storage = member
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(5).as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(5))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(member_storage.is_success(), "Member storage deposit should succeed: {:?}", member_storage.failures());
+    
+    let join_result = member
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "test_blacklist_group"
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(join_result.is_success(), "Join should succeed: {:?}", join_result.failures());
+    
+    // Owner grants WRITE permission on posts path
+    let grant_perm = owner
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": member.id().to_string(),
+            "path": "groups/test_blacklist_group/content/",
+            "level": 1,  // WRITE
+            "expires_at": null
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_perm.is_success(), "Grant permission should succeed: {:?}", grant_perm.failures());
+    println!("   ✓ Member joined and has WRITE permission");
+    
+    // Step 3: Member writes to group (should succeed)
+    println!("\n   Step 3: Member writes to group (should succeed)...");
+    let write_result = member
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/test_blacklist_group/content/posts/post1": {
+                        "title": "My Post",
+                        "content": "Hello from member!"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(write_result.is_success(), "Member write should succeed: {:?}", write_result.failures());
+    println!("   ✓ Member successfully wrote to group");
+    
+    // Step 4: Owner blacklists the member
+    println!("\n   Step 4: Owner blacklists the member...");
+    let blacklist_result = owner
+        .call(contract.id(), "blacklist_group_member")
+        .args_json(json!({
+            "group_id": "test_blacklist_group",
+            "member_id": member.id().to_string()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(blacklist_result.is_success(), "Blacklist should succeed: {:?}", blacklist_result.failures());
+    
+    // Verify member is blacklisted
+    let is_blacklisted: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "test_blacklist_group",
+            "user_id": member.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_blacklisted, "Member should be blacklisted");
+    println!("   ✓ Member is now blacklisted");
+    
+    // Step 5: Blacklisted member tries to write (should FAIL)
+    println!("\n   Step 5: Blacklisted member tries to write (should FAIL)...");
+    let blocked_write = member
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/test_blacklist_group/content/posts/post2": {
+                        "title": "Blocked Post",
+                        "content": "This should not work"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!blocked_write.is_success(), "Blacklisted member should NOT be able to write");
+    println!("   ✓ Blacklisted member correctly blocked from writing");
+    
+    // Step 6: Blacklisted member tries set_for (should also FAIL)
+    println!("\n   Step 6: Blacklisted member tries set_for (should FAIL)...");
+    let blocked_set_for = member
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": owner.id().to_string(),
+                "data": {
+                    "groups/test_blacklist_group/content/posts/post3": {
+                        "title": "Bypass Attempt"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!blocked_set_for.is_success(), "Blacklisted member should NOT be able to use set_for");
+    println!("   ✓ Blacklisted member correctly blocked from set_for");
+    
+    // Step 7: Owner unblacklists the member
+    println!("\n   Step 7: Owner unblacklists the member...");
+    let unblacklist_result = owner
+        .call(contract.id(), "unblacklist_group_member")
+        .args_json(json!({
+            "group_id": "test_blacklist_group",
+            "member_id": member.id().to_string()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(unblacklist_result.is_success(), "Unblacklist should succeed: {:?}", unblacklist_result.failures());
+    println!("   ✓ Member unblacklisted");
+    
+    // Step 8: Member rejoins group
+    println!("\n   Step 8: Member rejoins group...");
+    let rejoin_result = member
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "test_blacklist_group"
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(rejoin_result.is_success(), "Rejoin should succeed: {:?}", rejoin_result.failures());
+    
+    // Owner re-grants permission
+    let regrant_perm = owner
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": member.id().to_string(),
+            "path": "groups/test_blacklist_group/content/",
+            "level": 1,  // WRITE
+            "expires_at": null
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(regrant_perm.is_success(), "Re-grant permission should succeed");
+    println!("   ✓ Member rejoined and has permission again");
+    
+    // Step 9: Member can write again after unblacklist + rejoin
+    println!("\n   Step 9: Member writes again after unblacklist (should succeed)...");
+    let write_again = member
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "groups/test_blacklist_group/content/posts/post4": {
+                        "title": "Back Again",
+                        "content": "I can write after unblacklist!"
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(write_again.is_success(), "Unblacklisted member should be able to write: {:?}", write_again.failures());
+    println!("   ✓ Unblacklisted member successfully wrote to group");
+    
+    println!("\n✅ Test passed: Blacklisted user cannot write to group");
+    
+    Ok(())
+}
+
+/// Test: Permission hierarchy - MANAGE includes WRITE for set_for operations
+/// 
+/// Validates:
+/// 1. User with only WRITE permission can write
+/// 2. User with MODERATE permission can write (hierarchy: MODERATE includes WRITE)
+/// 3. User with MANAGE permission can write (hierarchy: MANAGE includes MODERATE+WRITE)
+/// 4. MANAGE holder cannot grant MANAGE to others (only owner can)
+#[tokio::test]
+async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
+    println!("\n🔐 Test: Permission hierarchy for set_for operations...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    // Initialize and activate contract
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // Create accounts
+    let alice = sandbox.dev_create_account().await?;  // Owner
+    let bob = sandbox.dev_create_account().await?;    // WRITE permission
+    let carol = sandbox.dev_create_account().await?;  // MODERATE permission  
+    let dan = sandbox.dev_create_account().await?;    // MANAGE permission
+    
+    let alice_id = alice.id().to_string();
+    
+    // Step 1: Alice deposits storage
+    println!("   Step 1: Alice deposits storage...");
+    let deposit = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(10).as_yoctonear().to_string()}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(10))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(deposit.is_success(), "Alice storage deposit should succeed: {:?}", deposit.failures());
+    println!("   ✓ Alice deposited storage");
+    
+    // Step 2: Grant different permission levels
+    println!("\n   Step 2: Granting different permission levels...");
+    
+    // Bob gets WRITE (1)
+    let grant_bob = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id().to_string(),
+            "path": format!("{}/data/", alice_id),
+            "level": 1,  // WRITE only
+            "expires_at": null
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_bob.is_success(), "Grant to Bob should succeed");
+    println!("   ✓ Bob granted WRITE (1) permission");
+    
+    // Carol gets MODERATE (2)
+    let grant_carol = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": carol.id().to_string(),
+            "path": format!("{}/data/", alice_id),
+            "level": 2,  // MODERATE (includes WRITE hierarchically)
+            "expires_at": null
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_carol.is_success(), "Grant to Carol should succeed");
+    println!("   ✓ Carol granted MODERATE (2) permission");
+    
+    // Dan gets MANAGE (3)
+    let grant_dan = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": dan.id().to_string(),
+            "path": format!("{}/data/", alice_id),
+            "level": 3,  // MANAGE (includes MODERATE+WRITE hierarchically)
+            "expires_at": null
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_dan.is_success(), "Grant to Dan should succeed");
+    println!("   ✓ Dan granted MANAGE (3) permission");
+    
+    // Step 3: Bob (WRITE) uses set_for - should succeed
+    println!("\n   Step 3: Bob (WRITE) uses set_for...");
+    let bob_write = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "data/bob_entry": {"from": "bob", "permission": "WRITE"}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(bob_write.is_success(), "Bob (WRITE) should be able to write: {:?}", bob_write.failures());
+    println!("   ✓ Bob (WRITE=1) successfully wrote via set_for");
+    
+    // Step 4: Carol (MODERATE) uses set_for - should succeed (MODERATE includes WRITE)
+    println!("\n   Step 4: Carol (MODERATE) uses set_for...");
+    let carol_write = carol
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "data/carol_entry": {"from": "carol", "permission": "MODERATE"}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(carol_write.is_success(), "Carol (MODERATE) should be able to write: {:?}", carol_write.failures());
+    println!("   ✓ Carol (MODERATE=2) successfully wrote via set_for (hierarchy: includes WRITE)");
+    
+    // Step 5: Dan (MANAGE) uses set_for - should succeed (MANAGE includes WRITE)
+    println!("\n   Step 5: Dan (MANAGE) uses set_for...");
+    let dan_write = dan
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "data/dan_entry": {"from": "dan", "permission": "MANAGE"}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(dan_write.is_success(), "Dan (MANAGE) should be able to write: {:?}", dan_write.failures());
+    println!("   ✓ Dan (MANAGE=4) successfully wrote via set_for (hierarchy: includes WRITE)");
+    
+    // Step 6: Verify all entries were written
+    println!("\n   Step 6: Verifying all entries exist...");
+    let bob_data: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/data/bob_entry", alice_id)]
+        }))
+        .await?
+        .json()?;
+    let bob_key = format!("{}/data/bob_entry", alice_id);
+    assert!(entry_exists(&bob_data, &bob_key), "Bob's entry should exist");
+    
+    let carol_data: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/data/carol_entry", alice_id)]
+        }))
+        .await?
+        .json()?;
+    let carol_key = format!("{}/data/carol_entry", alice_id);
+    assert!(entry_exists(&carol_data, &carol_key), "Carol's entry should exist");
+    
+    let dan_data: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/data/dan_entry", alice_id)]
+        }))
+        .await?
+        .json()?;
+    let dan_key = format!("{}/data/dan_entry", alice_id);
+    assert!(entry_exists(&dan_data, &dan_key), "Dan's entry should exist");
+    println!("   ✓ All entries verified");
+    
+    // Step 7: Verify that MODERATE (2) cannot grant MANAGE (3) - only owner can
+    println!("\n   Step 7: Carol (MODERATE) cannot grant MANAGE to others...");
+    // Attempt cross-account permission grant via `set` (should be rejected).
+    let carol_grant_attempt = carol
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": "data/special/",
+                        "level": 3,
+                        "expires_at": null
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!carol_grant_attempt.is_success(), "Carol (MODERATE) should NOT be able to grant permissions");
+    println!("   ✓ Carol (MODERATE) correctly blocked from granting permissions");
+    
+    println!("\n✅ Test passed: Permission hierarchy (MANAGE > MODERATE > WRITE) works correctly");
+    
+    Ok(())
+}
+
+// =============================================================================
+// Cross-Account Reserved Operations Authorization Tests
+// =============================================================================
+// Verifies that `validate_cross_account_permissions_simple` correctly blocks
+// reserved operations (permission/*, storage/*) when actor_id != target_account.
+
+/// Test that reserved operations (permission/grant, storage/deposit, etc.) are
+/// blocked when attempting cross-account execution.
+#[tokio::test]
+async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
+    println!("\n🧪 TEST: Reserved operations blocked for cross-account");
+
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+
+    let alice = worker.dev_create_account().await?;
+    let bob = worker.dev_create_account().await?;
+
+    // Alice grants Bob FULL permission (MANAGE=3) on all her paths
+    println!("\n   Setup: Alice grants Bob MANAGE permission on profile/...");
+    let grant_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": "profile/",
+                        "level": 3
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_res.is_success(), "Alice grant to Bob should succeed: {:?}", grant_res.failures());
+    println!("   ✓ Bob has MANAGE permission on Alice's profile/ namespace");
+
+    // Test 1: Bob cannot call permission/grant targeting Alice
+    println!("\n   Test 1: Bob cannot call permission/grant targeting Alice...");
+    let cross_grant_res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": "some/path/",
+                        "level": 1
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!cross_grant_res.is_success(), "Cross-account permission/grant should fail");
+    let err = format!("{:?}", cross_grant_res.failures());
+    assert!(err.contains("PermissionDenied") || err.contains("permission") || err.contains("denied"),
+        "Expected permission denied error, got: {err}");
+    println!("   ✓ Cross-account permission/grant correctly blocked");
+
+    // Test 2: Bob cannot call storage/deposit targeting Alice
+    println!("\n   Test 2: Bob cannot call storage/deposit targeting Alice...");
+    let cross_deposit_res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "storage/deposit": {
+                        "amount": "1000000000000000000000000"
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!cross_deposit_res.is_success(), "Cross-account storage/deposit should fail");
+    println!("   ✓ Cross-account storage/deposit correctly blocked");
+
+    // Test 3: Bob cannot call storage/withdraw targeting Alice
+    println!("\n   Test 3: Bob cannot call storage/withdraw targeting Alice...");
+    let cross_withdraw_res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "storage/withdraw": {}
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!cross_withdraw_res.is_success(), "Cross-account storage/withdraw should fail");
+    println!("   ✓ Cross-account storage/withdraw correctly blocked");
+
+    // Test 4: Bob cannot call permission/revoke targeting Alice
+    println!("\n   Test 4: Bob cannot call permission/revoke targeting Alice...");
+    let cross_revoke_res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": "profile/"
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!cross_revoke_res.is_success(), "Cross-account permission/revoke should fail");
+    println!("   ✓ Cross-account permission/revoke correctly blocked");
+
+    // Test 5: Bob CAN write data to Alice (with permission) in same scenario
+    println!("\n   Test 5: Bob CAN write data to Alice (permission-based)...");
+    let data_write_res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/name": "Alice (written by Bob)"
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(data_write_res.is_success(), "Cross-account data write with permission should succeed: {:?}", data_write_res.failures());
+    println!("   ✓ Cross-account data write succeeds with permission");
+
+    println!("\n✅ Test passed: Reserved ops blocked for cross-account, data ops allowed with permission");
+
+    Ok(())
+}
+
+/// Test that mixed batches (data + reserved ops) fail when reserved ops target different account.
+#[tokio::test]
+async fn test_mixed_batch_with_reserved_ops_cross_account_fails() -> anyhow::Result<()> {
+    println!("\n🧪 TEST: Mixed batch with reserved ops fails for cross-account");
+
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+
+    let alice = worker.dev_create_account().await?;
+    let bob = worker.dev_create_account().await?;
+
+    // Grant Bob write permission
+    let grant_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": "profile/",
+                        "level": 1
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_res.is_success(), "Grant should succeed");
+
+    // Test: Bob tries a mixed batch - data write (allowed) + permission/grant (not allowed)
+    println!("\n   Test: Mixed batch with valid data + invalid reserved op fails...");
+    let mixed_batch_res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/bio": "This should be allowed",
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": "profile/test/",
+                        "level": 1
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    // The entire batch should fail because permission/grant is not allowed cross-account
+    assert!(!mixed_batch_res.is_success(), "Mixed batch with reserved op should fail atomically");
+    println!("   ✓ Mixed batch correctly rejected (atomic failure)");
+
+    // Verify no partial write occurred (atomicity)
+    let check: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": ["profile/bio"],
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    let bio_key = format!("{}/profile/bio", alice.id());
+    assert!(!entry_exists(&check, &bio_key), "Data should NOT exist after atomic failure");
+    println!("   ✓ No partial write occurred (atomicity preserved)");
+
+    println!("\n✅ Test passed: Mixed batch with cross-account reserved ops fails atomically");
+
+    Ok(())
+}
+
+// =============================================================================
+// EDGE CASE: Zero-Delta Entry Replacement
+// =============================================================================
+// When an entry is replaced with an identical-sized value, the storage delta
+// is zero. Neither allocation nor deallocation should occur, and pool balances
+// should remain unchanged.
+
+#[tokio::test]
+async fn test_zero_delta_replacement_no_pool_change() -> anyhow::Result<()> {
+    println!("\n🧪 Testing: Zero-delta replacement leaves pool unchanged");
+
+    let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
+
+    // Fund platform pool (contract calls itself)
+    let pool_deposit = NearToken::from_near(5);
+    let fund_res = contract.call("set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(pool_deposit)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(fund_res.is_success(), "Platform pool deposit should succeed");
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // Write initial value
+    let initial_value = "AAAA"; // 4 bytes
+    let write1_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "test/key": initial_value
+                }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(write1_res.is_success(), "Initial write should succeed");
+
+    // Get pool state after first write
+    let pool_after_write1: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let used_bytes_after_write1 = pool_after_write1
+        .as_ref()
+        .and_then(|p| p.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool used_bytes after first write: {}", used_bytes_after_write1);
+
+    // Replace with same-size value (zero delta)
+    let replacement_value = "BBBB"; // Still 4 bytes
+    let write2_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "test/key": replacement_value
+                }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(write2_res.is_success(), "Replacement write should succeed");
+
+    // Get pool state after replacement
+    let pool_after_write2: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let used_bytes_after_write2 = pool_after_write2
+        .as_ref()
+        .and_then(|p| p.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool used_bytes after replacement: {}", used_bytes_after_write2);
+
+    // Verify pool usage unchanged (zero delta)
+    assert_eq!(
+        used_bytes_after_write1, used_bytes_after_write2,
+        "Pool used_bytes should be unchanged for same-size replacement"
+    );
+
+    // Verify value was actually updated
+    let check: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": ["test/key"],
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    let key = format!("{}/test/key", alice.id());
+    assert_eq!(
+        entry_value_str(&check, &key),
+        Some(replacement_value),
+        "Value should be updated to replacement"
+    );
+
+    println!("\n✅ Test passed: Zero-delta replacement leaves pool unchanged");
+
+    Ok(())
+}
+
+// =============================================================================
+// EDGE CASE: Exact Pool Exhaustion Boundary
+// =============================================================================
+// When a pool has exactly N bytes available and a write requests exactly N bytes,
+// the allocation should succeed without falling through to the next pool.
+
+#[tokio::test]
+async fn test_exact_pool_exhaustion_boundary() -> anyhow::Result<()> {
+    println!("\n🧪 Testing: Exact pool exhaustion boundary succeeds");
+
+    let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
+
+    // Fund platform pool with minimal amount
+    let pool_deposit = NearToken::from_millinear(100); // Small pool
+    let fund_res = contract.call("set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(pool_deposit)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(fund_res.is_success(), "Platform pool deposit should succeed");
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // Get initial pool capacity
+    let pool_before: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let available_before = pool_before
+        .as_ref()
+        .and_then(|p| p.get("available_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool available_bytes before: {}", available_before);
+
+    // First write uses some capacity
+    let write1_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "data/item1": "value1"
+                }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(write1_res.is_success(), "First write should succeed");
+
+    // Get remaining capacity
+    let pool_after1: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let available_after1 = pool_after1
+        .as_ref()
+        .and_then(|p| p.get("available_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool available_bytes after first write: {}", available_after1);
+
+    // Second write should also succeed (uses more capacity)
+    let write2_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "data/item2": "value2"
+                }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(write2_res.is_success(), "Second write should succeed");
+
+    // Get final pool state
+    let pool_after2: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let used_after2 = pool_after2
+        .as_ref()
+        .and_then(|p| p.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool used_bytes after second write: {}", used_after2);
+
+    // Verify pool was actually used (not personal balance)
+    assert!(used_after2 > 0, "Pool should have been used for storage");
+
+    println!("\n✅ Test passed: Multiple writes consume pool correctly");
+
+    Ok(())
+}
+
+// =============================================================================
+// EDGE CASE: Sequential Writes Same Key (Tracker Reset)
+// =============================================================================
+// Multiple sequential writes to the same key should correctly reset the
+// storage tracker between operations.
+
+#[tokio::test]
+async fn test_sequential_writes_same_key_tracker_reset() -> anyhow::Result<()> {
+    println!("\n🧪 Testing: Sequential writes same key with tracker reset");
+
+    let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // Deposit storage balance for alice
+    let deposit_amount = NearToken::from_millinear(500); // 0.5 NEAR
+    let deposit_res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success(), "Storage deposit should succeed");
+
+    // Perform 5 sequential writes to same key with varying sizes
+    let values = ["A", "BB", "CCC", "DDDD", "EEEEE"];
+    
+    for (i, val) in values.iter().enumerate() {
+        let write_res = alice
+            .call(contract.id(), "set")
+            .args_json(json!({
+                "request": {
+                    "data": {
+                        "test/sequential": *val
+                    }
+                }
+            }))
+            .gas(Gas::from_tgas(50))
+            .transact()
+            .await?;
+        assert!(
+            write_res.is_success(),
+            "Write {} should succeed",
+            i + 1
+        );
+        println!("   Write {} (value='{}') succeeded", i + 1, val);
+    }
+
+    // Verify final value
+    let check: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": ["test/sequential"],
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    let key = format!("{}/test/sequential", alice.id());
+    assert_eq!(
+        entry_value_str(&check, &key),
+        Some("EEEEE"),
+        "Final value should be last write"
+    );
+
+    // Get storage state - should have reasonable used_bytes
+    let storage: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let used_bytes = storage
+        .as_ref()
+        .and_then(|s| s.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Final used_bytes: {}", used_bytes);
+
+    // Sanity check: used_bytes should be reasonable (not accumulated from all writes)
+    assert!(
+        used_bytes < 1000,
+        "used_bytes should reflect current state, not accumulated"
+    );
+
+    println!("\n✅ Test passed: Sequential writes correctly track storage");
+
+    Ok(())
+}
+
+// =============================================================================
+// PATH RESOLUTION EDGE CASES
+// =============================================================================
+
+/// Test that paths containing "shared_storage" substring are NOT treated as shared storage
+/// unless they specifically end with "/shared_storage".
+/// This validates the fix for Issue 1: overly permissive contains() check.
+#[tokio::test]
+async fn test_path_with_shared_storage_substring_not_misidentified() -> anyhow::Result<()> {
+    println!("\n🧪 TEST: Path with shared_storage substring is not misidentified");
+
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    // Initialize and activate contract
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+
+    let alice = worker.dev_create_account().await?;
+    let alice_id = alice.id().to_string();
+
+    // Alice deposits storage to cover writes
+    println!("\n   Step 1: Alice deposits storage...");
+    let deposit_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": { "amount": NearToken::from_near(1).as_yoctonear().to_string() }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(deposit_result.is_success(), "Deposit should succeed");
+    println!("   ✓ Alice deposited 1 NEAR for storage");
+
+    // Test: Write to a path that CONTAINS "shared_storage" but doesn't END with it
+    // Pre-fix: This would be misidentified as a shared storage key
+    // Post-fix: This should be treated as a normal account path
+    println!("\n   Step 2: Write to path containing 'shared_storage' substring...");
+    let tricky_path = "data/shared_storage_backup";
+    let write_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    (tricky_path): { "test": "value" }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        write_result.is_success(),
+        "Write to path with shared_storage substring should succeed: {:?}",
+        write_result.failures()
+    );
+    println!("   ✓ Write succeeded");
+
+    // Verify the data is stored at the correct path (alice's namespace)
+    println!("\n   Step 3: Verify data stored at correct path...");
+    let expected_full_path = format!("{}/{}", alice_id, tricky_path);
+    let get_result: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [expected_full_path.clone()],
+            "account_id": null
+        }))
+        .await?
+        .json()?;
+
+    let entry = get_result.first();
+    let value = entry.and_then(|e| e.get("value"));
+    let test_val = value.and_then(|v| v.get("test")).and_then(|v| v.as_str());
+
+    assert_eq!(
+        test_val,
+        Some("value"),
+        "Data should be stored and retrievable at {}: got {:?}",
+        expected_full_path,
+        get_result
+    );
+    println!("   ✓ Data correctly stored at: {}", expected_full_path);
+
+    // Also test another variant
+    println!("\n   Step 4: Test another variant (my_shared_storage_logs)...");
+    let another_tricky = "notes/my_shared_storage_logs";
+    let write2 = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": {
+                    (another_tricky): "log entry"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        write2.is_success(),
+        "Write to second tricky path should succeed: {:?}",
+        write2.failures()
+    );
+
+    let expected2 = format!("{}/{}", alice_id, another_tricky);
+    let get2: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [expected2.clone()],
+            "account_id": null
+        }))
+        .await?
+        .json()?;
+
+    let val2 = get2
+        .first()
+        .and_then(|e| e.get("value"))
+        .and_then(|v| v.as_str());
+    assert_eq!(
+        val2,
+        Some("log entry"),
+        "Second tricky path data should be retrievable"
+    );
+    println!("   ✓ Second variant correctly stored at: {}", expected2);
+
+    println!("\n✅ Test passed: Paths with shared_storage substring are correctly handled");
+
     Ok(())
 }

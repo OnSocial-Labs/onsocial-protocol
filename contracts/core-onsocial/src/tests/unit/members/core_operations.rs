@@ -2,7 +2,7 @@
 // Basic member management: add, remove, leave operations
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::groups::kv_permissions::{MODERATE, MANAGE};
 use near_sdk::test_utils::accounts;
 use near_sdk::serde_json::json;
 
@@ -34,8 +34,7 @@ mod core_member_operations {
         let add_result = contract.add_group_member(
             "testgroup".to_string(),
             new_member.clone(),
-            WRITE | MANAGE,
-            None,
+            0,
         );
         assert!(add_result.is_ok(), "Member addition by owner should succeed");
 
@@ -48,7 +47,7 @@ mod core_member_operations {
         assert!(member_data.is_some(), "Member data should exist");
 
         let data = member_data.unwrap();
-        assert_eq!(data.get("permission_flags"), Some(&json!(WRITE | MANAGE)), "Member should have correct permissions");
+        assert_eq!(data.get("level"), Some(&json!(0)), "Member should start member-only");
         assert_eq!(data.get("granted_by"), Some(&json!(owner.to_string())), "Should show correct granter");
 
         println!("✅ Owner can successfully add members to traditional groups");
@@ -80,8 +79,7 @@ mod core_member_operations {
         let add_result = contract.add_group_member(
             "testgroup".to_string(),
             target_member.clone(),
-            WRITE,
-            None,
+            0,
         );
         assert!(add_result.is_err(), "Non-owner should not be able to add members");
         
@@ -116,8 +114,7 @@ mod core_member_operations {
         let add_result = contract.add_group_member(
             "testgroup".to_string(),
             new_member.clone(),
-            WRITE,
-            None,
+            0,
         );
         assert!(add_result.is_ok(), "Member addition should succeed with sufficient deposit");
 
@@ -144,12 +141,7 @@ mod core_member_operations {
         contract.create_group("testgroup".to_string(), group_config).unwrap();
 
         // Add member and verify event emission
-        let result = contract.add_group_member(
-            "testgroup".to_string(),
-            new_member.clone(),
-            WRITE | MANAGE,
-            None,
-        );
+        let result = contract.add_group_member("testgroup".to_string(), new_member.clone(), 0);
         
         assert!(result.is_ok(), "Member addition should succeed");
         assert!(contract.is_group_member("testgroup".to_string(), new_member.clone()), "Member should be added");
@@ -169,21 +161,15 @@ mod core_member_operations {
         contract.create_group("testgroup".to_string(), config).unwrap();
 
         // Add member first time
-        contract.add_group_member("testgroup".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("testgroup".to_string(), member.clone(), 0).unwrap();
         assert!(contract.is_group_member("testgroup".to_string(), member.clone()));
 
         // Try to add same member again
-        let duplicate_result = contract.add_group_member("testgroup".to_string(), member.clone(), MODERATE, None);
-        
-        // Should either succeed (updating permissions) or fail gracefully
-        if duplicate_result.is_ok() {
-            // If it succeeds, verify the member has updated permissions
-            let member_data = contract.get_member_data("testgroup".to_string(), member.clone());
-            println!("Updated member data: {:?}", member_data);
-        } else {
-            // If it fails, should be handled gracefully
-            println!("Duplicate addition handled: {:?}", duplicate_result.unwrap_err());
-        }
+        let duplicate_result = contract.add_group_member("testgroup".to_string(), member.clone(), MODERATE);
+
+        // With clean-add semantics, non-zero level are rejected.
+        assert!(duplicate_result.is_err(), "Duplicate add with non-zero flags should be rejected");
+        println!("Duplicate addition handled: {:?}", duplicate_result.unwrap_err());
 
         // Member should still be in group regardless
         assert!(contract.is_group_member("testgroup".to_string(), member.clone()));
@@ -200,7 +186,7 @@ mod core_member_operations {
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Try to add member to non-existent group
-        let add_result = contract.add_group_member("nonexistent".to_string(), member.clone(), WRITE, None);
+        let add_result = contract.add_group_member("nonexistent".to_string(), member.clone(), 0);
         assert!(add_result.is_err(), "Should not be able to add member to non-existent group");
 
         let error_msg = format!("{:?}", add_result.unwrap_err());
@@ -221,9 +207,14 @@ mod core_member_operations {
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Add member with full permissions
-        let full_permissions = WRITE | MODERATE | MANAGE; // All permissions
-        contract.add_group_member("testgroup".to_string(), member.clone(), full_permissions, None).unwrap();
+        // Add member (member-only) then explicitly grant role permissions.
+        contract
+            .add_group_member("testgroup".to_string(), member.clone(), 0)
+            .unwrap();
+
+        contract
+            .set_permission(member.clone(), "groups/testgroup/config".to_string(), MANAGE, None)
+            .unwrap();
 
         // Verify member has all permissions
         assert!(contract.is_group_member("testgroup".to_string(), member.clone()));
@@ -232,8 +223,12 @@ mod core_member_operations {
         assert!(member_data.is_some(), "Member data should exist");
         
         let data = member_data.unwrap();
-        assert_eq!(data.get("permission_flags"), Some(&json!(full_permissions)), 
-                  "Member should have full permissions");
+        assert_eq!(data.get("level"), Some(&json!(0)), "Member should start member-only");
+
+        assert!(
+            contract.has_permission(owner.clone(), member.clone(), "groups/testgroup/config".to_string(), MANAGE),
+            "Member should have MANAGE permission on config path after explicit grant"
+        );
 
         println!("✅ Member added with full access permissions");
     }
@@ -251,7 +246,7 @@ mod core_member_operations {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Add member
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Verify member was added
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be added");
@@ -341,8 +336,7 @@ mod core_member_operations {
         let add_result = contract.add_group_member(
             "demogroup".to_string(),
             proposer.clone(),
-            WRITE,
-            None,
+            0,
         );
         assert!(add_result.is_ok());
 
@@ -364,7 +358,7 @@ mod core_member_operations {
         contract.create_group("demo_group".to_string(), config).unwrap();
 
         // Add member normally
-        contract.add_group_member("demo_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("demo_group".to_string(), member.clone(), 0).unwrap();
 
         // Verify member was added
         assert!(contract.is_group_member("demo_group".to_string(), member.clone()), "Member should be added");
@@ -394,8 +388,8 @@ mod core_member_operations {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Add members
-        contract.add_group_member("test_group".to_string(), member1.clone(), WRITE, None).unwrap();
-        contract.add_group_member("test_group".to_string(), member2.clone(), MODERATE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member1.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), member2.clone(), 0).unwrap();
 
         // Verify members were added
         assert!(contract.is_group_member("test_group".to_string(), member1.clone()), "Member1 should be added");
@@ -421,7 +415,7 @@ mod core_member_operations {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Add member normally
-        contract.add_group_member("test_group".to_string(), member1.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member1.clone(), 0).unwrap();
 
         // Verify member was added
         assert!(contract.is_group_member("test_group".to_string(), member1.clone()), "Member1 should be added");
@@ -463,7 +457,7 @@ mod core_member_operations {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Add member
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Clear previous logs
         near_sdk::test_utils::get_logs().clear();
@@ -475,7 +469,7 @@ mod core_member_operations {
 
         // Check that events were emitted
         let logs = near_sdk::test_utils::get_logs();
-        let event_emitted = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let event_emitted = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         assert!(event_emitted, "Leave event should be emitted");
 
         // Verify the side effects (member removed)
@@ -500,11 +494,11 @@ mod core_member_operations {
         contract.create_group("event_test".to_string(), config).unwrap();
 
         // Test 1: Add member event validation
-        contract.add_group_member("event_test".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("event_test".to_string(), member.clone(), 0).unwrap();
         let add_logs = near_sdk::test_utils::get_logs();
         
         // Since we can see the add_member event being emitted in the logs, let's just verify events were emitted
-        let any_event_found = add_logs.iter().any(|log| log.contains("EVENT:"));
+        let any_event_found = add_logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         assert!(any_event_found, "Events should be emitted during member operations");
 
         // Test 2: Permission grant event validation  
@@ -548,13 +542,13 @@ mod core_member_operations {
         let _ = near_sdk::test_utils::get_logs();
 
         // Perform series of operations
-        contract.add_group_member("ordering_test".to_string(), member1.clone(), WRITE, None).unwrap();
-        contract.add_group_member("ordering_test".to_string(), member2.clone(), MODERATE, None).unwrap();
+        contract.add_group_member("ordering_test".to_string(), member1.clone(), 0).unwrap();
+        contract.add_group_member("ordering_test".to_string(), member2.clone(), 0).unwrap();
         contract.set_permission(member1.clone(), "groups/ordering_test/posts".to_string(), MODERATE, None).unwrap();
-        contract.blacklist_group_member("ordering_test".to_string(), member2.clone(), None).unwrap();
+        contract.blacklist_group_member("ordering_test".to_string(), member2.clone()).unwrap();
 
         let all_logs = near_sdk::test_utils::get_logs();
-        let event_logs: Vec<&String> = all_logs.iter().filter(|log| log.contains("EVENT:")).collect();
+        let event_logs: Vec<&String> = all_logs.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
 
         // Verify we have events for all operations
         assert!(event_logs.len() >= 3, "Should have events for add, add, permission, blacklist operations");
@@ -585,13 +579,13 @@ mod core_member_operations {
         let _ = near_sdk::test_utils::get_logs();
 
         // Add member and capture event
-        contract.add_group_member("payload_test".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("payload_test".to_string(), member.clone(), 0).unwrap();
         let logs = near_sdk::test_utils::get_logs();
         
-        let event_log = logs.iter().find(|log| log.contains("EVENT:")).expect("Should have event log");
+        let event_log = logs.iter().find(|log| log.starts_with("EVENT_JSON:")).expect("Should have event log");
         
         // Validate event structure (basic validation)
-        assert!(event_log.contains("EVENT:"), "Should be marked as EVENT");
+        assert!(event_log.starts_with("EVENT_JSON:"), "Should be marked as EVENT_JSON");
         // Note: Events are base64 encoded, so we just verify the event was emitted
         assert!(event_log.len() > 10, "Event should have substantial content");
         
@@ -618,7 +612,7 @@ mod core_member_operations {
         let initial_log_count = near_sdk::test_utils::get_logs().len();
 
         // Try to add member to non-existent group (should fail)
-        let failed_add = contract.add_group_member("nonexistent".to_string(), member.clone(), WRITE, None);
+        let failed_add = contract.add_group_member("nonexistent".to_string(), member.clone(), 0);
         assert!(failed_add.is_err(), "Should fail to add to non-existent group");
 
         let logs_after_failure = near_sdk::test_utils::get_logs();
@@ -634,8 +628,8 @@ mod core_member_operations {
         assert!(!success_events, "Should not emit success events for failed operations");
 
         // Try duplicate member addition
-        contract.add_group_member("failure_test".to_string(), member.clone(), WRITE, None).unwrap();
-        let duplicate_result = contract.add_group_member("failure_test".to_string(), member.clone(), WRITE, None);
+        contract.add_group_member("failure_test".to_string(), member.clone(), 0).unwrap();
+        let duplicate_result = contract.add_group_member("failure_test".to_string(), member.clone(), 0);
         assert!(duplicate_result.is_err(), "Should fail to add duplicate member");
 
         println!("✅ Event emission failure handling verified");

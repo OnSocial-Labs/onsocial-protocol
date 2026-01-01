@@ -53,7 +53,10 @@ endef
 
 # Standard Docker run for contracts with common flags
 define docker_run_contracts
-	docker run --rm $(DOCKER_TTY) \
+	@if [ "$(VERBOSE)" = "1" ]; then \
+		echo "$(INFO)> [contracts] $(1)$(RESET)"; \
+	fi
+	@docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		--tmpfs /tmp:exec,size=2G \
 		-e FORCE_COLOR=1 \
@@ -66,7 +69,10 @@ endef
 
 # Docker run for contracts with network access
 define docker_run_contracts_network
-	docker run --rm $(DOCKER_TTY) \
+	@if [ "$(VERBOSE)" = "1" ]; then \
+		echo "$(INFO)> [contracts:network] $(1)$(RESET)"; \
+	fi
+	@docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
 		$(if $(2),-v $(3):$(2)) \
 		--tmpfs /tmp:exec,size=2G \

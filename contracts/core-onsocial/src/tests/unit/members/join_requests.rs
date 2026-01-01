@@ -15,6 +15,7 @@ mod join_request_tests {
         let mut contract = init_live_contract();
         let owner = test_account(0);
         let requester = test_account(1);
+        let requester2 = test_account(2);
 
         // Owner creates a private group
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
@@ -23,29 +24,26 @@ mod join_request_tests {
 
         // Test invalid permission flags are rejected
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
+
+        // Join requests must start as membership-only (0).
+        let join_0 = contract.join_group("privategroup".to_string());
+        assert!(join_0.is_ok(), "Join request with 0 permissions should succeed (membership-only)");
         
-        // Zero permissions should be rejected
-        let invalid_join_0 = contract.join_group("privategroup".to_string(), 0);
-        assert!(invalid_join_0.is_err(), "Join request with 0 permissions should fail");
-        assert!(invalid_join_0.unwrap_err().to_string().contains("Invalid permission flags"), 
-                "Should report invalid permission flags");
-        
-        // Invalid permission bits (beyond WRITE | MODERATE | MANAGE = 7) should be rejected
-        let invalid_join_255 = contract.join_group("privategroup".to_string(), 255);
-        assert!(invalid_join_255.is_err(), "Join request with invalid permission bits should fail");
-        assert!(invalid_join_255.unwrap_err().to_string().contains("Invalid permission flags"),
-                "Should report invalid permission flags");
-        
-        // Valid permission request should succeed
-        let join_result = contract.join_group("privategroup".to_string(), WRITE);
-        assert!(join_result.is_ok(), "Join request with valid permissions should succeed");
+        // Second requester also joins (0)
+        near_sdk::testing_env!(get_context_with_deposit(requester2.clone(), 1_000_000_000_000_000_000_000_000).build());
+        let join_result = contract.join_group("privategroup".to_string());
+        assert!(join_result.is_ok(), "Join request with 0 should succeed");
 
         // Verify requester is not immediately a member (needs approval)
         assert!(!contract.is_group_member("privategroup".to_string(), requester.clone()));
+        assert!(!contract.is_group_member("privategroup".to_string(), requester2.clone()));
 
         // Verify join request exists
         let join_request = contract.get_join_request("privategroup".to_string(), requester.clone());
         assert!(join_request.is_some(), "Join request should exist");
+
+        let join_request2 = contract.get_join_request("privategroup".to_string(), requester2.clone());
+        assert!(join_request2.is_some(), "Join request should exist");
 
         println!("✅ Non-member join request creates proposal correctly and validates permission flags");
     }
@@ -62,29 +60,39 @@ mod join_request_tests {
         let config = json!({"member_driven": false, "is_private": true});
         contract.create_group("privategroup".to_string(), config).unwrap();
         
+        // Add moderator as member-only, then explicitly grant MODERATE on config.
         contract.add_group_member(
             "privategroup".to_string(),
             moderator.clone(),
-            MODERATE, // Hierarchical: MODERATE includes WRITE
-            None,
+            0,
         ).unwrap();
+
+        contract
+            .set_permission(
+                moderator.clone(),
+                "groups/privategroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
         // Requester submits join request
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("privategroup".to_string(), WRITE).unwrap();
+        contract.join_group("privategroup".to_string()).unwrap();
 
-        // Moderator approves the join request with WRITE permission
+        // Moderator approves the join request (approval cannot grant role)
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         let approve_result = contract.approve_join_request(
             "privategroup".to_string(),
             requester.clone(),
-            WRITE, // Approve with WRITE permission
-            None,
+            0,
         );
         assert!(approve_result.is_ok(), "Moderator should be able to approve join request: {:?}", approve_result);
 
-        // Verify requester is now a member
+        // Verify requester is now a member (member-only role)
         assert!(contract.is_group_member("privategroup".to_string(), requester.clone()));
+        let member_data = contract.get_member_data("privategroup".to_string(), requester.clone()).unwrap();
+        assert_eq!(member_data.get("level"), Some(&json!(0)));
 
         println!("✅ Moderator successfully approved join request");
     }
@@ -101,16 +109,25 @@ mod join_request_tests {
         let config = json!({"member_driven": false, "is_private": true});
         contract.create_group("privategroup".to_string(), config).unwrap();
         
+        // Add moderator as member-only, then explicitly grant MODERATE on config.
         contract.add_group_member(
             "privategroup".to_string(),
             moderator.clone(),
-            MODERATE, // Hierarchical: MODERATE includes WRITE
-            None,
+            0,
         ).unwrap();
+
+        contract
+            .set_permission(
+                moderator.clone(),
+                "groups/privategroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
         // Requester submits join request
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("privategroup".to_string(), WRITE).unwrap();
+        contract.join_group("privategroup".to_string()).unwrap();
 
         // Moderator rejects the join request
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -118,7 +135,6 @@ mod join_request_tests {
             "privategroup".to_string(),
             requester.clone(),
             None,
-            None, // event_config
         );
         assert!(reject_result.is_ok(), "Moderator should be able to reject join request");
 
@@ -140,24 +156,21 @@ mod join_request_tests {
         let config = json!({"member_driven": false, "is_private": true});
         contract.create_group("privategroup".to_string(), config).unwrap();
         
-        contract.add_group_member(
-            "privategroup".to_string(),
-            regular_member.clone(),
-            WRITE, // Only WRITE, no MODERATE
-            None,
-        ).unwrap();
+        contract
+            .add_group_member("privategroup".to_string(), regular_member.clone(), 0)
+            .unwrap();
 
         // Requester submits join request
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("privategroup".to_string(), WRITE).unwrap();
+        contract.join_group("privategroup".to_string()).unwrap();
 
         // Regular member tries to approve (should fail)
         near_sdk::testing_env!(get_context_with_deposit(regular_member.clone(), 1_000_000_000_000_000_000_000_000).build());
+        // Approvals must use 0 (member-only). This test exercises authorization, not role assignment.
         let approve_result = contract.approve_join_request(
             "privategroup".to_string(),
             requester.clone(),
-            WRITE, // Try to approve with WRITE permission
-            None,
+            0,
         );
         
         assert!(approve_result.is_err(), "Regular member should not be able to approve join request");
@@ -168,6 +181,65 @@ mod join_request_tests {
         assert!(!contract.is_group_member("privategroup".to_string(), requester.clone()));
 
         println!("✅ Regular member correctly denied approval permission");
+    }
+
+    #[test]
+    fn test_join_requests_moderator_can_approve_write_without_config_moderation() {
+        let mut contract = init_live_contract();
+        let owner = test_account(0);
+        let join_requests_moderator = test_account(1);
+        let requester = test_account(2);
+
+        // Owner creates a traditional private group.
+        near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
+        let config = json!({"member_driven": false, "is_private": true});
+        contract.create_group("privategroup".to_string(), config).unwrap();
+
+        // Add the join-requests moderator as a plain member (no global/root permissions).
+        contract
+            .add_group_member(
+                "privategroup".to_string(),
+                join_requests_moderator.clone(),
+                crate::groups::kv_permissions::NONE,
+            )
+            .unwrap();
+
+        // Delegate membership-management only: MODERATE on the join_requests namespace.
+        contract
+            .set_permission(
+                join_requests_moderator.clone(),
+                "groups/privategroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
+
+        // Requester submits a join request.
+        near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
+        contract.join_group("privategroup".to_string()).unwrap();
+
+        // Delegate moderator approves (allowed, but must be 0).
+        near_sdk::testing_env!(get_context_with_deposit(join_requests_moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
+        let approve_none = contract.approve_join_request(
+            "privategroup".to_string(),
+            requester.clone(),
+            0,
+        );
+        assert!(approve_none.is_ok(), "Join-requests moderator should be able to approve: {:?}", approve_none);
+        assert!(contract.is_group_member("privategroup".to_string(), requester.clone()));
+
+        // Approval must reject non-zero permission flags.
+        let requester2 = test_account(3);
+        near_sdk::testing_env!(get_context_with_deposit(requester2.clone(), 1_000_000_000_000_000_000_000_000).build());
+        contract.join_group("privategroup".to_string()).unwrap();
+
+        near_sdk::testing_env!(get_context_with_deposit(join_requests_moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
+        let approve_moderate = contract.approve_join_request(
+            "privategroup".to_string(),
+            requester2.clone(),
+            MODERATE,
+        );
+        assert!(approve_moderate.is_err(), "Join-requests moderator must not grant MODERATE");
     }
 
     #[test]
@@ -185,55 +257,57 @@ mod join_request_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Owner adds moderator with MODERATE permissions
-        contract.add_group_member(
-            "testgroup".to_string(),
-            moderator.clone(),
-            MODERATE, // Hierarchical: MODERATE includes WRITE
-            None,
-        ).unwrap();
+        // Owner adds moderator as member-only, then delegates moderation on join_requests.
+        contract
+            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
         // Requester submits join request for WRITE permissions
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group(
-            "testgroup".to_string(),
-            WRITE,
-        ).unwrap();
+        contract.join_group("testgroup".to_string()).unwrap();
 
         // Verify requester doesn't have path permissions before approval
-        let group_config_path = "groups/testgroup/config".to_string();
+        // (non-members never have group path permissions).
+        let group_content_path = "groups/testgroup/content".to_string();
         
         assert!(
             !contract.has_permission(
                 owner.clone(),
                 requester.clone(),
-                group_config_path.clone(),
+                group_content_path.clone(),
                 WRITE
             ),
             "Requester should not have permissions before approval"
         );
 
-        // Moderator approves the join request with WRITE permission
+        // Moderator approves the join request (approval cannot grant role)
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            WRITE, // Approve with WRITE permission
-            None,
+            0,
         ).unwrap();
 
         // Verify requester is now a member
         assert!(contract.is_group_member("testgroup".to_string(), requester.clone()));
 
-        // Verify requester now has functional path-based permissions on the group config
+        // New members get default WRITE on the group's content namespace.
         assert!(
             contract.has_permission(
                 owner.clone(),
                 requester.clone(),
-                group_config_path.clone(),
+                group_content_path.clone(),
                 WRITE
             ),
-            "Requester should have WRITE permission after approval"
+            "Requester should have WRITE permission on group content after approval"
         );
 
         // Verify they don't have higher permissions they weren't granted
@@ -241,7 +315,7 @@ mod join_request_tests {
             !contract.has_permission(
                 owner.clone(),
                 requester.clone(),
-                group_config_path.clone(),
+                group_content_path.clone(),
                 MANAGE
             ),
             "Requester should not have MANAGE permission"
@@ -252,12 +326,12 @@ mod join_request_tests {
         assert!(member_data.is_some(), "Member data should exist");
         let data = member_data.unwrap();
         assert_eq!(
-            data.get("permission_flags"), 
-            Some(&json!(WRITE)), 
-            "Member should have WRITE permissions"
+            data.get("level"), 
+            Some(&json!(0)),
+            "Approved member should start member-only (0)"
         );
 
-        println!("✅ Approved member has functional path-based permissions and correct metadata");
+        println!("✅ Approved member has default content permissions and correct metadata");
     }
 
     #[test]
@@ -275,57 +349,54 @@ mod join_request_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Owner adds moderator with MODERATE permission
-        // With hierarchical permissions: MODERATE (flag 2) automatically includes WRITE capability
-        contract.add_group_member(
-            "testgroup".to_string(),
-            moderator.clone(),
-            MODERATE, // MODERATE includes WRITE automatically (hierarchical)
-            None,
-        ).unwrap();
+        // Owner adds moderator as member-only, then grants moderation on join_requests.
+        contract
+            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
-        // Verify moderator has moderate permission
-        assert!(contract.has_group_moderate_permission("testgroup".to_string(), moderator.clone()));
-        
-        // Verify moderator can write (hierarchical: MODERATE includes WRITE)
-        // We'll verify this by checking the actual permission check succeeds
-        let group_config_path = format!("groups/{}/config", "testgroup");
+        // Verify moderator has the delegated permission on join_requests.
         assert!(
-            crate::groups::kv_permissions::can_write(
-                &contract.platform,
-                "testgroup",
-                moderator.as_str(),
-                &group_config_path
+            contract.has_permission(
+                owner.clone(),
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE
             ),
-            "MODERATE should include WRITE (hierarchical permissions)"
+            "Moderator should have MODERATE on join_requests"
         );
 
-        // Requester submits join request asking for WRITE permission
+        // Requester submits join request (starts as 0)
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
         contract.join_group(
             "testgroup".to_string(),
-            WRITE, // Request WRITE permission
         ).unwrap();
 
         // Verify join request exists
         let join_request = contract.get_join_request("testgroup".to_string(), requester.clone());
         assert!(join_request.is_some(), "Join request should exist");
 
-        // Moderator approves the WRITE request (should succeed with hierarchical permissions)
+        // Moderator approves the join request (approval cannot grant role; must use 0).
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         let approve_result = contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            WRITE, // Approve with WRITE permission
-            None,
+            0,
         );
 
-        assert!(approve_result.is_ok(), "Moderator with MODERATE (includes WRITE) should be able to approve WRITE requests");
+        assert!(approve_result.is_ok(), "Moderator with MODERATE should be able to approve join requests");
 
         // Verify requester is now a member
         assert!(contract.is_group_member("testgroup".to_string(), requester.clone()));
 
-        println!("✅ Hierarchical permissions: Moderator with MODERATE successfully approved WRITE request");
+        println!("✅ Hierarchical permissions: Moderator with MODERATE successfully approved join request");
     }
 
     #[test]
@@ -343,45 +414,59 @@ mod join_request_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Owner adds moderator with MODERATE permissions (but no MANAGE)
-        contract.add_group_member(
-            "testgroup".to_string(),
-            moderator.clone(),
-            MODERATE, // Hierarchical: includes WRITE, but no MANAGE
-            None,
-        ).unwrap();
+        // Owner adds moderator (clean-add) and grants MODERATE on join_requests.
+        contract
+            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
-        // Verify moderator has moderate permissions
-        assert!(contract.has_group_moderate_permission("testgroup".to_string(), moderator.clone()));
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE
+            ),
+            "Moderator should have MODERATE on join_requests"
+        );
 
-        // Requester submits join request asking for MANAGE permission
+        // Requester submits join request (starts as 0)
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
         contract.join_group(
             "testgroup".to_string(),
-            MANAGE, // Request MANAGE permission
         ).unwrap();
 
         // Verify join request exists
         let join_request = contract.get_join_request("testgroup".to_string(), requester.clone());
         assert!(join_request.is_some(), "Join request should exist");
 
-        // Moderator tries to approve the MANAGE request (should fail - they don't have MANAGE to grant)
+        // Approvals cannot grant roles. Passing non-zero flags is rejected as invalid input.
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         let approve_result = contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
             MANAGE, // Try to approve with MANAGE permission
-            None,
         );
 
-        assert!(approve_result.is_err(), "Moderator without MANAGE should not be able to approve MANAGE requests");
+        assert!(approve_result.is_err(), "Approvals with non-zero flags should fail");
         let error_msg = approve_result.unwrap_err().to_string();
-        assert!(error_msg.contains("Permission denied"), "Should be permission error: {}", error_msg);
+        assert!(
+            error_msg.contains("Join approvals cannot grant permissions"),
+            "Should reject non-zero approval flags: {}",
+            error_msg
+        );
 
         // Verify requester is still not a member
         assert!(!contract.is_group_member("testgroup".to_string(), requester.clone()));
 
-        println!("✅ Two-tier validation: Moderator without MANAGE correctly cannot approve MANAGE requests");
+        println!("✅ Join approvals reject non-zero role flags");
     }
 
     #[test]
@@ -399,35 +484,45 @@ mod join_request_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Owner adds moderator with MODERATE permissions
-        contract.add_group_member(
-            "testgroup".to_string(),
-            moderator.clone(),
-            MODERATE, // Hierarchical: MODERATE includes WRITE
-            None,
-        ).unwrap();
+        // Owner adds moderator (clean-add) and grants MODERATE on join_requests.
+        contract
+            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
-        // Verify moderator has moderate permissions
-        assert!(contract.has_group_moderate_permission("testgroup".to_string(), moderator.clone()));
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                moderator.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE
+            ),
+            "Moderator should have MODERATE on join_requests"
+        );
 
-        // Requester submits join request asking for WRITE permission
+        // Requester submits join request (starts as 0)
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
         contract.join_group(
             "testgroup".to_string(),
-            WRITE, // Request WRITE permission
         ).unwrap();
 
         // Verify join request exists
         let join_request = contract.get_join_request("testgroup".to_string(), requester.clone());
         assert!(join_request.is_some(), "Join request should exist");
 
-        // Moderator approves the WRITE request (should succeed)
+        // Moderator approves the join request (member-only; level must be 0)
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         let approve_result = contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            WRITE,
-            None,
+            0,
         );
 
         assert!(approve_result.is_ok(), "Moderator with MODERATE should be able to approve WRITE requests: {:?}", approve_result);
@@ -435,21 +530,20 @@ mod join_request_tests {
         // Verify requester is now a member
         assert!(contract.is_group_member("testgroup".to_string(), requester.clone()));
 
-        // Verify member has correct permissions
+        // Verify member was added with member-only role flags
         let member_data = contract.get_member_data("testgroup".to_string(), requester.clone());
         assert!(member_data.is_some(), "Member data should exist");
         let data = member_data.unwrap();
-        assert_eq!(data.get("permission_flags"), Some(&json!(WRITE)), 
-                  "Member should have WRITE permissions");
+        assert_eq!(data.get("level"), Some(&json!(0)),
+              "Member should have member-only level");
 
-        println!("✅ Moderator with MODERATE can successfully approve WRITE requests (hierarchical)");
+        println!("✅ Moderator with MODERATE can successfully approve join requests (member-only)");
         
-        // Test: Moderator cannot grant MODERATE (prevents self-propagation)
+        // Test: approve_join_request cannot grant permissions (non-zero must be rejected)
         let requester2 = test_account(3);
         near_sdk::testing_env!(get_context_with_deposit(requester2.clone(), 1_000_000_000_000_000_000_000_000).build());
         contract.join_group(
             "testgroup".to_string(),
-            MODERATE, // Request MODERATE permission
         ).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -457,11 +551,10 @@ mod join_request_tests {
             "testgroup".to_string(),
             requester2.clone(),
             MODERATE,
-            None,
         );
         
-        assert!(approve_moderate.is_err(), "Moderator should NOT be able to approve MODERATE requests (prevents self-propagation)");
-        println!("✅ Moderator correctly denied approving MODERATE request - only MANAGE can expand moderation team");
+        assert!(approve_moderate.is_err(), "approve_join_request must reject non-zero level");
+        println!("✅ approve_join_request correctly denied non-zero level");
     }
 
     #[test]
@@ -481,51 +574,53 @@ mod join_request_tests {
         });
         contract.create_group("testgroup".to_string(), config).unwrap();
 
-        // Owner adds manager with MANAGE permissions
-        contract.add_group_member(
-            "testgroup".to_string(),
-            manager.clone(),
-            MANAGE, // Hierarchical: MANAGE includes MODERATE and WRITE
-            None,
-        ).unwrap();
+        // Owner adds manager (clean-add) and grants MODERATE on join_requests.
+        contract
+            .add_group_member("testgroup".to_string(), manager.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(
+                manager.clone(),
+                "groups/testgroup/join_requests".to_string(),
+                MODERATE,
+                None,
+            )
+            .unwrap();
 
-        // Verify manager has manage permissions
-        assert!(contract.has_group_moderate_permission("testgroup".to_string(), manager.clone()));
-
-        // Test 1: Manager approves WRITE request
+        // Test 1: Manager approves join request (member-only)
         near_sdk::testing_env!(get_context_with_deposit(requester1.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("testgroup".to_string(), WRITE).unwrap();
+        contract.join_group("testgroup".to_string()).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_result1 = contract.approve_join_request("testgroup".to_string(), requester1.clone(), WRITE, None);
-        assert!(approve_result1.is_ok(), "Manager should approve WRITE requests: {:?}", approve_result1);
+        let approve_result1 = contract.approve_join_request("testgroup".to_string(), requester1.clone(), 0);
+        assert!(approve_result1.is_ok(), "Manager should approve join requests: {:?}", approve_result1);
         assert!(contract.is_group_member("testgroup".to_string(), requester1.clone()));
 
-        // Test 2: Manager approves MODERATE request
+        // Test 2: Manager approves another join request (member-only)
         near_sdk::testing_env!(get_context_with_deposit(requester2.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("testgroup".to_string(), MODERATE).unwrap();
+        contract.join_group("testgroup".to_string()).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_result2 = contract.approve_join_request("testgroup".to_string(), requester2.clone(), MODERATE, None);
-        assert!(approve_result2.is_ok(), "Manager should approve MODERATE requests: {:?}", approve_result2);
+        let approve_result2 = contract.approve_join_request("testgroup".to_string(), requester2.clone(), 0);
+        assert!(approve_result2.is_ok(), "Manager should approve join requests: {:?}", approve_result2);
         assert!(contract.is_group_member("testgroup".to_string(), requester2.clone()));
 
-        // Test 3: Manager tries to approve MANAGE request (should fail - can't grant MANAGE)
+        // Test 3: Manager tries to approve with non-zero flags (should fail)
         near_sdk::testing_env!(get_context_with_deposit(requester3.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("testgroup".to_string(), MANAGE).unwrap();
+        contract.join_group("testgroup".to_string()).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_result3 = contract.approve_join_request("testgroup".to_string(), requester3.clone(), MANAGE, None);
-        assert!(approve_result3.is_err(), "Manager should NOT be able to approve MANAGE requests (anti-propagation)");
+        let approve_result3 = contract.approve_join_request("testgroup".to_string(), requester3.clone(), WRITE);
+        assert!(approve_result3.is_err(), "approve_join_request must reject non-zero level");
         assert!(!contract.is_group_member("testgroup".to_string(), requester3.clone()));
 
-        // Verify approved members have their requested permissions
+        // Verify approved members were added with member-only role flags
         let member_data1 = contract.get_member_data("testgroup".to_string(), requester1.clone()).unwrap();
-        assert_eq!(member_data1.get("permission_flags"), Some(&json!(WRITE)));
+        assert_eq!(member_data1.get("level"), Some(&json!(0)));
 
         let member_data2 = contract.get_member_data("testgroup".to_string(), requester2.clone()).unwrap();
-        assert_eq!(member_data2.get("permission_flags"), Some(&json!(MODERATE)));
+        assert_eq!(member_data2.get("level"), Some(&json!(0)));
 
-        println!("✅ Manager with MANAGE can approve WRITE and MODERATE, but not MANAGE (anti-propagation)");
+        println!("✅ Join approvals add member-only; non-zero level are rejected");
     }
 }

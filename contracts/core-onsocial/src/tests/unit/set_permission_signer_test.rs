@@ -6,6 +6,7 @@ use crate::tests::test_utils::*;
 use crate::groups::kv_permissions::WRITE;
 use near_sdk::test_utils::accounts;
 use near_sdk::testing_env;
+use near_sdk::serde_json::json;
 
 #[cfg(test)]
 mod set_permission_signer_tests {
@@ -24,12 +25,21 @@ mod set_permission_signer_tests {
         // The contract is the predecessor, but Alice is the signer
         // The permission should be granted BY Alice (signer), not by the contract (predecessor)
         
-        let context = get_context_with_deposit(alice.clone(), calculate_test_deposit_for_operations(1, 300))
+        let storage_deposit = calculate_test_deposit_for_operations(1, 300);
+        let context = get_context_with_deposit(alice.clone(), storage_deposit)
             .signer_account_id(alice.clone())           // Alice signed the transaction
             .predecessor_account_id(intermediary_contract.clone())  // Contract made the call
             .build();
 
         testing_env!(context);
+
+        // Create a storage balance for Alice.
+        contract
+            .set(set_request(
+                json!({"storage/deposit": {"amount": storage_deposit.to_string()}}),
+                Some(crate::SetOptions { refund_unused_deposit: true }),
+            ))
+            .unwrap();
 
         // Alice (via contract) grants permission to Bob on her own path
         let result = contract.set_permission(
@@ -88,12 +98,20 @@ mod set_permission_signer_tests {
         let bob = accounts(1);
 
         // Direct call: Alice signs and calls directly (no intermediary)
-        let context = get_context(alice.clone())
+        let context = get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000)
             .signer_account_id(alice.clone())
             .predecessor_account_id(alice.clone())  // Same as signer for direct calls
             .build();
 
         testing_env!(context);
+
+        // Create a storage balance for Alice.
+        contract
+            .set(set_request(
+                json!({"storage/deposit": {"amount": "1"}}),
+                None,
+            ))
+            .unwrap();
 
         // Alice grants permission to Bob
         let result = contract.set_permission(

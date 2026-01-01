@@ -1,0 +1,35 @@
+specVersion: v0.1.0
+package:
+  name: onsocial_events
+  version: v0.2.0
+  doc: |
+    OnSocial NEAR Contract Event Indexer
+    Decodes NEP-297 JSON events from core-onsocial contract logs
+
+network: near
+
+binaries:
+  default:
+    type: wasm/rust-v1
+    file: ./target/wasm32-unknown-unknown/release/onsocial_substreams.wasm
+
+protobuf:
+  files:
+    - onsocial.proto
+  importPaths:
+    - ./proto
+
+modules:
+  - name: map_onsocial_events
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:onsocial.v1.Events
+    doc: |
+      Extracts and decodes OnSocial NEP-297 events from NEAR contract logs.
+      Filters for logs with "EVENT_JSON:" prefix and parses JSON payload.
+
+params:
+  map_onsocial_events: "contract_id=onsocial.near"

@@ -1,92 +1,94 @@
-// --- External imports ---
 use near_sdk::env;
 
-// --- Structs ---
-/// Helper to measure storage usage deltas across an operation.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, borsh::BorshDeserialize, borsh::BorshSerialize)]
-#[serde(crate = "near_sdk::serde")]
+#[derive(Clone, Debug, Default)]
 pub struct StorageTracker {
-    /// Bytes added during the tracked operation.
-    pub bytes_added: u64,
-
-    /// Bytes released during the tracked operation.
-    pub bytes_released: u64,
-
-    /// Storage usage recorded at start of tracking.
+    bytes_added: u64,
+    bytes_released: u64,
     initial_storage_usage: Option<u64>,
 }
 
-// --- Safety guard for the storage tracker ---
 impl Drop for StorageTracker {
     fn drop(&mut self) {
-        assert!(self.is_empty(), "Bug: non-tracked storage change detected. Storage tracker was not properly reset.");
+        if !self.is_empty() {
+            debug_assert!(
+                false,
+                "Bug: storage tracker not reset (non-empty at drop)"
+            );
+            env::log_str("WARN: Bug: storage tracker not reset (non-empty at drop)");
+        }
     }
 }
 
-// --- Impl ---
 impl StorageTracker {
-    /// Record the current storage usage as the baseline.
     #[inline(always)]
     pub fn start_tracking(&mut self) {
-        assert!(
-            self.initial_storage_usage.replace(env::storage_usage()).is_none(),
-            "Storage tracker is already tracking - cannot start tracking twice"
-        );
+        if self.initial_storage_usage.is_some() {
+            debug_assert!(false, "Storage tracker already active");
+            env::log_str("WARN: Bug: storage tracker already active");
+            return;
+        }
+
+        self.initial_storage_usage = Some(env::storage_usage());
     }
 
-    /// Capture the delta since `start_tracking` and update counters.
     #[inline(always)]
     pub fn stop_tracking(&mut self) {
-        let initial_usage = self
-            .initial_storage_usage
-            .take()
-            .expect("Storage tracker wasn't actively tracking - call start_tracking() first");
-        
+        let Some(initial) = self.initial_storage_usage.take() else {
+            debug_assert!(false, "Storage tracker not active");
+            return;
+        };
+
         let current = env::storage_usage();
-        if current >= initial_usage {
-            self.bytes_added += current - initial_usage;
+        if current >= initial {
+            self.bytes_added = self.bytes_added.saturating_add(current - initial);
         } else {
-            self.bytes_released += initial_usage - current;
+            self.bytes_released = self.bytes_released.saturating_add(initial - current);
         }
     }
 
-    /// Consumes the other storage tracker changes and merges them into this one.
-    /// The other tracker must not be actively tracking.
-    pub fn consume(&mut self, other: &mut StorageTracker) {
-        assert!(
-            other.initial_storage_usage.is_none(),
-            "Cannot consume a storage tracker that is actively tracking"
-        );
-        
-        self.bytes_added += other.bytes_added;
-        self.bytes_released += other.bytes_released;
-        
-        // Reset the consumed tracker
-        other.bytes_added = 0;
-        other.bytes_released = 0;
-    }
-
-    /// Net change: positive => bytes added; negative => bytes freed.
     #[inline(always)]
-    pub fn delta(&self) -> i64 {
-        self.bytes_added as i64 - self.bytes_released as i64
+    pub fn delta(&self) -> i128 {
+        self.bytes_added as i128 - self.bytes_released as i128
     }
 
-    /// Reset the tracker to zeroed state.
-    /// Panics if the tracker is currently active.
     pub fn reset(&mut self) {
-        assert!(
-            self.initial_storage_usage.is_none(),
-            "Cannot reset storage tracker while actively tracking"
-        );
-        
+        if self.initial_storage_usage.is_some() {
+            debug_assert!(false, "Cannot reset while active");
+            env::log_str("WARN: Bug: cannot reset storage tracker while active");
+            return;
+        }
         self.bytes_added = 0;
         self.bytes_released = 0;
     }
 
-    /// Returns true if no bytes are added or released, and the tracker is not active.
+    /// Returns true if tracker is zeroed and inactive.
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.bytes_added == 0 && self.bytes_released == 0 && self.initial_storage_usage.is_none()
+    }
+
+    /// Run `f` while tracking storage usage; always stops+resets on return.
+    #[inline(always)]
+    pub fn track<T>(&mut self, f: impl FnOnce() -> T) -> (T, i128) {
+        self.start_tracking();
+        let out = f();
+        self.stop_tracking();
+        let delta = self.delta();
+        self.reset();
+        (out, delta)
+    }
+
+    /// Like `track`, but works with `Result` flows and `?` at call sites.
+    #[inline(always)]
+    pub fn track_result<T, E>(
+        &mut self,
+        f: impl FnOnce() -> Result<T, E>,
+    ) -> Result<(T, i128), E> {
+        self.start_tracking();
+        let res = f();
+        self.stop_tracking();
+        let delta = self.delta();
+        self.reset();
+        res.map(|out| (out, delta))
     }
 }

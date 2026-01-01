@@ -22,12 +22,12 @@ mod ultra_simple_api_tests {
             "posts/1": {"text": "Hello world!", "timestamp": 1234567890}
         });
 
-        let result = contract.set(data, None, None);
+        let result = contract.set(set_request(data, None));
         assert!(result.is_ok(), "Simple set operation should succeed");
 
         // Verify data was set
         let keys = vec!["alice.testnet/profile".to_string()];
-        let retrieved = contract.get(keys, Some(alice.clone()), None, None);
+        let retrieved = contract_get_values_map(&contract, keys, Some(alice.clone()));
         assert!(!retrieved.is_empty(), "Data should be retrievable");
 
         println!("✓ Ultra-simple set API test passed");
@@ -47,7 +47,7 @@ mod ultra_simple_api_tests {
             "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
         });
 
-        let result = contract.set(deposit_data, None, None);
+        let result = contract.set(set_request(deposit_data, None));
         assert!(result.is_ok(), "Storage deposit should succeed");
 
         // Verify storage balance
@@ -60,7 +60,7 @@ mod ultra_simple_api_tests {
             "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
         });
 
-        let result = contract.set(withdraw_data, None, None);
+        let result = contract.set(set_request(withdraw_data, None));
         assert!(result.is_ok(), "Storage withdraw should succeed");
 
         println!("✓ Simple storage operations test passed");
@@ -85,7 +85,7 @@ mod ultra_simple_api_tests {
             }
         });
 
-        let result = contract.set(permission_data, None, None);
+        let result = contract.set(set_request(permission_data, None));
         assert!(result.is_ok(), "Permission grant should succeed");
 
         // Verify permission was granted
@@ -105,7 +105,7 @@ mod ultra_simple_api_tests {
             }
         });
 
-        let result = contract.set(revoke_data, None, None);
+        let result = contract.set(set_request(revoke_data, None));
         assert!(result.is_ok(), "Permission revoke should succeed");
 
         // Verify permission was revoked
@@ -141,7 +141,7 @@ mod ultra_simple_api_tests {
             }
         });
 
-        let result = contract.set(mixed_data, None, None);
+        let result = contract.set(set_request(mixed_data, None));
         assert!(result.is_ok(), "Mixed operations should succeed");
 
         // Verify storage was deposited
@@ -150,7 +150,7 @@ mod ultra_simple_api_tests {
 
         // Verify data was set
         let keys = vec!["charlie.testnet/profile".to_string()];
-        let retrieved = contract.get(keys, Some(charlie.clone()), None, None);
+        let retrieved = contract_get_values_map(&contract, keys, Some(charlie.clone()));
         assert!(!retrieved.is_empty(), "Profile data should be retrievable");
 
         println!("✓ Mixed operations test passed");

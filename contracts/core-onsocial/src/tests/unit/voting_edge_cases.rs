@@ -52,16 +52,16 @@ mod voting_edge_cases_tests {
             "early_exec_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Bob and charlie vote YES (3 total YES votes including alice = 60% participation, 100% approval)
         // This meets both quorum (60% > 25%) and majority (100% > 50%)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("early_exec_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("early_exec_test".to_string(), proposal_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("early_exec_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("early_exec_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Verify proposal executed immediately by checking eve was actually banned
         // With 60% participation (>25% quorum) and 100% approval (>50% threshold), should auto-execute
@@ -72,7 +72,7 @@ mod voting_edge_cases_tests {
         
         // Verify dave cannot vote (proposal already executed)
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        let result = contract.vote_on_proposal("early_exec_test".to_string(), proposal_id.clone(), true, None);
+        let result = contract.vote_on_proposal("early_exec_test".to_string(), proposal_id.clone(), true);
         assert!(result.is_err(), "Should not allow voting on executed proposal");
     }
 
@@ -107,22 +107,22 @@ mod voting_edge_cases_tests {
             "rejection_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Bob and charlie vote NO (3 votes total: 1 YES from alice, 2 NO)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), false).unwrap();
         
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), false).unwrap();
         
         // Dave votes NO - this makes defeat inevitable
         // Now: 1 YES (alice), 3 NO (bob, charlie, dave)
         // Even if eve votes YES: max possible = 2 YES out of 5 total = 40% < 50.01% threshold
         // Defeat is mathematically inevitable!
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), false).unwrap();
         
         // Verify eve is NOT banned (proposal rejected, not executed)
         // Early rejection should have triggered since max possible YES = 2/5 = 40% < 50.01% threshold
@@ -133,7 +133,7 @@ mod voting_edge_cases_tests {
         
         // Verify eve cannot vote on rejected proposal
         testing_env!(get_context_with_deposit(eve.clone(), test_deposits::member_operations()).build());
-        let result = contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), true, None);
+        let result = contract.vote_on_proposal("rejection_test".to_string(), proposal_id.clone(), true);
         assert!(result.is_err(), "Should not allow voting on rejected proposal");
     }
 
@@ -170,13 +170,13 @@ mod voting_edge_cases_tests {
             "quorum_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Bob votes YES (2 total YES votes = 40% participation < 51% quorum)
         // Even with 100% approval, should NOT execute due to insufficient quorum
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("quorum_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("quorum_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Verify eve is NOT banned yet (quorum not met)
         // 40% participation < 51% quorum requirement
@@ -188,7 +188,7 @@ mod voting_edge_cases_tests {
         // Charlie votes YES (3 total YES votes = 60% participation >= 51% quorum)
         // With 100% approval and quorum met, should execute
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("quorum_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("quorum_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Verify eve was banned (proposal auto-executed when quorum reached)
         // 60% participation >= 51% quorum AND 100% approval >= 50% threshold → execute
@@ -231,7 +231,7 @@ mod voting_edge_cases_tests {
             "join_test".to_string(),
             "group_update".to_string(),
             metadata_proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Advance time to ensure eve joins AFTER the proposal was created
@@ -249,7 +249,7 @@ mod voting_edge_cases_tests {
         // Eve tries to vote on Proposal A (created before she joined)
         // SECURITY FIX: Should fail - she wasn't a member when proposal was created
         testing_env!(get_context_with_deposit(eve.clone(), test_deposits::member_operations()).build());
-        let result = contract.vote_on_proposal("join_test".to_string(), proposal_a_id.clone(), true, None);
+        let result = contract.vote_on_proposal("join_test".to_string(), proposal_a_id.clone(), true);
         
         // Verify security: new member cannot vote on pre-existing proposals
         assert!(result.is_err(), "New member should NOT be able to vote on proposals created before they joined");
@@ -291,12 +291,12 @@ mod voting_edge_cases_tests {
             "removal_test".to_string(),
             "group_update".to_string(),
             metadata_proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Bob votes YES on Proposal A
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("removal_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("removal_test".to_string(), proposal_a_id.clone(), true).unwrap();
         
         // Now: 2 YES votes (alice auto-voted, bob voted)
         
@@ -312,7 +312,7 @@ mod voting_edge_cases_tests {
         // Threshold calculation: 3/5 = 60% participation >= 51% quorum, 3/3 = 100% approval >= 50%
         // This triggers early execution!
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("removal_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("removal_test".to_string(), proposal_a_id.clone(), true).unwrap();
         
         // Verify proposal executed (bob's vote counted despite removal)
         // The key test: Bob's vote was cast when he was a member, and even though he was later
@@ -324,7 +324,7 @@ mod voting_edge_cases_tests {
         
         // Dave cannot vote anymore (proposal already executed)
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        let result = contract.vote_on_proposal("removal_test".to_string(), proposal_a_id.clone(), true, None);
+        let result = contract.vote_on_proposal("removal_test".to_string(), proposal_a_id.clone(), true);
         assert!(result.is_err(), "Cannot vote on executed proposal");
         
         // This proves that removing a member after they voted doesn't invalidate their vote
@@ -362,12 +362,12 @@ mod voting_edge_cases_tests {
             "threshold_test".to_string(),
             "group_update".to_string(),
             metadata_proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Alice (auto-voted YES) and bob vote YES (2 votes)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("threshold_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("threshold_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Current state: 2 YES votes out of 5 members
         // Participation: 2/5 = 40% < 51% quorum → should NOT execute
@@ -393,7 +393,7 @@ mod voting_edge_cases_tests {
         // With current count of 3: this would be 3/3 = 100% participation
         // System should use LOCKED count (5), so 60% > 51% → should execute
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("threshold_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("threshold_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Verify proposal executed using locked count threshold
         let group_data = contract.platform.storage_get("groups/threshold_test/config").unwrap();
@@ -447,7 +447,7 @@ mod voting_edge_cases_tests {
             "concurrent_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None, None,
+            None,
         ).unwrap();
         
         // Proposal B: Update metadata to "Description B"
@@ -460,7 +460,7 @@ mod voting_edge_cases_tests {
             "concurrent_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None, None,
+            None,
         ).unwrap();
         
         // Proposal C: Update metadata to "Description C"
@@ -473,7 +473,7 @@ mod voting_edge_cases_tests {
             "concurrent_test".to_string(),
             "group_update".to_string(),
             proposal_c,
-            None, None,
+            None,
         ).unwrap();
         
         // Members vote DIFFERENTLY on each proposal (Alice auto-votes YES on each):
@@ -484,15 +484,15 @@ mod voting_edge_cases_tests {
         
         // Bob votes on all three proposals
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations() * 2).build());
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_b_id.clone(), false, None).unwrap();
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_c_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_a_id.clone(), true).unwrap();
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_b_id.clone(), false).unwrap();
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_c_id.clone(), true).unwrap();
         
         // Charlie votes on all three proposals
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations() * 2).build());
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_b_id.clone(), false, None).unwrap();
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_c_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_a_id.clone(), true).unwrap();
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_b_id.clone(), false).unwrap();
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_c_id.clone(), false).unwrap();
         
         // All proposals still active (43% participation < 51% quorum)
         let proposal_a_data = contract.platform.storage_get(&format!("groups/concurrent_test/proposals/{}", proposal_a_id)).unwrap();
@@ -510,7 +510,7 @@ mod voting_edge_cases_tests {
         // Dave casts 4th vote on each proposal to reach quorum
         // But vote in separate contexts to avoid execution interference
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations() * 2).build());
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_a_id.clone(), true, None).unwrap(); // A: 4 YES (100% approval) → EXECUTES
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_a_id.clone(), true).unwrap(); // A: 4 YES (100% approval) → EXECUTES
         
         // Check that A executed and don't vote on B/C yet
         let proposal_a_data = contract.platform.storage_get(&format!("groups/concurrent_test/proposals/{}", proposal_a_id)).unwrap();
@@ -519,8 +519,8 @@ mod voting_edge_cases_tests {
         
         // Now vote on B and C
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations() * 2).build());
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_b_id.clone(), false, None).unwrap(); // B: 1 YES, 3 NO (25% approval) → ACTIVE
-        contract.vote_on_proposal("concurrent_test".to_string(), proposal_c_id.clone(), true, None).unwrap(); // C: 3 YES, 1 NO (75% approval) → EXECUTES
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_b_id.clone(), false).unwrap(); // B: 1 YES, 3 NO (25% approval) → ACTIVE
+        contract.vote_on_proposal("concurrent_test".to_string(), proposal_c_id.clone(), true).unwrap(); // C: 3 YES, 1 NO (75% approval) → EXECUTES
         
         // Verify Proposal A executed (4/7 = 57% participation, 4 YES = 100% approval)
         let proposal_a_data = contract.platform.storage_get(&format!("groups/concurrent_test/proposals/{}", proposal_a_id)).unwrap();
@@ -598,7 +598,7 @@ mod voting_edge_cases_tests {
             "conflict_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None, None,
+            None,
         ).unwrap();
         
         // Proposal B: Set description to "Version B" (conflicts with A)
@@ -611,18 +611,18 @@ mod voting_edge_cases_tests {
             "conflict_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None, None,
+            None,
         ).unwrap();
         
         // Proposal A gets 4 votes to execute (Alice auto-voted, Bob, Charlie, Dave = 4/7 = 57% > 51%)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("conflict_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("conflict_test".to_string(), proposal_a_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("conflict_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("conflict_test".to_string(), proposal_a_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("conflict_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("conflict_test".to_string(), proposal_a_id.clone(), true).unwrap();
         
         // Verify Proposal A executed
         let proposal_a_data = contract.platform.storage_get(&format!("groups/conflict_test/proposals/{}", proposal_a_id)).unwrap();
@@ -635,13 +635,13 @@ mod voting_edge_cases_tests {
         
         // Proposal B gets 4 votes to execute (Alice auto-voted, Eve, Frank, Grace = 4/7 = 57% > 51%)
         testing_env!(get_context_with_deposit(eve.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("conflict_test".to_string(), proposal_b_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("conflict_test".to_string(), proposal_b_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(frank.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("conflict_test".to_string(), proposal_b_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("conflict_test".to_string(), proposal_b_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(grace.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("conflict_test".to_string(), proposal_b_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("conflict_test".to_string(), proposal_b_id.clone(), true).unwrap();
         
         // Verify Proposal B also executed and overwrote the description
         let proposal_b_data = contract.platform.storage_get(&format!("groups/conflict_test/proposals/{}", proposal_b_id)).unwrap();
@@ -700,15 +700,15 @@ mod voting_edge_cases_tests {
             "execution_order_test".to_string(),
             "group_update".to_string(),
             proposal_1,
-            None, None,
+            None,
         ).unwrap();
         
         // Bob and Charlie vote on Proposal 1 (Alice YES, Bob YES, Charlie NO = 3 votes, 27% < 51%)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), false).unwrap();
         
         // Alice creates Proposal 2 second (Alice auto-votes YES = 1/11 = 9%)
         testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
@@ -720,25 +720,25 @@ mod voting_edge_cases_tests {
             "execution_order_test".to_string(),
             "group_update".to_string(),
             proposal_2,
-            None, None,
+            None,
         ).unwrap();
         
         // Proposal 2 gets 6 votes and executes FIRST (even though created second)
         // Alice YES (auto), Dave YES, Eve YES, Frank YES, Grace YES, Henry YES = 6/11 = 55% participation, 100% approval
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(eve.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(frank.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(grace.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(henry.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_2_id.clone(), true).unwrap();
         
         // Verify Proposal 2 executed FIRST (despite being created second)
         let proposal_2_data = contract.platform.storage_get(&format!("groups/execution_order_test/proposals/{}", proposal_2_id)).unwrap();
@@ -756,10 +756,10 @@ mod voting_edge_cases_tests {
         
         // Now Proposal 1 gets enough votes to execute (Iris YES, Jack YES = 5 total votes, still < 51% quorum)
         testing_env!(get_context_with_deposit(iris.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(jack.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true).unwrap();
         
         // Still active (5 votes = 45% < 51% quorum)
         let proposal_1_data = contract.platform.storage_get(&format!("groups/execution_order_test/proposals/{}", proposal_1_id)).unwrap();
@@ -768,7 +768,7 @@ mod voting_edge_cases_tests {
         
         // Final vote from Kate makes it execute (6 votes = 55% > 51% quorum, 4 YES out of 6 = 67% approval)
         testing_env!(get_context_with_deposit(kate.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true).unwrap();
         
         // Verify Proposal 1 executed SECOND (Alice + Bob + Iris + Jack + Kate YES, Charlie NO = 6 votes = 55%, 5 YES = 83% approval)
         let proposal_1_data = contract.platform.storage_get(&format!("groups/execution_order_test/proposals/{}", proposal_1_id)).unwrap();
@@ -831,7 +831,7 @@ mod voting_edge_cases_tests {
             "large_community".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // 25 members vote YES to reach quorum (26/50 = 52% participation)
@@ -839,7 +839,7 @@ mod voting_edge_cases_tests {
         for i in 1..=5 {
             let member_account: AccountId = format!("member{}.near", i).parse().unwrap();
             testing_env!(get_context_with_deposit(member_account.clone(), test_deposits::member_operations()).build());
-            contract.vote_on_proposal("large_community".to_string(), proposal_id.clone(), true, None).unwrap();
+            contract.vote_on_proposal("large_community".to_string(), proposal_id.clone(), true).unwrap();
         }
         
         // Manually simulate the remaining 20 votes to reach 26 total (alice + 5 real + 20 simulated)
@@ -926,7 +926,7 @@ mod voting_edge_cases_tests {
             "massive_community".to_string(),
             "group_update".to_string(),
             proposal_insufficient,
-            None, None,
+            None,
         ).unwrap();
         
         // Simulate 49 more votes (alice + 49 = 50 total votes = 50% < 51% quorum)
@@ -958,14 +958,14 @@ mod voting_edge_cases_tests {
             "massive_community".to_string(),
             "group_update".to_string(),
             proposal_sufficient,
-            None, None,
+            None,
         ).unwrap();
         
         // Have a few real members vote
         for i in 1..=5 {
             let member_account: AccountId = format!("user{}.near", i).parse().unwrap();
             testing_env!(get_context_with_deposit(member_account.clone(), test_deposits::member_operations()).build());
-            contract.vote_on_proposal("massive_community".to_string(), proposal_sufficient_id.clone(), true, None).unwrap();
+            contract.vote_on_proposal("massive_community".to_string(), proposal_sufficient_id.clone(), true).unwrap();
         }
         
         // Simulate reaching 52 total votes (alice + 5 real + 46 simulated = 52/100 = 52% > 51% quorum)
@@ -1046,7 +1046,7 @@ mod voting_edge_cases_tests {
             "gas_test_community".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Each vote should be O(1) - gas usage should not scale with member count
@@ -1058,7 +1058,7 @@ mod voting_edge_cases_tests {
             testing_env!(get_context_with_deposit(member_account.clone(), test_deposits::member_operations()).build());
             
             // Each vote operation should complete successfully without gas issues
-            let vote_result = contract.vote_on_proposal("gas_test_community".to_string(), proposal_id.clone(), true, None);
+            let vote_result = contract.vote_on_proposal("gas_test_community".to_string(), proposal_id.clone(), true);
             assert!(vote_result.is_ok(), "Vote should succeed without gas limit issues");
         }
         
@@ -1087,7 +1087,7 @@ mod voting_edge_cases_tests {
             "gas_test_community".to_string(),
             "group_update".to_string(),
             proposal_2,
-            None, None,
+            None,
         ).unwrap();
         
         // Multiple members voting on different proposals simultaneously
@@ -1096,7 +1096,7 @@ mod voting_edge_cases_tests {
             let member_account: AccountId = format!("gas_member{}.near", i).parse().unwrap();
             testing_env!(get_context_with_deposit(member_account.clone(), test_deposits::member_operations()).build());
             
-            let vote_result = contract.vote_on_proposal("gas_test_community".to_string(), proposal_2_id.clone(), true, None);
+            let vote_result = contract.vote_on_proposal("gas_test_community".to_string(), proposal_2_id.clone(), true);
             assert!(vote_result.is_ok(), "Concurrent voting should not cause gas issues");
         }
         
@@ -1156,7 +1156,7 @@ mod voting_edge_cases_tests {
             "expiration_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Verify proposal is initially active
@@ -1176,7 +1176,7 @@ mod voting_edge_cases_tests {
         
         // Bob tries to vote after expiration (this should fail)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(expired_timestamp).build());
-        let expired_vote_result = contract.vote_on_proposal("expiration_test".to_string(), proposal_id.clone(), true, None);
+        let expired_vote_result = contract.vote_on_proposal("expiration_test".to_string(), proposal_id.clone(), true);
         assert!(expired_vote_result.is_err(), "Vote should fail after expiration");
         
         // Verify error message indicates expiration or inactive status
@@ -1205,7 +1205,7 @@ mod voting_edge_cases_tests {
         
         // Charlie tries to vote after expiration (should also fail)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(expired_timestamp + 1000).build());
-        let charlie_vote_result = contract.vote_on_proposal("expiration_test".to_string(), proposal_id.clone(), false, None);
+        let charlie_vote_result = contract.vote_on_proposal("expiration_test".to_string(), proposal_id.clone(), false);
         assert!(charlie_vote_result.is_err(), "Charlie's vote should also fail after expiration");
         
         // Vote count should still be 1 (no new votes accepted)
@@ -1252,19 +1252,19 @@ mod voting_edge_cases_tests {
             "resubmission_test".to_string(),
             "group_update".to_string(),
             proposal_content.clone(),
-            None, None,
+            None,
         ).unwrap();
         
         // Vote to REJECT the first proposal
         // Alice auto-voted YES, now Bob, Charlie, Dave vote NO to reject it
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false).unwrap();
         
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false).unwrap();
         
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false).unwrap();
         
         // Verify first proposal was rejected
         // 4 votes total (80% participation > 51% quorum), 1 YES vs 3 NO (25% approval < 50.01%)
@@ -1289,7 +1289,7 @@ mod voting_edge_cases_tests {
             "resubmission_test".to_string(),
             "group_update".to_string(),
             proposal_content.clone(), // IDENTICAL CONTENT
-            None, None,
+            None,
         ).unwrap();
         
         // Verify second proposal was created successfully (different ID)
@@ -1308,10 +1308,10 @@ mod voting_edge_cases_tests {
         // === THIRD ATTEMPT: Second proposal can succeed ===
         // This time, community sentiment has changed - let's vote YES
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("resubmission_test".to_string(), second_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("resubmission_test".to_string(), second_proposal_id.clone(), true).unwrap();
         
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("resubmission_test".to_string(), second_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("resubmission_test".to_string(), second_proposal_id.clone(), true).unwrap();
         
         // Now: Alice YES, Bob YES, Charlie YES = 3/5 = 60% participation, 100% approval → EXECUTES
         let second_proposal_data = contract.platform.storage_get(&format!("groups/resubmission_test/proposals/{}", second_proposal_id)).unwrap();
@@ -1374,18 +1374,18 @@ mod voting_edge_cases_tests {
             "expiration_state_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Get some votes but not enough for execution
         // Alice auto-voted (1/5), Bob votes YES (2/5 = 40% participation < 51% quorum)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(proposal_timestamp + 1000).build());
-        contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Charlie votes NO (3/5 = 60% participation >= 51% quorum, but 2 YES vs 1 NO = 67% approval)
         // This still shouldn't execute because we want to test expiration state
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(proposal_timestamp + 2000).build());
-        contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), false).unwrap();
         
         // Verify proposal hasn't executed yet (3 votes: 2 YES, 1 NO = 67% approval, should execute)
         // Wait, this will execute. Let me adjust to prevent execution
@@ -1408,7 +1408,7 @@ mod voting_edge_cases_tests {
                 "expiration_state_test".to_string(),
                 "group_update".to_string(),
                 second_proposal,
-                None, None,
+                None,
             ).unwrap();
             
             // Don't vote on this one - just alice auto-vote (1/5 = 20% < 51% quorum)
@@ -1420,7 +1420,7 @@ mod voting_edge_cases_tests {
             
             // Try to vote after expiration
             testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(expired_timestamp).build());
-            let expired_vote_result = contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true, None);
+            let expired_vote_result = contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true);
             assert!(expired_vote_result.is_err(), "Vote should fail after expiration");
             
             // Verify proposal state after expiration
@@ -1455,7 +1455,7 @@ mod voting_edge_cases_tests {
             
             // Try to vote after expiration
             testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(expired_timestamp).build());
-            let expired_vote_result = contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true, None);
+            let expired_vote_result = contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true);
             assert!(expired_vote_result.is_err(), "Vote should fail after expiration");
             
             // Verify proposal state remains "active" after expiration
@@ -1523,7 +1523,7 @@ mod voting_edge_cases_tests {
             "timing_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
         
         // Verify proposal created successfully
@@ -1536,7 +1536,7 @@ mod voting_edge_cases_tests {
         // Test 1: Vote just BEFORE expiration (should succeed)
         let just_before_expiry = proposal_timestamp + voting_period - 1; // 1 nanosecond before expiry
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(just_before_expiry).build());
-        let before_expiry_result = contract.vote_on_proposal("timing_test".to_string(), proposal_id.clone(), true, None);
+        let before_expiry_result = contract.vote_on_proposal("timing_test".to_string(), proposal_id.clone(), true);
         assert!(before_expiry_result.is_ok(), "Vote should succeed 1 nanosecond before expiration");
         
         // Verify vote was counted
@@ -1547,7 +1547,7 @@ mod voting_edge_cases_tests {
         // Test 2: Vote at EXACT expiration time (should now be properly rejected)
         let exact_expiry = proposal_timestamp + voting_period; // Exactly at expiration
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(exact_expiry).build());
-        let exact_expiry_result = contract.vote_on_proposal("timing_test".to_string(), proposal_id.clone(), true, None);
+        let exact_expiry_result = contract.vote_on_proposal("timing_test".to_string(), proposal_id.clone(), true);
         
         // Now that the bug is fixed, this should be rejected
         assert!(exact_expiry_result.is_err(), "Vote should be rejected at exact expiration timestamp");
@@ -1568,7 +1568,7 @@ mod voting_edge_cases_tests {
         // Test 3: Vote AFTER expiration (should be rejected)
         let after_expiry = proposal_timestamp + voting_period + 1000; // 1000 nanoseconds after expiry
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(after_expiry).build());
-        let after_expiry_result = contract.vote_on_proposal("timing_test".to_string(), proposal_id.clone(), false, None);
+        let after_expiry_result = contract.vote_on_proposal("timing_test".to_string(), proposal_id.clone(), false);
         assert!(after_expiry_result.is_err(), "Vote should be rejected after expiration");
         
         // Verify vote count unchanged (dave's vote rejected)
@@ -1620,7 +1620,7 @@ mod voting_edge_cases_tests {
             "membership_timing_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal A exists and is active
@@ -1641,7 +1641,7 @@ mod voting_edge_cases_tests {
             "membership_timing_test".to_string(),
             "group_update".to_string(),
             proposal_c,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal C exists and is active
@@ -1651,7 +1651,7 @@ mod voting_edge_cases_tests {
 
         // Step 4: Bob tries to vote on proposal A (created before he joined) - should FAIL
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 4000).build());
-        let bob_vote_on_a = contract.vote_on_proposal("membership_timing_test".to_string(), proposal_a_id.clone(), true, None);
+        let bob_vote_on_a = contract.vote_on_proposal("membership_timing_test".to_string(), proposal_a_id.clone(), true);
         assert!(bob_vote_on_a.is_err(), "Bob should not be able to vote on proposal A (created before he joined)");
 
         // Verify error indicates membership requirement
@@ -1669,7 +1669,7 @@ mod voting_edge_cases_tests {
 
         // Step 5: Bob votes on proposal C (created after he joined) - should SUCCEED
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
-        let bob_vote_on_c = contract.vote_on_proposal("membership_timing_test".to_string(), proposal_c_id.clone(), true, None);
+        let bob_vote_on_c = contract.vote_on_proposal("membership_timing_test".to_string(), proposal_c_id.clone(), true);
         assert!(bob_vote_on_c.is_ok(), "Bob should be able to vote on proposal C (created after he joined)");
 
         // Verify vote was counted on proposal C
@@ -1775,7 +1775,7 @@ mod voting_edge_cases_tests {
             "storage_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal data is stored correctly
@@ -1794,7 +1794,7 @@ mod voting_edge_cases_tests {
         // Test 3: Cast an additional vote (bob votes YES)
         // 2 votes out of 5 = 40% participation < 51% quorum, proposal should remain active
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
-        contract.vote_on_proposal("storage_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("storage_test".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify vote was recorded
         let vote_tally_after = contract.platform.storage_get(&format!("groups/storage_test/votes/{}", proposal_id)).unwrap();
@@ -1822,7 +1822,7 @@ mod voting_edge_cases_tests {
         // Test 5: Reach quorum with third vote (charlie votes YES)
         // 3 votes out of 5 = 60% participation >= 51% quorum, 100% approval => should execute
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
-        contract.vote_on_proposal("storage_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("storage_test".to_string(), proposal_id.clone(), true).unwrap();
 
         // Debug: Print proposal data
         println!("DEBUG: Checking proposal data after charlie's vote");
@@ -1885,7 +1885,7 @@ mod voting_edge_cases_tests {
             "deposit_test".to_string(),
             "group_update".to_string(),
             proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal was created successfully
@@ -1905,7 +1905,7 @@ mod voting_edge_cases_tests {
             "deposit_test".to_string(),
             "group_update".to_string(),
             proposal_2,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify second proposal was created
@@ -1921,7 +1921,7 @@ mod voting_edge_cases_tests {
 
         // Test 4: Proposals can be voted on independently
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
-        contract.vote_on_proposal("deposit_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("deposit_test".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify vote was recorded on first proposal
         let vote_tally = contract.platform.storage_get(&format!("groups/deposit_test/votes/{}", proposal_id)).unwrap();
@@ -1972,15 +1972,15 @@ mod voting_edge_cases_tests {
             "gas_limit_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Get 3 votes to reach quorum (alice auto-voted, need 2 more for 3/5 = 60% > 51%)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
-        contract.vote_on_proposal("gas_limit_test".to_string(), ban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("gas_limit_test".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
-        contract.vote_on_proposal("gas_limit_test".to_string(), ban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("gas_limit_test".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         // Proposal should execute after Dave's vote (3/5 votes = 60% >= 51% quorum, 100% approval)
         // Verify ban proposal executed successfully (complex operation completed within gas limit)
@@ -1998,8 +1998,8 @@ mod voting_edge_cases_tests {
             "changes": {
                 "moderation_enabled": true,
                 "voting_config": {
-                    "participation_quorum": 0.6,
-                    "majority_threshold": 0.55,
+                    "participation_quorum_bps": 6000,
+                    "majority_threshold_bps": 5500,
                     "voting_period": 86400000000000i64  // 1 day in nanoseconds
                 }
             }
@@ -2009,17 +2009,17 @@ mod voting_edge_cases_tests {
             "gas_limit_test".to_string(),
             "group_update".to_string(),
             permission_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Get enough votes for execution
         // After bob was banned, we have 4 members left (alice, charlie, dave, eve)
         // With 51% quorum on 4 members, we need 3 votes (2.04 rounds up to 3)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 6000).build());
-        contract.vote_on_proposal("gas_limit_test".to_string(), permission_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("gas_limit_test".to_string(), permission_proposal_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 7000).build());
-        contract.vote_on_proposal("gas_limit_test".to_string(), permission_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("gas_limit_test".to_string(), permission_proposal_id.clone(), true).unwrap();
 
         // Proposal should execute after Dave's vote (3/4 votes = 75% >= 51% quorum, 100% approval)
         // Verify complex permission change executed successfully
@@ -2031,7 +2031,7 @@ mod voting_edge_cases_tests {
         assert_eq!(group_config.get("moderation_enabled").and_then(|v| v.as_bool()).unwrap(), true, "Moderation should be enabled");
 
         let voting_config = group_config.get("voting_config").and_then(|v| v.as_object()).unwrap();
-        assert_eq!(voting_config.get("participation_quorum").and_then(|v| v.as_f64()).unwrap(), 0.6, "Quorum should be updated");
+        assert_eq!(voting_config.get("participation_quorum_bps").and_then(|v| v.as_u64()).unwrap(), 6000, "Quorum should be updated");
 
         // Test 3: Multiple complex proposals can execute in sequence
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 9000).build());
@@ -2044,16 +2044,16 @@ mod voting_edge_cases_tests {
             "gas_limit_test".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Get votes for unban
         // Still 4 members (alice, charlie, dave, eve), need 3 votes for 51% quorum
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 10000).build());
-        contract.vote_on_proposal("gas_limit_test".to_string(), unban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("gas_limit_test".to_string(), unban_proposal_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 11000).build());
-        contract.vote_on_proposal("gas_limit_test".to_string(), unban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("gas_limit_test".to_string(), unban_proposal_id.clone(), true).unwrap();
 
         // Proposal should execute after Dave's vote (3/4 votes = 75% >= 51% quorum, 100% approval)
         // Verify unban executed successfully
@@ -2110,7 +2110,7 @@ mod voting_edge_cases_tests {
             "cascading_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal A is active with Alice's auto-vote
@@ -2132,7 +2132,7 @@ mod voting_edge_cases_tests {
             "cascading_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal B is active
@@ -2143,10 +2143,10 @@ mod voting_edge_cases_tests {
         // Bob auto-voted, need 2 more votes for 3/5 = 60% >= 51% quorum
         // Alice and Dave vote to remove Charlie
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
-        contract.vote_on_proposal("cascading_test".to_string(), proposal_b_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("cascading_test".to_string(), proposal_b_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 4000).build());
-        contract.vote_on_proposal("cascading_test".to_string(), proposal_b_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("cascading_test".to_string(), proposal_b_id.clone(), true).unwrap();
 
         // Verify proposal B executed and Charlie was removed
         let proposal_b_data_after = contract.platform.storage_get(&format!("groups/cascading_test/proposals/{}", proposal_b_id)).unwrap();
@@ -2168,10 +2168,10 @@ mod voting_edge_cases_tests {
         // Proposal A needs 3 votes total for 60% participation (3/5 = 60% >= 51%)
         // Currently has 1 vote (alice), needs 2 more
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
-        contract.vote_on_proposal("cascading_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("cascading_test".to_string(), proposal_a_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 6000).build());
-        contract.vote_on_proposal("cascading_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("cascading_test".to_string(), proposal_a_id.clone(), true).unwrap();
 
         // Proposal A should execute now (3 votes / 5 locked members = 60% >= 51% quorum, 100% approval)
         let proposal_a_final = contract.platform.storage_get(&format!("groups/cascading_test/proposals/{}", proposal_a_id)).unwrap();
@@ -2229,7 +2229,7 @@ mod voting_edge_cases_tests {
             "permission_cascade_test".to_string(),
             "group_update".to_string(),
             bob_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify Bob's proposal is active
@@ -2248,16 +2248,16 @@ mod voting_edge_cases_tests {
             "permission_cascade_test".to_string(),
             "group_update".to_string(),
             permission_change_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Step 3: Vote to execute permission change (downgrade Bob to READ)
         // Alice auto-voted, need 2 more votes for 3/5 = 60% >= 51% quorum
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
-        contract.vote_on_proposal("permission_cascade_test".to_string(), permission_change_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("permission_cascade_test".to_string(), permission_change_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 4000).build());
-        contract.vote_on_proposal("permission_cascade_test".to_string(), permission_change_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("permission_cascade_test".to_string(), permission_change_id.clone(), true).unwrap();
 
         // Verify metadata change executed
         let permission_proposal_data = contract.platform.storage_get(&format!("groups/permission_cascade_test/proposals/{}", permission_change_id)).unwrap();
@@ -2279,10 +2279,10 @@ mod voting_edge_cases_tests {
         // Step 5: Other members can vote on Bob's proposal (it remains valid)
         // Need 2 more votes for 3/5 = 60% >= 51% quorum
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
-        contract.vote_on_proposal("permission_cascade_test".to_string(), bob_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("permission_cascade_test".to_string(), bob_proposal_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 6000).build());
-        contract.vote_on_proposal("permission_cascade_test".to_string(), bob_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("permission_cascade_test".to_string(), bob_proposal_id.clone(), true).unwrap();
 
         // Verify Bob's proposal executed successfully
         let bob_proposal_final = contract.platform.storage_get(&format!("groups/permission_cascade_test/proposals/{}", bob_proposal_id)).unwrap();
@@ -2340,12 +2340,12 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             proposal_a,
-            None, None,
+            None,
         ).unwrap();
 
         // Step 2: Bob votes YES on proposal A
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
-        contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_a_id.clone(), true).unwrap();
 
         // Verify Bob's vote was recorded
         let vote_tally_a_before_ban = contract.platform.storage_get(&format!("groups/ban_cascade_test/votes/{}", proposal_a_id)).unwrap();
@@ -2366,12 +2366,12 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             proposal_b,
-            None, None,
+            None,
         ).unwrap();
 
         // Step 4: Bob votes YES on proposal B as well
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 4000).build());
-        contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_b_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_b_id.clone(), true).unwrap();
 
         // Verify Bob's vote on proposal B
         let vote_tally_b_before_ban = contract.platform.storage_get(&format!("groups/ban_cascade_test/votes/{}", proposal_b_id)).unwrap();
@@ -2387,16 +2387,16 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Step 6: Vote to execute ban proposal
         // Alice auto-voted, need 2 more votes for 3/5 = 60% >= 51% quorum
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 6000).build());
-        contract.vote_on_proposal("ban_cascade_test".to_string(), ban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ban_cascade_test".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 7000).build());
-        contract.vote_on_proposal("ban_cascade_test".to_string(), ban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ban_cascade_test".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         // Verify ban executed and Bob is banned
         let ban_proposal_data = contract.platform.storage_get(&format!("groups/ban_cascade_test/proposals/{}", ban_proposal_id)).unwrap();
@@ -2423,7 +2423,7 @@ mod voting_edge_cases_tests {
         // Step 8: Proposal A can still execute with one more vote
         // Currently: 2/5 votes = 40% < 51% quorum, need 1 more vote
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 8000).build());
-        contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_a_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_a_id.clone(), true).unwrap();
 
         // Verify proposal A executed (3/5 = 60% >= 51% quorum, 100% approval)
         let proposal_a_final = contract.platform.storage_get(&format!("groups/ban_cascade_test/proposals/{}", proposal_a_id)).unwrap();
@@ -2448,11 +2448,11 @@ mod voting_edge_cases_tests {
             "ban_cascade_test".to_string(),
             "group_update".to_string(),
             proposal_c,
-            None, None,
+            None,
         ).unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 10000).build());
-        let bob_vote_on_c = contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_c_id.clone(), true, None);
+        let bob_vote_on_c = contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_c_id.clone(), true);
         assert!(bob_vote_on_c.is_err(), "Bob should not be able to vote after being banned");
 
         // Key insights:

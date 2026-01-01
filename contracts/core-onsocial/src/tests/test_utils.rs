@@ -5,8 +5,9 @@ use crate::*;
 use near_sdk::test_utils::{accounts, VMContextBuilder};
 #[cfg(test)]
 use near_sdk::{AccountId, NearToken, env};
-use crate::events::Event;
-use near_sdk::base64::Engine;
+use crate::events::types::Event;
+#[cfg(test)]
+use std::collections::HashMap;
 
 /// Realistic base timestamp for tests (October 1, 2025 00:00:00 UTC in nanoseconds)
 /// This matches the current date and is realistic for NEAR blockchain operations
@@ -83,6 +84,22 @@ pub fn test_account(index: usize) -> AccountId {
     format!("{}.near", base_name).parse().unwrap()
 }
 
+/// Convert the contract's ordered `get` response into a legacy `key -> value` map.
+///
+/// This keeps tests concise while the public ABI uses ordered `EntryView`.
+#[cfg(test)]
+pub fn contract_get_values_map(
+    contract: &Contract,
+    keys: Vec<String>,
+    account_id: Option<AccountId>,
+) -> HashMap<String, serde_json::Value> {
+    contract
+        .get(keys, account_id)
+        .into_iter()
+        .filter_map(|e| e.value.map(|v| (e.requested_key, v)))
+        .collect()
+}
+
 /// Initialize a live contract for testing
 #[cfg(test)]
 pub fn init_live_contract() -> Contract {
@@ -90,6 +107,33 @@ pub fn init_live_contract() -> Contract {
     // Transition to live mode for testing
     contract.platform.status = crate::state::models::ContractStatus::Live;
     contract
+}
+
+#[cfg(test)]
+pub fn set_request(
+    data: near_sdk::serde_json::Value,
+    options: Option<SetOptions>,
+) -> SetRequest {
+    SetRequest {
+        target_account: None,
+        data,
+        options,
+        auth: None,
+    }
+}
+
+#[cfg(test)]
+pub fn set_request_for(
+    target_account: AccountId,
+    data: near_sdk::serde_json::Value,
+    options: Option<SetOptions>,
+) -> SetRequest {
+    SetRequest {
+        target_account: Some(target_account),
+        data,
+        options,
+        auth: None,
+    }
 }
 
 /// Helper to add test members to member-driven groups bypassing proposals
@@ -101,10 +145,10 @@ pub fn test_add_member_bypass_proposals(
     contract: &mut crate::Contract,
     group_id: &str,
     member_id: &AccountId,
-    permission_flags: u8,
+    _level: u8,
     added_by: &AccountId,
 ) {
-    test_add_member_bypass_proposals_with_timestamp(contract, group_id, member_id, permission_flags, added_by, env::block_timestamp());
+    test_add_member_bypass_proposals_with_timestamp(contract, group_id, member_id, _level, added_by, env::block_timestamp());
 }
 
 /// Helper to add test members with specific joined_at timestamp
@@ -113,17 +157,26 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
     contract: &mut crate::Contract,
     group_id: &str,
     member_id: &AccountId,
-    permission_flags: u8,
+    _level: u8,
     added_by: &AccountId,
     joined_at: u64,
 ) {
     use near_sdk::env;
     use near_sdk::serde_json::json;
+
+    // Mirror production behavior: every membership epoch has a dedicated nonce.
+    let nonce_path = format!("groups/{}/member_nonces/{}", group_id, member_id.as_str());
+    let previous_nonce = contract.platform.storage_get(&nonce_path).and_then(|v| v.as_u64());
+    let new_nonce = previous_nonce.unwrap_or(0).saturating_add(1).max(1);
+    contract
+        .platform
+        .storage_set(&nonce_path, &json!(new_nonce))
+        .expect("Test setup: failed to set member nonce");
     
     // Add member data directly (test-only bypass)
     let member_data = json!({
-        "permission_flags": permission_flags,
-        "joined_at": joined_at,
+        "level": 0,
+        "joined_at": joined_at.to_string(),
         "added_by": added_by.as_str(),
         "is_creator": false
     });
@@ -132,15 +185,44 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         &member_data
     ).expect("Test setup: failed to add member");
 
+    // Mirror production behavior: grant default /content WRITE for all members,
+    // while keeping global role (group-root) optional.
+    let config_key = format!("groups/{}/config", group_id);
+    let config = contract
+        .platform
+        .storage_get(&config_key)
+        .unwrap_or_else(|| panic!("Test setup: group config missing for {}", group_id));
+    let group_owner_str = config
+        .get("owner")
+        .and_then(|o| o.as_str())
+        .unwrap_or_else(|| panic!("Test setup: group owner missing for {}", group_id));
+    let group_owner: AccountId = group_owner_str
+        .parse()
+        .unwrap_or_else(|_| panic!("Test setup: invalid group owner account ID for {}", group_id));
+
+    let mut event_batch = crate::events::EventBatch::new();
+    crate::groups::kv_permissions::grant_permissions(
+        &mut contract.platform,
+        &group_owner,
+        member_id,
+        &format!("groups/{}/content", group_id),
+        crate::groups::kv_permissions::WRITE,
+        None,
+        &mut event_batch,
+        None,
+    )
+    .unwrap_or_else(|e| panic!("Test setup: failed to grant default content permissions: {:?}", e));
+    // Don't emit in test setup - we're just setting up state
+
     // Update member count
     let stats_key = format!("groups/{}/stats", group_id);
     let mut stats = contract.platform.storage_get(&stats_key)
-        .unwrap_or_else(|| json!({"total_members": 1, "created_at": env::block_timestamp()}));
+        .unwrap_or_else(|| json!({"total_members": 1, "created_at": env::block_timestamp().to_string()}));
     
     if let Some(obj) = stats.as_object_mut() {
         let current_count = obj.get("total_members").and_then(|v| v.as_u64()).unwrap_or(1);
         obj.insert("total_members".to_string(), json!(current_count + 1));
-        obj.insert("last_updated".to_string(), json!(env::block_timestamp()));
+        obj.insert("last_updated".to_string(), json!(env::block_timestamp().to_string()));
     }
     
     contract.platform.storage_set(&stats_key, &stats)
@@ -172,68 +254,58 @@ pub fn test_remove_member_bypass_proposals(
         if let Some(obj) = stats.as_object_mut() {
             let current_count = obj.get("total_members").and_then(|v| v.as_u64()).unwrap_or(0);
             obj.insert("total_members".to_string(), json!(current_count.saturating_sub(1)));
-            obj.insert("last_updated".to_string(), json!(env::block_timestamp()));
+            obj.insert("last_updated".to_string(), json!(env::block_timestamp().to_string()));
             contract.platform.storage_set(&stats_key, &stats)
                 .expect("Test setup: failed to update stats");
         }
     }
 }
 
-/// Decode and verify contract events from logs
+/// Decode and verify contract events from logs (NEP-297 JSON format)
 #[cfg(test)]
 pub fn verify_contract_event(log: &str, expected_operation: &str, expected_prev_status: &str, expected_new_status: &str) -> bool {
-    if !log.starts_with("EVENT:") {
+    use near_sdk::serde_json;
+    
+    const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
+    
+    if !log.starts_with(EVENT_JSON_PREFIX) {
         return false;
     }
 
-    // Extract base64 part after "EVENT:"
-    let base64_data = &log[6..]; // Skip "EVENT:" prefix
+    // Extract JSON part after "EVENT_JSON:"
+    let json_data = &log[EVENT_JSON_PREFIX.len()..];
 
-    // Decode base64
-    let decoded = match near_sdk::base64::engine::general_purpose::STANDARD.decode(base64_data) {
-        Ok(data) => data,
-        Err(_) => return false,
-    };
-
-    // Deserialize Borsh event
-    let event: Event = match borsh::BorshDeserialize::deserialize(&mut decoded.as_slice()) {
+    // Parse JSON event
+    let event: Event = match serde_json::from_str(json_data) {
         Ok(event) => event,
         Err(_) => return false,
     };
 
-    // Check event type and operation
-    if event.evt_type != "CONTRACT_UPDATE" {
+    // Check event type
+    if event.event != "CONTRACT_UPDATE" {
         return false;
     }
 
-    if event.op_type != expected_operation {
-        return false;
-    }
-
-    // Check extra data contains the expected status transition
-    if let Some(ref data) = event.data {
-        let mut found_previous = false;
-        let mut found_new = false;
-
-        for extra in &data.extra {
-            match extra.key.as_str() {
-                "previous" => {
-                    if let crate::events::types::BorshValue::String(ref status) = extra.value {
-                        if status.contains(expected_prev_status) {
-                            found_previous = true;
-                        }
-                    }
-                }
-                "new" => {
-                    if let crate::events::types::BorshValue::String(ref status) = extra.value {
-                        if status.contains(expected_new_status) {
-                            found_new = true;
-                        }
-                    }
-                }
-                _ => {}
-            }
+    // Check operation in data
+    if let Some(data) = event.data.first() {
+        if data.operation != expected_operation {
+            return false;
         }
+
+        // Check extra data contains the expected status transition
+        let extra_obj = &data.extra;
+
+        let found_previous = extra_obj
+            .get("previous")
+            .and_then(|v| v.as_str())
+            .map(|s| s.contains(expected_prev_status))
+            .unwrap_or(false);
+
+        let found_new = extra_obj
+            .get("new")
+            .and_then(|v| v.as_str())
+            .map(|s| s.contains(expected_new_status))
+            .unwrap_or(false);
 
         found_previous && found_new
     } else {

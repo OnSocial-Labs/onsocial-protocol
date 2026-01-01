@@ -279,9 +279,10 @@ console.log("Profile data:", data);`,
 const accountId = "alice.near";
 
 const data = await contract.get({
-  keys: [\`\${accountId}/content/post/*\`],
-  account_id: accountId,
-  include_metadata: true
+  // Note: get() is exact-key lookup only (no wildcards).
+  // Use your indexer/SDK to discover keys, then fetch them in a batch.
+  keys: [\`\${accountId}/posts/post1\`, \`\${accountId}/posts/post2\`],
+  account_id: accountId
 });
 
 console.log("Posts:", data);`,

@@ -16,5 +16,11 @@
         "id": "social.$NETWORK",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
+    },
+    {
+        "name": "manager-proxy-onsocial",
+        "id": "manager-proxy.$NETWORK",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{}'"
     }
 ]

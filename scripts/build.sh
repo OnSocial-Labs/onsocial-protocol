@@ -111,6 +111,12 @@ lint_code() {
 lint_contract() {
   local contract=$1
   echo "Linting $contract..."
+
+  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/contract.
+  if [ "$contract" = "core-onsocial" ]; then
+    "$(pwd)/scripts/check_core_onsocial_api_boundary.sh" "contracts/core-onsocial/src" || handle_error "core-onsocial api boundary check failed"
+  fi
+
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
 
   # Generate cache key
@@ -150,6 +156,21 @@ check_workspace() {
   echo -e "${SUCCESS}Workspace checked successfully${RESET}"
 }
 
+check_contract() {
+  local contract=$1
+  echo "Checking $contract..."
+
+  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/contract.
+  if [ "$contract" = "core-onsocial" ]; then
+    "$(pwd)/scripts/check_core_onsocial_api_boundary.sh" "contracts/core-onsocial/src" || handle_error "core-onsocial api boundary check failed"
+  fi
+
+  cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
+  [ "$VERBOSE" = "1" ] && echo "Running: cargo check --all-targets --all-features"
+  cargo check --all-targets --all-features || handle_error "Failed to check $contract"
+  echo -e "${SUCCESS}$contract checked successfully${RESET}"
+}
+
 audit_deps() {
   echo "Checking dependencies for issues..."
   [ "$VERBOSE" = "1" ] && echo "Running: cargo tree --duplicates"
@@ -170,6 +191,12 @@ build_contract() {
   local contract=$1
   local build_type=$2
   echo "Building $contract ($build_type)..."
+
+  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/contract.
+  if [ "$contract" = "core-onsocial" ]; then
+    "$(pwd)/scripts/check_core_onsocial_api_boundary.sh" "contracts/core-onsocial/src" || handle_error "core-onsocial api boundary check failed"
+  fi
+
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
   [ "$VERBOSE" = "1" ] && echo "Running: cargo near build $build_type"
   cargo near build "$build_type" || handle_error "Failed to build $contract"
@@ -247,6 +274,13 @@ case "$1" in
     ;;
   check)
     check_workspace
+    ;;
+  check-contract)
+    if [ -z "$2" ]; then
+      handle_error "No contract specified. Use: check-contract <contract-name> (e.g., core-onsocial)"
+    fi
+    check_contract "$2"
+    echo -e "${SUCCESS}Contract $2 check completed${RESET}"
     ;;
   audit)
     audit_deps

@@ -38,7 +38,7 @@ mod group_transfer_ownership_security_test {
 
         // Test that the transfer_group_ownership method exists and can be called
         // (it will fail due to storage issues, but the method should exist)
-        let result = contract.transfer_group_ownership("test".to_string(), accounts(1), None, None);
+        let result = contract.transfer_group_ownership("test".to_string(), accounts(1), None);
         assert!(result.is_err(), "Method should exist but fail due to test setup");
 
         // Check that the error is about storage, not about missing method

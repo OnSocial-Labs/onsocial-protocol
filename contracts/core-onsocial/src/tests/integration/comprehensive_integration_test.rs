@@ -13,7 +13,7 @@
 #[cfg(test)]
 mod comprehensive_integration_tests {
     use crate::tests::test_utils::*;
-    use crate::groups::kv_permissions::{WRITE, MODERATE};
+    use crate::groups::kv_permissions::WRITE;
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
     // ============================================================================
@@ -27,6 +27,12 @@ mod comprehensive_integration_tests {
         // Setup: Alice deposits storage and grants Bob write permission
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000); // 10 NEAR
         testing_env!(context.build());
+
+        // Ensure Alice has a storage balance (set_permission does not consume attached_deposit).
+        contract
+            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .unwrap();
+
         // Alice grants Bob permission to write to her posts path
         let grant_result = contract.set_permission(
             bob.clone(),
@@ -42,12 +48,16 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Bob writes to Alice's posts path using set_for
-        let write_result = contract.set_for(alice.clone(), json!({
-            "posts/shared": {
-                "text": "Bob writing to Alice's space",
-                "author": bob.to_string()
-            }
-        }), None, None);
+        let write_result = contract.set(set_request_for(
+            alice.clone(),
+            json!({
+                "posts/shared": {
+                    "text": "Bob writing to Alice's space",
+                    "author": bob.to_string()
+                }
+            }),
+            None,
+        ));
         assert!(write_result.is_ok(), "Bob should be able to write with permission: {:?}", write_result.err());
         println!("✓ Cross-account write with permissions test passed");
     }
@@ -58,14 +68,18 @@ mod comprehensive_integration_tests {
         // Setup storage for Alice
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let _ = contract.set(json!({"profile/name": "Alice"}), None, None);
+        let _ = contract.set(set_request(json!({"profile/name": "Alice"}), None));
         // Bob tries to write to Alice's data without permission
         let bob = test_account(2);
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let write_result = contract.set_for(alice.clone(), json!({
-            "posts/unauthorized": "Bob's unauthorized post"
-        }), None, None);
+        let write_result = contract.set(set_request_for(
+            alice.clone(),
+            json!({
+                "posts/unauthorized": "Bob's unauthorized post"
+            }),
+            None,
+        ));
         assert!(write_result.is_err(), "Write without permission should fail");
         println!("✓ Cross-account write without permissions correctly fails");
     }
@@ -77,6 +91,12 @@ mod comprehensive_integration_tests {
         // Alice grants Bob permission to posts/ but not profile/
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
+
+        // Ensure Alice has a storage balance (set_permission does not consume attached_deposit).
+        contract
+            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .unwrap();
+
         contract.set_permission(
             bob.clone(),
             format!("{}/posts", alice),
@@ -86,14 +106,18 @@ mod comprehensive_integration_tests {
         // Bob can write to posts/
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let posts_write = contract.set_for(alice.clone(), json!({
-            "posts/test": "Allowed"
-        }), None, None);
+        let posts_write = contract.set(set_request_for(
+            alice.clone(),
+            json!({
+                "posts/test": "Allowed"
+            }),
+            None,
+        ));
         assert!(posts_write.is_ok(), "Write to posts/ should succeed: {:?}", posts_write.err());
         // Bob cannot write to profile/
-        let profile_write = contract.set_for(alice.clone(), json!({
-            "profile/bio": "Unauthorized"
-        }), None, None);
+        let profile_write = contract.set(set_request_for(alice.clone(), json!({
+                "profile/bio": "Unauthorized"
+            }), None));
         assert!(profile_write.is_err(), "Write to profile/ should fail");
         println!("✓ Permission boundary enforcement test passed");
     }
@@ -107,16 +131,19 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Write data across different paths
-        let result = contract.set(json!({
-            "profile/name": "Alice",
-            "profile/bio": "Developer",
-            "posts/1": {"text": "First post"},
-            "posts/2": {"text": "Second post"},
-            "posts/3": {"text": "Third post"},
-            "friends/bob": {"status": "friend"},
-            "friends/charlie": {"status": "friend"},
-            "settings/privacy": "public"
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "profile/name": "Alice",
+                "profile/bio": "Developer",
+                "posts/1": {"text": "First post"},
+                "posts/2": {"text": "Second post"},
+                "posts/3": {"text": "Third post"},
+                "friends/bob": {"status": "friend"},
+                "friends/charlie": {"status": "friend"},
+                "settings/privacy": "public"
+            }),
+            None,
+        ));
         assert!(result.is_ok(), "Writes should succeed");
         // Retrieve data from different paths
         let keys = vec![
@@ -125,7 +152,7 @@ mod comprehensive_integration_tests {
             format!("{}/friends/bob", alice),
             format!("{}/settings/privacy", alice),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert_eq!(retrieved.len(), 4, "All data should be retrievable");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
         println!("✓ Storage end-to-end test passed");
@@ -139,17 +166,23 @@ mod comprehensive_integration_tests {
         // Simulate concurrent writes from different users (different namespaces)
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"posts/1": "Alice's post"}), None, None).unwrap();
+        contract
+            .set(set_request(json!({"posts/1": "Alice's post"}), None))
+            .unwrap();
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"posts/1": "Bob's post"}), None, None).unwrap();
+        contract
+            .set(set_request(json!({"posts/1": "Bob's post"}), None))
+            .unwrap();
         let context = get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"posts/1": "Charlie's post"}), None, None).unwrap();
+        contract
+            .set(set_request(json!({"posts/1": "Charlie's post"}), None))
+            .unwrap();
         // Verify all writes succeeded independently
-        let alice_data = contract.get(vec![format!("{}/posts/1", alice)], None, None, None);
-        let bob_data = contract.get(vec![format!("{}/posts/1", bob)], None, None, None);
-        let charlie_data = contract.get(vec![format!("{}/posts/1", charlie)], None, None, None);
+        let alice_data = contract_get_values_map(&contract, vec![format!("{}/posts/1", alice)], None);
+        let bob_data = contract_get_values_map(&contract, vec![format!("{}/posts/1", bob)], None);
+        let charlie_data = contract_get_values_map(&contract, vec![format!("{}/posts/1", charlie)], None);
         assert!(!alice_data.is_empty(), "Alice's data should exist");
         assert!(!bob_data.is_empty(), "Bob's data should exist");
         assert!(!charlie_data.is_empty(), "Charlie's data should exist");
@@ -180,7 +213,6 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         let join_result = contract.join_group(
             "test-group".to_string(),
-            WRITE,
         );
         assert!(join_result.is_ok(), "Public group join should succeed: {:?}", join_result.err());
         // Verify member was added
@@ -188,7 +220,7 @@ mod comprehensive_integration_tests {
         assert!(is_member, "Member should be in the group");
         // Step 3: Member can now read public group data (thanks to public read fix!)
         let keys = vec!["groups/test-group/config".to_string()];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(!retrieved.is_empty(), "Public group config should be readable");
         println!("✓ Complete public group workflow test passed");
     }
@@ -213,7 +245,6 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         let request_result = contract.join_group(
             "private-group".to_string(),
-            WRITE,
         );
         assert!(request_result.is_ok(), "Join request should be created");
         // Step 3: Owner approves request
@@ -222,8 +253,7 @@ mod comprehensive_integration_tests {
         let approve_result = contract.approve_join_request(
             "private-group".to_string(),
             requester.clone(),
-            WRITE, // Approve with WRITE permission
-            None,
+            0,
         );
         assert!(approve_result.is_ok(), "Join approval should succeed: {:?}", approve_result.err());
         // Verify member was added
@@ -248,8 +278,8 @@ mod comprehensive_integration_tests {
                 "is_private": true,  // Member-driven requires private
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.5001,
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5001,
                     "voting_period": 604800000000000u64  // 1 week in nanoseconds
                 }
             }),
@@ -259,12 +289,16 @@ mod comprehensive_integration_tests {
                 "Owner should be a group member");
         // In member-driven groups, adding members creates proposals
         // Owner proposes member1 (auto-executes since owner is only voter)
-        contract.add_group_member("demo-group".to_string(), member1.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("demo-group".to_string(), member1.clone(), 0)
+            .unwrap();
         assert!(contract.is_group_member("demo-group".to_string(), member1.clone()), 
                 "Member1 should be added (auto-executed proposal)");
         // Now we have 2 members (owner + member1), so next proposal needs 2 votes
         // Owner proposes member2
-        let _proposal_id1 = contract.add_group_member("demo-group".to_string(), member2.clone(), WRITE, None).unwrap();
+        let _proposal_id1 = contract
+            .add_group_member("demo-group".to_string(), member2.clone(), 0)
+            .unwrap();
         
         // Member1 must also approve for quorum (2/2 = 100% participation, >51% required)
         let context = get_context_with_deposit(member1.clone(), 10_000_000_000_000_000_000_000_000);
@@ -283,9 +317,8 @@ mod comprehensive_integration_tests {
             "member_invite".to_string(),
             json!({
                 "target_user": candidate.to_string(),
-                "permission_flags": WRITE
+                "level": 0
             }),
-            None,
             None,
         ).unwrap();
         println!("Created proposal by member1: {}", proposal_id);
@@ -293,7 +326,7 @@ mod comprehensive_integration_tests {
         // Now owner votes YES to reach quorum
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.vote_on_proposal("demo-group".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("demo-group".to_string(), proposal_id.clone(), true).unwrap();
         // With 2/2 members voting YES (100% participation, 100% approval), proposal should execute
         // Verify candidate was added after democratic vote
         assert!(contract.is_group_member("demo-group".to_string(), candidate.clone()), 
@@ -311,26 +344,38 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), initial_deposit);
         testing_env!(context.build());
         // Deposit storage
-        contract.set(json!({
-            "storage/deposit": {"amount": "3000000000000000000000000"}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {"amount": "3000000000000000000000000"}
+                }),
+                None,
+            ))
+            .unwrap();
         let balance_1 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_1.balance >= 3_000_000_000_000_000_000_000_000u128, "Initial deposit should be recorded");
         // Write data (consumes storage)
-        contract.set(json!({
-            "profile/name": "Alice",
-            "profile/bio": "Long bio text that consumes storage space",
-            "posts/1": {"text": "Post 1", "timestamp": 12345},
-            "posts/2": {"text": "Post 2", "timestamp": 12346},
-            "posts/3": {"text": "Post 3", "timestamp": 12347},
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Alice",
+                    "profile/bio": "Long bio text that consumes storage space",
+                    "posts/1": {"text": "Post 1", "timestamp": 12345},
+                    "posts/2": {"text": "Post 2", "timestamp": 12346},
+                    "posts/3": {"text": "Post 3", "timestamp": 12347},
+                }),
+                None,
+            ))
+            .unwrap();
         let balance_2 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_2.used_bytes > 0, "Storage should be consumed");
         // Delete data (releases storage)
-        contract.set(json!({
-            "posts/1": null,
-            "posts/2": null,
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "posts/1": null,
+                    "posts/2": null,
+                }), None))
+            .unwrap();
         let balance_3 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_3.used_bytes < balance_2.used_bytes, "Deleted data should release storage");
         println!("✓ Storage balance tracking across operations test passed");
@@ -344,23 +389,32 @@ mod comprehensive_integration_tests {
         // Pool owner creates shared storage pool
         let context = get_context_with_deposit(pool_owner.clone(), 10_000_000_000_000_000_000_000_000u128);
         testing_env!(context.build());
-        contract.set(json!({
-            "storage/deposit": {"amount": "5000000000000000000000000"}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {"amount": "5000000000000000000000000"}
+                }),
+                None,
+            ))
+            .unwrap();
         // User 1 writes data with their own storage
         let context = get_context_with_deposit(user1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({
-            "profile/name": "User 1",
-            "posts/1": "Using storage"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "profile/name": "User 1",
+                    "posts/1": "Using storage"
+                }), None))
+            .unwrap();
         // User 2 writes data with their own storage
         let context = get_context_with_deposit(user2.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({
-            "profile/name": "User 2",
-            "posts/1": "Using storage"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "profile/name": "User 2",
+                    "posts/1": "Using storage"
+                }), None))
+            .unwrap();
         // Verify storage tracking works
         let user1_balance = contract.get_storage_balance(user1.clone()).unwrap();
         assert!(user1_balance.balance > 0, "User should have storage balance");
@@ -375,16 +429,21 @@ mod comprehensive_integration_tests {
         let initial_deposit = 2_000_000_000_000_000_000_000_000u128;
         let context = get_context_with_deposit(alice.clone(), initial_deposit);
         testing_env!(context.build());
-        contract.set(json!({
-            "storage/deposit": {"amount": initial_deposit.to_string()}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {"amount": initial_deposit.to_string()}
+                }),
+                None,
+            ))
+            .unwrap();
         let initial_balance = contract.get_storage_balance(alice.clone()).unwrap();
         // Try to write to Bob's account without permission (should fail and refund)
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let failed_write = contract.set_for(bob.clone(), json!({
-            "posts/unauthorized": "Should fail"
-        }), None, None);
+        let failed_write = contract.set(set_request_for(bob.clone(), json!({
+                "posts/unauthorized": "Should fail"
+            }), None));
         assert!(failed_write.is_err(), "Unauthorized write should fail");
         // Alice's storage balance should remain unchanged (refunded)
         let final_balance = contract.get_storage_balance(alice.clone()).unwrap();
@@ -401,16 +460,18 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Perform operations that should emit events
-        use crate::EventConfig;
-        let result = contract.set(json!({
-            "profile/name": "Alice",
-            "posts/1": {"text": "Hello world"}
-        }), None, Some(EventConfig { emit: true, event_type: None }));
+        let result = contract.set(set_request(
+            json!({
+                "profile/name": "Alice",
+                "posts/1": {"text": "Hello world"}
+            }),
+            None,
+        ));
         assert!(result.is_ok(), "Operations with events should succeed");
         // In a real scenario, we'd check logs here
         // For now, verify the operation succeeded
         let keys = vec![format!("{}/profile/name", alice)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(!retrieved.is_empty(), "Data should exist");
         println!("✓ Event emission verification test passed");
     }
@@ -421,19 +482,21 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Multiple operations in one call should batch events
-        use crate::EventConfig;
-        let result = contract.set(json!({
-            "storage/deposit": {"amount": "1000000000000000000000000"},
-            "profile/name": "Alice",
-            "profile/bio": "Developer",
-            "posts/1": {"text": "Post 1"},
-            "posts/2": {"text": "Post 2"},
-            "permission/grant": {
-                "grantee": test_account(2).to_string(),
-                "path": format!("{}/posts", alice),
-                "flags": WRITE
-            }
-        }), None, Some(EventConfig { emit: true, event_type: None }));
+        let result = contract.set(set_request(
+            json!({
+                "storage/deposit": {"amount": "1000000000000000000000000"},
+                "profile/name": "Alice",
+                "profile/bio": "Developer",
+                "posts/1": {"text": "Post 1"},
+                "posts/2": {"text": "Post 2"},
+                "permission/grant": {
+                    "grantee": test_account(2).to_string(),
+                    "path": format!("{}/posts", alice),
+                    "flags": WRITE
+                }
+            }),
+            None,
+        ));
         assert!(result.is_ok(), "Batched operations should succeed");
         println!("✓ Event batching across operations test passed");
     }
@@ -447,17 +510,17 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Mix of valid and invalid operations
-        let result = contract.set(json!({
-            "profile/name": "Alice",  // Valid
-            "profile/bio": "Developer",  // Valid
-            // The following would fail if we tried to write to Bob's account
-            // "bob.testnet/posts/hack": "Invalid",  // Would fail
-        }), None, None);
+        let result = contract.set(set_request(json!({
+                "profile/name": "Alice",  // Valid
+                "profile/bio": "Developer",  // Valid
+                // The following would fail if we tried to write to Bob's account
+                // "bob.testnet/posts/hack": "Invalid",  // Would fail
+            }), None));
         // Valid operations should succeed
         assert!(result.is_ok(), "Valid operations should succeed");
         // Verify only valid data was written
         let keys = vec![format!("{}/profile/name", alice)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(!retrieved.is_empty(), "Valid data should exist");
         println!("✓ Partial operation failure test passed");
     }
@@ -468,17 +531,21 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Write initial data
-        contract.set(json!({
-            "profile/name": "Alice",
-            "profile/version": 1
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "profile/name": "Alice",
+                    "profile/version": 1
+                }), None))
+            .unwrap();
         // Write empty string (valid operation that overwrites)
-        contract.set(json!({
-            "profile/name": "".to_string(),
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "profile/name": "".to_string(),
+                }), None))
+            .unwrap();
         // Verify the empty string was written (contract allows it)
         let keys = vec![format!("{}/profile/name", alice)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("")), 
                    "Empty string should overwrite data");
         println!("✓ State consistency after errors test passed");
@@ -494,36 +561,56 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         // Create post
         let post_id = "post-123";
-        contract.set(json!({
-            format!("posts/{}", post_id): {
-                "text": "My first post!",
-                "timestamp": 1234567890,
-                "likes": 0
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("posts/{}", post_id): {
+                        "text": "My first post!",
+                        "timestamp": 1234567890,
+                        "likes": 0
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Edit post
-        contract.set(json!({
-            format!("posts/{}", post_id): {
-                "text": "My edited post!",
-                "timestamp": 1234567890,
-                "edited": true,
-                "likes": 0
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("posts/{}", post_id): {
+                        "text": "My edited post!",
+                        "timestamp": 1234567890,
+                        "edited": true,
+                        "likes": 0
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Add reaction
-        contract.set(json!({
-            format!("posts/{}/reactions/user1", post_id): {
-                "type": "like",
-                "timestamp": 1234567900
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("posts/{}/reactions/user1", post_id): {
+                        "type": "like",
+                        "timestamp": 1234567900
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Delete post
-        contract.set(json!({
-            format!("posts/{}", post_id): null
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("posts/{}", post_id): null
+                }),
+                None,
+            ))
+            .unwrap();
         // Verify deletion
         let keys = vec![format!("{}/posts/{}", alice, post_id)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(retrieved.is_empty() || retrieved.get(&format!("{}/posts/{}", alice, post_id)).is_none(), 
                 "Deleted post should not be retrievable");
         println!("✓ Social media post lifecycle test passed");
@@ -537,30 +624,45 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Alice adds friends
-        contract.set(json!({
-            format!("friends/{}", bob): {
-                "status": "friend",
-                "since": 1234567890
-            },
-            format!("friends/{}", charlie): {
-                "status": "friend",
-                "since": 1234567891
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("friends/{}", bob): {
+                        "status": "friend",
+                        "since": 1234567890
+                    },
+                    format!("friends/{}", charlie): {
+                        "status": "friend",
+                        "since": 1234567891
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Alice adds followers
-        contract.set(json!({
-            "followers/user1": {"since": 1234567900},
-            "followers/user2": {"since": 1234567901},
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "followers/user1": {"since": 1234567900},
+                    "followers/user2": {"since": 1234567901},
+                }),
+                None,
+            ))
+            .unwrap();
         // Alice unfriends Bob
-        contract.set(json!({
-            format!("friends/{}", bob): null
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("friends/{}", bob): null
+                }),
+                None,
+            ))
+            .unwrap();
         // Verify friend list
         let keys = vec![
             format!("{}/friends/{}", alice, charlie),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(!retrieved.is_empty(), "Charlie should still be a friend");
         println!("✓ Friend/follower management test passed");
     }
@@ -581,22 +683,31 @@ mod comprehensive_integration_tests {
                 "member_driven": false
             }),
         ).unwrap();
-        // Add moderator with MODERATE permission
-        contract.add_group_member("moderated-group".to_string(), moderator.clone(), MODERATE, None).unwrap();
-        // Add regular user with WRITE permission
-        contract.add_group_member("moderated-group".to_string(), user.clone(), WRITE, None).unwrap();
+        // Add moderator (clean-add: onboarding starts member-only)
+        contract
+            .add_group_member("moderated-group".to_string(), moderator.clone(), 0)
+            .unwrap();
+        // Add regular user (clean-add)
+        contract
+            .add_group_member("moderated-group".to_string(), user.clone(), 0)
+            .unwrap();
         // User posts content to their own space (not group path)
         let context = get_context_with_deposit(user.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({
-            format!("{}/posts/user-post", user): {
-                "text": "User's post",
-                "author": user.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("{}/posts/user-post", user): {
+                        "text": "User's post",
+                        "author": user.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Moderator can read the post via get()
         let keys = vec![format!("{}/posts/user-post", user)];
-        let retrieved = contract.get(keys.clone(), None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys.clone(), None);
         assert!(!retrieved.is_empty(), "Moderator should be able to read posts");
         
         // Owner can remove content from their group
@@ -617,15 +728,20 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Write diverse data
-        contract.set(json!({
-            "profile/name": "Alice",
-            "profile/bio": "Developer",
-            "profile/avatar": "https://example.com/avatar.jpg",
-            "posts/1": {"text": "Post 1"},
-            "posts/2": {"text": "Post 2"},
-            "settings/theme": "dark",
-            "settings/language": "en"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Alice",
+                    "profile/bio": "Developer",
+                    "profile/avatar": "https://example.com/avatar.jpg",
+                    "posts/1": {"text": "Post 1"},
+                    "posts/2": {"text": "Post 2"},
+                    "settings/theme": "dark",
+                    "settings/language": "en"
+                }),
+                None,
+            ))
+            .unwrap();
         // Retrieve multiple keys at once
         let keys = vec![
             format!("{}/profile/name", alice),
@@ -633,7 +749,7 @@ mod comprehensive_integration_tests {
             format!("{}/posts/1", alice),
             format!("{}/settings/theme", alice),
         ];
-        let retrieved = contract.get(keys.clone(), None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys.clone(), None);
         assert_eq!(retrieved.len(), keys.len(), "All keys should be retrieved");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
         assert_eq!(retrieved.get(&format!("{}/settings/theme", alice)), Some(&json!("dark")));
@@ -645,12 +761,12 @@ mod comprehensive_integration_tests {
         let alice = test_account(1);
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({
-            "profile/name": "Alice"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({ "profile/name": "Alice" }), None))
+            .unwrap();
         // Get with metadata
         let keys = vec![format!("{}/profile/name", alice)];
-        let retrieved = contract.get(keys, None, None, Some(true));
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(!retrieved.is_empty(), "Data with metadata should be retrieved");
         // In real implementation, metadata would include timestamps, versions, etc.
         println!("✓ Get with metadata test passed");
@@ -663,17 +779,21 @@ mod comprehensive_integration_tests {
         // Alice writes her data
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"profile/name": "Alice"}), None, None).unwrap();
+        contract
+            .set(set_request(json!({"profile/name": "Alice"}), None))
+            .unwrap();
         // Bob writes his data
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({"profile/name": "Bob"}), None, None).unwrap();
+        contract
+            .set(set_request(json!({"profile/name": "Bob"}), None))
+            .unwrap();
         // Retrieve data from both accounts
         let keys = vec![
             format!("{}/profile/name", alice),
             format!("{}/profile/name", bob),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert_eq!(retrieved.len(), 2, "Both accounts' data should be retrieved");
         assert_eq!(retrieved.get(&format!("{}/profile/name", alice)), Some(&json!("Alice")));
         assert_eq!(retrieved.get(&format!("{}/profile/name", bob)), Some(&json!("Bob")));
@@ -697,20 +817,27 @@ mod comprehensive_integration_tests {
             }),
         ).unwrap();
         // Add member
-        contract.add_group_member("secret-group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("secret-group".to_string(), member.clone(), 0)
+            .unwrap();
         // Member writes private content to their own space
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({
-            format!("{}/private-data", member): "Secret information"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    format!("{}/private-data", member): "Secret information"
+                }),
+                None,
+            ))
+            .unwrap();
         // Member can read their own data
         let keys = vec![format!("{}/private-data", member)];
-        let member_view = contract.get(keys.clone(), None, None, None);
+        let member_view = contract_get_values_map(&contract, keys.clone(), None);
         assert!(!member_view.is_empty(), "Member should see their own data");
         // Group config is readable (public read by default)
         let group_keys = vec!["groups/secret-group/config".to_string()];
-        let config_view = contract.get(group_keys, None, None, None);
+        let config_view = contract_get_values_map(&contract, group_keys, None);
         assert!(!config_view.is_empty(), "Group config should be readable with public read fix");
         println!("✓ Public vs private data visibility test passed");
     }
@@ -723,7 +850,7 @@ mod comprehensive_integration_tests {
             format!("{}/nonexistent/path", alice),
             format!("{}/another/missing", alice),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(retrieved.is_empty(), "Nonexistent keys should return empty");
         println!("✓ Get nonexistent keys test passed");
     }
@@ -739,50 +866,77 @@ mod comprehensive_integration_tests {
         // Owner creates collaborative space
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set(json!({
-            "projects/project1": {
-                "name": "Collaborative Project",
-                "status": "active"
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "projects/project1": {
+                        "name": "Collaborative Project",
+                        "status": "active"
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Grant permissions to editors
-        contract.set(json!({
-            "permission/grant": {
-                "grantee": editor1.to_string(),
-                "path": format!("{}/projects/project1", owner),
-                "flags": WRITE
-            }
-        }), None, None).unwrap();
-        contract.set(json!({
-            "permission/grant": {
-                "grantee": editor2.to_string(),
-                "path": format!("{}/projects/project1", owner),
-                "flags": WRITE
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "permission/grant": {
+                        "grantee": editor1.to_string(),
+                        "path": format!("{}/projects/project1", owner),
+                        "flags": WRITE
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "permission/grant": {
+                        "grantee": editor2.to_string(),
+                        "path": format!("{}/projects/project1", owner),
+                        "flags": WRITE
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Editors collaborate
         let context = get_context_with_deposit(editor1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set_for(owner.clone(), json!({
-            "projects/project1/tasks/task1": {
-                "title": "Task 1",
-                "assignee": editor1.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request_for(
+                owner.clone(),
+                json!({
+                    "projects/project1/tasks/task1": {
+                        "title": "Task 1",
+                        "assignee": editor1.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         let context = get_context_with_deposit(editor2.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.set_for(owner.clone(), json!({
-            "projects/project1/tasks/task2": {
-                "title": "Task 2",
-                "assignee": editor2.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request_for(
+                owner.clone(),
+                json!({
+                    "projects/project1/tasks/task2": {
+                        "title": "Task 2",
+                        "assignee": editor2.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Verify collaboration
         let keys = vec![
             format!("{}/projects/project1/tasks/task1", owner),
             format!("{}/projects/project1/tasks/task2", owner),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert_eq!(retrieved.len(), 2, "Both tasks should exist");
         println!("✓ Multi-user collaboration test passed");
     }
@@ -793,23 +947,34 @@ mod comprehensive_integration_tests {
         let bob = test_account(2);
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
+
+        // Ensure Alice has a storage balance (permission grants do not consume attached_deposit).
+        contract
+            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .unwrap();
+
         // Grant directory-level permission
-        contract.set(json!({
-            "permission/grant": {
-                "grantee": bob.to_string(),
-                "path": format!("{}/posts", alice),
-                "flags": WRITE
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "permission/grant": {
+                        "grantee": bob.to_string(),
+                        "path": format!("{}/posts", alice),
+                        "flags": WRITE
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
         // Bob should be able to write to any path under posts/
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let write1 = contract.set_for(alice.clone(), json!({
-            "posts/2024/january/post1": "Post in January"
-        }), None, None);
-        let write2 = contract.set_for(alice.clone(), json!({
-            "posts/2024/february/post2": "Post in February"
-        }), None, None);
+        let write1 = contract.set(set_request_for(alice.clone(), json!({
+                "posts/2024/january/post1": "Post in January"
+            }), None));
+        let write2 = contract.set(set_request_for(alice.clone(), json!({
+                "posts/2024/february/post2": "Post in February"
+            }), None));
         assert!(write1.is_ok(), "Subdirectory write 1 should succeed");
         assert!(write2.is_ok(), "Subdirectory write 2 should succeed");
         println!("✓ Cascading permissions test passed");
@@ -822,16 +987,21 @@ mod comprehensive_integration_tests {
         let small_deposit = 1_000_000_000_000_000_000_000_000u128; // 1 NEAR
         let context = get_context_with_deposit(alice.clone(), small_deposit);
         testing_env!(context.build());
-        contract.set(json!({
-            "storage/deposit": {"amount": small_deposit.to_string()}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {"amount": small_deposit.to_string()}
+                }),
+                None,
+            ))
+            .unwrap();
         // Try to write more data than storage allows
         let large_data = "x".repeat(100000); // Large string
-        let result = contract.set(json!({
-            "large/data1": large_data.clone(),
-            "large/data2": large_data.clone(),
-            "large/data3": large_data,
-        }), None, None);
+        let result = contract.set(set_request(json!({
+                "large/data1": large_data.clone(),
+                "large/data2": large_data.clone(),
+                "large/data3": large_data,
+            }), None));
         // Should either succeed with available storage or fail gracefully
         // The important thing is consistent behavior
         match result {

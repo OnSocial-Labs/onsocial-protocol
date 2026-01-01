@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package onsocial.v1;
+
+// Top-level output containing all decoded events from a block
+message Events {
+  repeated Event events = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string block_hash = 4;
+}
+
+// Decoded OnSocial NEP-297 event from contract logs
+message Event {
+  // NEP-297 standard fields
+  string standard = 1;        // "onsocial"
+  string version = 2;         // "1.0.0"
+  string event = 3;           // Category: "GROUP_UPDATE", "DATA_UPDATE", etc.
+  
+  // Event data array (NEP-297 requires array)
+  repeated EventData data = 4;
+  
+  // NEAR receipt info for tracing
+  string receipt_id = 5;
+  string predecessor_id = 6;
+  string receiver_id = 7;
+  
+  // Block context (provided by Substreams, not contract)
+  uint64 block_height = 8;
+  uint64 block_timestamp = 9;
+  uint32 log_index = 10;
+}
+
+// Event data payload (matches EventData in contract)
+message EventData {
+  string operation = 1;       // "add_member", "set", "delete", etc.
+  string author = 2;          // Who performed the action
+  
+  // Partition ID for indexer routing (0 if not set)
+  uint32 partition_id = 3;
+  bool has_partition_id = 4;
+  
+  // Flattened extra fields from JSON
+  repeated ExtraField extra = 5;
+}
+
+// Extra field from event data
+message ExtraField {
+  string key = 1;
+  ExtraValue value = 2;
+}
+
+// Value types for extra fields
+message ExtraValue {
+  oneof value {
+    string string_value = 1;
+    double number_value = 2;
+    bool bool_value = 3;
+    bool is_null = 4;
+  }
+}

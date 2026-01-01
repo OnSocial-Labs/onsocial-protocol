@@ -245,9 +245,9 @@ mod group_creation_tests {
         assert!(!logs.is_empty(), "Events should be emitted for group creation");
 
         // Look for group creation event in logs
-        // Events are base64 encoded, so we just check that an EVENT was logged
+        // Events are in NEP-297 JSON format with EVENT_JSON: prefix
         let has_group_event = logs.iter().any(|log| {
-            log.contains("EVENT:")
+            log.starts_with("EVENT_JSON:")
         });
         assert!(has_group_event, "Group creation event should be emitted");
 
@@ -343,8 +343,7 @@ mod group_creation_tests {
         let result = contract.transfer_group_ownership(
             group_id.to_string(), 
             bob.clone(), 
-            None, // Default behavior
-            None
+            None // Default behavior
         );
         // This should fail because Bob is not a member yet, but the API should work
         assert!(result.is_err(), "Transfer to non-member should fail (but API signature works)");
@@ -353,8 +352,7 @@ mod group_creation_tests {
         let result = contract.transfer_group_ownership(
             group_id.to_string(), 
             bob.clone(), 
-            Some(true), // Explicitly remove old owner
-            None
+            Some(true) // Explicitly remove old owner
         );
         assert!(result.is_err(), "Transfer to non-member should fail (but API signature works)");
 
@@ -362,8 +360,7 @@ mod group_creation_tests {
         let result = contract.transfer_group_ownership(
             group_id.to_string(), 
             bob.clone(), 
-            Some(false), // Keep old owner as member
-            None
+            Some(false) // Keep old owner as member
         );
         assert!(result.is_err(), "Transfer to non-member should fail (but API signature works)");
 
@@ -392,9 +389,7 @@ mod group_creation_tests {
         let result = contract.transfer_group_ownership(
             group_id.to_string(), 
             bob.clone(), 
-            None,
-            None
-        );
+            None);
         assert!(result.is_err(), "Should not be able to transfer to non-member");
         let error_msg = format!("{:?}", result.unwrap_err());
         assert!(error_msg.contains("must be a member"), "Error should mention membership requirement");
@@ -403,9 +398,7 @@ mod group_creation_tests {
         let result = contract.transfer_group_ownership(
             group_id.to_string(), 
             alice.clone(), 
-            None,
-            None
-        );
+            None);
         assert!(result.is_err(), "Should not be able to transfer to yourself");
 
         // Test 3: Non-owner cannot transfer ownership
@@ -415,9 +408,7 @@ mod group_creation_tests {
         let result = contract.transfer_group_ownership(
             group_id.to_string(), 
             alice.clone(), 
-            None,
-            None
-        );
+            None);
         assert!(result.is_err(), "Non-owner should not be able to transfer ownership");
 
         println!("✓ Ownership transfer basic validation test passed");

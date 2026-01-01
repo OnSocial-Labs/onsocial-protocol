@@ -26,7 +26,6 @@ mod contract_lifecycle_tests {
         assert!(config.max_key_length > 0, "Max key length should be set");
         assert!(config.max_path_depth > 0, "Max path depth should be set");
         assert!(config.max_batch_size > 0, "Max batch size should be set");
-        assert!(config.min_promise_gas_tgas > 0, "Min promise gas should be set");
 
         // Test manager is set (should be the contract account itself initially)
         assert!(!contract.platform.manager.to_string().is_empty(), "Manager should be set");
@@ -54,7 +53,7 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context.build());
 
         // Activate contract
-        let result = contract.activate_contract();
+        let result = contract.activate_contract().unwrap();
         assert!(result, "Contract activation should succeed");
 
         // Contract should now be in Live status
@@ -86,7 +85,7 @@ mod contract_lifecycle_tests {
         // Enter read-only mode with required deposit (manager must be caller)
         let context1 = get_context_with_deposit(contract_account.clone(), 1);
         near_sdk::testing_env!(context1.build());
-        let result = contract.enter_read_only();
+        let result = contract.enter_read_only().unwrap();
         assert!(result, "Entering read-only should succeed");
         assert_eq!(contract.platform.status, ContractStatus::ReadOnly,
             "Contract should be in ReadOnly status");
@@ -103,7 +102,7 @@ mod contract_lifecycle_tests {
         // Resume live mode with required deposit (manager must be caller)
         let context2 = get_context_with_deposit(contract_account, 1);
         near_sdk::testing_env!(context2.build());
-        let result = contract.resume_live();
+        let result = contract.resume_live().unwrap();
         assert!(result, "Resuming live mode should succeed");
         assert_eq!(contract.platform.status, ContractStatus::Live,
             "Contract should be back in Live status");
@@ -126,10 +125,6 @@ mod contract_lifecycle_tests {
         // Test operation limits
         assert!(config.max_batch_size > 0, "Should allow some operations per batch");
         assert!(config.max_batch_size <= 200, "Batch size should be reasonable");
-
-        // Test gas limits
-        assert!(config.min_promise_gas_tgas >= 10, "Should have minimum gas requirements");
-        assert!(config.min_promise_gas_tgas <= 100, "Gas minimum should be reasonable");
     }
 
     #[test]
@@ -143,7 +138,6 @@ mod contract_lifecycle_tests {
     }
 
     #[test]
-    #[should_panic(expected = "Invalid transition: can only activate Live from Genesis")]
     fn test_invalid_activation_from_readonly() {
         let mut contract = init_live_contract();
 
@@ -151,32 +145,42 @@ mod contract_lifecycle_tests {
         let manager = contract.platform.manager.clone();
         let context = get_context_with_deposit(manager, 1);
         near_sdk::testing_env!(context.build());
-        contract.enter_read_only();
+        contract.enter_read_only().unwrap();
 
-        // Try to activate from ReadOnly - should panic
-        contract.activate_contract();
+        // Try to activate from ReadOnly - should fail
+        let err = contract.activate_contract().unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Invalid transition: can only activate Live from Genesis"
+        );
     }
 
     #[test]
-    #[should_panic(expected = "Invalid transition: can only enter ReadOnly from Live")]
     fn test_invalid_enter_readonly_from_genesis() {
         let mut contract = Contract::new();
         // Contract starts in Genesis, try to enter ReadOnly - should panic
         let manager = contract.platform.manager.clone();
         let context = get_context_with_deposit(manager, 1);
         near_sdk::testing_env!(context.build());
-        contract.enter_read_only();
+        let err = contract.enter_read_only().unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Invalid transition: can only enter ReadOnly from Live"
+        );
     }
 
     #[test]
-    #[should_panic(expected = "Invalid transition: can only resume Live from ReadOnly")]
     fn test_invalid_resume_live_from_genesis() {
         let mut contract = Contract::new();
         // Contract starts in Genesis, try to resume Live - should panic
         let manager = contract.platform.manager.clone();
         let context = get_context_with_deposit(manager, 1);
         near_sdk::testing_env!(context.build());
-        contract.resume_live();
+        let err = contract.resume_live().unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Invalid transition: can only resume Live from ReadOnly"
+        );
     }
 
     #[test]
@@ -187,48 +191,45 @@ mod contract_lifecycle_tests {
         // Try to activate already live contract - should return false
         let context = get_context_with_deposit(manager.clone(), 1);
         near_sdk::testing_env!(context.build());
-        let result = contract.activate_contract();
+        let result = contract.activate_contract().unwrap();
         assert!(!result, "Activating already live contract should return false");
 
         // Enter ReadOnly, then try again - should return false
-        let result = contract.enter_read_only();
+        let result = contract.enter_read_only().unwrap();
         assert!(result, "First enter_read_only should succeed");
-        let result = contract.enter_read_only();
+        let result = contract.enter_read_only().unwrap();
         assert!(!result, "Second enter_read_only should return false");
 
         // Resume Live, then try again - should return false
-        let result = contract.resume_live();
+        let result = contract.resume_live().unwrap();
         assert!(result, "First resume_live should succeed");
-        let result = contract.resume_live();
+        let result = contract.resume_live().unwrap();
         assert!(!result, "Second resume_live should return false");
     }
 
     #[test]
-    #[should_panic(expected = "manager_operation")]
     fn test_unauthorized_activate_contract() {
         let mut contract = Contract::new();
         // Use non-manager account
         let non_manager = near_sdk::test_utils::accounts(1);
         let context = get_context_with_deposit(non_manager, 1);
         near_sdk::testing_env!(context.build());
-
-        contract.activate_contract();
+        let err = contract.activate_contract().unwrap_err();
+        assert!(err.to_string().contains("manager_operation"));
     }
 
     #[test]
-    #[should_panic(expected = "manager_operation")]
     fn test_unauthorized_enter_readonly() {
         let mut contract = init_live_contract();
         // Use non-manager account
         let non_manager = near_sdk::test_utils::accounts(1);
         let context = get_context_with_deposit(non_manager, 1);
         near_sdk::testing_env!(context.build());
-
-        contract.enter_read_only();
+        let err = contract.enter_read_only().unwrap_err();
+        assert!(err.to_string().contains("manager_operation"));
     }
 
     #[test]
-    #[should_panic(expected = "manager_operation")]
     fn test_unauthorized_resume_live() {
         let mut contract = init_live_contract();
         let manager = contract.platform.manager.clone();
@@ -236,18 +237,18 @@ mod contract_lifecycle_tests {
         // Enter ReadOnly first as manager
         let context = get_context_with_deposit(manager, 1);
         near_sdk::testing_env!(context.build());
-        contract.enter_read_only();
+        contract.enter_read_only().unwrap();
 
         // Now try to resume as non-manager
         let non_manager = near_sdk::test_utils::accounts(1);
         let context = get_context_with_deposit(non_manager, 1);
         near_sdk::testing_env!(context.build());
 
-        contract.resume_live();
+        let err = contract.resume_live().unwrap_err();
+        assert!(err.to_string().contains("manager_operation"));
     }
 
     #[test]
-    #[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
     fn test_activate_contract_requires_deposit() {
         let mut contract = Contract::new();
         let manager = contract.platform.manager.clone();
@@ -255,11 +256,11 @@ mod contract_lifecycle_tests {
         let context = get_context(manager);
         near_sdk::testing_env!(context.build());
 
-        contract.activate_contract();
+        let err = contract.activate_contract().unwrap_err();
+        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
     }
 
     #[test]
-    #[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
     fn test_enter_readonly_requires_deposit() {
         let mut contract = init_live_contract();
         let manager = contract.platform.manager.clone();
@@ -267,11 +268,11 @@ mod contract_lifecycle_tests {
         let context = get_context(manager);
         near_sdk::testing_env!(context.build());
 
-        contract.enter_read_only();
+        let err = contract.enter_read_only().unwrap_err();
+        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
     }
 
     #[test]
-    #[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
     fn test_resume_live_requires_deposit() {
         let mut contract = init_live_contract();
         let manager = contract.platform.manager.clone();
@@ -279,13 +280,14 @@ mod contract_lifecycle_tests {
         // Enter ReadOnly first with deposit
         let context = get_context_with_deposit(manager.clone(), 1);
         near_sdk::testing_env!(context.build());
-        contract.enter_read_only();
+        contract.enter_read_only().unwrap();
 
         // Now try to resume without deposit
         let context = get_context(manager);
         near_sdk::testing_env!(context.build());
 
-        contract.resume_live();
+        let err = contract.resume_live().unwrap_err();
+        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
     }
 
     #[test]
@@ -304,12 +306,6 @@ mod contract_lifecycle_tests {
         invalid_update.max_key_length = 200; // Decrease not allowed
         assert!(invalid_update.validate_update(&current_config).is_err(),
             "Decreases should not be allowed");
-
-        // Test gas minimum enforcement
-        let mut low_gas_config = current_config.clone();
-        low_gas_config.min_promise_gas_tgas = 5; // Below minimum
-        assert!(low_gas_config.validate_update(&current_config).is_err(),
-            "Gas below minimum should not be allowed");
     }
 
     #[test]
@@ -330,6 +326,84 @@ mod contract_lifecycle_tests {
         assert!(config.max_key_length >= 256, "Max key length should be at least 256");
         assert!(config.max_path_depth >= 10, "Max path depth should be reasonable");
         assert!(config.max_batch_size >= 50, "Max batch size should be reasonable");
-        assert!(config.min_promise_gas_tgas >= 10, "Min gas should be at least 10 TGas");
+    }
+
+    #[test]
+    fn test_update_manager_success() {
+        let mut contract = init_live_contract();
+        let manager = contract.platform.manager.clone();
+        let new_manager = near_sdk::test_utils::accounts(2);
+
+        let _ = get_logs();
+
+        let context = get_context_with_deposit(manager.clone(), 1);
+        near_sdk::testing_env!(context.build());
+
+        let result = contract.update_manager(new_manager.clone());
+        assert!(result.is_ok(), "Manager should be able to update manager");
+
+        assert_eq!(contract.platform.manager, new_manager,
+            "Manager should be updated to new account");
+
+        let logs = get_logs();
+        assert_eq!(logs.len(), 1, "Should emit exactly one event");
+        assert!(logs[0].contains("update_manager"), "Event should contain update_manager operation");
+        assert!(logs[0].contains(&manager.to_string()), "Event should contain old manager");
+        assert!(logs[0].contains(&new_manager.to_string()), "Event should contain new manager");
+    }
+
+    #[test]
+    fn test_update_manager_unauthorized() {
+        let mut contract = init_live_contract();
+        let non_manager = near_sdk::test_utils::accounts(1);
+        let new_manager = near_sdk::test_utils::accounts(2);
+
+        let context = get_context_with_deposit(non_manager, 1);
+        near_sdk::testing_env!(context.build());
+
+        let err = contract.update_manager(new_manager).unwrap_err();
+        assert!(err.to_string().contains("manager_operation"),
+            "Non-manager should be rejected");
+    }
+
+    #[test]
+    fn test_update_manager_requires_deposit() {
+        let mut contract = init_live_contract();
+        let manager = contract.platform.manager.clone();
+        let new_manager = near_sdk::test_utils::accounts(2);
+
+        let context = get_context(manager);
+        near_sdk::testing_env!(context.build());
+
+        let err = contract.update_manager(new_manager).unwrap_err();
+        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
+    }
+
+    #[test]
+    fn test_update_manager_chain_of_ownership() {
+        let mut contract = init_live_contract();
+        let original_manager = contract.platform.manager.clone();
+        let second_manager = near_sdk::test_utils::accounts(2);
+        let third_manager = near_sdk::test_utils::accounts(3);
+
+        // Original manager transfers to second manager
+        let context = get_context_with_deposit(original_manager.clone(), 1);
+        near_sdk::testing_env!(context.build());
+        contract.update_manager(second_manager.clone()).unwrap();
+
+        // Original manager can no longer perform admin ops
+        let context = get_context_with_deposit(original_manager, 1);
+        near_sdk::testing_env!(context.build());
+        let err = contract.update_manager(third_manager.clone()).unwrap_err();
+        assert!(err.to_string().contains("manager_operation"),
+            "Old manager should be rejected");
+
+        // Second manager can transfer to third
+        let context = get_context_with_deposit(second_manager, 1);
+        near_sdk::testing_env!(context.build());
+        contract.update_manager(third_manager.clone()).unwrap();
+
+        assert_eq!(contract.platform.manager, third_manager,
+            "Manager should be third account");
     }
 }

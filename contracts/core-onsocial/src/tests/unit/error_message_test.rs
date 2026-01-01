@@ -7,7 +7,6 @@ mod error_message_tests {
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
     use near_sdk::{testing_env, AccountId};
-    use crate::groups::kv_permissions::WRITE;
     fn test_account(index: usize) -> AccountId {
         accounts(index)
     }
@@ -26,9 +25,15 @@ mod error_message_tests {
         // Bob tries to write to Alice's group content without permission
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
         
-        let result = contract.set_for(alice.clone(), json!({
-            "test": "unauthorized"
-        }), None, None);
+        let result = contract.set(set_request_for(
+            alice.clone(),
+            json!({
+                "groups/perm_test/content/unauthorized_test": {
+                    "text": "unauthorized"
+                }
+            }),
+            None,
+        ));
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -58,7 +63,7 @@ mod error_message_tests {
         let bob = test_account(1);
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         // Try to add member to non-existent group
-        let result = contract.add_group_member("nonexistent_group".to_string(), bob.clone(), WRITE, None);
+        let result = contract.add_group_member("nonexistent_group".to_string(), bob.clone(), 0);
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -81,7 +86,7 @@ mod error_message_tests {
         let config = json!({ "is_private": false });
         contract.create_group("not_member_test".to_string(), config).unwrap();
         // Try to remove bob who is not a member
-        let result = contract.remove_group_member("not_member_test".to_string(), bob.clone(), None);
+        let result = contract.remove_group_member("not_member_test".to_string(), bob.clone());
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -115,10 +120,10 @@ mod error_message_tests {
         let config = json!({ "is_private": false });
         contract.create_group("blacklist_test".to_string(), config).unwrap();
         // Blacklist bob
-        contract.blacklist_group_member("blacklist_test".to_string(), bob.clone(), None).unwrap();
+        contract.blacklist_group_member("blacklist_test".to_string(), bob.clone()).unwrap();
         // Bob tries to join with WRITE permission
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let result = contract.join_group("blacklist_test".to_string(), WRITE);
+        let result = contract.join_group("blacklist_test".to_string());
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -144,7 +149,7 @@ mod error_message_tests {
         let config = json!({ "member_driven": true, "is_private": true });
         contract.create_group("vote_test".to_string(), config).unwrap();
         // Try to vote on non-existent proposal (proposal_id is a String)
-        let result = contract.vote_on_proposal("vote_test".to_string(), "999".to_string(), true, None);
+        let result = contract.vote_on_proposal("vote_test".to_string(), "999".to_string(), true);
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -171,10 +176,12 @@ mod error_message_tests {
         let config = json!({ "is_private": false });
         contract.create_group("transfer_test".to_string(), config).unwrap();
         // Add bob
-        contract.add_group_member("transfer_test".to_string(), bob.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("transfer_test".to_string(), bob.clone(), 0)
+            .unwrap();
         // Bob (non-owner) tries to transfer ownership
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let result = contract.transfer_group_ownership("transfer_test".to_string(), charlie.clone(), None, None);
+        let result = contract.transfer_group_ownership("transfer_test".to_string(), charlie.clone(), None);
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -222,22 +229,29 @@ mod error_message_tests {
     // MANAGER OPERATION ERROR MESSAGES
     // ==========================================================================
     #[test]
-    #[should_panic(expected = "Unauthorized")]
     fn test_non_manager_activate_contract() {
+        // Initialize contract with Alice as manager.
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
         let mut contract = Contract::new();
+
         let bob = test_account(1);
         // Bob (non-manager) tries to activate
         testing_env!(get_context_with_deposit(bob.clone(), 1).build());
-        contract.activate_contract();
+
+        let err = contract.activate_contract().unwrap_err();
+        assert!(err.to_string().contains("Unauthorized"));
     }
     #[test]
-    #[should_panic(expected = "Requires attached deposit of exactly 1 yoctoNEAR")]
     fn test_activate_without_yocto() {
         let alice = test_account(0);
-        testing_env!(get_context_with_deposit(alice.clone(), 1).build());
+        // Initialize contract with Alice as manager.
+        testing_env!(get_context(alice.clone()).build());
         let mut contract = Contract::new();
+
         // Try to activate without 1 yoctoNEAR
         testing_env!(get_context_with_deposit(alice.clone(), 0).build());
-        contract.activate_contract();
+        let err = contract.activate_contract().unwrap_err();
+        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
     }
 }

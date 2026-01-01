@@ -39,7 +39,7 @@ fn test_custom_proposal_creation_and_voting() {
                 "timeline": "3 months"
             }
         }),
-        None, None,
+        None,
     ).unwrap();
 
     // Proposal created successfully (if it failed, unwrap above would panic)
@@ -48,13 +48,13 @@ fn test_custom_proposal_creation_and_voting() {
     // Bob votes YES - this triggers execution!
     // With 2/3 votes (67% approval, 67% participation), thresholds are met
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("community_dao".to_string(), proposal_id.clone(), true, None).unwrap();
+    contract.vote_on_proposal("community_dao".to_string(), proposal_id.clone(), true).unwrap();
 
     println!("✅ Proposal executed after Bob's vote (2/3 = 67% meets thresholds)");
 
     // Charlie tries to vote but proposal is already executed
     testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-    let late_vote = contract.vote_on_proposal("community_dao".to_string(), proposal_id.clone(), true, None);
+    let late_vote = contract.vote_on_proposal("community_dao".to_string(), proposal_id.clone(), true);
     assert!(late_vote.is_err(), "Should not be able to vote on executed proposal");
     let error = late_vote.unwrap_err().to_string();
     assert!(error.contains("not active") || error.contains("executed"), 
@@ -87,16 +87,16 @@ fn test_custom_proposal_rejection() {
             "description": "Remove all meme content from the community",
             "custom_data": {"policy": "strict_no_memes"}
         }),
-        None, None,
+        None,
     ).unwrap();
 
     // Bob votes NO
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("dao".to_string(), proposal_id.clone(), false, None).unwrap();
+    contract.vote_on_proposal("dao".to_string(), proposal_id.clone(), false).unwrap();
 
     // Charlie votes NO
     testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("dao".to_string(), proposal_id.clone(), false, None).unwrap();
+    contract.vote_on_proposal("dao".to_string(), proposal_id.clone(), false).unwrap();
 
     // Votes were cast successfully (1 YES from Alice, 2 NO from Bob and Charlie)
     // With only 33% YES votes, proposal should not reach majority threshold
@@ -122,7 +122,7 @@ fn test_custom_proposal_validation_errors() {
         json!({
             "description": "Some description",
         }),
-        None, None,
+        None,
     );
     assert!(result.is_err(), "Should fail without title");
     assert!(result.unwrap_err().to_string().contains("title required"));
@@ -134,7 +134,7 @@ fn test_custom_proposal_validation_errors() {
         json!({
             "title": "Some title",
         }),
-        None, None,
+        None,
     );
     assert!(result2.is_err(), "Should fail without description");
     assert!(result2.unwrap_err().to_string().contains("description required"));
@@ -147,7 +147,7 @@ fn test_custom_proposal_validation_errors() {
             "title": "",
             "description": "Some description",
         }),
-        None, None,
+        None,
     );
     assert!(result3.is_err(), "Should fail with empty title");
 
@@ -159,7 +159,7 @@ fn test_custom_proposal_validation_errors() {
             "title": "Some title",
             "description": "",
         }),
-        None, None,
+        None,
     );
     assert!(result4.is_err(), "Should fail with empty description");
 
@@ -198,12 +198,11 @@ fn test_custom_proposal_budget_decision() {
             }
         }),
         None,
-        None,
     ).unwrap();
 
     // Bob approves
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("treasury_dao".to_string(), proposal_id.clone(), true, None).unwrap();
+    contract.vote_on_proposal("treasury_dao".to_string(), proposal_id.clone(), true).unwrap();
 
     // Budget proposal was created and voted on successfully
     // The detailed budget data (1000 NEAR allocation) is preserved in proposal
@@ -246,18 +245,17 @@ fn test_custom_proposal_community_poll() {
             }
         }),
         None,
-        None,
     ).unwrap();
 
     // Bob votes YES - triggers execution (2/3 = 67% meets thresholds)
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("artists".to_string(), proposal_id.clone(), true, None).unwrap();
+    contract.vote_on_proposal("artists".to_string(), proposal_id.clone(), true).unwrap();
     
     println!("✅ Poll executed after 2/3 votes");
     
     // Charlie tries to vote but proposal already executed
     testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-    let late_vote = contract.vote_on_proposal("artists".to_string(), proposal_id.clone(), true, None);
+    let late_vote = contract.vote_on_proposal("artists".to_string(), proposal_id.clone(), true);
     assert!(late_vote.is_err(), "Late vote should fail");
 
     println!("✅ Community poll: realistic voting thresholds working correctly");
@@ -282,7 +280,7 @@ fn test_custom_proposal_non_member_cannot_create() {
             "title": "I'm not a member",
             "description": "But I want to propose something",
         }),
-        None, None,
+        None,
     );
 
     assert!(result.is_err(), "Non-member should not be able to create proposal");
@@ -311,7 +309,7 @@ fn test_custom_proposal_with_optional_custom_data() {
             "title": "Simple yes/no question",
             "description": "Should we proceed with plan A?",
         }),
-        None, None,
+        None,
     ).unwrap();
 
     let proposal_path = format!("groups/dao/proposals/{}", proposal_id);

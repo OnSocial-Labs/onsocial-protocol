@@ -15,7 +15,7 @@ mod test_enhanced_permissions {
         assert_eq!(status, crate::state::models::ContractStatus::Live, "Contract should be in Live mode");
 
         // Simple test: check if we can read from a basic path
-        let read_result = contract.get(vec!["test/path".to_string()], Some(owner.clone()), None, None);
+        let read_result = contract_get_values_map(&contract, vec!["test/path".to_string()], Some(owner.clone()));
         // Should succeed even if path doesn't exist
         assert!(read_result.is_empty() || read_result.contains_key("test/path"));
     }
@@ -58,7 +58,9 @@ mod test_enhanced_permissions {
                 "amount": "1000000000000000000000000"  // 1 NEAR
             }
         });
-        contract.set(deposit_data, None, None).unwrap();
+        contract
+            .set(set_request(deposit_data, None))
+            .unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
 
@@ -73,7 +75,7 @@ mod test_enhanced_permissions {
                 "flags": WRITE
             }
         });
-        let result = contract.set(grant_data, None, None);
+        let result = contract.set(set_request(grant_data, None));
         assert!(result.is_ok());
 
         // Now grantee should have write permission
@@ -88,7 +90,7 @@ mod test_enhanced_permissions {
                 "path": test_path
             }
         });
-        let result = contract.set(revoke_data, None, None);
+        let result = contract.set(set_request(revoke_data, None));
         assert!(result.is_ok());
 
         // Now grantee should not have write permission again
@@ -109,7 +111,9 @@ mod test_enhanced_permissions {
                 "amount": "1000000000000000000000000"  // 1 NEAR
             }
         });
-        contract.set(deposit_data, None, None).unwrap();
+        contract
+            .set(set_request(deposit_data, None))
+            .unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
 
@@ -125,27 +129,30 @@ mod test_enhanced_permissions {
                 "flags": WRITE
             }
         });
-        contract.set(grant_data, None, None).unwrap();
+        contract
+            .set(set_request(grant_data, None))
+            .unwrap();
 
         // get_permissions should return WRITE flag (1)
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
         assert_eq!(flags, WRITE, "Should return WRITE flag (1)");
         assert!(flags & WRITE != 0, "WRITE bit should be set");
 
-        // Grant additional MANAGE permission (4) - now should have WRITE | MANAGE = 5
+        // Grant MANAGE permission (4). MANAGE implies WRITE in checks.
         let grant_manage = serde_json::json!({
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": test_path,
-                "flags": WRITE | MANAGE
+                "flags": MANAGE
             }
         });
-        contract.set(grant_manage, None, None).unwrap();
+        contract
+            .set(set_request(grant_manage, None))
+            .unwrap();
 
-        // get_permissions should return combined flags
+        // get_permissions should return the stored flag value
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
-        assert_eq!(flags, WRITE | MANAGE, "Should return WRITE | MANAGE (5)");
-        assert!(flags & WRITE != 0, "WRITE bit should be set");
+        assert_eq!(flags, MANAGE, "Should return MANAGE (4)");
         assert!(flags & MANAGE != 0, "MANAGE bit should be set");
 
         // Revoke permissions
@@ -155,7 +162,9 @@ mod test_enhanced_permissions {
                 "path": test_path
             }
         });
-        contract.set(revoke_data, None, None).unwrap();
+        contract
+            .set(set_request(revoke_data, None))
+            .unwrap();
 
         // get_permissions should return 0 after revocation
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());

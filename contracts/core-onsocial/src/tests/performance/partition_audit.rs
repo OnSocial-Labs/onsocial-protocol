@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod partition_audit_tests {
-    use crate::storage::keys::{fast_hash, get_partition, make_key};
+    use crate::storage::partitioning::{fast_hash, get_partition, make_key};
     use crate::constants::NUM_PARTITIONS;
     use std::collections::HashMap;
     
     // For contract integration tests
     use crate::tests::test_utils::*;
-    use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+    use crate::groups::kv_permissions::{MODERATE, MANAGE};
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
 
@@ -466,8 +466,12 @@ mod partition_audit_tests {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Add members
-        contract.add_group_member("test_group".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("test_group".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("test_group".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("test_group".to_string(), charlie.clone(), 0)
+            .unwrap();
 
         // Grant permission to Charlie
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
@@ -524,8 +528,12 @@ mod partition_audit_tests {
         println!("✓ Group created: data_test");
 
         // Add members
-        contract.add_group_member("data_test".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("data_test".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("data_test".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("data_test".to_string(), charlie.clone(), 0)
+            .unwrap();
 
         println!("✓ Members added: bob.near, charlie.near");
 
@@ -575,8 +583,12 @@ mod partition_audit_tests {
         contract.create_group("transfer_test".to_string(), config).unwrap();
 
         // Add members
-        contract.add_group_member("transfer_test".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("transfer_test".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("transfer_test".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("transfer_test".to_string(), charlie.clone(), 0)
+            .unwrap();
 
         // Grant Charlie MODERATE permission BEFORE transfer
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
@@ -599,7 +611,7 @@ mod partition_audit_tests {
 
         // Transfer ownership to Bob
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.transfer_group_ownership("transfer_test".to_string(), bob.clone(), None, None).unwrap();
+        contract.transfer_group_ownership("transfer_test".to_string(), bob.clone(), None).unwrap();
 
         println!("\nAFTER transfer:");
         println!("  Owner: bob.near");
@@ -672,8 +684,12 @@ mod partition_audit_tests {
         println!("✓ Groups created: group1, group2");
 
         // 2. Add members
-        contract.add_group_member("group1".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("group2".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("group1".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("group2".to_string(), charlie.clone(), 0)
+            .unwrap();
 
         println!("✓ Members added to groups");
 

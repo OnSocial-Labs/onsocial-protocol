@@ -1,14 +1,16 @@
-// --- Imports ---
-use crate::{constants::*, errors::*, invalid_input, storage::{keys::get_partition, utils::{parse_path, parse_groups_path}}};
-use near_sdk::{env, serde_json::Value, AccountId, base64::Engine};
+use crate::{
+    constants::EVENT_JSON_PREFIX,
+    errors::*,
+    invalid_input,
+    storage::{partitioning::get_partition, utils::{parse_path, parse_groups_path}},
+};
+use near_sdk::{env, serde_json::{self, Value}, AccountId};
 use super::types::*;
 
-// --- Structs ---
 pub struct EventBatch {
     events: Vec<(String, String, AccountId, Value)>,
 }
 
-// --- Impl ---
 impl Default for EventBatch {
     fn default() -> Self {
         Self::new()
@@ -20,117 +22,65 @@ impl EventBatch {
         Self { events: Vec::new() }
     }
 
-    pub fn add(&mut self, event_type: &str, operation: &str, account_id: &AccountId, extra_data: Value) {
-        self.events
-            .push((event_type.to_string(), operation.to_string(), account_id.clone(), extra_data));
+    pub fn add(&mut self, event_type: String, operation: String, account_id: AccountId, extra_data: Value) {
+        self.events.push((event_type, operation, account_id, extra_data));
     }
 
-
-
-    pub fn emit(
-        &mut self,
-        config: &Option<EventConfig>,
-    ) -> Result<(), SocialError> {
-        if config.as_ref().is_some_and(|c| !c.emit) {
+    pub fn emit(&mut self) -> Result<(), SocialError> {
+        if self.events.is_empty() {
             return Ok(());
         }
 
-        // Cache expensive env calls - call once per batch instead of per event
-        let block_height = env::block_height();
-        let block_timestamp = env::block_timestamp();
-
-        let block_height_str = block_height.to_string();
-        let block_timestamp_str = block_timestamp.to_string();
-
-        // Cache partition calculations for duplicate namespaces in batch operations
-        use std::collections::HashMap;
+        // Cache partition calculations for batch operations
+        use std::collections::{HashMap, VecDeque};
         let mut partition_cache: HashMap<String, u16> = HashMap::new();
 
-        for (log_index, (event_type, operation, account_id, extra_data)) in self.events.iter().enumerate() {
-            let extra = extra_data
-                .as_object()
-                .ok_or(invalid_input!(ERR_EVENT_DATA_MUST_BE_OBJECT))?;
+        // Take ownership so failures won't silently drop remaining events.
+        let events: VecDeque<(String, String, AccountId, Value)> = std::mem::take(&mut self.events).into();
+        let mut events = events;
 
-            // Cache frequently accessed fields to avoid repeated lookups
-            let path = extra.get("path").and_then(|v| v.as_str());
+        while let Some((event_type, operation, account_id, extra_data)) = events.pop_front() {
+            let mut emit_one = || -> Result<(), SocialError> {
+                let extra = extra_data
+                    .as_object()
+                    .cloned()
+                    .ok_or_else(|| invalid_input!("Event extra_data must be a JSON object"))?;
+                let path = extra.get("path").and_then(|v| v.as_str());
 
-            // Calculate partition based on namespace (user/group) for data locality
-            // All events for same user/group go to same partition
-            let partition_id = if let Some(p) = path {
-                // Extract namespace_id from path
-                let namespace_id = if let Some((group_id, _)) = parse_groups_path(p) {
-                    group_id.to_string()
-                } else if let Some((account_id, _)) = parse_path(p) {
-                    account_id.to_string()
-                } else {
-                    account_id.to_string()
-                };
-                
-                // Check cache first
-                if let Some(&cached) = partition_cache.get(&namespace_id) {
-                    Some(cached)
-                } else {
-                    let partition = get_partition(&namespace_id);
-                    partition_cache.insert(namespace_id, partition);
-                    Some(partition)
-                }
-            } else {
-                // No path - partition by account_id
-                let key = account_id.to_string();
-                if let Some(&cached) = partition_cache.get(&key) {
-                    Some(cached)
-                } else {
-                    let partition = get_partition(account_id.as_str());
-                    partition_cache.insert(key, partition);
-                    Some(partition)
-                }
-            };
+                // Calculate partition based on namespace for data locality
+                let namespace_id = path
+                    .and_then(|p| {
+                        parse_groups_path(p)
+                            .map(|(g, _)| g.to_string())
+                            .or_else(|| parse_path(p).map(|(a, _)| a.to_string()))
+                    })
+                    .unwrap_or_else(|| account_id.to_string());
 
-            // Direct Borsh processing - optimized to avoid string cloning where possible
-            let mut borsh_extras = Vec::with_capacity(extra.len());
+                let partition_id = *partition_cache
+                    .entry(namespace_id.clone())
+                    .or_insert_with(|| get_partition(&namespace_id));
 
-            // Process all extras in a single pass with direct Borsh values
-            for (k, v) in extra.iter() {
-                let borsh_value = match v {
-                    Value::String(s) => super::types::BorshValue::String(s.clone()),
-                    Value::Number(n) => super::types::BorshValue::Number(n.to_string()),
-                    Value::Bool(b) => super::types::BorshValue::Bool(*b),
-                    Value::Null => super::types::BorshValue::Null,
-                    _ => super::types::BorshValue::String(serde_json::to_string(v).unwrap()),
-                };
-                borsh_extras.push(super::types::BorshExtra {
-                    key: k.to_string(),
-                    value: borsh_value,
-                });
-            }
-            let event = Event {
-                evt_standard: EVENT_STANDARD.into(),
-                version: EVENT_VERSION.into(),
-                evt_type: event_type.clone(),
-                op_type: operation.clone(),
-                data: Some(BaseEventData {
-                    block_height,
-                    timestamp: block_timestamp,
+                // Build and emit NEP-297 event
+                let event = Event::new(&event_type, vec![EventData {
+                    operation: operation.clone(),
                     author: account_id.to_string(),
-                    partition_id,
-                    extra: borsh_extras,
-                    // Substreams-compatible fields
-                    evt_id: format!("{}-{}-{}-{}-{}", event_type, operation, account_id, block_height_str, block_timestamp_str),
-                    log_index: log_index as u32,
-                }),
+                    partition_id: Some(partition_id),
+                    extra,
+                }]);
+
+                let json = serde_json::to_string(&event)
+                    .map_err(|_| invalid_input!("Failed to serialize event"))?;
+
+                env::log_str(&format!("{EVENT_JSON_PREFIX}{json}"));
+                Ok(())
             };
 
-            // Simplified: Serialize immediately (no size limits needed - transaction size constraints prevent oversized events)
-            let mut buffer = Vec::new();
-            borsh::BorshSerialize::serialize(&event, &mut buffer)
-                .map_err(|_| invalid_input!(ERR_FAILED_TO_ENCODE_EVENT))?;
-
-            // Emit immediately instead of collecting - simpler and more efficient
-            let encoded_len = buffer.len().div_ceil(3) * 4;
-            let mut log_str = String::with_capacity(EVENT_PREFIX.len() + encoded_len);
-            log_str.push_str(EVENT_PREFIX);
-            near_sdk::base64::engine::general_purpose::STANDARD.encode_string(&buffer, &mut log_str);
-            env::log_str(&log_str);
+            if let Err(err) = emit_one() {
+                self.events = std::iter::once((event_type, operation, account_id, extra_data))
+                    .chain(events.into_iter())
+                    .collect();
+                return Err(err);
+            }
         }
         Ok(())
     }

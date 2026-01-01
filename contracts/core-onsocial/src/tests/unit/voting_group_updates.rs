@@ -48,14 +48,14 @@ mod voting_group_updates_tests {
             "ban_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to approve (alice already voted YES automatically)
         // 2 YES votes out of 3 members = 66% participation, 100% approval
         // Using realistic deposit for voting operation ~0.003 NEAR
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("ban_test".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ban_test".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify bob is now banned and removed from group
         assert!(contract.is_blacklisted("ban_test".to_string(), bob.clone()), "Bob should be blacklisted");
@@ -63,7 +63,7 @@ mod voting_group_updates_tests {
 
         // Verify bob cannot rejoin (using realistic deposit for join attempt ~0.003 NEAR)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        let rejoin_result = contract.join_group("ban_test".to_string(), WRITE);
+        let rejoin_result = contract.join_group("ban_test".to_string());
         assert!(rejoin_result.is_err(), "Banned member should not be able to rejoin");
 
         // Verify bob cannot create proposals
@@ -71,7 +71,7 @@ mod voting_group_updates_tests {
             "ban_test".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "test"}}),
-            None, None,
+            None,
         );
         assert!(create_proposal_result.is_err(), "Banned member should not be able to create proposals");
 
@@ -108,17 +108,17 @@ mod voting_group_updates_tests {
             "reject_ban".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes NO to reject (alice voted YES automatically)
         // 1 YES, 1 NO = needs more votes, let bob vote NO too
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("reject_ban".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("reject_ban".to_string(), proposal_id.clone(), false).unwrap();
 
         // Bob votes NO (he doesn't want to be banned!)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("reject_ban".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("reject_ban".to_string(), proposal_id.clone(), false).unwrap();
 
         // Verify bob is NOT banned and remains in group
         assert!(!contract.is_blacklisted("reject_ban".to_string(), bob.clone()), "Bob should not be blacklisted");
@@ -129,7 +129,7 @@ mod voting_group_updates_tests {
             "reject_ban".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "test"}}),
-            None, None,
+            None,
         );
         assert!(create_proposal_result.is_ok(), "Bob should still be able to create proposals");
 
@@ -168,13 +168,13 @@ mod voting_group_updates_tests {
             "auto_remove".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to reach threshold (alice already voted YES)
         // 2 YES out of 3 = 66% participation, 100% approval = executes
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("auto_remove".to_string(), proposal_id, true, None).unwrap();
+        contract.vote_on_proposal("auto_remove".to_string(), proposal_id, true).unwrap();
 
         // Verify bob is both banned AND removed from group
         assert!(contract.is_blacklisted("auto_remove".to_string(), bob.clone()), "Bob should be blacklisted");
@@ -212,13 +212,13 @@ mod voting_group_updates_tests {
             "owner_protect".to_string(),
             "group_update".to_string(),
             ban_owner_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES (bob already voted YES)
         // 2 YES out of 3 = should reach threshold and try to execute
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        let vote_result = contract.vote_on_proposal("owner_protect".to_string(), proposal_id, true, None);
+        let vote_result = contract.vote_on_proposal("owner_protect".to_string(), proposal_id, true);
         
         // The execution should fail because owner cannot be banned
         // (The vote may succeed but execution will fail, or the whole operation fails)
@@ -266,12 +266,12 @@ mod voting_group_updates_tests {
             "restrict_banned".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to execute (2 YES out of 3 = 66% participation, 100% approval)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("restrict_banned".to_string(), ban_proposal_id, true, None).unwrap();
+        contract.vote_on_proposal("restrict_banned".to_string(), ban_proposal_id, true).unwrap();
 
         // Verify bob is banned
         assert!(contract.is_blacklisted("restrict_banned".to_string(), bob.clone()), "Bob should be banned");
@@ -282,7 +282,7 @@ mod voting_group_updates_tests {
             "restrict_banned".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "test"}}),
-            None, None,
+            None,
         );
         assert!(create_result.is_err(), "Banned member should not be able to create proposals");
 
@@ -293,12 +293,12 @@ mod voting_group_updates_tests {
             "restrict_banned".to_string(),
             "group_update".to_string(),
             test_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob tries to vote
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        let vote_result = contract.vote_on_proposal("restrict_banned".to_string(), proposal_id, true, None);
+        let vote_result = contract.vote_on_proposal("restrict_banned".to_string(), proposal_id, true);
         assert!(vote_result.is_err(), "Banned member should not be able to vote");
 
         println!("✅ Banned members cannot participate in governance");
@@ -342,12 +342,12 @@ mod voting_group_updates_tests {
             "unban_test".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to execute ban (2 YES out of 3 = 66% participation, 100% approval)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("unban_test".to_string(), ban_proposal_id, true, None).unwrap();
+        contract.vote_on_proposal("unban_test".to_string(), ban_proposal_id, true).unwrap();
 
         // Verify bob is banned and removed (now 2 members: alice + charlie)
         assert!(contract.is_blacklisted("unban_test".to_string(), bob.clone()), "Bob should be banned");
@@ -366,12 +366,12 @@ mod voting_group_updates_tests {
             "unban_test".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to execute unban (2 YES out of 2 remaining = 100%)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("unban_test".to_string(), unban_proposal_id, true, None).unwrap();
+        contract.vote_on_proposal("unban_test".to_string(), unban_proposal_id, true).unwrap();
 
         // Step 4: Verify bob is removed from blacklist
         assert!(!contract.is_blacklisted("unban_test".to_string(), bob.clone()), "Bob should be unbanned");
@@ -381,7 +381,7 @@ mod voting_group_updates_tests {
 
         // Step 6: Verify bob CAN now rejoin via join request
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        let rejoin_result = contract.join_group("unban_test".to_string(), WRITE);
+        let rejoin_result = contract.join_group("unban_test".to_string());
         assert!(rejoin_result.is_ok(), "Unbanned member should be able to request to rejoin: {:?}", rejoin_result.err());
 
         println!("✅ Unban member via voting works correctly");
@@ -419,12 +419,12 @@ mod voting_group_updates_tests {
             "no_auto_readd".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to execute ban
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("no_auto_readd".to_string(), ban_proposal_id, true, None).unwrap();
+        contract.vote_on_proposal("no_auto_readd".to_string(), ban_proposal_id, true).unwrap();
 
         assert!(contract.is_blacklisted("no_auto_readd".to_string(), bob.clone()), "Bob should be banned");
         assert!(!contract.is_group_member("no_auto_readd".to_string(), bob.clone()), "Bob should be removed");
@@ -442,12 +442,12 @@ mod voting_group_updates_tests {
             "no_auto_readd".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Charlie votes YES to execute unban
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("no_auto_readd".to_string(), unban_proposal_id, true, None).unwrap();
+        contract.vote_on_proposal("no_auto_readd".to_string(), unban_proposal_id, true).unwrap();
 
         // Verify bob is unbanned but NOT a member
         assert!(!contract.is_blacklisted("no_auto_readd".to_string(), bob.clone()), "Bob should be unbanned");
@@ -455,7 +455,7 @@ mod voting_group_updates_tests {
 
         // Bob must explicitly rejoin
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        contract.join_group("no_auto_readd".to_string(), WRITE).unwrap();
+        contract.join_group("no_auto_readd".to_string()).unwrap();
 
         println!("✅ Unban does not automatically re-add member");
         println!("   - Unban only removes blacklist entry");
@@ -490,7 +490,7 @@ mod voting_group_updates_tests {
             "unban_edge".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None, None,
+            None,
         );
 
         // Unban should succeed (idempotent operation - safe to unban non-banned user)
@@ -542,7 +542,7 @@ mod voting_group_updates_tests {
             "ownership_transfer".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Step 3: Vote and approve
@@ -550,7 +550,7 @@ mod voting_group_updates_tests {
         // Note: Charlie already voted YES automatically when creating the proposal
         // 2 YES votes out of 3 members = 66% participation, 100% approval = EXECUTES IMMEDIATELY
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("ownership_transfer".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("ownership_transfer".to_string(), proposal_id.clone(), true).unwrap();
 
         // Step 4: Verify ownership transferred
         let updated_config = contract.get_group_config("ownership_transfer".to_string()).unwrap();
@@ -613,13 +613,13 @@ mod voting_group_updates_tests {
             "ownership_validation".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES to reach threshold (alice already voted YES)
         // 2 YES out of 2 = 100% participation, 100% approval = should try to execute
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        let vote_result = contract.vote_on_proposal("ownership_validation".to_string(), proposal_id, true, None);
+        let vote_result = contract.vote_on_proposal("ownership_validation".to_string(), proposal_id, true);
 
         // Execution should fail because charlie is not a member
         // Contract validates: "New owner must be a member of the group" (operations.rs line 245)
@@ -674,12 +674,12 @@ mod voting_group_updates_tests {
             "owner_stays".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Alice votes YES (2/3 = 66% participation, 100% approval = executes)
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("owner_stays".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("owner_stays".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify ownership transferred
         let updated_config = contract.get_group_config("owner_stays".to_string()).unwrap();
@@ -698,7 +698,7 @@ mod voting_group_updates_tests {
             "owner_stays".to_string(),
             "group_update".to_string(),
             test_proposal,
-            None, None,
+            None,
         );
         assert!(alice_proposal_result.is_ok(), "Alice should still be able to create proposals as regular member");
 
@@ -709,11 +709,11 @@ mod voting_group_updates_tests {
             "owner_stays".to_string(),
             "group_update".to_string(),
             bob_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        let alice_vote_result = contract.vote_on_proposal("owner_stays".to_string(), bob_proposal_id, true, None);
+        let alice_vote_result = contract.vote_on_proposal("owner_stays".to_string(), bob_proposal_id, true);
         assert!(alice_vote_result.is_ok(), "Alice should still be able to vote as regular member");
 
         println!("✅ Old owner can remain as regular member when remove_old_owner=false");
@@ -749,13 +749,13 @@ mod voting_group_updates_tests {
             "self_transfer".to_string(),
             "group_update".to_string(),
             self_transfer_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES to reach threshold (alice already voted YES)
         // 2 YES out of 2 = 100% participation, 100% approval = should try to execute
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        let vote_result = contract.vote_on_proposal("self_transfer".to_string(), proposal_id, true, None);
+        let vote_result = contract.vote_on_proposal("self_transfer".to_string(), proposal_id, true);
 
         // Execution should fail because self-transfer is not allowed
         // Contract validates: "Cannot transfer ownership to yourself" (operations.rs line 203)
@@ -811,13 +811,13 @@ mod voting_group_updates_tests {
             "meta_update".to_string(),
             "group_update".to_string(),
             metadata_updates,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES to approve (alice already voted YES automatically)
         // 2 YES votes out of 2 members = 100% participation, 100% approval
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        let vote_result = contract.vote_on_proposal("meta_update".to_string(), proposal_id.clone(), true, None);
+        let vote_result = contract.vote_on_proposal("meta_update".to_string(), proposal_id.clone(), true);
         assert!(vote_result.is_ok(), "Bob's vote should succeed: {:?}", vote_result.err());
 
         // Verify metadata was updated
@@ -836,6 +836,69 @@ mod voting_group_updates_tests {
         println!("   - Multiple metadata fields updated via voting");
         println!("   - Changes applied after approval");
         println!("   - Group config reflects new metadata");
+    }
+
+    #[test]
+    fn test_member_driven_cannot_be_made_public_via_metadata_update() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0); // Owner/creator
+        let bob = test_account(1);   // Member who votes
+
+        // Create member-driven group (must be private)
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
+        let config = json!({"member_driven": true, "is_private": true});
+        contract
+            .create_group("meta_privacy_invariant".to_string(), config)
+            .unwrap();
+
+        // Add bob as member so proposal can pass voting thresholds
+        test_add_member_bypass_proposals(
+            &mut contract,
+            "meta_privacy_invariant",
+            &bob,
+            WRITE,
+            &alice,
+        );
+
+        // Attempt to flip privacy via a metadata update (this must be rejected for member-driven groups)
+        testing_env!(get_context(alice.clone()).build());
+        let metadata_updates = json!({
+            "update_type": "metadata",
+            "changes": {
+                "is_private": false
+            }
+        });
+
+        let proposal_id = contract
+            .create_group_proposal(
+                "meta_privacy_invariant".to_string(),
+                "group_update".to_string(),
+                metadata_updates,
+                None,
+            )
+            .unwrap();
+
+        // Bob votes YES, which would normally execute the proposal.
+        // Execution must fail and must not mutate group privacy.
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
+        let vote_result = contract.vote_on_proposal(
+            "meta_privacy_invariant".to_string(),
+            proposal_id.clone(),
+            true,
+        );
+        assert!(vote_result.is_err(), "Vote should fail due to invariant enforcement");
+
+        let updated_config = contract
+            .get_group_config("meta_privacy_invariant".to_string())
+            .unwrap();
+        assert_eq!(
+            updated_config.get("is_private").and_then(|v| v.as_bool()),
+            Some(true),
+            "Member-driven group must remain private"
+        );
+
+        println!("✅ Member-driven privacy invariant is enforced in governance execution");
+        println!("   - Metadata updates cannot make member-driven groups public");
     }
 
     #[test]
@@ -878,16 +941,16 @@ mod voting_group_updates_tests {
             "reject_meta".to_string(),
             "group_update".to_string(),
             metadata_updates,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob and Charlie vote NO to reject (alice voted YES automatically)
         // 1 YES, 2 NO = proposal rejected
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("reject_meta".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("reject_meta".to_string(), proposal_id.clone(), false).unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("reject_meta".to_string(), proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("reject_meta".to_string(), proposal_id.clone(), false).unwrap();
 
         // Verify metadata was NOT changed
         let final_config = contract.get_group_config("reject_meta".to_string()).unwrap();
@@ -931,7 +994,7 @@ mod voting_group_updates_tests {
             "validation_meta".to_string(),
             "group_update".to_string(),
             valid_metadata,
-            None, None,
+            None,
         );
         assert!(result.is_ok(), "Valid metadata proposal should be created: {:?}", result.err());
 
@@ -945,7 +1008,7 @@ mod voting_group_updates_tests {
             "validation_meta".to_string(),
             "group_update".to_string(),
             empty_changes,
-            None, None,
+            None,
         );
         assert!(result.is_err(), "Empty changes should be rejected");
 
@@ -959,7 +1022,7 @@ mod voting_group_updates_tests {
             "validation_meta".to_string(),
             "group_update".to_string(),
             null_changes,
-            None, None,
+            None,
         );
         assert!(result.is_err(), "Null changes should be rejected");
 
@@ -1008,7 +1071,7 @@ mod voting_group_updates_tests {
             "full_cycle".to_string(),
             "group_update".to_string(),
             ban_changes,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES (alice already voted YES)
@@ -1017,7 +1080,7 @@ mod voting_group_updates_tests {
         let mut bob_context = get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
         bob_context.block_timestamp(env::block_timestamp() + 1000);
         testing_env!(bob_context.build());
-        contract.vote_on_proposal("full_cycle".to_string(), ban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("full_cycle".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         // Verify charlie is banned
         assert!(!contract.is_group_member("full_cycle".to_string(), charlie.clone()), 
@@ -1044,14 +1107,14 @@ mod voting_group_updates_tests {
             "full_cycle".to_string(),
             "group_update".to_string(),
             unban_changes,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES (alice already voted YES)
         let mut bob_context2 = get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
         bob_context2.block_timestamp(env::block_timestamp() + 4000);
         testing_env!(bob_context2.build());
-        contract.vote_on_proposal("full_cycle".to_string(), unban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("full_cycle".to_string(), unban_proposal_id.clone(), true).unwrap();
 
         // Verify charlie is unbanned
         assert!(!contract.is_blacklisted("full_cycle".to_string(), charlie.clone()), 
@@ -1068,7 +1131,7 @@ mod voting_group_updates_tests {
         charlie_context2.block_timestamp(env::block_timestamp() + 5000);
         testing_env!(charlie_context2.build());
         
-        let rejoin_result = contract.join_group("full_cycle".to_string(), WRITE);
+        let rejoin_result = contract.join_group("full_cycle".to_string());
         assert!(rejoin_result.is_ok(), "Unbanned member should be able to request to rejoin");
 
         // Note: In a member-driven group, the join request creates a proposal that members can vote on
@@ -1118,7 +1181,7 @@ mod voting_group_updates_tests {
             "transfer_chain".to_string(),
             "group_update".to_string(),
             transfer1_changes,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES (alice already voted)
@@ -1126,7 +1189,7 @@ mod voting_group_updates_tests {
         let mut bob_context1 = get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
         bob_context1.block_timestamp(env::block_timestamp() + 1000);
         testing_env!(bob_context1.build());
-        contract.vote_on_proposal("transfer_chain".to_string(), proposal1_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("transfer_chain".to_string(), proposal1_id.clone(), true).unwrap();
 
         // Verify bob is owner, alice is still member
         let config_after_1 = contract.get_group_config("transfer_chain".to_string()).unwrap();
@@ -1153,7 +1216,7 @@ mod voting_group_updates_tests {
             "transfer_chain".to_string(),
             "group_update".to_string(),
             transfer2_changes,
-            None, None,
+            None,
         ).unwrap();
 
         // Alice votes YES (bob already voted)
@@ -1161,7 +1224,7 @@ mod voting_group_updates_tests {
         let mut alice_context2 = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
         alice_context2.block_timestamp(env::block_timestamp() + 4000);
         testing_env!(alice_context2.build());
-        contract.vote_on_proposal("transfer_chain".to_string(), proposal2_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("transfer_chain".to_string(), proposal2_id.clone(), true).unwrap();
 
         // Verify charlie is owner, bob is still member
         let config_after_2 = contract.get_group_config("transfer_chain".to_string()).unwrap();
@@ -1189,7 +1252,7 @@ mod voting_group_updates_tests {
             "transfer_chain".to_string(),
             "group_update".to_string(),
             transfer3_changes,
-            None, None,
+            None,
         ).unwrap();
 
         // Bob votes YES (charlie already voted)
@@ -1197,7 +1260,7 @@ mod voting_group_updates_tests {
         let mut bob_context3 = get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
         bob_context3.block_timestamp(env::block_timestamp() + 7000);
         testing_env!(bob_context3.build());
-        contract.vote_on_proposal("transfer_chain".to_string(), proposal3_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("transfer_chain".to_string(), proposal3_id.clone(), true).unwrap();
 
         // Verify alice is owner again, all three are members
         let final_config = contract.get_group_config("transfer_chain".to_string()).unwrap();
@@ -1232,9 +1295,15 @@ mod voting_group_updates_tests {
         contract.create_group("perm_test".to_string(), config).unwrap();
 
         // Add members
-        contract.add_group_member("perm_test".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("perm_test".to_string(), charlie.clone(), WRITE, None).unwrap();
-        contract.add_group_member("perm_test".to_string(), dave.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("perm_test".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("perm_test".to_string(), charlie.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("perm_test".to_string(), dave.clone(), 0)
+            .unwrap();
 
         // Alice (owner) grants Charlie MODERATE permission to approve joins
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
@@ -1256,7 +1325,7 @@ mod voting_group_updates_tests {
 
         // Alice transfers ownership to Bob
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.transfer_group_ownership("perm_test".to_string(), bob.clone(), None, None).unwrap();
+        contract.transfer_group_ownership("perm_test".to_string(), bob.clone(), None).unwrap();
 
         // Verify Bob is now the owner
         let updated_config = contract.get_group_config("perm_test".to_string()).unwrap();

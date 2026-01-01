@@ -50,7 +50,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("tech_discussion".to_string(), WRITE).unwrap();
+        contract.join_group("tech_discussion".to_string()).unwrap();
 
         // Grant member permission to post
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
@@ -73,9 +73,9 @@ mod group_content_integration_tests {
             "tags": ["introduction", "greeting"]
         });
 
-        let result = contract.set(json!({
-            "groups/tech_discussion/posts/post1": post_content
-        }), None, None);
+        let result = contract.set(set_request(json!({
+                "groups/tech_discussion/posts/post1": post_content
+            }), None));
 
         assert!(
             result.is_ok(),
@@ -85,7 +85,7 @@ mod group_content_integration_tests {
 
         // Verify content is stored at user-owned path (includes group in path)
         let keys = vec![format!("{}/groups/tech_discussion/posts/post1", member)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         
         assert!(!retrieved.is_empty(), "Content should be retrievable");
         
@@ -119,7 +119,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("blog_group".to_string(), WRITE).unwrap();
+        contract.join_group("blog_group".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -135,11 +135,14 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/blog_group/posts/post1": {"title": "First Post", "text": "Content 1"},
-            "groups/blog_group/posts/post2": {"title": "Second Post", "text": "Content 2"},
-            "groups/blog_group/posts/post3": {"title": "Third Post", "text": "Content 3"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/blog_group/posts/post1": {"title": "First Post", "text": "Content 1"},
+                "groups/blog_group/posts/post2": {"title": "Second Post", "text": "Content 2"},
+                "groups/blog_group/posts/post3": {"title": "Third Post", "text": "Content 3"}
+            }),
+            None,
+        ));
 
         assert!(result.is_ok(), "Multiple posts should be created: {:?}", result.err());
 
@@ -149,7 +152,7 @@ mod group_content_integration_tests {
             format!("{}/groups/blog_group/posts/post2", member),
             format!("{}/groups/blog_group/posts/post3", member),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         
         assert!(retrieved.get(&format!("{}/groups/blog_group/posts/post1", member)).is_some(), "Post 1 should exist");
         assert!(retrieved.get(&format!("{}/groups/blog_group/posts/post2", member)).is_some(), "Post 2 should exist");
@@ -173,7 +176,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("community".to_string(), WRITE).unwrap();
+        contract.join_group("community".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 2_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -187,11 +190,14 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/community/posts/blog1": {"title": "Blog Post", "type": "article"},
-            "groups/community/comments/c1": {"text": "Nice post!", "parent": "post123"},
-            "groups/community/media/photo1": {"url": "ipfs://...", "caption": "Sunset"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/community/posts/blog1": {"title": "Blog Post", "type": "article"},
+                "groups/community/comments/c1": {"text": "Nice post!", "parent": "post123"},
+                "groups/community/media/photo1": {"url": "ipfs://...", "caption": "Sunset"}
+            }),
+            None,
+        ));
 
         assert!(result.is_ok(), "Different content types should work: {:?}", result.err());
 
@@ -201,7 +207,7 @@ mod group_content_integration_tests {
             format!("{}/groups/community/comments/c1", member),
             format!("{}/groups/community/media/photo1", member),
         ];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
 
         assert!(retrieved.get(&format!("{}/groups/community/posts/blog1", member)).is_some());
         assert!(retrieved.get(&format!("{}/groups/community/comments/c1", member)).is_some());
@@ -233,9 +239,12 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(non_member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/private_group/posts/hack": {"text": "Unauthorized post"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/private_group/posts/hack": {"text": "Unauthorized post"}
+            }),
+            None,
+        ));
 
         assert!(
             result.is_err(),
@@ -262,9 +271,9 @@ mod group_content_integration_tests {
         // Create private group so we can control member permissions exactly
         contract.create_group("restricted".to_string(), json!({"is_private": true})).unwrap();
 
-        // Add member with NO group-root permissions (permission_flags: 0)
+        // Add member with NO group-root permissions (level: 0)
         // This allows us to test path-specific permission isolation
-        contract.add_group_member("restricted".to_string(), member.clone(), 0, None).unwrap();
+        contract.add_group_member("restricted".to_string(), member.clone(), 0).unwrap();
 
         // Grant permission only for posts/, NOT comments/
         contract.set_permission(
@@ -278,16 +287,22 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/restricted/posts/allowed": {"text": "This should work"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/restricted/posts/allowed": {"text": "This should work"}
+            }),
+            None,
+        ));
 
         assert!(result.is_ok(), "Should be able to write to posts/: {:?}", result.err());
 
         // Member CANNOT create comments (no permission)
-        let result = contract.set(json!({
-            "groups/restricted/comments/denied": {"text": "This should fail"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/restricted/comments/denied": {"text": "This should fail"}
+            }),
+            None,
+        ));
 
         assert!(
             result.is_err(),
@@ -314,8 +329,8 @@ mod group_content_integration_tests {
         // Create private group so we can control member permissions exactly
         contract.create_group("revoke_test".to_string(), json!({"is_private": true})).unwrap();
 
-        // Add member with NO group-root permissions (permission_flags: 0)
-        contract.add_group_member("revoke_test".to_string(), member.clone(), 0, None).unwrap();
+        // Add member with NO group-root permissions (level: 0)
+        contract.add_group_member("revoke_test".to_string(), member.clone(), 0).unwrap();
 
         // Grant path-specific permission
         contract.set_permission(
@@ -329,9 +344,12 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/revoke_test/posts/before": {"text": "Posted with permission"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/revoke_test/posts/before": {"text": "Posted with permission"}
+            }),
+            None,
+        ));
         assert!(result.is_ok(), "Should work before revocation");
 
         // Owner revokes permission
@@ -349,9 +367,12 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/revoke_test/posts/after": {"text": "Should fail"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/revoke_test/posts/after": {"text": "Should fail"}
+            }),
+            None,
+        ));
 
         assert!(
             result.is_err(),
@@ -380,7 +401,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("storage_test".to_string(), WRITE).unwrap();
+        contract.join_group("storage_test".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -399,12 +420,17 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "groups/storage_test/posts/large": {
-                "text": "A".repeat(1000), // Large content to ensure measurable storage
-                "metadata": {"key": "value"}
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/storage_test/posts/large": {
+                        "text": "A".repeat(1000), // Large content to ensure measurable storage
+                        "metadata": {"key": "value"}
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Get member's storage balance after content creation
         let balance_after = contract.get_storage_balance(member.clone()).unwrap();
@@ -437,7 +463,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("event_test".to_string(), WRITE).unwrap();
+        contract.join_group("event_test".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -456,14 +482,19 @@ mod group_content_integration_tests {
         // Clear logs right before the operation we want to test
         near_sdk::test_utils::get_logs();
 
-        contract.set(json!({
-            "groups/event_test/posts/event_post": {"title": "Event Test Post"}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/event_test/posts/event_post": {"title": "Event Test Post"}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Verify event was emitted
         let logs = near_sdk::test_utils::get_logs();
-        // Event is emitted in base64 encoded format
-        let has_event = logs.iter().any(|log| log.contains("EVENT:"));
+        // Event is emitted in NEP-297 JSON format
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
 
         assert!(has_event, "Event should be emitted for content creation");
 
@@ -490,11 +521,11 @@ mod group_content_integration_tests {
         // Both members join
         let context = get_context_with_deposit(alice.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.join_group("collab".to_string(), WRITE).unwrap();
+        contract.join_group("collab".to_string()).unwrap();
 
         let context = get_context_with_deposit(bob.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.join_group("collab".to_string(), WRITE).unwrap();
+        contract.join_group("collab".to_string()).unwrap();
 
         // Grant permissions to both
         let context = get_context_with_deposit(owner.clone(), 2_000_000_000_000_000_000_000_000);
@@ -507,25 +538,35 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "groups/collab/posts/thread1": {"text": "Alice's post", "id": "thread1"}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/collab/posts/thread1": {"text": "Alice's post", "id": "thread1"}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Bob creates a reply
         let context = get_context_with_deposit(bob.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "groups/collab/posts/reply1": {"text": "Bob's reply", "parent": "thread1"}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/collab/posts/reply1": {"text": "Bob's reply", "parent": "thread1"}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Verify both posts exist at their respective user-owned paths (paths include group)
         let alice_keys = vec![format!("{}/groups/collab/posts/thread1", alice)];
-        let alice_data = contract.get(alice_keys, None, None, None);
+        let alice_data = contract_get_values_map(&contract, alice_keys, None);
         assert!(alice_data.get(&format!("{}/groups/collab/posts/thread1", alice)).is_some(), "Alice's post should exist");
 
         let bob_keys = vec![format!("{}/groups/collab/posts/reply1", bob)];
-        let bob_data = contract.get(bob_keys, None, None, None);
+        let bob_data = contract_get_values_map(&contract, bob_keys, None);
         assert!(bob_data.get(&format!("{}/groups/collab/posts/reply1", bob)).is_some(), "Bob's reply should exist");
 
         println!("✓ Multi-member content collaboration works correctly");
@@ -547,12 +588,13 @@ mod group_content_integration_tests {
         ).unwrap();
 
         // Owner manually adds member
-        contract.add_group_member(
-            "private_club".to_string(),
-            approved_member.clone(),
-            WRITE,
-            None,
-        ).unwrap();
+        contract
+            .add_group_member(
+                "private_club".to_string(),
+                approved_member.clone(),
+                0,
+            )
+            .unwrap();
 
         // Grant content permission
         contract.set_permission(
@@ -566,15 +608,18 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(approved_member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/private_club/posts/secret": {"text": "Private content", "visibility": "private"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/private_club/posts/secret": {"text": "Private content", "visibility": "private"}
+            }),
+            None,
+        ));
 
         assert!(result.is_ok(), "Approved member should create content in private group: {:?}", result.err());
 
         // Verify content exists (path includes group)
         let keys = vec![format!("{}/groups/private_club/posts/secret", approved_member)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(!retrieved.is_empty(), "Private group content should be retrievable");
 
         println!("✓ Content creation in private group works correctly");
@@ -593,9 +638,12 @@ mod group_content_integration_tests {
 
         // Owner creates content WITHOUT explicitly granting self permission
         // (Owner has implicit full permissions)
-        let result = contract.set(json!({
-            "groups/owner_group/posts/owner_post": {"text": "Owner's post"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/owner_group/posts/owner_post": {"text": "Owner's post"}
+            }),
+            None,
+        ));
 
         assert!(
             result.is_ok(),
@@ -626,9 +674,12 @@ mod group_content_integration_tests {
         ];
 
         for invalid_path in invalid_paths {
-            let result = contract.set(json!({
-                invalid_path: {"text": "Test"}
-            }), None, None);
+            let result = contract.set(set_request(
+                json!({
+                    invalid_path: {"text": "Test"}
+                }),
+                None,
+            ));
 
             assert!(
                 result.is_err(),
@@ -648,9 +699,12 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(user.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        let result = contract.set(json!({
-            "groups/nonexistent_group/posts/1": {"text": "This should fail"}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "groups/nonexistent_group/posts/1": {"text": "This should fail"}
+            }),
+            None,
+        ));
 
         assert!(
             result.is_err(),
@@ -682,7 +736,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 100_000_000_000_000_000_000_000); // 0.1 NEAR
         testing_env!(context.build());
 
-        contract.join_group("storage_limit".to_string(), WRITE).unwrap();
+        contract.join_group("storage_limit".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -705,7 +759,7 @@ mod group_content_integration_tests {
             }
         });
 
-        let result = contract.set(large_content, None, None);
+        let result = contract.set(set_request(large_content, None));
 
         // Should fail due to insufficient storage
         assert!(
@@ -735,7 +789,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("versioning".to_string(), WRITE).unwrap();
+        contract.join_group("versioning".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -751,24 +805,34 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(member.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "groups/versioning/posts/article1": {
-                "text": "Version 1",
-                "version": 1
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/versioning/posts/article1": {
+                        "text": "Version 1",
+                        "version": 1
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Update content
-        contract.set(json!({
-            "groups/versioning/posts/article1": {
-                "text": "Version 2 - Updated",
-                "version": 2
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/versioning/posts/article1": {
+                        "text": "Version 2 - Updated",
+                        "version": 2
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Verify latest version is stored (path includes group)
         let keys = vec![format!("{}/groups/versioning/posts/article1", member)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
         
         let content = retrieved.get(&format!("{}/groups/versioning/posts/article1", member))
             .expect("Content should exist");
@@ -795,7 +859,7 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(author.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.join_group("public_read".to_string(), WRITE).unwrap();
+        contract.join_group("public_read".to_string()).unwrap();
 
         let context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -811,9 +875,14 @@ mod group_content_integration_tests {
         let context = get_context_with_deposit(author.clone(), 5_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "groups/public_read/posts/public_post": {"text": "Public content"}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "groups/public_read/posts/public_post": {"text": "Public content"}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Reader (not a member) tries to read content
         let context = get_context_with_deposit(reader.clone(), 1_000_000_000_000_000_000_000_000);
@@ -821,7 +890,7 @@ mod group_content_integration_tests {
 
         // Blockchain data is publicly readable (path includes group)
         let keys = vec![format!("{}/groups/public_read/posts/public_post", author)];
-        let retrieved = contract.get(keys, None, None, None);
+        let retrieved = contract_get_values_map(&contract, keys, None);
 
         assert!(
             !retrieved.is_empty(),

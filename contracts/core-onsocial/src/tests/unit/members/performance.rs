@@ -2,7 +2,7 @@
 // Tests for large-scale operations, gas limits, and performance boundaries
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::groups::kv_permissions::{MODERATE, MANAGE};
 use serde_json::json;
 use near_sdk::test_utils::accounts;
 use near_sdk::env;
@@ -47,8 +47,7 @@ mod member_performance_tests {
             let add_result = contract.add_group_member(
                 "bulk_test_group".to_string(), 
                 member_id.clone(), 
-                WRITE, 
-                None  // Keep events enabled - this is realistic for substreams
+                0,  // Keep events enabled - this is realistic for substreams
             );
             let gas_after = env::used_gas();
             
@@ -65,7 +64,7 @@ mod member_performance_tests {
         }
 
         let add_duration = start_time.elapsed();
-        let avg_gas_add = total_gas_add / successful_adds as u64;
+        let avg_gas_add = if successful_adds > 0 { total_gas_add / successful_adds as u64 } else { 0 };
         
         println!("✅ Bulk add: {} members in {:?}", successful_adds, add_duration);
         println!("   Average gas per add: {} Tgas", avg_gas_add / 1_000_000_000_000);
@@ -83,8 +82,7 @@ mod member_performance_tests {
             let gas_before = env::used_gas();
             let remove_result = contract.remove_group_member(
                 "bulk_test_group".to_string(), 
-                member_id.clone(), 
-                None
+                member_id.clone(),
             );
             let gas_after = env::used_gas();
             
@@ -136,7 +134,7 @@ mod member_performance_tests {
         // Test add_group_member timing and gas
         let gas_before = env::used_gas();
         let start = Instant::now();
-        contract.add_group_member("timing_test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("timing_test_group".to_string(), member.clone(), 0).unwrap();
         let add_duration = start.elapsed();
         let gas_after = env::used_gas();
         let add_gas = gas_after.as_gas() - gas_before.as_gas();
@@ -182,7 +180,7 @@ mod member_performance_tests {
         // Test blacklist operations timing and gas
         let gas_before = env::used_gas();
         let start = Instant::now();
-        contract.blacklist_group_member("timing_test_group".to_string(), member.clone(), None).unwrap();
+        contract.blacklist_group_member("timing_test_group".to_string(), member.clone()).unwrap();
         let blacklist_duration = start.elapsed();
         let gas_after = env::used_gas();
         let blacklist_gas = gas_after.as_gas() - gas_before.as_gas();
@@ -225,9 +223,7 @@ mod member_performance_tests {
             contract.add_group_member(
                 "large_group".to_string(), 
                 member_id.clone(),
-                WRITE,
-                None
-            ).unwrap();
+                0).unwrap();
         }
 
         let total_time = start_time.elapsed();
@@ -257,7 +253,7 @@ mod member_performance_tests {
 
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("hierarchy_test".to_string(), config).unwrap();
-        contract.add_group_member("hierarchy_test".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("hierarchy_test".to_string(), member.clone(), 0).unwrap();
 
         println!("=== Permission Hierarchy Performance Test ===");
 
@@ -346,12 +342,9 @@ mod member_performance_tests {
             let member_name = format!("storage_member_{}.testnet", i);
             let member_id: near_sdk::AccountId = member_name.parse().unwrap();
             
-            contract.add_group_member(
-                "storage_test".to_string(), 
-                member_id.clone(), 
-                WRITE, 
-                None
-            ).unwrap();
+            contract
+                .add_group_member("storage_test".to_string(), member_id.clone(), 0)
+                .unwrap();
 
             // Measure storage after each addition
             let current_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -378,11 +371,7 @@ mod member_performance_tests {
             let member_name = format!("storage_member_{}.testnet", i);
             let member_id: near_sdk::AccountId = member_name.parse().unwrap();
             
-            contract.remove_group_member(
-                "storage_test".to_string(), 
-                member_id, 
-                None
-            ).unwrap();
+            contract.remove_group_member("storage_test".to_string(), member_id).unwrap();
         }
 
         let after_cleanup_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -432,12 +421,9 @@ mod member_performance_tests {
         
         // Test single member addition with cost tracking
         let member_id: near_sdk::AccountId = "cost_test_member.testnet".parse().unwrap();
-        contract.add_group_member(
-            "min_cost_test".to_string(),
-            member_id.clone(),
-            WRITE,
-            None
-        ).unwrap();
+        contract
+            .add_group_member("min_cost_test".to_string(), member_id.clone(), 0)
+            .unwrap();
 
         let post_add_balance = contract.get_storage_balance(owner.clone()).unwrap();
         let storage_used_for_member = post_add_balance.used_bytes - initial_used;
@@ -494,12 +480,9 @@ mod member_performance_tests {
             
             let pre_balance = contract.get_storage_balance(owner.clone()).unwrap();
             
-            contract.add_group_member(
-                "bulk_deposit_test".to_string(),
-                member_id,
-                WRITE,
-                None
-            ).unwrap();
+            contract
+                .add_group_member("bulk_deposit_test".to_string(), member_id, 0)
+                .unwrap();
 
             let post_balance = contract.get_storage_balance(owner.clone()).unwrap();
             total_storage_used += post_balance.used_bytes - pre_balance.used_bytes;

@@ -9,7 +9,7 @@ mod api_edge_cases_tests {
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
     use near_sdk::{testing_env, AccountId};
-    use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+    use crate::groups::kv_permissions::{MODERATE, MANAGE};
 
     fn test_account(index: usize) -> AccountId {
         accounts(index)
@@ -92,8 +92,10 @@ mod api_edge_cases_tests {
         let config = json!({ "is_private": false });
         contract.create_group("admin_test2".to_string(), config).unwrap();
 
-        // Add bob as regular member with just WRITE
-        contract.add_group_member("admin_test2".to_string(), bob.clone(), WRITE, None).unwrap();
+        // Add bob as regular member (clean-add)
+        contract
+            .add_group_member("admin_test2".to_string(), bob.clone(), 0)
+            .unwrap();
 
         // Bob should not have admin permission
         let has_admin = contract.has_group_admin_permission("admin_test2".to_string(), bob.clone());
@@ -113,8 +115,18 @@ mod api_edge_cases_tests {
         let config = json!({ "is_private": false });
         contract.create_group("admin_test3".to_string(), config).unwrap();
 
-        // Add bob with MANAGE flag (highest regular permission)
-        contract.add_group_member("admin_test3".to_string(), bob.clone(), MANAGE, None).unwrap();
+        // Add bob (clean-add) and then grant MANAGE on group config
+        contract
+            .add_group_member("admin_test3".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(
+                bob.clone(),
+                "groups/admin_test3/config".to_string(),
+                MANAGE,
+                None,
+            )
+            .unwrap();
 
         // Check admin permission - may or may not have it depending on implementation
         let has_admin = contract.has_group_admin_permission("admin_test3".to_string(), bob.clone());
@@ -185,8 +197,13 @@ mod api_edge_cases_tests {
         let config = json!({ "is_private": false });
         contract.create_group("mod_test2".to_string(), config).unwrap();
 
-        // Add bob with MODERATE flag
-        contract.add_group_member("mod_test2".to_string(), bob.clone(), MODERATE, None).unwrap();
+        // Add bob (clean-add) and then grant MODERATE on group config
+        contract
+            .add_group_member("mod_test2".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(bob.clone(), "groups/mod_test2/config".to_string(), MODERATE, None)
+            .unwrap();
 
         // Bob should have moderate permission
         let has_moderate = contract.has_group_moderate_permission("mod_test2".to_string(), bob.clone());
@@ -206,8 +223,10 @@ mod api_edge_cases_tests {
         let config = json!({ "is_private": false });
         contract.create_group("mod_test3".to_string(), config).unwrap();
 
-        // Add bob with only WRITE flag
-        contract.add_group_member("mod_test3".to_string(), bob.clone(), WRITE, None).unwrap();
+        // Add bob with member-only role
+        contract
+            .add_group_member("mod_test3".to_string(), bob.clone(), 0)
+            .unwrap();
 
         // Bob should not have moderate permission
         let has_moderate = contract.has_group_moderate_permission("mod_test3".to_string(), bob.clone());
@@ -227,10 +246,10 @@ mod api_edge_cases_tests {
 
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
-        // Test with unicode characters in path (using correct set format)
-        let result = contract.set(json!({
-            "profile/unicode_测试": "value_🚀"
-        }), None, None);
+        // Test with unicode characters in path
+        let result = contract.set(set_request(json!({
+                "profile/unicode_测试": "value_🚀"
+            }), None));
 
         // Check if unicode is supported
         match result {
@@ -249,9 +268,9 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Test with dashes and underscores
-        let result = contract.set(json!({
-            "posts/path-with-dash_and_underscore": "value"
-        }), None, None);
+        let result = contract.set(set_request(json!({
+                "posts/path-with-dash_and_underscore": "value"
+            }), None));
 
         // Dashes and underscores should be allowed
         assert!(result.is_ok(), "Dashes and underscores should be allowed: {:?}", result.err());
@@ -267,13 +286,15 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Store deep data
-        contract.set(json!({
-            "level1/level2/level3/level4/deep_value": "test"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "level1/level2/level3/level4/deep_value": "test"
+                }), None))
+            .unwrap();
         
         // Verify we can read it back
         let keys = vec![format!("{}/level1/level2/level3/level4/deep_value", alice)];
-        let read_result = contract.get(keys, None, None, None);
+        let read_result = contract_get_values_map(&contract, keys, None);
         
         assert!(!read_result.is_empty(), "Should read deep value");
         
@@ -289,7 +310,7 @@ mod api_edge_cases_tests {
         let contract = init_live_contract();
 
         let keys = vec!["nonexistent.near/some/path".to_string()];
-        let result = contract.get(keys.clone(), None, None, None);
+        let result = contract_get_values_map(&contract, keys.clone(), None);
 
         // Result is HashMap<String, Value> - should be empty for non-existent keys
         // or contain a null value for the key
@@ -312,17 +333,19 @@ mod api_edge_cases_tests {
 
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
-        // Set some data using correct format
-        contract.set(json!({
-            "profile/name": "Alice",
-            "posts/1": "First post"
-        }), None, None).unwrap();
+        // Set some data
+        contract
+            .set(set_request(json!({
+                    "profile/name": "Alice",
+                    "posts/1": "First post"
+                }), None))
+            .unwrap();
 
         // Get multiple keys
         let key1 = format!("{}/profile/name", alice);
         let key2 = format!("{}/posts/1", alice);
         let keys = vec![key1.clone(), key2.clone()];
-        let result = contract.get(keys, None, None, None);
+        let result = contract_get_values_map(&contract, keys, None);
 
         // Result is HashMap<String, Value> - verify we got data back
         assert!(!result.is_empty(), "Should return data for existing keys");
@@ -372,13 +395,15 @@ mod api_edge_cases_tests {
 
         let config = json!({ "is_private": false });
         contract.create_group("member_data_test".to_string(), config).unwrap();
-        contract.add_group_member("member_data_test".to_string(), bob.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("member_data_test".to_string(), bob.clone(), 0)
+            .unwrap();
 
         let member_data = contract.get_member_data("member_data_test".to_string(), bob.clone());
         assert!(member_data.is_some(), "Should retrieve member data");
         
         let data = member_data.unwrap();
-        assert!(data.get("permission_flags").is_some(), "Should have permission_flags");
+        assert!(data.get("level").is_some(), "Should have level");
         
         println!("✅ Get existing member data test passed");
     }
@@ -411,7 +436,9 @@ mod api_edge_cases_tests {
 
         let config = json!({ "is_private": false });
         contract.create_group("stats_test".to_string(), config).unwrap();
-        contract.add_group_member("stats_test".to_string(), bob.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("stats_test".to_string(), bob.clone(), 0)
+            .unwrap();
 
         let stats = contract.get_group_stats("stats_test".to_string());
         assert!(stats.is_some(), "Should retrieve group stats");

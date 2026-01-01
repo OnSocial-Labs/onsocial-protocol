@@ -30,7 +30,7 @@ mod governance_tests {
         // Owner creates a proposal to add another member (should work)
         let proposal_data = json!({
             "target_user": target_member.to_string(),
-            "permission_flags": WRITE,
+            "level": 0,
             "message": "Owner inviting community contributor"
         });
 
@@ -38,7 +38,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(proposal_result.is_ok(), "Owner should be able to create member invite proposal: {:?}", proposal_result);
@@ -63,7 +63,7 @@ mod governance_tests {
 
         // Add an existing member so proposals don't execute immediately (need 2 members for 50% participation)
         // For member-driven groups, this will create a proposal that executes immediately (1 member = 100% participation)
-        let add_result = contract.add_group_member("demogroup".to_string(), existing_member.clone(), WRITE, None);
+        let add_result = contract.add_group_member("demogroup".to_string(), existing_member.clone(), 0);
         // In single-member groups, proposals execute immediately, so this should succeed
         assert!(add_result.is_ok(), "Should add first member via immediate proposal execution: {:?}", add_result);
         
@@ -72,7 +72,7 @@ mod governance_tests {
                "Member should be added after immediate proposal execution");
 
         // In member-driven groups, add_group_member creates a proposal instead of directly adding
-        let add_result = contract.add_group_member("demogroup".to_string(), target_member.clone(), WRITE, None);
+        let add_result = contract.add_group_member("demogroup".to_string(), target_member.clone(), 0);
         assert!(add_result.is_ok(), "Owner should be able to create member invitation proposal: {:?}", add_result);
 
         // Target member should NOT be immediately added to the group (proposal needs voting)
@@ -82,7 +82,7 @@ mod governance_tests {
         // Owner can also create proposals directly
         let proposal_data = json!({
             "target_user": "dave.near",
-            "permission_flags": MODERATE,
+            "level": 0,
             "message": "Inviting experienced community member"
         });
 
@@ -90,7 +90,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(proposal_result.is_ok(), "Owner should be able to create member invite proposal: {:?}", proposal_result);
@@ -115,11 +115,14 @@ mod governance_tests {
         });
         contract.create_group("demogroup".to_string(), config).unwrap();
 
+        // Path permissions in a group are only meaningful for members.
+        test_add_member_bypass_proposals(&mut contract, "demogroup", &target_member, 0, &owner);
+
         // Owner creates proposal to grant path-specific permissions
         let proposal_data = json!({
             "target_user": target_member.to_string(),
             "path": "groups/demogroup/events",
-            "permission_flags": MODERATE,
+            "level": MODERATE,
             "reason": "Grant event management permissions to community member"
         });
 
@@ -127,7 +130,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(proposal_result.is_ok(), "Owner should be able to create path permission proposal: {:?}", proposal_result);
@@ -165,7 +168,7 @@ mod governance_tests {
         testing_env!(get_context_with_deposit(non_member.clone(), 1_000_000_000_000_000_000_000_000).build());
         let proposal_data = json!({
             "target_user": target.to_string(),
-            "permission_flags": WRITE,
+            "level": 0,
             "message": "Unauthorized attempt"
         });
 
@@ -173,7 +176,7 @@ mod governance_tests {
             "demogroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(proposal_result.is_err(), "Non-member should not be able to create proposals");
@@ -198,15 +201,15 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), member.clone(), MANAGE, None).unwrap();
+        contract.add_group_member("traditional".to_string(), member.clone(), 0).unwrap();
+        contract.set_permission(member.clone(), "groups/traditional/config".to_string(), MANAGE, None).unwrap();
 
         // Manager in traditional group can directly add members
         testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
         let direct_add_result = contract.add_group_member(
             "traditional".to_string(),
             target.clone(),
-            WRITE,
-            None,
+            0,
         );
         assert!(direct_add_result.is_ok(), "Traditional group should allow direct member addition");
 
@@ -225,12 +228,7 @@ mod governance_tests {
         test_add_member_bypass_proposals(&mut contract, "democratic", &existing_member, WRITE, &owner);
 
         // Owner in member-driven group creates proposal for member addition
-        let proposal_add_result = contract.add_group_member(
-            "democratic".to_string(),
-            target.clone(),
-            WRITE,
-            None,
-        );
+        let proposal_add_result = contract.add_group_member("democratic".to_string(), target.clone(), 0);
         assert!(proposal_add_result.is_ok(), "Member-driven group should create proposal for member addition");
 
         // Verify target is not immediately added to member-driven group (needs voting)
@@ -261,22 +259,22 @@ mod governance_tests {
         // Test: Owner can create proposals for basic member invitations
         let basic_proposal = json!({
             "target_user": target.to_string(),
-            "permission_flags": WRITE,
+            "level": 0,
             "message": "Basic member invitation"
         });
 
-        let basic_result = contract.create_group_proposal("demogroup".to_string(), "member_invite".to_string(), basic_proposal, None, None);
+        let basic_result = contract.create_group_proposal("demogroup".to_string(), "member_invite".to_string(), basic_proposal, None);
         assert!(basic_result.is_ok(), "Owner should be able to create basic proposals: {:?}", basic_result);
 
         // Test: Owner can create proposals for elevated permissions
         let elevated_proposal = json!({
             "target_user": target.to_string(),
             "path": "groups/demogroup/admin",
-            "permission_flags": MANAGE,
+            "level": MANAGE,
             "reason": "Granting admin permissions"
         });
 
-        let elevated_result = contract.create_group_proposal("demogroup".to_string(), "path_permission_grant".to_string(), elevated_proposal, None, None);
+        let elevated_result = contract.create_group_proposal("demogroup".to_string(), "path_permission_grant".to_string(), elevated_proposal, None);
         assert!(elevated_result.is_ok(), "Owner should be able to create elevated permission proposals: {:?}", elevated_result);
 
         println!("✅ Proposal validation: Owner can create all types of proposals in member-driven groups");
@@ -307,7 +305,7 @@ mod governance_tests {
         // Test core governance principles:
         
         // 1. Proposals are required for all member additions
-        let add_result = contract.add_group_member("community".to_string(), accounts(1), WRITE, None);
+        let add_result = contract.add_group_member("community".to_string(), accounts(1), 0);
         assert!(add_result.is_ok(), "Should create proposal for member addition");
         assert!(!contract.is_group_member("community".to_string(), accounts(1)), 
                "Member not added until proposal is approved");
@@ -319,10 +317,10 @@ mod governance_tests {
             json!({
                 "target_user": accounts(2).to_string(),
                 "path": "groups/community/events",
-                "permission_flags": MODERATE,
+                "level": MODERATE,
                 "reason": "Event management permissions"
             }),
-            None, None,
+            None,
         );
         assert!(permission_result.is_ok(), "Should create path permission proposal");
 
@@ -333,10 +331,9 @@ mod governance_tests {
             "member_invite".to_string(),
             json!({
                 "target_user": accounts(4).to_string(),
-                "permission_flags": WRITE,
                 "message": "Unauthorized attempt"
             }),
-            None, None,
+            None,
         );
         assert!(non_member_result.is_err(), "Non-members should not be able to create proposals");
 
@@ -371,7 +368,7 @@ mod governance_tests {
         testing_env!(get_context_with_deposit(non_member.clone(), 1_000_000_000_000_000_000_000_000).build());
         let join_request_data = json!({
             "requester": non_member.to_string(),
-            "requested_permissions": WRITE,
+            "requested_permissions": 0,
             "message": "I would like to join this community"
         });
 
@@ -379,7 +376,7 @@ mod governance_tests {
             "community".to_string(),
             "join_request".to_string(),
             join_request_data,
-            None, None,
+            None,
         );
 
         assert!(join_request_result.is_ok(), "Non-members should be able to create join request proposals: {:?}", join_request_result);
@@ -387,7 +384,7 @@ mod governance_tests {
         // But non-member should still be blocked from creating other proposal types
         let member_invite_data = json!({
             "target_user": accounts(2).to_string(),
-            "permission_flags": WRITE,
+            "level": WRITE,
             "message": "Trying to invite someone else"
         });
 
@@ -395,7 +392,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             member_invite_data,
-            None, None,
+            None,
         );
 
         assert!(member_invite_result.is_err(), "Non-members should not be able to create member invite proposals");
@@ -428,17 +425,18 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), member.clone(), MANAGE, None).unwrap();
+        contract
+            .add_group_member("traditional".to_string(), member.clone(), 0)
+            .unwrap();
+        contract
+            .set_permission(member.clone(), "groups/traditional/config".to_string(), MANAGE, None)
+            .unwrap();
         
         // Verify member can create proposals in traditional group
         testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
 
-        let member_proposal_result = contract.add_group_member(
-            "traditional".to_string(),
-            accounts(2),
-            WRITE,
-            None,
-        );
+        let member_proposal_result =
+            contract.add_group_member("traditional".to_string(), accounts(2), 0);
 
         assert!(member_proposal_result.is_ok(), "Existing members should be able to add other members in traditional groups");
 
@@ -467,8 +465,12 @@ mod governance_tests {
         contract.create_group("setup".to_string(), traditional_config).unwrap();
         
         // Add members with different permission levels
-        contract.add_group_member("setup".to_string(), write_member.clone(), WRITE, None).unwrap();
-        contract.add_group_member("setup".to_string(), moderate_member.clone(), MODERATE, None).unwrap();
+        contract
+            .add_group_member("setup".to_string(), write_member.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("setup".to_string(), moderate_member.clone(), 0)
+            .unwrap();
 
         // Now create a member-driven group 
         let member_driven_config = json!({
@@ -484,7 +486,7 @@ mod governance_tests {
 
         // Test 1: Direct permission actions are blocked regardless of permission level
         testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let direct_add_result = contract.add_group_member("democratic".to_string(), write_member.clone(), WRITE, None);
+        let direct_add_result = contract.add_group_member("democratic".to_string(), write_member.clone(), 0);
         
         // This should create a proposal, not add directly (even for owner)
         assert!(direct_add_result.is_ok(), "Should create proposal instead of direct addition");
@@ -496,7 +498,7 @@ mod governance_tests {
         // But we can verify that the owner (who is automatically a member) can create proposals
         let owner_proposal_data = json!({
             "target_user": write_member.to_string(),
-            "permission_flags": WRITE,
+            "level": 0,
             "message": "Owner creating proposal"
         });
 
@@ -504,7 +506,7 @@ mod governance_tests {
             "democratic".to_string(),
             "member_invite".to_string(),
             owner_proposal_data,
-            None, None,
+            None,
         );
 
         assert!(owner_proposal_result.is_ok(), "Owner should be able to create proposals");
@@ -531,19 +533,24 @@ mod governance_tests {
         });
         contract.create_group("democratic".to_string(), config).unwrap();
 
+        // Permission grant proposals apply to existing members.
+        test_add_member_bypass_proposals(&mut contract, "democratic", &bob, 0, &alice);
+
         // Test 1: Traditional groups don't support permission grant proposals
         let traditional_config = json!({
             "member_driven": false,
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("traditional".to_string(), charlie.clone(), 0)
+            .unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_proposal = json!({
             "target_user": bob.to_string(),
             "path": "groups/traditional/content/posts",
-            "permission_flags": MODERATE,
+            "level": MODERATE,
             "reason": "Grant bob moderate permissions"
         });
 
@@ -551,7 +558,7 @@ mod governance_tests {
             "traditional".to_string(),
             "path_permission_grant".to_string(),
             traditional_proposal,
-            None, None
+            None
         );
 
         assert!(result.is_err(), "Traditional groups should not support permission grant proposals");
@@ -563,7 +570,7 @@ mod governance_tests {
         let member_driven_proposal = json!({
             "target_user": bob.to_string(),
             "path": "groups/democratic/content/posts", 
-            "permission_flags": MODERATE,
+            "level": MODERATE,
             "reason": "Grant bob moderate permissions for posts"
         });
 
@@ -571,7 +578,7 @@ mod governance_tests {
             "democratic".to_string(),
             "path_permission_grant".to_string(),
             member_driven_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Member-driven group should support permission grant proposals");
@@ -590,7 +597,7 @@ mod governance_tests {
         let alice = test_account(0); // Owner
         let bob = test_account(1);   // Member to be banned
         let charlie = test_account(2); // Member who proposes ban
-        let diana = test_account(3);   // Another member
+        let _diana = test_account(3);   // Another member
 
         // Create a member-driven group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
@@ -609,8 +616,12 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("traditional".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract
+            .add_group_member("traditional".to_string(), bob.clone(), 0)
+            .unwrap();
+        contract
+            .add_group_member("traditional".to_string(), charlie.clone(), 0)
+            .unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
         let ban_proposal_traditional = json!({
@@ -623,7 +634,7 @@ mod governance_tests {
             "traditional".to_string(),
             "group_update".to_string(),
             ban_proposal_traditional,
-            None, None
+            None
         );
 
         // Traditional groups don't use ban proposals - they use direct blacklist_group_member
@@ -642,7 +653,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!ban_proposal_id.is_empty(), "Ban proposal should be created successfully");
@@ -652,7 +663,7 @@ mod governance_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000).build());
         let unban_proposal = json!({
             "update_type": "unban",
-            "target_user": diana.to_string(),
+            "target_user": bob.to_string(),
             "reason": "Appeal accepted, lifting ban"
         });
 
@@ -660,7 +671,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             unban_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!unban_proposal_id.is_empty(), "Unban proposal should be created successfully");
@@ -678,7 +689,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             invalid_ban_proposal,
-            None, None
+            None
         );
 
         // Should succeed at creation (validation happens at execution)
@@ -711,15 +722,15 @@ mod governance_tests {
         contract.create_group("testgroup".to_string(), config).unwrap();
 
         // Add bob as a member
-        contract.add_group_member("testgroup".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("testgroup".to_string(), charlie.clone(), MODERATE, None).unwrap();
+        contract.add_group_member("testgroup".to_string(), bob.clone(), 0).unwrap();
+        contract.add_group_member("testgroup".to_string(), charlie.clone(), 0).unwrap();
 
         // Verify bob is a member before ban
         // (We can't directly test this via API, but we know from the add_group_member success)
 
         // Test 1: Ban bob using direct blacklist (traditional group)
         testing_env!(get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.blacklist_group_member("testgroup".to_string(), bob.clone(), None).unwrap();
+        contract.blacklist_group_member("testgroup".to_string(), bob.clone()).unwrap();
 
         println!("✅ Bob has been banned - let's test what he can and cannot do:");
 
@@ -727,7 +738,6 @@ mod governance_tests {
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let rejoin_result = contract.join_group(
             "testgroup".to_string(),
-            WRITE
         );
 
         // The bug has been FIXED! Traditional public groups now check blacklist on join!
@@ -741,12 +751,12 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("private".to_string(), private_config).unwrap();
-        contract.add_group_member("private".to_string(), charlie.clone(), WRITE, None).unwrap();
-        contract.blacklist_group_member("private".to_string(), charlie.clone(), None).unwrap();
+        contract.add_group_member("private".to_string(), charlie.clone(), 0).unwrap();
+        contract.blacklist_group_member("private".to_string(), charlie.clone()).unwrap();
         
         // Try to join private group while banned
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let private_rejoin_result = contract.join_group("private".to_string(), WRITE);
+        let private_rejoin_result = contract.join_group("private".to_string());
         
         assert!(private_rejoin_result.is_err(), "Banned user should not be able to join private groups");
         println!("✅ Banned user CANNOT join private groups (blacklist check works correctly)");
@@ -754,7 +764,7 @@ mod governance_tests {
         // Test 3: Banned user cannot create proposals (because they're no longer a member)
         let proposal_data = json!({
             "target_user": charlie.to_string(),
-            "permission_flags": MODERATE,
+            "level": 0,
             "message": "Bob trying to invite someone"
         });
 
@@ -762,7 +772,7 @@ mod governance_tests {
             "testgroup".to_string(),
             "member_invite".to_string(),
             proposal_data,
-            None, None
+            None
         );
 
         assert!(proposal_result.is_err(), "Banned user should not be able to create proposals");
@@ -789,7 +799,7 @@ mod governance_tests {
             "democratic".to_string(),
             "group_update".to_string(),
             ban_proposal,
-            None, None
+            None
         ).unwrap();
 
         // Simulate voting and execution would happen here...
@@ -846,21 +856,21 @@ mod governance_tests {
             "democratic_ban".to_string(),
             "group_update".to_string(),
             ban_proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Test 2: Alice votes YES (owner)
         // With 4 total members and 51% participation quorum:
         // Bob (proposer) + Alice = 2 votes = 50% participation (doesn't meet 51% quorum, doesn't execute yet)
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let alice_vote = contract.vote_on_proposal("democratic_ban".to_string(), proposal_id.clone(), true, None);
+        let alice_vote = contract.vote_on_proposal("democratic_ban".to_string(), proposal_id.clone(), true);
         assert!(alice_vote.is_ok(), "Alice's YES vote should succeed: {:?}", alice_vote.err());
 
         // Test 3: Dave votes YES (3 out of 4 = 75% participation, meets 51% quorum, executes!)
         // Bob + Alice + Dave = 3 votes = 75% participation (meets quorum), 3 YES / 3 votes = 100% approval (meets threshold)
         // Dave is a regular member with only WRITE permissions, but governance-approved proposals execute with system authority
         testing_env!(get_context_with_deposit(dave.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let dave_vote = contract.vote_on_proposal("democratic_ban".to_string(), proposal_id.clone(), true, None);
+        let dave_vote = contract.vote_on_proposal("democratic_ban".to_string(), proposal_id.clone(), true);
         assert!(dave_vote.is_ok(), "Dave's YES vote should succeed and trigger execution (governance authority bypasses permissions): {:?}", dave_vote.err());
 
         // Test 4: Verify Charlie is banned after proposal execution
@@ -884,7 +894,7 @@ mod governance_tests {
             "democratic_ban".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "Test"}}),
-            None, None,
+            None,
         );
         assert!(charlie_proposal.is_err(), "Banned user should not be able to create proposals");
 
@@ -895,16 +905,16 @@ mod governance_tests {
             "democratic_ban".to_string(),
             "group_update".to_string(),
             test_proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Now try to vote as Charlie (who is banned)
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let charlie_vote = contract.vote_on_proposal("democratic_ban".to_string(), test_proposal_id.clone(), true, None);
+        let charlie_vote = contract.vote_on_proposal("democratic_ban".to_string(), test_proposal_id.clone(), true);
         assert!(charlie_vote.is_err(), "Banned user should not be able to vote");
 
         // Test 6: Verify Charlie cannot rejoin the group
-        let rejoin_result = contract.join_group("democratic_ban".to_string(), WRITE);
+        let rejoin_result = contract.join_group("democratic_ban".to_string());
         assert!(rejoin_result.is_err(), "Banned user should not be able to rejoin");
 
         println!("✅ Democratic Ban Workflow:");
@@ -950,12 +960,12 @@ mod governance_tests {
             "democratic_unban".to_string(),
             "group_update".to_string(),
             ban_proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Alice votes YES (creator already voted), execution happens at 2/3 = 67% participation
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("democratic_unban".to_string(), ban_proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("democratic_unban".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         // Verify Charlie is now blacklisted (ban proposal executed)
         assert!(contract.is_blacklisted("democratic_unban".to_string(), charlie.clone()),
@@ -973,17 +983,17 @@ mod governance_tests {
             "democratic_unban".to_string(),
             "group_update".to_string(),
             unban_proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Test 2: Alice votes YES (owner can vote even without member data - 2 out of 3 participants = 67% participation, 67% YES - meets majority)
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let alice_vote = contract.vote_on_proposal("democratic_unban".to_string(), proposal_id.clone(), true, None);
+        let alice_vote = contract.vote_on_proposal("democratic_unban".to_string(), proposal_id.clone(), true);
         assert!(alice_vote.is_ok(), "Alice's YES vote should succeed");
 
         // Test 3: Dave votes YES (would be 3 out of 3 participants = 100% participation, but proposal already executed)
         testing_env!(get_context_with_deposit(dave.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let dave_vote = contract.vote_on_proposal("democratic_unban".to_string(), proposal_id.clone(), true, None);
+        let dave_vote = contract.vote_on_proposal("democratic_unban".to_string(), proposal_id.clone(), true);
         // Proposal already executed after Alice's vote, so Dave's vote should fail with "not active"
         assert!(dave_vote.is_err(), "Dave's vote should fail because proposal already executed");
 
@@ -1044,7 +1054,7 @@ mod governance_tests {
             "ban_rejection_test".to_string(),
             "group_update".to_string(),
             ban_proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Only Bob votes YES (1 out of 4 = 25% participation - doesn't meet quorum)
@@ -1066,13 +1076,13 @@ mod governance_tests {
             "ban_rejection_test".to_string(),
             "group_update".to_string(),
             rejection_proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Alice votes YES (automatic), Bob votes YES (2 YES), but Dave votes NO
         // Result: 2 YES, 1 NO - doesn't meet majority (>50% YES required)
         testing_env!(get_context_with_deposit(dave.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("ban_rejection_test".to_string(), rejection_proposal_id.clone(), false, None).unwrap();
+        contract.vote_on_proposal("ban_rejection_test".to_string(), rejection_proposal_id.clone(), false).unwrap();
 
         // Verify Charlie is still a member (proposal rejected)
         assert!(contract.is_group_member("ban_rejection_test".to_string(), charlie.clone()),
@@ -1090,7 +1100,7 @@ mod governance_tests {
             "ban_rejection_test".to_string(),
             "group_update".to_string(),
             invalid_ban_data,
-            None, None,
+            None,
         );
 
         // Should succeed at creation but fail at execution
@@ -1119,7 +1129,7 @@ mod governance_tests {
         contract.create_group("community".to_string(), config).unwrap();
 
         // Add bob as a member using realistic API method
-        test_add_member_bypass_proposals(&mut contract, "community", &bob, WRITE, &alice);
+        test_add_member_bypass_proposals(&mut contract, "community", &bob, 0, &alice);
 
         // Test 1: Any member can propose ownership transfer
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -1133,7 +1143,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             transfer_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Transfer ownership proposal should be created successfully");
@@ -1146,7 +1156,7 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), bob.clone(), WRITE, None).unwrap();
+        contract.add_group_member("traditional".to_string(), bob.clone(), 0).unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_transfer = json!({
@@ -1159,7 +1169,7 @@ mod governance_tests {
             "traditional".to_string(),
             "group_update".to_string(),
             traditional_transfer,
-            None, None
+            None
         );
 
         assert!(result.is_err(), "Traditional groups should not support transfer ownership proposals");
@@ -1177,7 +1187,7 @@ mod governance_tests {
             "community".to_string(),
             "group_update".to_string(),
             invalid_transfer,
-            None, None
+            None
         );
 
         // Should succeed at creation (validation happens at execution)
@@ -1216,7 +1226,7 @@ mod governance_tests {
 
         let permission_proposal = json!({
             "target_user": bob.to_string(),
-            "permission_flags": MODERATE,
+            "level": MODERATE,
             "reason": "Bob has been contributing significantly, deserves moderate permissions"
         });
 
@@ -1224,7 +1234,7 @@ mod governance_tests {
             "community".to_string(),
             "permission_change".to_string(),
             permission_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Permission change proposal should be created successfully");
@@ -1237,13 +1247,13 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), bob.clone(), WRITE, None).unwrap();
-        contract.add_group_member("traditional".to_string(), charlie.clone(), WRITE, None).unwrap();
+        contract.add_group_member("traditional".to_string(), bob.clone(), 0).unwrap();
+        contract.add_group_member("traditional".to_string(), charlie.clone(), 0).unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_permission = json!({
             "target_user": bob.to_string(),
-            "permission_flags": MANAGE,
+            "level": MANAGE,
             "reason": "Should not work in traditional groups"
         });
 
@@ -1251,33 +1261,33 @@ mod governance_tests {
             "traditional".to_string(),
             "permission_change".to_string(),
             traditional_permission,
-            None, None
+            None
         );
 
         assert!(result.is_err(), "Traditional groups should not support permission change proposals");
         println!("✅ Traditional groups don't support permission change proposals (use direct grant_permissions instead)");
 
-        // Test 3: Permission change proposal validation - target_user and permission_flags required
+        // Test 3: Permission change proposal validation - target_user and level required
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
         let invalid_permission = json!({
-            "reason": "Missing target_user and permission_flags"
-            // No target_user or permission_flags specified
+            "reason": "Missing target_user and level"
+            // No target_user or level specified
         });
 
         let result = contract.create_group_proposal(
             "community".to_string(),
             "permission_change".to_string(),
             invalid_permission,
-            None, None
+            None
         );
 
-        assert!(result.is_err(), "Permission change proposal should require target_user and permission_flags");
-        println!("✅ Permission change proposals require target_user and permission_flags");
+        assert!(result.is_err(), "Permission change proposal should require target_user and level");
+        println!("✅ Permission change proposals require target_user and level");
 
         // Test 4: Permission flags must be valid (0-255)
         let invalid_flags = json!({
             "target_user": bob.to_string(),
-            "permission_flags": 300, // Invalid - > 255
+            "level": 300, // Invalid - > 255
             "reason": "Invalid permission flags"
         });
 
@@ -1285,7 +1295,7 @@ mod governance_tests {
             "community".to_string(),
             "permission_change".to_string(),
             invalid_flags,
-            None, None
+            None
         );
 
         assert!(result.is_err(), "Permission flags must be valid (0-255)");
@@ -1323,7 +1333,7 @@ mod governance_tests {
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let invite_proposal = json!({
             "target_user": charlie.to_string(),
-            "permission_flags": WRITE,
+            "level": 0,
             "message": "Charlie would be a great addition to our community"
         });
 
@@ -1331,7 +1341,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             invite_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!proposal_id.is_empty(), "Member invite proposal should be created successfully");
@@ -1341,18 +1351,18 @@ mod governance_tests {
         let default_perms_proposal = json!({
             "target_user": diana.to_string(),
             "message": "Diana is awesome, let's invite her!"
-            // No permission_flags specified
+            // No level specified
         });
 
         let proposal_id2 = contract.create_group_proposal(
             "community".to_string(),
             "member_invite".to_string(),
             default_perms_proposal,
-            None, None
+            None
         ).unwrap();
 
         assert!(!proposal_id2.is_empty(), "Member invite proposal should work with default permissions");
-        println!("✅ Member invite proposals use default READ|WRITE permissions if not specified");
+        println!("✅ Member invite proposals default to WRITE if not specified");
 
         // Test 3: Traditional groups don't support member invite proposals
         let traditional_config = json!({
@@ -1360,12 +1370,12 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), charlie.clone(), MODERATE, None).unwrap();
+        contract.add_group_member("traditional".to_string(), charlie.clone(), 0).unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_invite = json!({
             "target_user": charlie.to_string(),
-            "permission_flags": WRITE,
+            "level": WRITE,
             "message": "Should not work in traditional groups"
         });
 
@@ -1373,7 +1383,7 @@ mod governance_tests {
             "traditional".to_string(),
             "member_invite".to_string(),
             traditional_invite,
-            None, None
+            None
         );
 
         assert!(result.is_err(), "Traditional groups should not support member invite proposals");
@@ -1382,7 +1392,7 @@ mod governance_tests {
         // Test 4: Member invite proposal validation - target_user required
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let invalid_invite = json!({
-            "permission_flags": WRITE,
+            "level": WRITE,
             "message": "Missing target_user"
             // No target_user specified
         });
@@ -1391,7 +1401,7 @@ mod governance_tests {
             "community".to_string(),
             "member_invite".to_string(),
             invalid_invite,
-            None, None
+            None
         );
 
         assert!(result.is_err(), "Member invite proposal should require target_user");

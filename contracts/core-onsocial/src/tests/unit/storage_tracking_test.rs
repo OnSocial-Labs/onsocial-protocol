@@ -12,7 +12,6 @@
 mod storage_tracking_tests {
     use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
-    use near_sdk::test_utils::accounts;
     use near_sdk::{testing_env, NearToken};
 
     // ========================================================================
@@ -22,7 +21,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_deposit_refunds_on_insufficient_amount() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // Alice tries to deposit 1 NEAR but only attaches 0.5 NEAR
         let attached = NearToken::from_millinear(500).as_yoctonear();
@@ -37,7 +36,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(deposit_data, None, None);
+        let result = contract.set(set_request(deposit_data, None));
         
         // CRITICAL: Should fail with error (not Ok with locked funds)
         assert!(result.is_err(), "❌ Insufficient deposit should return error");
@@ -53,7 +52,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_pool_deposit_refunds_on_insufficient_amount() {
         let mut contract = init_live_contract();
-        let owner = accounts(0);
+        let owner = test_account(0);
 
         // Owner tries to deposit to pool but insufficient amount
         let attached = NearToken::from_millinear(500).as_yoctonear();
@@ -69,7 +68,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(pool_data, None, None);
+        let result = contract.set(set_request(pool_data, None));
         
         // Should fail and refund
         assert!(result.is_err(), "Insufficient pool deposit should return error");
@@ -84,7 +83,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_deposit_refunds_excess_after_state_update() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // Alice attaches 2 NEAR but only needs 1 NEAR
         let attached = NearToken::from_near(2).as_yoctonear();
@@ -101,7 +100,7 @@ mod storage_tracking_tests {
 
         // Use refund_unused_deposit: true to get old refund behavior
         let options = Some(crate::SetOptions { refund_unused_deposit: true });
-        let result = contract.set(deposit_data, options, None);
+        let result = contract.set(set_request(deposit_data, options));
         assert!(result.is_ok(), "Deposit with excess should succeed");
         
         // Verify only requested amount was stored
@@ -119,28 +118,38 @@ mod storage_tracking_tests {
     #[test]
     fn test_withdrawal_respects_used_bytes() {
         let mut contract = init_live_contract();
-        let bob = accounts(1);
+        let bob = test_account(1);
 
         // Bob deposits 2 NEAR
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(bob.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Bob adds data that uses storage
         let data_context = get_context(bob.clone());
         testing_env!(data_context.build());
 
-        contract.set(json!({
-            "profile/name": "Bob",
-            "profile/bio": "A test user with some data",
-            "posts/1": {"text": "Test post that uses storage", "timestamp": 1234567890}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Bob",
+                    "profile/bio": "A test user with some data",
+                    "posts/1": {"text": "Test post that uses storage", "timestamp": 1234567890}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Try to withdraw full deposit (should fail - some bytes are used)
         let withdraw_context = get_context(bob.clone());
@@ -152,7 +161,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(withdraw_all, None, None);
+        let result = contract.set(set_request(withdraw_all, None));
         assert!(result.is_err(), 
                "❌ Should not be able to withdraw full deposit when storage is used");
         
@@ -166,37 +175,52 @@ mod storage_tracking_tests {
     #[test]
     fn test_withdrawal_accounts_for_shared_storage() {
         let mut contract = init_live_contract();
-        let pool_owner = accounts(0);
-        let beneficiary = accounts(1);
+        let pool_owner = test_account(0);
+        let beneficiary = test_account(1);
 
         // Pool owner creates shared storage pool
         let pool_deposit = NearToken::from_near(5).as_yoctonear();
         let context = get_context_with_deposit(pool_owner.clone(), pool_deposit);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/shared_pool_deposit": {
-                "pool_id": pool_owner.to_string(),
-                "amount": pool_deposit.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/shared_pool_deposit": {
+                        "pool_id": pool_owner.to_string(),
+                        "amount": pool_deposit.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Share storage with beneficiary
-        contract.set(json!({
-            "storage/share_storage": {
-                "target_id": beneficiary.to_string(),
-                "max_bytes": 10000u64
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/share_storage": {
+                        "target_id": beneficiary.to_string(),
+                        "max_bytes": 10000u64
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Beneficiary adds data using shared storage
         let beneficiary_context = get_context(beneficiary.clone());
         testing_env!(beneficiary_context.build());
 
-        contract.set(json!({
-            "profile/name": "Beneficiary",
-            "posts/1": {"text": "Using shared storage", "timestamp": 1234567890}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Beneficiary",
+                    "posts/1": {"text": "Using shared storage", "timestamp": 1234567890}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Beneficiary's personal balance should account for shared storage
         let balance = contract.get_storage_balance(beneficiary.clone()).unwrap();
@@ -212,18 +236,23 @@ mod storage_tracking_tests {
     #[test]
     fn test_storage_tracker_sequence_on_deposit() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // Deposit with storage tracking
         let deposit_amount = NearToken::from_near(1).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Verify storage was allocated and tracker properly reset
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
@@ -241,29 +270,37 @@ mod storage_tracking_tests {
     #[test]
     fn test_withdrawal_state_update_before_transfer() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // Alice deposits 2 NEAR
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Alice withdraws 0.5 NEAR
         let withdraw_amount = NearToken::from_millinear(500).as_yoctonear();
         let withdraw_context = get_context(alice.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.set(json!({
-            "storage/withdraw": {
-                "amount": withdraw_amount.to_string()
-            }
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "storage/withdraw": {
+                    "amount": withdraw_amount.to_string()
+                }
+            }),
+            None,
+        ));
 
         // Withdrawal should succeed
         assert!(result.is_ok(), "Withdrawal should succeed");
@@ -284,7 +321,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_withdrawal_requires_registered_account() {
         let mut contract = init_live_contract();
-        let unregistered = accounts(5);
+        let unregistered = test_account(5);
 
         // Try to withdraw without registration
         let context = get_context(unregistered.clone());
@@ -296,7 +333,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(withdraw_data, None, None);
+        let result = contract.set(set_request(withdraw_data, None));
         assert!(result.is_err(), "Withdrawal from unregistered account should fail");
         
         println!("✅ Withdrawal correctly requires registered account");
@@ -309,26 +346,34 @@ mod storage_tracking_tests {
     #[test]
     fn test_withdrawal_none_means_all_available() {
         let mut contract = init_live_contract();
-        let bob = accounts(1);
+        let bob = test_account(1);
 
         // Bob deposits 2 NEAR
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(bob.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Withdraw without specifying amount (should withdraw all available)
         let withdraw_context = get_context(bob.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.set(json!({
-            "storage/withdraw": {}  // No amount specified
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "storage/withdraw": {}  // No amount specified
+            }),
+            None,
+        ));
 
         // Note: In unit tests without used bytes, this might succeed or fail
         // depending on if there's any storage usage
@@ -348,8 +393,8 @@ mod storage_tracking_tests {
     #[test]
     fn test_deposit_authorizer_must_match_account() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
-        let bob = accounts(1);
+        let alice = test_account(0);
+        let bob = test_account(1);
 
         // Alice tries to deposit for Bob (should fail)
         let deposit_amount = NearToken::from_near(1).as_yoctonear();
@@ -365,7 +410,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(deposit_data, None, None);
+        let result = contract.set(set_request(deposit_data, None));
         assert!(result.is_err(), "Depositor mismatch should fail");
         
         println!("✅ Deposit authorizer validation works correctly");
@@ -378,29 +423,39 @@ mod storage_tracking_tests {
     #[test]
     fn test_multiple_deposits_accumulate_correctly() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // First deposit: 1 NEAR
         let deposit1 = NearToken::from_near(1).as_yoctonear();
         let context1 = get_context_with_deposit(alice.clone(), deposit1);
         testing_env!(context1.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit1.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit1.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Second deposit: 2 NEAR
         let deposit2 = NearToken::from_near(2).as_yoctonear();
         let context2 = get_context_with_deposit(alice.clone(), deposit2);
         testing_env!(context2.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit2.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit2.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Verify total accumulation
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
@@ -417,7 +472,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_deposit_fails_if_storage_coverage_insufficient() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // Alice deposits a very small amount
         let tiny_deposit = 1000u128; // 1000 yoctoNEAR (way too small)
@@ -431,7 +486,7 @@ mod storage_tracking_tests {
         });
 
         // This might fail if the metadata storage itself exceeds the deposit
-        let result = contract.set(deposit_data, None, None);
+        let result = contract.set(set_request(deposit_data, None));
         
         // If it succeeds, the deposit was enough for metadata
         // If it fails, assert_storage_covered() properly caught it
@@ -449,32 +504,40 @@ mod storage_tracking_tests {
     #[test]
     fn test_share_storage_operation_tracking() {
         let mut contract = init_live_contract();
-        let pool_owner = accounts(0);
-        let beneficiary = accounts(1);
+        let pool_owner = test_account(0);
+        let beneficiary = test_account(1);
 
         // Pool owner deposits to shared pool
         let pool_deposit = NearToken::from_near(10).as_yoctonear();
         let context = get_context_with_deposit(pool_owner.clone(), pool_deposit);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/shared_pool_deposit": {
-                "pool_id": pool_owner.to_string(),
-                "amount": pool_deposit.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/shared_pool_deposit": {
+                        "pool_id": pool_owner.to_string(),
+                        "amount": pool_deposit.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Share storage with beneficiary
         let max_bytes = 50000u64; // 50KB
         let share_context = get_context(pool_owner.clone());
         testing_env!(share_context.build());
 
-        let result = contract.set(json!({
-            "storage/share_storage": {
-                "target_id": beneficiary.to_string(),
-                "max_bytes": max_bytes
-            }
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "storage/share_storage": {
+                    "target_id": beneficiary.to_string(),
+                    "max_bytes": max_bytes
+                }
+            }),
+            None,
+        ));
 
         assert!(result.is_ok(), "Share storage should succeed");
 
@@ -496,35 +559,48 @@ mod storage_tracking_tests {
     #[test]
     fn test_return_shared_storage_operation() {
         let mut contract = init_live_contract();
-        let pool_owner = accounts(0);
-        let beneficiary = accounts(1);
+        let pool_owner = test_account(0);
+        let beneficiary = test_account(1);
 
         // Setup: Share storage first
         let pool_deposit = NearToken::from_near(10).as_yoctonear();
         let context = get_context_with_deposit(pool_owner.clone(), pool_deposit);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/shared_pool_deposit": {
-                "pool_id": pool_owner.to_string(),
-                "amount": pool_deposit.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/shared_pool_deposit": {
+                        "pool_id": pool_owner.to_string(),
+                        "amount": pool_deposit.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
-        contract.set(json!({
-            "storage/share_storage": {
-                "target_id": beneficiary.to_string(),
-                "max_bytes": 50000u64
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/share_storage": {
+                        "target_id": beneficiary.to_string(),
+                        "max_bytes": 50000u64
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Now return shared storage
         let return_context = get_context(beneficiary.clone());
         testing_env!(return_context.build());
 
-        let result = contract.set(json!({
-            "storage/return_shared_storage": {}
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "storage/return_shared_storage": {}
+            }),
+            None,
+        ));
 
         assert!(result.is_ok(), "Return shared storage should succeed");
 
@@ -538,13 +614,245 @@ mod storage_tracking_tests {
     }
 
     // ========================================================================
+    // TEST: Sponsor Pool Capacity Enforcement (CRITICAL)
+    // ========================================================================
+
+    #[test]
+    fn test_sponsor_pool_capacity_enforced_on_write() {
+        let mut contract = init_live_contract();
+        let pool_owner = test_account(0);
+        let beneficiary1 = test_account(1);
+        let beneficiary2 = test_account(2);
+
+        // Fund sponsor pool with limited capacity.
+        //
+        // Storage cost: 1E19 yoctoNEAR per byte = 10KB per NEAR
+        // 100 milliNEAR = 1E23 yoctoNEAR → 10,000 bytes = 10KB capacity
+        //
+        // Allocate 5KB max to each beneficiary (10KB total = pool capacity).
+        // Have beneficiary2 consume ~4KB (within their 5KB allocation).
+        // Then beneficiary1's ~4KB write should fail because pool capacity is exhausted.
+        let pool_deposit = NearToken::from_millinear(100).as_yoctonear();
+        let context = get_context_with_deposit(pool_owner.clone(), pool_deposit);
+        testing_env!(context.build());
+
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "storage/shared_pool_deposit": {
+                            "pool_id": pool_owner.to_string(),
+                            "amount": pool_deposit.to_string()
+                        }
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Each beneficiary gets 5KB allocation (10KB total = pool capacity).
+        let max_bytes = 5_000u64;
+        let share_context = get_context(pool_owner.clone());
+        testing_env!(share_context.build());
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "storage/share_storage": {
+                            "target_id": beneficiary1.to_string(),
+                            "max_bytes": max_bytes
+                        }
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "storage/share_storage": {
+                            "target_id": beneficiary2.to_string(),
+                            "max_bytes": max_bytes
+                        }
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Beneficiary2 makes two writes consuming ~4KB of pool capacity.
+        // Each write is ~2KB (within their 5KB max_bytes allocation).
+        let beneficiary2_context = get_context_with_deposit(beneficiary2.clone(), 0);
+        testing_env!(beneficiary2_context.build());
+
+        // First write - ~2KB payload
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "profile/bio": "x".repeat(2_000)
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Second write - ~2KB payload (total ~4KB consumed)
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "profile/name": "y".repeat(2_000)
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Pool now has ~6KB remaining (10KB - ~4KB used by beneficiary2).
+        // BUT beneficiary1 also needs to fit in their 5KB max_bytes allocation.
+
+        // Beneficiary1 also makes writes consuming pool capacity.
+        let beneficiary1_context = get_context_with_deposit(beneficiary1.clone(), 0);
+        testing_env!(beneficiary1_context.build());
+
+        // First write - ~2KB
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "profile/bio": "a".repeat(2_000)
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Second write - ~2KB (total ~4KB consumed by beneficiary1)
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "profile/name": "b".repeat(2_000)
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Pool has ~2KB remaining (10KB - 4KB beneficiary2 - 4KB beneficiary1).
+        // Third write of ~2KB from beneficiary1 should fail due to pool capacity.
+
+        let result = contract.set(set_request(
+            json!({
+                "profile/status": "c".repeat(2_000)
+            }),
+            None,
+        ));
+
+        assert!(result.is_err(), "Write should fail when sponsor pool lacks capacity");
+
+        // Verify the error is specifically about storage
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, crate::errors::SocialError::InsufficientStorage(_)),
+            "Expected InsufficientStorage error, got: {:?}", err
+        );
+
+        println!("✅ Sponsor pool capacity enforced on write");
+    }
+
+    // ========================================================================
+    // TEST: Deallocation Does Not Over-Refund Pools (CRITICAL)
+    // ========================================================================
+
+    #[test]
+    fn test_delete_paid_by_personal_balance_does_not_refund_pools() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+
+        // Deposit personal balance for Alice.
+        let deposit = NearToken::from_near(1).as_yoctonear();
+        let context = get_context_with_deposit(alice.clone(), deposit);
+        testing_env!(context.build());
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "storage/deposit": { "amount": deposit.to_string() }
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Ensure there are no pools present/used.
+        let platform_account = crate::state::SocialPlatform::platform_pool_account();
+        let platform_before = contract
+            .platform
+            .shared_storage_pools
+            .get(&platform_account)
+            .cloned()
+            .unwrap_or_default();
+
+        // Write a reasonably sized value (paid by personal balance).
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "profile/bio": "x".repeat(5_000)
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Delete it.
+        contract
+            .set(
+                set_request(
+                    json!({
+                        "profile/bio": serde_json::Value::Null
+                    }),
+                    None,
+                ),
+            )
+            .unwrap();
+
+        // Platform pool used_bytes must be unchanged.
+        let platform_after = contract
+            .platform
+            .shared_storage_pools
+            .get(&platform_account)
+            .cloned()
+            .unwrap_or_default();
+        assert_eq!(platform_before.used_bytes, platform_after.used_bytes);
+
+        // No group pools should have been created/touched.
+        // (This is a simple sanity check: if any group pool exists, it would have a key like group-*.pool)
+        // The contract doesn't expose iteration over LookupMap, so we rely on the per-user counters.
+        let storage = contract.get_storage_balance(alice.clone()).unwrap();
+        assert_eq!(storage.group_pool_used_bytes, 0, "Personal delete must not refund group pool");
+        assert_eq!(storage.platform_pool_used_bytes, 0, "Personal delete must not refund platform pool");
+        assert!(
+            storage.shared_storage.is_none() || storage.shared_storage.as_ref().unwrap().used_bytes == 0,
+            "Personal delete must not refund sponsor pool"
+        );
+
+        println!("✅ Personal-balance delete does not refund pools");
+    }
+
+    // ========================================================================
     // TEST 13: Zero Amount Deposit (Edge Case)
     // ========================================================================
 
     #[test]
     fn test_zero_amount_deposit_rejected() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         let context = get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
@@ -555,7 +863,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(zero_deposit, None, None);
+        let result = contract.set(set_request(zero_deposit, None));
         
         // Should either reject or accept based on implementation
         // Key is: no crash, predictable behavior
@@ -573,28 +881,36 @@ mod storage_tracking_tests {
     #[test]
     fn test_zero_amount_withdrawal() {
         let mut contract = init_live_contract();
-        let bob = accounts(1);
+        let bob = test_account(1);
 
         // Bob deposits first
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(bob.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Try to withdraw zero
         let withdraw_context = get_context(bob.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.set(json!({
-            "storage/withdraw": {
-                "amount": "0"
-            }
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "storage/withdraw": {
+                    "amount": "0"
+                }
+            }),
+            None,
+        ));
 
         // Should succeed (no-op) or reject gracefully
         if result.is_ok() {
@@ -613,7 +929,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_rapid_sequential_deposits() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         let deposit_amounts = vec![
             NearToken::from_millinear(500).as_yoctonear(),
@@ -628,11 +944,14 @@ mod storage_tracking_tests {
             let context = get_context_with_deposit(alice.clone(), *amount);
             testing_env!(context.build());
 
-            let result = contract.set(json!({
-                "storage/deposit": {
-                    "amount": amount.to_string()
-                }
-            }), None, None);
+            let result = contract.set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": amount.to_string()
+                    }
+                }),
+                None,
+            ));
 
             assert!(result.is_ok(), "Deposit {} should succeed", i + 1);
             total_deposited += amount;
@@ -652,19 +971,24 @@ mod storage_tracking_tests {
     #[test]
     fn test_withdrawal_authorizer_must_match() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
-        let bob = accounts(1);
+        let alice = test_account(0);
+        let bob = test_account(1);
 
         // Alice deposits
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Try to withdraw with mismatched depositor
         let withdraw_context = get_context(alice.clone());
@@ -679,7 +1003,7 @@ mod storage_tracking_tests {
             }
         });
 
-        let result = contract.set(withdraw_data, None, None);
+        let result = contract.set(set_request(withdraw_data, None));
         assert!(result.is_err(), "Mismatched depositor should fail");
         
         println!("✅ Withdrawal authorizer validation works");
@@ -692,39 +1016,52 @@ mod storage_tracking_tests {
     #[test]
     fn test_cannot_withdraw_locked_storage() {
         let mut contract = init_live_contract();
-        let charlie = accounts(2);
+        let charlie = test_account(2);
 
         // Charlie deposits exactly enough for some data
         let deposit_amount = NearToken::from_near(1).as_yoctonear();
         let context = get_context_with_deposit(charlie.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Charlie adds data that locks storage
         let data_context = get_context(charlie.clone());
         testing_env!(data_context.build());
 
-        contract.set(json!({
-            "profile/name": "Charlie",
-            "profile/bio": "This locks storage bytes",
-            "posts/1": {"text": "Post 1", "timestamp": 1234567890},
-            "posts/2": {"text": "Post 2", "timestamp": 1234567891},
-            "posts/3": {"text": "Post 3", "timestamp": 1234567892}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Charlie",
+                    "profile/bio": "This locks storage bytes",
+                    "posts/1": {"text": "Post 1", "timestamp": 1234567890},
+                    "posts/2": {"text": "Post 2", "timestamp": 1234567891},
+                    "posts/3": {"text": "Post 3", "timestamp": 1234567892}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Try to withdraw everything (should not be able to withdraw locked storage)
         let withdraw_context = get_context(charlie.clone());
         testing_env!(withdraw_context.build());
 
         // Withdrawal attempt (may succeed but won't free locked bytes)
-        let _ = contract.set(json!({
-            "storage/withdraw": {}  // Try to withdraw all
-        }), None, None);
+        let _ = contract.set(set_request(
+            json!({
+                "storage/withdraw": {}  // Try to withdraw all
+            }),
+            None,
+        ));
 
         // Verify storage is locked by data (bytes still in use)
         let balance = contract.get_storage_balance(charlie.clone()).unwrap();
@@ -740,40 +1077,53 @@ mod storage_tracking_tests {
     #[test]
     fn test_partial_withdrawal_after_data_usage() {
         let mut contract = init_live_contract();
-        let charlie = accounts(2);
+        let charlie = test_account(2);
 
         // Charlie deposits 5 NEAR
         let deposit_amount = NearToken::from_near(5).as_yoctonear();
         let context = get_context_with_deposit(charlie.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Charlie adds some data
         let data_context = get_context(charlie.clone());
         testing_env!(data_context.build());
 
-        contract.set(json!({
-            "profile/name": "Charlie",
-            "profile/bio": "Test user with data",
-            "posts/1": {"text": "First post", "timestamp": 1234567890},
-            "posts/2": {"text": "Second post", "timestamp": 1234567891}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Charlie",
+                    "profile/bio": "Test user with data",
+                    "posts/1": {"text": "First post", "timestamp": 1234567890},
+                    "posts/2": {"text": "Second post", "timestamp": 1234567891}
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Charlie withdraws partial amount (should succeed)
         let withdraw_amount = NearToken::from_near(1).as_yoctonear();
         let withdraw_context = get_context(charlie.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.set(json!({
-            "storage/withdraw": {
-                "amount": withdraw_amount.to_string()
-            }
-        }), None, None);
+        let result = contract.set(set_request(
+            json!({
+                "storage/withdraw": {
+                    "amount": withdraw_amount.to_string()
+                }
+            }),
+            None,
+        ));
 
         // Should succeed if enough available balance
         if result.is_ok() {
@@ -792,27 +1142,37 @@ mod storage_tracking_tests {
     #[test]
     fn test_soft_delete_marks_entry_as_deleted() {
         let mut contract = init_live_contract();
-        let alice = accounts(0);
+        let alice = test_account(0);
 
         // Alice deposits storage
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Alice creates data
         let data_context = get_context(alice.clone());
         testing_env!(data_context.build());
 
-        contract.set(json!({
-            "profile/name": "Alice",
-            "posts/1": {"text": "Test post", "timestamp": 1234567890}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "profile/name": "Alice",
+                    "posts/1": {"text": "Test post", "timestamp": 1234567890}
+                }),
+                None,
+            ))
+            .unwrap();
 
         let storage_after_create = contract.get_storage_balance(alice.clone()).unwrap();
         let used_bytes_after_create = storage_after_create.used_bytes;
@@ -822,9 +1182,11 @@ mod storage_tracking_tests {
         let delete_context = get_context(alice.clone());
         testing_env!(delete_context.build());
 
-        contract.set(json!({
-            "posts/1": null  // Soft delete
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "posts/1": null  // Soft delete
+                }), None))
+            .unwrap();
 
         // Verify storage tracking after soft delete
         let storage_after_delete = contract.get_storage_balance(alice.clone()).unwrap();
@@ -842,26 +1204,36 @@ mod storage_tracking_tests {
     #[test]
     fn test_soft_delete_then_recreate_storage() {
         let mut contract = init_live_contract();
-        let bob = accounts(1);
+        let bob = test_account(1);
 
         // Bob deposits storage
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(bob.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Bob creates data
         let data_context = get_context(bob.clone());
         testing_env!(data_context.build());
 
-        contract.set(json!({
-            "posts/1": {"text": "Original post", "timestamp": 1234567890}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "posts/1": {"text": "Original post", "timestamp": 1234567890}
+                }),
+                None,
+            ))
+            .unwrap();
 
         let storage_after_create = contract.get_storage_balance(bob.clone()).unwrap();
 
@@ -869,9 +1241,11 @@ mod storage_tracking_tests {
         let delete_context = get_context(bob.clone());
         testing_env!(delete_context.build());
 
-        contract.set(json!({
-            "posts/1": null
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "posts/1": null
+                }), None))
+            .unwrap();
 
         let storage_after_delete = contract.get_storage_balance(bob.clone()).unwrap();
 
@@ -879,9 +1253,14 @@ mod storage_tracking_tests {
         let recreate_context = get_context(bob.clone());
         testing_env!(recreate_context.build());
 
-        contract.set(json!({
-            "posts/1": {"text": "New post after delete", "timestamp": 1234567891}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "posts/1": {"text": "New post after delete", "timestamp": 1234567891}
+                }),
+                None,
+            ))
+            .unwrap();
 
         let storage_after_recreate = contract.get_storage_balance(bob.clone()).unwrap();
 
@@ -901,29 +1280,39 @@ mod storage_tracking_tests {
     #[test]
     fn test_multiple_soft_deletes_storage_accumulation() {
         let mut contract = init_live_contract();
-        let charlie = accounts(2);
+        let charlie = test_account(2);
 
         // Charlie deposits storage
         let deposit_amount = NearToken::from_near(3).as_yoctonear();
         let context = get_context_with_deposit(charlie.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Charlie creates multiple posts
         let create_context = get_context(charlie.clone());
         testing_env!(create_context.build());
 
-        contract.set(json!({
-            "posts/1": {"text": "Post 1", "timestamp": 1234567890},
-            "posts/2": {"text": "Post 2", "timestamp": 1234567891},
-            "posts/3": {"text": "Post 3", "timestamp": 1234567892},
-            "posts/4": {"text": "Post 4", "timestamp": 1234567893}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "posts/1": {"text": "Post 1", "timestamp": 1234567890},
+                    "posts/2": {"text": "Post 2", "timestamp": 1234567891},
+                    "posts/3": {"text": "Post 3", "timestamp": 1234567892},
+                    "posts/4": {"text": "Post 4", "timestamp": 1234567893}
+                }),
+                None,
+            ))
+            .unwrap();
 
         let storage_after_create = contract.get_storage_balance(charlie.clone()).unwrap();
         let initial_used = storage_after_create.used_bytes;
@@ -933,9 +1322,14 @@ mod storage_tracking_tests {
             let delete_context = get_context(charlie.clone());
             testing_env!(delete_context.build());
 
-            contract.set(json!({
-                format!("posts/{}", i): null
-            }), None, None).unwrap();
+            contract
+                .set(set_request(
+                    json!({
+                        format!("posts/{}", i): null
+                    }),
+                    None,
+                ))
+                .unwrap();
         }
 
         let storage_after_deletes = contract.get_storage_balance(charlie.clone()).unwrap();
@@ -953,27 +1347,37 @@ mod storage_tracking_tests {
     #[test]
     fn test_soft_delete_large_data_storage_impact() {
         let mut contract = init_live_contract();
-        let dave = accounts(3);
+        let dave = test_account(3);
 
         // Dave deposits storage
         let deposit_amount = NearToken::from_near(5).as_yoctonear();
         let context = get_context_with_deposit(dave.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Dave creates large data
         let large_text = "x".repeat(1000); // 1KB of data
         let create_context = get_context(dave.clone());
         testing_env!(create_context.build());
 
-        contract.set(json!({
-            "posts/large": {"text": large_text, "timestamp": 1234567890}
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "posts/large": {"text": large_text, "timestamp": 1234567890}
+                }),
+                None,
+            ))
+            .unwrap();
 
         let storage_before_delete = contract.get_storage_balance(dave.clone()).unwrap();
 
@@ -981,9 +1385,11 @@ mod storage_tracking_tests {
         let delete_context = get_context(dave.clone());
         testing_env!(delete_context.build());
 
-        contract.set(json!({
-            "posts/large": null
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "posts/large": null
+                }), None))
+            .unwrap();
 
         let storage_after_delete = contract.get_storage_balance(dave.clone()).unwrap();
 
@@ -1000,38 +1406,51 @@ mod storage_tracking_tests {
     #[test]
     fn test_soft_delete_allows_withdrawal_of_freed_storage() {
         let mut contract = init_live_contract();
-        let eve = accounts(4);
+        let eve = test_account(4);
 
         // Eve deposits storage
         let deposit_amount = NearToken::from_near(5).as_yoctonear();
         let context = get_context_with_deposit(eve.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Eve creates data
         let create_context = get_context(eve.clone());
         testing_env!(create_context.build());
 
-        contract.set(json!({
-            "posts/1": {"text": "Test post", "timestamp": 1234567890},
-            "profile/bio": "A test bio with some content"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "posts/1": {"text": "Test post", "timestamp": 1234567890},
+                    "profile/bio": "A test bio with some content"
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Try to withdraw (should have limited availability due to used storage)
         let withdraw_context1 = get_context(eve.clone());
         testing_env!(withdraw_context1.build());
 
         let withdraw_amount = NearToken::from_near(2).as_yoctonear();
-        let result1 = contract.set(json!({
-            "storage/withdraw": {
-                "amount": withdraw_amount.to_string()
-            }
-        }), None, None);
+        let result1 = contract.set(set_request(
+            json!({
+                "storage/withdraw": {
+                    "amount": withdraw_amount.to_string()
+                }
+            }),
+            None,
+        ));
 
         // Might succeed or fail depending on how much storage is used
         let can_withdraw_before_delete = result1.is_ok();
@@ -1040,10 +1459,12 @@ mod storage_tracking_tests {
         let delete_context = get_context(eve.clone());
         testing_env!(delete_context.build());
 
-        contract.set(json!({
-            "posts/1": null,
-            "profile/bio": null
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "posts/1": null,
+                    "profile/bio": null
+                }), None))
+            .unwrap();
 
         // After deletion, storage is released, making more available for withdrawal
         let storage_after_delete = contract.get_storage_balance(eve.clone()).unwrap();
@@ -1058,26 +1479,33 @@ mod storage_tracking_tests {
     #[test]
     fn test_soft_delete_nested_paths() {
         let mut contract = init_live_contract();
-        let frank = accounts(5);
+        let frank = test_account(5);
 
         // Frank deposits storage
         let deposit_amount = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(frank.clone(), deposit_amount);
         testing_env!(context.build());
 
-        contract.set(json!({
-            "storage/deposit": {
-                "amount": deposit_amount.to_string()
-            }
-        }), None, None).unwrap();
+        contract
+            .set(set_request(
+                json!({
+                    "storage/deposit": {
+                        "amount": deposit_amount.to_string()
+                    }
+                }),
+                None,
+            ))
+            .unwrap();
 
         // Frank creates nested data
         let create_context = get_context(frank.clone());
         testing_env!(create_context.build());
 
-        contract.set(json!({
-            "data/level1/level2/item": "nested value"
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "data/level1/level2/item": "nested value"
+                }), None))
+            .unwrap();
 
         let storage_before = contract.get_storage_balance(frank.clone()).unwrap();
 
@@ -1085,9 +1513,11 @@ mod storage_tracking_tests {
         let delete_context = get_context(frank.clone());
         testing_env!(delete_context.build());
 
-        contract.set(json!({
-            "data/level1/level2/item": null
-        }), None, None).unwrap();
+        contract
+            .set(set_request(json!({
+                    "data/level1/level2/item": null
+                }), None))
+            .unwrap();
 
         let storage_after = contract.get_storage_balance(frank.clone()).unwrap();
 
@@ -1108,7 +1538,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_batch_storage_deposit_with_data_operations() {
         let mut contract = init_live_contract();
-        let user = accounts(0);
+        let user = test_account(0);
 
         // User attaches 1 NEAR total
         let total_attached = NearToken::from_near(1).as_yoctonear();
@@ -1124,7 +1554,7 @@ mod storage_tracking_tests {
             "profile/bio": "Testing batch operations"
         });
 
-        let result = contract.set(batch_data, None, None);
+        let result = contract.set(set_request(batch_data, None));
         assert!(result.is_ok(), "Batch operation should succeed: {:?}", result.err());
 
         // Verify storage balance was allocated correctly
@@ -1136,7 +1566,7 @@ mod storage_tracking_tests {
         
         // Verify data was stored
         let keys = vec![format!("{}/profile/name", user), format!("{}/profile/bio", user)];
-        let retrieved = contract.get(keys, Some(user.clone()), None, None);
+        let retrieved = contract_get_values_map(&contract, keys, Some(user.clone()));
         assert!(!retrieved.is_empty(), "Data should be stored");
 
         println!("✅ Batch storage deposit + data operations work correctly");
@@ -1145,7 +1575,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_storage_deposit_consumes_from_attached_balance() {
         let mut contract = init_live_contract();
-        let user = accounts(0);
+        let user = test_account(0);
 
         // User attaches exactly 0.5 NEAR
         let attached = NearToken::from_millinear(500).as_yoctonear();
@@ -1158,7 +1588,7 @@ mod storage_tracking_tests {
             "storage/deposit": {"amount": attached.to_string()}
         });
 
-        let result = contract.set(deposit_data, None, None);
+        let result = contract.set(set_request(deposit_data, None));
         assert!(result.is_ok(), "Deposit should succeed");
 
         // Verify exactly the deposited amount is in storage
@@ -1171,7 +1601,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_storage_deposit_fails_if_insufficient_in_batch() {
         let mut contract = init_live_contract();
-        let user = accounts(0);
+        let user = test_account(0);
 
         // User attaches 0.3 NEAR
         let attached = NearToken::from_millinear(300).as_yoctonear();
@@ -1185,7 +1615,7 @@ mod storage_tracking_tests {
             "storage/deposit": {"amount": requested.to_string()}
         });
 
-        let result = contract.set(deposit_data, None, None);
+        let result = contract.set(set_request(deposit_data, None));
         assert!(result.is_err(), "Should fail when requesting more than attached");
         
         let error_msg = result.unwrap_err().to_string();
@@ -1197,7 +1627,7 @@ mod storage_tracking_tests {
     #[test]
     fn test_multiple_deposits_in_batch_share_attached_balance() {
         let mut contract = init_live_contract();
-        let user = accounts(0);
+        let user = test_account(0);
 
         // This test verifies that if someone tries to do multiple storage/deposit
         // operations in one batch, they correctly share the attached balance
@@ -1216,7 +1646,7 @@ mod storage_tracking_tests {
 
         // Use refund_unused_deposit: true so excess 0.4 NEAR is refunded, not added to storage
         let options = Some(crate::SetOptions { refund_unused_deposit: true });
-        let result = contract.set(deposit_data, options, None);
+        let result = contract.set(set_request(deposit_data, options));
         assert!(result.is_ok(), "First deposit should succeed");
 
         // Storage should have exactly 0.6 NEAR (not more due to double-counting)

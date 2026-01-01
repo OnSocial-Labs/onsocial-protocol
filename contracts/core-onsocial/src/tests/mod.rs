@@ -3,19 +3,24 @@ pub mod test_utils;
 
 // --- Unit Tests ---
 pub mod unit {
+    pub mod account_validation_test;
     pub mod advanced_functionalities_test;
     pub mod api_edge_cases_test;  // NEW: API edge cases (get_config, has_group_admin_permission, path validation)
     pub mod contract_lifecycle_test;
     pub mod custom_proposal_test;  // Custom proposal (text-based governance) tests
     pub mod enhanced_permissions_test;
     pub mod error_message_test;  // NEW: Error message validation tests
+    pub mod event_builder_writes_test;  // EventBuilder writes[] merge/dedup invariants
     pub mod event_emission_test;  // NEW: Event emission and format validation tests
     pub mod get_api_test;  // Comprehensive get() API tests
     pub mod governance_test;
+    pub mod group_sponsor_quota_test;
     pub mod group_test;
     pub mod members;  // Comprehensive modular member tests
     pub mod set_permission_signer_test;  // Security test: set_permission uses signer not predecessor
+    pub mod signed_payload_test;  // Relayed signed-payload set() tests (nonce/expiry/signature)
     pub mod storage_tracking_test;  // Storage tracking correctness tests (validates storage.rs fixes)
+    pub mod storage_tracker_helpers_test;
     pub mod voting;   // Voting mechanics tests (core)
     pub mod voting_config_test;     // Per-group voting configuration tests
     pub mod voting_edge_cases;      // Voting edge cases (early execution, member changes, etc.)

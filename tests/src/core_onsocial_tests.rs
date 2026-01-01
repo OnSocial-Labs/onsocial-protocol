@@ -9,59 +9,94 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::path::Path;
-use borsh::BorshDeserialize;
+
+use crate::utils::{entry_value, entry_value_str};
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
 
 // =============================================================================
-// Event Types (mirrored from contract for decoding)
+// NEP-297 Event Types (JSON format)
 // =============================================================================
 
-#[derive(BorshDeserialize, Debug)]
-pub struct BorshExtra {
-    pub key: String,
-    pub value: BorshValue,
-}
-
-#[derive(BorshDeserialize, Debug)]
-pub enum BorshValue {
-    String(String),
-    Number(String),
-    Bool(bool),
-    Null,
-}
-
-#[derive(BorshDeserialize, Debug)]
-pub struct BaseEventData {
-    pub block_height: u64,
-    pub timestamp: u64,
-    pub author: String,
-    pub partition_id: Option<u16>,
-    pub extra: Vec<BorshExtra>,
-    pub evt_id: String,
-    pub log_index: u32,
-}
-
-#[derive(BorshDeserialize, Debug)]
+/// NEP-297 compliant event wrapper
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
-    pub evt_standard: String,
+    pub standard: String,
     pub version: String,
-    pub evt_type: String,
-    pub op_type: String,
-    pub data: Option<BaseEventData>,
+    pub event: String,
+    pub data: Vec<EventData>,
 }
 
-/// Decode a base64 EVENT: log into an Event struct
+/// Event data payload with flattened extra fields
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventData {
+    pub operation: String,
+    pub author: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partition_id: Option<u16>,
+    // Flattened extra fields captured dynamically
+    #[serde(flatten)]
+    pub extra: std::collections::HashMap<String, Value>,
+}
+
+const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
+
+/// Decode a NEP-297 EVENT_JSON: log into an Event struct
 fn decode_event(log: &str) -> Option<Event> {
-    if !log.starts_with("EVENT:") {
+    if !log.starts_with(EVENT_JSON_PREFIX) {
         return None;
     }
-    let base64_data = &log[6..]; // Skip "EVENT:" prefix
-    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, base64_data).ok()?;
-    Event::try_from_slice(&bytes).ok()
+    let json_str = &log[EVENT_JSON_PREFIX.len()..];
+
+    // NOTE: Contract event `data` objects can include fields that collide with
+    // top-level `EventData` fields due to `#[serde(flatten)]` usage.
+    // Deserializing directly into `EventData` may fail with "duplicate field".
+    // Decode to a generic map first, then extract known fields.
+    #[derive(Deserialize)]
+    struct RawEvent {
+        standard: String,
+        version: String,
+        event: String,
+        data: Vec<serde_json::Map<String, Value>>,
+    }
+
+    let raw: RawEvent = serde_json::from_str(json_str).ok()?;
+    let data = raw
+        .data
+        .into_iter()
+        .map(|mut map| {
+            let operation = map
+                .remove("operation")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            let author = map
+                .remove("author")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            let partition_id = map
+                .remove("partition_id")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as u16);
+            let extra = map.into_iter().collect::<std::collections::HashMap<_, _>>();
+            EventData {
+                operation,
+                author,
+                partition_id,
+                extra,
+            }
+        })
+        .collect();
+
+    Some(Event {
+        standard: raw.standard,
+        version: raw.version,
+        event: raw.event,
+        data,
+    })
 }
 
 // =============================================================================
@@ -70,51 +105,72 @@ fn decode_event(log: &str) -> Option<Event> {
 
 /// Helper to extract a string value from event extra fields
 fn get_extra_string(event: &Event, key: &str) -> Option<String> {
-    event.data.as_ref()?.extra.iter()
-        .find(|e| e.key == key)
-        .and_then(|e| match &e.value {
-            BorshValue::String(s) => Some(s.clone()),
-            _ => None,
-        })
+    event.data.first()
+        .and_then(|d| d.extra.get(key))
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
 }
 
 /// Helper to extract a boolean value from event extra fields
 #[allow(dead_code)]
 fn get_extra_bool(event: &Event, key: &str) -> Option<bool> {
-    event.data.as_ref()?.extra.iter()
-        .find(|e| e.key == key)
-        .and_then(|e| match &e.value {
-            BorshValue::Bool(b) => Some(*b),
-            _ => None,
-        })
+    event.data.first()
+        .and_then(|d| d.extra.get(key))
+        .and_then(|v| v.as_bool())
 }
 
 /// Helper to extract a number value (as string) from event extra fields
 fn get_extra_number(event: &Event, key: &str) -> Option<String> {
-    event.data.as_ref()?.extra.iter()
-        .find(|e| e.key == key)
-        .and_then(|e| match &e.value {
-            BorshValue::Number(n) => Some(n.clone()),
-            _ => None,
+    event.data.first()
+        .and_then(|d| d.extra.get(key))
+        .map(|v| {
+            if let Some(n) = v.as_u64() {
+                n.to_string()
+            } else if let Some(n) = v.as_i64() {
+                n.to_string()
+            } else if let Some(s) = v.as_str() {
+                s.to_string()
+            } else {
+                v.to_string()
+            }
         })
 }
 
+/// Helper to extract a JSON value from event extra fields.
+/// If the value is a JSON string containing serialized JSON, it is parsed.
+fn get_extra_json(event: &Event, key: &str) -> Option<Value> {
+    let v = event.data.first()?.extra.get(key)?.clone();
+    match v {
+        Value::String(s) => serde_json::from_str(&s).ok(),
+        other => Some(other),
+    }
+}
+
+/// Get the operation from an event (helper for accessing nested data)
+fn get_event_operation(event: &Event) -> Option<&str> {
+    event.data.first().and_then(|d| Some(d.operation.as_str()))
+}
+
+/// Check if event operation matches the given string
+fn event_has_operation(event: &Event, op: &str) -> bool {
+    get_event_operation(event) == Some(op)
+}
+
 /// Find events by operation type from logs
-fn find_events_by_op_type<S: AsRef<str>>(logs: &[S], op_type: &str) -> Vec<Event> {
+fn find_events_by_operation<S: AsRef<str>>(logs: &[S], operation: &str) -> Vec<Event> {
     logs.iter()
         .filter_map(|log| decode_event(log.as_ref()))
-        .filter(|e| e.op_type == op_type)
+        .filter(|e| get_event_operation(e) == Some(operation))
         .collect()
 }
 
 /// Verify event has expected standard and version
 fn verify_event_base(event: &Event, expected_standard: &str, expected_version: &str) -> bool {
-    event.evt_standard == expected_standard && event.version == expected_version
+    event.standard == expected_standard && event.version == expected_version
 }
 
 /// Verify event author matches expected account
 fn verify_event_author(event: &Event, expected_author: &str) -> bool {
-    event.data.as_ref()
+    event.data.first()
         .map(|d| d.author == expected_author)
         .unwrap_or(false)
 }
@@ -126,33 +182,48 @@ fn verify_event_path_contains(event: &Event, expected_substring: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Assert that an event of given op_type exists in logs
+/// Extract proposal_id from an event (common pattern in tests)
+fn get_proposal_id_from_event(event: &Event) -> Option<String> {
+    event.data.first()
+        .and_then(|d| d.extra.get("proposal_id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+/// Extract proposal_id from logs for events matching the given operation
+fn extract_proposal_id_from_logs<S: AsRef<str>>(logs: &[S], operation: &str) -> Option<String> {
+    for log in logs {
+        if let Some(event) = decode_event(log.as_ref()) {
+            if get_event_operation(&event) == Some(operation) {
+                if let Some(id) = get_proposal_id_from_event(&event) {
+                    return Some(id);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Assert that an event of given operation exists in logs
 #[allow(dead_code)]
-fn assert_event_emitted(logs: &[String], op_type: &str) {
-    let events = find_events_by_op_type(logs, op_type);
-    assert!(!events.is_empty(), "Expected '{}' event to be emitted", op_type);
+fn assert_event_emitted(logs: &[String], operation: &str) {
+    let events = find_events_by_operation(logs, operation);
+    assert!(!events.is_empty(), "Expected '{}' event to be emitted", operation);
 }
 
 /// Print event details for debugging
 #[allow(dead_code)]
 fn print_event_details(event: &Event, prefix: &str) {
     println!("{}Event details:", prefix);
-    println!("{}  - standard: {}", prefix, event.evt_standard);
+    println!("{}  - standard: {}", prefix, event.standard);
     println!("{}  - version: {}", prefix, event.version);
-    println!("{}  - type: {}", prefix, event.evt_type);
-    println!("{}  - op_type: {}", prefix, event.op_type);
-    if let Some(data) = &event.data {
+    println!("{}  - event: {}", prefix, event.event);
+    if let Some(data) = event.data.first() {
+        println!("{}  - operation: {}", prefix, data.operation);
         println!("{}  - author: {}", prefix, data.author);
-        println!("{}  - block_height: {}", prefix, data.block_height);
-        println!("{}  - timestamp: {}", prefix, data.timestamp);
         println!("{}  - extras: {}", prefix, data.extra.len());
-        for extra in &data.extra {
-            match &extra.value {
-                BorshValue::String(s) => println!("{}    • {}: \"{}\"", prefix, extra.key, s),
-                BorshValue::Number(n) => println!("{}    • {}: {}", prefix, extra.key, n),
-                BorshValue::Bool(b) => println!("{}    • {}: {}", prefix, extra.key, b),
-                BorshValue::Null => println!("{}    • {}: null", prefix, extra.key),
-            }
+        for (key, value) in &data.extra {
+            println!("{}    • {}: {}", prefix, key, value);
         }
     }
 }
@@ -178,7 +249,7 @@ fn calculate_expected_partition(namespace_id: &str) -> u16 {
 
 /// Verify event partition is present and correct
 fn verify_event_partition(event: &Event, namespace_id: &str) -> bool {
-    let data = match &event.data {
+    let data = match event.data.first() {
         Some(d) => d,
         None => return false,
     };
@@ -337,9 +408,14 @@ async fn test_set_and_get_profile_data() -> anyhow::Result<()> {
     let set_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice",
-                "profile/bio": "Hello from the sandbox!"
+            "request": {
+                "data": {
+                    "profile/name": "Alice",
+                    "profile/bio": "Hello from the sandbox!"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -351,7 +427,7 @@ async fn test_set_and_get_profile_data() -> anyhow::Result<()> {
     assert!(set_result.is_success(), "Set should succeed");
     
     // Get the data back
-    let get_result: serde_json::Value = contract
+    let get_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -369,12 +445,12 @@ async fn test_set_and_get_profile_data() -> anyhow::Result<()> {
     let bio_key = format!("{}/profile/bio", alice.id());
     
     assert_eq!(
-        get_result.get(&name_key).and_then(|v| v.as_str()),
+        entry_value_str(&get_result, &name_key),
         Some("Alice"),
         "Name should match"
     );
     assert_eq!(
-        get_result.get(&bio_key).and_then(|v| v.as_str()),
+        entry_value_str(&get_result, &bio_key),
         Some("Hello from the sandbox!"),
         "Bio should match"
     );
@@ -397,12 +473,17 @@ async fn test_set_complex_nested_data() -> anyhow::Result<()> {
     let set_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "posts/1/title": "My First Post",
-                "posts/1/content": "This is the content of my first post",
-                "posts/1/timestamp": "1733400000000",
-                "posts/2/title": "Second Post",
-                "posts/2/content": "Another post content"
+            "request": {
+                "data": {
+                    "posts/1/title": "My First Post",
+                    "posts/1/content": "This is the content of my first post",
+                    "posts/1/timestamp": "1733400000000",
+                    "posts/2/title": "Second Post",
+                    "posts/2/content": "Another post content"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -413,7 +494,7 @@ async fn test_set_complex_nested_data() -> anyhow::Result<()> {
     assert!(set_result.is_success(), "Set nested data should succeed");
     
     // Get all posts
-    let get_result: serde_json::Value = contract
+    let get_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -429,12 +510,69 @@ async fn test_set_complex_nested_data() -> anyhow::Result<()> {
     
     let post1_title = format!("{}/posts/1/title", bob.id());
     assert_eq!(
-        get_result.get(&post1_title).and_then(|v| v.as_str()),
+        entry_value_str(&get_result, &post1_title),
         Some("My First Post"),
         "Post 1 title should match"
     );
     
     println!("✅ Set complex nested data test passed");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_one_rejects_malformed_groups_paths() -> anyhow::Result<()> {
+    println!("\n=== Test: get_one Rejects Malformed Groups Paths ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Create a user (not strictly required for view calls, but keeps the test consistent).
+    let _alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    let invalid_keys = vec![
+        "groups/",
+        "groups/testgroup",
+        "groups/testgroup/",
+        "groups//posts/1",
+    ];
+
+    for key in invalid_keys {
+        let entry: Value = contract
+            .view("get_one")
+            .args_json(json!({
+                "key": key,
+                "account_id": null
+            }))
+            .await?
+            .json()?;
+
+        assert_eq!(
+            entry.get("requested_key").and_then(|v| v.as_str()),
+            Some(key),
+            "requested_key must match input"
+        );
+        assert_eq!(
+            entry.get("full_key").and_then(|v| v.as_str()),
+            Some(""),
+            "full_key must be empty for invalid group paths"
+        );
+        assert!(
+            entry.get("value").map(|v| v.is_null()).unwrap_or(true),
+            "value must be null for invalid group paths"
+        );
+        assert!(
+            entry.get("block_height").map(|v| v.is_null()).unwrap_or(true),
+            "block_height must be null for invalid group paths"
+        );
+        assert_eq!(
+            entry.get("deleted").and_then(|v| v.as_bool()),
+            Some(false),
+            "deleted must be false for invalid group paths"
+        );
+    }
+
+    println!("✅ Malformed groups paths rejected by get_one");
     Ok(())
 }
 
@@ -496,6 +634,9 @@ async fn test_group_membership() -> anyhow::Result<()> {
     
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+    let _dave = create_user(&root, "dave", TEN_NEAR).await?;
+    let _eve = create_user(&root, "eve", TEN_NEAR).await?;
     
     // Alice creates a public group
     let create_result = alice
@@ -513,13 +654,13 @@ async fn test_group_membership() -> anyhow::Result<()> {
     
     assert!(create_result.is_success(), "Create group should succeed");
     
-    // Alice adds Bob as a member with WRITE permission (1)
+    // Clean-add: add_group_member must add as member-only (level = 0)
     let add_result = alice
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "membership_test",
             "member_id": bob.id(),
-            "permission_flags": 1
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -528,6 +669,106 @@ async fn test_group_membership() -> anyhow::Result<()> {
     
     println!("Add member result: {:?}", add_result.is_success());
     assert!(add_result.is_success(), "Add member should succeed");
+
+    // Clean-add: non-zero level must fail
+    let invalid_add_result = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "membership_test",
+            "member_id": charlie.id(),
+            "level": 3  // non-zero = invalid under clean-add
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!invalid_add_result.is_success(), "Add member with non-zero level should fail");
+
+    // Delegation rules are now path-based:
+    // A moderator of groups/<id>/join_requests can approve join requests.
+    let delegation_group_create = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "delegation_test",
+            "config": {
+                "is_private": true
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(delegation_group_create.is_success(), "Create delegation_test group should succeed");
+
+    let add_bob_member_only = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "delegation_test",
+            "member_id": bob.id(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(add_bob_member_only.is_success(), "Owner should be able to add members (member-only)");
+
+    // Grant Bob MODERATE on join_requests so he can add members (member-only) via delegation.
+    let grant_bob_join_requests_moderate = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/delegation_test/join_requests",
+            "level": 2,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_bob_join_requests_moderate.is_success(), "Owner should be able to grant MODERATE on join_requests");
+
+    // Bob cannot grant any role via add_group_member (must use 0)
+    let bob_attempts_nonzero_add = bob
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "delegation_test",
+            "member_id": charlie.id(),
+            "level": 3  // non-zero should be rejected
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!bob_attempts_nonzero_add.is_success(), "add_group_member must reject non-zero level");
+
+    // Charlie submits a join request (private group)
+    let charlie_join_request = charlie
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "delegation_test"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(charlie_join_request.is_success(), "Charlie should be able to submit a join request");
+
+    // Bob can approve Charlie as member-only (delegated MODERATE on join_requests)
+    let bob_approves_charlie_member_only = bob
+        .call(contract.id(), "approve_join_request")
+        .args_json(json!({
+            "group_id": "delegation_test",
+            "requester_id": charlie.id(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(110))
+        .transact()
+        .await?;
+    assert!(
+        bob_approves_charlie_member_only.is_success(),
+        "Delegated moderator should be able to approve join requests (member-only)"
+    );
     
     // Check Bob's member data
     let member_data: Option<serde_json::Value> = contract
@@ -583,8 +824,13 @@ async fn test_has_permission() -> anyhow::Result<()> {
     let set_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice"
+            "request": {
+                "data": {
+                    "profile/name": "Alice"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -601,7 +847,7 @@ async fn test_has_permission() -> anyhow::Result<()> {
             "owner": alice.id(),
             "grantee": alice.id(),
             "path": "profile/name",
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -616,7 +862,7 @@ async fn test_has_permission() -> anyhow::Result<()> {
             "owner": alice.id(),
             "grantee": bob.id(),
             "path": "profile/name",
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -657,8 +903,13 @@ async fn test_storage_balance() -> anyhow::Result<()> {
     let set_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice"
+            "request": {
+                "data": {
+                    "profile/name": "Alice"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -702,11 +953,15 @@ async fn test_events_emitted_on_set() -> anyhow::Result<()> {
     let set_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice"
-            },
-            "event_config": {
-                "emit": true
+            "request": {
+                "data": {
+                    "profile/name": "Alice"
+                },
+                "options": null,
+                "event_config": {
+                    "emit": true
+                },
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -720,7 +975,7 @@ async fn test_events_emitted_on_set() -> anyhow::Result<()> {
     let logs = set_result.logs();
     println!("Transaction logs: {:?}", logs);
     
-    let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+    let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
     assert!(has_event, "Should emit at least one EVENT: log");
     
     println!("✅ Events emitted on set test passed");
@@ -746,8 +1001,13 @@ async fn test_unauthorized_write_fails() -> anyhow::Result<()> {
     let set_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice"
+            "request": {
+                "data": {
+                    "profile/name": "Alice"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -757,13 +1017,18 @@ async fn test_unauthorized_write_fails() -> anyhow::Result<()> {
     
     assert!(set_result.is_success(), "Alice's set should succeed");
     
-    // Bob tries to write to Alice's path using set_for
+    // Bob tries to write to Alice's path using cross-account set
     let bob_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id(),
-            "data": {
-                "profile/name": "Hacked!"
+            "request": {
+                "target_account": alice.id(),
+                "data": {
+                    "profile/name": "Hacked!"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -777,7 +1042,7 @@ async fn test_unauthorized_write_fails() -> anyhow::Result<()> {
     // or the transaction itself should fail
     if bob_result.is_success() {
         // If transaction succeeded, verify Alice's data wasn't changed
-        let get_result: serde_json::Value = contract
+        let get_result: Vec<serde_json::Value> = contract
             .view("get")
             .args_json(json!({
                 "keys": [format!("{}/profile/name", alice.id())]
@@ -786,7 +1051,7 @@ async fn test_unauthorized_write_fails() -> anyhow::Result<()> {
             .json()?;
         
         let name_key = format!("{}/profile/name", alice.id());
-        let name = get_result.get(&name_key).and_then(|v| v.as_str());
+        let name = entry_value_str(&get_result, &name_key);
         assert_eq!(name, Some("Alice"), "Alice's name should not have been changed");
     }
     
@@ -811,8 +1076,7 @@ async fn test_add_member_to_nonexistent_group_fails() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "nonexistent_group",
             "member_id": bob.id(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -874,14 +1138,18 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
     let profile_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice Developer",
-                "profile/bio": "Building the decentralized future 🚀",
-                "profile/avatar": "https://example.com/alice.png",
-                "settings/theme": "dark",
-                "settings/notifications": "true"
-            },
-            "event_config": { "emit": true }
+            "request": {
+                "data": {
+                    "profile/name": "Alice Developer",
+                    "profile/bio": "Building the decentralized future 🚀",
+                    "profile/avatar": "https://example.com/alice.png",
+                    "settings/theme": "dark",
+                    "settings/notifications": "true"
+                },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -901,7 +1169,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
     
     // Verify events were emitted
     let logs = profile_result.logs();
-    let event_count = logs.iter().filter(|l| l.starts_with("EVENT:")).count();
+    let event_count = logs.iter().filter(|l| l.starts_with("EVENT_JSON:")).count();
     println!("   📣 Events emitted: {}", event_count);
     
     // ==========================================================================
@@ -950,7 +1218,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "rust_devs",
             "member_id": bob.id(),
-            "permission_flags": 1  // WRITE = 1
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -972,7 +1240,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
     
     assert!(bob_member_data.is_some(), "Bob should be a member");
     let member_data = bob_member_data.unwrap();
-    println!("   📊 Bob's permission flags: {}", member_data.get("permission_flags").unwrap());
+    println!("   📊 Bob's permission flags: {}", member_data.get("level").unwrap());
     
     // ==========================================================================
     // STEP 5: Bob posts content to the group
@@ -984,13 +1252,17 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
     let post_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "groups/rust_devs/posts/1/title": "Hello Rust Community!",
-                "groups/rust_devs/posts/1/content": "Excited to be here. Working on NEAR smart contracts!",
-                "groups/rust_devs/posts/1/author": bob.id().to_string(),
-                "groups/rust_devs/posts/1/timestamp": "1733400000000"
-            },
-            "event_config": { "emit": true }
+            "request": {
+                "data": {
+                    "groups/rust_devs/content/posts/1/title": "Hello Rust Community!",
+                    "groups/rust_devs/content/posts/1/content": "Excited to be here. Working on NEAR smart contracts!",
+                    "groups/rust_devs/content/posts/1/author": bob.id().to_string(),
+                    "groups/rust_devs/content/posts/1/timestamp": "1733400000000"
+                },
+                "options": null,
+                "event_config": { "emit": true },
+                "auth": null
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1017,7 +1289,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
     println!("\n🔍 STEP 6: Verifying on-chain data...");
     
     // Read Alice's profile
-    let alice_profile: std::collections::HashMap<String, serde_json::Value> = contract
+    let alice_profile: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -1029,24 +1301,28 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
         .json()?;
     
     println!("   📖 Alice's profile from chain:");
-    for (key, value) in &alice_profile {
+    for entry in &alice_profile {
+        let key = entry.get("full_key").and_then(|v| v.as_str()).unwrap_or("<missing>");
+        let value = entry.get("value").unwrap_or(&serde_json::Value::Null);
         println!("      {} = {}", key, value);
     }
     
     // Read Bob's post
-    let bob_post: std::collections::HashMap<String, serde_json::Value> = contract
+    let bob_post: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
-                "groups/rust_devs/posts/1/title",
-                "groups/rust_devs/posts/1/content"
+                "groups/rust_devs/content/posts/1/title",
+                "groups/rust_devs/content/posts/1/content"
             ]
         }))
         .await?
         .json()?;
     
     println!("   📖 Bob's post from chain:");
-    for (key, value) in &bob_post {
+    for entry in &bob_post {
+        let key = entry.get("full_key").and_then(|v| v.as_str()).unwrap_or("<missing>");
+        let value = entry.get("value").unwrap_or(&serde_json::Value::Null);
         println!("      {} = {}", key, value);
     }
     
@@ -1075,7 +1351,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "rust_devs",
             "member_id": "random.near",
-            "permission_flags": 1
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1130,17 +1406,22 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let batch_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice Anderson",
-                "profile/bio": "Blockchain developer and NEAR enthusiast",
-                "profile/avatar": "https://example.com/alice.png",
-                "profile/cover": "https://example.com/cover.png",
-                "profile/location": "San Francisco, CA",
-                "profile/website": "https://alice.dev",
-                "profile/twitter": "@alice_dev",
-                "profile/github": "alice-dev",
-                "settings/theme": "dark",
-                "settings/language": "en"
+            "request": {
+                "data": {
+                    "profile/name": "Alice Anderson",
+                    "profile/bio": "Blockchain developer and NEAR enthusiast",
+                    "profile/avatar": "https://example.com/alice.png",
+                    "profile/cover": "https://example.com/cover.png",
+                    "profile/location": "San Francisco, CA",
+                    "profile/website": "https://alice.dev",
+                    "profile/twitter": "@alice_dev",
+                    "profile/github": "alice-dev",
+                    "settings/theme": "dark",
+                    "settings/language": "en"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1152,21 +1433,21 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // Verify events were emitted and decode to check shard/subshard
     let logs = batch_result.logs();
-    let event_logs: Vec<_> = logs.iter().filter(|log| log.starts_with("EVENT:")).collect();
+    let event_logs: Vec<_> = logs.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
     println!("   📣 Events emitted: {}", event_logs.len());
     assert!(!event_logs.is_empty(), "Should emit events for batch operations");
     
     // Decode first event and verify it has partition info
     if let Some(first_event_log) = event_logs.first() {
+        println!("   📝 First event log: {}", first_event_log);
         if let Some(event) = decode_event(first_event_log) {
             println!("   📋 Event structure verified:");
-            println!("      - standard: {}", event.evt_standard);
-            println!("      - type: {}", event.evt_type);
-            println!("      - operation: {}", event.op_type);
-            if let Some(data) = &event.data {
+            println!("      - standard: {}", event.standard);
+            println!("      - type: {}", event.event);
+            println!("      - operation: {}", get_event_operation(&event).unwrap_or("none"));
+            if let Some(data) = event.data.first() {
                 println!("      - author: {}", data.author);
                 println!("      - partition_id: {:?}", data.partition_id);
-                println!("      - log_index: {}", data.log_index);
                 
                 // Verify partition is present (not None)
                 assert!(data.partition_id.is_some(), "Event should have partition_id");
@@ -1205,7 +1486,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   💾 Storage used: {} bytes (~{:.4} NEAR)", bytes_used, storage_near);
     
     // Verify all fields were set
-    let result: std::collections::HashMap<String, serde_json::Value> = contract
+    let result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -1238,7 +1519,12 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let large_batch_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": large_batch
+            "request": {
+                "data": large_batch,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .deposit(NearToken::from_near(3)) // More storage needed
         .gas(near_workspaces::types::Gas::from_tgas(200))
@@ -1257,7 +1543,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     // NOTE: With SetOptions default (refund_unused_deposit: false), we emit an additional
     // auto_deposit event when unused deposit is saved to storage balance
     let logs_2 = large_batch_result.logs();
-    let event_logs_2: Vec<_> = logs_2.iter().filter(|log| log.starts_with("EVENT:")).collect();
+    let event_logs_2: Vec<_> = logs_2.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
     println!("   📣 Events emitted: {}", event_logs_2.len());
     // 20 data events + 1 auto_deposit event = 21 total
     assert!(event_logs_2.len() >= 20, "Should emit at least 20 events for 20 keys");
@@ -1278,7 +1564,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   💾 Storage: +{} bytes (total: {} bytes, ~{:.4} NEAR)", bytes_for_20_keys, bytes_used_2, storage_near_2);
     
     // Verify some of the batch items (0-19 range since we created 20 items)
-    let verify_result: std::collections::HashMap<String, serde_json::Value> = contract
+    let verify_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -1301,11 +1587,16 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let mixed_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice A. Anderson",  // UPDATE existing
-                "profile/bio": "Senior blockchain developer", // UPDATE existing
-                "profile/company": "NEAR Foundation",  // NEW key
-                "profile/role": "Lead Developer"  // NEW key
+            "request": {
+                "data": {
+                    "profile/name": "Alice A. Anderson",  // UPDATE existing
+                    "profile/bio": "Senior blockchain developer", // UPDATE existing
+                    "profile/company": "NEAR Foundation",  // NEW key
+                    "profile/role": "Lead Developer"  // NEW key
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1317,7 +1608,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   ✓ Mixed batch (2 updates + 2 new) succeeded");
     
     // Verify updates
-    let updated: std::collections::HashMap<String, serde_json::Value> = contract
+    let updated: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -1328,7 +1619,11 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .await?
         .json()?;
     
-    let name = updated.get(&format!("{}/profile/name", alice.id()))
+    let name_key = format!("{}/profile/name", alice.id());
+    let name = updated
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(name_key.as_str()))
+        .and_then(|e| e.get("value"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
     assert_eq!(name, "Alice A. Anderson", "Name should be updated");
@@ -1342,19 +1637,24 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let nested_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "app/config": {
-                    "version": "1.0.0",
-                    "features": ["social", "groups", "messaging"],
-                    "limits": {
-                        "maxPosts": 1000,
-                        "maxGroups": 50
+            "request": {
+                "data": {
+                    "app/config": {
+                        "version": "1.0.0",
+                        "features": ["social", "groups", "messaging"],
+                        "limits": {
+                            "maxPosts": 1000,
+                            "maxGroups": 50
+                        }
+                    },
+                    "app/metadata": {
+                        "created": "2025-12-05",
+                        "updated": "2025-12-05"
                     }
                 },
-                "app/metadata": {
-                    "created": "2025-12-05",
-                    "updated": "2025-12-05"
-                }
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1373,10 +1673,15 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let delete_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/twitter": null,
-                "profile/github": null,
-                "settings/language": null
+            "request": {
+                "data": {
+                    "profile/twitter": null,
+                    "profile/github": null,
+                    "settings/language": null
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1388,13 +1693,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // Verify delete events
     let delete_logs = delete_result.logs();
-    let delete_events: Vec<_> = delete_logs.iter().filter(|log| log.starts_with("EVENT:")).collect();
+    let delete_events: Vec<_> = delete_logs.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
     println!("   📣 Delete events emitted: {}", delete_events.len());
     
     println!("   ✓ 3 keys deleted in single transaction");
     
     // Verify deletions (keys should return empty/null)
-    let deleted_check: std::collections::HashMap<String, serde_json::Value> = contract
+    let deleted_check: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
@@ -1405,8 +1710,24 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .await?
         .json()?;
     
-    // Name should exist, twitter should be gone
-    assert!(deleted_check.contains_key(&format!("{}/profile/name", alice.id())), "Name should still exist");
+    // Name should exist, twitter should be deleted
+    let name_key = format!("{}/profile/name", alice.id());
+    let twitter_key = format!("{}/profile/twitter", alice.id());
+    let name_entry = deleted_check
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(name_key.as_str()))
+        .expect("Should have EntryView for name");
+    assert_eq!(name_entry.get("deleted").and_then(|v| v.as_bool()), Some(false));
+    assert!(
+        name_entry.get("value").map(|v| !v.is_null()).unwrap_or(false),
+        "Name should still exist"
+    );
+
+    let twitter_entry = deleted_check
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(twitter_key.as_str()))
+        .expect("Should have EntryView for twitter");
+    assert_eq!(twitter_entry.get("deleted").and_then(|v| v.as_bool()), Some(true));
     println!("   ✓ Deletions verified, existing keys preserved");
     
     // ==========================================================================
@@ -1417,8 +1738,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let extra_test_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "test/extra_check": "test_value_123"
+            "request": {
+                "data": {
+                    "test/extra_check": "test_value_123"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1429,29 +1755,42 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(extra_test_result.is_success(), "Extra test should succeed");
     
     let extra_logs = extra_test_result.logs();
-    let extra_event_log = extra_logs.iter().find(|log| log.starts_with("EVENT:")).unwrap();
-    let extra_event = decode_event(extra_event_log).expect("Should decode event");
-    let extra_data = extra_event.data.expect("Event should have data");
-    
-    // Check that extra fields contain path
-    let has_path = extra_data.extra.iter().any(|e| e.key == "path");
-    let has_value = extra_data.extra.iter().any(|e| e.key == "value");
-    
-    assert!(has_path, "Event extra should contain 'path' field");
-    assert!(has_value, "Event extra should contain 'value' field");
-    
-    // Verify the path value is correct
-    let path_extra = extra_data.extra.iter().find(|e| e.key == "path").unwrap();
-    if let BorshValue::String(path_str) = &path_extra.value {
-        assert!(path_str.contains("test/extra_check"), "Path should contain the key");
-        println!("   ✓ Event path field: {}", path_str);
-    }
-    
-    let value_extra = extra_data.extra.iter().find(|e| e.key == "value").unwrap();
-    if let BorshValue::String(value_str) = &value_extra.value {
-        assert_eq!(value_str, "test_value_123", "Value should match");
-        println!("   ✓ Event value field: {}", value_str);
-    }
+    // This call may emit multiple event types (e.g. STORAGE_UPDATE for deposits).
+    // We specifically want the DATA_UPDATE event for our written key.
+    let extra_event = extra_logs
+        .iter()
+        .filter(|log| log.starts_with("EVENT_JSON:"))
+        .filter_map(|log| decode_event(log))
+        .find(|event| {
+            if event.event != "DATA_UPDATE" {
+                return false;
+            }
+            event
+                .data
+                .first()
+                .and_then(|d| d.extra.get("path"))
+                .and_then(|v| v.as_str())
+                .is_some_and(|p| p.contains("test/extra_check"))
+        })
+        .expect("Should have DATA_UPDATE event for test/extra_check");
+
+    let extra_data = extra_event.data.first().expect("Event should have data");
+
+    let path_str = extra_data
+        .extra
+        .get("path")
+        .and_then(|v| v.as_str())
+        .expect("DATA_UPDATE event should include 'path'");
+    assert!(path_str.contains("test/extra_check"), "Path should contain the key");
+    println!("   ✓ Event path field: {}", path_str);
+
+    let value_str = extra_data
+        .extra
+        .get("value")
+        .and_then(|v| v.as_str())
+        .expect("DATA_UPDATE event should include 'value'");
+    assert_eq!(value_str, "test_value_123", "Value should match");
+    println!("   ✓ Event value field: {}", value_str);
     
     println!("   ✓ Event extra fields verified (path, value)");
     
@@ -1482,8 +1821,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let deposit_test_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "test/small": "x"  // Very small data
+            "request": {
+                "data": {
+                    "test/small": "x"  // Very small data
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_near(2))  // Deposit 2 NEAR
@@ -1548,10 +1892,15 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let delta_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "delta/test1": "value1",
-                "delta/test2": "value2",
-                "delta/test3": "value3"
+            "request": {
+                "data": {
+                    "delta/test1": "value1",
+                    "delta/test2": "value2",
+                    "delta/test3": "value3"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1625,10 +1974,15 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let withdraw_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/withdraw": {
-                    "amount": withdraw_amount.to_string()
-                }
+            "request": {
+                "data": {
+                    "storage/withdraw": {
+                        "amount": withdraw_amount.to_string()
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1)) // Minimal deposit for the call
@@ -1684,12 +2038,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let grant_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/delegated", alice.id()),
-                    "flags": 1  // WRITE permission
-                }
+            "request": {
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/delegated", alice.id()),
+                        "flags": 1  // WRITE permission
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1701,18 +2060,23 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // Check for permission event
     let grant_logs = grant_result.logs();
-    let grant_events: Vec<_> = grant_logs.iter().filter(|log| log.starts_with("EVENT:")).collect();
+    let grant_events: Vec<_> = grant_logs.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
     println!("   📣 Permission grant events: {}", grant_events.len());
     
     println!("   ✓ Alice granted Bob write permission to her /delegated path");
     
-    // Bob writes to Alice's delegated path using set_for
+    // Bob writes to Alice's delegated path using cross-account set
     let delegated_write_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "delegated/message": "Hello from Bob!"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "delegated/message": "Hello from Bob!"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1730,15 +2094,19 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   ✓ Bob wrote to Alice's path using delegated permission");
     
     // Verify the data was written
-    let delegated_data: std::collections::HashMap<String, serde_json::Value> = contract
+    let delegated_data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [format!("{}/delegated/message", alice.id())]
         }))
         .await?
         .json()?;
-    
-    let msg = delegated_data.get(&format!("{}/delegated/message", alice.id()))
+
+    let delegated_key = format!("{}/delegated/message", alice.id());
+    let msg = delegated_data
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(delegated_key.as_str()))
+        .and_then(|e| e.get("value"))
         .and_then(|v| v.as_str())
         .unwrap_or("");
     assert_eq!(msg, "Hello from Bob!", "Delegated data should be readable");
@@ -1762,10 +2130,15 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let reclaim_delete_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "delta/test1": null,
-                "delta/test2": null,
-                "delta/test3": null
+            "request": {
+                "data": {
+                    "delta/test1": null,
+                    "delta/test2": null,
+                    "delta/test3": null
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1801,8 +2174,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let unauthorized_result = bob
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                format!("{}/profile/hacked", alice.id()): "Unauthorized!"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "profile/hacked": "Unauthorized!"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1815,15 +2194,20 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   ✓ Unauthorized write correctly rejected");
     
     // Verify no data was written
-    let hack_check: std::collections::HashMap<String, serde_json::Value> = contract
+    let hack_check: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [format!("{}/profile/hacked", alice.id())]
         }))
         .await?
         .json()?;
-    
-    assert!(!hack_check.contains_key(&format!("{}/profile/hacked", alice.id())), "No unauthorized data should exist");
+
+    assert_eq!(hack_check.len(), 1, "Should return one EntryView");
+    let hacked_entry = &hack_check[0];
+    assert!(
+        hacked_entry.get("value").map(|v| v.is_null()).unwrap_or(true),
+        "No unauthorized data should exist"
+    );
     println!("   ✓ No unauthorized data written");
     
     // ==========================================================================
@@ -1835,11 +2219,16 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let revoke_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/revoke": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/delegated", alice.id())
-                }
+            "request": {
+                "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/delegated", alice.id())
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1855,11 +2244,16 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // Bob tries to write again - should fail now
     let post_revoke_write = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "delegated/after_revoke": "Should fail!"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "delegated/after_revoke": "Should fail!"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1883,8 +2277,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let carol_deposit = carol
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "public/readme": "Carol's public space"
+            "request": {
+                "data": {
+                    "public/readme": "Carol's public space"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1897,12 +2296,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let wildcard_grant = carol
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/public", carol.id()),
-                    "flags": 1  // WRITE permission
-                }
+            "request": {
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/public", carol.id()),
+                        "flags": 1  // WRITE permission
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1915,13 +2319,18 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // Bob writes to multiple nested paths under /public
     let wildcard_write = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": carol.id().to_string(),
-            "data": {
-                "public/posts/post1": "First post by Bob",
-                "public/posts/post2": "Second post by Bob",
-                "public/comments/c1": "A comment"
+            "request": {
+                "target_account": carol.id().to_string(),
+                "data": {
+                    "public/posts/post1": "First post by Bob",
+                    "public/posts/post2": "Second post by Bob",
+                    "public/comments/c1": "A comment"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1933,7 +2342,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         println!("   ✓ Bob wrote to multiple paths under Carol's /public/*");
         
         // Verify the data
-        let wildcard_data: std::collections::HashMap<String, serde_json::Value> = contract
+        let wildcard_data: Vec<serde_json::Value> = contract
             .view("get")
             .args_json(json!({
                 "keys": [
@@ -1961,11 +2370,16 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let cross_shard_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "aaa/test": "shard test 1",
-                "zzz/test": "shard test 2", 
-                "123/test": "shard test 3",
-                "___/test": "shard test 4"
+            "request": {
+                "data": {
+                    "aaa/test": "shard test 1",
+                    "zzz/test": "shard test 2", 
+                    "123/test": "shard test 3",
+                    "___/test": "shard test 4"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -1978,14 +2392,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     // Check events for different partitions
     let cross_shard_events: Vec<_> = cross_shard_result.logs()
         .iter()
-        .filter(|log| log.starts_with("EVENT:"))
+        .filter(|log| log.starts_with("EVENT_JSON:"))
         .filter_map(|log| decode_event(log))
         .collect();
     
     // Extract unique partition IDs (with simplified partitioning, all same-user events go to same partition)
     let unique_partitions: std::collections::HashSet<_> = cross_shard_events
         .iter()
-        .filter_map(|e| e.data.as_ref())
+        .filter_map(|e| e.data.first())
         .filter_map(|d| d.partition_id)
         .collect();
     
@@ -2021,8 +2435,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let large_value_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "large/dataset": large_json
+            "request": {
+                "data": {
+                    "large/dataset": large_json
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2033,7 +2452,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(large_value_result.is_success(), "Large value storage should succeed");
     
     // Verify retrieval
-    let large_data: std::collections::HashMap<String, serde_json::Value> = contract
+    let large_data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [format!("{}/large/dataset", alice.id())]
@@ -2041,7 +2460,12 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .await?
         .json()?;
     
-    let retrieved = large_data.get(&format!("{}/large/dataset", alice.id())).unwrap();
+    let large_key = format!("{}/large/dataset", alice.id());
+    let retrieved = large_data
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(large_key.as_str()))
+        .and_then(|e| e.get("value"))
+        .expect("Should have value for large dataset");
     let items = retrieved["items"].as_array().unwrap();
     assert_eq!(items.len(), 100, "Should have 100 items");
     println!("   ✓ Large value stored and retrieved ({} items)", items.len());
@@ -2076,23 +2500,23 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let group_logs = group_result.logs();
     let group_events: Vec<_> = group_logs
         .iter()
-        .filter(|log| log.starts_with("EVENT:"))
+        .filter(|log| log.starts_with("EVENT_JSON:"))
         .collect();
     
     println!("   📣 Group creation events: {}", group_events.len());
     assert!(!group_events.is_empty(), "Should emit group creation event");
     
     // VERIFY EVENT STRUCTURE for create_group
-    let create_events = find_events_by_op_type(&group_logs, "create_group");
+    let create_events = find_events_by_operation(&group_logs, "create_group");
     assert!(!create_events.is_empty(), "Should have create_group event");
     let create_event = &create_events[0];
     
     // Verify base event structure
     assert!(verify_event_base(create_event, "onsocial", "1.0.0"), 
         "Event should have correct standard and version");
-    assert_eq!(create_event.evt_type, "GROUP_UPDATE", 
+    assert_eq!(create_event.event, "GROUP_UPDATE", 
         "Event type should be GROUP_UPDATE");
-    assert_eq!(create_event.op_type, "create_group", 
+    assert!(event_has_operation(create_event, "create_group"), 
         "Operation type should be create_group");
     
     // Verify author is alice (the creator)
@@ -2104,15 +2528,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         "Event path should contain group config path");
     
     // Verify event has value with group config
-    let value_str = get_extra_string(create_event, "value");
-    assert!(value_str.is_some(), "Event should have value field");
-    let value_json: serde_json::Value = serde_json::from_str(&value_str.unwrap())
-        .expect("Value should be valid JSON");
+    let value_json = get_extra_json(create_event, "value");
+    assert!(value_json.is_some(), "Event should have value field");
+    let value_json = value_json.unwrap();
     assert!(value_json.get("owner").is_some(), "Event value should contain owner");
     assert!(value_json.get("is_private").is_some(), "Event value should contain is_private");
     
     // VERIFY PARTITION - ensure partition is calculated correctly for group paths
-    let create_data = create_event.data.as_ref().expect("Event should have data");
+    let create_data = create_event.data.first().expect("Event should have data");
     assert!(create_data.partition_id.is_some(), "Event should have partition_id");
     
     // Verify partition is calculated correctly for group path: groups/test-community/config
@@ -2147,12 +2570,10 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let group_id = "test-community";
     
     // Bob joins the group (public group, so direct join)
-    // requested_permissions: 1 = WRITE (basic member permissions)
     let join_result = bob
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": group_id,
-            "requested_permissions": 1
+            "group_id": group_id
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2166,7 +2587,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY add_member EVENT
     let join_logs = join_result.logs();
-    let add_member_events = find_events_by_op_type(&join_logs, "add_member");
+    let add_member_events = find_events_by_operation(&join_logs, "add_member");
     assert!(!add_member_events.is_empty(), "Should emit add_member event on join");
     let add_event = &add_member_events[0];
     
@@ -2178,15 +2599,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         "add_member path should contain member path");
     
     // Verify add_member event has member data
-    let member_value = get_extra_string(add_event, "value");
-    assert!(member_value.is_some(), "add_member should have value field");
-    let member_json: serde_json::Value = serde_json::from_str(&member_value.unwrap())
-        .expect("Member value should be valid JSON");
-    assert!(member_json.get("permission_flags").is_some(), "Member data should have permission_flags");
+    let member_json = get_extra_json(add_event, "value");
+    assert!(member_json.is_some(), "add_member should have value field");
+    let member_json = member_json.unwrap();
+    assert!(member_json.get("level").is_some(), "Member data should have level");
     assert!(member_json.get("granted_by").is_some(), "Member data should have granted_by");
     
     // VERIFY PARTITION for add_member event
-    let add_data = add_event.data.as_ref().expect("add_member event should have data");
+    let add_data = add_event.data.first().expect("add_member event should have data");
     assert!(add_data.partition_id.is_some(), "add_member event should have partition_id");
     
     // Verify partition for member path: groups/{group_id}/members/{member_id}
@@ -2229,7 +2649,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY remove_member EVENT (self-removal via leave_group)
     let leave_logs = leave_result.logs();
-    let remove_member_events = find_events_by_op_type(&leave_logs, "remove_member");
+    let remove_member_events = find_events_by_operation(&leave_logs, "remove_member");
     assert!(!remove_member_events.is_empty(), "Should emit remove_member event on leave");
     let remove_event = &remove_member_events[0];
     
@@ -2240,20 +2660,30 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(verify_event_path_contains(remove_event, &format!("groups/{}/members/{}", group_id, bob.id())),
         "remove_member path should contain member path");
     
-    // Verify remove_member event has actor info (added in event enhancement)
-    let remove_value = get_extra_string(remove_event, "value");
-    assert!(remove_value.is_some(), "remove_member should have value field");
-    let remove_json: serde_json::Value = serde_json::from_str(&remove_value.unwrap())
-        .expect("Remove value should be valid JSON");
-    assert!(remove_json.get("removed_by").is_some(), "Remove data should have removed_by");
-    assert!(remove_json.get("is_self_removal").is_some(), "Remove data should have is_self_removal");
-    assert_eq!(remove_json.get("is_self_removal").and_then(|v| v.as_bool()), Some(true),
-        "is_self_removal should be true for leave_group");
-    assert_eq!(remove_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
-        "from_governance should be false for direct leave");
+    // Verify remove_member event has actor info as flattened fields
+    // value is null for deletions; metadata is in separate fields
+    let remove_value = get_extra_json(remove_event, "value");
+    assert!(remove_value.is_none() || remove_value == Some(serde_json::Value::Null), 
+        "remove_member value should be null for deletion");
+    
+    // Check flattened metadata fields
+    let removed_by = remove_event.data.first()
+        .and_then(|d| d.extra.get("removed_by"))
+        .and_then(|v| v.as_str());
+    assert!(removed_by.is_some(), "Remove event should have removed_by field");
+    
+    let is_self_removal = remove_event.data.first()
+        .and_then(|d| d.extra.get("is_self_removal"))
+        .and_then(|v| v.as_bool());
+    assert_eq!(is_self_removal, Some(true), "is_self_removal should be true for leave_group");
+    
+    let from_governance = remove_event.data.first()
+        .and_then(|d| d.extra.get("from_governance"))
+        .and_then(|v| v.as_bool());
+    assert_eq!(from_governance, Some(false), "from_governance should be false for direct leave");
     
     // VERIFY PARTITION for remove_member event
-    let remove_data = remove_event.data.as_ref().expect("remove_member event should have data");
+    let remove_data = remove_event.data.first().expect("remove_member event should have data");
     assert!(remove_data.partition_id.is_some(), "remove_member event should have partition_id");
     let _remove_member_path = format!("members/{}", bob.id());
     assert!(verify_event_partition(remove_event, group_id),
@@ -2298,8 +2728,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let write_before_pause = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "pause_test/before": "written before pause"
+            "request": {
+                "data": {
+                    "pause_test/before": "written before pause"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -2340,13 +2775,58 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     assert!(private_group_result.is_success(), "Private group creation should succeed");
     println!("   ✓ Private group 'private-club' created");
+
+    // EDGE CASE: Owner cannot leave the group
+    // Ensure owner is a member first (some deployments may or may not auto-add owner as a member).
+    let is_owner_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    if !is_owner_member {
+        let add_owner_member = alice
+            .call(contract.id(), "add_group_member")
+            .args_json(json!({
+                "group_id": "private-club",
+                "member_id": alice.id().to_string(),
+                "level": 0
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?;
+        assert!(add_owner_member.is_success(), "Owner should be addable as a member for test setup");
+    }
+
+    let owner_leave_attempt = alice
+        .call(contract.id(), "leave_group")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!owner_leave_attempt.is_success(), "Owner cannot leave the group");
+
+    let is_owner_still_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_owner_still_member, "Owner must remain a member after failed leave");
+    println!("   ✓ Owner cannot leave the group");
     
     // EDGE CASE: Join request to non-existent group fails
     let join_nonexistent = bob
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "nonexistent-group-xyz",
-            "requested_permissions": 1
+            "group_id": "nonexistent-group-xyz"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2356,53 +2836,22 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(!join_nonexistent.is_success(), "Join request to non-existent group should fail");
     println!("   ✓ EDGE CASE: Join request to non-existent group correctly rejected");
     
-    // Test invalid permission flags are rejected (0 permissions)
-    let invalid_join_0 = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 0
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(!invalid_join_0.is_success(), "Join request with 0 permissions should fail");
-    println!("   ✓ Invalid permission (0) correctly rejected");
-    
-    // Test invalid permission flags are rejected (invalid bits > 7)
-    let invalid_join_255 = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 255
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(!invalid_join_255.is_success(), "Join request with invalid permission bits should fail");
-    println!("   ✓ Invalid permission (255) correctly rejected");
-    
-    // Bob requests to join the private group with valid permissions
+    // Bob submits a join request (join requests are always member-only)
     let join_request_result = bob
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     if !join_request_result.is_success() {
         println!("   ⚠ Join request failed: {:?}", join_request_result.failures());
     }
     assert!(join_request_result.is_success(), "Join request should succeed");
-    println!("   ✓ Bob submitted join request with valid permissions");
+    println!("   ✓ Join request with 0 (member-only) succeeded");
     
     // Bob should NOT be a member yet (pending approval)
     let is_member_pending: bool = contract
@@ -2436,7 +2885,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "requester_id": bob.id().to_string(),
-            "permission_flags": 1
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2486,8 +2935,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let carol_join = carol
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2531,29 +2979,28 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY join_request_rejected EVENT
     let reject_logs = reject_result.logs();
-    let reject_events = find_events_by_op_type(&reject_logs, "join_request_rejected");
+    let reject_events = find_events_by_operation(&reject_logs, "join_request_rejected");
     assert!(!reject_events.is_empty(), "Should emit join_request_rejected event");
     let reject_event = &reject_events[0];
     
     assert!(verify_event_base(reject_event, "onsocial", "1.0.0"), 
         "join_request_rejected event should have correct standard/version");
-    assert!(verify_event_author(reject_event, carol.id().as_str()),
-        "join_request_rejected author should be the requester (carol)");
+    assert!(verify_event_author(reject_event, alice.id().as_str()),
+        "join_request_rejected author should be the executor (alice)");
     assert!(verify_event_path_contains(reject_event, &format!("groups/private-club/join_requests/{}", carol.id())),
         "join_request_rejected path should contain join request path");
     
     // Verify event has rejection details
-    let reject_value = get_extra_string(reject_event, "value");
-    assert!(reject_value.is_some(), "join_request_rejected should have value field");
-    let reject_json: serde_json::Value = serde_json::from_str(&reject_value.unwrap())
-        .expect("Reject value should be valid JSON");
+    let reject_json = get_extra_json(reject_event, "value");
+    assert!(reject_json.is_some(), "join_request_rejected should have value field");
+    let reject_json = reject_json.unwrap();
     assert_eq!(reject_json.get("status").and_then(|v| v.as_str()), Some("rejected"),
         "Reject status should be 'rejected'");
     assert!(reject_json.get("rejected_by").is_some(), "Reject data should have rejected_by");
     assert!(reject_json.get("rejected_at").is_some(), "Reject data should have rejected_at");
     
     println!("   ✓ join_request_rejected event verified:");
-    println!("      - author: {} (requester)", carol.id());
+    println!("      - author: {} (executor)", alice.id());
     println!("      - status: rejected");
     println!("      - rejected_by: {}", alice.id());
     println!("   ✓ Alice rejected Carol's request");
@@ -2586,13 +3033,38 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     assert!(!is_carol_member, "Carol should not be a member after rejection");
     println!("   ✓ Carol is not a member (rejected)");
+
+    // Test: Blacklisted user cannot join (private group)
+    let gary = create_user(&root, "gary", TEN_NEAR).await?;
+    let blacklist_gary = alice
+        .call(contract.id(), "blacklist_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": gary.id().to_string()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(blacklist_gary.is_success(), "Blacklisting Gary should succeed");
+
+    let gary_join_private = gary
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!gary_join_private.is_success(), "Blacklisted user should not be able to request to join private group");
+    println!("   ✓ Blacklisted user cannot join private group");
     
     // Test: Cannot double-submit pending request
     let double_request = carol
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2607,8 +3079,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let duplicate_pending = carol
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2617,6 +3088,55 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     assert!(!duplicate_pending.is_success(), "Cannot submit duplicate pending request");
     println!("   ✓ Duplicate pending request correctly rejected");
+
+    // Test: Blacklisted user cannot join (public group)
+    let frank = create_user(&root, "frank", TEN_NEAR).await?;
+    let blacklist_frank = alice
+        .call(contract.id(), "blacklist_group_member")
+        .args_json(json!({
+            "group_id": "test-community",
+            "member_id": frank.id().to_string()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(blacklist_frank.is_success(), "Blacklisting Frank should succeed");
+
+    let frank_join_public = frank
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "test-community"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!frank_join_public.is_success(), "Blacklisted user should not be able to join public group");
+    println!("   ✓ Blacklisted user cannot join public group");
+
+    // Verify join request count is still incremented (duplicate pending should not change count)
+    let stats_before_reject_with_reason: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let join_requests_before_reject_with_reason = stats_before_reject_with_reason
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        join_requests_before_reject_with_reason,
+        initial_join_requests + 1,
+        "Join request count should still include Carol's pending request"
+    );
+    println!(
+        "   ✓ JOIN REQUEST COUNT STABLE BEFORE REJECT WITH REASON: {}",
+        join_requests_before_reject_with_reason
+    );
     
     // Test: Reject with reason
     let reject_with_reason = alice
@@ -2631,6 +3151,30 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .await?;
     
     assert!(reject_with_reason.is_success(), "Reject with reason should succeed");
+
+    // Verify join request count decremented after rejection with reason
+    let stats_after_reject_with_reason: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let join_requests_after_reject_with_reason = stats_after_reject_with_reason
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        join_requests_after_reject_with_reason,
+        initial_join_requests,
+        "Join request count should decrement on reject with reason"
+    );
+    println!(
+        "   ✓ JOIN REQUEST COUNT DECREMENTED ON REJECT WITH REASON: {} -> {}",
+        join_requests_before_reject_with_reason,
+        join_requests_after_reject_with_reason
+    );
     
     // Verify rejection reason is stored
     let rejected_request: Option<serde_json::Value> = contract
@@ -2647,6 +3191,164 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         assert_eq!(reason, Some("Not a good fit for this group"), "Reason should be stored");
         println!("   ✓ Rejection reason stored: {:?}", reason);
     }
+
+    // Test: Approve should fail if requester is blacklisted after requesting
+    let helen = create_user(&root, "helen", TEN_NEAR).await?;
+    let stats_before_helen_request: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_before_helen_request = stats_before_helen_request
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    let helen_request = helen
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(helen_request.is_success(), "Helen's join request should succeed");
+
+    let stats_after_helen_request: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_after_helen_request = stats_after_helen_request
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        count_after_helen_request,
+        count_before_helen_request + 1,
+        "Count should increment for Helen's request"
+    );
+
+    let blacklist_helen = alice
+        .call(contract.id(), "blacklist_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": helen.id().to_string()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(blacklist_helen.is_success(), "Blacklisting Helen should succeed");
+
+    let approve_blacklisted_requester = alice
+        .call(contract.id(), "approve_join_request")
+        .args_json(json!({
+            "group_id": "private-club",
+            "requester_id": helen.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !approve_blacklisted_requester.is_success(),
+        "Cannot approve a join request for a blacklisted user"
+    );
+
+    let stats_after_failed_approve_blacklisted: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_after_failed_approve_blacklisted = stats_after_failed_approve_blacklisted
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        count_after_failed_approve_blacklisted,
+        count_after_helen_request,
+        "Count must not decrement on failed approve for blacklisted requester"
+    );
+    println!("   ✓ Approve blocked for blacklisted requester; count stable");
+
+    // Non-pending transitions must fail and must not decrement counters twice.
+    let approve_after_reject = alice
+        .call(contract.id(), "approve_join_request")
+        .args_json(json!({
+            "group_id": "private-club",
+            "requester_id": carol.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !approve_after_reject.is_success(),
+        "Cannot approve a rejected join request"
+    );
+
+    let reject_after_reject = alice
+        .call(contract.id(), "reject_join_request")
+        .args_json(json!({
+            "group_id": "private-club",
+            "requester_id": carol.id().to_string(),
+            "reason": "double-reject should fail"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !reject_after_reject.is_success(),
+        "Cannot reject an already rejected join request"
+    );
+
+    let cancel_after_reject = carol
+        .call(contract.id(), "cancel_join_request")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !cancel_after_reject.is_success(),
+        "Cannot cancel a non-pending join request"
+    );
+
+    let stats_after_invalid_reject_transitions: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let join_requests_after_invalid_reject_transitions = stats_after_invalid_reject_transitions
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        join_requests_after_invalid_reject_transitions,
+        count_after_failed_approve_blacklisted,
+        "Join request count must remain stable on invalid transitions (rejected request)"
+    );
+    println!(
+        "   ✓ Rejected request transitions rejected; count stable: {}",
+        join_requests_after_invalid_reject_transitions
+    );
     
     // Test: Approve with different permissions than requested
     // Dan requests WRITE but Alice grants MODERATE
@@ -2669,8 +3371,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let dan_request = dan
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1  // WRITE
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2695,21 +3396,21 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert_eq!(count_after_dan_request, count_before_dan + 1, "Count should increment for Dan's request");
     println!("   ✓ JOIN REQUEST COUNT: {} (Dan's request added)", count_after_dan_request);
     
-    // Alice approves with MODERATE permission (2) instead of requested WRITE (1)
+    // Alice approves (clean join approvals are member-only; level must be 0)
     let approve_higher = alice
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
             "requester_id": dan.id().to_string(),
-            "permission_flags": 2  // MODERATE instead of WRITE
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
-    assert!(approve_higher.is_success(), "Approve with higher permissions should succeed");
-    println!("   ✓ Approved with MODERATE instead of requested WRITE");
+    assert!(approve_higher.is_success(), "Approve should succeed");
+    println!("   ✓ Approved (member-only; level=0)");
     
     // Verify count decremented after approval
     let stats_after_approve: Option<serde_json::Value> = contract
@@ -2727,7 +3428,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert_eq!(count_after_approve, count_before_dan, "Count should decrement on approve");
     println!("   ✓ JOIN REQUEST COUNT DECREMENTED ON APPROVE: {} -> {}", count_after_dan_request, count_after_approve);
     
-    // Verify Dan has MODERATE permission
+    // Verify Dan was added as member-only
     let dan_member: Option<serde_json::Value> = contract
         .view("get_member_data")
         .args_json(json!({
@@ -2739,10 +3440,10 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if let Some(member) = dan_member {
         println!("   📋 Dan's member data: {:?}", member);
-        let perm_flags = member.get("permission_flags").and_then(|p| p.as_u64());
-        println!("   📋 Dan's permission_flags: {:?}", perm_flags);
-        assert_eq!(perm_flags, Some(2), "Dan should have MODERATE permission");
-        println!("   ✓ Dan has MODERATE permission as granted");
+        let perm_flags = member.get("level").and_then(|p| p.as_u64());
+        println!("   📋 Dan's level: {:?}", perm_flags);
+        assert_eq!(perm_flags, Some(0), "Dan should have member-only level");
+        println!("   ✓ Dan has member-only level (0)");
     }
     
     // Verify the join request shows granted_permissions correctly
@@ -2758,9 +3459,180 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     if let Some(req) = dan_request {
         println!("   📋 Dan's join request: {:?}", req);
         let granted = req.get("granted_permissions").and_then(|p| p.as_u64());
-        assert_eq!(granted, Some(2), "Join request should show granted_permissions=2");
-        println!("   ✓ Join request correctly shows granted_permissions=2");
+        assert_eq!(granted, Some(0), "Join request should show granted_permissions=0");
+        println!("   ✓ Join request correctly shows granted_permissions=0");
     }
+
+    // Test: Moderator cannot approve MANAGE, owner can
+    let mod1 = create_user(&root, "mod1", TEN_NEAR).await?;
+    let add_mod1 = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": mod1.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(add_mod1.is_success(), "Adding mod1 should succeed");
+
+    // Grant mod1 moderator permissions over join_requests (delegation path)
+    let grant_mod1_join_requests = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": mod1.id().to_string(),
+            "path": "groups/private-club/join_requests",
+            "level": 2,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_mod1_join_requests.is_success(), "Granting mod1 MODERATE on join_requests should succeed");
+
+    let ivan = create_user(&root, "ivan", TEN_NEAR).await?;
+    let stats_before_ivan: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_before_ivan = stats_before_ivan
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    let ivan_request = ivan
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(ivan_request.is_success(), "Ivan's join request should succeed");
+
+    let stats_after_ivan_request: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_after_ivan_request = stats_after_ivan_request
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(count_after_ivan_request, count_before_ivan + 1, "Count should increment for Ivan's request");
+
+    let mod1_approve_manage = mod1
+        .call(contract.id(), "approve_join_request")
+        .args_json(json!({
+            "group_id": "private-club",
+            "requester_id": ivan.id().to_string(),
+            "level": 3
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!mod1_approve_manage.is_success(), "Moderator cannot approve MANAGE");
+
+    let stats_after_failed_mod1_manage: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_after_failed_mod1_manage = stats_after_failed_mod1_manage
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        count_after_failed_mod1_manage,
+        count_after_ivan_request,
+        "Count must not decrement on failed moderator MANAGE approval"
+    );
+
+    let owner_approve_manage = alice
+        .call(contract.id(), "approve_join_request")
+        .args_json(json!({
+            "group_id": "private-club",
+            "requester_id": ivan.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(owner_approve_manage.is_success(), "Owner can approve join request");
+
+    let stats_after_owner_manage: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let count_after_owner_manage = stats_after_owner_manage
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        count_after_owner_manage,
+        count_before_ivan,
+        "Count should decrement on successful owner approval"
+    );
+    println!("   ✓ Non-zero join-approval flags rejected; owner approval is member-only");
+
+    // Upgrade Ivan to MANAGE via explicit action (join approval never grants roles)
+    let remove_ivan_for_upgrade = alice
+        .call(contract.id(), "remove_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": ivan.id().to_string()
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(remove_ivan_for_upgrade.is_success(), "Removing Ivan for upgrade should succeed");
+
+    let readd_ivan_as_manage = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": ivan.id().to_string(),
+            "level": 0}))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(readd_ivan_as_manage.is_success(), "Re-adding Ivan with MANAGE should succeed");
+
+    // EDGE CASE: Even MANAGE cannot remove the group owner
+    let remove_owner_attempt = ivan
+        .call(contract.id(), "remove_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": alice.id().to_string()
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !remove_owner_attempt.is_success(),
+        "MANAGE member must not be able to remove the group owner"
+    );
+    println!("   ✓ MANAGE cannot remove group owner");
     
     // Test: Cannot approve already approved request
     let double_approve = alice
@@ -2768,7 +3640,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "requester_id": dan.id().to_string(),
-            "permission_flags": 1
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2777,6 +3649,56 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     assert!(!double_approve.is_success(), "Cannot approve already approved request");
     println!("   ✓ Cannot approve already approved request");
+
+    let reject_after_approve = alice
+        .call(contract.id(), "reject_join_request")
+        .args_json(json!({
+            "group_id": "private-club",
+            "requester_id": dan.id().to_string(),
+            "reason": "cannot reject after approve"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !reject_after_approve.is_success(),
+        "Cannot reject an approved join request"
+    );
+
+    let cancel_after_approve = dan
+        .call(contract.id(), "cancel_join_request")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        !cancel_after_approve.is_success(),
+        "Cannot cancel an approved join request"
+    );
+
+    let stats_after_invalid_approve_transitions: Option<serde_json::Value> = contract
+        .view("get_group_stats")
+        .args_json(json!({
+            "group_id": "private-club"
+        }))
+        .await?
+        .json()?;
+    let join_requests_after_invalid_approve_transitions = stats_after_invalid_approve_transitions
+        .as_ref()
+        .and_then(|s| s.get("total_join_requests"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        join_requests_after_invalid_approve_transitions,
+        count_before_dan,
+        "Join request count must not decrement on invalid transitions (approved request)"
+    );
+    println!(
+        "   ✓ Approved request transitions rejected; count stable: {}",
+        join_requests_after_invalid_approve_transitions
+    );
     
     // ==========================================================================
     // TEST 22: Blacklist member
@@ -2789,8 +3711,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": carol.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2805,8 +3726,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": carol.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2834,22 +3754,21 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY add_to_blacklist EVENT
     let blacklist_logs = blacklist_result.logs();
-    let blacklist_events = find_events_by_op_type(&blacklist_logs, "add_to_blacklist");
+    let blacklist_events = find_events_by_operation(&blacklist_logs, "add_to_blacklist");
     assert!(!blacklist_events.is_empty(), "Should emit add_to_blacklist event");
     let bl_event = &blacklist_events[0];
     
     assert!(verify_event_base(bl_event, "onsocial", "1.0.0"), 
         "add_to_blacklist event should have correct standard/version");
-    assert!(verify_event_author(bl_event, carol.id().as_str()),
-        "add_to_blacklist author should be the target (carol)");
+    assert!(verify_event_author(bl_event, alice.id().as_str()),
+        "add_to_blacklist author should be the adder (alice)");
     assert!(verify_event_path_contains(bl_event, &format!("groups/private-club/blacklist/{}", carol.id())),
         "add_to_blacklist path should contain blacklist path");
     
     // Verify event has actor info (enhanced event fields)
-    let bl_value = get_extra_string(bl_event, "value");
-    assert!(bl_value.is_some(), "add_to_blacklist should have value field");
-    let bl_json: serde_json::Value = serde_json::from_str(&bl_value.unwrap())
-        .expect("Blacklist value should be valid JSON");
+    let bl_json = get_extra_json(bl_event, "value");
+    assert!(bl_json.is_some(), "add_to_blacklist should have value field");
+    let bl_json = bl_json.unwrap();
     assert_eq!(bl_json.get("blacklisted").and_then(|v| v.as_bool()), Some(true),
         "blacklisted should be true");
     assert!(bl_json.get("added_by").is_some(), "Blacklist data should have added_by");
@@ -2858,14 +3777,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         "from_governance should be false for direct blacklist");
     
     // VERIFY PARTITION for add_to_blacklist event
-    let bl_data = bl_event.data.as_ref().expect("add_to_blacklist event should have data");
+    let bl_data = bl_event.data.first().expect("add_to_blacklist event should have data");
     assert!(bl_data.partition_id.is_some(), "add_to_blacklist event should have partition_id");
     let _blacklist_relative_path = format!("blacklist/{}", carol.id());
     assert!(verify_event_partition(bl_event, "private-club"),
         "add_to_blacklist event partition should match expected value");
     
     // Also verify remove_member event was emitted (blacklist removes member)
-    let remove_events = find_events_by_op_type(&blacklist_logs, "remove_member");
+    let remove_events = find_events_by_operation(&blacklist_logs, "remove_member");
     assert!(!remove_events.is_empty(), "Blacklist should also emit remove_member event");
     
     println!("   ✓ add_to_blacklist event verified:");
@@ -2911,8 +3830,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let carol_rejoin = carol
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2942,8 +3860,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let carol_self_join_public = carol
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "test-community",
-            "requested_permissions": 1  // WRITE permission for self-join
+            "group_id": "test-community"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2978,38 +3895,41 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY remove_from_blacklist EVENT
     let unbl_logs = unblacklist_result.logs();
-    let unbl_events = find_events_by_op_type(&unbl_logs, "remove_from_blacklist");
+    let unbl_events = find_events_by_operation(&unbl_logs, "remove_from_blacklist");
     assert!(!unbl_events.is_empty(), "Should emit remove_from_blacklist event");
     let unbl_event = &unbl_events[0];
     
     assert!(verify_event_base(unbl_event, "onsocial", "1.0.0"), 
         "remove_from_blacklist event should have correct standard/version");
-    assert!(verify_event_author(unbl_event, carol.id().as_str()),
-        "remove_from_blacklist author should be the target (carol)");
+    assert!(verify_event_author(unbl_event, alice.id().as_str()),
+        "remove_from_blacklist author should be the remover (alice)");
     assert!(verify_event_path_contains(unbl_event, &format!("groups/private-club/blacklist/{}", carol.id())),
         "remove_from_blacklist path should contain blacklist path");
     
-    // Verify event has actor info (enhanced event fields)
-    let unbl_value = get_extra_string(unbl_event, "value");
-    assert!(unbl_value.is_some(), "remove_from_blacklist should have value field");
-    let unbl_json: serde_json::Value = serde_json::from_str(&unbl_value.unwrap())
-        .expect("Unblacklist value should be valid JSON");
-    assert_eq!(unbl_json.get("blacklisted").and_then(|v| v.as_bool()), Some(false),
+    // Verify event has actor info as flattened fields
+    // value is null for deletions; metadata is in separate fields
+    let unbl_value = get_extra_json(unbl_event, "value");
+    assert!(unbl_value.is_none() || unbl_value == Some(serde_json::Value::Null), 
+        "remove_from_blacklist value should be null for deletion");
+    
+    // Check flattened metadata fields
+    let unbl_data_extra = &unbl_event.data.first().expect("event should have data").extra;
+    assert_eq!(unbl_data_extra.get("blacklisted").and_then(|v| v.as_bool()), Some(false),
         "blacklisted should be false");
-    assert!(unbl_json.get("removed_by").is_some(), "Unblacklist data should have removed_by");
-    assert!(unbl_json.get("removed_at").is_some(), "Unblacklist data should have removed_at");
-    assert_eq!(unbl_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
+    assert!(unbl_data_extra.get("removed_by").is_some(), "Unblacklist data should have removed_by");
+    assert!(unbl_data_extra.get("removed_at").is_some(), "Unblacklist data should have removed_at");
+    assert_eq!(unbl_data_extra.get("from_governance").and_then(|v| v.as_bool()), Some(false),
         "from_governance should be false for direct unblacklist");
     
     // VERIFY PARTITION for remove_from_blacklist event
-    let unbl_data = unbl_event.data.as_ref().expect("remove_from_blacklist event should have data");
+    let unbl_data = unbl_event.data.first().expect("remove_from_blacklist event should have data");
     assert!(unbl_data.partition_id.is_some(), "remove_from_blacklist event should have partition_id");
     let _unbl_relative_path = format!("blacklist/{}", carol.id());
     assert!(verify_event_partition(unbl_event, "private-club"),
         "remove_from_blacklist event partition should match expected value");
     
     println!("   ✓ remove_from_blacklist event verified:");
-    println!("      - author: {} (target)", carol.id());
+    println!("      - author: {} (remover)", alice.id());
     println!("      - removed_by: {}", alice.id());
     println!("      - from_governance: false");
     println!("      - partition_id: {:?}", unbl_data.partition_id);
@@ -3042,6 +3962,34 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     assert!(unblacklist_again.is_success(), "Idempotent unblacklist should succeed");
     println!("   ✓ EDGE CASE: Idempotent unblacklist works (second call is no-op)");
+
+    // EDGE CASE: Unblacklist a user that was never blacklisted should succeed (no-op)
+    let yuki = create_user(&root, "yuki", TEN_NEAR).await?;
+    let unblacklist_never_blacklisted = alice
+        .call(contract.id(), "unblacklist_group_member")
+        .args_json(json!({
+            "group_id": "private-club",
+            "member_id": yuki.id().to_string()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        unblacklist_never_blacklisted.is_success(),
+        "Unblacklisting a never-blacklisted user should succeed (no-op)"
+    );
+
+    let yuki_blacklisted: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "private-club",
+            "user_id": yuki.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!yuki_blacklisted, "Never-blacklisted user must remain not blacklisted");
+    println!("   ✓ EDGE CASE: Unblacklist of never-blacklisted user is a no-op");
     
     // SECURITY TEST: Verify Carol can now be re-added after unblacklisting
     let readd_carol = alice
@@ -3049,8 +3997,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": carol.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3089,8 +4036,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let carol_resubmit = carol
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "private-club",
-            "requested_permissions": 1
+            "group_id": "private-club"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3118,8 +4064,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": david.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3149,8 +4094,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": david.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3206,38 +4150,41 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY remove_member EVENT (admin removal, not self-removal)
     let remove_logs = remove_result.logs();
-    let remove_events = find_events_by_op_type(&remove_logs, "remove_member");
+    let remove_events = find_events_by_operation(&remove_logs, "remove_member");
     assert!(!remove_events.is_empty(), "Should emit remove_member event");
     let remove_event = &remove_events[0];
     
     assert!(verify_event_base(remove_event, "onsocial", "1.0.0"), 
         "remove_member event should have correct standard/version");
-    assert!(verify_event_author(remove_event, bob.id().as_str()),
-        "remove_member author should be the removed member (bob)");
+    assert!(verify_event_author(remove_event, alice.id().as_str()),
+        "remove_member author should be the remover (alice)");
     assert!(verify_event_path_contains(remove_event, &format!("groups/private-club/members/{}", bob.id())),
         "remove_member path should contain member path");
     
-    // Verify event has actor info (enhanced event fields)
-    let remove_value = get_extra_string(remove_event, "value");
-    assert!(remove_value.is_some(), "remove_member should have value field");
-    let remove_json: serde_json::Value = serde_json::from_str(&remove_value.unwrap())
-        .expect("Remove value should be valid JSON");
-    assert!(remove_json.get("removed_by").is_some(), "Remove data should have removed_by");
-    assert!(remove_json.get("removed_at").is_some(), "Remove data should have removed_at");
-    assert_eq!(remove_json.get("is_self_removal").and_then(|v| v.as_bool()), Some(false),
+    // Verify event has actor info as flattened fields
+    // value is null for deletions; metadata is in separate fields
+    let remove_value = get_extra_json(remove_event, "value");
+    assert!(remove_value.is_none() || remove_value == Some(serde_json::Value::Null), 
+        "remove_member value should be null for deletion");
+    
+    // Check flattened metadata fields
+    let remove_data_extra = &remove_event.data.first().expect("event should have data").extra;
+    assert!(remove_data_extra.get("removed_by").is_some(), "Remove data should have removed_by");
+    assert!(remove_data_extra.get("removed_at").is_some(), "Remove data should have removed_at");
+    assert_eq!(remove_data_extra.get("is_self_removal").and_then(|v| v.as_bool()), Some(false),
         "is_self_removal should be false for admin removal");
-    assert_eq!(remove_json.get("from_governance").and_then(|v| v.as_bool()), Some(false),
+    assert_eq!(remove_data_extra.get("from_governance").and_then(|v| v.as_bool()), Some(false),
         "from_governance should be false for direct removal");
     
     // VERIFY PARTITION for remove_member event
-    let remove_data = remove_event.data.as_ref().expect("remove_member event should have data");
+    let remove_data = remove_event.data.first().expect("remove_member event should have data");
     assert!(remove_data.partition_id.is_some(), "remove_member event should have partition_id");
     let _remove_relative_path = format!("members/{}", bob.id());
     assert!(verify_event_partition(remove_event, "private-club"),
         "remove_member event partition should match expected value");
     
     println!("   ✓ remove_member event verified (admin removal):");
-    println!("      - author: {} (removed member)", bob.id());
+    println!("      - author: {} (remover)", alice.id());
     println!("      - removed_by: {}", alice.id());
     println!("      - is_self_removal: false");
     println!("      - from_governance: false");
@@ -3263,8 +4210,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": bob.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3321,8 +4267,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": bob.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3348,7 +4293,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     // VERIFY transfer_ownership EVENT
     let transfer_logs = transfer_result.logs();
-    let transfer_events = find_events_by_op_type(&transfer_logs, "transfer_ownership");
+    let transfer_events = find_events_by_operation(&transfer_logs, "transfer_ownership");
     assert!(!transfer_events.is_empty(), "Should emit transfer_ownership event");
     let xfer_event = &transfer_events[0];
     
@@ -3459,7 +4404,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "private-club",
             "member_id": alice.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3659,8 +4604,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let insufficient_deposit = poor_user
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "huge/data": "x".repeat(10000)  // 10KB of data
+            "request": {
+                "data": {
+                    "huge/data": "x".repeat(10000)  // 10KB of data
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))  // Almost no deposit
@@ -3681,8 +4631,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let double_join = alice
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "test-community",
-            "requested_permissions": 1
+            "group_id": "test-community"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3697,205 +4646,73 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     // Create a new user who has never joined
     let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
     
-    // Charlie tries to self-join with MODERATE permission (should fail)
-    let elevated_join = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({
-            "group_id": "test-community",
-            "requested_permissions": 2  // MODERATE permission
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    // Should fail - new members can only self-join with WRITE (1)
-    assert!(!elevated_join.is_success(), "Self-join with elevated permissions should fail");
-    println!("   ✓ New member self-join with elevated permissions correctly rejected");
-    
-    // Verify Charlie can join with WRITE permission (1)
+    // Verify Charlie can join via clean join
     let valid_join = charlie
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "test-community",
-            "requested_permissions": 1  // WRITE permission
+            "group_id": "test-community"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
-    assert!(valid_join.is_success(), "Self-join with WRITE permission should succeed");
-    println!("   ✓ New member can self-join with WRITE permission");
+    assert!(valid_join.is_success(), "Self-join should succeed");
+    println!("   ✓ New member can self-join (member-only)");
     
-    // Test: MANAGE users can grant WRITE/MODERATE but not MANAGE
-    // Alice adds a user with MANAGE permission to test delegation limits
+    // Clean-add semantics: add_group_member must use level=0
+    // Roles are granted explicitly via set_permission after adding
     let david = create_user(&root, "david", TEN_NEAR).await?;
     
-    let add_manager = alice
+    // Non-zero level must be rejected
+    let add_with_role = alice
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "test-community",
             "member_id": david.id().to_string(),
-            "permission_flags": 4  // MANAGE permission
+            "level": 3  // non-zero should be rejected
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
-    assert!(add_manager.is_success(), "Adding MANAGE user should succeed");
-    println!("   ✓ David added with MANAGE permission");
+    assert!(!add_with_role.is_success(), "add_group_member with non-zero level must fail");
+    println!("   ✓ add_group_member rejects non-zero level (clean-add)");
     
-    // David (MANAGE) tries to grant WRITE - should succeed
-    let emily = create_user(&root, "emily", TEN_NEAR).await?;
-    
-    let grant_write = david
+    // Adding as member-only (0) should succeed
+    let add_member_only = alice
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "test-community",
-            "member_id": emily.id().to_string(),
-            "permission_flags": 1  // WRITE
+            "member_id": david.id().to_string(),
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
-    assert!(grant_write.is_success(), "MANAGE user can grant WRITE");
-    println!("   ✓ MANAGE user successfully granted WRITE permission");
+    assert!(add_member_only.is_success(), "Adding as member-only should succeed");
+    println!("   ✓ David added as member-only");
     
-    // David (MANAGE) tries to grant MODERATE - should succeed
-    let frank = create_user(&root, "frank", TEN_NEAR).await?;
-    
-    let grant_moderate = david
-        .call(contract.id(), "add_group_member")
+    // Roles are granted via set_permission (path-based)
+    let grant_david_manage = alice
+        .call(contract.id(), "set_permission")
         .args_json(json!({
-            "group_id": "test-community",
-            "member_id": frank.id().to_string(),
-            "permission_flags": 2  // MODERATE
+            "grantee": david.id().to_string(),
+            "path": "groups/test-community/config",
+            "level": 3,  // MANAGE on config path
+            "expires_at": null
         }))
-        .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
-    assert!(grant_moderate.is_success(), "MANAGE user can grant MODERATE");
-    println!("   ✓ MANAGE user successfully granted MODERATE permission");
+    assert!(grant_david_manage.is_success(), "Owner can grant path-based MANAGE via set_permission");
+    println!("   ✓ David granted MANAGE on groups/test-community/config via set_permission");
     
-    // David (MANAGE) tries to grant MANAGE - should fail (cannot delegate own level)
-    let george = create_user(&root, "george", TEN_NEAR).await?;
-    
-    let grant_manage = david
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": george.id().to_string(),
-            "permission_flags": 4  // MANAGE
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(!grant_manage.is_success(), "MANAGE user cannot grant MANAGE permission");
-    println!("   ✓ MANAGE user correctly denied granting MANAGE permission");
-    
-    // Test: Cannot grant permissions you don't have
-    // Charlie (only WRITE) tries to grant MODERATE - should fail
-    let helen = create_user(&root, "helen", TEN_NEAR).await?;
-    
-    let escalate_permissions = charlie
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": helen.id().to_string(),
-            "permission_flags": 2  // MODERATE (Charlie only has WRITE)
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(!escalate_permissions.is_success(), "Cannot grant permissions you don't have");
-    println!("   ✓ User with WRITE cannot grant MODERATE permission");
-    
-    // Test: MODERATE users CAN grant WRITE (hierarchical permissions)
-    // With hierarchical design: MODERATE (flag 2) includes WRITE capability automatically
-    // Frank has MODERATE, which gives him WRITE too, so he can grant WRITE to others
-    let moderate_grant_write = frank
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": helen.id().to_string(),
-            "permission_flags": 1  // WRITE
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(moderate_grant_write.is_success(), "MODERATE user CAN grant WRITE (hierarchical permissions)");
-    println!("   ✓ User with MODERATE successfully granted WRITE (hierarchical permissions)");
-    
-    // Test: MODERATE users can grant WRITE (hierarchical permissions)
-    // With hierarchical design: granting MODERATE (flag 2) is now sufficient
-    // Flag 3 (MODERATE+WRITE) is redundant but still supported for backward compatibility
-    // Add a moderator with just MODERATE permission (includes WRITE automatically)
-    let ivan = create_user(&root, "ivan", TEN_NEAR).await?;
-    
-    let add_moderator = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": ivan.id().to_string(),
-            "permission_flags": 2  // MODERATE (includes WRITE hierarchically)
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(add_moderator.is_success(), "Adding moderator with MODERATE should succeed");
-    println!("   ✓ Ivan added as moderator with MODERATE (hierarchical WRITE included)");
-    
-    // Ivan (MODERATE) tries to grant WRITE - should succeed (hierarchical permissions)
-    let kim = create_user(&root, "kim", TEN_NEAR).await?;
-    
-    let moderator_grant_write = ivan
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": kim.id().to_string(),
-            "permission_flags": 1  // WRITE
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(moderator_grant_write.is_success(), "MODERATE user can grant WRITE (hierarchical permissions)");
-    println!("   ✓ Moderator (MODERATE) successfully granted WRITE (hierarchical permissions)");
-    
-    // Ivan (MODERATE) tries to grant MODERATE - should fail (prevents self-propagation)
-    let julia = create_user(&root, "julia", TEN_NEAR).await?;
-    
-    let moderator_grant_moderate = ivan
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": julia.id().to_string(),
-            "permission_flags": 2  // MODERATE
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(!moderator_grant_moderate.is_success(), "MODERATE user cannot grant MODERATE (prevents self-propagation)");
-    println!("   ✓ Moderator correctly denied granting MODERATE (only MANAGE can expand moderation team)");
-    
-    // Test: Member-driven groups reject direct permission grants
+    // Test: Member-driven groups create proposals instead of direct addition
     // Create a member-driven group
     let iris = create_user(&root, "iris", NearToken::from_near(20)).await?;
     
@@ -3924,8 +4741,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "democracy-group",
             "member_id": kate.id().to_string(),
-            "permission_flags": 1  // WRITE
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3943,8 +4759,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "democracy-group",
             "member_id": jack.id().to_string(),
-            "permission_flags": 1  // WRITE
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4018,37 +4833,49 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(create_prot_group.is_success(), "Group creation should succeed");
     println!("   ✓ Created owner-protect-group");
     
-    // Add manager with MANAGE permission
+    // Add manager as member-only first (clean-add)
     let add_manager = owner_prot
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-protect-group",
             "member_id": manager_user.id().to_string(),
-            "permission_flags": 4  // MANAGE
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
     assert!(add_manager.is_success(), "Adding manager should succeed");
-    println!("   ✓ Added manager_user with MANAGE permission");
     
-    // Add regular user with WRITE permission
+    // Grant MANAGE via set_permission
+    let grant_manager_manage = owner_prot
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": manager_user.id().to_string(),
+            "path": "groups/owner-protect-group/config",
+            "level": 3,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(grant_manager_manage.is_success(), "Granting MANAGE via set_permission should succeed");
+    println!("   ✓ Added manager_user and granted MANAGE via set_permission");
+    
+    // Add regular user as member-only (clean-add)
     let add_regular = owner_prot
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-protect-group",
             "member_id": regular_user.id().to_string(),
-            "permission_flags": 1  // WRITE
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
     assert!(add_regular.is_success(), "Adding regular user should succeed");
-    println!("   ✓ Added regular_user with WRITE permission");
+    println!("   ✓ Added regular_user as member-only");
     
     // --- TEST 1: Cannot blacklist group owner ---
     println!("\n   📝 Testing: Cannot blacklist group owner...");
@@ -4201,8 +5028,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "dao-group",
             "member_id": bob.id().to_string(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4217,8 +5043,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "dao-group",
             "member_id": carol.id().to_string(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4244,7 +5069,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": eve.id().to_string(),
-                "permission_flags": 3,
+                "level": 0,  // clean-add: invites are member-only
                 "message": "Eve would be a great addition to our DAO"
             }
         }))
@@ -4327,8 +5152,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "proposal_type": "permission_change",
             "changes": {
                 "target_user": bob.id().to_string(),
-                "permission_flags": 255,  // Full permissions
-                "reason": "Promoting Bob to admin"
+                "level": 3,  // MANAGE
+                "reason": "Promoting Bob to MANAGE"
             }
         }))
         .deposit(ONE_NEAR)
@@ -4370,11 +5195,11 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let bob_data_after = bob_member_data_after.unwrap();
     
     // CRITICAL: Verify permission flags were updated
-    let new_permission_flags = bob_data_after.get("permission_flags")
+    let new_level = bob_data_after.get("level")
         .and_then(|v| v.as_u64())
-        .expect("permission_flags should exist");
-    assert_eq!(new_permission_flags, 255, "Bob's permissions should be updated to 255 (full)");
-    println!("   ✓ Bob's permission_flags updated to: {}", new_permission_flags);
+        .expect("level should exist");
+    assert_eq!(new_level, 3, "Bob's permissions should be updated to 3 (MANAGE)");
+    println!("   ✓ Bob's level updated to: {}", new_level);
     
     // CRITICAL: Verify original member data was preserved (regression test)
     let bob_joined_at_after = bob_data_after.get("joined_at").cloned();
@@ -4414,7 +5239,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": leo.id().to_string(),
-                "permission_flags": 3,
+                "level": 0,  // clean-add: invites are member-only
                 "message": "Let's add Leo too"
             }
         }))
@@ -4605,8 +5430,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "md-restrict-group",
             "member_id": nina.id().to_string(),
-            "permission_flags": 2  // MODERATE (includes WRITE hierarchically)
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4633,8 +5457,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let oscar_join = oscar
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "md-restrict-group",
-            "requested_permissions": 1  // WRITE
+            "group_id": "md-restrict-group"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4650,7 +5473,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "md-restrict-group",
             "requester_id": oscar.id().to_string(),
-            "permission_flags": 1
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4701,7 +5524,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": oscar.id().to_string(),
-                "permission_flags": 1,
+                "level": 0,  // clean-add: invites are member-only
                 "message": "Adding Oscar for blacklist testing"
             }
         }))
@@ -4760,24 +5583,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("      ✓ blacklist_group_member created ban proposal (not direct blacklist)");
     
     // Extract ban proposal ID from event logs
-    let mut ban_proposal_id = String::new();
-    for log in blacklist_attempt.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                ban_proposal_id = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    assert!(!ban_proposal_id.is_empty(), "Should have created a ban proposal");
+    let ban_proposal_id = extract_proposal_id_from_logs(&blacklist_attempt.logs(), "proposal_created")
+        .expect("Should have created a ban proposal");
     println!("      ✓ Ban proposal ID: {}", ban_proposal_id);
     
     // Verify Oscar is NOT immediately blacklisted
@@ -4853,24 +5660,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(unban_oscar.is_success());
     
     // Extract unban proposal ID from event logs
-    let mut unban_proposal_id = String::new();
-    for log in unban_oscar.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                unban_proposal_id = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    assert!(!unban_proposal_id.is_empty(), "Should have created an unban proposal");
+    let unban_proposal_id = extract_proposal_id_from_logs(&unban_oscar.logs(), "proposal_created")
+        .expect("Should have created an unban proposal");
     
     // Vote to execute unban
     let vote_unban = nina
@@ -4893,8 +5684,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "md-restrict-group",
             "member_id": oscar.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -4902,24 +5692,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(readd_oscar.is_success());
     
     // Extract readd proposal ID from event logs
-    let mut readd_proposal_id = String::new();
-    for log in readd_oscar.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                readd_proposal_id = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    assert!(!readd_proposal_id.is_empty(), "Should have created a readd proposal");
+    let readd_proposal_id = extract_proposal_id_from_logs(&readd_oscar.logs(), "proposal_created")
+        .expect("Should have created a readd proposal");
     
     // Vote to execute readd
     let vote_readd = nina
@@ -4961,8 +5735,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "trad-group",
             "member_id": oscar.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -5122,12 +5895,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let grant_write_for = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "permission/grant": {
-                    "grantee": bob.id().to_string(),
-                    "path": format!("{}/relayed", alice.id()),
-                    "flags": 1  // WRITE permission = 1
-                }
+            "request": {
+                "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/relayed", alice.id()),
+                        "flags": 1  // WRITE permission = 1
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -5138,13 +5916,18 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     assert!(grant_write_for.is_success(), "Granting write permission should succeed: {:?}", grant_write_for.outcome());
     println!("   ✓ Alice granted Bob write permission to /relayed");
     
-    // Bob uses set_for to write data to Alice's namespace
+    // Bob uses cross-account set to write data to Alice's namespace
     let set_for_result = bob
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "relayed/message": "Written by Bob on behalf of Alice"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "relayed/message": "Written by Bob on behalf of Alice"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -5158,21 +5941,20 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             println!("      Error: {:?}", failure);
         }
     }
-    assert!(set_for_result.is_success(), "set_for should succeed with permission");
-    println!("   ✓ Bob wrote to Alice's namespace using set_for");
+    assert!(set_for_result.is_success(), "cross-account set should succeed with permission");
+    println!("   ✓ Bob wrote to Alice's namespace using cross-account set");
     
     // Verify the data was written under Alice's namespace
-    let relayed_data: serde_json::Value = contract
+    let relayed_data: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [format!("{}/relayed/message", alice.id())]
         }))
         .await?
         .json()?;
-    
-    let relayed_msg = relayed_data
-        .get(&format!("{}/relayed/message", alice.id()))
-        .and_then(|v| v.as_str());
+
+    let relayed_key = format!("{}/relayed/message", alice.id());
+    let relayed_msg = entry_value_str(&relayed_data, &relayed_key);
     assert_eq!(relayed_msg, Some("Written by Bob on behalf of Alice"));
     println!("   ✓ Verified: data stored under Alice's namespace");
     
@@ -5181,13 +5963,18 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     // ==========================================================================
     println!("\n📦 TEST 45: set_for unauthorized fails...");
     
-    // Carol tries to use set_for on Alice without permission
+    // Carol tries to use cross-account set on Alice without permission
     let unauthorized_set_for = carol
-        .call(contract.id(), "set_for")
+        .call(contract.id(), "set")
         .args_json(json!({
-            "target_account": alice.id().to_string(),
-            "data": {
-                "relayed/unauthorized": "Should fail"
+            "request": {
+                "target_account": alice.id().to_string(),
+                "data": {
+                    "relayed/unauthorized": "Should fail"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -5195,8 +5982,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    assert!(!unauthorized_set_for.is_success(), "Unauthorized set_for should fail");
-    println!("   ✓ Unauthorized set_for correctly rejected");
+    assert!(!unauthorized_set_for.is_success(), "Unauthorized cross-account set should fail");
+    println!("   ✓ Unauthorized cross-account set correctly rejected");
     
     // ==========================================================================
     // TEST 46: Cancel join request
@@ -5240,8 +6027,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let eve_join_request = eve
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "cancel-test-group",
-            "requested_permissions": 1
+            "group_id": "cancel-test-group"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5335,7 +6121,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "owner": alice.id().to_string(),
             "grantee": bob.id().to_string(),
             "path": format!("{}/relayed", alice.id()),
-            "permission_flags": 1  // WRITE = 1
+            "level": 1  // WRITE = 1
         }))
         .await?
         .json()?;
@@ -5350,7 +6136,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "owner": alice.id().to_string(),
             "grantee": carol.id().to_string(),
             "path": format!("{}/relayed", alice.id()),
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -5398,11 +6184,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let create_pool = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/shared_pool_deposit": {
-                    "pool_id": alice.id().to_string(),
-                    "amount": "1000000000000000000000000"  // 1 NEAR in yoctoNEAR
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": alice.id().to_string(),
+                        "amount": "1000000000000000000000000"  // 1 NEAR in yoctoNEAR
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -5423,11 +6215,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let share_storage = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/share_storage": {
-                    "target_id": eve.id().to_string(),
-                    "max_bytes": 10000
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/share_storage": {
+                        "target_id": eve.id().to_string(),
+                        "max_bytes": 10000
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))  // Minimal deposit
@@ -5459,8 +6257,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let eve_write_shared = eve
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Eve (sponsored)"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "profile/name": "Eve (sponsored)"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(NearToken::from_yoctonear(1))  // Minimal deposit
@@ -5490,8 +6294,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         let write_in_readonly = alice
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    "test/readonly_check": "should_fail"
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "test/readonly_check": "should_fail"
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(ONE_NEAR)
@@ -5529,7 +6339,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": dan.id().to_string(),
             "path": format!("{}/direct", carol.id()),
-            "permission_flags": 1  // WRITE
+            "level": 1  // WRITE
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
@@ -5545,7 +6355,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "owner": carol.id().to_string(),
             "grantee": dan.id().to_string(),
             "path": format!("{}/direct", carol.id()),
-            "permission_flags": 1
+            "level": 1
         }))
         .await?
         .json()?;
@@ -5566,8 +6376,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": eve.id().to_string(),
             "path": format!("{}/expired", carol.id()),
-            "permission_flags": 1,
-            "expires_at": past_timestamp
+            "level": 1,
+            "expires_at": past_timestamp.to_string()
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
@@ -5584,7 +6394,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "owner": carol.id().to_string(),
                 "grantee": eve.id().to_string(),
                 "path": format!("{}/expired", carol.id()),
-                "permission_flags": 1
+                "level": 1
             }))
             .await?
             .json()?;
@@ -5607,8 +6417,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let return_storage = eve
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/return_shared_storage": {}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/return_shared_storage": {}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5652,8 +6468,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let empty_path_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "": "should fail"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "": "should fail"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -5674,8 +6496,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let traversal_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/../../../admin": "traversal attack"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "profile/../../../admin": "traversal attack"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -5707,8 +6535,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let deep_path_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                &deep_path: "deep value"
+            "request": {
+                "target_account": null,
+                "data": {
+                    &deep_path: "deep value"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5985,8 +6819,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let enter_readonly = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "account/read_only": true
+            "request": {
+                "target_account": null,
+                "data": {
+                    "account/read_only": true
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -5998,8 +6838,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         let write_attempt = alice
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    "profile/readonly_test": "should_fail"
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "profile/readonly_test": "should_fail"
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -6016,8 +6862,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         let resume = alice
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    "account/read_only": false
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        "account/read_only": false
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -6071,7 +6923,13 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let batch_limit_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": large_batch
+            "request": {
+                "target_account": null,
+                "data": large_batch,
+                "options": null,
+                "event_config": null,
+                "auth": null
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(300))
         .transact()
@@ -6091,8 +6949,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let storage_deposit_data = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(500))
@@ -6117,10 +6981,16 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let storage_withdraw_data = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/withdraw": {
-                    "amount": "1000000000000000000000"  // 0.001 NEAR
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/withdraw": {
+                        "amount": "1000000000000000000000"  // 0.001 NEAR
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -6463,8 +7333,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let _ = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "options_test/nested/deep": "value"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "options_test/nested/deep": "value"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
@@ -6615,8 +7491,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             .args_json(json!({
                 "group_id": "direct_add_test",
                 "member_id": carol.id().to_string(),
-                "permission_flags": 1  // WRITE
-            }))
+                "level": 0}))
             .deposit(near_workspaces::types::NearToken::from_millinear(10))
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
@@ -6668,8 +7543,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         let _ = bob
             .call(contract.id(), "join_group")
             .args_json(json!({
-                "group_id": "join_request_test",
-                "requested_permissions": 1
+                "group_id": "join_request_test"
             }))
             .deposit(near_workspaces::types::NearToken::from_millinear(10))
             .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -6862,8 +7736,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             let rejoin = carol
                 .call(contract.id(), "join_group")
                 .args_json(json!({
-                    "group_id": "direct_add_test",
-                    "requested_permissions": 1
+                    "group_id": "direct_add_test"
                 }))
                 .deposit(near_workspaces::types::NearToken::from_millinear(10))
                 .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -6891,8 +7764,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let event_test = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "events/test_emission": { "purpose": "event_test" }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "events/test_emission": { "purpose": "event_test" }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
@@ -6924,7 +7803,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": bob.id().to_string(),
             "path": "events/perm_test",
-            "permission_flags": 1
+            "level": 1
         }))
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
@@ -6932,16 +7811,16 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if perm_grant.is_success() {
         let logs = perm_grant.logs();
-        let has_perm_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_perm_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_perm_event {
             println!("   ✓ PERMISSION_UPDATE event emitted on grant");
             // Decode and verify event type
-            if let Some(event_log) = logs.iter().find(|log| log.starts_with("EVENT:")) {
+            if let Some(event_log) = logs.iter().find(|log| log.starts_with("EVENT_JSON:")) {
                 if let Some(event) = decode_event(event_log) {
-                    println!("      Event type: {}", event.evt_type);
-                    println!("      Operation: {}", event.op_type);
-                    assert!(event.evt_type == "PERMISSION_UPDATE" || event.op_type == "grant", 
+                    println!("      Event type: {}", event.event);
+                    println!("      Operation: {}", get_event_operation(&event).unwrap_or(""));
+                    assert!(event.event == "PERMISSION_UPDATE" || get_event_operation(&event).unwrap_or("") == "grant", 
                         "Should be PERMISSION_UPDATE/grant event");
                 }
             }
@@ -6962,15 +7841,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": bob.id().to_string(),
             "path": "events/perm_test",
-            "permission_flags": 0  // Revoke
-        }))
+            "level": 0}))
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
     
     if perm_revoke.is_success() {
         let logs = perm_revoke.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ PERMISSION_UPDATE event emitted on revoke");
@@ -6997,7 +7875,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if group_create.is_success() {
         let logs = group_create.logs();
-        let event_logs: Vec<_> = logs.iter().filter(|log| log.starts_with("EVENT:")).collect();
+        let event_logs: Vec<_> = logs.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
         
         if !event_logs.is_empty() {
             println!("   ✓ GROUP_UPDATE event emitted on create_group ({} events)", event_logs.len());
@@ -7005,8 +7883,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             // Verify at least one is GROUP_UPDATE
             for event_log in &event_logs {
                 if let Some(event) = decode_event(event_log) {
-                    if event.evt_type == "GROUP_UPDATE" {
-                        println!("      ✓ Found GROUP_UPDATE event, operation: {}", event.op_type);
+                    if event.event == "GROUP_UPDATE" {
+                        println!("      ✓ Found GROUP_UPDATE event, operation: {}", get_event_operation(&event).unwrap_or(""));
                     }
                 }
             }
@@ -7023,8 +7901,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let group_join = bob
         .call(contract.id(), "join_group")
         .args_json(json!({
-            "group_id": "event_test_group",
-            "requested_permissions": 1
+            "group_id": "event_test_group"
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -7033,7 +7910,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if group_join.is_success() {
         let logs = group_join.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ GROUP_UPDATE event emitted on join_group");
@@ -7058,7 +7935,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if group_leave.is_success() {
         let logs = group_leave.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ GROUP_UPDATE event emitted on leave_group");
@@ -7077,8 +7954,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "event_test_group",
             "member_id": carol.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -7086,17 +7962,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if add_member.is_success() {
         let logs = add_member.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ GROUP_UPDATE event emitted on add_group_member");
             
             // Verify event contains member info
-            if let Some(event_log) = logs.iter().find(|log| log.starts_with("EVENT:")) {
+            if let Some(event_log) = logs.iter().find(|log| log.starts_with("EVENT_JSON:")) {
                 if let Some(event) = decode_event(event_log) {
-                    println!("      Operation: {}", event.op_type);
-                    if let Some(data) = &event.data {
-                        let has_group_id = data.extra.iter().any(|e| e.key == "group_id");
+                    println!("      Operation: {}", get_event_operation(&event).unwrap_or(""));
+                    if let Some(data) = event.data.first() {
+                        let has_group_id = data.extra.iter().any(|(key, _)| key == "group_id");
                         if has_group_id {
                             println!("      ✓ Event contains group_id field");
                         }
@@ -7126,7 +8002,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if blacklist.is_success() {
         let logs = blacklist.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ GROUP_UPDATE event emitted on blacklist_group_member");
@@ -7158,8 +8034,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "transfer_event_group",
             "member_id": bob.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -7178,7 +8053,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if transfer.is_success() {
         let logs = transfer.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ GROUP_UPDATE event emitted on transfer_group_ownership");
@@ -7195,8 +8070,14 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let storage_dep = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "storage/deposit": {}
+            "request": {
+                "target_account": null,
+                "data": {
+                    "storage/deposit": {}
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
@@ -7207,9 +8088,9 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     if storage_dep.is_success() {
         let logs = storage_dep.logs();
         let has_storage_event = logs.iter().any(|log| {
-            if log.starts_with("EVENT:") {
+            if log.starts_with("EVENT_JSON:") {
                 if let Some(event) = decode_event(log) {
-                    return event.evt_type == "STORAGE_UPDATE" || event.evt_type == "DATA_UPDATE";
+                    return event.event == "STORAGE_UPDATE" || event.event == "DATA_UPDATE";
                 }
             }
             false
@@ -7236,7 +8117,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if enter_ro.is_success() {
         let logs = enter_ro.logs();
-        let has_contract_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_contract_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_contract_event {
             println!("   ✓ CONTRACT_UPDATE event emitted on enter_read_only");
@@ -7277,8 +8158,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "proposal_event_group",
             "member_id": bob.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -7298,7 +8178,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     if create_prop.is_success() {
         let logs = create_prop.logs();
-        let has_event = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let has_event = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         
         if has_event {
             println!("   ✓ GROUP_UPDATE event emitted on create_group_proposal");
@@ -7324,7 +8204,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             
             if vote.is_success() {
                 let vote_logs = vote.logs();
-                let has_vote_event = vote_logs.iter().any(|log| log.starts_with("EVENT:"));
+                let has_vote_event = vote_logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
                 
                 if has_vote_event {
                     println!("   ✓ GROUP_UPDATE event emitted on vote_on_proposal");
@@ -7345,11 +8225,17 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     let data_event_test = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "events/structure_test": { 
-                    "field1": "value1",
-                    "field2": 123
-                }
+            "request": {
+                "target_account": null,
+                "data": {
+                    "events/structure_test": { 
+                        "field1": "value1",
+                        "field2": 123
+                    }
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
@@ -7360,24 +8246,22 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     if data_event_test.is_success() {
         let logs = data_event_test.logs();
         
-        if let Some(event_log) = logs.iter().find(|log| log.starts_with("EVENT:")) {
+        if let Some(event_log) = logs.iter().find(|log| log.starts_with("EVENT_JSON:")) {
             if let Some(event) = decode_event(event_log) {
-                if let Some(data) = &event.data {
+                if let Some(data) = event.data.first() {
                     println!("   ✓ Event structure verified:");
-                    println!("      - standard: {}", event.evt_standard);
+                    println!("      - standard: {}", event.standard);
                     println!("      - version: {}", event.version);
-                    println!("      - event_type: {}", event.evt_type);
-                    println!("      - operation: {}", event.op_type);
+                    println!("      - event_type: {}", event.event);
+                    println!("      - operation: {}", get_event_operation(&event).unwrap_or(""));
                     println!("      - author: {}", data.author);
-                    println!("      - block_height: {}", data.block_height);
-                    println!("      - log_index: {}", data.log_index);
+                    println!("      - partition_id: {:?}", data.partition_id);
                     println!("      - extra fields: {}", data.extra.len());
                     
                     // Verify required fields
-                    assert!(!event.evt_type.is_empty(), "event_type should not be empty");
-                    assert!(!event.op_type.is_empty(), "operation should not be empty");
+                    assert!(!event.event.is_empty(), "event_type should not be empty");
+                    assert!(!get_event_operation(&event).unwrap_or("").is_empty(), "operation should not be empty");
                     assert!(!data.author.is_empty(), "author should not be empty");
-                    assert!(data.block_height > 0, "block_height should be positive");
                     
                     println!("   ✓ All required event fields present and valid");
                 }
@@ -7544,7 +8428,7 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "governance-test-group",
             "member_id": bob.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -7578,8 +8462,45 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
         .await?;
     
     assert!(create_proposal_no_vote.is_success(), "Creating proposal with auto_vote=false should succeed: {:?}", create_proposal_no_vote.failures());
+    let create_proposal_no_vote_logs: Vec<String> = create_proposal_no_vote.logs().iter().map(|s| s.to_string()).collect();
     let proposal_id_no_vote: String = create_proposal_no_vote.json()?;
     println!("   ✓ Created proposal without auto-vote: {}", proposal_id_no_vote);
+
+    // Event schema assertions (auto_vote=false => proposal_created must include tally write)
+    {
+        let expected_tally_path = format!(
+            "groups/{}/votes/{}",
+            "governance-test-group",
+            proposal_id_no_vote
+        );
+        let proposal_created_events = find_events_by_operation(&create_proposal_no_vote_logs, "proposal_created");
+        assert!(
+            !proposal_created_events.is_empty(),
+            "Expected proposal_created event for auto_vote=false"
+        );
+        let event = &proposal_created_events[0];
+        assert_eq!(
+            get_extra_string(event, "tally_path").as_deref(),
+            Some(expected_tally_path.as_str()),
+            "proposal_created tally_path should match expected"
+        );
+
+        let writes = get_extra_json(event, "writes").unwrap_or(Value::Null);
+        let has_tally_write = writes
+            .as_array()
+            .map(|items| {
+                items.iter().any(|item| {
+                    item.get("path")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|p| p == expected_tally_path)
+                })
+            })
+            .unwrap_or(false);
+        assert!(
+            has_tally_write,
+            "proposal_created.writes must include tally_path when auto_vote=false"
+        );
+    }
     
     // Verify Bob can still vote on his own proposal (because he didn't auto-vote)
     let bob_votes_later = bob
@@ -7622,8 +8543,66 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
         .await?;
     
     assert!(create_proposal_auto_vote.is_success(), "Creating proposal with auto_vote=true should succeed: {:?}", create_proposal_auto_vote.failures());
+    let create_proposal_auto_vote_logs: Vec<String> = create_proposal_auto_vote.logs().iter().map(|s| s.to_string()).collect();
     let proposal_id_auto_vote: String = create_proposal_auto_vote.json()?;
     println!("   ✓ Created proposal with auto-vote: {}", proposal_id_auto_vote);
+
+    // Event schema assertions (auto_vote=true => proposal_created omits tally write; vote_cast includes bps)
+    {
+        let expected_tally_path = format!(
+            "groups/{}/votes/{}",
+            "governance-test-group",
+            proposal_id_auto_vote
+        );
+
+        let proposal_created_events = find_events_by_operation(&create_proposal_auto_vote_logs, "proposal_created");
+        let vote_cast_events = find_events_by_operation(&create_proposal_auto_vote_logs, "vote_cast");
+
+        assert!(
+            !proposal_created_events.is_empty(),
+            "Expected proposal_created event for auto_vote=true"
+        );
+        assert!(
+            !vote_cast_events.is_empty(),
+            "Expected vote_cast event in same tx when auto_vote=true"
+        );
+
+        let proposal_created = &proposal_created_events[0];
+        let writes = get_extra_json(proposal_created, "writes").unwrap_or(Value::Null);
+        let has_tally_write = writes
+            .as_array()
+            .map(|items| {
+                items.iter().any(|item| {
+                    item.get("path")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|p| p == expected_tally_path)
+                })
+            })
+            .unwrap_or(false);
+        assert!(
+            !has_tally_write,
+            "proposal_created.writes must not include tally_path when auto_vote=true"
+        );
+
+        let vote_cast = &vote_cast_events[0];
+        let extra = &vote_cast.data.first().expect("vote_cast event data").extra;
+        assert!(
+            extra.contains_key("participation_bps"),
+            "vote_cast must include participation_bps"
+        );
+        assert!(
+            extra.contains_key("approval_bps"),
+            "vote_cast must include approval_bps"
+        );
+        assert!(
+            !extra.contains_key("participation_pct"),
+            "vote_cast must not include deprecated participation_pct"
+        );
+        assert!(
+            !extra.contains_key("approval_pct"),
+            "vote_cast must not include deprecated approval_pct"
+        );
+    }
     
     // Bob tries to vote again (should fail - double voting)
     let bob_double_vote = bob
@@ -7717,33 +8696,16 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "governance-test-group",
             "member_id": "carol.test.near",
-            "permission_flags": 3
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
     
     // Extract Carol's add proposal ID and have Bob vote to pass it
-    let logs = add_carol.logs();
-    let mut carol_proposal_id = String::new();
-    for log in &logs {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                carol_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let carol_proposal_id = extract_proposal_id_from_logs(&add_carol.logs(), "proposal_created");
     
-    if !carol_proposal_id.is_empty() {
+    if let Some(carol_proposal_id) = carol_proposal_id {
         let _ = bob
             .call(contract.id(), "vote_on_proposal")
             .args_json(json!({
@@ -7781,7 +8743,7 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
     let mut proposal_executed = false;
     for log in &bob_logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_executed" || event.op_type == "proposal_approved" {
+            if get_event_operation(&event).unwrap_or("") == "proposal_executed" || get_event_operation(&event).unwrap_or("") == "proposal_approved" {
                 proposal_executed = true;
             }
         }
@@ -7849,7 +8811,7 @@ async fn test_governance_direct_query_functions() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group_id,
             "member_id": bob.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -7877,31 +8839,20 @@ async fn test_governance_direct_query_functions() -> anyhow::Result<()> {
         .await?;
     
     // Extract proposal_id from events (testing event-driven approach)
-    let mut proposal_id = String::new();
-    for log in proposal_result.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id = extract_proposal_id_from_logs(&proposal_result.logs(), "proposal_created");
     
     // Fallback: get from return value if event parsing fails
-    if proposal_id.is_empty() {
-        proposal_id = proposal_result.json()?;
-        println!("   ⚠ Got proposal_id from return value (events not parsed): {}", proposal_id);
-    } else {
-        println!("   ✓ Proposal created (from events): {}", proposal_id);
-    }
+    let proposal_id = match proposal_id {
+        Some(id) => {
+            println!("   ✓ Proposal created (from events): {}", id);
+            id
+        }
+        None => {
+            let id: String = proposal_result.json()?;
+            println!("   ⚠ Got proposal_id from return value (events not parsed): {}", id);
+            id
+        }
+    };
     
     // Test 1: get_proposal (O(1) direct lookup)
     println!("\n   🔍 Testing get_proposal()...");
@@ -8071,7 +9022,7 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
         .args_json(json!({
             "group_id": "owner-override-test",
             "member_id": member1.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -8087,7 +9038,7 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
         .args_json(json!({
             "group_id": "owner-override-test",
             "member_id": member2.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -8098,24 +9049,8 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
     
     // Member1 votes YES to add member2
     // Extract proposal ID from logs
-    let logs = add_member2_proposal.logs();
-    let mut proposal_id_member2 = String::new();
-    for log in logs {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_member2 = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id_member2 = extract_proposal_id_from_logs(&add_member2_proposal.logs(), "proposal_created")
+        .unwrap_or_default();
     
     // Member1 votes YES
     let member1_vote = member1
@@ -8160,26 +9095,8 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
     assert!(owner_proposal.is_success(), "Owner should be able to create proposals: {:?}", owner_proposal.failures());
     
     // Extract proposal ID
-    let logs = owner_proposal.logs();
-    let mut proposal_id_1 = String::new();
-    for log in logs {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_1 = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    assert!(!proposal_id_1.is_empty(), "Proposal ID should be extracted");
+    let proposal_id_1 = extract_proposal_id_from_logs(&owner_proposal.logs(), "proposal_created")
+        .expect("Proposal ID should be extracted");
     println!("   ✓ Owner successfully created proposal: {}", proposal_id_1);
 
     // ==========================================================================
@@ -8209,24 +9126,8 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
     assert!(member1_proposal.is_success(), "Member1 should be able to create proposals");
     
     // Extract proposal ID
-    let logs = member1_proposal.logs();
-    let mut proposal_id_2 = String::new();
-    for log in logs {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_2 = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id_2 = extract_proposal_id_from_logs(&member1_proposal.logs(), "proposal_created")
+        .unwrap_or_default();
     
     // Owner votes on member1's proposal
     let owner_vote = owner
@@ -8273,24 +9174,8 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
     assert!(member2_proposal.is_success(), "Member2 should be able to create proposals");
     
     // Extract proposal ID
-    let logs = member2_proposal.logs();
-    let mut proposal_id_3 = String::new();
-    for log in logs {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_3 = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id_3 = extract_proposal_id_from_logs(&member2_proposal.logs(), "proposal_created")
+        .unwrap_or_default();
     
     // Now try to add member3 who joined AFTER proposal_id_3 was created
     let add_member3 = owner
@@ -8298,8 +9183,7 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
         .args_json(json!({
             "group_id": "owner-override-test",
             "member_id": member3.id().to_string(),
-            "permission_flags": 3
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -8308,24 +9192,8 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
     assert!(add_member3.is_success(), "Creating proposal to add member3 should succeed");
     
     // Vote to add member3 (owner and member1 vote YES)
-    let logs = add_member3.logs();
-    let mut proposal_id_member3 = String::new();
-    for log in logs {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_member3 = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id_member3 = extract_proposal_id_from_logs(&add_member3.logs(), "proposal_created")
+        .unwrap_or_default();
     
     // Member1 votes YES to add member3
     let vote_add_member3 = member1
@@ -8494,9 +9362,9 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     let mut group_create_event_found = false;
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "group_created" || event.op_type == "group_update" {
+            if get_event_operation(&event).unwrap_or("") == "group_created" || get_event_operation(&event).unwrap_or("") == "group_update" {
                 group_create_event_found = true;
-                println!("   ✓ Event emitted: {}", event.op_type);
+                println!("   ✓ Event emitted: {}", get_event_operation(&event).unwrap_or(""));
             }
         }
     }
@@ -8533,7 +9401,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .args_json(json!({
             "group_id": "full-cycle-test",
             "member_id": alice.id().to_string(),
-            "permission_flags": 7  // READ | WRITE | ADMIN
+            "level": 0
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -8546,7 +9414,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     let mut member_added_events = 0;
     for log in add_alice.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "member_added" || event.op_type == "group_update" {
+            if get_event_operation(&event).unwrap_or("") == "member_added" || get_event_operation(&event).unwrap_or("") == "group_update" {
                 member_added_events += 1;
             }
         }
@@ -8561,7 +9429,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .args_json(json!({
             "group_id": "full-cycle-test",
             "member_id": bob.id().to_string(),
-            "permission_flags": 7
+            "level": 0
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -8571,25 +9439,8 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     assert!(add_bob.is_success(), "Creating proposal to add Bob should succeed");
     
     // Extract proposal ID
-    let mut proposal_id_bob = String::new();
-    for log in add_bob.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_bob = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    assert!(!proposal_id_bob.is_empty(), "Proposal ID should be extracted");
+    let proposal_id_bob = extract_proposal_id_from_logs(&add_bob.logs(), "proposal_created")
+        .expect("Proposal ID should be extracted");
     println!("   ✓ Proposal created: {}", proposal_id_bob);
 
     // Alice votes YES
@@ -8616,7 +9467,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .args_json(json!({
             "group_id": "full-cycle-test",
             "member_id": carol.id().to_string(),
-            "permission_flags": 3  // READ | WRITE
+            "level": 0
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -8626,23 +9477,8 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     assert!(add_carol.is_success(), "Creating proposal to add Carol should succeed");
     
     // Extract proposal ID
-    let mut proposal_id_carol = String::new();
-    for log in add_carol.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_carol = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id_carol = extract_proposal_id_from_logs(&add_carol.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Alice votes YES, Bob votes YES (2 out of 3 = 66% > 51% quorum)
     // Note: Proposer (owner) auto-voted, so we need 1 more vote
@@ -8669,8 +9505,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .args_json(json!({
             "group_id": "full-cycle-test",
             "member_id": dave.id().to_string(),
-            "permission_flags": 1  // READ only
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -8679,23 +9514,8 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     assert!(add_dave.is_success(), "Creating proposal to add Dave should succeed");
     
     // Extract proposal ID
-    let mut proposal_id_dave = String::new();
-    for log in add_dave.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id_dave = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal_id_dave = extract_proposal_id_from_logs(&add_dave.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Bob votes YES, Carol votes YES (with Alice's auto-vote = 3 out of 4 = 75% > 51% quorum)
     let bob_vote_dave = bob
@@ -8771,26 +9591,9 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     assert!(create_proposal.is_success(), "Proposal creation should succeed: {:?}", create_proposal.failures());
     
     // Extract proposal ID and check events
-    let mut main_proposal_id = String::new();
-    let mut proposal_event_count = 0;
-    for log in create_proposal.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                proposal_event_count += 1;
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                main_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    assert!(!main_proposal_id.is_empty(), "Proposal ID should be extracted");
+    let proposal_event_count = find_events_by_operation(&create_proposal.logs(), "proposal_created").len();
+    let main_proposal_id = extract_proposal_id_from_logs(&create_proposal.logs(), "proposal_created")
+        .expect("Proposal ID should be extracted");
     println!("   ✓ Proposal created: {}", main_proposal_id);
     println!("   ✓ Proposal events emitted: {}", proposal_event_count);
     println!("   ✓ Type: GroupUpdate (metadata change)");
@@ -8827,9 +9630,9 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     let mut vote_events = 0;
     for log in alice_vote.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "vote_cast" || event.op_type.contains("vote") {
+            if get_event_operation(&event).unwrap_or("") == "vote_cast" || get_event_operation(&event).unwrap_or("").contains("vote") {
                 vote_events += 1;
-                println!("      Event: {} emitted", event.op_type);
+                println!("      Event: {} emitted", get_event_operation(&event).unwrap_or(""));
             }
         }
     }
@@ -8875,9 +9678,9 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
     let mut execution_event_found = false;
     for log in carol_vote.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_executed" || event.op_type.contains("executed") {
+            if get_event_operation(&event).unwrap_or("") == "proposal_executed" || get_event_operation(&event).unwrap_or("").contains("executed") {
                 execution_event_found = true;
-                println!("      Event: {} emitted", event.op_type);
+                println!("      Event: {} emitted", get_event_operation(&event).unwrap_or(""));
             }
         }
     }
@@ -9131,8 +9934,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .args_json(json!({
             "group_id": "rejection-test",
             "member_id": alice.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9145,8 +9947,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .args_json(json!({
             "group_id": "rejection-test",
             "member_id": bob.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9155,12 +9956,12 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
     let mut bob_proposal_id = String::new();
     for log in add_bob.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                bob_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                bob_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -9189,8 +9990,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .args_json(json!({
             "group_id": "rejection-test",
             "member_id": carol.id().to_string(),
-            "permission_flags": 3
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9199,12 +9999,12 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
     let mut carol_proposal_id = String::new();
     for log in add_carol.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                carol_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                carol_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -9233,8 +10033,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .args_json(json!({
             "group_id": "rejection-test",
             "member_id": dave.id().to_string(),
-            "permission_flags": 1
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9243,12 +10042,12 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
     let mut dave_proposal_id = String::new();
     for log in add_dave.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                dave_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                dave_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -9320,13 +10119,13 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
     let mut proposal_event_count = 0;
     for log in create_proposal.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
                 proposal_event_count += 1;
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                main_proposal_id = id.clone();
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                main_proposal_id = id.to_string();
                             }
                         }
                     }
@@ -9399,9 +10198,9 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
     let mut rejection_event_found = false;
     for log in carol_vote.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_rejected" || event.op_type.contains("reject") {
+            if get_event_operation(&event).unwrap_or("") == "proposal_rejected" || get_event_operation(&event).unwrap_or("").contains("reject") {
                 rejection_event_found = true;
-                println!("      Event: {} emitted", event.op_type);
+                println!("      Event: {} emitted", get_event_operation(&event).unwrap_or(""));
             }
         }
     }
@@ -9445,7 +10244,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
     let mut rejection_triggered = false;
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type.contains("reject") {
+            if get_event_operation(&event).unwrap_or("").contains("reject") {
                 rejection_triggered = true;
                 println!("   ✓ Proposal automatically rejected (defeat inevitable)");
             }
@@ -9685,9 +10484,9 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut execution_found = false;
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type.contains("executed") {
+            if get_event_operation(&event).unwrap_or("").contains("executed") {
                 execution_found = true;
-                println!("   ✓ Event: {} detected", event.op_type);
+                println!("   ✓ Event: {} detected", get_event_operation(&event).unwrap_or(""));
             }
         }
     }
@@ -9749,8 +10548,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "expiry-test",
             "member_id": alice.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9781,12 +10579,12 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut expiry_proposal_id = String::new();
     for log in expiry_proposal.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                expiry_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                expiry_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -9851,8 +10649,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "boundary-test",
             "member_id": alice.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9865,8 +10662,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "boundary-test",
             "member_id": bob.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9875,12 +10671,12 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut bob_add_proposal_id = String::new();
     for log in add_bob_boundary.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                bob_add_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                bob_add_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -9928,12 +10724,12 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut boundary_proposal_id = String::new();
     for log in boundary_proposal.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                boundary_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                boundary_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -9978,7 +10774,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut alice_triggered_execution = false;
     for log in alice_boundary_vote.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type.contains("executed") {
+            if get_event_operation(&event).unwrap_or("").contains("executed") {
                 alice_triggered_execution = true;
             }
         }
@@ -10027,8 +10823,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "ban-test",
             "member_id": bob.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10043,8 +10838,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": "ban-test",
             "member_id": carol.id().to_string(),
-            "permission_flags": 7
-        }))
+            "level": 0}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10054,12 +10848,12 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut carol_proposal_id = String::new();
     for log in add_carol.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                carol_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                carol_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -10105,12 +10899,12 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     let mut ban_proposal_id = String::new();
     for log in blacklist_carol.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                ban_proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                ban_proposal_id = id.to_string();
                                 break;
                             }
                         }
@@ -10291,8 +11085,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group1_id,
             "member_id": alice.id(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -10304,29 +11097,14 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group1_id,
             "member_id": bob.id(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?;
 
     // Extract Bob's proposal ID
-    let mut bob_proposal_id = String::new();
-    for log in add_bob.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                bob_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let bob_proposal_id = extract_proposal_id_from_logs(&add_bob.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Alice votes YES to add Bob
     alice
@@ -10352,22 +11130,8 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    let mut ban_proposal_id = String::new();
-    for log in ban_proposal.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                ban_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let ban_proposal_id = extract_proposal_id_from_logs(&ban_proposal.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Bob votes YES to ban Alice (2/3 = 66%, meets quorum and threshold)
     bob
@@ -10436,22 +11200,8 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
 
     assert!(test_proposal.is_success(), "Proposal creation should succeed: {:?}", test_proposal.failures());
 
-    let mut test_proposal_id = String::new();
-    for log in test_proposal.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                test_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let test_proposal_id = extract_proposal_id_from_logs(&test_proposal.logs(), "proposal_created")
+        .unwrap_or_default();
     
     assert!(!test_proposal_id.is_empty(), "Proposal ID should be extracted");
     println!("   ✓ Test proposal created: {}", test_proposal_id);
@@ -10510,8 +11260,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group2_id,
             "member_id": charlie.id(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -10536,22 +11285,8 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    let mut proposal2_id = String::new();
-    for log in proposal2.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal2_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal2_id = extract_proposal_id_from_logs(&proposal2.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Now add David after the proposal was created
     let add_david = owner
@@ -10559,28 +11294,13 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group2_id,
             "member_id": david.id(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?;
 
-    let mut david_proposal_id = String::new();
-    for log in add_david.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                david_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let david_proposal_id = extract_proposal_id_from_logs(&add_david.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Charlie votes to add David
     charlie
@@ -10659,8 +11379,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group3_id,
             "member_id": alice.id(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -10688,22 +11407,8 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
     // If the proposal was created successfully, the config was sanitized
     assert!(proposal3.is_success(), "Proposal should succeed with sanitized config");
 
-    let mut proposal3_id = String::new();
-    for log in proposal3.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal3_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let proposal3_id = extract_proposal_id_from_logs(&proposal3.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Both members vote
     owner
@@ -10735,11 +11440,11 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
     let mut proposal_executed = false;
     for log in vote3_result.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_status_updated" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "status" {
-                            if let BorshValue::String(ref status) = extra.value {
+            if get_event_operation(&event).unwrap_or("") == "proposal_status_updated" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "status" {
+                            if let Some(status) = value.as_str() {
                                 if status == "executed" {
                                     proposal_executed = true;
                                 }
@@ -10791,8 +11496,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group4_id,
             "member_id": bob.id(),
-            "permission_flags": 3  // READ | WRITE
-        }))
+            "level": 0}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -10817,22 +11521,8 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    let mut active_proposal_id = String::new();
-    for log in active_proposal.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                active_proposal_id = id.clone();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let active_proposal_id = extract_proposal_id_from_logs(&active_proposal.logs(), "proposal_created")
+        .unwrap_or_default();
 
     // Wait for proposal to expire (2 seconds to be safe)
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
@@ -10915,7 +11605,7 @@ async fn test_proposal_auto_vote_false_no_panic() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group_id,
             "member_id": bob.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .transact()
@@ -10982,11 +11672,11 @@ async fn test_proposal_auto_vote_false_no_panic() -> anyhow::Result<()> {
     let mut proposal_executed = false;
     for log in vote.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_status_updated" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "status" {
-                            if let BorshValue::String(ref status) = extra.value {
+            if get_event_operation(&event).unwrap_or("") == "proposal_status_updated" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "status" {
+                            if let Some(status) = value.as_str() {
                                 if status == "executed" {
                                     proposal_executed = true;
                                 }
@@ -11142,7 +11832,7 @@ async fn test_invalid_voting_config_change_proposals() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group_id,
             "member_id": bob.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .transact()
@@ -11351,7 +12041,7 @@ async fn test_duplicate_vote_check_before_expiration() -> anyhow::Result<()> {
         .args_json(json!({
             "group_id": group_id,
             "member_id": bob.id().to_string(),
-            "permission_flags": 3
+            "level": 0
         }))
         .deposit(ONE_NEAR)
         .transact()
@@ -11380,24 +12070,8 @@ async fn test_duplicate_vote_check_before_expiration() -> anyhow::Result<()> {
     assert!(proposal.is_success(), "Proposal creation should succeed");
     
     // Extract proposal_id from events
-    let mut proposal_id = String::new();
-    for log in proposal.logs() {
-        if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id = id.clone();
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    assert!(!proposal_id.is_empty(), "Should have proposal_id in event");
+    let proposal_id = extract_proposal_id_from_logs(&proposal.logs(), "proposal_created")
+        .expect("proposal");
     
     println!("   ✓ Proposal created with auto-vote: {}", proposal_id);
     println!("   ✓ Alice already voted (via auto_vote)");
@@ -11469,13 +12143,13 @@ async fn test_member_cannot_vote_on_pre_membership_proposal() -> anyhow::Result<
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -11498,12 +12172,12 @@ async fn test_member_cannot_vote_on_pre_membership_proposal() -> anyhow::Result<
     let mut proposal_id = String::new();
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                proposal_id = id.to_string();
                             }
                         }
                     }
@@ -11516,7 +12190,7 @@ async fn test_member_cannot_vote_on_pre_membership_proposal() -> anyhow::Result<
     
     // Now add Eve as a member
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": eve.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": eve.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -11596,13 +12270,13 @@ async fn test_expired_proposal_rejects_votes() -> anyhow::Result<()> {
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -11625,12 +12299,12 @@ async fn test_expired_proposal_rejects_votes() -> anyhow::Result<()> {
     let mut proposal_id = String::new();
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                proposal_id = id.to_string();
                             }
                         }
                     }
@@ -11704,13 +12378,13 @@ async fn test_voting_config_change_during_active_voting() -> anyhow::Result<()> 
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -11734,12 +12408,12 @@ async fn test_voting_config_change_during_active_voting() -> anyhow::Result<()> 
     let mut proposal_id = String::new();
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                proposal_id = id.to_string();
                             }
                         }
                     }
@@ -11766,11 +12440,11 @@ async fn test_voting_config_change_during_active_voting() -> anyhow::Result<()> 
     let mut is_executed = false;
     for log in vote_result.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_status_updated" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "status" {
-                            if let BorshValue::String(ref status) = extra.value {
+            if get_event_operation(&event).unwrap_or("") == "proposal_status_updated" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "status" {
+                            if let Some(status) = value.as_str() {
                                 if status == "executed" {
                                     is_executed = true;
                                 }
@@ -11839,13 +12513,13 @@ async fn test_governance_critical_security_scenarios() -> anyhow::Result<()> {
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -11872,12 +12546,12 @@ async fn test_governance_critical_security_scenarios() -> anyhow::Result<()> {
     let mut proposal_a_id = String::new();
     for log in &logs_a {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_a_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                proposal_a_id = id.to_string();
                             }
                         }
                     }
@@ -11907,12 +12581,12 @@ async fn test_governance_critical_security_scenarios() -> anyhow::Result<()> {
     let mut proposal_b_id = String::new();
     for log in &logs_b {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref id) = extra.value {
-                                proposal_b_id = id.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(id) = value.as_str() {
+                                proposal_b_id = id.to_string();
                             }
                         }
                     }
@@ -12066,13 +12740,13 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "permission_flags": 3}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -12086,7 +12760,7 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
             "group_id": group_id,
             "proposal_type": "voting_config_change",
             "changes": {
-                "participation_quorum": 0.6
+                "participation_quorum_bps": 6000
             },
             "auto_vote": true
         }))
@@ -12102,13 +12776,13 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
     
     for log in &logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
                 proposal_created_found = true;
                 
                 // Validate required fields
-                assert_eq!(event.evt_type, "GROUP_UPDATE", "Event type should be GROUP_UPDATE");
+                assert_eq!(event.event, "GROUP_UPDATE", "Event type should be GROUP_UPDATE");
                 
-                if let Some(data) = &event.data {
+                if let Some(data) = event.data.first() {
                     let mut has_group_id = false;
                     let mut has_proposal_id = false;
                     let mut has_sequence_number = false;
@@ -12119,8 +12793,8 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     let mut has_created_at = false;
                     let mut has_expires_at = false;
                     let mut has_locked_member_count = false;
-                    let mut has_participation_quorum = false;
-                    let mut has_majority_threshold = false;
+                    let mut has_participation_quorum_bps = false;
+                    let mut has_majority_threshold_bps = false;
                     let mut has_voting_period = false;
                     let mut has_proposal_data = false;
                     
@@ -12128,88 +12802,88 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     let mut created_timestamp = 0u64;
                     let mut expires_timestamp = 0u64;
                     
-                    for extra in &data.extra {
-                        match extra.key.as_str() {
+                    for (key, value) in &data.extra {
+                        match key.as_str() {
                             "group_id" => {
                                 has_group_id = true;
-                                if let BorshValue::String(ref val) = extra.value {
+                                if let Some(val) = value.as_str() {
                                     assert_eq!(val, group_id, "Group ID mismatch");
                                 }
                             },
                             "proposal_id" => {
                                 has_proposal_id = true;
-                                if let BorshValue::String(ref val) = extra.value {
-                                    proposal_id = val.clone();
+                                if let Some(val) = value.as_str() {
+                                    proposal_id = val.to_string();
                                 }
                             },
                             "sequence_number" => {
                                 has_sequence_number = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     sequence_number = val.parse().unwrap_or(0);
                                 }
                             },
                             "proposal_type" => {
                                 has_proposal_type = true;
-                                if let BorshValue::String(ref val) = extra.value {
+                                if let Some(val) = value.as_str() {
                                     assert!(val.contains("voting_config"), "Proposal type mismatch");
                                 }
                             },
                             "proposer" => {
                                 has_proposer = true;
-                                if let BorshValue::String(ref val) = extra.value {
+                                if let Some(val) = value.as_str() {
                                     assert_eq!(val, alice.id().as_str(), "Proposer should be Alice");
                                 }
                             },
                             "target" => has_target = true,
                             "auto_vote" => {
                                 has_auto_vote = true;
-                                if let BorshValue::Bool(val) = extra.value {
+                                if let Some(val) = value.as_bool() {
                                     assert!(val, "auto_vote should be true");
                                 }
                             },
                             "created_at" => {
                                 has_created_at = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     created_timestamp = val.parse().unwrap_or(0);
                                 }
                             },
                             "expires_at" => {
                                 has_expires_at = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     expires_timestamp = val.parse().unwrap_or(0);
                                 }
                             },
                             "locked_member_count" => {
                                 has_locked_member_count = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     locked_count = val.parse().unwrap_or(0);
                                     // Member count represents actual members at creation time
                                     // In member-driven groups, adds may create proposals first
                                     assert!(locked_count > 0, "Should have at least 1 member");
                                 }
                             },
-                            "participation_quorum" => {
-                                has_participation_quorum = true;
-                                if let BorshValue::Number(ref val) = extra.value {
-                                    let quorum: f64 = val.parse().unwrap_or(0.0);
-                                    assert_eq!(quorum, 0.51, "Quorum should be 0.51");
+                            "participation_quorum_bps" => {
+                                has_participation_quorum_bps = true;
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
+                                    let quorum_bps: u64 = val.parse().unwrap_or(0);
+                                    assert_eq!(quorum_bps, 5100, "Quorum should be 5100 bps (51.00%)");
                                 }
                             },
-                            "majority_threshold" => {
-                                has_majority_threshold = true;
-                                if let BorshValue::Number(ref val) = extra.value {
-                                    let threshold: f64 = val.parse().unwrap_or(0.0);
-                                    assert_eq!(threshold, 0.51, "Threshold should be 0.51");
+                            "majority_threshold_bps" => {
+                                has_majority_threshold_bps = true;
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
+                                    let threshold_bps: u64 = val.parse().unwrap_or(0);
+                                    assert_eq!(threshold_bps, 5001, "Threshold should be 5001 bps (50.01%)");
                                 }
                             },
                             "voting_period" => {
                                 has_voting_period = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     let period: u64 = val.parse().unwrap_or(0);
                                     assert_eq!(period, 3600000000000, "Period should be 1 hour");
                                 }
                             },
-                            "proposal_data" => has_proposal_data = true,
+                            "proposal_data" | "value" => has_proposal_data = true,
                             _ => {}
                         }
                     }
@@ -12225,8 +12899,8 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     assert!(has_created_at, "proposal_created event missing created_at");
                     assert!(has_expires_at, "proposal_created event missing expires_at");
                     assert!(has_locked_member_count, "proposal_created event missing locked_member_count");
-                    assert!(has_participation_quorum, "proposal_created event missing participation_quorum");
-                    assert!(has_majority_threshold, "proposal_created event missing majority_threshold");
+                    assert!(has_participation_quorum_bps, "proposal_created event missing participation_quorum_bps");
+                    assert!(has_majority_threshold_bps, "proposal_created event missing majority_threshold_bps");
                     assert!(has_voting_period, "proposal_created event missing voting_period");
                     assert!(has_proposal_data, "proposal_created event missing proposal_data");
                     
@@ -12244,85 +12918,85 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     println!("      - sequence_number: {}", sequence_number);
                     println!("      - proposer: alice.test.near");
                     println!("      - locked_member_count: {} (locked at creation)", locked_count);
-                    println!("      - participation_quorum: 0.51");
-                    println!("      - majority_threshold: 0.51");
+                    println!("      - participation_quorum_bps: 5100 (51.00%)");
+                    println!("      - majority_threshold_bps: 5001 (50.01%)");
                     println!("      - voting_period: 3600000000000 (1 hour)");
                     println!("      - expires_at: created_at + {} ns", expires_timestamp - created_timestamp);
                 }
-            } else if event.op_type == "vote_cast" {
+            } else if get_event_operation(&event).unwrap_or("") == "vote_cast" {
                 vote_cast_found = true;
                 
                 // Validate vote_cast event fields
-                if let Some(data) = &event.data {
+                if let Some(data) = event.data.first() {
                     let mut has_voter = false;
                     let mut has_approve = false;
                     let mut has_total_votes = false;
                     let mut has_yes_votes = false;
                     let mut has_no_votes = false;
                     let mut has_locked_member_count = false;
-                    let mut has_participation_pct = false;
-                    let mut has_approval_pct = false;
+                    let mut has_participation_bps = false;
+                    let mut has_approval_bps = false;
                     let mut has_should_execute = false;
                     let mut has_should_reject = false;
                     let mut has_voted_at = false;
                     
-                    let mut participation = 0.0;
-                    let mut approval = 0.0;
+                    let mut participation_bps: u64 = 0;
+                    let mut approval_bps: u64 = 0;
                     
-                    for extra in &data.extra {
-                        match extra.key.as_str() {
+                    for (key, value) in &data.extra {
+                        match key.as_str() {
                             "voter" => {
                                 has_voter = true;
-                                if let BorshValue::String(ref val) = extra.value {
+                                if let Some(val) = value.as_str() {
                                     assert_eq!(val, alice.id().as_str(), "Voter should be Alice");
                                 }
                             },
                             "approve" => {
                                 has_approve = true;
-                                if let BorshValue::Bool(val) = extra.value {
+                                if let Some(val) = value.as_bool() {
                                     assert!(val, "Auto-vote should be YES");
                                 }
                             },
                             "total_votes" => {
                                 has_total_votes = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     assert_eq!(val.parse::<u64>().unwrap_or(0), 1, "Should have 1 vote");
                                 }
                             },
                             "yes_votes" => {
                                 has_yes_votes = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     assert_eq!(val.parse::<u64>().unwrap_or(0), 1, "Should have 1 YES vote");
                                 }
                             },
                             "no_votes" => {
                                 has_no_votes = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     assert_eq!(val.parse::<u64>().unwrap_or(0), 0, "Should have 0 NO votes");
                                 }
                             },
                             "locked_member_count" => {
                                 has_locked_member_count = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     let count = val.parse::<u64>().unwrap_or(0);
                                     assert!(count >= 1, "Should have at least 1 member");
                                 }
                             },
-                            "participation_pct" => {
-                                has_participation_pct = true;
-                                if let BorshValue::Number(ref val) = extra.value {
-                                    participation = val.parse().unwrap_or(0.0);
-                                    // 1 vote / N members (depends on actual member count)
-                                    assert!(participation > 0.0, "Participation should be > 0%");
-                                }
+                            "participation_bps" => {
+                                has_participation_bps = true;
+                                participation_bps = value
+                                    .as_u64()
+                                    .or_else(|| value.as_str().and_then(|s| s.parse::<u64>().ok()))
+                                    .unwrap_or(0);
+                                assert!(participation_bps > 0 && participation_bps <= 10_000, "Participation bps should be 1..=10000");
                             },
-                            "approval_pct" => {
-                                has_approval_pct = true;
-                                if let BorshValue::Number(ref val) = extra.value {
-                                    approval = val.parse().unwrap_or(0.0);
-                                    // 1 YES / 1 total = 100%
-                                    assert_eq!(approval, 100.0, "Approval should be 100%");
-                                }
+                            "approval_bps" => {
+                                has_approval_bps = true;
+                                approval_bps = value
+                                    .as_u64()
+                                    .or_else(|| value.as_str().and_then(|s| s.parse::<u64>().ok()))
+                                    .unwrap_or(0);
+                                assert_eq!(approval_bps, 10_000, "Approval should be 10000 bps (100%)");
                             },
                             "should_execute" => has_should_execute = true,
                             "should_reject" => has_should_reject = true,
@@ -12337,8 +13011,8 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     assert!(has_yes_votes, "vote_cast event missing yes_votes");
                     assert!(has_no_votes, "vote_cast event missing no_votes");
                     assert!(has_locked_member_count, "vote_cast event missing locked_member_count");
-                    assert!(has_participation_pct, "vote_cast event missing participation_pct");
-                    assert!(has_approval_pct, "vote_cast event missing approval_pct");
+                    assert!(has_participation_bps, "vote_cast event missing participation_bps");
+                    assert!(has_approval_bps, "vote_cast event missing approval_bps");
                     assert!(has_should_execute, "vote_cast event missing should_execute");
                     assert!(has_should_reject, "vote_cast event missing should_reject");
                     assert!(has_voted_at, "vote_cast event missing voted_at");
@@ -12347,8 +13021,8 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     println!("      - voter: alice.test.near");
                     println!("      - approve: true (auto-vote YES)");
                     println!("      - total_votes: 1, yes_votes: 1, no_votes: 0");
-                    println!("      - participation_pct: {:.2}%", participation);
-                    println!("      - approval_pct: {:.2}%", approval);
+                    println!("      - participation_bps: {}", participation_bps);
+                    println!("      - approval_bps: {}", approval_bps);
                     println!("      - should_execute, should_reject, voted_at present");
                 }
             }
@@ -12381,63 +13055,65 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
     
     for log in &bob_logs {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "vote_cast" {
+            if get_event_operation(&event).unwrap_or("") == "vote_cast" {
                 bob_vote_event_found = true;
                 
-                if let Some(data) = &event.data {
+                if let Some(data) = event.data.first() {
                     let mut vote_approve = None;
                     let mut vote_total = None;
                     let mut vote_yes = None;
                     let mut vote_no = None;
                     let mut voter = String::new();
-                    let mut participation = 0.0;
-                    let mut approval = 0.0;
+                    let mut participation_bps: u64 = 0;
+                    let mut approval_bps: u64 = 0;
                     let mut has_should_reject = false;
                     let mut has_locked_member_count = false;
                     
-                    for extra in &data.extra {
-                        match extra.key.as_str() {
+                    for (key, value) in &data.extra {
+                        match key.as_str() {
                             "voter" => {
-                                if let BorshValue::String(ref val) = extra.value {
-                                    voter = val.clone();
+                                if let Some(val) = value.as_str() {
+                                    voter = val.to_string();
                                 }
                             },
                             "approve" => {
-                                if let BorshValue::Bool(val) = extra.value {
+                                if let Some(val) = value.as_bool() {
                                     vote_approve = Some(val);
                                 }
                             },
                             "total_votes" => {
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     vote_total = val.parse::<u64>().ok();
                                 }
                             },
                             "yes_votes" => {
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     vote_yes = val.parse::<u64>().ok();
                                 }
                             },
                             "no_votes" => {
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     vote_no = val.parse::<u64>().ok();
                                 }
                             },
                             "locked_member_count" => {
                                 has_locked_member_count = true;
-                                if let BorshValue::Number(ref val) = extra.value {
+                                if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     let count = val.parse::<u64>().unwrap_or(0);
                                     assert!(count >= 1, "Should have at least 1 member");
                                 }
                             },
-                            "participation_pct" => {
-                                if let BorshValue::Number(ref val) = extra.value {
-                                    participation = val.parse().unwrap_or(0.0);
-                                }
+                            "participation_bps" => {
+                                participation_bps = value
+                                    .as_u64()
+                                    .or_else(|| value.as_str().and_then(|s| s.parse::<u64>().ok()))
+                                    .unwrap_or(0);
                             },
-                            "approval_pct" => {
-                                if let BorshValue::Number(ref val) = extra.value {
-                                    approval = val.parse().unwrap_or(0.0);
-                                }
+                            "approval_bps" => {
+                                approval_bps = value
+                                    .as_u64()
+                                    .or_else(|| value.as_str().and_then(|s| s.parse::<u64>().ok()))
+                                    .unwrap_or(0);
                             },
                             "should_reject" => has_should_reject = true,
                             _ => {}
@@ -12453,16 +13129,16 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     assert!(has_should_reject, "vote_cast event should include should_reject");
                     
                     // 2 votes / N members
-                    assert!(participation > 0.0 && participation <= 100.0, "Participation should be between 0-100%");
-                    // 1 YES / 2 total = 50%
-                    assert_eq!(approval, 50.0, "Approval should be 50%");
+                    assert!(participation_bps > 0 && participation_bps <= 10_000, "Participation bps should be 1..=10000");
+                    // 1 YES / 2 total = 50% = 5000 bps
+                    assert_eq!(approval_bps, 5_000, "Approval should be 5000 bps (50%)");
                     
                     println!("   ✓ vote_cast event validated with enhanced fields");
                     println!("      - voter: bob.test.near");
                     println!("      - approve: false (Bob voted NO)");
                     println!("      - total_votes: 2, yes_votes: 1, no_votes: 1");
-                    println!("      - participation_pct: {:.2}%", participation);
-                    println!("      - approval_pct: {:.2}%", approval);
+                    println!("      - participation_bps: {}", participation_bps);
+                    println!("      - approval_bps: {}", approval_bps);
                     println!("      - should_reject field present");
                 }
             }
@@ -12501,12 +13177,12 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
     let mut exec_proposal_id = String::new();
     for log in exec_proposal.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "proposal_created" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "proposal_id" {
-                            if let BorshValue::String(ref val) = extra.value {
-                                exec_proposal_id = val.clone();
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "proposal_id" {
+                            if let Some(val) = value.as_str() {
+                                exec_proposal_id = val.to_string();
                             }
                         }
                     }
@@ -12542,11 +13218,11 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
     let mut should_execute_true_found = false;
     for log in execute_vote.logs() {
         if let Some(event) = decode_event(log) {
-            if event.op_type == "vote_cast" {
-                if let Some(data) = &event.data {
-                    for extra in &data.extra {
-                        if extra.key == "should_execute" {
-                            if let BorshValue::Bool(val) = extra.value {
+            if get_event_operation(&event).unwrap_or("") == "vote_cast" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "should_execute" {
+                            if let Some(val) = value.as_bool() {
                                 if val {
                                     should_execute_true_found = true;
                                     println!("   ✓ should_execute: true detected (2/3 YES = 67%)");
@@ -12594,8 +13270,14 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
         let set_result = alice
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    format!("posts/{}", i): format!("Alice's post {}", i)
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        format!("posts/{}", i): format!("Alice's post {}", i)
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(ONE_NEAR)
@@ -12610,9 +13292,15 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
     let set_result = alice
         .call(contract.id(), "set")
         .args_json(json!({
-            "data": {
-                "profile/name": "Alice",
-                "profile/bio": "Hello world"
+            "request": {
+                "target_account": null,
+                "data": {
+                    "profile/name": "Alice",
+                    "profile/bio": "Hello world"
+                },
+                "options": null,
+                "event_config": null,
+                "auth": null
             }
         }))
         .deposit(ONE_NEAR)
@@ -12627,8 +13315,14 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
         let set_result = bob
             .call(contract.id(), "set")
             .args_json(json!({
-                "data": {
-                    format!("posts/{}", i): format!("Bob's post {}", i)
+                "request": {
+                    "target_account": null,
+                    "data": {
+                        format!("posts/{}", i): format!("Bob's post {}", i)
+                    },
+                    "options": null,
+                    "event_config": null,
+                    "auth": null
                 }
             }))
             .deposit(ONE_NEAR)
@@ -12734,5 +13428,197 @@ async fn test_view_state_prefix_query() -> anyhow::Result<()> {
     println!("   • Client-side pagination works");
     println!("   • Keys follow format: account_id/path");
     
+    Ok(())
+}
+
+// =============================================================================
+// GOVERNANCE EXTENSIONS: Proposal Cancellation
+// =============================================================================
+
+#[tokio::test]
+async fn test_cancel_proposal_before_any_votes() -> anyhow::Result<()> {
+    println!("\n=== Test: Cancel Proposal Before Any Votes ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group (private)
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "cancel-group",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create member-driven group should succeed");
+
+    // Add Bob (first invite executes immediately in 1-member group)
+    let add_bob = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "cancel-group",
+            "member_id": bob.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed");
+
+    // Create a proposal with auto_vote disabled, so it stays active with 0 votes
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "cancel-group",
+            "proposal_type": "custom_proposal",
+            "changes": {
+                "title": "Test cancellation",
+                "description": "This proposal will be cancelled",
+                "custom_data": { "k": "v" }
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+
+    // Cancel it (no votes cast)
+    let cancel = alice
+        .call(contract.id(), "cancel_proposal")
+        .args_json(json!({
+            "group_id": "cancel-group",
+            "proposal_id": proposal_id.clone()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(cancel.is_success(), "Cancellation should succeed");
+
+    // Verify proposal status is cancelled
+    let key = format!("groups/{}/proposals/{}", "cancel-group", proposal_id);
+    let get_result: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [key.clone()] }))
+        .await?
+        .json()?;
+    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    assert_eq!(proposal.get("status").and_then(|v| v.as_str()), Some("cancelled"));
+
+    println!("✅ Cancel before votes test passed");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cancel_proposal_blocked_after_other_member_votes() -> anyhow::Result<()> {
+    println!("\n=== Test: Cancel Proposal Blocked After Other Vote ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let carol = create_user(&root, "carol", TEN_NEAR).await?;
+
+    // Create member-driven group (private)
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "cancel-group-2",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create member-driven group should succeed");
+
+    // Add Bob and Carol (both will be added via immediate proposal execution)
+    let add_bob = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "cancel-group-2",
+            "member_id": bob.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed");
+
+    let add_carol = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "cancel-group-2",
+            "member_id": carol.id().to_string(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(add_carol.is_success(), "Adding Carol should succeed");
+
+    // Create a proposal with auto_vote disabled so it stays active
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "cancel-group-2",
+            "proposal_type": "custom_proposal",
+            "changes": {
+                "title": "Test cancellation after vote",
+                "description": "Bob will vote first; cancellation should be blocked",
+                "custom_data": { "k": "v" }
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+
+    // Bob votes first (1/3 votes => proposal should remain active)
+    let bob_vote = bob
+        .call(contract.id(), "vote_on_proposal")
+        .args_json(json!({
+            "group_id": "cancel-group-2",
+            "proposal_id": proposal_id.clone(),
+            "approve": true
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(bob_vote.is_success(), "Bob vote should succeed");
+
+    // Alice tries to cancel after Bob has voted (should fail)
+    let cancel = alice
+        .call(contract.id(), "cancel_proposal")
+        .args_json(json!({
+            "group_id": "cancel-group-2",
+            "proposal_id": proposal_id
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(!cancel.is_success(), "Cancellation should be blocked after another member votes");
+
+    println!("✅ Cancel blocked after other vote test passed");
     Ok(())
 }

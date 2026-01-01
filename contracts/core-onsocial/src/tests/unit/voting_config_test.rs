@@ -3,6 +3,7 @@
 
 #[cfg(test)]
 mod voting_config_tests {
+    use crate::groups::kv_permissions::MODERATE;
     use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
@@ -27,8 +28,8 @@ mod voting_config_tests {
             "member_driven": true,
             "is_private": true,
             "voting_config": {
-                "participation_quorum": 0.5,  // 50% must vote
-                "majority_threshold": 0.6667, // 66.67% must approve
+                "participation_quorum_bps": 5000,  // 50.00% must vote
+                "majority_threshold_bps": 6667, // 66.67% must approve
                 "voting_period": 1209600000000000u64 // 14 days
             }
         });
@@ -39,9 +40,13 @@ mod voting_config_tests {
         let group_config = contract.get_group_config("strict_dao".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
         
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.5);
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.6667);
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 1209600000000000u64);
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 5000);
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 6667);
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 1209600000000000u64);
 
         println!("✅ Group created with custom voting configuration");
     }
@@ -64,9 +69,13 @@ mod voting_config_tests {
         let group_config = contract.get_group_config("default_dao".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
         
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.51);  // Default 51%
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.5001); // Default 50.01%
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 7 * 24 * 60 * 60 * 1_000_000_000); // Default 7 days
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 5100);  // Default 51.00%
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 5001); // Default 50.01%
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 7 * 24 * 60 * 60 * 1_000_000_000); // Default 7 days
 
         println!("✅ Group created with default voting configuration");
     }
@@ -84,15 +93,15 @@ mod voting_config_tests {
             "member_driven": true,
             "is_private": true,
             "voting_config": {
-                "participation_quorum": 0.5,  // Requires 50% participation (at least 2/3 members must vote)
-                "majority_threshold": 0.6667, // Requires 2/3 approval of votes cast
+                "participation_quorum_bps": 5000,
+                "majority_threshold_bps": 6667,
                 "voting_period": 604800000000000u64
             }
         });
         contract.create_group("supermajority".to_string(), config).unwrap();
 
         // Add two more members (total 3: alice, bob, charlie)
-        let member_data = json!({"permission_flags": 3, "granted_by": alice, "joined_at": 0, "is_creator": false});
+        let member_data = json!({"level": MODERATE, "granted_by": alice, "joined_at": 0, "is_creator": false});
         contract.platform.storage_set(&format!("groups/supermajority/members/{}", bob.as_str()), &member_data).unwrap();
         contract.platform.storage_set(&format!("groups/supermajority/members/{}", charlie.as_str()), &member_data).unwrap();
         
@@ -102,7 +111,7 @@ mod voting_config_tests {
         // Alice creates proposal (auto YES vote: 1/3 = 33.33% participation < 50% quorum, doesn't execute yet)
         testing_env!(get_context(alice.clone()).build());
         let proposal_data = json!({"update_type": "metadata", "changes": {"description": "Test supermajority"}});
-        let proposal_id = contract.create_group_proposal("supermajority".to_string(), "group_update".to_string(), proposal_data, None, None).unwrap();
+        let proposal_id = contract.create_group_proposal("supermajority".to_string(), "group_update".to_string(), proposal_data, None).unwrap();
 
         // Verify not executed yet (insufficient participation)
         let proposal = contract.platform.storage_get(&format!("groups/supermajority/proposals/{}", proposal_id)).unwrap();
@@ -110,7 +119,7 @@ mod voting_config_tests {
 
         // Bob votes YES - now 2/3 votes cast = 66.67% participation ≥ 50%, 2/2 YES = 100% approval ≥ 66.67%, should execute!
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("supermajority".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("supermajority".to_string(), proposal_id.clone(), true).unwrap();
 
         // Check if executed
         let proposal = contract.platform.storage_get(&format!("groups/supermajority/proposals/{}", proposal_id)).unwrap();
@@ -137,8 +146,8 @@ mod voting_config_tests {
         // Create proposal to change voting config
         testing_env!(get_context(alice.clone()).build());
         let proposal_data = json!({
-            "participation_quorum": 0.4,
-            "majority_threshold": 0.75,
+            "participation_quorum_bps": 4000,
+            "majority_threshold_bps": 7500,
             "voting_period": 259200000000000u64 // 3 days
         });
 
@@ -146,7 +155,7 @@ mod voting_config_tests {
             "evolving_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_ok(), "Should be able to propose voting config change");
@@ -166,8 +175,8 @@ mod voting_config_tests {
         // Propose and auto-execute config change (alice is only member)
         testing_env!(get_context(alice.clone()).build());
         let proposal_data = json!({
-            "participation_quorum": 0.33,
-            "majority_threshold": 0.6,
+            "participation_quorum_bps": 3300,
+            "majority_threshold_bps": 6000,
             "voting_period": 86400000000000u64 // 1 day
         });
 
@@ -175,7 +184,7 @@ mod voting_config_tests {
             "solo_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal executed
@@ -186,9 +195,13 @@ mod voting_config_tests {
         let group_config = contract.get_group_config("solo_dao".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
         
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.33);
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.6);
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 86400000000000u64);
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 3300);
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 6000);
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 86400000000000u64);
 
         println!("✅ Voting config changed through governance");
     }
@@ -205,15 +218,15 @@ mod voting_config_tests {
             "member_driven": true,
             "is_private": true,
             "voting_config": {
-                "participation_quorum": 0.51,
-                "majority_threshold": 0.51, // Simple majority
+                "participation_quorum_bps": 5100,
+                "majority_threshold_bps": 5100,
                 "voting_period": 604800000000000u64
             }
         });
         contract.create_group("changing_dao".to_string(), config).unwrap();
 
         // Add bob, charlie, and dave (total 4 members for cleaner math)
-        let member_data = json!({"permission_flags": 3, "granted_by": alice, "joined_at": 0, "is_creator": false});
+        let member_data = json!({"level": MODERATE, "granted_by": alice, "joined_at": 0, "is_creator": false});
         contract.platform.storage_set(&format!("groups/changing_dao/members/{}", bob.as_str()), &member_data).unwrap();
         let charlie = test_account(2);
         contract.platform.storage_set(&format!("groups/changing_dao/members/{}", charlie.as_str()), &member_data).unwrap();
@@ -225,14 +238,14 @@ mod voting_config_tests {
         // Change config to require higher participation quorum and threshold
         testing_env!(get_context(alice.clone()).build());
         let config_proposal = json!({
-            "participation_quorum": 0.5, // Need 50% to vote (2/3 members)
-            "majority_threshold": 0.75    // Need 75% approval
+            "participation_quorum_bps": 5000,
+            "majority_threshold_bps": 7500
         });
         let config_prop_id = contract.create_group_proposal(
             "changing_dao".to_string(),
             "voting_config_change".to_string(),
             config_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Alice's vote: 1/4 = 25% participation < 51% quorum, should NOT execute yet
@@ -241,14 +254,14 @@ mod voting_config_tests {
 
         // Bob votes YES - now 2/4 = 50% participation < 51% quorum, should NOT execute yet
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("changing_dao".to_string(), config_prop_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("changing_dao".to_string(), config_prop_id.clone(), true).unwrap();
 
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", config_prop_id)).unwrap();
         assert_eq!(proposal.get("status").unwrap().as_str().unwrap(), "active");
 
         // Charlie votes YES - now 3/4 = 75% participation ≥ 51%, 3/3 = 100% > 75%, should execute
         testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("changing_dao".to_string(), config_prop_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("changing_dao".to_string(), config_prop_id.clone(), true).unwrap();
 
         // Verify config change executed
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", config_prop_id)).unwrap();
@@ -263,7 +276,7 @@ mod voting_config_tests {
             "changing_dao".to_string(),
             "group_update".to_string(),
             test_proposal,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify IDs are different
@@ -275,7 +288,7 @@ mod voting_config_tests {
 
         // Bob votes YES - now 2/4 = 50% participation = 50% quorum, 2/2 = 100% ≥ 75%, should execute
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("changing_dao".to_string(), test_prop_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("changing_dao".to_string(), test_prop_id.clone(), true).unwrap();
 
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", test_prop_id)).unwrap();
         assert_eq!(proposal.get("status").unwrap().as_str().unwrap(), "executed");
@@ -303,16 +316,20 @@ mod voting_config_tests {
             "partial_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify config - period changed, others remain default
         let group_config = contract.get_group_config("partial_dao".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
         
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.51); // Still default
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.5001); // Still default
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 172800000000000u64); // Updated
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 5100); // Still default
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 5001); // Still default
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 172800000000000u64); // Updated
 
         println!("✅ Partial voting config update works correctly");
     }
@@ -330,31 +347,31 @@ mod voting_config_tests {
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("invalid_dao".to_string(), config).unwrap();
 
-        // Try to set quorum > 1.0
+        // Try to set quorum > 100%
         testing_env!(get_context(alice.clone()).build());
-        let proposal_data = json!({"participation_quorum": 1.5});
+        let proposal_data = json!({"participation_quorum_bps": 15000});
 
         let result = contract.create_group_proposal(
             "invalid_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("between 0.0 and 1.0"));
+        assert!(result.unwrap_err().to_string().contains("between 0 and 10000"));
 
-        // Try to set quorum < 0.0
-        let proposal_data = json!({"participation_quorum": -0.1});
+        // Try to set quorum to an invalid type/value
+        let proposal_data = json!({"participation_quorum_bps": "-1"});
         let result = contract.create_group_proposal(
             "invalid_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("between 0.0 and 1.0"));
+        assert!(result.unwrap_err().to_string().contains("Invalid participation_quorum_bps"));
 
         println!("✅ Invalid quorum values rejected");
     }
@@ -368,19 +385,19 @@ mod voting_config_tests {
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("invalid_dao2".to_string(), config).unwrap();
 
-        // Try to set threshold > 1.0
+        // Try to set threshold > 100%
         testing_env!(get_context(alice.clone()).build());
-        let proposal_data = json!({"majority_threshold": 2.0});
+        let proposal_data = json!({"majority_threshold_bps": 20000});
 
         let result = contract.create_group_proposal(
             "invalid_dao2".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("between 0.0 and 1.0"));
+        assert!(result.unwrap_err().to_string().contains("between 0 and 10000"));
 
         println!("✅ Invalid threshold values rejected");
     }
@@ -402,7 +419,7 @@ mod voting_config_tests {
             "invalid_dao3".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
@@ -414,7 +431,7 @@ mod voting_config_tests {
             "invalid_dao3".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
@@ -440,7 +457,7 @@ mod voting_config_tests {
             "empty_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
@@ -464,8 +481,8 @@ mod voting_config_tests {
             "member_driven": true,
             "is_private": true,
             "voting_config": {
-                "participation_quorum": 0.01,  // Only 1% need to vote
-                "majority_threshold": 0.51,    // Simple majority
+                "participation_quorum_bps": 100,
+                "majority_threshold_bps": 5100,
                 "voting_period": 3600000000000u64 // 1 hour
             }
         });
@@ -481,8 +498,8 @@ mod voting_config_tests {
             "member_driven": true,
             "is_private": true,
             "voting_config": {
-                "participation_quorum": 0.99,  // 99% must vote
-                "majority_threshold": 0.99,    // 99% must approve
+                "participation_quorum_bps": 9900,
+                "majority_threshold_bps": 9900,
                 "voting_period": 31536000000000000u64 // 365 days
             }
         });
@@ -508,24 +525,28 @@ mod voting_config_tests {
 
         // First config change
         testing_env!(get_context(alice.clone()).build());
-        let proposal1 = json!({"majority_threshold": 0.6});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal1, None, None).unwrap();
+        let proposal1 = json!({"majority_threshold_bps": 6000});
+        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal1, None).unwrap();
 
         // Second config change
-        let proposal2 = json!({"participation_quorum": 0.3});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal2, None, None).unwrap();
+        let proposal2 = json!({"participation_quorum_bps": 3000});
+        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal2, None).unwrap();
 
         // Third config change
         let proposal3 = json!({"voting_period": 259200000000000u64});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal3, None, None).unwrap();
+        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal3, None).unwrap();
 
         // Verify all changes were applied
         let group_config = contract.get_group_config("evolving".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
         
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.6);
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.3);
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 259200000000000u64);
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 6000);
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 3000);
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 259200000000000u64);
 
         println!("✅ Multiple config changes work correctly");
     }
@@ -542,13 +563,13 @@ mod voting_config_tests {
 
         // Try to create voting config change proposal (should fail - not member-driven)
         testing_env!(get_context(alice.clone()).build());
-        let proposal_data = json!({"majority_threshold": 0.6});
+        let proposal_data = json!({"majority_threshold_bps": 6000});
 
         let result = contract.create_group_proposal(
             "traditional".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         );
 
         assert!(result.is_err());
@@ -570,15 +591,15 @@ mod voting_config_tests {
             "member_driven": true,
             "is_private": true,
             "voting_config": {
-                "participation_quorum": 0.51,  // 51% must vote
-                "majority_threshold": 0.5001, // >50% must approve
+                "participation_quorum_bps": 5100,
+                "majority_threshold_bps": 5001,
                 "voting_period": 604800000000000u64 // 7 days
             }
         });
         contract.create_group("vote_test_dao".to_string(), config).unwrap();
 
         // Add bob and charlie as members (total 3)
-        let member_data = json!({"permission_flags": 3, "granted_by": alice, "joined_at": 0, "is_creator": false});
+        let member_data = json!({"level": MODERATE, "granted_by": alice, "joined_at": 0, "is_creator": false});
         contract.platform.storage_set(&format!("groups/vote_test_dao/members/{}", bob.as_str()), &member_data).unwrap();
         contract.platform.storage_set(&format!("groups/vote_test_dao/members/{}", charlie.as_str()), &member_data).unwrap();
         let stats = json!({"total_members": 3, "total_join_requests": 0, "created_at": 0, "last_updated": 0});
@@ -587,15 +608,15 @@ mod voting_config_tests {
         // Alice proposes config change (auto YES vote: 1/3 = 33.33% < 51%, doesn't execute)
         testing_env!(get_context(alice.clone()).build());
         let proposal_data = json!({
-            "participation_quorum": 0.66,      // Increase to 66%
-            "majority_threshold": 0.75,        // Increase to 75%
+            "participation_quorum_bps": 6600,
+            "majority_threshold_bps": 7500,
             "voting_period": 1209600000000000u64 // Increase to 14 days
         });
         let proposal_id = contract.create_group_proposal(
             "vote_test_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify proposal is active (not executed yet)
@@ -605,13 +626,17 @@ mod voting_config_tests {
         // Verify config is still old values
         let group_config = contract.get_group_config("vote_test_dao".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.51);
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.5001);
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 604800000000000u64);
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 5100);
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 5001);
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 604800000000000u64);
 
         // Bob votes YES (2/3 = 66.67% ≥ 51%, 2/2 = 100% > 50.01%, should execute!)
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("vote_test_dao".to_string(), proposal_id.clone(), true, None).unwrap();
+        contract.vote_on_proposal("vote_test_dao".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify proposal executed
         let proposal = contract.platform.storage_get(&format!("groups/vote_test_dao/proposals/{}", proposal_id)).unwrap();
@@ -620,9 +645,13 @@ mod voting_config_tests {
         // Verify config was actually updated to new values
         let group_config = contract.get_group_config("vote_test_dao".to_string()).unwrap();
         let voting_config = group_config.get("voting_config").unwrap();
-        assert_eq!(voting_config.get("participation_quorum").unwrap().as_f64().unwrap(), 0.66, "Participation quorum should be updated");
-        assert_eq!(voting_config.get("majority_threshold").unwrap().as_f64().unwrap(), 0.75, "Majority threshold should be updated");
-        assert_eq!(voting_config.get("voting_period").unwrap().as_u64().unwrap(), 1209600000000000u64, "Voting period should be updated");
+        assert_eq!(voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 6600, "Participation quorum should be updated");
+        assert_eq!(voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 7500, "Majority threshold should be updated");
+        let period = voting_config
+            .get("voting_period")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())))
+            .unwrap();
+        assert_eq!(period, 1209600000000000u64, "Voting period should be updated");
 
         println!("✅ Multi-member voting correctly executes config change and persists new values");
     }
@@ -649,18 +678,21 @@ mod voting_config_tests {
         context.block_timestamp(test_timestamp);
         testing_env!(context.build());
         
-        let proposal_data = json!({"participation_quorum": 0.4});
+        let proposal_data = json!({"participation_quorum_bps": 4000});
         contract.create_group_proposal(
             "metadata_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
-            None, None,
+            None,
         ).unwrap();
 
         // Verify metadata was set
         let group_config = contract.get_group_config("metadata_dao".to_string()).unwrap();
+        let updated_at = group_config
+            .get("voting_config_updated_at")
+            .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())));
         assert_eq!(
-            group_config.get("voting_config_updated_at").and_then(|v| v.as_u64()),
+            updated_at,
             Some(test_timestamp),
             "Should track update timestamp"
         );

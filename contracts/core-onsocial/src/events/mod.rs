@@ -1,9 +1,8 @@
-// --- Modules ---
-pub mod types;
-pub mod emitter;
-pub mod builder;
+pub(crate) mod types;
+pub(crate) mod emitter;
+pub(crate) mod builder;
+pub(crate) mod fields;
 
-// --- Re-exports ---
-pub use types::*;
 pub use emitter::*;
 pub use builder::*;
+pub(crate) use fields::*;

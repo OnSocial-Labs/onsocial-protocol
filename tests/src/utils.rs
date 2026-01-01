@@ -5,6 +5,7 @@ use bs58;
 use near_workspaces::types::PublicKey;
 use near_workspaces::{sandbox, Contract};
 use serde::Serializer;
+use serde_json::Value;
 use std::env;
 use std::fs;
 
@@ -66,4 +67,35 @@ where
 {
     let s = encode_base64(bytes);
     serializer.serialize_str(&s)
+}
+
+/// Helpers for the core contract `get` view method.
+///
+/// `get` returns an ordered `Vec<EntryView>` serialized as JSON objects like:
+/// `{ requested_key, full_key, value, block_height, deleted }`.
+pub fn entry_by_full_key<'a>(entries: &'a [Value], full_key: &str) -> Option<&'a Value> {
+    entries
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(full_key))
+}
+
+pub fn entry_value<'a>(entries: &'a [Value], full_key: &str) -> Option<&'a Value> {
+    entry_by_full_key(entries, full_key).and_then(|e| e.get("value"))
+}
+
+pub fn entry_value_str<'a>(entries: &'a [Value], full_key: &str) -> Option<&'a str> {
+    entry_value(entries, full_key).and_then(|v| v.as_str())
+}
+
+pub fn entry_exists(entries: &[Value], full_key: &str) -> bool {
+    let Some(entry) = entry_by_full_key(entries, full_key) else {
+        return false;
+    };
+
+    let deleted = entry.get("deleted").and_then(|v| v.as_bool()).unwrap_or(false);
+    if deleted {
+        return false;
+    }
+
+    entry.get("value").map(|v| !v.is_null()).unwrap_or(false)
 }

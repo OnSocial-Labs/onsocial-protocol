@@ -22,13 +22,13 @@ mod blacklist_tests {
         // Create group and add member (but don't blacklist them)
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Verify member is not blacklisted initially
         assert!(!contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should not be blacklisted initially");
 
         // Try to unblacklist a non-blacklisted user
-        let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone(), None);
+        let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone());
         
         // This should either succeed (no-op) or fail gracefully
         if unblacklist_result.is_err() {
@@ -55,14 +55,14 @@ mod blacklist_tests {
 
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Verify member is in group and not blacklisted
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be in group");
         assert!(!contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should not be blacklisted initially");
 
         // Owner blacklists member
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone());
         assert!(blacklist_result.is_ok(), "Owner should be able to blacklist member: {:?}", blacklist_result);
 
         // Verify member is blacklisted and removed from group
@@ -84,21 +84,21 @@ mod blacklist_tests {
 
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
-        contract.blacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
+        contract.blacklist_group_member("test_group".to_string(), member.clone()).unwrap();
 
         // Verify member is blacklisted
         assert!(contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should be blacklisted");
 
         // SECURITY TEST: Try to re-add blacklisted member WITHOUT unblacklisting first (should fail)
-        let readd_blacklisted_result = contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None);
+        let readd_blacklisted_result = contract.add_group_member("test_group".to_string(), member.clone(), 0);
         assert!(readd_blacklisted_result.is_err(), "Should not be able to add blacklisted user without unblacklisting first");
         let error_msg = format!("{:?}", readd_blacklisted_result.unwrap_err());
         assert!(error_msg.contains("blacklist"), "Error should mention blacklist: {}", error_msg);
         println!("✅ Correctly blocked attempt to re-add blacklisted user");
 
         // Owner unblacklists member
-        let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone(), None);
+        let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone());
         assert!(unblacklist_result.is_ok(), "Owner should be able to unblacklist member: {:?}", unblacklist_result);
 
         // Note: Check implementation behavior for is_blacklisted after unblacklisting
@@ -109,7 +109,7 @@ mod blacklist_tests {
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Member should not be automatically re-added to group");
 
         // After unblacklisting, should be able to re-add successfully
-        let readd_after_unblacklist = contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None);
+        let readd_after_unblacklist = contract.add_group_member("test_group".to_string(), member.clone(), 0);
         assert!(readd_after_unblacklist.is_ok(), "Should be able to add member after unblacklisting: {:?}", readd_after_unblacklist);
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be in group after re-adding");
 
@@ -128,7 +128,7 @@ mod blacklist_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), MODERATE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Verify member is in group initially
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be in group initially");
@@ -138,7 +138,7 @@ mod blacklist_tests {
         assert!(member_data_before.is_some(), "Member should have data before blacklisting");
 
         // Blacklist member
-        contract.blacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.blacklist_group_member("test_group".to_string(), member.clone()).unwrap();
 
         // Verify automatic removal from group
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Member should be automatically removed from group");
@@ -167,12 +167,13 @@ mod blacklist_tests {
         // Create group and add admin with MANAGE permission
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), admin.clone(), MANAGE, None).unwrap();
-        contract.add_group_member("test_group".to_string(), regular_member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), admin.clone(), 0).unwrap();
+        contract.set_permission(admin.clone(), "groups/test_group/config".to_string(), MANAGE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), regular_member.clone(), 0).unwrap();
 
         // Admin tries to blacklist regular member
         near_sdk::testing_env!(get_context_with_deposit(admin.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), regular_member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), regular_member.clone());
         
         // Check result and provide informative output
         if blacklist_result.is_ok() {
@@ -196,11 +197,12 @@ mod blacklist_tests {
         // Create group and add admin with MANAGE permission
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), admin.clone(), MANAGE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), admin.clone(), 0).unwrap();
+        contract.set_permission(admin.clone(), "groups/test_group/config".to_string(), MANAGE, None).unwrap();
 
         // Admin tries to blacklist owner (should fail)
         near_sdk::testing_env!(get_context_with_deposit(admin.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), owner.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), owner.clone());
         assert!(blacklist_result.is_err(), "Admin should not be able to blacklist owner");
 
         let error_msg = format!("{:?}", blacklist_result.unwrap_err());
@@ -228,12 +230,12 @@ mod blacklist_tests {
         // Create group and add members
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), regular_member.clone(), WRITE, None).unwrap();
-        contract.add_group_member("test_group".to_string(), target_member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), regular_member.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), target_member.clone(), 0).unwrap();
 
         // Regular member tries to blacklist another member (should fail)  
         near_sdk::testing_env!(get_context_with_deposit(regular_member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), target_member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), target_member.clone());
         assert!(blacklist_result.is_err(), "Regular member should not be able to blacklist others");
 
         let error_msg = format!("{:?}", blacklist_result.unwrap_err());
@@ -262,7 +264,7 @@ mod blacklist_tests {
 
         // Add an existing member so proposals don't execute immediately
         let member_data = json!({
-            "permission_flags": 3,
+            "level": MODERATE,
             "granted_by": owner,
             "joined_at": 0,
             "is_creator": false
@@ -277,7 +279,7 @@ mod blacklist_tests {
         contract.platform.storage_set("groups/demo_group/stats", &stats).unwrap();
 
         // Owner tries to blacklist - this should create a ban proposal instead of direct blacklisting
-        let blacklist_result = contract.blacklist_group_member("demo_group".to_string(), member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("demo_group".to_string(), member.clone());
         assert!(blacklist_result.is_ok(), "Member-driven group should create ban proposal: {:?}", blacklist_result);
 
         // Verify member is not immediately blacklisted (needs proposal voting)
@@ -303,7 +305,7 @@ mod blacklist_tests {
         assert!(!contract.is_group_member("test_group".to_string(), non_member.clone()), "User should not be a member");
 
         // Owner blacklists non-member (should work - preemptive banning)
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), non_member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), non_member.clone());
         assert!(blacklist_result.is_ok(), "Should be able to blacklist non-members (preemptive ban): {:?}", blacklist_result);
 
         // Verify non-member is blacklisted
@@ -311,7 +313,7 @@ mod blacklist_tests {
 
         // Verify they still can't join the group
         near_sdk::testing_env!(get_context_with_deposit(non_member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let join_result = contract.join_group("test_group".to_string(), WRITE);
+        let join_result = contract.join_group("test_group".to_string());
         assert!(join_result.is_err(), "Blacklisted user should not be able to join group");
 
         println!("✅ Can blacklist non-members (preemptive banning works)");
@@ -329,14 +331,14 @@ mod blacklist_tests {
         // Create group and blacklist member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
-        contract.blacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
+        contract.blacklist_group_member("test_group".to_string(), member.clone()).unwrap();
 
         // Verify member is blacklisted
         assert!(contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should be blacklisted");
 
         // Try to blacklist again (should be idempotent - no error)
-        let second_blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone(), None);
+        let second_blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone());
         assert!(second_blacklist_result.is_ok(), "Blacklisting already blacklisted user should be idempotent: {:?}", second_blacklist_result);
 
         // Verify still blacklisted
@@ -357,27 +359,27 @@ mod blacklist_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Cycle 1: Blacklist -> Unblacklist
-        contract.blacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.blacklist_group_member("test_group".to_string(), member.clone()).unwrap();
         assert!(contract.is_blacklisted("test_group".to_string(), member.clone()), "Should be blacklisted");
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Should be removed from group");
 
-        contract.unblacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.unblacklist_group_member("test_group".to_string(), member.clone()).unwrap();
         let is_blacklisted_after_unban = contract.is_blacklisted("test_group".to_string(), member.clone());
         println!("Blacklisted after first unban: {}", is_blacklisted_after_unban);
         
         // Re-add member to group directly for testing
-        contract.add_group_member("test_group".to_string(), member.clone(), MODERATE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Should be back in group");
 
         // Cycle 2: Test that blacklist/unblacklist operations continue to work
-        contract.blacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.blacklist_group_member("test_group".to_string(), member.clone()).unwrap();
         assert!(contract.is_blacklisted("test_group".to_string(), member.clone()), "Should be blacklisted again");
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Should be removed again");
 
-        contract.unblacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.unblacklist_group_member("test_group".to_string(), member.clone()).unwrap();
         let is_blacklisted_after_second_unban = contract.is_blacklisted("test_group".to_string(), member.clone());
         println!("Blacklisted after second unban: {}", is_blacklisted_after_second_unban);
 
@@ -394,7 +396,7 @@ mod blacklist_tests {
         near_sdk::testing_env!(context.build());
 
         // Try to blacklist in non-existent group
-        let blacklist_result = contract.blacklist_group_member("nonexistent_group".to_string(), member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("nonexistent_group".to_string(), member.clone());
         assert!(blacklist_result.is_err(), "Should not be able to blacklist in non-existent group");
 
         println!("✅ Blacklisting in non-existent groups handled gracefully");
@@ -412,30 +414,30 @@ mod blacklist_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Clear previous logs
         near_sdk::test_utils::get_logs().clear();
 
         // Blacklist member
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone());
         assert!(blacklist_result.is_ok(), "Blacklist should succeed");
 
         // Check that events were emitted
         let logs = near_sdk::test_utils::get_logs();
-        let event_emitted = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let event_emitted = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         assert!(event_emitted, "Blacklist event should be emitted");
 
         // Clear logs and test unblacklist
         near_sdk::test_utils::get_logs().clear();
 
         // Unblacklist member
-        let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone(), None);
+        let unblacklist_result = contract.unblacklist_group_member("test_group".to_string(), member.clone());
         assert!(unblacklist_result.is_ok(), "Unblacklist should succeed");
 
         // Check that unblacklist event was emitted
         let logs = near_sdk::test_utils::get_logs();
-        let unblacklist_event_emitted = logs.iter().any(|log| log.starts_with("EVENT:"));
+        let unblacklist_event_emitted = logs.iter().any(|log| log.starts_with("EVENT_JSON:"));
         assert!(unblacklist_event_emitted, "Unblacklist event should be emitted");
 
         println!("✅ Blacklist and unblacklist operations emit correct events");
@@ -454,7 +456,7 @@ mod blacklist_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
 
         // Check storage balance before blacklisting
         let initial_balance = contract.get_storage_balance(owner.clone());
@@ -462,7 +464,7 @@ mod blacklist_tests {
         let initial_used = initial_balance.unwrap().used_bytes;
 
         // Blacklist member
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone(), None);
+        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), member.clone());
         assert!(blacklist_result.is_ok(), "Blacklist should succeed with sufficient storage: {:?}", blacklist_result);
 
         // Verify storage was charged/adjusted appropriately
@@ -492,7 +494,7 @@ mod blacklist_tests {
         // Create group and add member with permissions
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
         
         // Grant additional specific permissions using the set_permission method
         let permission_path = "groups/test_group/posts/special";
@@ -509,7 +511,7 @@ mod blacklist_tests {
         println!("Before blacklist - Write permission: {}, Moderate permission: {}", has_write_before, has_moderate_before);
 
         // Blacklist the member (this removes them from group and cleans up permissions)
-        contract.blacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.blacklist_group_member("test_group".to_string(), member.clone()).unwrap();
         assert!(contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should be blacklisted");
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Member should be removed from group");
 
@@ -519,7 +521,7 @@ mod blacklist_tests {
         println!("During blacklist - Write permission: {}, Moderate permission: {}", has_write_blacklisted, has_moderate_blacklisted);
 
         // Unblacklist the member
-        contract.unblacklist_group_member("test_group".to_string(), member.clone(), None).unwrap();
+        contract.unblacklist_group_member("test_group".to_string(), member.clone()).unwrap();
         assert!(!contract.is_blacklisted("test_group".to_string(), member.clone()), "Member should no longer be blacklisted");
         assert!(!contract.is_group_member("test_group".to_string(), member.clone()), "Member should NOT be automatically re-added to group");
 
@@ -533,13 +535,13 @@ mod blacklist_tests {
         assert!(!has_moderate_after, "Moderate permissions should be gone (member is no longer in group)");
 
         // Member can now rejoin the group and their old permissions become active again
-        contract.add_group_member("test_group".to_string(), member.clone(), WRITE, None).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be able to rejoin after unblacklisting");
 
-        // Check permissions after rejoining - moderate permission should still work
+        // Check permissions after rejoining - old permissions should NOT resurrect
         let has_moderate_after_rejoin = contract.has_permission(owner.clone(), member.clone(), permission_path.to_string(), MODERATE);
-        assert!(has_moderate_after_rejoin, "Moderate permissions should still work after rejoining");
+        assert!(!has_moderate_after_rejoin, "Old permissions should not resurrect after rejoining");
 
-        println!("✅ Unblacklisting preserves permissions - they become active again when user rejoins");
+        println!("✅ Unblacklisting does not resurrect old permissions after rejoin");
     }
 }

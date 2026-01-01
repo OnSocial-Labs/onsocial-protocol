@@ -19,14 +19,13 @@ build-all-contracts: build-docker-contracts ensure-scripts-executable
 
 .PHONY: build-contract-%
 build-contract-%: build-docker-contracts ensure-scripts-executable
-	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		echo "🚀 Starting: Building Contract $*..."; \
-		$(call docker_run_contracts,./scripts/build.sh build-contract $*); \
-		echo "✅ Contract $* built successfully"; \
-	else \
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
 		echo "❌ Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)"; \
 		exit 1; \
 	fi
+	@echo "🚀 Starting: Building Contract $*..."
+	$(call docker_run_contracts,./scripts/build.sh build-contract $*)
+	@echo "✅ Contract $* built successfully"
 
 # =============================================================================
 # CONTRACT TESTING TARGETS
@@ -59,6 +58,35 @@ test-integration-contract-%: build-docker-contracts ensure-scripts-executable st
 	$(call log_progress,Executing integration test suite)
 	@$(call docker_run_contracts_network,./scripts/test.sh integration $* $(TEST)) || exit 0
 	$(call log_success,Integration tests for contract $* completed)
+
+.PHONY: test-integration-contract-%-no-run
+test-integration-contract-%-no-run: build-docker-contracts ensure-scripts-executable
+	$(call log_start,Compiling Integration Tests for Contract $* (no-run))
+	$(call log_progress,Compiling integration tests without executing)
+	@if [ "$*" = "core-onsocial" ]; then \
+		$(MAKE) test-integration-contract-core-onsocial-no-run; \
+	elif [ "$*" = "cross-contract" ]; then \
+		$(MAKE) test-integration-contract-cross-contract-no-run; \
+	else \
+		$(call log_error,No -no-run integration compile target defined for contract: $*); \
+		exit 1; \
+	fi
+
+.PHONY: test-integration-contract-core-onsocial-no-run
+test-integration-contract-core-onsocial-no-run: build-docker-contracts ensure-scripts-executable
+	$(call docker_run_contracts,set -euo pipefail; \
+		cd /code/contracts/core-onsocial; \
+		cargo build --release --target wasm32-unknown-unknown; \
+		cd /code; \
+		cargo test -p onsocial-integration-tests --release --color always --no-run)
+	@echo "✅ Integration tests compiled for contract core-onsocial (no-run)"
+
+.PHONY: test-integration-contract-cross-contract-no-run
+test-integration-contract-cross-contract-no-run: build-docker-contracts ensure-scripts-executable
+	$(call docker_run_contracts,set -euo pipefail; \
+		cd /code; \
+		cargo test -p onsocial-integration-tests --release --color always --no-run)
+	@echo "✅ Integration tests compiled for contract cross-contract (no-run)"
 
 .PHONY: test-unit-contract-%-test
 test-unit-contract-%-test: build-docker-contracts ensure-scripts-executable
@@ -109,30 +137,32 @@ format-all-contracts: build-docker-contracts ensure-scripts-executable
 
 .PHONY: format-contract-%
 format-contract-%: build-docker-contracts ensure-scripts-executable
-	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		$(call log_start,Formatting Contract $*); \
-		$(call log_progress,Applying code formatting to contract $*); \
-		$(call docker_run_contracts,./scripts/build.sh format-contract $*); \
-		$(call log_success,Contract $* formatted successfully); \
-	else \
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
 		$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
 		exit 1; \
 	fi
+	$(call log_start,Formatting Contract $*)
+	$(call log_progress,Applying code formatting to contract $*)
+	$(call docker_run_contracts,./scripts/build.sh format-contract $*)
+	$(call log_success,Contract $* formatted successfully)
 
 .PHONY: lint-contract-%
 lint-contract-%: build-docker-contracts ensure-scripts-executable
-	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		$(call log_start,Linting Contract $*); \
-		$(call log_progress,Running lint checks on contract $*); \
-		$(call docker_run_contracts,./scripts/build.sh lint-contract $*); \
-		$(call log_success,Contract $* linted successfully); \
-	else \
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
 		$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
 		exit 1; \
 	fi
+	$(call log_start,Linting Contract $*)
+	$(call log_progress,Running lint checks on contract $*)
+	$(call docker_run_contracts,./scripts/build.sh lint-contract $*)
+	$(call log_success,Contract $* linted successfully)
 
 .PHONY: check-contract-%
 check-contract-%: build-docker-contracts ensure-scripts-executable
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
+		echo "$(ERROR)Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)$(RESET)"; \
+		exit 1; \
+	fi
 	$(call log_start,Checking Contract $*)
 	$(call log_progress,Running cargo check)
 	$(call docker_run_contracts,./scripts/build.sh check-contract $*)
@@ -140,16 +170,15 @@ check-contract-%: build-docker-contracts ensure-scripts-executable
 
 .PHONY: clippy-contract-%
 clippy-contract-%: build-docker-contracts ensure-scripts-executable
-	@if echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
-		@$(call log_start,Running Clippy for Contract $*); \
-		@$(call log_progress,Analyzing code with clippy); \
-		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
-			bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"; \
-		@$(call log_success,Clippy analysis for contract $* completed); \
-	else \
-		@$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
+		$(call log_error,Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)); \
 		exit 1; \
 	fi
+	$(call log_start,Running Clippy for Contract $*)
+	$(call log_progress,Analyzing code with clippy)
+	@docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -e FORCE_COLOR=1 -e TERM=xterm-256color -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
+		bash -c "cd contracts/$* && cargo clippy --all-targets --all-features -- -D warnings"
+	$(call log_success,Clippy analysis for contract $* completed)
 
 # =============================================================================
 # CONTRACT REBUILD TARGETS
