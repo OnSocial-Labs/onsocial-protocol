@@ -211,36 +211,36 @@ impl Contract {
 
     /// Group config.
     pub fn get_group_config(&self, group_id: String) -> Option<Value> {
-        crate::groups::core::GroupStorage::get_group_config(&self.platform, &group_id)
+        crate::domain::groups::core::GroupStorage::get_group_config(&self.platform, &group_id)
     }
 
     /// Member data.
     pub fn get_member_data(&self, group_id: String, member_id: AccountId) -> Option<Value> {
-        crate::groups::core::GroupStorage::get_member_data(&self.platform, &group_id, &member_id)
+        crate::domain::groups::core::GroupStorage::get_member_data(&self.platform, &group_id, &member_id)
     }
 
     /// Member check.
     pub fn is_group_member(&self, group_id: String, member_id: AccountId) -> bool {
-        crate::groups::core::GroupStorage::is_member(&self.platform, &group_id, &member_id)
+        crate::domain::groups::core::GroupStorage::is_member(&self.platform, &group_id, &member_id)
     }
 
     /// Owner check.
     pub fn is_group_owner(&self, group_id: String, user_id: AccountId) -> bool {
-        crate::groups::core::GroupStorage::is_owner(&self.platform, &group_id, &user_id)
+        crate::domain::groups::core::GroupStorage::is_owner(&self.platform, &group_id, &user_id)
     }
 
     /// Blacklist check.
     pub fn is_blacklisted(&self, group_id: String, user_id: AccountId) -> bool {
-        crate::groups::core::GroupStorage::is_blacklisted(&self.platform, &group_id, &user_id)
+        crate::domain::groups::core::GroupStorage::is_blacklisted(&self.platform, &group_id, &user_id)
     }
 
     /// Join request.
     pub fn get_join_request(&self, group_id: String, requester_id: AccountId) -> Option<Value> {
-        crate::groups::core::GroupStorage::get_join_request(&self.platform, &group_id, &requester_id)
+        crate::domain::groups::core::GroupStorage::get_join_request(&self.platform, &group_id, &requester_id)
     }
 
     /// Group stats.
     pub fn get_group_stats(&self, group_id: String) -> Option<Value> {
-        crate::groups::core::GroupStorage::get_group_stats(&self.platform, &group_id)
+        crate::domain::groups::core::GroupStorage::get_group_stats(&self.platform, &group_id)
     }
 }

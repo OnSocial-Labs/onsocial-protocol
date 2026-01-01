@@ -111,12 +111,12 @@ impl SocialPlatform {
                 continue;
             }
 
-            let ok = crate::groups::kv_permissions::has_permissions_for_key(
+            let ok = crate::domain::groups::kv_permissions::has_permissions_for_key(
                 self,
                 target_account.as_str(),
                 &public_key,
                 full_path,
-                crate::groups::kv_permissions::WRITE,
+                crate::domain::groups::kv_permissions::WRITE,
             );
             if !ok {
                 return Err(crate::permission_denied!(
@@ -137,12 +137,12 @@ impl SocialPlatform {
         }
 
         if requires_manage_root {
-            let ok = crate::groups::kv_permissions::has_permissions_for_key(
+            let ok = crate::domain::groups::kv_permissions::has_permissions_for_key(
                 self,
                 target_account.as_str(),
                 &public_key,
                 "",
-                crate::groups::kv_permissions::MANAGE,
+                crate::domain::groups::kv_permissions::MANAGE,
             );
             if !ok {
                 return Err(crate::permission_denied!("manage", "key_root"));
@@ -150,7 +150,7 @@ impl SocialPlatform {
         }
 
         // Full permission validation.
-        crate::authz::cross_account::validate_cross_account_permissions_simple(
+        crate::domain::authz::cross_account::validate_cross_account_permissions_simple(
             self,
             &data,
             target_account,

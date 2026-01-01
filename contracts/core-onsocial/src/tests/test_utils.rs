@@ -201,12 +201,12 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         .unwrap_or_else(|_| panic!("Test setup: invalid group owner account ID for {}", group_id));
 
     let mut event_batch = crate::events::EventBatch::new();
-    crate::groups::kv_permissions::grant_permissions(
+    crate::domain::groups::kv_permissions::grant_permissions(
         &mut contract.platform,
         &group_owner,
         member_id,
         &format!("groups/{}/content", group_id),
-        crate::groups::kv_permissions::WRITE,
+        crate::domain::groups::kv_permissions::WRITE,
         None,
         &mut event_batch,
         None,

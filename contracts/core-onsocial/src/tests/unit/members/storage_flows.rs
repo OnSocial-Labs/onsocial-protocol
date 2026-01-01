@@ -13,7 +13,7 @@
 // that uses predecessor_account_id() to determine who pays for storage.
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
 use serde_json::json;
 use near_sdk::test_utils::accounts;
 

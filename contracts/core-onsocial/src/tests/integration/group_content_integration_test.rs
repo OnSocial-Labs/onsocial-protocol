@@ -19,7 +19,7 @@
 #[cfg(test)]
 mod group_content_integration_tests {
     use crate::tests::test_utils::*;
-    use crate::groups::kv_permissions::WRITE;
+    use crate::domain::groups::kv_permissions::WRITE;
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
 

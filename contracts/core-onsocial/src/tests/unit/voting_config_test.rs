@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod voting_config_tests {
-    use crate::groups::kv_permissions::MODERATE;
+    use crate::domain::groups::kv_permissions::MODERATE;
     use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;

@@ -2,7 +2,7 @@
 // Tests for join requests, approvals, rejections, and permission validation
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
 use serde_json::json;
 
 #[cfg(test)]
@@ -200,7 +200,7 @@ mod join_request_tests {
             .add_group_member(
                 "privategroup".to_string(),
                 join_requests_moderator.clone(),
-                crate::groups::kv_permissions::NONE,
+                crate::domain::groups::kv_permissions::NONE,
             )
             .unwrap();
 

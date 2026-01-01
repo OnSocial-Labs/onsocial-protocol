@@ -2,7 +2,7 @@
 // Tests focused on security boundaries, privilege escalation prevention, and access control
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::MANAGE;
+use crate::domain::groups::kv_permissions::MANAGE;
 use serde_json::json;
 use near_sdk::test_utils::accounts;
 

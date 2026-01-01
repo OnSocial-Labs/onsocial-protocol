@@ -9,11 +9,11 @@ mod errors;
 mod events;
 mod api;
 mod protocol;
+mod domain;
 
 pub use errors::SocialError;
 
-mod groups;
-mod authz;
+// Domain modules live under `domain/`.
 mod state;
 mod status;
 mod storage;

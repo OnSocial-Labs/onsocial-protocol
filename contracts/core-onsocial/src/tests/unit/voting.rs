@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod voting_tests {
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
 use near_sdk::serde_json::{json, Value};
 use near_sdk::test_utils::accounts;
 use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> AccountId {
@@ -1734,7 +1734,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Setup: 4 members, majority_threshold = 0.5
         // If 2 members vote NO, remaining 2 can vote YES = 2/4 = 0.5 = threshold (PASS)
         
-        use crate::groups::permission_types::VoteTally;
+        use crate::domain::groups::permission_types::VoteTally;
         use near_sdk::json_types::U64;
         
         let tally = VoteTally {
@@ -1762,7 +1762,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Setup: 5 members, majority_threshold = 0.51 (just over half)
         // If 3 members vote NO, remaining 2 can vote YES = 2/5 = 0.4 < 0.51 (FAIL)
         
-        use crate::groups::permission_types::VoteTally;
+        use crate::domain::groups::permission_types::VoteTally;
         use near_sdk::json_types::U64;
         
         let tally = VoteTally {
@@ -1790,7 +1790,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Setup: 6 members, 2 YES, 3 NO = 5 votes, 1 remaining
         // Max YES = 2 + 1 = 3/6 = 0.5 exactly
         
-        use crate::groups::permission_types::VoteTally;
+        use crate::domain::groups::permission_types::VoteTally;
         use near_sdk::json_types::U64;
         
         let tally = VoteTally {
@@ -1959,7 +1959,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
     #[test]
     fn test_voting_period_expiry() {
-        use crate::groups::permission_types::VoteTally;
+        use crate::domain::groups::permission_types::VoteTally;
         use near_sdk::json_types::U64;
         
         // Test the is_expired function directly
@@ -2154,7 +2154,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
     #[test]
     fn test_zero_member_count_edge_case() {
-        use crate::groups::permission_types::VoteTally;
+        use crate::domain::groups::permission_types::VoteTally;
         use near_sdk::json_types::U64;
         
         // Test that VoteTally handles zero member count gracefully (corrupted state)
@@ -2192,7 +2192,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
     #[test]
     fn test_voting_period_overflow_protection() {
-        use crate::groups::permission_types::VoteTally;
+        use crate::domain::groups::permission_types::VoteTally;
         use near_sdk::json_types::U64;
         
         // Test that is_expired handles potential overflow gracefully

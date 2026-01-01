@@ -2,7 +2,7 @@
 #[cfg(test)]
 mod tests {
     use crate::tests::test_utils::*;
-    use crate::groups::kv_permissions::WRITE;
+    use crate::domain::groups::kv_permissions::WRITE;
     use near_sdk::testing_env;
     use near_sdk::serde_json::json;
 

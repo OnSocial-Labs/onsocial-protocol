@@ -33,7 +33,7 @@ impl Contract {
         path: String,
         level: u8,
     ) -> bool {
-        crate::groups::kv_permissions::has_permissions(
+        crate::domain::groups::kv_permissions::has_permissions(
             &self.platform,
             owner.as_str(),
             grantee.as_str(),
@@ -43,7 +43,7 @@ impl Contract {
     }
 
     pub fn get_permissions(&self, owner: AccountId, grantee: AccountId, path: String) -> u8 {
-        crate::groups::kv_permissions::get_user_permissions(
+        crate::domain::groups::kv_permissions::get_user_permissions(
             &self.platform,
             owner.as_str(),
             grantee.as_str(),
@@ -52,7 +52,7 @@ impl Contract {
     }
 
     pub fn get_key_permissions(&self, owner: AccountId, public_key: PublicKey, path: String) -> u8 {
-        crate::groups::kv_permissions::get_key_permissions(
+        crate::domain::groups::kv_permissions::get_key_permissions(
             &self.platform,
             owner.as_str(),
             &public_key,
@@ -67,7 +67,7 @@ impl Contract {
         path: String,
         required_level: u8,
     ) -> bool {
-        crate::groups::kv_permissions::has_permissions_for_key(
+        crate::domain::groups::kv_permissions::has_permissions_for_key(
             &self.platform,
             owner.as_str(),
             &public_key,
@@ -121,10 +121,10 @@ impl Contract {
     }
 
     pub fn has_group_admin_permission(&self, group_id: String, user_id: AccountId) -> bool {
-        crate::groups::kv_permissions::has_group_admin_permission(&self.platform, &group_id, &user_id)
+        crate::domain::groups::kv_permissions::has_group_admin_permission(&self.platform, &group_id, &user_id)
     }
 
     pub fn has_group_moderate_permission(&self, group_id: String, user_id: AccountId) -> bool {
-        crate::groups::kv_permissions::has_group_moderate_permission(&self.platform, &group_id, &user_id)
+        crate::domain::groups::kv_permissions::has_group_moderate_permission(&self.platform, &group_id, &user_id)
     }
 }

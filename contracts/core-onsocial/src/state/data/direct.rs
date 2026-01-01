@@ -28,7 +28,7 @@ impl SocialPlatform {
         };
 
         // Validate permissions for the entire data object.
-        crate::authz::cross_account::validate_cross_account_permissions_simple(
+        crate::domain::authz::cross_account::validate_cross_account_permissions_simple(
             self,
             &data,
             target_account,

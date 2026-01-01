@@ -37,7 +37,7 @@ impl SocialPlatform {
     ) -> Result<(), SocialError> {
         // Group paths are handled by GroupContentManager.
         if crate::storage::utils::extract_group_id_from_path(data_ctx.full_path).is_some() {
-            match crate::groups::GroupContentManager::create_group_content(
+            match crate::domain::groups::GroupContentManager::create_group_content(
                 self,
                 data_ctx.full_path,
                 data_ctx.value,
