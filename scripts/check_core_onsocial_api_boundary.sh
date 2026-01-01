@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# Guardrail: ensure `#[near] impl Contract` blocks live only under `contracts/core-onsocial/src/contract`.
+# Guardrail: ensure `#[near] impl Contract` blocks live only under `contracts/core-onsocial/src/api`.
 # We enforce this by scanning all Rust files outside that directory and failing
 # if we see an attribute line exactly `#[near]` followed shortly by `impl Contract`.
 
 ROOT_DIR="${1:-contracts/core-onsocial/src}"
-ALLOWED_DIR="$ROOT_DIR/contract"
+ALLOWED_DIR="$ROOT_DIR/api"
 
 if [ ! -d "$ROOT_DIR" ]; then
   echo "ERROR: core-onsocial src not found at: $ROOT_DIR" >&2
@@ -40,7 +40,7 @@ while IFS= read -r -d '' file; do
   ' "$file"; then
     :
   else
-    echo "ERROR: Found `#[near] impl Contract` outside contract entrypoints layer: $file" >&2
+    echo "ERROR: Found `#[near] impl Contract` outside api entrypoints layer: $file" >&2
     bad=1
   fi
 

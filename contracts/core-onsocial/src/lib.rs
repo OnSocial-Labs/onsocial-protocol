@@ -7,7 +7,7 @@ mod config;
 pub mod constants;
 mod errors;
 mod events;
-mod contract;
+mod api;
 mod json_api;
 
 pub use errors::SocialError;

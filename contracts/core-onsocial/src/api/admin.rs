@@ -7,7 +7,7 @@ use crate::{
 };
 use near_sdk::{near, serde_json::Value, AccountId};
 
-use crate::contract::guards::ContractGuards;
+use crate::api::guards::ContractGuards;
 
 use crate::{Contract, ContractExt};
 

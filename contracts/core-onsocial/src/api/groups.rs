@@ -1,7 +1,7 @@
 use crate::{state::models::SocialPlatform, SocialError};
 use near_sdk::{near, serde_json::Value, AccountId};
 
-use crate::contract::guards::{ContractGuards, DepositPolicy, PayableCaller};
+use crate::api::guards::{ContractGuards, DepositPolicy, PayableCaller};
 
 use crate::{Contract, ContractExt};
 
