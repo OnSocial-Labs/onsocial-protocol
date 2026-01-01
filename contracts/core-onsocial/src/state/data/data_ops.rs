@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
-use crate::protocol::set::types::{ApiOperationContext, DataOperationContext, OperationContext};
+use crate::state::set_context::{ApiOperationContext, DataOperationContext, OperationContext};
 use crate::state::models::SocialPlatform;
 use crate::validation::validate_json_value_simple;
 use crate::validation::Path;

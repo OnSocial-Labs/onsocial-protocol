@@ -51,13 +51,13 @@ impl Storage {
     #[inline(always)]
     pub fn assert_storage_covered(&self) -> Result<(), crate::errors::SocialError> {
         let effective_bytes = crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
-        let storage_balance_needed =
-            crate::storage::calculate_storage_balance_needed(effective_bytes);
+        let storage_balance_needed = crate::storage::calculate_storage_balance_needed(effective_bytes);
 
         if storage_balance_needed > self.balance {
-            return Err(crate::errors::SocialError::InsufficientStorage(
-                format!("Required: {}, available: {}", storage_balance_needed, self.balance)
-            ));
+            return Err(crate::errors::SocialError::InsufficientStorage(format!(
+                "Required: {}, available: {}",
+                storage_balance_needed, self.balance
+            )));
         }
         Ok(())
     }
@@ -69,7 +69,7 @@ impl Storage {
         }
 
         let now = near_sdk::env::block_timestamp();
-        
+
         // First platform-sponsored write: grant onboarding allowance.
         if self.platform_first_write_ns.is_none() {
             self.platform_first_write_ns = Some(now);
@@ -122,7 +122,13 @@ impl Storage {
 }
 
 #[derive(
-    NearSchema, BorshDeserialize, BorshSerialize, serde::Serialize, serde::Deserialize, Clone, Debug,
+    NearSchema,
+    BorshDeserialize,
+    BorshSerialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
 )]
 #[abi(json, borsh)]
 pub struct AccountSharedStorage {

@@ -3,7 +3,8 @@ use near_sdk::json_types::{Base64VecU8, U64};
 use near_sdk::serde_json::Value;
 
 use crate::events::EventBatch;
-use crate::protocol::set::types::{ApiOperationContext, SetOptions, VerifiedContext};
+use crate::protocol::set::types::SetOptions;
+use crate::state::set_context::{ApiOperationContext, VerifiedContext};
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 

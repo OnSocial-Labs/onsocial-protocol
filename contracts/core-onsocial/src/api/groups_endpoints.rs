@@ -95,10 +95,7 @@ impl Contract {
 
     #[payable]
     #[handle_result]
-    pub fn cancel_join_request(
-        &mut self,
-        group_id: String,
-    ) -> Result<(), SocialError> {
+    pub fn cancel_join_request(&mut self, group_id: String) -> Result<(), SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
             platform.cancel_join_request(group_id, caller)
         })
@@ -137,12 +134,7 @@ impl Contract {
         remove_old_owner: Option<bool>,
     ) -> Result<(), SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
-            platform.transfer_group_ownership(
-                group_id,
-                new_owner,
-                remove_old_owner,
-                caller,
-            )
+            platform.transfer_group_ownership(group_id, new_owner, remove_old_owner, caller)
         })
     }
 
@@ -170,13 +162,7 @@ impl Contract {
         auto_vote: Option<bool>,
     ) -> Result<String, SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
-            platform.create_group_proposal(
-                group_id,
-                proposal_type,
-                changes,
-                caller,
-                auto_vote,
-            )
+            platform.create_group_proposal(group_id, proposal_type, changes, caller, auto_vote)
         })
     }
 
@@ -197,11 +183,7 @@ impl Contract {
     /// Cancel proposal.
     #[payable]
     #[handle_result]
-    pub fn cancel_proposal(
-        &mut self,
-        group_id: String,
-        proposal_id: String,
-    ) -> Result<(), SocialError> {
+    pub fn cancel_proposal(&mut self, group_id: String, proposal_id: String) -> Result<(), SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
             platform.cancel_proposal(group_id, proposal_id, caller)
         })
