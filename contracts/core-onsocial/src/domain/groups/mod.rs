@@ -3,7 +3,7 @@ pub(crate) mod config;
 pub(crate) mod core;
 pub(crate) mod governance;
 pub(crate) mod permission_types;
-pub(crate) mod group_api;
+pub(crate) mod request_parsing;
 pub(crate) mod kv_permissions;
 pub(crate) mod members;
 pub(crate) mod operations;
