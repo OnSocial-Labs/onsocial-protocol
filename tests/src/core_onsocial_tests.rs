@@ -8957,10 +8957,61 @@ async fn test_governance_direct_query_functions() -> anyhow::Result<()> {
     assert_eq!(tally_after["yes_votes"].as_u64().unwrap(), 1);
     println!("   ✓ Tally updates correctly: 2 votes (1 YES, 1 NO)");
     
+    // ==========================================================================
+    // Edge Cases: Non-existent data returns None
+    // ==========================================================================
+    println!("\n   🔍 Testing edge cases (non-existent data)...");
+    
+    // Test 7: get_proposal for non-existent group
+    let missing_group_proposal: Option<serde_json::Value> = alice.view(contract.id(), "get_proposal")
+        .args_json(json!({
+            "group_id": "nonexistent-group",
+            "proposal_id": &proposal_id
+        }))
+        .await?
+        .json()?;
+    assert!(missing_group_proposal.is_none(), "Non-existent group should return None");
+    println!("   ✓ get_proposal() returns None for non-existent group");
+    
+    // Test 8: get_proposal for non-existent proposal_id
+    let missing_proposal: Option<serde_json::Value> = alice.view(contract.id(), "get_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": "nonexistent-proposal-id"
+        }))
+        .await?
+        .json()?;
+    assert!(missing_proposal.is_none(), "Non-existent proposal should return None");
+    println!("   ✓ get_proposal() returns None for non-existent proposal");
+    
+    // Test 9: get_proposal_tally for non-existent proposal
+    let missing_tally: Option<serde_json::Value> = alice.view(contract.id(), "get_proposal_tally")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": "nonexistent-proposal-id"
+        }))
+        .await?
+        .json()?;
+    assert!(missing_tally.is_none(), "Non-existent proposal tally should return None");
+    println!("   ✓ get_proposal_tally() returns None for non-existent proposal");
+    
+    // Test 10: get_vote for non-existent proposal
+    let missing_vote: Option<serde_json::Value> = alice.view(contract.id(), "get_vote")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": "nonexistent-proposal-id",
+            "voter": alice.id()
+        }))
+        .await?
+        .json()?;
+    assert!(missing_vote.is_none(), "Vote on non-existent proposal should return None");
+    println!("   ✓ get_vote() returns None for non-existent proposal");
+    
     println!("\n✅ All direct query functions working correctly!");
     println!("   • get_proposal() - O(1) lookup for proposal data");
     println!("   • get_proposal_tally() - O(1) lookup for vote counts");
     println!("   • get_vote() - O(1) lookup for individual votes");
+    println!("   • All views gracefully return None for missing data");
     
     Ok(())
 }
@@ -13822,6 +13873,261 @@ async fn test_admin_event_paths_format() -> anyhow::Result<()> {
     println!("   ✓ update_manager event has correct path: {}", expected_manager_path);
 
     println!("✅ Admin event paths format test passed");
+    Ok(())
+}
+
+// =============================================================================
+// Group Endpoints Edge Cases
+// =============================================================================
+
+/// Tests critical edge cases for group endpoints:
+/// - Owner cannot leave group without transferring ownership
+/// - Non-owner cannot set group privacy
+/// - Non-owner cannot transfer ownership
+/// - cancel_join_request by non-requester fails
+/// - Duplicate group creation fails
+/// - Setting same privacy value fails (idempotent rejection)
+#[tokio::test]
+async fn test_group_endpoints_edge_cases() -> anyhow::Result<()> {
+    println!("\n=== Test: Group Endpoints Edge Cases ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Setup: Alice creates a private group
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "edge-test-group",
+            "config": {
+                "is_private": true
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+    println!("   ✓ Setup: Alice created private group 'edge-test-group'");
+
+    // ==========================================================================
+    // CRITICAL: Owner cannot leave group (must transfer first)
+    // ==========================================================================
+    println!("\n📦 TEST: Owner cannot leave group...");
+
+    let owner_leave_result = alice
+        .call(contract.id(), "leave_group")
+        .args_json(json!({
+            "group_id": "edge-test-group"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !owner_leave_result.is_success(),
+        "Owner should NOT be able to leave group without transferring ownership"
+    );
+    let owner_leave_error = format!("{:?}", owner_leave_result.failures());
+    assert!(
+        owner_leave_error.contains("Transfer ownership") || owner_leave_error.contains("Owner cannot leave"),
+        "Error should mention ownership transfer requirement, got: {}",
+        owner_leave_error
+    );
+    println!("   ✓ Owner cannot leave group (must transfer ownership first)");
+
+    // ==========================================================================
+    // CRITICAL: Non-owner cannot set group privacy
+    // ==========================================================================
+    println!("\n📦 TEST: Non-owner cannot set group privacy...");
+
+    // Bob is not a member, try to set privacy
+    let non_owner_privacy_result = bob
+        .call(contract.id(), "set_group_privacy")
+        .args_json(json!({
+            "group_id": "edge-test-group",
+            "is_private": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !non_owner_privacy_result.is_success(),
+        "Non-owner should NOT be able to set group privacy"
+    );
+    let privacy_error = format!("{:?}", non_owner_privacy_result.failures());
+    assert!(
+        privacy_error.contains("permission") || privacy_error.contains("denied") || privacy_error.contains("set_group_privacy"),
+        "Error should indicate permission denial, got: {}",
+        privacy_error
+    );
+    println!("   ✓ Non-owner cannot set group privacy");
+
+    // ==========================================================================
+    // HIGH: Non-owner cannot transfer ownership
+    // ==========================================================================
+    println!("\n📦 TEST: Non-owner cannot transfer ownership...");
+
+    // Add Bob as member first
+    let add_bob = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "edge-test-group",
+            "member_id": bob.id(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed");
+
+    // Bob (member but not owner) tries to transfer ownership
+    let non_owner_transfer_result = bob
+        .call(contract.id(), "transfer_group_ownership")
+        .args_json(json!({
+            "group_id": "edge-test-group",
+            "new_owner": charlie.id().to_string()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !non_owner_transfer_result.is_success(),
+        "Non-owner should NOT be able to transfer ownership"
+    );
+    let transfer_error = format!("{:?}", non_owner_transfer_result.failures());
+    assert!(
+        transfer_error.contains("permission") || transfer_error.contains("denied") || transfer_error.contains("transfer_ownership"),
+        "Error should indicate permission denial, got: {}",
+        transfer_error
+    );
+    println!("   ✓ Non-owner (member) cannot transfer ownership");
+
+    // ==========================================================================
+    // HIGH: cancel_join_request by non-requester fails
+    // ==========================================================================
+    println!("\n📦 TEST: cancel_join_request by non-requester fails...");
+
+    // Charlie submits a join request
+    let charlie_join_request = charlie
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "edge-test-group"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        charlie_join_request.is_success(),
+        "Charlie's join request should succeed"
+    );
+
+    // Bob (not the requester) tries to cancel Charlie's request
+    let non_requester_cancel = bob
+        .call(contract.id(), "cancel_join_request")
+        .args_json(json!({
+            "group_id": "edge-test-group"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    // Bob has no pending request, so this should fail (request not found)
+    assert!(
+        !non_requester_cancel.is_success(),
+        "Non-requester should NOT be able to cancel another's join request"
+    );
+    let cancel_error = format!("{:?}", non_requester_cancel.failures());
+    assert!(
+        cancel_error.contains("not found") || cancel_error.contains("request"),
+        "Error should indicate request not found, got: {}",
+        cancel_error
+    );
+    println!("   ✓ Non-requester cannot cancel another user's join request");
+
+    // Charlie can cancel their own request
+    let charlie_cancel = charlie
+        .call(contract.id(), "cancel_join_request")
+        .args_json(json!({
+            "group_id": "edge-test-group"
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(charlie_cancel.is_success(), "Charlie should be able to cancel their own request");
+    println!("   ✓ Requester can cancel their own join request");
+
+    // ==========================================================================
+    // MEDIUM: Duplicate group creation fails
+    // ==========================================================================
+    println!("\n📦 TEST: Duplicate group creation fails...");
+
+    let duplicate_create = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "edge-test-group",
+            "config": {
+                "is_private": false
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !duplicate_create.is_success(),
+        "Duplicate group creation should fail"
+    );
+    let duplicate_error = format!("{:?}", duplicate_create.failures());
+    assert!(
+        duplicate_error.contains("already exists") || duplicate_error.contains("Group"),
+        "Error should indicate group already exists, got: {}",
+        duplicate_error
+    );
+    println!("   ✓ Duplicate group creation fails");
+
+    // ==========================================================================
+    // MEDIUM: Setting same privacy value fails (idempotent rejection)
+    // ==========================================================================
+    println!("\n📦 TEST: Setting same privacy value fails...");
+
+    // Group is currently private, try to set it to private again
+    let same_privacy_result = alice
+        .call(contract.id(), "set_group_privacy")
+        .args_json(json!({
+            "group_id": "edge-test-group",
+            "is_private": true
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !same_privacy_result.is_success(),
+        "Setting same privacy value should fail"
+    );
+    let idempotent_error = format!("{:?}", same_privacy_result.failures());
+    assert!(
+        idempotent_error.contains("already set") || idempotent_error.contains("privacy"),
+        "Error should indicate privacy already set, got: {}",
+        idempotent_error
+    );
+    println!("   ✓ Setting same privacy value fails (idempotent rejection)");
+
+    println!("\n✅ All group endpoints edge cases passed!");
     Ok(())
 }
 

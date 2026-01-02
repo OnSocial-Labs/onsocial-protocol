@@ -1,21 +1,17 @@
-use crate::{events::EventBatch, state::models::SocialPlatform, SocialError};
+use crate::{events::EventBatch, state::{models::SocialPlatform, platform::UnusedDepositEventMeta}, SocialError};
 use near_sdk::{env, AccountId};
 
 pub(crate) struct ContractGuards;
 
 pub(crate) enum PayableCaller {
-    /// Immediate caller (predecessor).
     Predecessor,
-    /// Original transaction signer.
     Signer,
 }
 
 pub(crate) enum DepositPolicy {
-    /// Credit full attached deposit to the chosen caller before executing.
-    /// Emits `auto_deposit` only on success.
+    /// Credit deposit upfront; emit event on success.
     CreditUpfront { reason: &'static str },
-    /// Provide attached deposit as an `attached_balance` budget that may be consumed.
-    /// Any leftover is credited to the chosen caller only on success.
+    /// Pass deposit as consumable budget; credit remainder on success.
     SaveUnused { reason: &'static str },
 }
 
@@ -30,6 +26,8 @@ impl ContractGuards {
         platform.require_manager_one_yocto()
     }
 
+    /// Executes a payable operation with deposit handling.
+    /// Note: Error returns trigger NEAR atomic rollback - deposit automatically returns to caller.
     pub(crate) fn execute_payable_operation<F, R>(
         platform: &mut SocialPlatform,
         caller: PayableCaller,
@@ -41,9 +39,14 @@ impl ContractGuards {
     {
         Self::require_live_state(platform)?;
 
+        let predecessor_id = SocialPlatform::current_caller();
         let caller_id = match caller {
-            PayableCaller::Predecessor => SocialPlatform::current_caller(),
+            PayableCaller::Predecessor => predecessor_id.clone(),
             PayableCaller::Signer => SocialPlatform::transaction_signer(),
+        };
+        let auth_type = match caller {
+            PayableCaller::Predecessor => "predecessor",
+            PayableCaller::Signer => "signer",
         };
 
         let mut attached_balance = env::attached_deposit().as_yoctonear();
@@ -59,14 +62,21 @@ impl ContractGuards {
 
                 if original_deposit > 0 {
                     let mut batch = crate::events::EventBatch::new();
-                    crate::events::EventBuilder::new(
+                    let mut builder = crate::events::EventBuilder::new(
                         crate::constants::EVENT_TYPE_STORAGE_UPDATE,
                         "auto_deposit",
                         caller_id.clone(),
                     )
                     .with_field("amount", original_deposit.to_string())
-                    .with_field("reason", reason)
-                    .emit(&mut batch);
+                    .with_field("reason", reason);
+
+                    if predecessor_id != caller_id {
+                        builder = builder
+                            .with_field("auth_type", auth_type)
+                            .with_field("payer_id", predecessor_id.to_string());
+                    }
+
+                    builder.emit(&mut batch);
                     batch.emit()?;
                 }
 
@@ -74,22 +84,32 @@ impl ContractGuards {
             }
 
             DepositPolicy::SaveUnused { reason } => {
-                let result = operation(platform, &caller_id, Some(&mut attached_balance));
+                let result = operation(platform, &caller_id, Some(&mut attached_balance))?;
 
-                if result.is_ok() && attached_balance > 0 {
+                if attached_balance > 0 {
                     let mut batch = EventBatch::new();
+                    let meta = if predecessor_id != caller_id {
+                        Some(UnusedDepositEventMeta {
+                            auth_type,
+                            actor_id: &caller_id,
+                            payer_id: &predecessor_id,
+                            target_account: &caller_id,
+                        })
+                    } else {
+                        None
+                    };
                     platform.finalize_unused_attached_deposit(
                         &mut attached_balance,
                         &caller_id,
                         false,
                         reason,
                         &mut batch,
-                        None,
+                        meta,
                     )?;
                     batch.emit()?;
                 }
 
-                result
+                Ok(result)
             }
         }
     }

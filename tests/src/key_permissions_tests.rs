@@ -485,6 +485,69 @@ async fn test_key_permission_invalid_level_rejected() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Tests that NEAR balance is not lost when set_key_permission fails.
+/// Failed transactions are atomically rolled back by NEAR, so attached deposit returns to caller.
+#[tokio::test]
+async fn test_key_permission_error_near_balance_preserved() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer_sk = SecretKey::from_random(KeyType::ED25519);
+    let relayer_pk = relayer_sk.public_key();
+
+    // Check Alice's NEAR balance before the failing call
+    let near_balance_before = alice.view_account().await?.balance;
+
+    // Attempt to grant an invalid level (255) with deposit attached
+    let deposit_amount = ONE_NEAR;
+    let res = alice
+        .call(contract.id(), "set_key_permission")
+        .args_json(json!({
+            "public_key": relayer_pk,
+            "path": "profile/",
+            "level": 255,  // Invalid: FULL_ACCESS
+            "expires_at": null
+        }))
+        .deposit(deposit_amount)
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+
+    // Operation should fail
+    assert!(!res.is_success(), "Invalid level should be rejected");
+
+    // Check Alice's NEAR balance after the failing call
+    let near_balance_after = alice.view_account().await?.balance;
+
+    // NEAR spent should only be gas, not the full deposit (because tx failed, deposit returns)
+    let near_spent = near_balance_before.as_yoctonear() - near_balance_after.as_yoctonear();
+    let gas_cost_upper_bound = NearToken::from_millinear(10).as_yoctonear(); // ~0.01 NEAR max gas
+
+    assert!(
+        near_spent < gas_cost_upper_bound,
+        "Failed transaction should not transfer deposit. NEAR spent: {} yocto (expected < {} for gas only)",
+        near_spent,
+        gas_cost_upper_bound
+    );
+
+    // Verify storage balance was NOT credited (because state rolled back)
+    let balance: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": alice.id()}))
+        .await?
+        .json()?;
+    let available = balance
+        .get("available")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .unwrap_or(0);
+    assert_eq!(available, 0, "Storage balance should be 0 (tx rolled back)");
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_key_permission_expired_blocks_access() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
