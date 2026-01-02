@@ -5,6 +5,11 @@ mod eval;
 mod grants;
 mod key_permissions;
 
+#[cfg(test)]
+pub(crate) mod keys_test_access {
+    pub(crate) use super::keys::build_group_permission_key;
+}
+
 #[allow(unused_imports)]
 pub use types::{FULL_ACCESS, MANAGE, MODERATE, NONE, WRITE, is_valid_permission_level};
 

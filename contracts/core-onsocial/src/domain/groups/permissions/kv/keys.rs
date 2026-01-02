@@ -12,7 +12,7 @@ pub(crate) fn build_permission_key(owner_or_group_id: &str, grantee: &str, path:
 
 #[inline]
 pub(crate) fn build_group_permission_key(group_id: &str, grantee: &str, path: &str, nonce: u64) -> String {
-    debug_assert!(nonce > 0, "group permission nonce must be > 0");
+    assert!(nonce > 0, "group permission nonce must be > 0");
 
     // Supports `groups/{id}/...` and `{user}/groups/{id}/...`.
     let needle = format!("groups/{}/", group_id);

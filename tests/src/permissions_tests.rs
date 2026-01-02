@@ -1679,3 +1679,329 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// =============================================================================
+// has_group_admin_permission / has_group_moderate_permission Integration Tests
+// =============================================================================
+
+/// Tests has_group_admin_permission and has_group_moderate_permission APIs:
+/// - Owner has both admin and moderate permissions
+/// - Member with MANAGE has admin permission
+/// - Member with MODERATE has moderate but not admin permission
+/// - Non-member returns false
+/// - Nonexistent group returns false
+#[tokio::test]
+async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let carol = create_user(&root, "carol", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+
+    // 1. Create a group with alice as owner.
+    create_group(&contract, &alice, "test-perms").await?;
+
+    // 2. Owner (alice) should have both admin and moderate permission.
+    let alice_admin: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": alice.id()
+        }))
+        .await?
+        .json()?;
+    assert!(alice_admin, "Owner should have admin permission");
+
+    let alice_moderate: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": alice.id()
+        }))
+        .await?
+        .json()?;
+    assert!(alice_moderate, "Owner should have moderate permission");
+
+    // 3. Add bob as member with no special permissions.
+    add_member(&contract, &alice, "test-perms", &bob).await?;
+
+    let bob_admin: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!bob_admin, "Regular member should not have admin permission");
+
+    let bob_moderate: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!bob_moderate, "Regular member should not have moderate permission");
+
+    // 4. Grant MODERATE to bob on group config path.
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/test-perms/config",
+            "level": MODERATE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission(MODERATE) should succeed: {:?}", res.failures());
+
+    let bob_admin_after: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!bob_admin_after, "MODERATE does not grant admin permission");
+
+    let bob_moderate_after: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(bob_moderate_after, "Member with MODERATE should have moderate permission");
+
+    // 5. Add carol as member and grant MANAGE.
+    add_member(&contract, &alice, "test-perms", &carol).await?;
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": carol.id(),
+            "path": "groups/test-perms/config",
+            "level": MANAGE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission(MANAGE) should succeed: {:?}", res.failures());
+
+    let carol_admin: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": carol.id()
+        }))
+        .await?
+        .json()?;
+    assert!(carol_admin, "Member with MANAGE should have admin permission");
+
+    let carol_moderate: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": carol.id()
+        }))
+        .await?
+        .json()?;
+    assert!(carol_moderate, "Member with MANAGE should also have moderate permission");
+
+    // 6. Non-member should return false.
+    let stranger = create_user(&root, "stranger", TEN_NEAR).await?;
+    let stranger_admin: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": stranger.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!stranger_admin, "Non-member should not have admin permission");
+
+    let stranger_moderate: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "test-perms",
+            "user_id": stranger.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!stranger_moderate, "Non-member should not have moderate permission");
+
+    // 7. Nonexistent group should return false (not error).
+    let fake_admin: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "nonexistent-group",
+            "user_id": alice.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!fake_admin, "Nonexistent group should return false for admin");
+
+    let fake_moderate: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "nonexistent-group",
+            "user_id": alice.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!fake_moderate, "Nonexistent group should return false for moderate");
+
+    Ok(())
+}
+
+/// Tests permission expiration edge cases:
+/// - An expired permission should not grant access
+/// - A still-valid permission (future expiration) should grant access
+/// - Permission can be refreshed after expiration
+#[tokio::test]
+async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+
+    // Create group and add bob as member.
+    create_group(&contract, &alice, "expiry-test").await?;
+    add_member(&contract, &alice, "expiry-test", &bob).await?;
+
+    // 1. Grant MODERATE with an already-expired timestamp (1 nanosecond in the past).
+    let now = now_nanos(&worker).await?;
+    let expired_at = now.saturating_sub(1); // 1 ns in the past
+
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/expiry-test/config",
+            "level": MODERATE,
+            "expires_at": expired_at.to_string()
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission with past expiry should succeed: {:?}", res.failures());
+
+    // Verify: expired permission should NOT grant access.
+    let bob_moderate_expired: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "expiry-test",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!bob_moderate_expired, "Expired permission should not grant moderate access");
+
+    let bob_admin_expired: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "expiry-test",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!bob_admin_expired, "Expired permission should not grant admin access");
+
+    // 2. Grant MODERATE with future expiration (1 hour from now).
+    let future_at = now + 3_600_000_000_000u64; // +1 hour in nanoseconds
+
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/expiry-test/config",
+            "level": MODERATE,
+            "expires_at": future_at.to_string()
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission with future expiry should succeed: {:?}", res.failures());
+
+    // Verify: valid permission should grant access.
+    let bob_moderate_valid: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "expiry-test",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(bob_moderate_valid, "Valid (future) permission should grant moderate access");
+
+    // 3. Grant MANAGE with near-boundary expiration (current block + small delta).
+    //    This tests that the comparison is correct at the boundary.
+    let carol = create_user(&root, "carol", TEN_NEAR).await?;
+    add_member(&contract, &alice, "expiry-test", &carol).await?;
+
+    // Use a timestamp that is definitely in the future (add 10 seconds to be safe).
+    let boundary_at = now + 10_000_000_000u64; // +10 seconds
+
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": carol.id(),
+            "path": "groups/expiry-test/config",
+            "level": MANAGE,
+            "expires_at": boundary_at.to_string()
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission with boundary expiry should succeed: {:?}", res.failures());
+
+    let carol_admin_boundary: bool = contract
+        .view("has_group_admin_permission")
+        .args_json(json!({
+            "group_id": "expiry-test",
+            "user_id": carol.id()
+        }))
+        .await?
+        .json()?;
+    assert!(carol_admin_boundary, "Permission with boundary expiration should still be valid");
+
+    // 4. Revoke by setting level to 0 (NONE) and verify.
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/expiry-test/config",
+            "level": 0,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "revoke permission should succeed: {:?}", res.failures());
+
+    let bob_moderate_revoked: bool = contract
+        .view("has_group_moderate_permission")
+        .args_json(json!({
+            "group_id": "expiry-test",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!bob_moderate_revoked, "Revoked permission should not grant access");
+
+    Ok(())
+}

@@ -174,4 +174,11 @@ mod test_enhanced_permissions {
         let owner_flags = contract.get_permissions(owner.clone(), owner.clone(), test_path.clone());
         assert_eq!(owner_flags, FULL_ACCESS, "Owner should have FULL_ACCESS (255)");
     }
+
+    #[test]
+    #[should_panic(expected = "group permission nonce must be > 0")]
+    fn test_build_group_permission_key_panics_on_zero_nonce() {
+        use crate::domain::groups::permissions::kv::keys_test_access::build_group_permission_key;
+        let _ = build_group_permission_key("test-group", "grantee.near", "groups/test-group/data", 0);
+    }
 }

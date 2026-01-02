@@ -206,9 +206,5 @@ pub fn has_group_moderate_permission(
     user_id: &near_sdk::AccountId,
 ) -> bool {
     let group_config_path = format!("groups/{}/config", group_id);
-    if let Some(group_owner) = extract_path_owner(platform, &group_config_path) {
-        can_moderate(platform, &group_owner, user_id.as_str(), &group_config_path)
-    } else {
-        false
-    }
+    can_moderate(platform, group_id, user_id.as_str(), &group_config_path)
 }
