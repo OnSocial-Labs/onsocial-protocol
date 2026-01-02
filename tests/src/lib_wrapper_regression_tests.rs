@@ -214,3 +214,265 @@ async fn test_get_group_pool_info_invalid_group_id_returns_null_not_panic() -> R
     assert!(v.is_null(), "expected null for invalid group_id, got: {v:?}");
     Ok(())
 }
+
+/// Test: set is blocked in ReadOnly mode
+/// 
+/// Validates that the `set` entry point correctly rejects writes
+/// when the contract is in ReadOnly state (via require_live_state guard).
+#[tokio::test]
+async fn test_set_blocked_in_readonly_mode() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Enter ReadOnly mode (manager = contract account after deploy_and_init)
+    let enter_ro = contract
+        .call("enter_read_only")
+        .deposit(ONE_YOCTO)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(enter_ro.is_success(), "enter_read_only should succeed: {:?}", enter_ro.failures());
+
+    // Attempt to call set - should fail with ContractReadOnly
+    let set_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": { "profile/name": "Alice" },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !set_result.is_success(),
+        "set should fail in ReadOnly mode"
+    );
+
+    // Verify error message contains ReadOnly indication
+    let failures = format!("{:?}", set_result.failures());
+    assert!(
+        failures.contains("ReadOnly") || failures.contains("read-only") || failures.contains("ContractReadOnly"),
+        "Error should indicate contract is read-only, got: {failures}"
+    );
+
+    Ok(())
+}
+
+/// Test: set is blocked in Genesis mode (before activation)
+/// 
+/// Validates that the `set` entry point correctly rejects writes
+/// when the contract has not been activated yet.
+#[tokio::test]
+async fn test_set_blocked_in_genesis_mode() -> Result<()> {
+    let worker = setup_sandbox().await?;
+
+    // Deploy but do NOT activate
+    let wasm_path = get_wasm_path("core-onsocial");
+    let wasm = std::fs::read(std::path::Path::new(&wasm_path))?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    contract
+        .call("new")
+        .args_json(json!({}))
+        .transact()
+        .await?
+        .into_result()?;
+    // NOTE: No activate_contract call - contract remains in Genesis mode
+
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Attempt to call set - should fail
+    let set_result = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": { "profile/name": "Alice" },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !set_result.is_success(),
+        "set should fail in Genesis mode (before activation)"
+    );
+
+    Ok(())
+}
+
+/// Test: get_platform_pool returns None when pool doesn't exist
+/// 
+/// Validates that get_platform_pool gracefully returns null
+/// when no platform pool deposit has been made.
+#[tokio::test]
+async fn test_get_platform_pool_returns_null_when_empty() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+
+    // Query platform pool before any deposits
+    let v: Value = contract
+        .view("get_platform_pool")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+
+    assert!(v.is_null(), "expected null for empty platform pool, got: {v:?}");
+    Ok(())
+}
+
+/// Test: get_platform_allowance returns defaults for non-existent account
+/// 
+/// Validates that get_platform_allowance returns sensible defaults
+/// (zero allowance, not sponsored) for accounts that have never interacted.
+#[tokio::test]
+async fn test_get_platform_allowance_nonexistent_account() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+
+    // Query platform allowance for an account that doesn't exist
+    let v: Value = contract
+        .view("get_platform_allowance")
+        .args_json(json!({ "account_id": "nonexistent.near" }))
+        .await?
+        .json()?;
+
+    // Should return structured response with zero/false values
+    assert!(!v.is_null(), "expected structured response, not null");
+    assert_eq!(
+        v.get("current_allowance").and_then(|x| x.as_u64()),
+        Some(0),
+        "expected zero allowance for nonexistent account"
+    );
+    assert_eq!(
+        v.get("is_platform_sponsored").and_then(|x| x.as_bool()),
+        Some(false),
+        "expected not sponsored for nonexistent account"
+    );
+    assert!(
+        v.get("first_write_ns").map(|x| x.is_null()).unwrap_or(true),
+        "expected null first_write_ns for nonexistent account"
+    );
+
+    Ok(())
+}
+
+/// Test: get_storage_balance returns None for unknown account
+/// 
+/// Validates that get_storage_balance gracefully returns null
+/// for accounts that have never deposited storage.
+#[tokio::test]
+async fn test_get_storage_balance_unknown_account_returns_null() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let v: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": "unknown.near" }))
+        .await?
+        .json()?;
+
+    assert!(v.is_null(), "expected null for unknown account, got: {v:?}");
+    Ok(())
+}
+
+/// Test: set succeeds after resuming from ReadOnly mode
+/// 
+/// Validates the full lifecycle: Live → ReadOnly → Live
+/// Ensures set() works after recovery via resume_live().
+#[tokio::test]
+async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Step 1: Confirm set works in Live mode
+    let initial_set = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": { "profile/name": "Alice" },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(initial_set.is_success(), "set should succeed in Live mode");
+
+    // Step 2: Enter ReadOnly mode
+    let enter_ro = contract
+        .call("enter_read_only")
+        .deposit(ONE_YOCTO)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(enter_ro.is_success(), "enter_read_only should succeed");
+
+    // Step 3: Confirm set fails in ReadOnly
+    let blocked_set = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": { "profile/bio": "Should fail" },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!blocked_set.is_success(), "set should fail in ReadOnly mode");
+
+    // Step 4: Resume Live mode
+    let resume = contract
+        .call("resume_live")
+        .deposit(ONE_YOCTO)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(resume.is_success(), "resume_live should succeed");
+
+    // Step 5: Confirm set works again
+    let recovered_set = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "data": { "profile/bio": "Now it works" },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        recovered_set.is_success(),
+        "set should succeed after resume_live: {:?}",
+        recovered_set.failures()
+    );
+
+    Ok(())
+}
+

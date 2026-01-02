@@ -1,1 +1,1 @@
-pub mod cross_account;
+pub(crate) mod cross_account;
