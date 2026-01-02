@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test_enhanced_permissions {
-    use crate::domain::groups::kv_permissions::{FULL_ACCESS, WRITE, MANAGE};
+    use crate::domain::groups::permissions::kv::{FULL_ACCESS, WRITE, MANAGE};
     use crate::tests::test_utils::*;
 
     #[test]

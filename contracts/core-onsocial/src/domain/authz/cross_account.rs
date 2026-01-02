@@ -28,11 +28,11 @@ pub fn validate_cross_account_permissions_simple(
 
                 let is_group_path = crate::storage::utils::extract_group_id_from_path(full_path).is_some();
 
-                let path_owner = crate::domain::groups::kv_permissions::extract_path_owner(platform, full_path)
+                let path_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, full_path)
                     .unwrap_or_else(|| target_account.as_str().to_string());
 
                 let can_write = if is_group_path {
-                    let account_ok = crate::domain::groups::kv_permissions::can_write(
+                    let account_ok = crate::domain::groups::permissions::kv::can_write(
                         platform,
                                &path_owner,
                                actor_id.as_str(),
@@ -44,27 +44,27 @@ pub fn validate_cross_account_permissions_simple(
                         let Some(pk) = actor_pk else {
                             return Err(invalid_input!("actor_pk required for group write"));
                         };
-                        crate::domain::groups::kv_permissions::has_permissions_for_key(
+                        crate::domain::groups::permissions::kv::has_permissions_for_key(
                             platform,
                                    actor_id.as_str(),
                                    pk,
                                    full_path,
-                                   crate::domain::groups::kv_permissions::WRITE,
+                                   crate::domain::groups::permissions::kv::WRITE,
                         )
                     } else {
                         true
                     }
                 } else {
                     match actor_pk {
-                        Some(pk) => crate::domain::groups::kv_permissions::has_permissions_or_key_for_actor(
+                        Some(pk) => crate::domain::groups::permissions::kv::has_permissions_or_key_for_actor(
                             platform,
                             &path_owner,
                             full_path,
-                               crate::domain::groups::kv_permissions::WRITE,
+                               crate::domain::groups::permissions::kv::WRITE,
                             actor_id.as_str(),
                             pk,
                         ),
-                        None => crate::domain::groups::kv_permissions::can_write(
+                        None => crate::domain::groups::permissions::kv::can_write(
                             platform,
                             &path_owner,
                             actor_id.as_str(),

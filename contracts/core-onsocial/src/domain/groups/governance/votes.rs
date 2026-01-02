@@ -1,7 +1,7 @@
 use near_sdk::{env, AccountId, serde_json::{self, json}};
 
 use crate::domain::groups::GroupStorage;
-use crate::domain::groups::permission_types::{ProposalType, VoteTally};
+use crate::domain::groups::proposal_types::{ProposalType, VoteTally};
 use crate::state::models::{DataValue, SocialPlatform};
 use crate::{invalid_input, permission_denied, SocialError};
 

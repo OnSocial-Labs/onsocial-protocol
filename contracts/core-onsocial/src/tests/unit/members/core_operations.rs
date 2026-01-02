@@ -2,7 +2,7 @@
 // Basic member management: add, remove, leave operations
 
 use crate::tests::test_utils::*;
-use crate::domain::groups::kv_permissions::{MODERATE, MANAGE};
+use crate::domain::groups::permissions::kv::{MODERATE, MANAGE};
 use near_sdk::test_utils::accounts;
 use near_sdk::serde_json::json;
 

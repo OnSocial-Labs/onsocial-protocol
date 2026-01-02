@@ -49,7 +49,7 @@ impl crate::domain::groups::core::GroupStorage {
         let is_private = cfg.is_private.unwrap_or(false);
         let is_public = !is_private;
 
-        if !crate::domain::groups::kv_permissions::is_valid_permission_level(level, true) {
+        if !crate::domain::groups::permissions::kv::is_valid_permission_level(level, true) {
             return Err(invalid_input!("Invalid permission level"));
         }
 
@@ -80,7 +80,7 @@ impl crate::domain::groups::core::GroupStorage {
 
         // Public self-join must start member-only (role changes are explicit).
         if is_self_join && is_public {
-            if level != crate::domain::groups::kv_permissions::NONE {
+            if level != crate::domain::groups::permissions::kv::NONE {
                 return Err(invalid_input!(
                     "Public self-join must use 0 (member-only). Default /content WRITE is granted automatically"
                 ));
@@ -125,12 +125,12 @@ impl crate::domain::groups::core::GroupStorage {
 
         // Members start member-only; grant default WRITE on group content namespace.
         let default_content_path = format!("groups/{}/content", group_id);
-        crate::domain::groups::kv_permissions::grant_permissions(
+        crate::domain::groups::permissions::kv::grant_permissions(
             platform,
             &group_owner,
             member_id,
             &default_content_path,
-            crate::domain::groups::kv_permissions::WRITE,
+            crate::domain::groups::permissions::kv::WRITE,
             None,
             &mut event_batch,
             None,
@@ -168,7 +168,7 @@ impl crate::domain::groups::core::GroupStorage {
                 group_id,
                 caller,
                 caller,
-                crate::domain::groups::kv_permissions::NONE,
+                crate::domain::groups::permissions::kv::NONE,
             )
         }
     }
@@ -213,10 +213,10 @@ impl crate::domain::groups::core::GroupStorage {
         } else if Self::is_owner(platform, group_id, remover_id) {
             true
         } else {
-            let group_owner = crate::domain::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
+            let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
                 .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
-            if crate::domain::groups::kv_permissions::can_manage(
+            if crate::domain::groups::permissions::kv::can_manage(
                 platform,
                 &group_owner,
                 remover_id.as_str(),

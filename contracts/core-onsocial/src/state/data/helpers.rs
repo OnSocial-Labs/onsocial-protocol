@@ -112,12 +112,12 @@ impl SocialPlatform {
                 continue;
             }
 
-            let ok = crate::domain::groups::kv_permissions::has_permissions_for_key(
+            let ok = crate::domain::groups::permissions::kv::has_permissions_for_key(
                 self,
                 target_account.as_str(),
                 &public_key,
                 full_path,
-                crate::domain::groups::kv_permissions::WRITE,
+                crate::domain::groups::permissions::kv::WRITE,
             );
             if !ok {
                 return Err(crate::permission_denied!(
@@ -138,12 +138,12 @@ impl SocialPlatform {
         }
 
         if requires_manage_root {
-            let ok = crate::domain::groups::kv_permissions::has_permissions_for_key(
+            let ok = crate::domain::groups::permissions::kv::has_permissions_for_key(
                 self,
                 target_account.as_str(),
                 &public_key,
                 "",
-                crate::domain::groups::kv_permissions::MANAGE,
+                crate::domain::groups::permissions::kv::MANAGE,
             );
             if !ok {
                 return Err(crate::permission_denied!("manage", "key_root"));

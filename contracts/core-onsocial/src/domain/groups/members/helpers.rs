@@ -33,7 +33,7 @@ impl crate::domain::groups::core::GroupStorage {
         level: u8,
         error_message: &'static str,
     ) -> Result<(), SocialError> {
-        if level != crate::domain::groups::kv_permissions::NONE {
+        if level != crate::domain::groups::permissions::kv::NONE {
             return Err(invalid_input!(error_message));
         }
         Ok(())

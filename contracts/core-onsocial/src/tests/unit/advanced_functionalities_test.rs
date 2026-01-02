@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test_advanced_functionalities {
     use near_sdk::serde_json::json;
-    use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+    use crate::domain::groups::permissions::kv::{WRITE, MODERATE, MANAGE};
     use crate::tests::test_utils::*;
 
     #[test]

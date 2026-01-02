@@ -12,7 +12,7 @@
 #[cfg(test)]
 mod voting_edge_cases_tests {
     use crate::tests::test_utils::*;
-    use crate::domain::groups::kv_permissions::WRITE;
+    use crate::domain::groups::permissions::kv::WRITE;
     use near_sdk::serde_json::json;
     use near_sdk::{testing_env, AccountId};
 

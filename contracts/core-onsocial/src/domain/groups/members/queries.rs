@@ -17,18 +17,18 @@ impl crate::domain::groups::core::GroupStorage {
             return true;
         }
 
-        if level == crate::domain::groups::kv_permissions::MANAGE {
+        if level == crate::domain::groups::permissions::kv::MANAGE {
             return false;
         }
 
         let group_config_path = Self::group_config_path(group_id);
         let group_owner =
-            match crate::domain::groups::kv_permissions::extract_path_owner(platform, &group_config_path) {
+            match crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path) {
                 Some(owner) => owner,
                 None => return false,
             };
 
-        if crate::domain::groups::kv_permissions::can_manage(
+        if crate::domain::groups::permissions::kv::can_manage(
             platform,
             &group_owner,
             granter_id.as_str(),
@@ -37,8 +37,8 @@ impl crate::domain::groups::core::GroupStorage {
             return true;
         }
 
-        if level == crate::domain::groups::kv_permissions::NONE || level == crate::domain::groups::kv_permissions::WRITE {
-            if crate::domain::groups::kv_permissions::can_moderate(
+        if level == crate::domain::groups::permissions::kv::NONE || level == crate::domain::groups::permissions::kv::WRITE {
+            if crate::domain::groups::permissions::kv::can_moderate(
                 platform,
                 &group_owner,
                 granter_id.as_str(),

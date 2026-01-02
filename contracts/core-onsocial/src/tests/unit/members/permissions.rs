@@ -2,7 +2,7 @@
 // Tests for path-specific permissions, permission delegation, and access control
 
 use crate::tests::test_utils::*;
-use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::permissions::kv::{WRITE, MODERATE, MANAGE};
 use serde_json::json;
 
 #[cfg(test)]

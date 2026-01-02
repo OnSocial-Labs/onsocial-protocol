@@ -40,13 +40,13 @@ impl SocialPlatform {
         };
 
         // Allow if caller is owner or has MANAGE.
-        let permission_namespace = crate::domain::groups::kv_permissions::extract_path_owner(
+        let permission_namespace = crate::domain::groups::permissions::kv::extract_path_owner(
             self,
             &group_config_path,
         )
         .ok_or_else(|| crate::invalid_input!("Group not found"))?;
 
-        let can_manage = crate::domain::groups::kv_permissions::can_manage(
+        let can_manage = crate::domain::groups::permissions::kv::can_manage(
             self,
             &permission_namespace,
             account_id.as_str(),

@@ -19,10 +19,10 @@ impl GroupContentManager {
         attached_balance: Option<&mut u128>,
         event_batch: &mut EventBatch,
     ) -> Result<String, SocialError> {
-        let info = crate::domain::groups::kv_permissions::classify_group_path(group_path)
+        let info = crate::domain::groups::permissions::kv::classify_group_path(group_path)
             .ok_or_else(|| crate::invalid_input!("Invalid group path format"))?;
 
-        if info.kind == crate::domain::groups::kv_permissions::GroupPathKind::Config {
+        if info.kind == crate::domain::groups::permissions::kv::GroupPathKind::Config {
             return Err(crate::invalid_input!("Group config namespace is reserved"));
         }
 
@@ -39,7 +39,7 @@ impl GroupContentManager {
 
         // Check permissions using the normalized path (without user prefix).
         // For group paths, the permission namespace is the group id.
-        let can_write = crate::domain::groups::kv_permissions::can_write(platform, group_id, author.as_str(), normalized_path);
+        let can_write = crate::domain::groups::permissions::kv::can_write(platform, group_id, author.as_str(), normalized_path);
         if !can_write {
             return Err(crate::permission_denied!("write", normalized_path));
         }

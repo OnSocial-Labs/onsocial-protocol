@@ -2,7 +2,8 @@ use near_sdk::AccountId;
 
 use crate::constants::{BPS_DENOMINATOR, MAX_VOTING_PERIOD, MIN_VOTING_PERIOD};
 use crate::domain::groups::config::GroupConfig;
-use crate::domain::groups::{kv_permissions, GroupStorage};
+use crate::domain::groups::GroupStorage;
+use crate::domain::groups::permissions::kv as kv_permissions;
 use crate::state::models::SocialPlatform;
 use crate::{invalid_input, SocialError};
 

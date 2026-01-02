@@ -3,7 +3,7 @@ use near_sdk::serde_json;
 
 use crate::constants::*;
 use crate::events::{EventBatch, EventBuilder};
-use crate::domain::groups::permission_types::VoteTally;
+use crate::domain::groups::proposal_types::VoteTally;
 
 pub(super) fn emit_proposal_created(
     proposer: &AccountId,

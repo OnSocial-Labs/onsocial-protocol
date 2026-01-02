@@ -10,7 +10,7 @@
 #[cfg(test)]
 mod voting_proposal_types_tests {
     use crate::tests::test_utils::*;
-    use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+    use crate::domain::groups::permissions::kv::{WRITE, MODERATE, MANAGE};
     use near_sdk::json_types::U64;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
@@ -79,7 +79,7 @@ mod voting_proposal_types_tests {
 
         // Simulate a successful governance decision granting MANAGE to `manager` on a subtree.
         let mut event_batch = crate::events::EventBatch::new();
-        crate::domain::groups::kv_permissions::grant_permissions(
+        crate::domain::groups::permissions::kv::grant_permissions(
             &mut contract.platform,
             &alice,
             &manager,

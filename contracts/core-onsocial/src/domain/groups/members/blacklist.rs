@@ -44,10 +44,10 @@ impl crate::domain::groups::core::GroupStorage {
 
             let group_config_path = Self::group_config_path(group_id);
             if !Self::is_owner(platform, group_id, adder_id) {
-                let group_owner = crate::domain::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
+                let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
                     .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
-                if !crate::domain::groups::kv_permissions::can_manage(
+                if !crate::domain::groups::permissions::kv::can_manage(
                     platform,
                     &group_owner,
                     adder_id.as_str(),
@@ -133,10 +133,10 @@ impl crate::domain::groups::core::GroupStorage {
         if !from_governance {
             let group_config_path = Self::group_config_path(group_id);
             if !Self::is_owner(platform, group_id, remover_id) {
-                let group_owner = crate::domain::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
+                let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
                     .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
-                if !crate::domain::groups::kv_permissions::can_manage(
+                if !crate::domain::groups::permissions::kv::can_manage(
                     platform,
                     &group_owner,
                     remover_id.as_str(),

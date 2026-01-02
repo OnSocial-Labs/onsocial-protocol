@@ -94,10 +94,10 @@ impl crate::domain::groups::core::GroupStorage {
 
         let group_config_path = Self::group_config_path(group_id);
         let group_join_requests_path = Self::group_join_requests_path(group_id);
-        let group_owner = crate::domain::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
+        let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
             .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
-        if !crate::domain::groups::kv_permissions::can_moderate(
+        if !crate::domain::groups::permissions::kv::can_moderate(
             platform,
             &group_owner,
             approver_id.as_str(),
@@ -136,7 +136,7 @@ impl crate::domain::groups::core::GroupStorage {
             group_id,
             requester_id,
             approver_id,
-            crate::domain::groups::kv_permissions::NONE,
+            crate::domain::groups::permissions::kv::NONE,
             AddMemberAuth::AlreadyAuthorized,
         )?;
 
@@ -156,7 +156,7 @@ impl crate::domain::groups::core::GroupStorage {
             );
             obj.insert(
                 "granted_permissions".to_string(),
-                Value::Number(crate::domain::groups::kv_permissions::NONE.into()),
+                Value::Number(crate::domain::groups::permissions::kv::NONE.into()),
             );
         }
 
@@ -189,10 +189,10 @@ impl crate::domain::groups::core::GroupStorage {
 
         let group_config_path = Self::group_config_path(group_id);
         let group_join_requests_path = Self::group_join_requests_path(group_id);
-        let group_owner = crate::domain::groups::kv_permissions::extract_path_owner(platform, &group_config_path)
+        let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
             .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
-        if !crate::domain::groups::kv_permissions::can_moderate(
+        if !crate::domain::groups::permissions::kv::can_moderate(
             platform,
             &group_owner,
             rejector_id.as_str(),
