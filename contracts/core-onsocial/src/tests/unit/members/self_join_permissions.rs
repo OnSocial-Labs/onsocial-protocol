@@ -1,5 +1,5 @@
 // Test self-join permission restrictions for public groups
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
 use crate::tests::test_utils::*;
 use serde_json::json;
 

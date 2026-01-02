@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
-use crate::json_api::set::types::{ApiOperationContext, DataOperationContext, OperationContext};
+use crate::state::set_context::{ApiOperationContext, DataOperationContext, OperationContext};
 use crate::state::models::SocialPlatform;
 use crate::validation::validate_json_value_simple;
 use crate::validation::Path;
@@ -37,7 +37,7 @@ impl SocialPlatform {
     ) -> Result<(), SocialError> {
         // Group paths are handled by GroupContentManager.
         if crate::storage::utils::extract_group_id_from_path(data_ctx.full_path).is_some() {
-            match crate::groups::GroupContentManager::create_group_content(
+            match crate::domain::groups::GroupContentManager::create_group_content(
                 self,
                 data_ctx.full_path,
                 data_ctx.value,

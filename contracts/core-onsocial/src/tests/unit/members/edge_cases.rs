@@ -2,7 +2,7 @@
 // Tests for unusual scenarios, error recovery, and boundary conditions
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::kv_permissions::{WRITE, MODERATE, MANAGE};
 
 use near_sdk::AccountId;
 use serde_json::json;

@@ -6,7 +6,7 @@ use near_sdk::{testing_env, AccountId, NearToken};
 use ed25519_dalek::{Signer, SigningKey};
 
 use crate::tests::test_utils::{get_context_with_deposit, init_live_contract, test_account, TEST_BASE_TIMESTAMP};
-use crate::json_api::set::signed_payload::SignedSetPayload;
+use crate::protocol::set::signed_payload::SignedSetPayload;
 use crate::{Auth, SetRequest};
 
 fn set_context(builder: VMContextBuilder) {
@@ -31,8 +31,8 @@ fn sign_payload(contract_id: &AccountId, payload: &SignedSetPayload, sk: &Signin
         action: payload
             .action
             .as_ref()
-            .map(crate::json_api::set::canonical_json::canonicalize_json_value),
-        data: crate::json_api::set::canonical_json::canonicalize_json_value(&payload.data),
+            .map(crate::protocol::set::canonical_json::canonicalize_json_value),
+        data: crate::protocol::set::canonical_json::canonicalize_json_value(&payload.data),
         ..payload.clone()
     };
     let payload_bytes = near_sdk::serde_json::to_vec(&payload).expect("payload JSON");
@@ -73,7 +73,7 @@ fn signed_payload_happy_path_writes_data() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::groups::kv_permissions::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::kv_permissions::WRITE, None)
         .expect("grant key permission");
 
     // Relayer submits signed payload with deposit to cover storage.
@@ -151,7 +151,7 @@ fn signed_payload_rejects_replay_nonce() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::groups::kv_permissions::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::kv_permissions::WRITE, None)
         .expect("grant key permission");
 
     let deposit = NearToken::from_yoctonear(2 * 10u128.pow(24));
@@ -234,7 +234,7 @@ fn signed_payload_rejects_expired() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::groups::kv_permissions::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::kv_permissions::WRITE, None)
         .expect("grant key permission");
 
     let mut ctx = VMContextBuilder::new();
@@ -304,7 +304,7 @@ fn signed_payload_rejects_bad_signature() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::groups::kv_permissions::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::kv_permissions::WRITE, None)
         .expect("grant key permission");
 
     let mut ctx = VMContextBuilder::new();

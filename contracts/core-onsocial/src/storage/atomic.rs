@@ -34,7 +34,7 @@ impl SocialPlatform {
         let mut pool_storage = self.user_storage.get(pool_owner).cloned().unwrap_or_default();
         pool_storage.storage_tracker.start_tracking();
 
-        let shared_storage = crate::storage::models::AccountSharedStorage {
+        let shared_storage = crate::storage::account_storage::AccountSharedStorage {
             max_bytes,
             used_bytes: 0,
             pool_id: pool_owner.clone(),

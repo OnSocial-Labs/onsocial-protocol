@@ -2,7 +2,7 @@ use near_sdk::AccountId;
 use serde_json::Value;
 
 use crate::events::EventBuilder;
-use crate::json_api::set::types::ApiOperationContext;
+use crate::state::set_context::ApiOperationContext;
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 

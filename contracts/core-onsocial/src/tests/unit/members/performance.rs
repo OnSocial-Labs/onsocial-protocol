@@ -2,7 +2,7 @@
 // Tests for large-scale operations, gas limits, and performance boundaries
 
 use crate::tests::test_utils::*;
-use crate::groups::kv_permissions::{MODERATE, MANAGE};
+use crate::domain::groups::kv_permissions::{MODERATE, MANAGE};
 use serde_json::json;
 use near_sdk::test_utils::accounts;
 use near_sdk::env;

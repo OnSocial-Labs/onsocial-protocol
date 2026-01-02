@@ -7,18 +7,18 @@ mod config;
 pub mod constants;
 mod errors;
 mod events;
-mod contract;
-mod json_api;
+mod api;
+mod protocol;
+mod domain;
 
 pub use errors::SocialError;
 
-mod groups;
-mod authz;
+// Domain modules live under `domain/`.
 mod state;
 mod status;
 mod storage;
 mod validation;
-pub use json_api::{Auth, SetOptions, SetRequest};
+pub use protocol::{Auth, SetOptions, SetRequest};
 #[cfg(test)]
 mod tests;
 

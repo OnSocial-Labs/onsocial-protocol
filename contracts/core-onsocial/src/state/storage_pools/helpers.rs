@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::groups::config::GroupConfig;
+use crate::domain::groups::config::GroupConfig;
 use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
@@ -40,13 +40,13 @@ impl SocialPlatform {
         };
 
         // Allow if caller is owner or has MANAGE.
-        let permission_namespace = crate::groups::kv_permissions::extract_path_owner(
+        let permission_namespace = crate::domain::groups::kv_permissions::extract_path_owner(
             self,
             &group_config_path,
         )
         .ok_or_else(|| crate::invalid_input!("Group not found"))?;
 
-        let can_manage = crate::groups::kv_permissions::can_manage(
+        let can_manage = crate::domain::groups::kv_permissions::can_manage(
             self,
             &permission_namespace,
             account_id.as_str(),

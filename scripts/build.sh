@@ -112,7 +112,7 @@ lint_contract() {
   local contract=$1
   echo "Linting $contract..."
 
-  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/contract.
+  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/api.
   if [ "$contract" = "core-onsocial" ]; then
     "$(pwd)/scripts/check_core_onsocial_api_boundary.sh" "contracts/core-onsocial/src" || handle_error "core-onsocial api boundary check failed"
   fi
@@ -160,7 +160,7 @@ check_contract() {
   local contract=$1
   echo "Checking $contract..."
 
-  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/contract.
+  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/api.
   if [ "$contract" = "core-onsocial" ]; then
     "$(pwd)/scripts/check_core_onsocial_api_boundary.sh" "contracts/core-onsocial/src" || handle_error "core-onsocial api boundary check failed"
   fi
@@ -192,7 +192,7 @@ build_contract() {
   local build_type=$2
   echo "Building $contract ($build_type)..."
 
-  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/contract.
+  # Guardrail: keep core-onsocial `#[near] impl Contract` entrypoints confined to src/api.
   if [ "$contract" = "core-onsocial" ]; then
     "$(pwd)/scripts/check_core_onsocial_api_boundary.sh" "contracts/core-onsocial/src" || handle_error "core-onsocial api boundary check failed"
   fi
