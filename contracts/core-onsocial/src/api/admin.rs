@@ -49,6 +49,7 @@ impl Contract {
     #[payable]
     #[handle_result]
     pub fn update_config(&mut self, config: GovernanceConfig) -> Result<(), SocialError> {
+        ContractGuards::require_live_state(&self.platform)?;
         ContractGuards::require_manager_one_yocto(&self.platform)?;
         let caller = SocialPlatform::current_caller();
 
@@ -60,12 +61,13 @@ impl Contract {
         self.platform.config = config.clone();
 
         let mut batch = EventBatch::new();
+        let path = format!("{}/contract/config", SocialPlatform::platform_pool_account().as_str());
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "update_config",
             caller,
         )
-        .with_path("config")
+        .with_path(&path)
         .with_field(
             "old_config",
             near_sdk::serde_json::to_value(old_config).unwrap_or(Value::Null),
@@ -83,6 +85,7 @@ impl Contract {
     #[payable]
     #[handle_result]
     pub fn update_manager(&mut self, new_manager: AccountId) -> Result<(), SocialError> {
+        ContractGuards::require_live_state(&self.platform)?;
         ContractGuards::require_manager_one_yocto(&self.platform)?;
         let caller = SocialPlatform::current_caller();
 
@@ -90,12 +93,13 @@ impl Contract {
         self.platform.manager = new_manager.clone();
 
         let mut batch = EventBatch::new();
+        let path = format!("{}/contract/manager", SocialPlatform::platform_pool_account().as_str());
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "update_manager",
             caller,
         )
-        .with_path("manager")
+        .with_path(&path)
         .with_field("old_manager", old_manager.as_str())
         .with_field("new_manager", new_manager.as_str())
         .emit(&mut batch);

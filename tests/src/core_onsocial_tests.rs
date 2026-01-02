@@ -13622,3 +13622,206 @@ async fn test_cancel_proposal_blocked_after_other_member_votes() -> anyhow::Resu
     println!("✅ Cancel blocked after other vote test passed");
     Ok(())
 }
+
+// =============================================================================
+// ADMIN MODULE INTEGRATION TESTS (FINDING-01, FINDING-02, FINDING-05)
+// =============================================================================
+
+/// Test that update_config is blocked during ReadOnly mode (FINDING-01 fix)
+#[tokio::test]
+async fn test_admin_update_config_blocked_in_readonly() -> anyhow::Result<()> {
+    println!("\n=== Test: update_config blocked in ReadOnly mode ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Contract is deployed and activated (Live mode), manager is contract account
+    // Enter ReadOnly mode
+    let enter_ro = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(enter_ro.is_success(), "enter_read_only should succeed");
+    println!("   ✓ Contract entered ReadOnly mode");
+
+    // Verify status is ReadOnly
+    let status: String = contract
+        .view("get_contract_status")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    assert_eq!(status, "ReadOnly", "Contract should be in ReadOnly status");
+
+    // Try to update_config - should fail with ContractReadOnly
+    let update_config = contract
+        .call("update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": 300,
+                "max_path_depth": 15,
+                "max_batch_size": 150,
+                "max_value_bytes": 10240,
+                "platform_onboarding_bytes": 10000,
+                "platform_daily_refill_bytes": 3000,
+                "platform_allowance_max_bytes": 6000,
+                "intents_executors": []
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(
+        !update_config.is_success(),
+        "update_config should fail during ReadOnly mode"
+    );
+    println!("   ✓ update_config correctly rejected in ReadOnly mode");
+
+    // Resume live mode for cleanup
+    let resume = contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(resume.is_success(), "resume_live should succeed");
+
+    println!("✅ update_config blocked in ReadOnly test passed");
+    Ok(())
+}
+
+/// Test that update_manager is blocked during ReadOnly mode (FINDING-02 fix)
+#[tokio::test]
+async fn test_admin_update_manager_blocked_in_readonly() -> anyhow::Result<()> {
+    println!("\n=== Test: update_manager blocked in ReadOnly mode ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Create a new manager candidate
+    let new_manager = create_user(&root, "new_manager", TEN_NEAR).await?;
+
+    // Enter ReadOnly mode
+    let enter_ro = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(enter_ro.is_success(), "enter_read_only should succeed");
+    println!("   ✓ Contract entered ReadOnly mode");
+
+    // Try to update_manager - should fail with ContractReadOnly
+    let update_manager = contract
+        .call("update_manager")
+        .args_json(json!({
+            "new_manager": new_manager.id().to_string()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(
+        !update_manager.is_success(),
+        "update_manager should fail during ReadOnly mode"
+    );
+    println!("   ✓ update_manager correctly rejected in ReadOnly mode");
+
+    // Resume live mode for cleanup
+    let resume = contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(resume.is_success(), "resume_live should succeed");
+
+    println!("✅ update_manager blocked in ReadOnly test passed");
+    Ok(())
+}
+
+/// Test that admin events use standardized path format (FINDING-05 fix)
+#[tokio::test]
+async fn test_admin_event_paths_format() -> anyhow::Result<()> {
+    println!("\n=== Test: Admin event paths format ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let contract_id = contract.id().to_string();
+
+    // Test update_config event path
+    let update_config = contract
+        .call("update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": 300,
+                "max_path_depth": 15,
+                "max_batch_size": 150,
+                "max_value_bytes": 10240,
+                "platform_onboarding_bytes": 10000,
+                "platform_daily_refill_bytes": 3000,
+                "platform_allowance_max_bytes": 6000,
+                "intents_executors": []
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(update_config.is_success(), "update_config should succeed");
+
+    let logs = update_config.logs();
+    let config_events = find_events_by_operation(&logs, "update_config");
+    assert!(!config_events.is_empty(), "Should emit update_config event");
+
+    let expected_config_path = format!("{}/contract/config", contract_id);
+    let config_path = get_extra_string(&config_events[0], "path");
+    assert_eq!(
+        config_path,
+        Some(expected_config_path.clone()),
+        "update_config event path should be {}/contract/config",
+        contract_id
+    );
+    println!("   ✓ update_config event has correct path: {}", expected_config_path);
+
+    // Test update_manager event path
+    let new_manager = create_user(&root, "new_manager_evt", TEN_NEAR).await?;
+
+    let update_manager = contract
+        .call("update_manager")
+        .args_json(json!({
+            "new_manager": new_manager.id().to_string()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(update_manager.is_success(), "update_manager should succeed");
+
+    let logs = update_manager.logs();
+    let manager_events = find_events_by_operation(&logs, "update_manager");
+    assert!(!manager_events.is_empty(), "Should emit update_manager event");
+
+    let expected_manager_path = format!("{}/contract/manager", contract_id);
+    let manager_path = get_extra_string(&manager_events[0], "path");
+    assert_eq!(
+        manager_path,
+        Some(expected_manager_path.clone()),
+        "update_manager event path should be {}/contract/manager",
+        contract_id
+    );
+    println!("   ✓ update_manager event has correct path: {}", expected_manager_path);
+
+    println!("✅ Admin event paths format test passed");
+    Ok(())
+}
+
