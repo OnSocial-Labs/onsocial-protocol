@@ -7,6 +7,7 @@ use near_sdk::{
 use crate::constants::EVENT_TYPE_GROUP_UPDATE;
 use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::config::GroupConfig;
+use crate::domain::groups::governance::VotingConfig;
 use crate::domain::groups::GroupStorage;
 use crate::state::models::SocialPlatform;
 use crate::{invalid_input, SocialError};
@@ -184,22 +185,25 @@ impl ProposalType {
             .storage_get(&config_key)
             .ok_or_else(|| invalid_input!("Group config not found"))?;
 
-        // Get or create voting_config object
+        // Get or create voting_config, then update specified parameters
         let mut voting_config = config
             .get("voting_config")
-            .and_then(|v| v.as_object().cloned())
-            .unwrap_or_else(serde_json::Map::new);
+            .and_then(|v| serde_json::from_value::<VotingConfig>(v.clone()).ok())
+            .unwrap_or_default();
 
         // Update the specified parameters
         if let Some(quorum_bps) = participation_quorum_bps {
-            voting_config.insert("participation_quorum_bps".to_string(), json!(quorum_bps));
+            voting_config.participation_quorum_bps = quorum_bps;
         }
         if let Some(threshold_bps) = majority_threshold_bps {
-            voting_config.insert("majority_threshold_bps".to_string(), json!(threshold_bps));
+            voting_config.majority_threshold_bps = threshold_bps;
         }
         if let Some(period) = voting_period {
-            voting_config.insert("voting_period".to_string(), Value::String(period.to_string()));
+            voting_config.voting_period = near_sdk::json_types::U64(period);
         }
+
+        // Sanitize to enforce min/max bounds
+        voting_config = voting_config.sanitized();
 
         // Update the config with new voting config
         if let Some(obj) = config.as_object_mut() {
@@ -213,14 +217,19 @@ impl ProposalType {
 
         platform.storage_set(&config_key, &config)?;
 
-        // Emit event
+        // Emit event with both requested and effective (post-sanitization) values
         let mut event_batch = EventBatch::new();
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "voting_config_changed", executor.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
+            // Requested values (what the proposal specified)
             .with_field("participation_quorum_bps", participation_quorum_bps)
             .with_field("majority_threshold_bps", majority_threshold_bps)
             .with_field("voting_period", voting_period.map(|p| p.to_string()))
+            // Effective values (after sanitization/clamping)
+            .with_field("effective_participation_quorum_bps", voting_config.participation_quorum_bps)
+            .with_field("effective_majority_threshold_bps", voting_config.majority_threshold_bps)
+            .with_field("effective_voting_period", voting_config.voting_period.0.to_string())
             .with_path(&config_key)
             .with_value(config)
             .emit(&mut event_batch);

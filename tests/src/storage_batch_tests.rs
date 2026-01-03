@@ -47,7 +47,7 @@ fn has_contract_update_config_event<S: AsRef<str>>(logs: &[S]) -> bool {
             .unwrap_or(false);
         let path_ok = data0
             .remove("path")
-            .and_then(|v| v.as_str().map(|s| s == "config"))
+            .and_then(|v| v.as_str().map(|s| s.ends_with("/contract/config")))
             .unwrap_or(false);
         let has_old = data0.get("old_config").is_some();
         let has_new = data0.get("new_config").is_some();
@@ -6371,6 +6371,15 @@ async fn test_update_config_via_manager_contract() -> anyhow::Result<()> {
     proxy_account
         .call(core.id(), "new")
         .args_json(json!({}))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Activate the core contract (required to exit read-only mode)
+    proxy_account
+        .call(core.id(), "activate_contract")
+        .args_json(json!({}))
+        .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?
         .into_result()?;

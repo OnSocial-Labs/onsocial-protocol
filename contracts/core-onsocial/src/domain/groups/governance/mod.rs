@@ -1,7 +1,8 @@
 mod events;
 mod proposals;
 mod status;
-mod voting_config;
+pub mod voting_config;
 mod votes;
 
 pub use proposals::GroupGovernance;
+pub use voting_config::VotingConfig;

@@ -55,7 +55,6 @@ impl GroupGovernance {
             ));
         }
 
-        // Blacklisted users cannot vote.
         if GroupStorage::is_blacklisted(platform, group_id, voter) {
             return Err(permission_denied!(
                 "vote",
@@ -101,23 +100,9 @@ impl GroupGovernance {
         }
 
         // Use voting config stored with the proposal (prevents retroactive config changes).
-        let voting_config = proposal_data
-            .get("voting_config")
-            .ok_or_else(|| invalid_input!("Proposal missing voting_config"))?;
-        let participation_quorum_bps = voting_config
-            .get("participation_quorum_bps")
-            .and_then(Self::parse_u16_any)
-            .ok_or_else(|| invalid_input!("Invalid participation_quorum_bps"))?;
-        let majority_threshold_bps = voting_config
-            .get("majority_threshold_bps")
-            .and_then(Self::parse_u16_any)
-            .ok_or_else(|| invalid_input!("Invalid majority_threshold_bps"))?;
-        let voting_period = voting_config
-            .get("voting_period")
-            .and_then(Self::parse_u64_any)
-            .ok_or_else(|| invalid_input!("Invalid voting_period"))?;
+        let voting_config = Self::parse_proposal_voting_config(&proposal_data)?;
 
-        if tally.is_expired(voting_period) {
+        if tally.is_expired(voting_config.voting_period.0) {
             return Err(invalid_input!("Voting period has expired"));
         }
 
@@ -134,9 +119,9 @@ impl GroupGovernance {
         platform.storage_set(&tally_path, &tally_value)?;
 
         let should_execute =
-            tally.meets_thresholds(participation_quorum_bps, majority_threshold_bps);
+            tally.meets_thresholds(voting_config.participation_quorum_bps, voting_config.majority_threshold_bps);
         let should_reject =
-            tally.is_defeat_inevitable(participation_quorum_bps, majority_threshold_bps);
+            tally.is_defeat_inevitable(voting_config.participation_quorum_bps, voting_config.majority_threshold_bps);
 
         if should_execute {
             if let Some(proposal_type_val) = proposal_data.get("data") {

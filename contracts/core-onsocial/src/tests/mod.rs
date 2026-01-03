@@ -14,6 +14,7 @@ pub mod unit {
     pub mod event_emission_test;  // NEW: Event emission and format validation tests
     pub mod get_api_test;  // Comprehensive get() API tests
     pub mod governance_test;
+    pub mod governance_status_test;
     pub mod group_sponsor_quota_test;
     pub mod group_test;
     pub mod members;  // Comprehensive modular member tests

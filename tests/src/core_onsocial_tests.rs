@@ -156,7 +156,7 @@ fn event_has_operation(event: &Event, op: &str) -> bool {
 }
 
 /// Find events by operation type from logs
-fn find_events_by_operation<S: AsRef<str>>(logs: &[S], operation: &str) -> Vec<Event> {
+pub fn find_events_by_operation<S: AsRef<str>>(logs: &[S], operation: &str) -> Vec<Event> {
     logs.iter()
         .filter_map(|log| decode_event(log.as_ref()))
         .filter(|e| get_event_operation(e) == Some(operation))
@@ -9053,9 +9053,9 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
                 "member_driven": true,
                 "is_private": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 604800000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "604800000000000"
                 }
             }
         }))
@@ -9395,9 +9395,9 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
                 "group_name": "Full Cycle Test DAO",
                 "description": "Testing complete governance lifecycle",
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 604800000000000u64  // 7 days in nanoseconds
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "604800000000000"  // 7 days in nanoseconds
                 }
             }
         }))
@@ -9965,9 +9965,9 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
                 "group_name": "Rejection Test DAO",
                 "description": "Testing proposal rejection path",
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 604800000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "604800000000000"
                 }
             }
         }))
@@ -10496,9 +10496,9 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
                 "group_name": "Solo Group",
                 "description": "Testing 1-member auto-execution",
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 604800000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "604800000000000"
                 }
             }
         }))
@@ -10565,13 +10565,17 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     }
 
     // ==========================================================================
-    // TEST 2: Voting Expiration
+    // TEST 2: Voting Period Sanitization
+    // ==========================================================================
+    // NOTE: The contract enforces MIN_VOTING_PERIOD (1 hour) to prevent governance attacks.
+    // Short voting periods (like 1ns) are automatically clamped to the minimum.
+    // This test verifies the sanitization works correctly instead of testing expiration.
     // ==========================================================================
     println!("\n┌─────────────────────────────────────────────────────────────┐");
-    println!("│ TEST 2: Voting Expiration                                   │");
+    println!("│ TEST 2: Voting Period Sanitization                          │");
     println!("└─────────────────────────────────────────────────────────────┘");
     
-    println!("\n   Creating group with short voting period...");
+    println!("\n   Creating group with invalid short voting period...");
     let create_expiry_group = owner
         .call(contract.id(), "create_group")
         .args_json(json!({
@@ -10580,9 +10584,9 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
                 "member_driven": true,
                 "is_private": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 1  // 1 nanosecond (immediate expiration)
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "1"  // 1 nanosecond - should be clamped to MIN_VOTING_PERIOD
                 }
             }
         }))
@@ -10592,6 +10596,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .await?;
     
     assert!(create_expiry_group.is_success(), "Expiry test group creation should succeed");
+    println!("   ✓ Group created (short voting_period was accepted but will be sanitized)");
     
     // Add Alice
     let _ = owner
@@ -10606,7 +10611,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .await?;
     println!("   ✓ Alice added to group");
 
-    // Create proposal (will expire immediately due to 1ns voting period)
+    // Create proposal - voting_config will be sanitized when stored with proposal
     let expiry_proposal = owner
         .call(contract.id(), "create_group_proposal")
         .args_json(json!({
@@ -10615,7 +10620,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
             "changes": {
                 "update_type": "metadata",
                 "changes": {
-                    "description": "This should expire"
+                    "description": "This tests sanitization"
                 }
             },
             "auto_vote": false
@@ -10627,16 +10632,20 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
     
     assert!(expiry_proposal.is_success(), "Creating proposal should succeed");
     
-    let mut expiry_proposal_id = String::new();
+    // Verify the voting_period in the event was sanitized to MIN_VOTING_PERIOD (1 hour)
+    let mut voting_period_sanitized = false;
+    let min_voting_period_ns: u64 = 60 * 60 * 1_000_000_000; // 1 hour in nanoseconds
+    
     for log in expiry_proposal.logs() {
         if let Some(event) = decode_event(log) {
             if get_event_operation(&event).unwrap_or("") == "proposal_created" {
                 if let Some(data) = event.data.first() {
                     for (key, value) in &data.extra {
-                        if key == "proposal_id" {
-                            if let Some(id) = value.as_str() {
-                                expiry_proposal_id = id.to_string();
-                                break;
+                        if key == "voting_period" {
+                            if let Some(period_str) = value.as_str() {
+                                if let Ok(period) = period_str.parse::<u64>() {
+                                    voting_period_sanitized = period >= min_voting_period_ns;
+                                }
                             }
                         }
                     }
@@ -10645,25 +10654,10 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         }
     }
     
-    println!("   ✓ Proposal created: {}", expiry_proposal_id);
-    println!("   ⏱ Voting period: 1ns (immediate expiration)");
-
-    // Try to vote on expired proposal
-    let expired_vote = alice
-        .call(contract.id(), "vote_on_proposal")
-        .args_json(json!({
-            "group_id": "expiry-test",
-            "proposal_id": expiry_proposal_id.clone(),
-            "approve": true
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(150))
-        .transact()
-        .await?;
-    
-    assert!(!expired_vote.is_success(), "Voting on expired proposal should fail");
-    println!("   ✓ Vote correctly rejected (voting period expired)");
-    println!("   ✓ Security: Expired proposals cannot be voted on");
+    assert!(voting_period_sanitized, "Voting period should be sanitized to minimum 1 hour");
+    println!("   ✓ Voting period correctly sanitized to MIN_VOTING_PERIOD (1 hour)");
+    println!("   ✓ Security: Short voting periods are prevented to protect governance");
+    println!("   ℹ Note: Actual expiration testing requires waiting 1+ hour (impractical in tests)");
 
     // ==========================================================================
     // TEST 3: Exact Quorum Boundaries
@@ -10681,9 +10675,9 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
                 "member_driven": true,
                 "is_private": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,  // Need 2 votes out of 3 (66%)
-                    "majority_threshold": 0.51,
-                    "voting_period": 604800000000000u64
+                    "participation_quorum_bps": 5100,  // Need 2 votes out of 3 (66%)
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "604800000000000"
                 }
             }
         }))
@@ -10855,9 +10849,9 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
                 "member_driven": true,
                 "is_private": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 604800000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "604800000000000"
                 }
             }
         }))
@@ -11117,9 +11111,9 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
                 "is_private": true,
                 "group_name": "Security Test Blacklist",
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 86400000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "86400000000000"
                 }
             }
         }))
@@ -11293,9 +11287,9 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
                 "is_private": true,
                 "group_name": "Security Test Late Joiner",
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 86400000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "86400000000000"
                 }
             }
         }))
@@ -11412,9 +11406,9 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
                 "is_private": true,
                 "group_name": "Security Test Invalid Config",
                 "voting_config": {
-                    "participation_quorum": 1.5,  // Invalid: > 1.0
-                    "majority_threshold": -0.3,    // Invalid: < 0.0
-                    "voting_period": 0u64          // Invalid: 0
+                    "participation_quorum_bps": 15000,  // Invalid: > 10000 (clamped)
+                    "majority_threshold_bps": 0,        // Edge case: 0
+                    "voting_period": "0"                // Invalid: 0 (uses default)
                 }
             }
         }))
@@ -11513,13 +11507,16 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
     println!("   ✓ Threshold < 0.0 clamped to 0.0");
     println!("   ✓ Period = 0 replaced with default");
 
-    // ========== TEST 4: Expiration Check at Vote Time ==========
-    println!("\n🧪 TEST 4: Lazy Expiration Validation");
-    println!("   Testing expiration check at vote time...");
+    // ========== TEST 4: Voting Period Sanitization (Additional) ==========
+    // NOTE: The contract enforces MIN_VOTING_PERIOD (1 hour) to prevent governance attacks.
+    // Testing actual expiration would require waiting 1+ hour, which is impractical.
+    // Instead, we verify that short voting periods are properly sanitized.
+    println!("\n🧪 TEST 4: Voting Period Sanitization Verification");
+    println!("   Verifying short voting periods are clamped to minimum...");
 
     let group4_id = "security_test_expiration";
     
-    // Create group with very short voting period for testing
+    // Create group with very short voting period (should be sanitized)
     owner
         .call(contract.id(), "create_group")
         .args_json(json!({
@@ -11529,9 +11526,9 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
                 "is_private": true,
                 "group_name": "Security Test Expiration",
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 1000000000u64  // 1 second for quick expiration
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "1000000000"  // 1 second - will be clamped to 1 hour
                 }
             }
         }))
@@ -11572,41 +11569,39 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    let active_proposal_id = extract_proposal_id_from_logs(&active_proposal.logs(), "proposal_created")
-        .unwrap_or_default();
-
-    // Wait for proposal to expire (2 seconds to be safe)
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
-    // Try to vote on expired proposal - should fail with expiration error
-    let vote_expired = bob
-        .call(contract.id(), "vote_on_proposal")
-        .args_json(json!({
-            "group_id": group4_id,
-            "proposal_id": active_proposal_id,
-            "approve": true
-        }))
-        .deposit(NearToken::from_millinear(100))
-        .transact()
-        .await?;
-
-    assert!(vote_expired.is_failure(), "Cannot vote on expired proposal");
+    // Verify the voting_period in the event was sanitized to MIN_VOTING_PERIOD (1 hour)
+    let min_voting_period_ns: u64 = 60 * 60 * 1_000_000_000; // 1 hour in nanoseconds
+    let mut actual_voting_period: u64 = 0;
     
-    // Verify error message mentions expiration
-    let error_msg = format!("{:?}", vote_expired);
-    assert!(error_msg.contains("expired") || error_msg.contains("Voting period"), 
-            "Error should mention expiration");
+    for log in active_proposal.logs() {
+        if let Some(event) = decode_event(log) {
+            if get_event_operation(&event).unwrap_or("") == "proposal_created" {
+                if let Some(data) = event.data.first() {
+                    for (key, value) in &data.extra {
+                        if key == "voting_period" {
+                            if let Some(period_str) = value.as_str() {
+                                actual_voting_period = period_str.parse::<u64>().unwrap_or(0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    println!("   ✓ Expired proposals reject votes at vote time");
-    println!("   ✓ Lazy expiration check working correctly");
-    println!("   ✓ No cleanup needed - proposals stay active but unvotable");
+    assert!(actual_voting_period >= min_voting_period_ns, 
+            "Voting period should be sanitized to minimum 1 hour, got {} ns", actual_voting_period);
+    println!("   ✓ Short voting period (1s) correctly sanitized to MIN_VOTING_PERIOD (1 hour)");
+    println!("   ✓ Actual voting_period in event: {} ns (expected >= {})", actual_voting_period, min_voting_period_ns);
+    println!("   ℹ Note: Actual expiration testing requires waiting 1+ hour (impractical in tests)");
+    println!("   ℹ The is_expired() logic is covered by unit tests with mocked time");
 
     // ========== Summary ==========
     println!("\n🎯 Advanced Security Validations:");
     println!("   • Blacklisted members cannot vote (explicit check)");
     println!("   • Late-joining members cannot vote on existing proposals");
     println!("   • Invalid voting configurations are sanitized (clamped)");
-    println!("   • Expired proposals reject votes (lazy expiration)");
+    println!("   • Short voting periods are sanitized to prevent governance attacks");
     println!("   • All 4 critical security scenarios validated ✓");
 
     Ok(())
@@ -11637,9 +11632,9 @@ async fn test_proposal_auto_vote_false_no_panic() -> anyhow::Result<()> {
                 "is_private": true,  // Member-driven groups must be private
                 "member_driven": true,  // Enable member-driven mode for proposals
                 "voting_config": {
-                    "participation_quorum": 0.5,
-                    "majority_threshold": 0.5,
-                    "voting_period": 3600000000000u64
+                    "participation_quorum_bps": 5000,
+                    "majority_threshold_bps": 5000,
+                    "voting_period": "3600000000000"
                 }
             }
         }))
@@ -11792,9 +11787,9 @@ async fn test_voting_period_overflow_protection() -> anyhow::Result<()> {
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.5,
-                    "majority_threshold": 0.5,
-                    "voting_period": very_long_period
+                    "participation_quorum_bps": 5000,
+                    "majority_threshold_bps": 5000,
+                    "voting_period": very_long_period.to_string()
                 }
             }
         }))
@@ -11864,9 +11859,9 @@ async fn test_invalid_voting_config_change_proposals() -> anyhow::Result<()> {
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.5,
-                    "majority_threshold": 0.5,
-                    "voting_period": 3600000000000u64
+                    "participation_quorum_bps": 5000,
+                    "majority_threshold_bps": 5000,
+                    "voting_period": "3600000000000"
                 }
             }
         }))
@@ -11975,7 +11970,7 @@ async fn test_invalid_voting_config_change_proposals() -> anyhow::Result<()> {
             "group_id": group_id,
             "proposal_type": "voting_config_change",
             "changes": {
-                "voting_period": 1000000000u64  // 1 second - too short!
+                "voting_period": "1000000000"  // 1 second - too short!
             },
             "auto_vote": true
         }))
@@ -11994,7 +11989,7 @@ async fn test_invalid_voting_config_change_proposals() -> anyhow::Result<()> {
             "group_id": group_id,
             "proposal_type": "voting_config_change",
             "changes": {
-                "voting_period": 400 * 24 * 60 * 60 * 1_000_000_000u64  // 400 days - too long!
+                "voting_period": "34560000000000000000"  // 400 days - too long!
             },
             "auto_vote": true
         }))
@@ -12032,7 +12027,7 @@ async fn test_invalid_voting_config_change_proposals() -> anyhow::Result<()> {
             "changes": {
                 "participation_quorum": 0.6,
                 "majority_threshold": 0.7,
-                "voting_period": 7200000000000u64  // 2 hours
+                "voting_period": "7200000000000"  // 2 hours
             },
             "auto_vote": true
         }))
@@ -12073,9 +12068,9 @@ async fn test_duplicate_vote_check_before_expiration() -> anyhow::Result<()> {
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,  // Need >50% participation
-                    "majority_threshold": 0.51,    // Need >50% majority
-                    "voting_period": 3600000000000u64  // 1 hour
+                    "participation_quorum_bps": 5100,  // Need >50% participation
+                    "majority_threshold_bps": 5100,    // Need >50% majority
+                    "voting_period": "3600000000000"  // 1 hour
                 }
             }
         }))
@@ -12183,9 +12178,9 @@ async fn test_member_cannot_vote_on_pre_membership_proposal() -> anyhow::Result<
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 3600000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "3600000000000"
                 }
             }
         }))
@@ -12310,9 +12305,9 @@ async fn test_expired_proposal_rejects_votes() -> anyhow::Result<()> {
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 3600000000000u64 // 1 hour
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "3600000000000" // 1 hour
                 }
             }
         }))
@@ -12418,9 +12413,9 @@ async fn test_voting_config_change_during_active_voting() -> anyhow::Result<()> 
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.67,  // Need 2/3 votes
-                    "majority_threshold": 0.51,
-                    "voting_period": 7200000000000u64
+                    "participation_quorum_bps": 6700,  // Need 2/3 votes
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "7200000000000"
                 }
             }
         }))
@@ -12553,9 +12548,9 @@ async fn test_governance_critical_security_scenarios() -> anyhow::Result<()> {
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 3600000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "3600000000000"
                 }
             }
         }))
@@ -12780,9 +12775,9 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                 "is_private": true,
                 "member_driven": true,
                 "voting_config": {
-                    "participation_quorum": 0.51,
-                    "majority_threshold": 0.51,
-                    "voting_period": 3600000000000u64
+                    "participation_quorum_bps": 5100,
+                    "majority_threshold_bps": 5100,
+                    "voting_period": "3600000000000"
                 }
             }
         }))
@@ -12924,7 +12919,7 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                                 has_majority_threshold_bps = true;
                                 if let Some(val) = value.as_u64().map(|n| n.to_string()).or_else(|| value.as_str().map(String::from)).as_deref() {
                                     let threshold_bps: u64 = val.parse().unwrap_or(0);
-                                    assert_eq!(threshold_bps, 5001, "Threshold should be 5001 bps (50.01%)");
+                                    assert_eq!(threshold_bps, 5100, "Threshold should be 5100 bps (51.00%)");
                                 }
                             },
                             "voting_period" => {
@@ -12970,7 +12965,7 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
                     println!("      - proposer: alice.test.near");
                     println!("      - locked_member_count: {} (locked at creation)", locked_count);
                     println!("      - participation_quorum_bps: 5100 (51.00%)");
-                    println!("      - majority_threshold_bps: 5001 (50.01%)");
+                    println!("      - majority_threshold_bps: 5100 (51.00%)");
                     println!("      - voting_period: 3600000000000 (1 hour)");
                     println!("      - expires_at: created_at + {} ns", expires_timestamp - created_timestamp);
                 }
@@ -13217,7 +13212,7 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
             "group_id": group_id,
             "proposal_type": "voting_config_change",
             "changes": {
-                "voting_period": 7200000000000u64
+                "voting_period": "7200000000000"
             },
             "auto_vote": false  // Don't auto-vote
         }))
@@ -13557,7 +13552,43 @@ async fn test_cancel_proposal_before_any_votes() -> anyhow::Result<()> {
         .await?;
     assert!(cancel.is_success(), "Cancellation should succeed");
 
+    // Verify proposal_status_updated event with status='cancelled'
+    let status_events = find_events_by_operation(&cancel.logs(), "proposal_status_updated");
+    assert!(!status_events.is_empty(), "proposal_status_updated event must be emitted on cancellation");
+
+    let ps_event = &status_events[0];
+    let ps_extra = &ps_event.data.first().expect("event data").extra;
+
+    // Verify event fields
+    assert_eq!(
+        ps_extra.get("group_id").and_then(|v| v.as_str()),
+        Some("cancel-group"),
+        "event group_id must match"
+    );
+    assert_eq!(
+        ps_extra.get("proposal_id").and_then(|v| v.as_str()),
+        Some(proposal_id.as_str()),
+        "event proposal_id must match"
+    );
+    assert_eq!(
+        ps_extra.get("status").and_then(|v| v.as_str()),
+        Some("cancelled"),
+        "event status must be 'cancelled'"
+    );
+
+    // Verify tally fields (0 votes since auto_vote=false)
+    let final_total = ps_extra.get("final_total_votes").and_then(|v| v.as_u64()).unwrap_or(999);
+    let final_yes = ps_extra.get("final_yes_votes").and_then(|v| v.as_u64()).unwrap_or(999);
+    let final_no = ps_extra.get("final_no_votes").and_then(|v| v.as_u64()).unwrap_or(999);
+    assert_eq!(final_total, 0, "final_total_votes should be 0 (no votes cast)");
+    assert_eq!(final_yes, 0, "final_yes_votes should be 0");
+    assert_eq!(final_no, 0, "final_no_votes should be 0");
+
+    println!("   ✓ proposal_status_updated event emitted with status='cancelled'");
+    println!("   ✓ final tally: {} total, {} yes, {} no", final_total, final_yes, final_no);
+
     // Verify proposal status is cancelled
+
     let key = format!("groups/{}/proposals/{}", "cancel-group", proposal_id);
     let get_result: Vec<serde_json::Value> = contract
         .view("get")
@@ -14131,3 +14162,404 @@ async fn test_group_endpoints_edge_cases() -> anyhow::Result<()> {
     Ok(())
 }
 
+// =============================================================================
+// GOVERNANCE EVENTS COMPREHENSIVE TEST
+// Tests for contracts/core-onsocial/src/domain/groups/governance/events.rs
+// =============================================================================
+
+#[tokio::test]
+async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
+    println!("\n=== Test: Governance Events Schema Completeness ===");
+    println!("Testing emit_proposal_created, emit_vote_cast, emit_proposal_status_updated");
+
+    let worker = crate::utils::setup_sandbox().await?;
+    let contract = deploy_core_onsocial(&worker).await?;
+    let root = worker.root_account()?;
+
+    let owner = create_user(&root, "owner", NearToken::from_near(50)).await?;
+    let member1 = create_user(&root, "member1", NearToken::from_near(20)).await?;
+    let member2 = create_user(&root, "member2", NearToken::from_near(20)).await?;
+
+    // ==========================================================================
+    // Setup: Create member-driven group with 3 members
+    // ==========================================================================
+    println!("\n📦 Setup: Creating member-driven group with 3 members...");
+
+    let group_id = "events-test-group";
+    owner
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": group_id,
+            "config": {
+                "member_driven": true,
+                "is_private": true,
+                "group_name": "Events Test Group"
+            }
+        }))
+        .deposit(TEN_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .unwrap();
+
+    // Add member1 (auto-executes with 1 member)
+    owner
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": group_id,
+            "member_id": member1.id(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .unwrap();
+
+    // Add member2 via proposal
+    let add_member2 = owner
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": group_id,
+            "member_id": member2.id(),
+            "level": 0
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    let add_member2_proposal_id = extract_proposal_id_from_logs(&add_member2.logs(), "proposal_created")
+        .expect("add_member2 should create proposal");
+
+    member1
+        .call(contract.id(), "vote_on_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": add_member2_proposal_id,
+            "approve": true
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    println!("   ✓ Group setup complete with 3 members");
+
+    // ==========================================================================
+    // TEST 1: proposal_created event schema completeness
+    // ==========================================================================
+    println!("\n📦 TEST 1: proposal_created event schema completeness...");
+
+    let create_proposal = owner
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_type": "custom_proposal",
+            "changes": {
+                "title": "Schema Test Proposal",
+                "description": "Testing event schema",
+                "custom_data": {}
+            },
+            "auto_vote": true
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ Created proposal: {}", proposal_id);
+
+    let proposal_created_events = find_events_by_operation(&create_proposal.logs(), "proposal_created");
+    assert!(!proposal_created_events.is_empty(), "proposal_created event must be emitted");
+
+    let pc_event = &proposal_created_events[0];
+    let pc_extra = &pc_event.data.first().expect("event data").extra;
+
+    // Verify all required fields from emit_proposal_created
+    assert!(pc_extra.contains_key("group_id"), "proposal_created must have group_id");
+    assert!(pc_extra.contains_key("proposal_id"), "proposal_created must have proposal_id");
+    assert!(pc_extra.contains_key("sequence_number"), "proposal_created must have sequence_number");
+    assert!(pc_extra.contains_key("proposal_type"), "proposal_created must have proposal_type");
+    assert!(pc_extra.contains_key("proposer"), "proposal_created must have proposer");
+    assert!(pc_extra.contains_key("target"), "proposal_created must have target");
+    assert!(pc_extra.contains_key("auto_vote"), "proposal_created must have auto_vote");
+    assert!(pc_extra.contains_key("created_at"), "proposal_created must have created_at");
+    assert!(pc_extra.contains_key("expires_at"), "proposal_created must have expires_at");
+    assert!(pc_extra.contains_key("locked_member_count"), "proposal_created must have locked_member_count");
+    assert!(pc_extra.contains_key("participation_quorum_bps"), "proposal_created must have participation_quorum_bps");
+    assert!(pc_extra.contains_key("majority_threshold_bps"), "proposal_created must have majority_threshold_bps");
+    assert!(pc_extra.contains_key("voting_period"), "proposal_created must have voting_period");
+    assert!(pc_extra.contains_key("path"), "proposal_created must have path");
+    assert!(pc_extra.contains_key("value"), "proposal_created must have value");
+    assert!(pc_extra.contains_key("tally_path"), "proposal_created must have tally_path");
+    assert!(pc_extra.contains_key("counter_path"), "proposal_created must have counter_path");
+    assert!(pc_extra.contains_key("writes"), "proposal_created must have writes");
+
+    // Verify expires_at = created_at + voting_period
+    let created_at: u64 = pc_extra.get("created_at")
+        .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
+        .expect("created_at should be parseable");
+    let expires_at: u64 = pc_extra.get("expires_at")
+        .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
+        .expect("expires_at should be parseable");
+    let voting_period: u64 = pc_extra.get("voting_period")
+        .and_then(|v| v.as_str().and_then(|s| s.parse().ok()))
+        .expect("voting_period should be parseable");
+
+    assert_eq!(expires_at, created_at.saturating_add(voting_period), "expires_at must equal created_at + voting_period");
+
+    // Verify locked_member_count is 3 (snapshot at proposal creation)
+    let locked_member_count = pc_extra.get("locked_member_count")
+        .and_then(|v| v.as_u64())
+        .expect("locked_member_count should be u64");
+    assert_eq!(locked_member_count, 3, "locked_member_count should be 3");
+
+    // Verify writes contains counter_path (auto_vote=true means tally not in writes)
+    let writes = pc_extra.get("writes").and_then(|v| v.as_array()).expect("writes should be array");
+    let counter_path = pc_extra.get("counter_path").and_then(|v| v.as_str()).expect("counter_path");
+    let has_counter_write = writes.iter().any(|w| {
+        w.get("path").and_then(|p| p.as_str()) == Some(counter_path)
+    });
+    assert!(has_counter_write, "writes must include counter_path write");
+
+    println!("   ✓ proposal_created schema complete with all 17 required fields");
+    println!("   ✓ expires_at correctly computed: {} + {} = {}", created_at, voting_period, expires_at);
+    println!("   ✓ locked_member_count correctly captured: {}", locked_member_count);
+
+    // ==========================================================================
+    // TEST 2: vote_cast event with should_execute and should_reject flags
+    // ==========================================================================
+    println!("\n📦 TEST 2: vote_cast event flags (should_execute, should_reject)...");
+
+    // member1 votes YES - should trigger execution (2/3 = 67% > 51%)
+    let vote_result = member1
+        .call(contract.id(), "vote_on_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": proposal_id.clone(),
+            "approve": true
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    let vote_cast_events = find_events_by_operation(&vote_result.logs(), "vote_cast");
+    assert!(!vote_cast_events.is_empty(), "vote_cast event must be emitted");
+
+    let vc_event = &vote_cast_events[0];
+    let vc_extra = &vc_event.data.first().expect("event data").extra;
+
+    // Verify required fields
+    assert!(vc_extra.contains_key("group_id"), "vote_cast must have group_id");
+    assert!(vc_extra.contains_key("proposal_id"), "vote_cast must have proposal_id");
+    assert!(vc_extra.contains_key("voter"), "vote_cast must have voter");
+    assert!(vc_extra.contains_key("approve"), "vote_cast must have approve");
+    assert!(vc_extra.contains_key("total_votes"), "vote_cast must have total_votes");
+    assert!(vc_extra.contains_key("yes_votes"), "vote_cast must have yes_votes");
+    assert!(vc_extra.contains_key("no_votes"), "vote_cast must have no_votes");
+    assert!(vc_extra.contains_key("locked_member_count"), "vote_cast must have locked_member_count");
+    assert!(vc_extra.contains_key("participation_bps"), "vote_cast must have participation_bps");
+    assert!(vc_extra.contains_key("approval_bps"), "vote_cast must have approval_bps");
+    assert!(vc_extra.contains_key("should_execute"), "vote_cast must have should_execute");
+    assert!(vc_extra.contains_key("should_reject"), "vote_cast must have should_reject");
+    assert!(vc_extra.contains_key("path"), "vote_cast must have path");
+    assert!(vc_extra.contains_key("value"), "vote_cast must have value");
+    assert!(vc_extra.contains_key("tally_path"), "vote_cast must have tally_path");
+    assert!(vc_extra.contains_key("writes"), "vote_cast must have writes");
+    assert!(vc_extra.contains_key("voted_at"), "vote_cast must have voted_at");
+
+    // Verify tally math
+    let total_votes = vc_extra.get("total_votes").and_then(|v| v.as_u64()).expect("total_votes");
+    let yes_votes = vc_extra.get("yes_votes").and_then(|v| v.as_u64()).expect("yes_votes");
+    let no_votes = vc_extra.get("no_votes").and_then(|v| v.as_u64()).expect("no_votes");
+    assert_eq!(total_votes, yes_votes + no_votes, "total_votes = yes_votes + no_votes");
+
+    // Verify participation_bps and approval_bps are computed correctly
+    let participation_bps = vc_extra.get("participation_bps").and_then(|v| v.as_u64()).expect("participation_bps");
+    let approval_bps = vc_extra.get("approval_bps").and_then(|v| v.as_u64()).expect("approval_bps");
+    let vc_locked = vc_extra.get("locked_member_count").and_then(|v| v.as_u64()).expect("locked_member_count");
+
+    // participation_bps = (total_votes * 10000) / locked_member_count
+    let expected_participation = (total_votes as u128 * 10_000 / vc_locked as u128) as u64;
+    assert_eq!(participation_bps, expected_participation, "participation_bps calculation");
+
+    // approval_bps = (yes_votes * 10000) / total_votes
+    let expected_approval = if total_votes > 0 {
+        (yes_votes as u128 * 10_000 / total_votes as u128) as u64
+    } else {
+        0
+    };
+    assert_eq!(approval_bps, expected_approval, "approval_bps calculation");
+
+    // Verify should_execute=true (2/3 votes with 100% approval meets thresholds)
+    let should_execute = vc_extra.get("should_execute").and_then(|v| v.as_bool()).expect("should_execute");
+    assert!(should_execute, "should_execute must be true after quorum reached");
+
+    let should_reject = vc_extra.get("should_reject").and_then(|v| v.as_bool()).expect("should_reject");
+    assert!(!should_reject, "should_reject must be false when executing");
+
+    println!("   ✓ vote_cast schema complete with all 17 required fields");
+    println!("   ✓ participation_bps correctly computed: {}", participation_bps);
+    println!("   ✓ approval_bps correctly computed: {}", approval_bps);
+    println!("   ✓ should_execute=true, should_reject=false");
+
+    // ==========================================================================
+    // TEST 3: proposal_status_updated event with executed status
+    // ==========================================================================
+    println!("\n📦 TEST 3: proposal_status_updated event (executed)...");
+
+    let status_events = find_events_by_operation(&vote_result.logs(), "proposal_status_updated");
+    assert!(!status_events.is_empty(), "proposal_status_updated event must be emitted on execution");
+
+    let ps_event = &status_events[0];
+    let ps_extra = &ps_event.data.first().expect("event data").extra;
+
+    assert!(ps_extra.contains_key("group_id"), "proposal_status_updated must have group_id");
+    assert!(ps_extra.contains_key("proposal_id"), "proposal_status_updated must have proposal_id");
+    assert!(ps_extra.contains_key("status"), "proposal_status_updated must have status");
+    assert!(ps_extra.contains_key("final_total_votes"), "proposal_status_updated must have final_total_votes");
+    assert!(ps_extra.contains_key("final_yes_votes"), "proposal_status_updated must have final_yes_votes");
+    assert!(ps_extra.contains_key("final_no_votes"), "proposal_status_updated must have final_no_votes");
+    assert!(ps_extra.contains_key("locked_member_count"), "proposal_status_updated must have locked_member_count");
+    assert!(ps_extra.contains_key("updated_at"), "proposal_status_updated must have updated_at");
+    assert!(ps_extra.contains_key("path"), "proposal_status_updated must have path");
+    assert!(ps_extra.contains_key("value"), "proposal_status_updated must have value");
+
+    let status = ps_extra.get("status").and_then(|v| v.as_str()).expect("status");
+    assert_eq!(status, "executed", "status must be 'executed'");
+
+    println!("   ✓ proposal_status_updated schema complete with all 10 required fields");
+    println!("   ✓ status='executed'");
+
+    // ==========================================================================
+    // TEST 4: proposal_status_updated event with rejected status
+    // ==========================================================================
+    println!("\n📦 TEST 4: proposal_status_updated event (rejected)...");
+
+    // Create a new proposal that will be rejected
+    let reject_proposal = owner
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_type": "custom_proposal",
+            "changes": {
+                "title": "Rejection Test Proposal",
+                "description": "This will be rejected",
+                "custom_data": {}
+            },
+            "auto_vote": true  // owner votes YES
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    let reject_proposal_id: String = reject_proposal.json()?;
+    println!("   ✓ Created proposal to reject: {}", reject_proposal_id);
+
+    // member1 votes NO
+    member1
+        .call(contract.id(), "vote_on_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": reject_proposal_id.clone(),
+            "approve": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    // member2 votes NO - triggers rejection (1 YES, 2 NO = defeat inevitable)
+    let reject_vote = member2
+        .call(contract.id(), "vote_on_proposal")
+        .args_json(json!({
+            "group_id": group_id,
+            "proposal_id": reject_proposal_id.clone(),
+            "approve": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .unwrap();
+
+    // Verify should_reject=true in vote_cast
+    let reject_vote_events = find_events_by_operation(&reject_vote.logs(), "vote_cast");
+    if !reject_vote_events.is_empty() {
+        let rv_extra = &reject_vote_events[0].data.first().expect("event data").extra;
+        let should_reject_flag = rv_extra.get("should_reject").and_then(|v| v.as_bool()).unwrap_or(false);
+        println!("   ✓ vote_cast.should_reject = {}", should_reject_flag);
+    }
+
+    // Verify proposal_status_updated with rejected status
+    let reject_status_events = find_events_by_operation(&reject_vote.logs(), "proposal_status_updated");
+    assert!(!reject_status_events.is_empty(), "proposal_status_updated must be emitted on rejection");
+
+    let rs_extra = &reject_status_events[0].data.first().expect("event data").extra;
+    let reject_status = rs_extra.get("status").and_then(|v| v.as_str()).expect("status");
+    assert_eq!(reject_status, "rejected", "status must be 'rejected'");
+
+    let final_total = rs_extra.get("final_total_votes").and_then(|v| v.as_u64()).expect("final_total_votes");
+    let final_yes = rs_extra.get("final_yes_votes").and_then(|v| v.as_u64()).expect("final_yes_votes");
+    let final_no = rs_extra.get("final_no_votes").and_then(|v| v.as_u64()).expect("final_no_votes");
+
+    assert_eq!(final_total, 3, "final_total_votes should be 3");
+    assert_eq!(final_yes, 1, "final_yes_votes should be 1 (owner)");
+    assert_eq!(final_no, 2, "final_no_votes should be 2 (member1, member2)");
+
+    println!("   ✓ proposal_status_updated.status='rejected'");
+    println!("   ✓ final tally: {} total, {} yes, {} no", final_total, final_yes, final_no);
+
+    // ==========================================================================
+    // TEST 5: Event partition consistency
+    // ==========================================================================
+    println!("\n📦 TEST 5: Event partition consistency...");
+
+    // Verify all governance events for this group have partition_id present
+    let all_logs: Vec<String> = create_proposal.logs().iter()
+        .chain(vote_result.logs().iter())
+        .chain(reject_vote.logs().iter())
+        .map(|s| s.to_string())
+        .collect();
+
+    let expected_partition = calculate_expected_partition(group_id);
+    let mut events_checked = 0;
+
+    for log in &all_logs {
+        if let Some(event) = decode_event(log) {
+            // Only check GROUP_UPDATE events (governance events)
+            if event.event != "GROUP_UPDATE" {
+                continue;
+            }
+            if let Some(data) = event.data.first() {
+                // Verify partition_id is present
+                assert!(data.partition_id.is_some(), "GROUP_UPDATE events must have partition_id");
+                
+                // Verify partition matches expected value for group_id
+                let partition = data.partition_id.unwrap();
+                assert_eq!(
+                    partition, expected_partition,
+                    "Partition {} should match expected {} for group_id '{}'",
+                    partition, expected_partition, group_id
+                );
+                events_checked += 1;
+            }
+        }
+    }
+
+    assert!(events_checked > 0, "Should have checked at least one GROUP_UPDATE event");
+    println!("   ✓ Verified {} events have consistent partition: {}", events_checked, expected_partition);
+
+    println!("\n✅ All governance events schema tests passed!");
+    Ok(())
+}

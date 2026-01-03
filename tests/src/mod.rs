@@ -13,6 +13,8 @@ pub mod lib_wrapper_regression_tests;
 #[cfg(test)]
 pub mod permissions_tests;
 #[cfg(test)]
+pub mod proposals_tests;
+#[cfg(test)]
 pub mod signed_payload_integration_tests;
 #[cfg(test)]
 pub mod storage_batch_tests;

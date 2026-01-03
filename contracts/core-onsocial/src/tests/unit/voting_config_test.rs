@@ -30,7 +30,7 @@ mod voting_config_tests {
             "voting_config": {
                 "participation_quorum_bps": 5000,  // 50.00% must vote
                 "majority_threshold_bps": 6667, // 66.67% must approve
-                "voting_period": 1209600000000000u64 // 14 days
+                "voting_period": "1209600000000000" // 14 days
             }
         });
         
@@ -95,7 +95,7 @@ mod voting_config_tests {
             "voting_config": {
                 "participation_quorum_bps": 5000,
                 "majority_threshold_bps": 6667,
-                "voting_period": 604800000000000u64
+                "voting_period": "604800000000000"
             }
         });
         contract.create_group("supermajority".to_string(), config).unwrap();
@@ -148,7 +148,7 @@ mod voting_config_tests {
         let proposal_data = json!({
             "participation_quorum_bps": 4000,
             "majority_threshold_bps": 7500,
-            "voting_period": 259200000000000u64 // 3 days
+            "voting_period": "259200000000000" // 3 days
         });
 
         let result = contract.create_group_proposal(
@@ -177,7 +177,7 @@ mod voting_config_tests {
         let proposal_data = json!({
             "participation_quorum_bps": 3300,
             "majority_threshold_bps": 6000,
-            "voting_period": 86400000000000u64 // 1 day
+            "voting_period": "86400000000000" // 1 day
         });
 
         let proposal_id = contract.create_group_proposal(
@@ -220,7 +220,7 @@ mod voting_config_tests {
             "voting_config": {
                 "participation_quorum_bps": 5100,
                 "majority_threshold_bps": 5100,
-                "voting_period": 604800000000000u64
+                "voting_period": "604800000000000"
             }
         });
         contract.create_group("changing_dao".to_string(), config).unwrap();
@@ -309,7 +309,7 @@ mod voting_config_tests {
         // Update only voting period (keep other params unchanged)
         testing_env!(get_context(alice.clone()).build());
         let proposal_data = json!({
-            "voting_period": 172800000000000u64 // 2 days, don't change quorum/threshold
+            "voting_period": "172800000000000" // 2 days, don't change quorum/threshold
         });
 
         contract.create_group_proposal(
@@ -413,7 +413,7 @@ mod voting_config_tests {
 
         // Try to set period too short (< 1 hour)
         testing_env!(get_context(alice.clone()).build());
-        let proposal_data = json!({"voting_period": 1000000000u64}); // 1 second
+        let proposal_data = json!({"voting_period": "1000000000"}); // 1 second
 
         let result = contract.create_group_proposal(
             "invalid_dao3".to_string(),
@@ -483,7 +483,7 @@ mod voting_config_tests {
             "voting_config": {
                 "participation_quorum_bps": 100,
                 "majority_threshold_bps": 5100,
-                "voting_period": 3600000000000u64 // 1 hour
+                "voting_period": "3600000000000" // 1 hour
             }
         });
         
@@ -500,7 +500,7 @@ mod voting_config_tests {
             "voting_config": {
                 "participation_quorum_bps": 9900,
                 "majority_threshold_bps": 9900,
-                "voting_period": 31536000000000000u64 // 365 days
+                "voting_period": "31536000000000000" // 365 days
             }
         });
         
@@ -533,7 +533,7 @@ mod voting_config_tests {
         contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal2, None).unwrap();
 
         // Third config change
-        let proposal3 = json!({"voting_period": 259200000000000u64});
+        let proposal3 = json!({"voting_period": "259200000000000"});
         contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal3, None).unwrap();
 
         // Verify all changes were applied
@@ -593,7 +593,7 @@ mod voting_config_tests {
             "voting_config": {
                 "participation_quorum_bps": 5100,
                 "majority_threshold_bps": 5001,
-                "voting_period": 604800000000000u64 // 7 days
+                "voting_period": "604800000000000" // 7 days
             }
         });
         contract.create_group("vote_test_dao".to_string(), config).unwrap();
@@ -610,7 +610,7 @@ mod voting_config_tests {
         let proposal_data = json!({
             "participation_quorum_bps": 6600,
             "majority_threshold_bps": 7500,
-            "voting_period": 1209600000000000u64 // Increase to 14 days
+            "voting_period": "1209600000000000" // Increase to 14 days
         });
         let proposal_id = contract.create_group_proposal(
             "vote_test_dao".to_string(),

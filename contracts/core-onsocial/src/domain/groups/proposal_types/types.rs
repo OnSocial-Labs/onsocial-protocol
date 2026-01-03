@@ -1,4 +1,4 @@
-use near_sdk::{json_types::U64, AccountId, env, serde_json::Value};
+use near_sdk::{json_types::U64, AccountId, serde_json::Value};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub enum ProposalType {
@@ -39,16 +39,16 @@ impl ProposalType {
         }
     }
 
-    pub fn target(&self) -> AccountId {
+    pub fn target(&self, proposer: &AccountId) -> AccountId {
         match self {
-            Self::GroupUpdate { .. } => env::predecessor_account_id(),
+            Self::GroupUpdate { .. } => proposer.clone(),
             Self::PermissionChange { target_user, .. } => target_user.clone(),
             Self::PathPermissionGrant { target_user, .. } => target_user.clone(),
             Self::PathPermissionRevoke { target_user, .. } => target_user.clone(),
             Self::MemberInvite { target_user, .. } => target_user.clone(),
             Self::JoinRequest { requester, .. } => requester.clone(),
-            Self::VotingConfigChange { .. } => env::predecessor_account_id(),
-            Self::CustomProposal { .. } => env::predecessor_account_id(),
+            Self::VotingConfigChange { .. } => proposer.clone(),
+            Self::CustomProposal { .. } => proposer.clone(),
         }
     }
 }

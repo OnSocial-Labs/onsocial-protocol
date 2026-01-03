@@ -2228,4 +2228,97 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         
         println!("✅ Voting period overflow protection works correctly");
     }
+
+    // ============================================================================
+    // TALLY NOT FOUND ERROR PATH TEST
+    // ============================================================================
+
+    /// Tests votes.rs lines 29-32: Vote tally not found error path.
+    /// This edge case occurs if proposal exists but tally is missing (data corruption).
+    #[test]
+    fn test_vote_fails_when_tally_missing() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+        let bob = test_account(1);
+
+        // Create member-driven group
+        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        let config = json!({
+            "member_driven": true,
+            "is_private": true,
+        });
+        contract.create_group("tally-missing-group".to_string(), config).unwrap();
+
+        // Add bob as a member
+        let member_data = json!({
+            "level": 0,
+            "granted_by": alice,
+            "joined_at": 0,
+            "is_creator": false
+        });
+        contract.platform.storage_set(
+            &format!("groups/tally-missing-group/members/{}", bob.as_str()),
+            &member_data
+        ).unwrap();
+
+        // Update member count
+        let stats = json!({
+            "total_members": 2,
+            "total_join_requests": 0,
+            "created_at": 0,
+            "last_updated": 0
+        });
+        contract.platform.storage_set("groups/tally-missing-group/stats", &stats).unwrap();
+
+        // Manually create a proposal entry WITHOUT its corresponding tally
+        // This simulates a corrupted state where tally is missing
+        let fake_proposal_id = "orphan_proposal_123";
+        let proposal_data = json!({
+            "id": fake_proposal_id,
+            "sequence_number": 1,
+            "type": "custom_proposal",
+            "proposer": alice.as_str(),
+            "target": alice.as_str(),
+            "data": {
+                "CustomProposal": {
+                    "title": "Test",
+                    "description": "Test proposal without tally",
+                    "custom_data": {}
+                }
+            },
+            "created_at": "0",
+            "status": "active",
+            "voting_config": {
+                "participation_quorum_bps": 5100,
+                "majority_threshold_bps": 5001,
+                "voting_period": "604800000000000"
+            }
+        });
+        contract.platform.storage_set(
+            &format!("groups/tally-missing-group/proposals/{}", fake_proposal_id),
+            &proposal_data
+        ).unwrap();
+
+        // Note: We intentionally do NOT create the tally entry at:
+        // groups/tally-missing-group/votes/{fake_proposal_id}
+
+        // Bob tries to vote - should fail with "Vote tally not found"
+        testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
+        let vote_result = contract.vote_on_proposal(
+            "tally-missing-group".to_string(),
+            fake_proposal_id.to_string(),
+            true
+        );
+
+        assert!(vote_result.is_err(), "Vote should fail when tally is missing");
+        let error_msg = vote_result.unwrap_err().to_string();
+        assert!(
+            error_msg.contains("Vote tally not found") || error_msg.contains("InvalidInput"),
+            "Error should indicate tally not found, got: {}",
+            error_msg
+        );
+
+        println!("✅ Vote correctly fails when tally entry is missing");
+    }
 }
+

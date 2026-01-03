@@ -280,7 +280,7 @@ mod comprehensive_integration_tests {
                 "voting_config": {
                     "participation_quorum_bps": 5100,
                     "majority_threshold_bps": 5001,
-                    "voting_period": 604800000000000u64  // 1 week in nanoseconds
+                    "voting_period": "604800000000000"  // 1 week in nanoseconds
                 }
             }),
         ).unwrap();
