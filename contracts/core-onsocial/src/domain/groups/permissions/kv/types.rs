@@ -63,11 +63,18 @@ pub(crate) fn parse_permission_value(value: &str) -> Option<(PermissionLevel, u6
 
 #[inline]
 pub(crate) fn normalize_group_path_owned(path: &str) -> Option<String> {
-    if path.starts_with("groups/") {
-        return Some(path.to_string());
+    let normalized = if path.starts_with("groups/") {
+        path.to_string()
+    } else if let Some(idx) = path.find("/groups/") {
+        path[(idx + 1)..].to_string()
+    } else {
+        return None;
+    };
+    let after_prefix = normalized.strip_prefix("groups/")?;
+    if after_prefix.is_empty() || after_prefix.starts_with('/') {
+        return None;
     }
-    let idx = path.find("/groups/")?;
-    Some(path[(idx + 1)..].to_string())
+    Some(normalized)
 }
 
 pub(crate) fn get_parent_path(path: &str) -> Option<String> {
@@ -195,6 +202,7 @@ pub(crate) fn is_group_owner(platform: &SocialPlatform, group_id: &str, actor_id
         .unwrap_or(false)
 }
 
+/// Key permissions for group paths require active membership; leaving a group invalidates key access.
 pub(crate) fn key_permission_level(
     platform: &SocialPlatform,
     owner: &str,

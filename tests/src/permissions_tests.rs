@@ -2413,3 +2413,102 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/// Test: Malformed group paths are handled gracefully.
+/// Covers: normalize_group_path_owned() validation (Issue #3 fix)
+#[tokio::test]
+async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+
+    // Malformed path: "groups/" with no group ID - should fail validation
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/",
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "Malformed path 'groups/' should be rejected");
+
+    // Malformed path: "groups//foo" (empty group ID) - should fail validation
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups//foo",
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "Malformed path 'groups//foo' should be rejected");
+
+    // Verify well-formed group paths still work
+    create_group(&contract, &alice, "valid-group").await?;
+    add_member(&contract, &alice, "valid-group", &bob).await?;
+
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/valid-group/content/",
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Well-formed group path should succeed: {:?}", res.failures());
+
+    // Additional edge case: "groups" without trailing slash
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups",
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "Path 'groups' without group ID should be rejected");
+
+    // View function with malformed path should return 0/false, not panic
+    let perm_level: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(perm_level, 0, "Malformed path should return 0 permissions");
+
+    let has_perm: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/",
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(!has_perm, "Malformed path should return false for has_permission");
+
+    Ok(())
+}

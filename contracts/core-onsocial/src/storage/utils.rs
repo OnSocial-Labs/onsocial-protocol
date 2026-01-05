@@ -55,22 +55,26 @@ pub fn parse_groups_path(full_path: &str) -> Option<(&str, &str)> {
 
 #[inline(always)]
 pub fn extract_group_id_from_path(path: &str) -> Option<&str> {
-    if let Some(groups_idx) = path.find("/groups/") {
+    let group_id = if let Some(groups_idx) = path.find("/groups/") {
         let after_groups = &path[(groups_idx + 8)..]; // Skip "/groups/"
         if let Some(slash_pos) = after_groups.find('/') {
-            Some(&after_groups[..slash_pos])
+            &after_groups[..slash_pos]
         } else {
-            Some(after_groups)
+            after_groups
         }
     } else if let Some(rest) = path.strip_prefix("groups/") {
         if let Some(slash_pos) = rest.find('/') {
-            Some(&rest[..slash_pos])
+            &rest[..slash_pos]
         } else {
-            Some(rest)
+            rest
         }
     } else {
-        None
+        return None;
+    };
+    if group_id.is_empty() {
+        return None;
     }
+    Some(group_id)
 }
 
 

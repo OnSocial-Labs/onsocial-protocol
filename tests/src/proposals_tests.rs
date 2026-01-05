@@ -2461,3 +2461,1258 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
     println!("✅ VotingConfig correctly sanitized (clamped to minimums)");
     Ok(())
 }
+
+// =============================================================================
+// DISPATCH.RS EXECUTE PATH TESTS - EXECUTION EFFECTS
+// =============================================================================
+// These tests verify that after a proposal passes and execute() is called via
+// dispatch.rs, the actual state changes take effect correctly.
+
+// =============================================================================
+// PATH PERMISSION GRANT - EXECUTION EFFECT
+// =============================================================================
+
+/// After PathPermissionGrant proposal executes, target user should have the granted permission.
+#[tokio::test]
+async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: PathPermissionGrant Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group with 3 members for voting
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "grant-effect-group",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "grant-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+
+    // Add Charlie via member_invite proposal (2 members - Alice auto-votes, so it passes)
+    let invite_charlie = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "grant-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": charlie.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    println!("   ✓ Group created with 3 members via proposals");
+
+    // Verify Bob does NOT have MODERATE permission on docs before grant
+    let has_perm_before: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id().to_string(),
+            "grantee": bob.id().to_string(),
+            "path": "groups/grant-effect-group/docs",
+            "level": 2
+        }))
+        .await?
+        .json()?;
+    assert!(!has_perm_before, "Bob should NOT have MODERATE on docs before grant");
+    println!("   ✓ Verified Bob has no MODERATE on docs before grant");
+
+    // Create PathPermissionGrant proposal with auto_vote=false
+    // Grant level 2 (MODERATE) so it's distinct from the default content WRITE
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "grant-effect-group",
+            "proposal_type": "path_permission_grant",
+            "changes": {
+                "target_user": bob.id().to_string(),
+                "path": "groups/grant-effect-group/docs",
+                "level": 2,
+                "reason": "Grant Bob moderate access to docs"
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ PathPermissionGrant proposal created: {}", proposal_id);
+
+    // Alice and Bob vote YES to pass (need quorum)
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "grant-effect-group",
+                "proposal_id": proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Proposal passed with 2/3 votes");
+
+    // Verify proposal is executed
+    let key = format!("groups/grant-effect-group/proposals/{}", proposal_id);
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [key.clone()] }))
+        .await?
+        .json()?;
+    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    assert_eq!(
+        proposal.get("status").and_then(|v| v.as_str()),
+        Some("executed"),
+        "Proposal should be executed"
+    );
+    println!("   ✓ Proposal status is 'executed'");
+
+    // Verify Bob now has MODERATE permission on docs via has_permission view
+    let has_perm_after: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id().to_string(),
+            "grantee": bob.id().to_string(),
+            "path": "groups/grant-effect-group/docs",
+            "level": 2
+        }))
+        .await?
+        .json()?;
+    assert!(has_perm_after, "Bob SHOULD have MODERATE on docs after PathPermissionGrant executed");
+    println!("   ✓ Bob now has MODERATE permission on docs");
+
+    println!("✅ PathPermissionGrant execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// PATH PERMISSION REVOKE - EXECUTION EFFECT
+// =============================================================================
+
+/// After PathPermissionRevoke proposal executes, target user should lose the permission.
+#[tokio::test]
+async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: PathPermissionRevoke Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "revoke-effect-group",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "revoke-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+
+    // Add Charlie via member_invite proposal
+    let invite_charlie = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "revoke-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": charlie.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    println!("   ✓ Group created with 3 members via proposals");
+
+    // First, grant Bob WRITE (level 1) on content via a proposal
+    let grant_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "revoke-effect-group",
+            "proposal_type": "path_permission_grant",
+            "changes": {
+                "target_user": bob.id().to_string(),
+                "path": "groups/revoke-effect-group/content",
+                "level": 1,
+                "reason": "Grant Bob write access"
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(grant_proposal.is_success(), "Grant proposal should succeed");
+    println!("   ✓ PathPermissionGrant proposal created for Bob");
+
+    // Verify Bob now has WRITE permission on content
+    let has_perm_before: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id().to_string(),
+            "grantee": bob.id().to_string(),
+            "path": "groups/revoke-effect-group/content",
+            "level": 1
+        }))
+        .await?
+        .json()?;
+    assert!(has_perm_before, "Bob should have WRITE on content after grant");
+    println!("   ✓ Verified Bob has WRITE permission on content after grant");
+
+    // Create PathPermissionRevoke proposal (Alice auto-votes via default)
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "revoke-effect-group",
+            "proposal_type": "path_permission_revoke",
+            "changes": {
+                "target_user": bob.id().to_string(),
+                "path": "groups/revoke-effect-group/content",
+                "reason": "Revoke Bob's content access"
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ PathPermissionRevoke proposal created: {}", proposal_id);
+
+    // Bob votes YES to reach quorum (2/3 votes)
+    let vote = bob
+        .call(contract.id(), "vote_on_proposal")
+        .args_json(json!({
+            "group_id": "revoke-effect-group",
+            "proposal_id": proposal_id.clone(),
+            "approve": true
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(vote.is_success(), "Bob vote should succeed");
+    println!("   ✓ Proposal passed with 2/3 votes");
+
+    // Verify proposal is executed
+    let key = format!("groups/revoke-effect-group/proposals/{}", proposal_id);
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [key.clone()] }))
+        .await?
+        .json()?;
+    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    assert_eq!(
+        proposal.get("status").and_then(|v| v.as_str()),
+        Some("executed"),
+        "Proposal should be executed"
+    );
+    println!("   ✓ Proposal status is 'executed'");
+
+    // Verify Bob no longer has WRITE permission on content
+    let has_perm_after: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id().to_string(),
+            "grantee": bob.id().to_string(),
+            "path": "groups/revoke-effect-group/content",
+            "level": 1
+        }))
+        .await?
+        .json()?;
+    assert!(!has_perm_after, "Bob should NOT have WRITE permission after revoke");
+    println!("   ✓ Bob no longer has WRITE permission on content after PathPermissionRevoke executed");
+
+    println!("✅ PathPermissionRevoke execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// PERMISSION CHANGE - EXECUTION EFFECT
+// =============================================================================
+
+/// After PermissionChange proposal executes, target member's level should be updated.
+#[tokio::test]
+async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: PermissionChange Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "perm-change-effect",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "perm-change-effect",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+
+    // Add Charlie via member_invite proposal
+    let invite_charlie = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "perm-change-effect",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": charlie.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    println!("   ✓ Group created with 3 members via proposals (all level 0)");
+
+    // Verify Bob's current level is 0
+    let member_key = format!("groups/perm-change-effect/members/{}", bob.id());
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [member_key.clone()] }))
+        .await?
+        .json()?;
+    let member_data = entry_value(&get_result, &member_key).cloned().unwrap_or(Value::Null);
+    let level_before = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
+    assert_eq!(level_before, 0, "Bob's level should be 0 before change");
+    println!("   ✓ Bob's level is 0 before PermissionChange");
+
+    // Create PermissionChange proposal to promote Bob to level 2 (MODERATE)
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "perm-change-effect",
+            "proposal_type": "permission_change",
+            "changes": {
+                "target_user": bob.id().to_string(),
+                "level": 2,
+                "reason": "Promote Bob to moderator"
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ PermissionChange proposal created: {}", proposal_id);
+
+    // Alice and Bob vote YES
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "perm-change-effect",
+                "proposal_id": proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Proposal passed with 2/3 votes");
+
+    // Verify Bob's level is now 2
+    let get_result_after: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [member_key.clone()] }))
+        .await?
+        .json()?;
+    let member_data_after = entry_value(&get_result_after, &member_key).cloned().unwrap_or(Value::Null);
+    let level_after = member_data_after.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
+    assert_eq!(level_after, 2, "Bob's level should be 2 after PermissionChange");
+    println!("   ✓ Bob's level is now 2 after PermissionChange executed");
+
+    println!("✅ PermissionChange execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// VOTING CONFIG CHANGE - EXECUTION EFFECT
+// =============================================================================
+
+/// After VotingConfigChange proposal executes, new config should apply.
+#[tokio::test]
+async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: VotingConfigChange Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group with default voting config
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "voting-config-effect",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "voting-config-effect",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+    println!("   ✓ Group created with 2 members via proposal");
+
+    // Create VotingConfigChange proposal to set quorum to 9000 (90%)
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "voting-config-effect",
+            "proposal_type": "voting_config_change",
+            "changes": {
+                "participation_quorum_bps": 9000
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ VotingConfigChange proposal created: {}", proposal_id);
+
+    // Both vote YES
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "voting-config-effect",
+                "proposal_id": proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ VotingConfigChange proposal passed");
+
+    // Verify config now has 90% quorum
+    let config_key = "groups/voting-config-effect/config";
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [config_key] }))
+        .await?
+        .json()?;
+    let group_config = entry_value(&get_result, config_key).cloned().unwrap_or(Value::Null);
+    let quorum = group_config
+        .get("voting_config")
+        .and_then(|v| v.get("participation_quorum_bps"))
+        .and_then(|v| v.as_u64());
+    assert_eq!(quorum, Some(9000), "Quorum should be 9000 after VotingConfigChange");
+    println!("   ✓ Group config now has 90% quorum");
+
+    println!("✅ VotingConfigChange execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// GROUP UPDATE (REMOVE MEMBER) - EXECUTION EFFECT
+// =============================================================================
+
+/// After GroupUpdate RemoveMember proposal executes, target should no longer be a member.
+#[tokio::test]
+async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate RemoveMember Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "remove-member-effect",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "remove-member-effect",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+
+    // Add Charlie via member_invite proposal (need Bob to vote now - 2 members)
+    let invite_charlie = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "remove-member-effect",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": charlie.id().to_string(), "level": 0 },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_charlie.is_success(), "Creating invite proposal should succeed");
+    let invite_charlie_id: String = invite_charlie.json()?;
+
+    // Alice and Bob vote YES to add Charlie
+    for (user, _) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "remove-member-effect",
+                "proposal_id": invite_charlie_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "Vote should succeed");
+    }
+    println!("   ✓ Group created with 3 members via proposals");
+
+    // Verify Charlie is a member
+    let is_charlie_member_before: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "remove-member-effect",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_charlie_member_before, "Charlie should be a member before removal");
+    println!("   ✓ Charlie is a member before proposal");
+
+    // Create GroupUpdate RemoveMember proposal
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "remove-member-effect",
+            "proposal_type": "group_update",
+            "changes": {
+                "update_type": "remove_member",
+                "target_user": charlie.id().to_string()
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ RemoveMember proposal created: {}", proposal_id);
+
+    // Alice and Bob vote YES
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "remove-member-effect",
+                "proposal_id": proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Proposal passed with 2/3 votes");
+
+    // Verify Charlie is no longer a member
+    let is_charlie_member_after: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "remove-member-effect",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_charlie_member_after, "Charlie should NOT be a member after removal");
+    println!("   ✓ Charlie is no longer a member after RemoveMember executed");
+
+    println!("✅ GroupUpdate RemoveMember execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// GROUP UPDATE (UNBAN) - EXECUTION EFFECT
+// =============================================================================
+
+/// After GroupUpdate Unban proposal executes, target should be able to rejoin.
+#[tokio::test]
+async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Unban Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+
+    // Add Charlie via member_invite proposal
+    let invite_charlie = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": charlie.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    println!("   ✓ Group created with 3 members via proposals");
+
+    // Ban Charlie via proposal first
+    let ban_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "proposal_type": "group_update",
+            "changes": {
+                "update_type": "ban",
+                "target_user": charlie.id().to_string()
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(ban_proposal.is_success(), "Ban proposal should succeed");
+    let ban_proposal_id: String = ban_proposal.json()?;
+
+    // Alice and Bob vote YES to ban
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "unban-effect-group",
+                "proposal_id": ban_proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Charlie is now banned");
+
+    // Verify Charlie is blacklisted
+    let is_blacklisted: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "user_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_blacklisted, "Charlie should be blacklisted");
+
+    // Create Unban proposal
+    let unban_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "proposal_type": "group_update",
+            "changes": {
+                "update_type": "unban",
+                "target_user": charlie.id().to_string()
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(unban_proposal.is_success(), "Unban proposal should succeed");
+    let unban_proposal_id: String = unban_proposal.json()?;
+    println!("   ✓ Unban proposal created: {}", unban_proposal_id);
+
+    // Alice and Bob vote YES to unban
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "unban-effect-group",
+                "proposal_id": unban_proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Unban proposal passed");
+
+    // Verify Charlie is no longer blacklisted
+    let is_blacklisted_after: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "unban-effect-group",
+            "user_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_blacklisted_after, "Charlie should NOT be blacklisted after unban");
+    println!("   ✓ Charlie is no longer blacklisted after Unban executed");
+
+    println!("✅ GroupUpdate Unban execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// GROUP UPDATE (METADATA) - EXECUTION EFFECT
+// =============================================================================
+
+/// After GroupUpdate Metadata proposal executes, config field should be updated.
+#[tokio::test]
+async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Metadata Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "metadata-effect-group",
+            "config": { "member_driven": true, "is_private": true, "description": "Original" }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "metadata-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+    println!("   ✓ Group created with 2 members via proposal");
+
+    // Verify current description
+    let config_key = "groups/metadata-effect-group/config";
+    let get_before: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [config_key] }))
+        .await?
+        .json()?;
+    let config_before = entry_value(&get_before, config_key).cloned().unwrap_or(Value::Null);
+    let desc_before = config_before.get("description").and_then(|v| v.as_str());
+    assert_eq!(desc_before, Some("Original"), "Description should be 'Original' before");
+    println!("   ✓ Description is 'Original' before proposal");
+
+    // Create GroupUpdate Metadata proposal
+    let create_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "metadata-effect-group",
+            "proposal_type": "group_update",
+            "changes": {
+                "update_type": "metadata",
+                "changes": {
+                    "description": "Updated via governance"
+                }
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ Metadata update proposal created: {}", proposal_id);
+
+    // Both vote YES
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "metadata-effect-group",
+                "proposal_id": proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Proposal passed with 2/2 votes");
+
+    // Verify description is updated
+    let get_after: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [config_key] }))
+        .await?
+        .json()?;
+    let config_after = entry_value(&get_after, config_key).cloned().unwrap_or(Value::Null);
+    let desc_after = config_after.get("description").and_then(|v| v.as_str());
+    assert_eq!(desc_after, Some("Updated via governance"), "Description should be updated");
+    println!("   ✓ Description is now 'Updated via governance' after proposal executed");
+
+    println!("✅ GroupUpdate Metadata execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// JOIN REQUEST - EXECUTION EFFECT
+// =============================================================================
+
+/// After JoinRequest proposal executes, the requester should become a group member.
+#[tokio::test]
+async fn test_join_request_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: JoinRequest Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven private group (join requests go through proposals)
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "join-request-effect",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "join-request-effect",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+    println!("   ✓ Group created with 2 members (Alice, Bob)");
+
+    // Verify Charlie is NOT a member before join request
+    let is_charlie_member_before: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "join-request-effect",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_charlie_member_before, "Charlie should NOT be a member before join request");
+    println!("   ✓ Charlie is not a member before join request");
+
+    // Charlie submits a join request (creates JoinRequest proposal)
+    let join_request = charlie
+        .call(contract.id(), "join_group")
+        .args_json(json!({
+            "group_id": "join-request-effect"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(join_request.is_success(), "Join request should succeed");
+
+    // Find the JoinRequest proposal ID from logs
+    let logs: Vec<String> = join_request.logs().iter().map(|s| s.to_string()).collect();
+    let events = find_events_by_operation(&logs, "proposal_created");
+    assert!(!events.is_empty(), "JoinRequest should create a proposal");
+    let proposal_id = events[0]
+        .data
+        .first()
+        .and_then(|d| d.extra.get("proposal_id"))
+        .and_then(|v| v.as_str())
+        .expect("proposal_id should exist");
+    println!("   ✓ JoinRequest proposal created: {}", proposal_id);
+
+    // Alice and Bob vote YES to approve the join request
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "join-request-effect",
+                "proposal_id": proposal_id,
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ JoinRequest proposal passed with 2/2 votes");
+
+    // Verify proposal is executed
+    let key = format!("groups/join-request-effect/proposals/{}", proposal_id);
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [key.clone()] }))
+        .await?
+        .json()?;
+    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    assert_eq!(
+        proposal.get("status").and_then(|v| v.as_str()),
+        Some("executed"),
+        "Proposal should be executed"
+    );
+    println!("   ✓ Proposal status is 'executed'");
+
+    // Verify Charlie is now a member
+    let is_charlie_member_after: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "join-request-effect",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_charlie_member_after, "Charlie SHOULD be a member after JoinRequest executed");
+    println!("   ✓ Charlie is now a member after JoinRequest executed");
+
+    println!("✅ JoinRequest execution effect verified");
+    Ok(())
+}
+
+// =============================================================================
+// GROUP UPDATE (BAN) - EXECUTION EFFECT
+// =============================================================================
+
+/// After GroupUpdate Ban proposal executes, target should be blacklisted.
+#[tokio::test]
+async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Ban Execution Effect ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "config": { "member_driven": true, "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob via member_invite proposal (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Inviting Bob should succeed");
+
+    // Add Charlie via member_invite proposal (need explicit voting with 2 members)
+    let invite_charlie = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "proposal_type": "member_invite",
+            "changes": { "target_user": charlie.id().to_string(), "level": 0 },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_charlie.is_success(), "Creating invite proposal should succeed");
+    let invite_charlie_id: String = invite_charlie.json()?;
+
+    // Alice and Bob vote YES to add Charlie
+    for (user, _) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "ban-effect-group",
+                "proposal_id": invite_charlie_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "Vote should succeed");
+    }
+    println!("   ✓ Group created with 3 members via proposals");
+
+    // Verify Charlie is a member and NOT blacklisted before ban
+    let is_charlie_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_charlie_member, "Charlie should be a member before ban");
+
+    let is_blacklisted_before: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "user_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_blacklisted_before, "Charlie should NOT be blacklisted before ban");
+    println!("   ✓ Charlie is a member and not blacklisted before ban");
+
+    // Create Ban proposal
+    let ban_proposal = alice
+        .call(contract.id(), "create_group_proposal")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "proposal_type": "group_update",
+            "changes": {
+                "update_type": "ban",
+                "target_user": charlie.id().to_string()
+            },
+            "auto_vote": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(ban_proposal.is_success(), "Ban proposal should succeed");
+    let proposal_id: String = ban_proposal.json()?;
+    println!("   ✓ Ban proposal created: {}", proposal_id);
+
+    // Alice and Bob vote YES to ban Charlie
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "vote_on_proposal")
+            .args_json(json!({
+                "group_id": "ban-effect-group",
+                "proposal_id": proposal_id.clone(),
+                "approve": true
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Ban proposal passed with 2/3 votes");
+
+    // Verify proposal is executed
+    let key = format!("groups/ban-effect-group/proposals/{}", proposal_id);
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [key.clone()] }))
+        .await?
+        .json()?;
+    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    assert_eq!(
+        proposal.get("status").and_then(|v| v.as_str()),
+        Some("executed"),
+        "Proposal should be executed"
+    );
+    println!("   ✓ Proposal status is 'executed'");
+
+    // Verify Charlie is no longer a member
+    let is_charlie_member_after: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_charlie_member_after, "Charlie should NOT be a member after ban");
+    println!("   ✓ Charlie is no longer a member after ban");
+
+    // Verify Charlie is now blacklisted
+    let is_blacklisted_after: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "ban-effect-group",
+            "user_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_blacklisted_after, "Charlie SHOULD be blacklisted after ban");
+    println!("   ✓ Charlie is now blacklisted after Ban executed");
+
+    println!("✅ GroupUpdate Ban execution effect verified");
+    Ok(())
+}
