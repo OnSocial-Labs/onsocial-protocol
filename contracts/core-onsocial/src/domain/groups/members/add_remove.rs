@@ -48,7 +48,7 @@ impl crate::domain::groups::core::GroupStorage {
         let is_private = cfg.is_private.unwrap_or(false);
         let is_public = !is_private;
 
-        if !crate::domain::groups::permissions::kv::is_valid_permission_level(level, true) {
+        if !crate::domain::groups::permissions::kv::types::is_valid_permission_level(level, true) {
             return Err(invalid_input!("Invalid permission level"));
         }
 
@@ -77,7 +77,7 @@ impl crate::domain::groups::core::GroupStorage {
         }
 
         if is_self_join && is_public {
-            if level != crate::domain::groups::permissions::kv::NONE {
+            if level != crate::domain::groups::permissions::kv::types::NONE {
                 return Err(invalid_input!(
                     "Public self-join must use 0 (member-only). Default /content WRITE is granted automatically"
                 ));
@@ -124,7 +124,7 @@ impl crate::domain::groups::core::GroupStorage {
             &group_owner,
             member_id,
             &default_content_path,
-            crate::domain::groups::permissions::kv::WRITE,
+            crate::domain::groups::permissions::kv::types::WRITE,
             None,
             &mut event_batch,
             None,
@@ -162,7 +162,7 @@ impl crate::domain::groups::core::GroupStorage {
                 group_id,
                 caller,
                 caller,
-                crate::domain::groups::permissions::kv::NONE,
+                crate::domain::groups::permissions::kv::types::NONE,
             )
         }
     }

@@ -813,3 +813,204 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
 
     Ok(())
 }
+
+// =============================================================================
+// Additional Edge Case Tests for has_permissions_or_key_for_actor fallback
+// =============================================================================
+
+/// Test: has_permissions_or_key_for_actor fallback - when account permission fails, key permission is checked.
+/// Covers: has_permissions_or_key_for_actor() in key_permissions.rs
+///
+/// Scenario:
+/// 1. Bob has NO account-level permission to write to Alice's data
+/// 2. Relayer's PUBLIC KEY has WRITE permission to Alice's profile/
+/// 3. Relayer (using that key) can write to Alice via set(request) because key fallback succeeds
+/// 4. If we revoke the key permission, relayer fails (no account perm, no key perm)
+#[tokio::test]
+async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create relayer with known key
+    let relayer_id = unique_account_id("relayer")?;
+    let relayer_sk = SecretKey::from_random(KeyType::ED25519);
+    let relayer = worker
+        .create_tla(relayer_id.clone(), relayer_sk.clone())
+        .await?
+        .into_result()?;
+    let relayer_pk = relayer_sk.public_key();
+
+    // Pre-deposit storage for Alice
+    let res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "storage/deposit": {"amount": "1000000000000000000000000"}
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Storage deposit should succeed");
+
+    // Verify relayer has NO account permission (this is the default)
+    // Attempt should fail - neither account perm nor key perm exists yet.
+    let res = relayer
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "data": {
+                    "profile/name": "Should fail"
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "Should fail - no account perm, no key perm");
+
+    // Grant KEY permission (not account permission) to relayer's public key
+    let res = alice
+        .call(contract.id(), "set_key_permission")
+        .args_json(json!({
+            "public_key": relayer_pk,
+            "path": "profile/",
+            "level": 1,  // WRITE
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission should succeed");
+
+    // Now relayer should succeed via KEY fallback (account check fails, key check passes)
+    let res = relayer
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "data": {
+                    "profile/name": "Alice via key fallback"
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Should succeed via key permission fallback");
+
+    // Revoke the key permission
+    let res = alice
+        .call(contract.id(), "set_key_permission")
+        .args_json(json!({
+            "public_key": relayer_pk,
+            "path": "profile/",
+            "level": 0,  // NONE - revoke
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Revoke key permission should succeed");
+
+    // Now relayer should fail again (no account perm, no key perm)
+    let res = relayer
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "data": {
+                    "profile/name": "Should fail again"
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "Should fail after key permission revoked");
+
+    Ok(())
+}
+
+/// Test: Account permission takes precedence - if account permission exists, key is not needed.
+/// Covers: has_permissions_or_key_for_actor() short-circuit on account permission success
+#[tokio::test]
+async fn test_account_permission_takes_precedence_over_key() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Pre-deposit storage for Alice
+    let res = alice
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "data": {
+                    "storage/deposit": {"amount": "1000000000000000000000000"}
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Storage deposit should succeed");
+
+    // Grant ACCOUNT permission to Bob (not key permission)
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "profile/",
+            "level": 1,  // WRITE
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission should succeed");
+
+    // Bob can write via account permission (no key permission needed)
+    let res = bob
+        .call(contract.id(), "set")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "data": {
+                    "profile/name": "Alice via Bob's account permission"
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Should succeed via account permission");
+
+    Ok(())
+}

@@ -73,7 +73,7 @@ fn signed_payload_happy_path_writes_data() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::types::WRITE, None)
         .expect("grant key permission");
 
     // Relayer submits signed payload with deposit to cover storage.
@@ -151,7 +151,7 @@ fn signed_payload_rejects_replay_nonce() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::types::WRITE, None)
         .expect("grant key permission");
 
     let deposit = NearToken::from_yoctonear(2 * 10u128.pow(24));
@@ -234,7 +234,7 @@ fn signed_payload_rejects_expired() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::types::WRITE, None)
         .expect("grant key permission");
 
     let mut ctx = VMContextBuilder::new();
@@ -304,7 +304,7 @@ fn signed_payload_rejects_bad_signature() {
         })
         .expect("storage deposit for alice");
     contract
-        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::WRITE, None)
+        .set_key_permission(pk.clone(), "profile".to_string(), crate::domain::groups::permissions::kv::types::WRITE, None)
         .expect("grant key permission");
 
     let mut ctx = VMContextBuilder::new();

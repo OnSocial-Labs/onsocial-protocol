@@ -25,7 +25,7 @@ impl ProposalType {
             group_id,
             requester,
             executor,
-            kv_permissions::NONE,
+            kv_permissions::types::NONE,
             AddMemberAuth::BypassPermissions,
         )?;
 
@@ -35,7 +35,7 @@ impl ProposalType {
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(requester)
-            .with_field("level", kv_permissions::NONE)
+            .with_field("level", kv_permissions::types::NONE)
             .with_field("message", message)
             .emit(&mut event_batch);
         event_batch.emit()?;

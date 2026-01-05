@@ -22,7 +22,7 @@ impl SocialPlatform {
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
 
-        if level != 0 && !crate::domain::groups::permissions::kv::is_valid_permission_level(level, false) {
+        if level != 0 && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(level, false) {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 
@@ -78,7 +78,7 @@ impl SocialPlatform {
                 caller.as_str(),
                 &full_path,
             )
-            && level != crate::domain::groups::permissions::kv::MANAGE;
+            && level != crate::domain::groups::permissions::kv::types::MANAGE;
 
         if !is_authorized && !is_manage_delegation {
             return Err(crate::unauthorized!(
@@ -234,7 +234,7 @@ impl SocialPlatform {
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
 
-        if level != 0 && !crate::domain::groups::permissions::kv::is_valid_permission_level(level, false) {
+        if level != 0 && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(level, false) {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 

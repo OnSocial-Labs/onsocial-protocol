@@ -131,7 +131,7 @@ impl crate::domain::groups::core::GroupStorage {
             group_id,
             requester_id,
             approver_id,
-            crate::domain::groups::permissions::kv::NONE,
+            crate::domain::groups::permissions::kv::types::NONE,
             AddMemberAuth::AlreadyAuthorized,
         )?;
 
@@ -151,7 +151,7 @@ impl crate::domain::groups::core::GroupStorage {
             );
             obj.insert(
                 "granted_permissions".to_string(),
-                Value::Number(crate::domain::groups::permissions::kv::NONE.into()),
+                Value::Number(crate::domain::groups::permissions::kv::types::NONE.into()),
             );
         }
 

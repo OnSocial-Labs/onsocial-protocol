@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test_enhanced_permissions {
-    use crate::domain::groups::permissions::kv::{FULL_ACCESS, WRITE, MANAGE};
+    use crate::domain::groups::permissions::kv::types::{FULL_ACCESS, WRITE, MANAGE};
     use crate::tests::test_utils::*;
 
     #[test]
@@ -178,7 +178,7 @@ mod test_enhanced_permissions {
     #[test]
     #[should_panic(expected = "group permission nonce must be > 0")]
     fn test_build_group_permission_key_panics_on_zero_nonce() {
-        use crate::domain::groups::permissions::kv::keys_test_access::build_group_permission_key;
+        use crate::domain::groups::permissions::kv::keys::build_group_permission_key;
         let _ = build_group_permission_key("test-group", "grantee.near", "groups/test-group/data", 0);
     }
 }

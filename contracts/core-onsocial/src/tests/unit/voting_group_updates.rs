@@ -9,7 +9,7 @@
 #[cfg(test)]
 mod voting_group_updates_tests {
     use crate::tests::test_utils::*;
-    use crate::domain::groups::permissions::kv::{WRITE, MODERATE, MANAGE};
+    use crate::domain::groups::permissions::kv::types::{WRITE, MODERATE, MANAGE};
     use near_sdk::serde_json::json;
     use near_sdk::{testing_env, env};
 

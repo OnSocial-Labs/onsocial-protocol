@@ -17,7 +17,7 @@ impl crate::domain::groups::core::GroupStorage {
             return true;
         }
 
-        if level == crate::domain::groups::permissions::kv::MANAGE {
+        if level == crate::domain::groups::permissions::kv::types::MANAGE {
             return false;
         }
 
@@ -37,7 +37,7 @@ impl crate::domain::groups::core::GroupStorage {
             return true;
         }
 
-        if level == crate::domain::groups::permissions::kv::NONE || level == crate::domain::groups::permissions::kv::WRITE {
+        if level == crate::domain::groups::permissions::kv::types::NONE || level == crate::domain::groups::permissions::kv::types::WRITE {
             if crate::domain::groups::permissions::kv::can_moderate(
                 platform,
                 &group_owner,

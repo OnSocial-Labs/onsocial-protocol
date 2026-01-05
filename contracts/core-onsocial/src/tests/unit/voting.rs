@@ -4,7 +4,7 @@
 #[cfg(test)]
 mod voting_tests {
 use crate::tests::test_utils::*;
-use crate::domain::groups::permissions::kv::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::permissions::kv::types::{WRITE, MODERATE, MANAGE};
 use near_sdk::serde_json::{json, Value};
 use near_sdk::test_utils::accounts;
 use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> AccountId {

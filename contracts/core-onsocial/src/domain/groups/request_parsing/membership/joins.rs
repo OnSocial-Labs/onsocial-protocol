@@ -10,7 +10,7 @@ impl SocialPlatform {
     /// member-only (`NONE`), while the contract grants default channel access separately.
     /// Additional roles/permissions must be granted explicitly after joining.
     pub fn join_group(&mut self, group_id: String, caller: &AccountId) -> Result<(), SocialError> {
-        let requested_permissions = crate::domain::groups::permissions::kv::NONE;
+        let requested_permissions = crate::domain::groups::permissions::kv::types::NONE;
 
         crate::domain::groups::routing::route_group_operation(
             self,

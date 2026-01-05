@@ -2005,3 +2005,411 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// =============================================================================
+// Additional Edge Case Tests for KV Permissions Module
+// =============================================================================
+
+/// Test: Owner always has FULL_ACCESS (255) regardless of explicit grants.
+/// Covers: is_group_owner() bypass in eval.rs
+#[tokio::test]
+async fn test_owner_always_has_full_access() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+    create_group(&contract, &alice, "owner-access").await?;
+    add_member(&contract, &alice, "owner-access", &bob).await?;
+
+    // Owner should have FULL_ACCESS (255) on group root without any explicit grant.
+    let owner_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": "groups/owner-access"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(owner_perms, 255, "Owner should have FULL_ACCESS (255) on group");
+
+    // Owner should have FULL_ACCESS on deep paths too.
+    let owner_deep_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": "groups/owner-access/content/posts/deep/path"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(owner_deep_perms, 255, "Owner should have FULL_ACCESS on deep group paths");
+
+    // Non-owner member should NOT have FULL_ACCESS (only default WRITE on /content).
+    let bob_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/owner-access"
+        }))
+        .await?
+        .json()?;
+    assert!(bob_perms < 255, "Non-owner should not have FULL_ACCESS (got {})", bob_perms);
+
+    // Verify has_permission reflects owner bypass.
+    let owner_has_manage: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": "groups/owner-access/config",
+            "level": MANAGE
+        }))
+        .await?
+        .json()?;
+    assert!(owner_has_manage, "Owner should pass MANAGE check via FULL_ACCESS bypass");
+
+    Ok(())
+}
+
+/// Test: Permission hierarchy returns the highest applicable level.
+/// Covers: group_permission_level() / account_permission_level() max logic
+#[tokio::test]
+async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+    create_group(&contract, &alice, "hierarchy-max").await?;
+    add_member(&contract, &alice, "hierarchy-max", &bob).await?;
+
+    // Grant WRITE at parent path (groups/hierarchy-max/content/).
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/hierarchy-max/content/",
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission(WRITE) should succeed");
+
+    // Grant MODERATE at child path (groups/hierarchy-max/content/posts/).
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/hierarchy-max/content/posts/",
+            "level": MODERATE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission(MODERATE) should succeed");
+
+    // At child path, Bob should have MODERATE (the higher explicit grant).
+    let bob_child_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/hierarchy-max/content/posts/article1"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(bob_child_perms, MODERATE, "Should have MODERATE at child (explicit grant)");
+
+    // At parent path, Bob should have WRITE.
+    let bob_parent_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/hierarchy-max/content/other"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(bob_parent_perms, WRITE, "Should have WRITE at sibling path (parent grant only)");
+
+    // Grant MANAGE at an even deeper path - should return MANAGE there.
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/hierarchy-max/content/posts/special",
+            "level": MANAGE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission(MANAGE) should succeed");
+
+    let bob_deep_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/hierarchy-max/content/posts/special/item"
+        }))
+        .await?
+        .json()?;
+    assert_eq!(bob_deep_perms, MANAGE, "Should have MANAGE at deepest explicit grant path");
+
+    Ok(())
+}
+
+/// Test: Group path normalization - owner-prefixed and plain paths are equivalent.
+/// Covers: normalize_group_path_owned(), extract_group_id_from_path() consistency
+#[tokio::test]
+async fn test_group_path_normalization_consistency() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+    create_group(&contract, &alice, "norm-test").await?;
+    add_member(&contract, &alice, "norm-test", &bob).await?;
+
+    // Grant permission using owner-prefixed path.
+    let prefixed_path = format!("{}/groups/norm-test/data/", alice.id());
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": prefixed_path,
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission with prefixed path should succeed");
+
+    // Check using plain path - should match.
+    let plain_path = "groups/norm-test/data/file.txt";
+    let bob_has_plain: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": plain_path,
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(bob_has_plain, "Permission granted via prefixed path should apply to plain path");
+
+    // Check using prefixed path - should also match.
+    let prefixed_check = format!("{}/groups/norm-test/data/file.txt", alice.id());
+    let bob_has_prefixed: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": prefixed_check,
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(bob_has_prefixed, "Permission should also apply to prefixed query path");
+
+    // get_permissions should return same value for both path forms.
+    let perms_plain: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": plain_path
+        }))
+        .await?
+        .json()?;
+    let perms_prefixed: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": prefixed_check
+        }))
+        .await?
+        .json()?;
+    assert_eq!(perms_plain, perms_prefixed, "get_permissions must be consistent across path forms");
+
+    Ok(())
+}
+
+/// Test: Account self-permission always returns FULL_ACCESS.
+/// Covers: has_account_permissions() self-check bypass
+#[tokio::test]
+async fn test_account_self_permission_is_full_access() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+
+    // Alice checking her own account paths should always return FULL_ACCESS.
+    let alice_self_perms: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": format!("{}/profile/name", alice.id())
+        }))
+        .await?
+        .json()?;
+    assert_eq!(alice_self_perms, 255, "Self-permission should be FULL_ACCESS");
+
+    let alice_self_root: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": format!("{}", alice.id())
+        }))
+        .await?
+        .json()?;
+    assert_eq!(alice_self_root, 255, "Self-permission on root should be FULL_ACCESS");
+
+    // has_permission for MANAGE level should pass.
+    let alice_has_manage: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": format!("{}/settings/private", alice.id()),
+            "level": MANAGE
+        }))
+        .await?
+        .json()?;
+    assert!(alice_has_manage, "Self should always have MANAGE permission");
+
+    Ok(())
+}
+
+/// Test: Path normalization handles edge cases gracefully.
+/// Covers: normalize_group_path_owned(), extract_group_id_from_path() edge cases
+#[tokio::test]
+async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+    create_group(&contract, &alice, "edge-case-group").await?;
+    add_member(&contract, &alice, "edge-case-group", &bob).await?;
+
+    // Grant permission with trailing slash
+    let res = alice
+        .call(contract.id(), "set_permission")
+        .args_json(json!({
+            "grantee": bob.id(),
+            "path": "groups/edge-case-group/content/",
+            "level": WRITE,
+            "expires_at": null
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_permission with trailing slash should succeed");
+
+    // Query without trailing slash should still match
+    let bob_no_slash: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/edge-case-group/content/file.txt",
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(bob_no_slash, "Trailing slash grant should apply to non-slash query");
+
+    // Query with trailing slash on different subpath
+    let bob_subpath: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": "groups/edge-case-group/content/posts/",
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(bob_subpath, "Parent grant should apply to child with trailing slash");
+
+    // Test empty subpath after group - should still work for group root
+    let owner_group_root: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": "groups/edge-case-group",
+            "level": MANAGE
+        }))
+        .await?
+        .json()?;
+    assert!(owner_group_root, "Owner should have MANAGE on group root (no trailing slash)");
+
+    let owner_group_root_slash: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": "groups/edge-case-group/",
+            "level": MANAGE
+        }))
+        .await?
+        .json()?;
+    assert!(owner_group_root_slash, "Owner should have MANAGE on group root (with trailing slash)");
+
+    // Test deeply nested path
+    let deep_path = "groups/edge-case-group/content/a/b/c/d/e/f/g/h/i/j/file.txt";
+    let bob_deep: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": bob.id(),
+            "path": deep_path,
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(bob_deep, "Parent grant should cascade to deeply nested paths");
+
+    // Test that non-group path is not affected by group logic
+    let alice_account_path: u8 = contract
+        .view("get_permissions")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": alice.id(),
+            "path": format!("{}/profile/name", alice.id())
+        }))
+        .await?
+        .json()?;
+    assert_eq!(alice_account_path, 255, "Account path should not be confused with group path");
+
+    Ok(())
+}

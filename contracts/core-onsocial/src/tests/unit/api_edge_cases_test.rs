@@ -9,7 +9,7 @@ mod api_edge_cases_tests {
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
     use near_sdk::{testing_env, AccountId};
-    use crate::domain::groups::permissions::kv::{MODERATE, MANAGE};
+    use crate::domain::groups::permissions::kv::types::{MODERATE, MANAGE};
 
     fn test_account(index: usize) -> AccountId {
         accounts(index)

@@ -100,7 +100,7 @@ impl ProposalType {
                 if !GroupStorage::is_member(platform, group_id, target_user) {
                     return Err(invalid_input!("Target user must be a member"));
                 }
-                if !kv_permissions::is_valid_permission_level(*level, true) {
+                if !kv_permissions::types::is_valid_permission_level(*level, true) {
                     return Err(invalid_input!("Invalid permission level"));
                 }
             }
@@ -108,7 +108,7 @@ impl ProposalType {
                 if !path.starts_with(&format!("groups/{}", group_id)) {
                     return Err(invalid_input!("Path must be within this group"));
                 }
-                if !kv_permissions::is_valid_permission_level(*level, false) {
+                if !kv_permissions::types::is_valid_permission_level(*level, false) {
                     return Err(invalid_input!("Invalid permission level"));
                 }
             }
@@ -121,7 +121,7 @@ impl ProposalType {
                 if GroupStorage::is_member(platform, group_id, target_user) {
                     return Err(invalid_input!("User is already a member"));
                 }
-                if !kv_permissions::is_valid_permission_level(*level, true) {
+                if !kv_permissions::types::is_valid_permission_level(*level, true) {
                     return Err(invalid_input!("Invalid permission level"));
                 }
 

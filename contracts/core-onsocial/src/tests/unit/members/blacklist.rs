@@ -2,7 +2,7 @@
 // Comprehensive tests for blacklist/unblacklist operations and related functionality
 
 use crate::tests::test_utils::*;
-use crate::domain::groups::permissions::kv::{WRITE, MODERATE, MANAGE};
+use crate::domain::groups::permissions::kv::types::{WRITE, MODERATE, MANAGE};
 use serde_json::json;
 use near_sdk::test_utils::accounts;
 

@@ -18,7 +18,6 @@ impl crate::domain::groups::core::GroupStorage {
     ) -> Result<(), SocialError> {
         let stats_path = Self::group_stats_path(group_id);
 
-        // Get existing stats or create new ones
         let mut updated_stats = platform.storage_get(&stats_path).unwrap_or_else(|| {
             json!({
                 "total_members": 0,
@@ -28,7 +27,6 @@ impl crate::domain::groups::core::GroupStorage {
             })
         });
 
-        // Merge updates
         if let Some(updates_obj) = stat_updates.as_object() {
             if let Some(stats_obj) = updated_stats.as_object_mut() {
                 for (key, value) in updates_obj {

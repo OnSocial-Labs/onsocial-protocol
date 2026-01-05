@@ -206,7 +206,7 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         &group_owner,
         member_id,
         &format!("groups/{}/content", group_id),
-        crate::domain::groups::permissions::kv::WRITE,
+        crate::domain::groups::permissions::kv::types::WRITE,
         None,
         &mut event_batch,
         None,

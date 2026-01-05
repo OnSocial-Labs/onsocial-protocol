@@ -49,7 +49,7 @@ pub fn validate_cross_account_permissions_simple(
                                    actor_id.as_str(),
                                    pk,
                                    full_path,
-                                   crate::domain::groups::permissions::kv::WRITE,
+                                   crate::domain::groups::permissions::kv::types::WRITE,
                         )
                     } else {
                         true
@@ -60,7 +60,7 @@ pub fn validate_cross_account_permissions_simple(
                             platform,
                             &path_owner,
                             full_path,
-                               crate::domain::groups::permissions::kv::WRITE,
+                               crate::domain::groups::permissions::kv::types::WRITE,
                             actor_id.as_str(),
                             pk,
                         ),

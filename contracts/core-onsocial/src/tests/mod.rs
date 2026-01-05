@@ -20,6 +20,7 @@ pub mod unit {
     pub mod members;  // Comprehensive modular member tests
     pub mod set_permission_signer_test;  // Security test: set_permission uses signer not predecessor
     pub mod signed_payload_test;  // Relayed signed-payload set() tests (nonce/expiry/signature)
+    pub mod stats_test;  // Group stats counter tests (underflow protection, timestamps)
     pub mod storage_tracking_test;  // Storage tracking correctness tests (validates storage.rs fixes)
     pub mod storage_tracker_helpers_test;
     pub mod voting;   // Voting mechanics tests (core)

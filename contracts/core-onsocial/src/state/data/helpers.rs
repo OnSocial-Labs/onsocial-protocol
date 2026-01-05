@@ -117,7 +117,7 @@ impl SocialPlatform {
                 target_account.as_str(),
                 &public_key,
                 full_path,
-                crate::domain::groups::permissions::kv::WRITE,
+                crate::domain::groups::permissions::kv::types::WRITE,
             );
             if !ok {
                 return Err(crate::permission_denied!(
@@ -143,7 +143,7 @@ impl SocialPlatform {
                 target_account.as_str(),
                 &public_key,
                 "",
-                crate::domain::groups::permissions::kv::MANAGE,
+                crate::domain::groups::permissions::kv::types::MANAGE,
             );
             if !ok {
                 return Err(crate::permission_denied!("manage", "key_root"));
