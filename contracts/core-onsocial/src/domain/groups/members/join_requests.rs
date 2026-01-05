@@ -12,8 +12,6 @@ impl crate::domain::groups::core::GroupStorage {
         group_id: &str,
         requester_id: &AccountId,
     ) -> Result<(), SocialError> {
-        // Clean join semantics: join requests always start as member-only.
-
         Self::assert_join_requests_not_member_driven(platform, group_id)?;
 
         let config_path = Self::group_config_path(group_id);
@@ -83,8 +81,7 @@ impl crate::domain::groups::core::GroupStorage {
         approver_id: &AccountId,
         level: u8,
     ) -> Result<(), SocialError> {
-        // Clean join semantics: join request approvals never assign a global role.
-        // Members always start as member-only (NONE); elevated roles must be granted explicitly after joining.
+        // Approvals grant member-only (NONE); elevated roles require explicit grant after joining.
         Self::assert_clean_member_level(
             level,
             "Join approvals cannot grant permissions; use 0 and grant roles after joining",
@@ -128,9 +125,7 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Join request is not pending"));
         }
 
-        // Approval authorization is checked via the join_requests namespace moderation check above.
-
-        // Not a governance execution path: do not bypass blacklist checks.
+        // Not governance path: blacklist checks remain enforced.
         Self::add_member_internal(
             platform,
             group_id,

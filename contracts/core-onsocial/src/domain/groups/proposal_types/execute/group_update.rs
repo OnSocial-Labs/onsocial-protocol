@@ -97,11 +97,6 @@ impl ProposalType {
                     )?;
                 }
             }
-            GroupUpdateType::Privacy => {
-                if let Some(is_private) = changes.get("is_private").and_then(|v| v.as_bool()) {
-                    GroupStorage::set_group_privacy(platform, group_id, executor, is_private)?;
-                }
-            }
             GroupUpdateType::TransferOwnership => {
                 if let Some(new_owner) = changes.get("new_owner").and_then(|v| v.as_str()) {
                     let new_owner_account =
@@ -118,6 +113,7 @@ impl ProposalType {
                         platform,
                         group_id,
                         &new_owner_account,
+                        executor,
                         true,
                     )?;
 

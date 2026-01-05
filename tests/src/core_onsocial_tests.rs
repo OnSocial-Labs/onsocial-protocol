@@ -14158,6 +14158,269 @@ async fn test_group_endpoints_edge_cases() -> anyhow::Result<()> {
     );
     println!("   ✓ Setting same privacy value fails (idempotent rejection)");
 
+    // ==========================================================================
+    // CRITICAL: Member-driven group with is_private=false must fail
+    // ==========================================================================
+    println!("\n📦 TEST: Member-driven group with is_private=false fails...");
+
+    let member_driven_public_result = bob
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "invalid-md-public",
+            "config": {
+                "member_driven": true,
+                "is_private": false
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !member_driven_public_result.is_success(),
+        "Member-driven group with is_private=false should fail"
+    );
+    let md_error = format!("{:?}", member_driven_public_result.failures());
+    assert!(
+        md_error.contains("private") || md_error.contains("democratic"),
+        "Error should mention privacy requirement, got: {}",
+        md_error
+    );
+    println!("   ✓ Member-driven group with is_private=false correctly rejected");
+
+    // ==========================================================================
+    // CRITICAL: Config payload too large fails
+    // ==========================================================================
+    println!("\n📦 TEST: Config payload too large fails...");
+
+    let large_string = "x".repeat(15_000); // 15KB > 10KB default limit
+    let large_config_result = bob
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "large-config-group",
+            "config": {
+                "description": large_string
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !large_config_result.is_success(),
+        "Config payload too large should fail"
+    );
+    let large_error = format!("{:?}", large_config_result.failures());
+    assert!(
+        large_error.contains("too large") || large_error.contains("payload"),
+        "Error should mention payload too large, got: {}",
+        large_error
+    );
+    println!("   ✓ Config payload too large correctly rejected");
+
+    // ==========================================================================
+    // MEDIUM: Creator auto-added as member with level=255
+    // ==========================================================================
+    println!("\n📦 TEST: Creator auto-added as member with level=255...");
+
+    let charlie_group_result = charlie
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "charlie-group",
+            "config": {}
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(charlie_group_result.is_success(), "Charlie group creation should succeed");
+
+    let member_data: Option<Value> = contract
+        .view("get_member_data")
+        .args_json(json!({
+            "group_id": "charlie-group",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+
+    assert!(member_data.is_some(), "Creator should be auto-added as member");
+    let member = member_data.unwrap();
+    assert_eq!(
+        member.get("level").and_then(|v| v.as_u64()),
+        Some(255),
+        "Creator should have level=255 (full permissions)"
+    );
+    assert_eq!(
+        member.get("is_creator").and_then(|v| v.as_bool()),
+        Some(true),
+        "Creator should have is_creator=true"
+    );
+    println!("   ✓ Creator auto-added with level=255 and is_creator=true");
+
+    // ==========================================================================
+    // CRITICAL: Member-driven group owner cannot change privacy to public
+    // ==========================================================================
+    println!("\n📦 TEST: Member-driven group owner cannot change privacy to public...");
+
+    // Create a member-driven private group
+    let md_privacy_group = charlie
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "md-privacy-test",
+            "config": {
+                "member_driven": true,
+                "is_private": true
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(md_privacy_group.is_success(), "Member-driven group creation should succeed");
+
+    // Owner (charlie) tries to change privacy to public - should fail due to invariant
+    let md_privacy_change = charlie
+        .call(contract.id(), "set_group_privacy")
+        .args_json(json!({
+            "group_id": "md-privacy-test",
+            "is_private": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !md_privacy_change.is_success(),
+        "Member-driven group should NOT allow privacy change to public"
+    );
+    let md_privacy_error = format!("{:?}", md_privacy_change.failures());
+    assert!(
+        md_privacy_error.contains("private") || md_privacy_error.contains("democratic") || md_privacy_error.contains("Member-driven"),
+        "Error should mention member-driven privacy requirement, got: {}",
+        md_privacy_error
+    );
+    println!("   ✓ Member-driven group owner cannot change privacy to public (invariant enforced)");
+
+    // ==========================================================================
+    // HIGH: Privacy change on non-existent group fails
+    // ==========================================================================
+    println!("\n📦 TEST: Privacy change on non-existent group fails...");
+
+    let nonexistent_privacy = alice
+        .call(contract.id(), "set_group_privacy")
+        .args_json(json!({
+            "group_id": "nonexistent-group-xyz-123",
+            "is_private": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !nonexistent_privacy.is_success(),
+        "Privacy change on non-existent group should fail"
+    );
+    // Note: Returns "Permission denied" because is_owner check fails first (doesn't leak group existence)
+    let nonexistent_error = format!("{:?}", nonexistent_privacy.failures());
+    assert!(
+        nonexistent_error.contains("Permission denied") || nonexistent_error.contains("not found"),
+        "Error should indicate permission denied or not found, got: {}",
+        nonexistent_error
+    );
+    println!("   ✓ Privacy change on non-existent group fails (permission denied)");
+
+    // ==========================================================================
+    // MEDIUM: Verify privacy_changed_at and privacy_changed_by are set
+    // ==========================================================================
+    println!("\n📦 TEST: Privacy change metadata (changed_at, changed_by) is set...");
+
+    // Create a traditional group for this test
+    let metadata_test_group = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "privacy-metadata-test",
+            "config": {
+                "is_private": true
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(metadata_test_group.is_success(), "Group creation should succeed");
+
+    // Change privacy to public
+    let metadata_privacy_change = alice
+        .call(contract.id(), "set_group_privacy")
+        .args_json(json!({
+            "group_id": "privacy-metadata-test",
+            "is_private": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(metadata_privacy_change.is_success(), "Privacy change should succeed");
+
+    // Verify metadata is set
+    let privacy_config: Option<Value> = contract
+        .view("get_group_config")
+        .args_json(json!({ "group_id": "privacy-metadata-test" }))
+        .await?
+        .json()?;
+
+    let config = privacy_config.expect("Config should exist");
+    assert_eq!(
+        config.get("is_private").and_then(|v| v.as_bool()),
+        Some(false),
+        "is_private should be false"
+    );
+    assert!(
+        config.get("privacy_changed_at").is_some(),
+        "privacy_changed_at should be set"
+    );
+    assert_eq!(
+        config.get("privacy_changed_by").and_then(|v| v.as_str()),
+        Some(alice.id().as_str()),
+        "privacy_changed_by should be the caller"
+    );
+    println!("   ✓ privacy_changed_at and privacy_changed_by are correctly set");
+
+    // ==========================================================================
+    // LOW: set_group_privacy with empty group_id fails (Issue #2 validation)
+    // ==========================================================================
+    println!("\n📦 TEST: set_group_privacy with empty group_id fails...");
+
+    let empty_group_id_privacy = alice
+        .call(contract.id(), "set_group_privacy")
+        .args_json(json!({
+            "group_id": "",
+            "is_private": false
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !empty_group_id_privacy.is_success(),
+        "set_group_privacy with empty group_id should fail"
+    );
+    let empty_id_error = format!("{:?}", empty_group_id_privacy.failures());
+    // Should fail due to validation: "Group ID must be 1-64 characters"
+    // This confirms Issue #2 fix: validate_group_id() is called
+    assert!(
+        empty_id_error.contains("1-64 characters") || empty_id_error.contains("Group ID") || empty_id_error.contains("group_id"),
+        "Error should indicate group_id length validation failure, got: {}",
+        empty_id_error
+    );
+    println!("   ✓ set_group_privacy with empty group_id correctly rejected");
+
     println!("\n✅ All group endpoints edge cases passed!");
     Ok(())
 }

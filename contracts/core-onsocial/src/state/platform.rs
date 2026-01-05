@@ -68,6 +68,10 @@ impl SocialPlatform {
     pub fn storage_set(&mut self, key: &str, value: &Value) -> Result<(), SocialError> {
         let serialized = serde_json::to_vec(value)
             .map_err(|_| invalid_input!("Serialization failed"))?;
+
+        if serialized.len() > self.config.max_value_bytes as usize {
+            return Err(invalid_input!("Value payload too large"));
+        }
         
         let entry = DataEntry {
             value: crate::state::models::DataValue::Value(serialized),

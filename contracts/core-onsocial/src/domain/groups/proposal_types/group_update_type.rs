@@ -5,7 +5,6 @@ pub(super) enum GroupUpdateType {
     RemoveMember,
     Ban,
     Unban,
-    Privacy,
     TransferOwnership,
 }
 
@@ -17,7 +16,6 @@ impl GroupUpdateType {
             Self::RemoveMember => "remove_member",
             Self::Ban => "ban",
             Self::Unban => "unban",
-            Self::Privacy => "privacy",
             Self::TransferOwnership => "transfer_ownership",
         }
     }
@@ -29,7 +27,6 @@ impl GroupUpdateType {
             "remove_member" => Some(Self::RemoveMember),
             "ban" => Some(Self::Ban),
             "unban" => Some(Self::Unban),
-            "privacy" => Some(Self::Privacy),
             "transfer_ownership" => Some(Self::TransferOwnership),
             _ => None,
         }

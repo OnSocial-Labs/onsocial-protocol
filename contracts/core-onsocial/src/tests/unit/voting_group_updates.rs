@@ -609,23 +609,18 @@ mod voting_group_updates_tests {
             "new_owner": charlie.to_string()
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let result = contract.create_group_proposal(
             "ownership_validation".to_string(),
             "group_update".to_string(),
             transfer_proposal,
             None,
-        ).unwrap();
+        );
 
-        // Bob votes YES to reach threshold (alice already voted YES)
-        // 2 YES out of 2 = 100% participation, 100% approval = should try to execute
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near()).build());
-        let vote_result = contract.vote_on_proposal("ownership_validation".to_string(), proposal_id, true);
-
-        // Execution should fail because charlie is not a member
-        // Contract validates: "New owner must be a member of the group" (operations.rs line 245)
-        assert!(vote_result.is_err(), "Transferring ownership to non-member should fail");
+        // Proposal creation should fail because charlie is not a member
+        // Validation happens at proposal creation time (fail fast)
+        assert!(result.is_err(), "Creating proposal to transfer ownership to non-member should fail");
         
-        let error_msg = vote_result.unwrap_err().to_string();
+        let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("must be a member") || error_msg.contains("not a member"), 
             "Error should indicate new owner must be a member, got: {}", error_msg);
 
@@ -635,8 +630,8 @@ mod voting_group_updates_tests {
             "Alice should still be the owner");
 
         println!("✅ Transfer ownership to non-member fails correctly");
-        println!("   - Contract validates new owner must be existing member");
-        println!("   - Ownership transfer rejected at execution");
+        println!("   - Contract validates new owner must be existing member at proposal creation");
+        println!("   - Ownership transfer rejected early (fail fast)");
         println!("   - Security constraint enforced: members-only ownership");
     }
 

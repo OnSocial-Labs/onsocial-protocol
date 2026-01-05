@@ -176,6 +176,7 @@ impl SocialPlatform {
                     &group_id,
                     &new_owner,
                     remove_old_owner,
+                    caller,
                 )
             },
         )

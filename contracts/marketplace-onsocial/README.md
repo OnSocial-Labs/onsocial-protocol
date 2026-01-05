@@ -1,3 +1,5 @@
+# Skarces - Scarce by Design
+
 # NFT Marketplace Contract (marketplace-onsocial)
 
 A fully-featured NFT marketplace smart contract for NEAR Protocol that enables users to buy and sell Non-Fungible Tokens (NFTs) with support for royalty payments, storage management, and comprehensive enumeration.

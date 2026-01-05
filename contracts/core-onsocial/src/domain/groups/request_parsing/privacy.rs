@@ -11,6 +11,7 @@ impl SocialPlatform {
         is_private: bool,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::core::GroupStorage::set_group_privacy(self, &group_id, caller, is_private)
     }
 }

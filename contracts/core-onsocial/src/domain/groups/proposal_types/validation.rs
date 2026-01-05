@@ -76,17 +76,20 @@ impl ProposalType {
                                     return Err(invalid_input!("Changes cannot be empty"));
                                 }
                             }
-                            GroupUpdateType::Privacy => {
-                                let group_config = GroupStorage::get_group_config(platform, group_id)
-                                    .ok_or_else(|| invalid_input!("Group not found"))?;
-                                let is_member_driven =
-                                    GroupConfig::try_from_value(&group_config)?.member_driven;
-                                let is_private = changes.get("is_private").and_then(|v| v.as_bool());
-
-                                GroupStorage::assert_member_driven_private_invariant(
-                                    is_member_driven,
-                                    is_private,
+                            GroupUpdateType::TransferOwnership => {
+                                let new_owner_str = changes.get("new_owner")
+                                    .and_then(|v| v.as_str())
+                                    .ok_or_else(|| invalid_input!("new_owner is required"))?;
+                                let new_owner_account = crate::validation::parse_account_id_str(
+                                    new_owner_str,
+                                    invalid_input!("Invalid new_owner account ID"),
                                 )?;
+                                if !GroupStorage::is_member(platform, group_id, &new_owner_account) {
+                                    return Err(invalid_input!("New owner must be a member of the group"));
+                                }
+                                if GroupStorage::is_blacklisted(platform, group_id, &new_owner_account) {
+                                    return Err(invalid_input!("Cannot transfer ownership to blacklisted member"));
+                                }
                             }
                             _ => {}
                         }

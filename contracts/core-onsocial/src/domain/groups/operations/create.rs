@@ -65,12 +65,10 @@ impl crate::domain::groups::core::GroupStorage {
                 Value::String(env::block_timestamp().to_string()),
             );
             obj.insert("is_active".to_string(), Value::Bool(true));
-            // Default to traditional group (not member-driven) if not specified
             if !obj.contains_key("member_driven") {
                 obj.insert("member_driven".to_string(), Value::Bool(false));
             }
-            // Default to public group (no approval required) if not specified.
-            // Member-driven groups must be private, so default those to private.
+            // Member-driven groups default to private
             if !obj.contains_key("is_private") {
                 let is_member_driven = obj
                     .get("member_driven")
@@ -78,7 +76,6 @@ impl crate::domain::groups::core::GroupStorage {
                     .unwrap_or(false);
                 obj.insert("is_private".to_string(), Value::Bool(is_member_driven));
             }
-            // Set default voting config if not provided
             if !obj.contains_key("voting_config") {
                 let default_voting_config = json!({
                     "participation_quorum_bps": DEFAULT_VOTING_PARTICIPATION_QUORUM_BPS,
@@ -93,13 +90,12 @@ impl crate::domain::groups::core::GroupStorage {
 
         platform.storage_set(&config_path, &config)?;
 
-        // Automatically add the creator as a member with full permissions
         let member_path = Self::group_member_path(group_id, owner.as_str());
         let nonce_path = format!("groups/{}/member_nonces/{}", group_id, owner.as_str());
         platform.storage_set(&nonce_path, &Value::Number(1u64.into()))?;
         let member_data = Value::Object(serde_json::Map::from_iter([
             ("level".to_string(), Value::Number(255.into())), // Full permissions
-            ("granted_by".to_string(), Value::String("system".to_string())), // System-granted
+            ("granted_by".to_string(), Value::String("system".to_string())),
             (
                 "joined_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
@@ -108,7 +104,6 @@ impl crate::domain::groups::core::GroupStorage {
         ]));
         platform.storage_set(&member_path, &member_data)?;
 
-        // Initialize group stats with creator as first member
         let stats_path = Self::group_stats_path(group_id);
         let initial_stats = json!({
             "total_members": 1,
@@ -128,7 +123,6 @@ impl crate::domain::groups::core::GroupStorage {
         .with_value(config)
         .emit(&mut event_batch);
 
-        // Ensure the creator membership is event-addressable.
         EventBuilder::new(
             crate::constants::EVENT_TYPE_GROUP_UPDATE,
             "add_member",
@@ -141,7 +135,6 @@ impl crate::domain::groups::core::GroupStorage {
         .with_field("member_nonce_path", nonce_path)
         .emit(&mut event_batch);
 
-        // Ensure member nonce and initial stats are event-addressable.
         EventBuilder::new(
             crate::constants::EVENT_TYPE_GROUP_UPDATE,
             "member_nonce_updated",

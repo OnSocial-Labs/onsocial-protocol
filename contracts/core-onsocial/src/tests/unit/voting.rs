@@ -1529,7 +1529,8 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("privacy_test".to_string(), config).unwrap();
 
-        // Try to change privacy to public via proposal (should fail during execution)
+        // Try to change privacy to public via proposal with unknown update_type
+        // (privacy update type was removed - not a valid proposal type)
         testing_env!(get_context(alice.clone()).build());
         let privacy_change_data = json!({
             "update_type": "privacy",
@@ -1543,14 +1544,8 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             None,
         );
 
-        // This should fail because member-driven groups cannot create privacy change proposals
-        assert!(result.is_err(), "Member-driven groups should not be able to create privacy change proposals");
-        let error_msg = result.unwrap_err().to_string();
-        assert!(
-            error_msg.contains("cannot create privacy change proposals")
-                || error_msg.contains("must always remain private")
-                || error_msg.contains("must be private"),
-               "Should reject privacy change proposal creation for member-driven groups: {}", error_msg);
+        // This should fail because "privacy" is not a recognized update_type
+        assert!(result.is_err(), "Unknown update_type should be rejected");
 
         // Verify group remains private
         let config = contract.get_group_config("privacy_test".to_string()).unwrap();
@@ -2319,6 +2314,105 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         );
 
         println!("✅ Vote correctly fails when tally entry is missing");
+    }
+
+    // ============================================================================
+    // SET_GROUP_PRIVACY EDGE CASE TESTS
+    // ============================================================================
+
+    /// Issue #1 (High): set_group_privacy must return explicit error when config is not a JSON object.
+    /// Pre-fix code silently skipped the mutation; post-fix returns InvalidInput.
+    #[test]
+    fn test_set_group_privacy_fails_when_config_is_not_object() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+        // Create a valid traditional group first
+        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        let config = json!({"member_driven": false, "is_private": true});
+        contract.create_group("config-corruption-test".to_string(), config).unwrap();
+
+        // Corrupt storage: replace config with a non-object value (e.g., string)
+        let corrupted_config = Value::String("this is not a JSON object".to_string());
+        contract.platform.storage_set(
+            "groups/config-corruption-test/config",
+            &corrupted_config
+        ).unwrap();
+
+        // Now try to change privacy - should fail with explicit error
+        let result = contract.set_group_privacy("config-corruption-test".to_string(), false);
+
+        assert!(result.is_err(), "set_group_privacy must fail when config is not a JSON object");
+        let error_msg = result.unwrap_err().to_string();
+        // When config is corrupted, is_owner() fails first because GroupConfig::try_from_value fails.
+        // This returns "Permission denied" because the owner check cannot succeed.
+        // This is defense-in-depth: corrupted config = no valid owner = permission denied.
+        assert!(
+            error_msg.contains("Permission denied") || error_msg.contains("JSON object") || error_msg.contains("owner"),
+            "Error should indicate permission denied or config parsing failure, got: {}",
+            error_msg
+        );
+
+        println!("✅ set_group_privacy correctly fails when config is corrupted to non-object");
+    }
+
+    /// Issue #1 variant: set_group_privacy fails when config is a JSON array (not object).
+    #[test]
+    fn test_set_group_privacy_fails_when_config_is_array() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+        // Create a valid traditional group first
+        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        let config = json!({"member_driven": false, "is_private": true});
+        contract.create_group("config-array-test".to_string(), config).unwrap();
+
+        // Corrupt storage: replace config with a JSON array
+        let corrupted_config = json!(["element1", "element2"]);
+        contract.platform.storage_set(
+            "groups/config-array-test/config",
+            &corrupted_config
+        ).unwrap();
+
+        // Now try to change privacy - should fail
+        let result = contract.set_group_privacy("config-array-test".to_string(), false);
+
+        assert!(result.is_err(), "set_group_privacy must fail when config is a JSON array");
+        let error_msg = result.unwrap_err().to_string();
+        // When config is a JSON array, is_owner() fails first because GroupConfig::try_from_value fails.
+        // This returns "Permission denied" because the owner check cannot succeed.
+        assert!(
+            error_msg.contains("Permission denied") || error_msg.contains("JSON object") || error_msg.contains("owner"),
+            "Error should indicate permission denied or config parsing failure, got: {}",
+            error_msg
+        );
+
+        println!("✅ set_group_privacy correctly fails when config is a JSON array");
+    }
+
+    /// Issue #2 (Low): set_group_privacy must validate group_id before processing.
+    /// Empty group_id should fail with validation error.
+    #[test]
+    fn test_set_group_privacy_fails_on_empty_group_id() {
+        let mut contract = init_live_contract();
+        let alice = test_account(0);
+
+        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+
+        // Try to set privacy on empty group_id
+        let result = contract.set_group_privacy("".to_string(), false);
+
+        assert!(result.is_err(), "set_group_privacy must fail on empty group_id");
+        let error_msg = result.unwrap_err().to_string();
+        // Should fail at validation with "Group ID must be 1-64 characters"
+        // This confirms Issue #2 fix: validate_group_id() is called
+        assert!(
+            error_msg.contains("1-64 characters") || error_msg.contains("Group ID") || error_msg.contains("group_id"),
+            "Error should indicate invalid group_id length, got: {}",
+            error_msg
+        );
+
+        println!("✅ set_group_privacy correctly fails on empty group_id");
     }
 }
 

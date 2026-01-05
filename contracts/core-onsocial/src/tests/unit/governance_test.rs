@@ -1131,6 +1131,9 @@ mod governance_tests {
         // Add bob as a member using realistic API method
         test_add_member_bypass_proposals(&mut contract, "community", &bob, 0, &alice);
 
+        // Add charlie as a member (new owner must be a member)
+        test_add_member_bypass_proposals(&mut contract, "community", &charlie, 0, &alice);
+
         // Test 1: Any member can propose ownership transfer
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let transfer_proposal = json!({
@@ -1190,9 +1193,9 @@ mod governance_tests {
             None
         );
 
-        // Should succeed at creation (validation happens at execution)
-        assert!(result.is_ok(), "Transfer ownership proposal creation should succeed even with missing new_owner");
-        println!("✅ Transfer ownership proposals can be created (validation happens at execution time)");
+        // Validation happens at creation time (fail fast)
+        assert!(result.is_err(), "Transfer ownership proposal with missing new_owner should fail at creation");
+        println!("✅ Transfer ownership proposals validate new_owner at creation time (fail fast)");
 
         println!("✅ Democratic Ownership Transfer:");
         println!("   - Traditional groups: Direct transfer via transfer_group_ownership (owner only)");

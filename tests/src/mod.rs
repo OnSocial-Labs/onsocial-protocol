@@ -3,6 +3,10 @@ pub mod core_onsocial_tests;
 #[cfg(test)]
 pub mod cross_contract_tests;
 #[cfg(test)]
+pub mod member_add_remove_tests;
+#[cfg(test)]
+pub mod ownership_tests;
+#[cfg(test)]
 pub mod group_content_tests;
 #[cfg(test)]
 pub mod group_sponsorship_storage_tests;

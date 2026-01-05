@@ -457,3 +457,115 @@ mod group_creation_tests {
         println!("✓ Group creation gas cost measurement completed");
     }
 }
+
+// =============================================================================
+// GroupConfig::try_from_value Unit Tests
+// =============================================================================
+// Tests for malformed config parsing to cover the Err branch in ownership.rs
+#[cfg(test)]
+mod group_config_parsing_tests {
+    use crate::domain::groups::config::GroupConfig;
+    use near_sdk::serde_json::json;
+
+    #[test]
+    fn test_try_from_value_missing_owner() {
+        // Config with no "owner" field should fail
+        let malformed_config = json!({
+            "description": "A group without owner",
+            "is_private": false,
+            "member_driven": false
+        });
+
+        let result = GroupConfig::try_from_value(&malformed_config);
+        assert!(result.is_err(), "Missing owner should return Err");
+        println!("✓ Missing owner correctly returns Err");
+    }
+
+    #[test]
+    fn test_try_from_value_invalid_owner_format() {
+        // Config with invalid account ID format
+        let malformed_config = json!({
+            "owner": "not a valid account id with spaces and CAPS!",
+            "is_private": false,
+            "member_driven": false
+        });
+
+        let result = GroupConfig::try_from_value(&malformed_config);
+        assert!(result.is_err(), "Invalid owner account ID should return Err");
+        println!("✓ Invalid owner account ID correctly returns Err");
+    }
+
+    #[test]
+    fn test_try_from_value_owner_is_null() {
+        // Config with null owner
+        let malformed_config = json!({
+            "owner": null,
+            "is_private": false,
+            "member_driven": false
+        });
+
+        let result = GroupConfig::try_from_value(&malformed_config);
+        assert!(result.is_err(), "Null owner should return Err");
+        println!("✓ Null owner correctly returns Err");
+    }
+
+    #[test]
+    fn test_try_from_value_owner_is_number() {
+        // Config with numeric owner (wrong type)
+        let malformed_config = json!({
+            "owner": 12345,
+            "is_private": false,
+            "member_driven": false
+        });
+
+        let result = GroupConfig::try_from_value(&malformed_config);
+        assert!(result.is_err(), "Numeric owner should return Err");
+        println!("✓ Numeric owner correctly returns Err");
+    }
+
+    #[test]
+    fn test_try_from_value_empty_object() {
+        // Completely empty config
+        let malformed_config = json!({});
+
+        let result = GroupConfig::try_from_value(&malformed_config);
+        assert!(result.is_err(), "Empty object should return Err");
+        println!("✓ Empty object correctly returns Err");
+    }
+
+    #[test]
+    fn test_try_from_value_valid_config() {
+        // Valid config should succeed
+        let valid_config = json!({
+            "owner": "alice.near",
+            "is_private": true,
+            "member_driven": true
+        });
+
+        let result = GroupConfig::try_from_value(&valid_config);
+        assert!(result.is_ok(), "Valid config should return Ok");
+
+        let config = result.unwrap();
+        assert_eq!(config.owner.as_str(), "alice.near");
+        assert!(config.member_driven);
+        assert_eq!(config.is_private, Some(true));
+        println!("✓ Valid config correctly parsed");
+    }
+
+    #[test]
+    fn test_try_from_value_optional_fields_missing() {
+        // Config with only required field (owner) - optional fields should default
+        let minimal_config = json!({
+            "owner": "bob.testnet"
+        });
+
+        let result = GroupConfig::try_from_value(&minimal_config);
+        assert!(result.is_ok(), "Minimal config with only owner should succeed");
+
+        let config = result.unwrap();
+        assert_eq!(config.owner.as_str(), "bob.testnet");
+        assert!(!config.member_driven, "member_driven should default to false");
+        assert_eq!(config.is_private, None, "is_private should default to None");
+        println!("✓ Minimal config with defaults correctly parsed");
+    }
+}

@@ -25,7 +25,6 @@ impl crate::domain::groups::core::GroupStorage {
         )
     }
 
-    /// Adds member and applies default content permissions.
     pub fn add_member_internal(
         platform: &mut SocialPlatform,
         group_id: &str,
@@ -53,8 +52,7 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Invalid permission level"));
         }
 
-        // Clean add semantics: adding a member never grants roles.
-        // Use explicit permission changes after adding (e.g., set_permission or PermissionChange proposal).
+        // Adding never grants roles; use PermissionChange proposal.
         Self::assert_clean_member_level(
             level,
             "Adding members cannot grant permissions; use 0 and grant roles after adding",
@@ -78,7 +76,6 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Cannot add blacklisted user. Remove from blacklist first using unblacklist_group_member."));
         }
 
-        // Public self-join must start member-only (role changes are explicit).
         if is_self_join && is_public {
             if level != crate::domain::groups::permissions::kv::NONE {
                 return Err(invalid_input!(
@@ -94,9 +91,7 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(permission_denied!("add_member", &config_path));
         }
 
-        // Each (re)join increments a monotonic nonce used to scope group-permission keys.
-        // This prevents old permission grants from becoming effective again if the user leaves
-        // and later rejoins.
+        // Nonce scopes permission keys; invalidates stale grants on rejoin.
         let nonce_path = Self::group_member_nonce_path(group_id, member_id.as_str());
         let previous_nonce = platform
             .storage_get(&nonce_path)
@@ -123,7 +118,6 @@ impl crate::domain::groups::core::GroupStorage {
 
         let mut event_batch = EventBatch::new();
 
-        // Members start member-only; grant default WRITE on group content namespace.
         let default_content_path = format!("groups/{}/content", group_id);
         crate::domain::groups::permissions::kv::grant_permissions(
             platform,
@@ -247,7 +241,6 @@ impl crate::domain::groups::core::GroupStorage {
 
         let mut event_batch = EventBatch::new();
 
-        // Update member count
         Self::decrement_member_count(platform, group_id, remover_id, &mut event_batch)?;
 
         let is_self_removal = member_id == remover_id;
