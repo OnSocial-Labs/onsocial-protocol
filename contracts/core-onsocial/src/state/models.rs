@@ -207,4 +207,9 @@ pub struct SocialPlatform {
     pub group_pool_usage: LookupMap<String, u64>,
     pub group_sponsor_quotas: LookupMap<String, GroupSponsorAccount>,
     pub group_sponsor_defaults: LookupMap<String, GroupSponsorDefault>,
+    /// Temporary override for storage payer during proposal execution.
+    /// When set, group path storage is charged to this account instead of predecessor.
+    /// This ensures proposers pay for execution costs from their deposited balance.
+    #[borsh(skip)]
+    pub execution_payer: Option<AccountId>,
 }

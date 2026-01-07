@@ -19,13 +19,15 @@ impl ProposalType {
         message: Option<&str>,
         executor: &AccountId,
     ) -> Result<(), SocialError> {
-        // Clean add semantics: invites add as member-only; role grants are explicit via PermissionChange.
+        if GroupStorage::is_blacklisted(platform, group_id, executor) {
+            return Err(crate::permission_denied!("execute_member_invite", "Proposer was blacklisted"));
+        }
+
         GroupStorage::add_member_internal(
             platform,
             group_id,
             target_user,
             executor,
-            kv_permissions::types::NONE,
             AddMemberAuth::BypassPermissions,
         )?;
 

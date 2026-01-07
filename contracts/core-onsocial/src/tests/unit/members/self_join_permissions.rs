@@ -68,7 +68,7 @@ fn test_private_group_join_request_starts_member_only() {
     
     // Switch back to owner to approve (approval cannot grant role)
     near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-    let approve_result = contract.approve_join_request("privategroup".to_string(), joiner.clone(), 0);
+    let approve_result = contract.approve_join_request("privategroup".to_string(), joiner.clone());
     assert!(approve_result.is_ok(), "Owner should approve request: {:?}", approve_result);
     
     // Now user should be a member with member-only (0) global role
@@ -95,7 +95,7 @@ fn test_owner_can_grant_higher_permissions_directly() {
 
     // Owner adds member (clean-add: always 0)
     contract
-        .add_group_member("publicgroup".to_string(), member.clone(), 0)
+        .add_group_member("publicgroup".to_string(), member.clone())
         .unwrap();
 
     // Owner grants MANAGE on config explicitly

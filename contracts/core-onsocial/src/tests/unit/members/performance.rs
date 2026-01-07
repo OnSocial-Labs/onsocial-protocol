@@ -46,8 +46,7 @@ mod member_performance_tests {
             let gas_before = env::used_gas();
             let add_result = contract.add_group_member(
                 "bulk_test_group".to_string(), 
-                member_id.clone(), 
-                0,  // Keep events enabled - this is realistic for substreams
+                member_id.clone(),
             );
             let gas_after = env::used_gas();
             
@@ -134,7 +133,7 @@ mod member_performance_tests {
         // Test add_group_member timing and gas
         let gas_before = env::used_gas();
         let start = Instant::now();
-        contract.add_group_member("timing_test_group".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("timing_test_group".to_string(), member.clone()).unwrap();
         let add_duration = start.elapsed();
         let gas_after = env::used_gas();
         let add_gas = gas_after.as_gas() - gas_before.as_gas();
@@ -222,8 +221,7 @@ mod member_performance_tests {
             
             contract.add_group_member(
                 "large_group".to_string(), 
-                member_id.clone(),
-                0).unwrap();
+                member_id.clone()).unwrap();
         }
 
         let total_time = start_time.elapsed();
@@ -253,7 +251,7 @@ mod member_performance_tests {
 
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("hierarchy_test".to_string(), config).unwrap();
-        contract.add_group_member("hierarchy_test".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("hierarchy_test".to_string(), member.clone()).unwrap();
 
         println!("=== Permission Hierarchy Performance Test ===");
 
@@ -343,7 +341,7 @@ mod member_performance_tests {
             let member_id: near_sdk::AccountId = member_name.parse().unwrap();
             
             contract
-                .add_group_member("storage_test".to_string(), member_id.clone(), 0)
+                .add_group_member("storage_test".to_string(), member_id.clone())
                 .unwrap();
 
             // Measure storage after each addition
@@ -422,7 +420,7 @@ mod member_performance_tests {
         // Test single member addition with cost tracking
         let member_id: near_sdk::AccountId = "cost_test_member.testnet".parse().unwrap();
         contract
-            .add_group_member("min_cost_test".to_string(), member_id.clone(), 0)
+            .add_group_member("min_cost_test".to_string(), member_id.clone())
             .unwrap();
 
         let post_add_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -481,7 +479,7 @@ mod member_performance_tests {
             let pre_balance = contract.get_storage_balance(owner.clone()).unwrap();
             
             contract
-                .add_group_member("bulk_deposit_test".to_string(), member_id, 0)
+                .add_group_member("bulk_deposit_test".to_string(), member_id)
                 .unwrap();
 
             let post_balance = contract.get_storage_balance(owner.clone()).unwrap();

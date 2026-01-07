@@ -62,7 +62,6 @@ impl GroupGovernance {
             ));
         }
 
-        // Voter must have been a member when the proposal was created.
         if !is_owner {
             if let Some(ref member_info) = member_info {
                 let joined_at = member_info
@@ -128,7 +127,18 @@ impl GroupGovernance {
                 let proposal_type = serde_json::from_value::<ProposalType>(proposal_type_val.clone())
                     .map_err(|_| invalid_input!("Failed to parse proposal type"))?;
 
-                proposal_type.execute(platform, group_id, proposal_id, voter)?;
+                // Proposer pays for execution storage and is credited as initiator.
+                let proposer = proposal_data
+                    .get("proposer")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<near_sdk::AccountId>().ok())
+                    .ok_or_else(|| invalid_input!("Proposal missing proposer"))?;
+
+                platform.set_execution_payer(proposer.clone());
+                let exec_result = proposal_type.execute(platform, group_id, proposal_id, &proposer);
+                platform.clear_execution_payer();
+                exec_result?;
+
                 Self::update_proposal_status(
                     platform,
                     group_id,

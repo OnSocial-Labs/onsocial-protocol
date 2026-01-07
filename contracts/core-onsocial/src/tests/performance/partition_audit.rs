@@ -467,10 +467,10 @@ mod partition_audit_tests {
 
         // Add members
         contract
-            .add_group_member("test_group".to_string(), bob.clone(), 0)
+            .add_group_member("test_group".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("test_group".to_string(), charlie.clone(), 0)
+            .add_group_member("test_group".to_string(), charlie.clone())
             .unwrap();
 
         // Grant permission to Charlie
@@ -529,10 +529,10 @@ mod partition_audit_tests {
 
         // Add members
         contract
-            .add_group_member("data_test".to_string(), bob.clone(), 0)
+            .add_group_member("data_test".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("data_test".to_string(), charlie.clone(), 0)
+            .add_group_member("data_test".to_string(), charlie.clone())
             .unwrap();
 
         println!("✓ Members added: bob.near, charlie.near");
@@ -584,10 +584,10 @@ mod partition_audit_tests {
 
         // Add members
         contract
-            .add_group_member("transfer_test".to_string(), bob.clone(), 0)
+            .add_group_member("transfer_test".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("transfer_test".to_string(), charlie.clone(), 0)
+            .add_group_member("transfer_test".to_string(), charlie.clone())
             .unwrap();
 
         // Grant Charlie MODERATE permission BEFORE transfer
@@ -685,10 +685,10 @@ mod partition_audit_tests {
 
         // 2. Add members
         contract
-            .add_group_member("group1".to_string(), bob.clone(), 0)
+            .add_group_member("group1".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("group2".to_string(), charlie.clone(), 0)
+            .add_group_member("group2".to_string(), charlie.clone())
             .unwrap();
 
         println!("✓ Members added to groups");

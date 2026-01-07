@@ -41,7 +41,7 @@ mod storage_flow_tests {
 
         // Owner adds moderator (clean-add), then grants MANAGE on config for member management.
         contract
-            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("testgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -60,7 +60,7 @@ mod storage_flow_tests {
         let mod_context = get_context_with_deposit(moderator.clone(), 2_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(mod_context.build());
         
-        let add_result = contract.add_group_member("testgroup".to_string(), new_member.clone(), 0);
+        let add_result = contract.add_group_member("testgroup".to_string(), new_member.clone());
         assert!(add_result.is_ok(), "Moderator should be able to add member: {:?}", add_result);
 
         // Verify new member was added
@@ -158,7 +158,7 @@ mod storage_flow_tests {
 
         // Owner adds moderator (clean-add), then delegates moderation on join_requests.
         contract
-            .add_group_member("privategroup".to_string(), moderator.clone(), 0)
+            .add_group_member("privategroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -192,7 +192,7 @@ mod storage_flow_tests {
         let mod_context = get_context_with_deposit(moderator.clone(), 2_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(mod_context.build());
         
-        let approve_result = contract.approve_join_request("privategroup".to_string(), requester.clone(), 0);
+        let approve_result = contract.approve_join_request("privategroup".to_string(), requester.clone());
         assert!(approve_result.is_ok(), "Approval should succeed: {:?}", approve_result);
 
         // Verify requester is now a member
@@ -224,7 +224,7 @@ mod storage_flow_tests {
     // ========================================================================
     
     #[test]
-    fn test_voter_pays_for_proposal_execution_storage() {
+    fn test_proposer_pays_for_proposal_execution_storage() {
         let mut contract = init_live_contract();
         let owner = accounts(0);
         let voter1 = accounts(1);
@@ -245,7 +245,10 @@ mod storage_flow_tests {
         test_add_member_bypass_proposals(&mut contract, "demogroup", &voter2, WRITE, &owner);
         test_add_member_bypass_proposals(&mut contract, "demogroup", &voter3, WRITE, &owner);
 
-        // Owner creates proposal to add new member
+        // Get owner's storage before creating proposal
+        let owner_balance_before = contract.get_storage_balance(owner.clone()).unwrap();
+
+        // Owner creates proposal to add new member (requires MIN_PROPOSAL_DEPOSIT)
         let proposal_result = contract.create_group_proposal(
             "demogroup".to_string(),
             "member_invite".to_string(),
@@ -266,7 +269,7 @@ mod storage_flow_tests {
         contract.vote_on_proposal("demogroup".to_string(), proposal_id.clone(), true).unwrap();
         
         // Voter2 votes (THIS vote triggers execution - 3/4 = 75% > 50.01% threshold met)
-        // Storage will be allocated automatically for voter2 during this operation
+        // Now PROPOSER (owner) pays for execution storage, not voter2
         let voter2_context = get_context_with_deposit(voter2.clone(), 3_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(voter2_context.build());
         
@@ -277,22 +280,22 @@ mod storage_flow_tests {
         assert!(contract.is_group_member("demogroup".to_string(), new_member.clone()),
                "New member should be added after proposal execution");
 
-        // Get voter2 balance after execution
-        let voter2_balance_after = contract.get_storage_balance(voter2.clone()).unwrap();
+        // Get owner (proposer) balance after execution
+        let owner_balance_after = contract.get_storage_balance(owner.clone()).unwrap();
 
-        // CRITICAL VERIFICATION: Voter2 (last voter) paid for execution storage
-        assert!(voter2_balance_after.used_bytes > 0,
-               "Last voter should have storage allocated (paid for execution)");
+        // CRITICAL VERIFICATION: Owner (proposer) paid for execution storage, not voter2
+        assert!(owner_balance_after.used_bytes > owner_balance_before.used_bytes,
+               "Proposer should pay for execution storage");
         
-        let execution_cost = voter2_balance_after.used_bytes;
-        println!("✅ Last voter paid {} bytes for proposal execution", execution_cost);
-        println!("   Expected: ~500-700 bytes (vote record + member record + permissions + status update)");
+        let execution_cost = owner_balance_after.used_bytes - owner_balance_before.used_bytes;
+        println!("✅ Proposer paid {} bytes for proposal + execution", execution_cost);
+        println!("   Expected: proposal (~300) + vote (~150) + member record (~300) + status update (~200)");
         
-        // Execution includes: vote record (~150) + member record (~300) + status update (~200)
-        assert!(execution_cost >= 400 && execution_cost <= 900,
-               "Execution storage should be reasonable: {} bytes", execution_cost);
+        // Execution includes: proposal record + vote record + member record + status update
+        assert!(execution_cost >= 400,
+               "Proposer execution storage should be reasonable: {} bytes", execution_cost);
         
-        println!("✅ Democratic cost-sharing: last voter pays for execution");
+        println!("✅ Fair cost model: proposer pays for execution they initiated");
     }
 
     // ========================================================================
@@ -315,7 +318,7 @@ mod storage_flow_tests {
 
         // Owner adds moderator (clean-add), then grants MANAGE on config.
         contract
-            .add_group_member("permgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("permgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -337,7 +340,7 @@ mod storage_flow_tests {
         
         // When adding a member, internally calls grant_permissions() which writes permission keys
         // perm:owner:grantee:path -> flags:expiry
-        let add_result = contract.add_group_member("permgroup".to_string(), new_member.clone(), 0);
+        let add_result = contract.add_group_member("permgroup".to_string(), new_member.clone());
         assert!(add_result.is_ok(), "Member addition should succeed: {:?}", add_result);
 
         // Get storage balances after
@@ -382,7 +385,7 @@ mod storage_flow_tests {
 
         // Owner adds approver (clean-add), then delegates moderation on join_requests.
         contract
-            .add_group_member("approvalgroup".to_string(), approver.clone(), 0)
+            .add_group_member("approvalgroup".to_string(), approver.clone())
             .unwrap();
         contract
             .set_permission(
@@ -407,7 +410,7 @@ mod storage_flow_tests {
         let app_context = get_context_with_deposit(approver.clone(), 2_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(app_context.build());
         
-        let approve_result = contract.approve_join_request("approvalgroup".to_string(), requester.clone(), 0);
+        let approve_result = contract.approve_join_request("approvalgroup".to_string(), requester.clone());
         assert!(approve_result.is_ok(), "Approval should succeed: {:?}", approve_result);
 
         // Verify requester is now a member
@@ -454,7 +457,7 @@ mod storage_flow_tests {
         contract.create_group("refundgroup".to_string(), config).unwrap();
 
         contract
-            .add_group_member("refundgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("refundgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -465,7 +468,7 @@ mod storage_flow_tests {
             )
             .unwrap();
         contract
-            .add_group_member("refundgroup".to_string(), member.clone(), 0)
+            .add_group_member("refundgroup".to_string(), member.clone())
             .unwrap();
 
         // Moderator removes member (switching context with sufficient deposit)
@@ -519,7 +522,7 @@ mod storage_flow_tests {
 
         // Add moderator (clean-add), then grant MANAGE on config for blacklisting.
         contract
-            .add_group_member("securegroup".to_string(), moderator.clone(), 0)
+            .add_group_member("securegroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -532,7 +535,7 @@ mod storage_flow_tests {
         
         // Add bad member
         contract
-            .add_group_member("securegroup".to_string(), bad_member.clone(), 0)
+            .add_group_member("securegroup".to_string(), bad_member.clone())
             .unwrap();
 
         // Get owner's storage balance before blacklist
@@ -591,7 +594,7 @@ mod storage_flow_tests {
 
         // Owner adds approver (clean-add), then delegates moderation on join_requests.
         contract
-            .add_group_member("rejectgroup".to_string(), approver.clone(), 0)
+            .add_group_member("rejectgroup".to_string(), approver.clone())
             .unwrap();
         contract
             .set_permission(
@@ -847,7 +850,7 @@ mod storage_flow_tests {
         contract.create_group("unbangroup".to_string(), config).unwrap();
 
         // Add moderator (clean-add) then explicitly grant privileges for blacklist/unblacklist operations
-        contract.add_group_member("unbangroup".to_string(), moderator.clone(), 0).unwrap();
+        contract.add_group_member("unbangroup".to_string(), moderator.clone()).unwrap();
         contract
             .set_permission(
                 moderator.clone(),
@@ -858,7 +861,7 @@ mod storage_flow_tests {
             .unwrap();
         
         // Add and blacklist member
-        contract.add_group_member("unbangroup".to_string(), banned_member.clone(), 0).unwrap();
+        contract.add_group_member("unbangroup".to_string(), banned_member.clone()).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 2_000_000_000_000_000_000_000_000).build());
         contract.blacklist_group_member("unbangroup".to_string(), banned_member.clone()).unwrap();
@@ -958,7 +961,7 @@ mod storage_flow_tests {
         contract.create_group("revokegroup".to_string(), config).unwrap();
 
         // Add member (clean-add); path permissions are granted explicitly below
-        contract.add_group_member("revokegroup".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("revokegroup".to_string(), member.clone()).unwrap();
 
         // Owner grants additional permissions to member
         let permission_path = "groups/revokegroup/config".to_string();

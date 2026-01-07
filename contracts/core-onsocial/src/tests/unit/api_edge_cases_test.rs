@@ -94,7 +94,7 @@ mod api_edge_cases_tests {
 
         // Add bob as regular member (clean-add)
         contract
-            .add_group_member("admin_test2".to_string(), bob.clone(), 0)
+            .add_group_member("admin_test2".to_string(), bob.clone())
             .unwrap();
 
         // Bob should not have admin permission
@@ -117,7 +117,7 @@ mod api_edge_cases_tests {
 
         // Add bob (clean-add) and then grant MANAGE on group config
         contract
-            .add_group_member("admin_test3".to_string(), bob.clone(), 0)
+            .add_group_member("admin_test3".to_string(), bob.clone())
             .unwrap();
         contract
             .set_permission(
@@ -199,7 +199,7 @@ mod api_edge_cases_tests {
 
         // Add bob (clean-add) and then grant MODERATE on group config
         contract
-            .add_group_member("mod_test2".to_string(), bob.clone(), 0)
+            .add_group_member("mod_test2".to_string(), bob.clone())
             .unwrap();
         contract
             .set_permission(bob.clone(), "groups/mod_test2/config".to_string(), MODERATE, None)
@@ -225,7 +225,7 @@ mod api_edge_cases_tests {
 
         // Add bob with member-only role
         contract
-            .add_group_member("mod_test3".to_string(), bob.clone(), 0)
+            .add_group_member("mod_test3".to_string(), bob.clone())
             .unwrap();
 
         // Bob should not have moderate permission
@@ -396,7 +396,7 @@ mod api_edge_cases_tests {
         let config = json!({ "is_private": false });
         contract.create_group("member_data_test".to_string(), config).unwrap();
         contract
-            .add_group_member("member_data_test".to_string(), bob.clone(), 0)
+            .add_group_member("member_data_test".to_string(), bob.clone())
             .unwrap();
 
         let member_data = contract.get_member_data("member_data_test".to_string(), bob.clone());
@@ -437,7 +437,7 @@ mod api_edge_cases_tests {
         let config = json!({ "is_private": false });
         contract.create_group("stats_test".to_string(), config).unwrap();
         contract
-            .add_group_member("stats_test".to_string(), bob.clone(), 0)
+            .add_group_member("stats_test".to_string(), bob.clone())
             .unwrap();
 
         let stats = contract.get_group_stats("stats_test".to_string());

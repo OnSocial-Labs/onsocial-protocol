@@ -166,8 +166,7 @@ async fn test_is_owner_distinguishes_owner_from_non_owner() -> anyhow::Result<()
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner_test_group",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -247,8 +246,7 @@ async fn test_ownership_transfer_updates_is_owner() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "transfer_test",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -355,8 +353,7 @@ async fn test_owner_cannot_be_blacklisted() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "blacklist_owner_test",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -458,8 +455,7 @@ async fn test_owner_cannot_be_removed_by_manage() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "remove_owner_test",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -713,8 +709,7 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
             .call(contract.id(), "add_group_member")
             .args_json(json!({
                 "group_id": "perm_grant_test",
-                "member_id": user.id().to_string(),
-                "level": 0
+                "member_id": user.id().to_string()
             }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -796,8 +791,7 @@ async fn test_transfer_to_blacklisted_member_fails() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "blacklist_transfer_test",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -914,7 +908,6 @@ async fn test_member_driven_group_creates_transfer_proposal() -> anyhow::Result<
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": bob.id().to_string(),
-                "level": 0,
                 "message": "Add Bob"
             }
         }))
@@ -1014,7 +1007,6 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": bob.id().to_string(),
-                "level": 0,
                 "message": "Add Bob"
             }
         }))
@@ -1033,7 +1025,6 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": charlie.id().to_string(),
-                "level": 0,
                 "message": "Add Charlie"
             }
         }))
@@ -1184,7 +1175,7 @@ async fn test_governance_proposal_rejects_non_member_new_owner() -> anyhow::Resu
         .args_json(json!({
             "group_id": "validate_non_member_test",
             "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+            "changes": { "target_user": bob.id().to_string() }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1259,7 +1250,7 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
         .args_json(json!({
             "group_id": "validate_blacklist_test",
             "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+            "changes": { "target_user": bob.id().to_string() }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1272,7 +1263,7 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
         .args_json(json!({
             "group_id": "validate_blacklist_test",
             "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string(), "level": 0 }
+            "changes": { "target_user": charlie.id().to_string() }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1404,8 +1395,7 @@ async fn test_transfer_event_includes_triggered_by_and_from_governance() -> anyh
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "event_fields_test",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1503,7 +1493,7 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
         .args_json(json!({
             "group_id": "gov_event_test",
             "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+            "changes": { "target_user": bob.id().to_string() }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1517,7 +1507,7 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
         .args_json(json!({
             "group_id": "gov_event_test",
             "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string(), "level": 0 }
+            "changes": { "target_user": charlie.id().to_string() }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1592,12 +1582,13 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
     );
     println!("   ✓ from_governance=true for governance transfer");
 
-    // Verify triggered_by contains Bob (the voter who finalized)
+    // Verify triggered_by contains Alice (the proposer who initiated the transfer)
+    // Note: executor is now the proposer, not the final voter
     assert!(
-        event_json.contains(bob.id().as_str()),
-        "triggered_by should reference Bob (finalizing voter)"
+        event_json.contains(alice.id().as_str()),
+        "triggered_by should reference Alice (proposer who initiated transfer)"
     );
-    println!("   ✓ triggered_by correctly identifies Bob as executor");
+    println!("   ✓ triggered_by correctly identifies Alice as initiator");
 
     Ok(())
 }
@@ -1636,7 +1627,7 @@ async fn test_governance_proposal_rejects_missing_new_owner() -> anyhow::Result<
         .args_json(json!({
             "group_id": "missing_owner_test",
             "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string(), "level": 0 }
+            "changes": { "target_user": bob.id().to_string() }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))

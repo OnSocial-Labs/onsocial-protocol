@@ -91,7 +91,15 @@ impl ProposalType {
                                     return Err(invalid_input!("Cannot transfer ownership to blacklisted member"));
                                 }
                             }
-                            _ => {}
+                            GroupUpdateType::RemoveMember | GroupUpdateType::Ban | GroupUpdateType::Unban => {
+                                let target_str = changes.get("target_user")
+                                    .and_then(|v| v.as_str())
+                                    .ok_or_else(|| invalid_input!("target_user is required"))?;
+                                crate::validation::parse_account_id_str(
+                                    target_str,
+                                    invalid_input!("Invalid target_user account ID"),
+                                )?;
+                            }
                         }
                     }
                 }
@@ -117,26 +125,14 @@ impl ProposalType {
                     return Err(invalid_input!("Path must be within this group"));
                 }
             }
-            Self::MemberInvite { target_user, level, .. } => {
+            Self::MemberInvite { target_user, .. } => {
                 if GroupStorage::is_member(platform, group_id, target_user) {
                     return Err(invalid_input!("User is already a member"));
                 }
-                if !kv_permissions::types::is_valid_permission_level(*level, true) {
-                    return Err(invalid_input!("Invalid permission level"));
-                }
-
-                GroupStorage::assert_clean_member_level(
-                    *level,
-                    "Member invites cannot grant permissions; omit level or use 0",
-                )?;
+                // No level validation needed - members always join with NONE
             }
-            Self::JoinRequest { requested_permissions, .. } => {
-                // Clean join semantics: join requests never grant a global role.
-                // All joins start member-only (NONE); elevated roles must be granted explicitly after joining.
-                GroupStorage::assert_clean_member_level(
-                    *requested_permissions,
-                    "Join requests cannot request permissions; omit requested_permissions or use 0",
-                )?;
+            Self::JoinRequest { .. } => {
+                // No validation needed - members always join with NONE
             }
             Self::VotingConfigChange { participation_quorum_bps, majority_threshold_bps, voting_period } => {
                 if participation_quorum_bps.is_none()

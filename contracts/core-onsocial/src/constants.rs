@@ -23,6 +23,16 @@ pub const MIN_VOTING_MAJORITY_THRESHOLD_BPS: u16 = 5_001; // Must be > 50%
 
 pub const SHARED_STORAGE_PATH_SUFFIX: &str = "/shared_storage";
 
+/// Minimum deposit required to create a proposal (0.1 NEAR).
+/// This deposit is credited to proposer's storage balance and locked until proposal completes.
+/// The locked amount ensures proposers can pay for execution costs.
+pub const MIN_PROPOSAL_DEPOSIT: u128 = 100_000_000_000_000_000_000_000;
+
+/// Amount locked from proposer's balance for proposal execution (0.05 NEAR).
+/// This is less than MIN_PROPOSAL_DEPOSIT to leave room for proposal storage costs.
+/// Unlocked when proposal is executed, rejected, expired, or cancelled.
+pub const PROPOSAL_EXECUTION_LOCK: u128 = 50_000_000_000_000_000_000_000;
+
 pub const NANOS_PER_MINUTE: u64 = 60_000_000_000;
 pub const NANOS_PER_DAY: u64 = 86_400_000_000_000;
 

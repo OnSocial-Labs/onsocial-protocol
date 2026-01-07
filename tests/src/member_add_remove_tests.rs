@@ -225,8 +225,7 @@ async fn test_add_existing_member_fails() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "duplicate_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -240,8 +239,7 @@ async fn test_add_existing_member_fails() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "duplicate_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -296,8 +294,7 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "manager_remove_test",
-            "member_id": manager.id(),
-            "level": 0
+            "member_id": manager.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -325,8 +322,7 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "manager_remove_test",
-            "member_id": regular.id(),
-            "level": 0
+            "member_id": regular.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -436,8 +432,7 @@ async fn test_cannot_add_blacklisted_user() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "blacklist_add_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -491,8 +486,7 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "blacklisted_granter_test",
-            "member_id": manager.id(),
-            "level": 0
+            "member_id": manager.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -533,8 +527,7 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "blacklisted_granter_test",
-            "member_id": charlie.id(),
-            "level": 0
+            "member_id": charlie.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -843,8 +836,7 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "admin_blacklist_test",
-            "member_id": admin.id(),
-            "level": 0
+            "member_id": admin.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -956,7 +948,6 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": bob.id().to_string(),
-                "level": 0,
                 "message": "Add Bob"
             }
         }))
@@ -1050,7 +1041,6 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": bob.id().to_string(),
-                "level": 0,
                 "message": "Add Bob"
             }
         }))
@@ -1068,7 +1058,6 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": charlie.id().to_string(),
-                "level": 0,
                 "message": "Add Charlie"
             }
         }))
@@ -1581,8 +1570,7 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
             .call(contract.id(), "add_group_member")
             .args_json(json!({
                 "group_id": "governance_test",
-                "member_id": user.id(),
-                "level": 0
+                "member_id": user.id()
             }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1600,7 +1588,6 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": target.id().to_string(),
-                "level": 0,
                 "message": "Invite target via governance"
             }
         }))
@@ -1665,341 +1652,6 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
     println!("✅ Governance bypass via proposal test passed");
     Ok(())
 }
-
-// =============================================================================
-// TEST: assert_clean_member_level - add_group_member with level > 0 fails
-// =============================================================================
-// Covers: helpers.rs:assert_clean_member_level
-// Scenario: Clean-add semantics require level = 0 when adding members.
-// Roles/permissions must be granted explicitly after adding.
-#[tokio::test]
-async fn test_add_member_with_nonzero_level_fails() -> anyhow::Result<()> {
-    println!("\n=== Test: add_group_member with level > 0 fails (clean-add) ===");
-
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_core_onsocial(&worker).await?;
-
-    let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    let bob = create_user(&root, "bob", TEN_NEAR).await?;
-
-    // Alice creates a public group
-    let create_result = alice
-        .call(contract.id(), "create_group")
-        .args_json(json!({
-            "group_id": "clean_add_test",
-            "config": { "is_private": false }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(create_result.is_success(), "Create group should succeed");
-    println!("   ✓ Created public group");
-
-    // Alice tries to add Bob with level = 1 (WRITE) - should fail
-    let add_with_write = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "clean_add_test",
-            "member_id": bob.id(),
-            "level": WRITE  // 1 - not allowed
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-
-    assert!(!add_with_write.is_success(), "Adding member with level > 0 should fail");
-
-    let failure_msg = format!("{:?}", add_with_write.failures());
-    assert!(
-        failure_msg.contains("cannot grant") || failure_msg.contains("Adding members"),
-        "Error should mention clean-add restriction: {}", failure_msg
-    );
-    println!("   ✓ add_group_member with level=1 (WRITE) correctly rejected");
-
-    // Alice tries to add Bob with level = 3 (MANAGE) - should also fail
-    let add_with_manage = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "clean_add_test",
-            "member_id": bob.id(),
-            "level": MANAGE  // 3 - not allowed
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-
-    assert!(!add_with_manage.is_success(), "Adding member with MANAGE level should fail");
-    println!("   ✓ add_group_member with level=3 (MANAGE) correctly rejected");
-
-    // Verify Bob is NOT a member
-    let is_bob_member: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "clean_add_test",
-            "member_id": bob.id()
-        }))
-        .await?
-        .json()?;
-    assert!(!is_bob_member, "Bob should not be a member after rejected adds");
-    println!("   ✓ Bob is not a member (clean-add enforced)");
-
-    // Alice adds Bob correctly with level = 0
-    let add_correct = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "clean_add_test",
-            "member_id": bob.id(),
-            "level": 0  // Correct: member-only
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-
-    assert!(add_correct.is_success(), "Adding with level=0 should succeed");
-    println!("   ✓ add_group_member with level=0 succeeded");
-
-    // Verify Bob is now a member
-    let is_bob_member_after: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "clean_add_test",
-            "member_id": bob.id()
-        }))
-        .await?
-        .json()?;
-    assert!(is_bob_member_after, "Bob should be a member after correct add");
-    println!("   ✓ Bob is a member (level=0 add succeeded)");
-
-    println!("✅ Clean-add enforcement (add_group_member) test passed");
-    Ok(())
-}
-
-// =============================================================================
-// TEST: assert_clean_member_level - approve_join_request with level > 0 fails
-// =============================================================================
-// Covers: helpers.rs:assert_clean_member_level (join request approval path)
-// Scenario: Join request approvals must use level = 0 (member-only).
-#[tokio::test]
-async fn test_approve_join_request_with_nonzero_level_fails() -> anyhow::Result<()> {
-    println!("\n=== Test: approve_join_request with level > 0 fails ===");
-
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_core_onsocial(&worker).await?;
-
-    let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    let bob = create_user(&root, "bob", TEN_NEAR).await?;
-
-    // Alice creates a private group (requires join requests)
-    let create_result = alice
-        .call(contract.id(), "create_group")
-        .args_json(json!({
-            "group_id": "join_level_test",
-            "config": { "is_private": true }  // Private forces join requests
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(create_result.is_success(), "Create private group should succeed");
-    println!("   ✓ Created private group");
-
-    // Bob requests to join
-    let join_request = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "join_level_test" }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(join_request.is_success(), "Join request should succeed");
-    println!("   ✓ Bob submitted join request");
-
-    // Alice tries to approve with level = 1 (WRITE) - should fail
-    let approve_with_write = alice
-        .call(contract.id(), "approve_join_request")
-        .args_json(json!({
-            "group_id": "join_level_test",
-            "requester_id": bob.id(),
-            "level": WRITE  // 1 - not allowed
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-
-    assert!(!approve_with_write.is_success(), "Approving with level > 0 should fail");
-
-    let failure_msg = format!("{:?}", approve_with_write.failures());
-    assert!(
-        failure_msg.contains("cannot grant") || failure_msg.contains("Join approvals"),
-        "Error should mention clean approval restriction: {}", failure_msg
-    );
-    println!("   ✓ approve_join_request with level=1 correctly rejected");
-
-    // Verify Bob is NOT a member yet
-    let is_bob_member: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "join_level_test",
-            "member_id": bob.id()
-        }))
-        .await?
-        .json()?;
-    assert!(!is_bob_member, "Bob should not be a member after rejected approval");
-    println!("   ✓ Bob is not a member (approval rejected)");
-
-    // Alice approves correctly with level = 0
-    let approve_correct = alice
-        .call(contract.id(), "approve_join_request")
-        .args_json(json!({
-            "group_id": "join_level_test",
-            "requester_id": bob.id(),
-            "level": 0  // Correct: member-only
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-
-    assert!(approve_correct.is_success(), "Approving with level=0 should succeed");
-    println!("   ✓ approve_join_request with level=0 succeeded");
-
-    // Verify Bob is now a member
-    let is_bob_member_after: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "join_level_test",
-            "member_id": bob.id()
-        }))
-        .await?
-        .json()?;
-    assert!(is_bob_member_after, "Bob should be a member after correct approval");
-    println!("   ✓ Bob is a member (level=0 approval succeeded)");
-
-    println!("✅ Clean approval enforcement (approve_join_request) test passed");
-    Ok(())
-}
-
-// =============================================================================
-// TEST: assert_clean_member_level - member_invite proposal with level > 0 fails
-// =============================================================================
-// Covers: helpers.rs:assert_clean_member_level (proposal validation path)
-// Scenario: Member invite proposals must use level = 0 (member-only).
-#[tokio::test]
-async fn test_member_invite_proposal_with_nonzero_level_fails() -> anyhow::Result<()> {
-    println!("\n=== Test: member_invite proposal with level > 0 fails ===");
-
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_core_onsocial(&worker).await?;
-
-    let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
-
-    // Alice creates a member-driven group
-    let create_result = alice
-        .call(contract.id(), "create_group")
-        .args_json(json!({
-            "group_id": "proposal_level_test",
-            "config": { "member_driven": true, "is_private": true }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(create_result.is_success(), "Create member-driven group should succeed");
-    println!("   ✓ Created member-driven group");
-
-    // Alice creates proposal to invite Bob with level = 1 (WRITE) - should fail validation
-    let invite_with_level = alice
-        .call(contract.id(), "create_group_proposal")
-        .args_json(json!({
-            "group_id": "proposal_level_test",
-            "proposal_type": "member_invite",
-            "changes": {
-                "target_user": bob.id().to_string(),
-                "level": WRITE,  // 1 - not allowed
-                "message": "Invite with elevated permissions"
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(150))
-        .transact()
-        .await?;
-
-    assert!(!invite_with_level.is_success(), "Proposal with level > 0 should fail validation");
-
-    let failure_msg = format!("{:?}", invite_with_level.failures());
-    assert!(
-        failure_msg.contains("cannot grant") || failure_msg.contains("omit level"),
-        "Error should mention clean invite restriction: {}", failure_msg
-    );
-    println!("   ✓ member_invite proposal with level=1 correctly rejected");
-
-    // Verify Bob is NOT a member
-    let is_bob_member: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "proposal_level_test",
-            "member_id": bob.id()
-        }))
-        .await?
-        .json()?;
-    assert!(!is_bob_member, "Bob should not be a member after rejected proposal");
-    println!("   ✓ Bob is not a member (proposal validation failed)");
-
-    // Alice creates correct proposal with level = 0 (will auto-execute with 1 member)
-    let invite_correct = alice
-        .call(contract.id(), "create_group_proposal")
-        .args_json(json!({
-            "group_id": "proposal_level_test",
-            "proposal_type": "member_invite",
-            "changes": {
-                "target_user": charlie.id().to_string(),
-                "level": 0,  // Correct: member-only
-                "message": "Correct invite"
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(150))
-        .transact()
-        .await?;
-
-    assert!(invite_correct.is_success(), "Proposal with level=0 should succeed");
-    println!("   ✓ member_invite proposal with level=0 succeeded (auto-executed)");
-
-    // Verify Charlie is now a member (auto-executed with 1 member)
-    let is_charlie_member: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "proposal_level_test",
-            "member_id": charlie.id()
-        }))
-        .await?
-        .json()?;
-    assert!(is_charlie_member, "Charlie should be a member after auto-executed proposal");
-    println!("   ✓ Charlie is a member (level=0 proposal auto-executed)");
-
-    println!("✅ Clean invite enforcement (member_invite proposal) test passed");
-    Ok(())
-}
-
-// =============================================================================
-// TEST: AddMemberAuth::BypassPermissions still enforces member blacklist check
-// =============================================================================
-// Covers: types.rs:AddMemberAuth::BypassPermissions
-// CRITICAL SECURITY: Even governance-approved adds MUST NOT add blacklisted users.
-// The blacklist check on member_id (add_remove.rs:75) is unconditional.
-//
-// Scenario: In a member-driven group, we first execute a ban proposal to blacklist
-// a user, then try to add them via member_invite proposal. The add should fail.
 #[tokio::test]
 async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<()> {
     println!("\n=== Test: Governance bypass cannot add blacklisted user ===");
@@ -2037,8 +1689,7 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
             .call(contract.id(), "add_group_member")
             .args_json(json!({
                 "group_id": "blacklist_bypass_test",
-                "member_id": user.id(),
-                "level": 0
+                "member_id": user.id()
             }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2115,7 +1766,6 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
             "proposal_type": "member_invite",
             "changes": {
                 "target_user": target.id().to_string(),
-                "level": 0,
                 "message": "Invite blacklisted user via governance"
             }
         }))
@@ -2265,8 +1915,7 @@ async fn test_approve_join_request_cannot_add_blacklisted_user() -> anyhow::Resu
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "join_blacklist_test",
-            "requester_id": bob.id(),
-            "level": 0
+            "requester_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2479,8 +2128,7 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private_routing_test",
-            "requester_id": charlie.id(),
-            "level": 0
+            "requester_id": charlie.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2539,8 +2187,7 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "md_remove_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2742,8 +2389,7 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "mod_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2768,8 +2414,7 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "mod_test",
-            "requester_id": charlie.id(),
-            "level": 0
+            "requester_id": charlie.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2808,8 +2453,7 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "mod_test",
-            "requester_id": charlie.id(),
-            "level": 0
+            "requester_id": charlie.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2866,8 +2510,7 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "status_test",
-            "requester_id": bob.id(),
-            "level": 0
+            "requester_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2881,8 +2524,7 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "status_test",
-            "requester_id": bob.id(),
-            "level": 0
+            "requester_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2940,8 +2582,7 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "status_test",
-            "requester_id": charlie.id(),
-            "level": 0
+            "requester_id": charlie.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2998,8 +2639,7 @@ async fn test_cancel_already_processed_fails() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "cancel_status_test",
-            "requester_id": bob.id(),
-            "level": 0
+            "requester_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3120,8 +2760,7 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "counter_test",
-            "requester_id": bob.id(),
-            "level": 0
+            "requester_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3202,8 +2841,7 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "mod_add_test",
-            "member_id": moderator.id(),
-            "level": 0
+            "member_id": moderator.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3244,8 +2882,7 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "mod_add_test",
-            "member_id": target1.id(),
-            "level": 0
+            "member_id": target1.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3287,8 +2924,7 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "mod_add_test",
-            "member_id": target2.id(),
-            "level": 0
+            "member_id": target2.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3474,8 +3110,7 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "member_driven_grant_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3531,106 +3166,6 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
     Ok(())
 }
 
-// =============================================================================
-// TEST: add_group_member rejects non-zero level (security invariant)
-// =============================================================================
-// Covers: add_remove.rs assert_clean_member_level - members cannot be added with elevated permissions
-// This ensures even owners cannot bypass the "add then grant" pattern
-#[tokio::test]
-async fn test_add_member_rejects_nonzero_level() -> anyhow::Result<()> {
-    println!("\n=== Test: add_group_member rejects non-zero level ===");
-
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_core_onsocial(&worker).await?;
-
-    let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    let bob = create_user(&root, "bob", TEN_NEAR).await?;
-
-    // Alice creates a public group
-    let create_result = alice
-        .call(contract.id(), "create_group")
-        .args_json(json!({
-            "group_id": "level_reject_test",
-            "config": { "is_private": false }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(create_result.is_success(), "Create group should succeed");
-
-    // Test 1: Owner tries to add member with level=WRITE (1) - should fail
-    let add_with_write = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "level_reject_test",
-            "member_id": bob.id(),
-            "level": WRITE
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(!add_with_write.is_success(), "Adding member with level=WRITE should fail");
-    let failure_msg = format!("{:?}", add_with_write.failures());
-    assert!(
-        failure_msg.contains("cannot grant permissions") || failure_msg.contains("use 0"),
-        "Error should mention level restriction: {}",
-        failure_msg
-    );
-    println!("   ✓ Owner correctly denied from adding member with level=WRITE");
-
-    // Test 2: Owner tries to add member with level=MANAGE (3) - should fail
-    let add_with_manage = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "level_reject_test",
-            "member_id": bob.id(),
-            "level": MANAGE
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(!add_with_manage.is_success(), "Adding member with level=MANAGE should fail");
-    println!("   ✓ Owner correctly denied from adding member with level=MANAGE");
-
-    // Test 3: Adding with level=0 (NONE) succeeds - the correct pattern
-    let add_with_none = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "level_reject_test",
-            "member_id": bob.id(),
-            "level": 0
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(add_with_none.is_success(), "Adding member with level=0 should succeed: {:?}", add_with_none.failures());
-    println!("   ✓ Adding member with level=0 succeeds (correct pattern)");
-
-    // Verify Bob is a member
-    let is_bob_member: bool = contract
-        .view("is_group_member")
-        .args_json(json!({
-            "group_id": "level_reject_test",
-            "member_id": bob.id()
-        }))
-        .await?
-        .json()?;
-    assert!(is_bob_member, "Bob should be a member");
-
-    println!("✅ add_member level rejection test passed");
-    Ok(())
-}
-
-// =============================================================================
-// TEST: Stats counter underflow protection and event schema
-// =============================================================================
-// Covers: stats.rs saturating_sub ensures counter never goes below 0
-// Covers: stats.rs stats_updated event emission with correct schema
 #[tokio::test]
 async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<()> {
     println!("\n=== Test: Stats counter underflow protection and event schema ===");
@@ -3737,6 +3272,436 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
     println!("   ✓ last_updated field properly maintained");
 
     println!("✅ Stats counter underflow protection and event test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: Remove non-existent member fails with proper error
+// =============================================================================
+// Scenario: Owner tries to remove a member who never joined.
+// Expected: Fails with "Member not found" error.
+#[tokio::test]
+async fn test_remove_nonexistent_member_fails() -> anyhow::Result<()> {
+    println!("\n=== Test: Remove non-existent member fails ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates a public group
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "remove_nonexistent_test",
+            "config": { "is_private": false }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+    println!("   ✓ Group created");
+
+    // Bob never joined - Alice tries to remove Bob
+    let remove_result = alice
+        .call(contract.id(), "remove_group_member")
+        .args_json(json!({
+            "group_id": "remove_nonexistent_test",
+            "member_id": bob.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!remove_result.is_success(), "Remove non-existent member should fail");
+
+    let failure_msg = format!("{:?}", remove_result.failures());
+    assert!(
+        failure_msg.contains("Member not found") || failure_msg.contains("not found"),
+        "Error should mention member not found: {}",
+        failure_msg
+    );
+    println!("   ✓ Remove non-existent member correctly rejected with 'Member not found'");
+
+    println!("✅ Remove non-existent member test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: Unprivileged user cannot add members to private group
+// =============================================================================
+// Scenario: Regular member without MANAGE tries to add someone to private group.
+// Expected: Fails with permission denied.
+#[tokio::test]
+async fn test_unprivileged_cannot_add_to_private_group() -> anyhow::Result<()> {
+    println!("\n=== Test: Unprivileged user cannot add members to private group ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Alice creates a PRIVATE group
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "private_add_test",
+            "config": { "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create private group should succeed");
+    println!("   ✓ Private group created");
+
+    // Alice adds Bob as regular member
+    let add_bob = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private_add_test",
+            "member_id": bob.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Owner adding Bob should succeed");
+    println!("   ✓ Bob added as regular member");
+
+    // Bob (no MANAGE permission) tries to add Charlie - should fail
+    let bob_add_charlie = bob
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "private_add_test",
+            "member_id": charlie.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!bob_add_charlie.is_success(), "Unprivileged member should not add others to private group");
+
+    let failure_msg = format!("{:?}", bob_add_charlie.failures());
+    assert!(
+        failure_msg.contains("Permission") || failure_msg.contains("denied") || failure_msg.contains("permission"),
+        "Error should mention permission denied: {}",
+        failure_msg
+    );
+    println!("   ✓ Unprivileged member correctly rejected from adding others");
+
+    // Verify Charlie is NOT a member
+    let is_charlie_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "private_add_test",
+            "member_id": charlie.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_charlie_member, "Charlie should not be a member");
+    println!("   ✓ Charlie is not a member");
+
+    println!("✅ Unprivileged cannot add to private group test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: Unblacklist then add member flow
+// =============================================================================
+// Scenario: User is blacklisted, then unblacklisted, then successfully added.
+// Tests the complete remediation flow.
+#[tokio::test]
+async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
+    println!("\n=== Test: Unblacklist then add member flow ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates a public group
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "config": { "is_private": false }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+    println!("   ✓ Group created");
+
+    // Alice blacklists Bob
+    let blacklist_bob = alice
+        .call(contract.id(), "blacklist_group_member")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "member_id": bob.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(blacklist_bob.is_success(), "Blacklisting Bob should succeed");
+    println!("   ✓ Bob blacklisted");
+
+    // Verify Bob is blacklisted
+    let is_blacklisted_before: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(is_blacklisted_before, "Bob should be blacklisted");
+
+    // Alice tries to add blacklisted Bob - should fail
+    let add_blacklisted = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "member_id": bob.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!add_blacklisted.is_success(), "Adding blacklisted user should fail");
+    println!("   ✓ Cannot add while blacklisted");
+
+    // Alice unblacklists Bob
+    let unblacklist_bob = alice
+        .call(contract.id(), "unblacklist_group_member")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "member_id": bob.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(unblacklist_bob.is_success(), "Unblacklisting Bob should succeed");
+    println!("   ✓ Bob unblacklisted");
+
+    // Verify Bob is no longer blacklisted
+    let is_blacklisted_after: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "user_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_blacklisted_after, "Bob should no longer be blacklisted");
+
+    // Alice can now add Bob
+    let add_bob = alice
+        .call(contract.id(), "add_group_member")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "member_id": bob.id()
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding unblacklisted Bob should succeed: {:?}", add_bob.failures());
+    println!("   ✓ Bob added after unblacklist");
+
+    // Verify Bob is now a member
+    let is_bob_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "unblacklist_flow_test",
+            "member_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(is_bob_member, "Bob should now be a member");
+    println!("   ✓ Bob is a member");
+
+    println!("✅ Unblacklist then add flow test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: Cancel join request blocked in member-driven group
+// =============================================================================
+// Covers: join_requests.rs:cancel_join_request assert_join_requests_not_member_driven
+// Scenario: Member-driven groups handle join requests through proposals only.
+// cancel_join_request should fail with "proposals only" error.
+#[tokio::test]
+async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Result<()> {
+    println!("\n=== Test: Cancel join request blocked in member-driven group ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates a member-driven group (implicitly private)
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "member_driven_cancel_test",
+            "config": {
+                "member_driven": true
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create member-driven group should succeed: {:?}", create_result.failures());
+    println!("   ✓ Created member-driven group");
+
+    // Bob attempts to join (creates proposal in member-driven group)
+    let join_result = bob
+        .call(contract.id(), "join_group")
+        .args_json(json!({ "group_id": "member_driven_cancel_test" }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(join_result.is_success(), "Join should succeed (creates proposal): {:?}", join_result.failures());
+    println!("   ✓ Bob submitted join request (proposal created)");
+
+    // Bob tries to cancel - should fail because member-driven groups use proposals
+    let cancel_result = bob
+        .call(contract.id(), "cancel_join_request")
+        .args_json(json!({ "group_id": "member_driven_cancel_test" }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!cancel_result.is_success(), "Cancel should fail in member-driven group");
+    let err = format!("{:?}", cancel_result.failures());
+    assert!(
+        err.contains("proposals only") || err.contains("Member-driven"),
+        "Error should mention proposals: {}", err
+    );
+    println!("   ✓ Cancel correctly rejected with 'proposals only' error");
+
+    println!("✅ Cancel join request blocked in member-driven group test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: Re-submit join request after rejection
+// =============================================================================
+// Covers: join_requests.rs L42 - If status is "rejected", allow overwriting
+// Scenario: User submits request, gets rejected, can submit again
+#[tokio::test]
+async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
+    println!("\n=== Test: Re-submit join request after rejection ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates private group
+    let create_result = alice
+        .call(contract.id(), "create_group")
+        .args_json(json!({
+            "group_id": "resubmit_test",
+            "config": { "is_private": true }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success());
+    println!("   ✓ Created private group");
+
+    // Bob submits first join request
+    let join1 = bob
+        .call(contract.id(), "join_group")
+        .args_json(json!({ "group_id": "resubmit_test" }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(join1.is_success());
+    println!("   ✓ Bob submitted first join request");
+
+    // Alice rejects
+    let reject = alice
+        .call(contract.id(), "reject_join_request")
+        .args_json(json!({
+            "group_id": "resubmit_test",
+            "requester_id": bob.id(),
+            "reason": "Profile incomplete"
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(reject.is_success());
+    println!("   ✓ Alice rejected request");
+
+    // Verify status is rejected
+    let request_rejected: Option<serde_json::Value> = contract
+        .view("get_join_request")
+        .args_json(json!({
+            "group_id": "resubmit_test",
+            "requester_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    let status = request_rejected
+        .as_ref()
+        .and_then(|r| r.get("status"))
+        .and_then(|s| s.as_str());
+    assert_eq!(status, Some("rejected"));
+    println!("   ✓ Status is 'rejected'");
+
+    // Bob submits again - should succeed (overwrite rejected)
+    let join2 = bob
+        .call(contract.id(), "join_group")
+        .args_json(json!({ "group_id": "resubmit_test" }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(join2.is_success(), "Re-submit after rejection should succeed: {:?}", join2.failures());
+    println!("   ✓ Bob successfully re-submitted after rejection");
+
+    // Verify status is now pending again
+    let request_pending: Option<serde_json::Value> = contract
+        .view("get_join_request")
+        .args_json(json!({
+            "group_id": "resubmit_test",
+            "requester_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    let new_status = request_pending
+        .as_ref()
+        .and_then(|r| r.get("status"))
+        .and_then(|s| s.as_str());
+    assert_eq!(new_status, Some("pending"), "Status should be pending after resubmit");
+    println!("   ✓ Status is 'pending' after resubmit");
+
+    println!("✅ Re-submit join request after rejection test passed");
     Ok(())
 }
 

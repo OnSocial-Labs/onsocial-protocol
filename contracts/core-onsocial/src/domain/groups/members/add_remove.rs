@@ -2,6 +2,7 @@ use near_sdk::{AccountId, env, serde_json::{self, Value}};
 
 use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::config::GroupConfig;
+use crate::domain::groups::permissions::kv::types::NONE;
 use crate::state::models::SocialPlatform;
 use crate::{invalid_input, permission_denied, SocialError};
 
@@ -13,24 +14,22 @@ impl crate::domain::groups::core::GroupStorage {
         group_id: &str,
         member_id: &AccountId,
         granter_id: &AccountId,
-        level: u8,
     ) -> Result<(), SocialError> {
         Self::add_member_internal(
             platform,
             group_id,
             member_id,
             granter_id,
-            level,
             AddMemberAuth::Normal,
         )
     }
 
+    /// New members join with level=NONE; nonce increments to invalidate stale permissions.
     pub fn add_member_internal(
         platform: &mut SocialPlatform,
         group_id: &str,
         member_id: &AccountId,
         granter_id: &AccountId,
-        level: u8,
         auth: AddMemberAuth,
     ) -> Result<(), SocialError> {
         let is_self_join = member_id == granter_id;
@@ -48,21 +47,9 @@ impl crate::domain::groups::core::GroupStorage {
         let is_private = cfg.is_private.unwrap_or(false);
         let is_public = !is_private;
 
-        if !crate::domain::groups::permissions::kv::types::is_valid_permission_level(level, true) {
-            return Err(invalid_input!("Invalid permission level"));
-        }
-
-        // Adding never grants roles; use PermissionChange proposal.
-        Self::assert_clean_member_level(
-            level,
-            "Adding members cannot grant permissions; use 0 and grant roles after adding",
-        )?;
-
         let member_path = Self::group_member_path(group_id, member_id.as_str());
-        if let Some(entry) = platform.get_entry(&member_path) {
-            if matches!(entry.value, crate::state::models::DataValue::Value(_)) {
-                return Err(invalid_input!("Member already exists in group"));
-            }
+        if Self::is_member(platform, group_id, member_id) {
+            return Err(invalid_input!("Member already exists in group"));
         }
 
         if !bypass_permissions && Self::is_blacklisted(platform, group_id, granter_id) {
@@ -76,18 +63,10 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Cannot add blacklisted user. Remove from blacklist first using unblacklist_group_member."));
         }
 
-        if is_self_join && is_public {
-            if level != crate::domain::groups::permissions::kv::types::NONE {
-                return Err(invalid_input!(
-                    "Public self-join must use 0 (member-only). Default /content WRITE is granted automatically"
-                ));
-            }
-        }
-
         let should_bypass =
             bypass_permissions || (is_self_join && is_public) || bypass_grant_permission_check;
 
-        if !should_bypass && !Self::can_grant_permissions(platform, group_id, granter_id, level) {
+        if !should_bypass && !Self::can_grant_permissions(platform, group_id, granter_id, NONE) {
             return Err(permission_denied!("add_member", &config_path));
         }
 
@@ -101,7 +80,7 @@ impl crate::domain::groups::core::GroupStorage {
         platform.storage_set(&nonce_path, &Value::Number(new_nonce.into()))?;
 
         let member_data = Value::Object(serde_json::Map::from_iter([
-            ("level".to_string(), Value::Number(level.into())),
+            ("level".to_string(), Value::Number(NONE.into())),
             (
                 "granted_by".to_string(),
                 Value::String(granter_id.to_string()),
@@ -132,6 +111,10 @@ impl crate::domain::groups::core::GroupStorage {
 
         Self::increment_member_count(platform, group_id, granter_id, &mut event_batch)?;
 
+        let default_permissions = serde_json::json!([
+            {"path": "content", "level": crate::domain::groups::permissions::kv::types::WRITE}
+        ]);
+
         EventBuilder::new(
             crate::constants::EVENT_TYPE_GROUP_UPDATE,
             "add_member",
@@ -142,6 +125,7 @@ impl crate::domain::groups::core::GroupStorage {
         .with_value(member_data)
         .with_field("member_nonce", new_nonce)
         .with_field("member_nonce_path", nonce_path)
+        .with_field("default_permissions", default_permissions)
         .emit(&mut event_batch);
         event_batch.emit()?;
 
@@ -162,7 +146,6 @@ impl crate::domain::groups::core::GroupStorage {
                 group_id,
                 caller,
                 caller,
-                crate::domain::groups::permissions::kv::types::NONE,
             )
         }
     }
@@ -185,9 +168,10 @@ impl crate::domain::groups::core::GroupStorage {
     ) -> Result<(), SocialError> {
         let member_path = Self::group_member_path(group_id, member_id.as_str());
 
-        if platform.storage_get(&member_path).is_none() {
-            return Err(invalid_input!("Member not found"));
-        }
+        let member_entry = platform
+            .get_entry(&member_path)
+            .filter(|e| matches!(e.value, crate::state::models::DataValue::Value(_)))
+            .ok_or_else(|| invalid_input!("Member not found"))?;
 
         let group_config_path = Self::group_config_path(group_id);
 
@@ -233,11 +217,7 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Owner cannot leave group. Transfer ownership to another member first using transfer_ownership operation."));
         }
 
-        if let Some(entry) = platform.get_entry(&member_path) {
-            crate::storage::soft_delete_entry(platform, &member_path, entry)?;
-        } else {
-            return Err(crate::invalid_input!("Member entry not found"));
-        }
+        crate::storage::soft_delete_entry(platform, &member_path, member_entry)?;
 
         let mut event_batch = EventBatch::new();
 

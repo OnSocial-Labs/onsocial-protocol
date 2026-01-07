@@ -23,7 +23,7 @@ mod member_data_lifecycle_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("data_test".to_string(), config).unwrap();
-       contract.add_group_member("data_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("data_test".to_string(), member.clone()).unwrap();
 
         // Verify initial member data structure
         let initial_data = contract.get_member_data("data_test".to_string(), member.clone()).unwrap();
@@ -72,7 +72,7 @@ mod member_data_lifecycle_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("cleanup_test".to_string(), config).unwrap();
-       contract.add_group_member("cleanup_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("cleanup_test".to_string(), member.clone()).unwrap();
 
         // Verify member data exists
         let member_data = contract.get_member_data("cleanup_test".to_string(), member.clone());
@@ -103,7 +103,7 @@ mod member_data_lifecycle_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("blacklist_cleanup_test".to_string(), config).unwrap();
-       contract.add_group_member("blacklist_cleanup_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("blacklist_cleanup_test".to_string(), member.clone()).unwrap();
 
         // Grant additional permissions
         contract.set_permission(member.clone(), "groups/blacklist_cleanup_test/special".to_string(), MODERATE, None).unwrap();
@@ -146,7 +146,7 @@ mod member_data_lifecycle_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("metadata_test".to_string(), config).unwrap();
-       contract.add_group_member("metadata_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("metadata_test".to_string(), member.clone()).unwrap();
 
         // Verify standard metadata fields
         let member_data = contract.get_member_data("metadata_test".to_string(), member.clone()).unwrap();
@@ -192,8 +192,8 @@ mod member_data_lifecycle_tests {
         // Create group with admin hierarchy
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("versioning_test".to_string(), config).unwrap();
-       contract.add_group_member("versioning_test".to_string(), admin.clone(), 0).unwrap();
-       contract.add_group_member("versioning_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("versioning_test".to_string(), admin.clone()).unwrap();
+       contract.add_group_member("versioning_test".to_string(), member.clone()).unwrap();
         
         // Grant admin permission to manage config
               // set_permission does not consume attached_deposit, so ensure owner has a storage balance.
@@ -258,7 +258,7 @@ mod member_data_lifecycle_tests {
         contract.create_group("integrity_test".to_string(), config).unwrap();
         
         // Complex scenario: add, remove, re-add member
-       contract.add_group_member("integrity_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("integrity_test".to_string(), member.clone()).unwrap();
         let first_join_data = contract.get_member_data("integrity_test".to_string(), member.clone()).unwrap();
        let first_join_time: u64 = first_join_data["joined_at"].as_str().unwrap().parse().unwrap();
 
@@ -267,7 +267,7 @@ mod member_data_lifecycle_tests {
         assert!(!contract.is_group_member("integrity_test".to_string(), member.clone()), "Should be removed");
 
         // Re-add member with different role
-       contract.add_group_member("integrity_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("integrity_test".to_string(), member.clone()).unwrap();
         let rejoin_data = contract.get_member_data("integrity_test".to_string(), member.clone()).unwrap();
        let rejoin_time: u64 = rejoin_data["joined_at"].as_str().unwrap().parse().unwrap();
 
@@ -286,7 +286,7 @@ mod member_data_lifecycle_tests {
         assert!(!contract.is_group_member("integrity_test".to_string(), member.clone()), "Should not automatically be member");
 
         // Re-add after unblacklist
-       contract.add_group_member("integrity_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("integrity_test".to_string(), member.clone()).unwrap();
         let final_data = contract.get_member_data("integrity_test".to_string(), member.clone()).unwrap();
         
         // Verify clean state after complex lifecycle
@@ -309,7 +309,7 @@ mod member_data_lifecycle_tests {
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("permission_persistence_test".to_string(), config).unwrap();
-       contract.add_group_member("permission_persistence_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("permission_persistence_test".to_string(), member.clone()).unwrap();
 
         // Grant additional path-specific permissions
         contract.set_permission(member.clone(), "groups/permission_persistence_test/posts".to_string(), MODERATE, None).unwrap();
@@ -338,7 +338,7 @@ mod member_data_lifecycle_tests {
                "Should not be blacklisted after unblacklisting");
 
         // Re-add member with different permissions (simulating admin decision)
-       contract.add_group_member("permission_persistence_test".to_string(), member.clone(), 0).unwrap();
+       contract.add_group_member("permission_persistence_test".to_string(), member.clone()).unwrap();
         
         // Verify member is back and OLD permissions do NOT resurrect (nonce-scoped)
         assert!(contract.is_group_member("permission_persistence_test".to_string(), member.clone()), 

@@ -25,7 +25,7 @@ mod voting_group_updates_tests {
         let charlie = test_account(2); // Member who votes
 
         // Create member-driven group (using realistic deposit for group + members ~0.003 NEAR)
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("ban_test".to_string(), config).unwrap();
 
@@ -38,7 +38,7 @@ mod voting_group_updates_tests {
         assert!(!contract.is_blacklisted("ban_test".to_string(), bob.clone()), "Bob should not be banned initially");
 
         // Create ban proposal for bob
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -54,7 +54,7 @@ mod voting_group_updates_tests {
         // Charlie votes YES to approve (alice already voted YES automatically)
         // 2 YES votes out of 3 members = 66% participation, 100% approval
         // Using realistic deposit for voting operation ~0.003 NEAR
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("ban_test".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify bob is now banned and removed from group
@@ -62,7 +62,7 @@ mod voting_group_updates_tests {
         assert!(!contract.is_group_member("ban_test".to_string(), bob.clone()), "Bob should be removed from group");
 
         // Verify bob cannot rejoin (using realistic deposit for join attempt ~0.003 NEAR)
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         let rejoin_result = contract.join_group("ban_test".to_string());
         assert!(rejoin_result.is_err(), "Banned member should not be able to rejoin");
 
@@ -98,7 +98,7 @@ mod voting_group_updates_tests {
         test_add_member_bypass_proposals(&mut contract, "reject_ban", &charlie, WRITE, &alice);
 
         // Create ban proposal for bob
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -158,7 +158,7 @@ mod voting_group_updates_tests {
         assert!(contract.is_group_member("auto_remove".to_string(), bob.clone()), "Bob should be a member");
 
         // Create ban proposal for bob
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -257,7 +257,7 @@ mod voting_group_updates_tests {
         test_add_member_bypass_proposals(&mut contract, "restrict_banned", &charlie, WRITE, &alice);
 
         // Ban bob (alice creates proposal = 1 YES vote)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -287,7 +287,7 @@ mod voting_group_updates_tests {
         assert!(create_result.is_err(), "Banned member should not be able to create proposals");
 
         // Bob tries to vote on a proposal (create one as alice first)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let test_proposal = json!({"update_type": "metadata", "changes": {"name": "Test"}});
         let proposal_id = contract.create_group_proposal(
             "restrict_banned".to_string(),
@@ -333,7 +333,7 @@ mod voting_group_updates_tests {
 
         // Now we have 3 members: alice, bob, charlie
         // Ban bob (alice creates proposal = 1 YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -355,7 +355,7 @@ mod voting_group_updates_tests {
 
         // Step 2: Create unban proposal (alice creates it with 2 members remaining)
         // IMPORTANT: Change timestamp to avoid proposal ID collision
-        let mut context = get_context(alice.clone());
+        let mut context = get_context_for_proposal(alice.clone());
         context.block_timestamp(1727740800000000001); // Different timestamp
         testing_env!(context.build());
         let unban_proposal = json!({
@@ -410,7 +410,7 @@ mod voting_group_updates_tests {
         test_add_member_bypass_proposals(&mut contract, "no_auto_readd", &charlie, WRITE, &alice);
 
         // Ban bob
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -431,7 +431,7 @@ mod voting_group_updates_tests {
 
         // Unban bob (alice creates proposal, now 2 members: alice + charlie)
         // Change timestamp to avoid proposal ID collision
-        let mut context = get_context(alice.clone());
+        let mut context = get_context_for_proposal(alice.clone());
         context.block_timestamp(1727740800000000001); // Different timestamp
         testing_env!(context.build());
         let unban_proposal = json!({
@@ -480,7 +480,7 @@ mod voting_group_updates_tests {
         assert!(!contract.is_blacklisted("unban_edge".to_string(), bob.clone()), "Bob should not be banned");
 
         // Try to unban bob (who isn't banned)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let unban_proposal = json!({
             "update_type": "unban",
             "target_user": bob.to_string()
@@ -790,7 +790,7 @@ mod voting_group_updates_tests {
         test_add_member_bypass_proposals(&mut contract, "meta_update", &bob, WRITE, &alice);
 
         // Create metadata update proposal with multiple fields
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let metadata_updates = json!({
             "update_type": "metadata",
             "changes": {
@@ -856,7 +856,7 @@ mod voting_group_updates_tests {
         );
 
         // Attempt to flip privacy via a metadata update (this must be rejected for member-driven groups)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let metadata_updates = json!({
             "update_type": "metadata",
             "changes": {
@@ -923,7 +923,7 @@ mod voting_group_updates_tests {
         let initial_description = initial_config.get("description").cloned();
 
         // Create metadata update proposal
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let metadata_updates = json!({
             "update_type": "metadata",
             "changes": {
@@ -975,7 +975,7 @@ mod voting_group_updates_tests {
         contract.create_group("validation_meta".to_string(), config).unwrap();
 
         // Test 1: Valid metadata update proposal should succeed
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let valid_metadata = json!({
             "update_type": "metadata",
             "changes": {
@@ -1055,7 +1055,7 @@ mod voting_group_updates_tests {
         println!("\n🚫 PHASE 1: Democratic Ban");
         
         // Create ban proposal
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_changes = json!({
             "update_type": "ban",
             "target_user": charlie.to_string(),
@@ -1088,7 +1088,7 @@ mod voting_group_updates_tests {
         println!("\n✅ PHASE 2: Democratic Unban");
 
         // Create unban proposal
-        let mut alice_context2 = get_context(alice.clone());
+        let mut alice_context2 = get_context_for_proposal(alice.clone());
         alice_context2.block_timestamp(env::block_timestamp() + 3000);
         testing_env!(alice_context2.build());
         
@@ -1165,7 +1165,7 @@ mod voting_group_updates_tests {
         // PHASE 1: ALICE → BOB
         println!("\n🔄 PHASE 1: Transfer Alice → Bob");
         
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let transfer1_changes = json!({
             "update_type": "transfer_ownership",
             "new_owner": bob.to_string(),
@@ -1197,7 +1197,7 @@ mod voting_group_updates_tests {
         // PHASE 2: BOB → CHARLIE
         println!("\n🔄 PHASE 2: Transfer Bob → Charlie");
         
-        let mut bob_context2 = get_context(bob.clone());
+        let mut bob_context2 = get_context_for_proposal(bob.clone());
         bob_context2.block_timestamp(env::block_timestamp() + 3000);
         testing_env!(bob_context2.build());
         
@@ -1291,13 +1291,13 @@ mod voting_group_updates_tests {
 
         // Add members
         contract
-            .add_group_member("perm_test".to_string(), bob.clone(), 0)
+            .add_group_member("perm_test".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("perm_test".to_string(), charlie.clone(), 0)
+            .add_group_member("perm_test".to_string(), charlie.clone())
             .unwrap();
         contract
-            .add_group_member("perm_test".to_string(), dave.clone(), 0)
+            .add_group_member("perm_test".to_string(), dave.clone())
             .unwrap();
 
         // Alice (owner) grants Charlie MODERATE permission to approve joins

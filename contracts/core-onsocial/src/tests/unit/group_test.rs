@@ -5,7 +5,7 @@
 mod group_creation_tests {
     use crate::tests::test_utils::*;
     use near_sdk::test_utils::get_logs;
-    use near_sdk::serde_json::json;
+    use near_sdk::serde_json::{json, Value};
 
     #[test]
     fn test_basic_group_creation() {
@@ -244,12 +244,37 @@ mod group_creation_tests {
         let logs = get_logs();
         assert!(!logs.is_empty(), "Events should be emitted for group creation");
 
-        // Look for group creation event in logs
-        // Events are in NEP-297 JSON format with EVENT_JSON: prefix
-        let has_group_event = logs.iter().any(|log| {
-            log.starts_with("EVENT_JSON:")
-        });
-        assert!(has_group_event, "Group creation event should be emitted");
+        // Look for the create_group NEP-297 event and validate key fields.
+        let mut found = false;
+        for log in &logs {
+            let Some(json_str) = log.strip_prefix("EVENT_JSON:") else {
+                continue;
+            };
+            let evt: Value = near_sdk::serde_json::from_str(json_str)
+                .expect("EVENT_JSON must be valid JSON");
+            let data = evt
+                .get("data")
+                .and_then(|v| v.as_array())
+                .expect("event.data must be an array");
+
+            for item in data {
+                if item.get("operation").and_then(|v| v.as_str()) != Some("create_group") {
+                    continue;
+                }
+                found = true;
+                assert_eq!(
+                    item.get("group_id"),
+                    Some(&json!(group_id)),
+                    "create_group event must include group_id"
+                );
+                assert_eq!(
+                    item.get("path"),
+                    Some(&json!(format!("groups/{}/config", group_id))),
+                    "create_group event path must point to groups/{{group_id}}/config"
+                );
+            }
+        }
+        assert!(found, "create_group event should be emitted");
 
         println!("✓ Group creation event emission test passed");
     }
@@ -279,7 +304,6 @@ mod group_creation_tests {
         assert_eq!(config_data.get("is_private"), Some(&json!(false)), "Should default to public");
         assert_eq!(config_data.get("member_driven"), Some(&json!(false)), "Should default to traditional");
         assert!(config_data.get("created_at").is_some(), "Created timestamp should be set");
-        assert_eq!(config_data.get("is_active"), Some(&json!(true)), "Should be active");
 
         println!("✓ Group creation default config values test passed");
     }

@@ -186,8 +186,7 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": member.id(),
-            "level": 0
+            "member_id": member.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -736,7 +735,6 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         "member_invite",
         json!({
             "target_user": bob.id(),
-            "level": 0,
             "message": "invite bob"
         }),
         &[],
@@ -756,7 +754,6 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         "member_invite",
         json!({
             "target_user": carol.id(),
-            "level": 0,
             "message": "invite carol"
         }),
         &[&bob],
@@ -1230,6 +1227,7 @@ async fn test_revoke_nonexistent_permission_succeeds() -> anyhow::Result<()> {
         .args_json(json!({
             "grantee": bob.id(),
             "path": format!("{}/random/path", alice.id()),
+            "level": 0,
             "level": 0,
             "expires_at": null
         }))

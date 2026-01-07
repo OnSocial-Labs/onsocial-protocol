@@ -6,8 +6,10 @@ pub enum ProposalType {
     PermissionChange { target_user: AccountId, level: u8, reason: Option<String> },
     PathPermissionGrant { target_user: AccountId, path: String, level: u8, reason: String },
     PathPermissionRevoke { target_user: AccountId, path: String, reason: String },
-    MemberInvite { target_user: AccountId, level: u8, message: Option<String> },
-    JoinRequest { requester: AccountId, requested_permissions: u8, message: Option<String> },
+    /// Invite a new member. Members always join with level=NONE; elevated roles granted separately.
+    MemberInvite { target_user: AccountId, message: Option<String> },
+    /// Request to join. Members always join with level=NONE; elevated roles granted separately.
+    JoinRequest { requester: AccountId, message: Option<String> },
     VotingConfigChange {
         participation_quorum_bps: Option<u16>,
         majority_threshold_bps: Option<u16>,

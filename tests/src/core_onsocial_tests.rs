@@ -659,8 +659,7 @@ async fn test_group_membership() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "membership_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -669,20 +668,6 @@ async fn test_group_membership() -> anyhow::Result<()> {
     
     println!("Add member result: {:?}", add_result.is_success());
     assert!(add_result.is_success(), "Add member should succeed");
-
-    // Clean-add: non-zero level must fail
-    let invalid_add_result = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "membership_test",
-            "member_id": charlie.id(),
-            "level": 3  // non-zero = invalid under clean-add
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(!invalid_add_result.is_success(), "Add member with non-zero level should fail");
 
     // Delegation rules are now path-based:
     // A moderator of groups/<id>/join_requests can approve join requests.
@@ -704,8 +689,7 @@ async fn test_group_membership() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "delegation_test",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -727,20 +711,6 @@ async fn test_group_membership() -> anyhow::Result<()> {
         .await?;
     assert!(grant_bob_join_requests_moderate.is_success(), "Owner should be able to grant MODERATE on join_requests");
 
-    // Bob cannot grant any role via add_group_member (must use 0)
-    let bob_attempts_nonzero_add = bob
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "delegation_test",
-            "member_id": charlie.id(),
-            "level": 3  // non-zero should be rejected
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(!bob_attempts_nonzero_add.is_success(), "add_group_member must reject non-zero level");
-
     // Charlie submits a join request (private group)
     let charlie_join_request = charlie
         .call(contract.id(), "join_group")
@@ -758,8 +728,7 @@ async fn test_group_membership() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "delegation_test",
-            "requester_id": charlie.id(),
-            "level": 0
+            "requester_id": charlie.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(110))
@@ -1075,8 +1044,7 @@ async fn test_add_member_to_nonexistent_group_fails() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "nonexistent_group",
-            "member_id": bob.id(),
-            "level": 0}))
+            "member_id": bob.id()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1217,8 +1185,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "rust_devs",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1350,8 +1317,7 @@ async fn test_real_transaction_flow_social_platform() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "rust_devs",
-            "member_id": "random.near",
-            "level": 0
+            "member_id": "random.near"
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2791,8 +2757,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             .call(contract.id(), "add_group_member")
             .args_json(json!({
                 "group_id": "private-club",
-                "member_id": alice.id().to_string(),
-                "level": 0
+                "member_id": alice.id().to_string()
             }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2884,8 +2849,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
-            "requester_id": bob.id().to_string(),
-            "level": 0
+            "requester_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3252,8 +3216,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
-            "requester_id": helen.id().to_string(),
-            "level": 0
+            "requester_id": helen.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3288,8 +3251,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
-            "requester_id": carol.id().to_string(),
-            "level": 0
+            "requester_id": carol.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3401,8 +3363,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
-            "requester_id": dan.id().to_string(),
-            "level": 0
+            "requester_id": dan.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3469,8 +3430,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": mod1.id().to_string(),
-            "level": 0
+            "member_id": mod1.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3531,43 +3491,11 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .unwrap_or(0);
     assert_eq!(count_after_ivan_request, count_before_ivan + 1, "Count should increment for Ivan's request");
 
-    let mod1_approve_manage = mod1
-        .call(contract.id(), "approve_join_request")
-        .args_json(json!({
-            "group_id": "private-club",
-            "requester_id": ivan.id().to_string(),
-            "level": 3
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    assert!(!mod1_approve_manage.is_success(), "Moderator cannot approve MANAGE");
-
-    let stats_after_failed_mod1_manage: Option<serde_json::Value> = contract
-        .view("get_group_stats")
-        .args_json(json!({
-            "group_id": "private-club"
-        }))
-        .await?
-        .json()?;
-    let count_after_failed_mod1_manage = stats_after_failed_mod1_manage
-        .as_ref()
-        .and_then(|s| s.get("total_join_requests"))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
-    assert_eq!(
-        count_after_failed_mod1_manage,
-        count_after_ivan_request,
-        "Count must not decrement on failed moderator MANAGE approval"
-    );
-
     let owner_approve_manage = alice
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
-            "requester_id": ivan.id().to_string(),
-            "level": 0
+            "requester_id": ivan.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3610,8 +3538,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": ivan.id().to_string(),
-            "level": 0}))
+            "member_id": ivan.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3639,8 +3566,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "private-club",
-            "requester_id": dan.id().to_string(),
-            "level": 0
+            "requester_id": dan.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3710,8 +3636,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3725,8 +3650,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3996,8 +3920,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4063,8 +3986,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": david.id().to_string(),
-            "level": 0}))
+            "member_id": david.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4093,8 +4015,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": david.id().to_string(),
-            "level": 0}))
+            "member_id": david.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4209,8 +4130,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4266,8 +4186,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4403,8 +4322,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "private-club",
-            "member_id": alice.id().to_string(),
-            "level": 0
+            "member_id": alice.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4664,29 +4582,12 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     // Roles are granted explicitly via set_permission after adding
     let david = create_user(&root, "david", TEN_NEAR).await?;
     
-    // Non-zero level must be rejected
-    let add_with_role = alice
-        .call(contract.id(), "add_group_member")
-        .args_json(json!({
-            "group_id": "test-community",
-            "member_id": david.id().to_string(),
-            "level": 3  // non-zero should be rejected
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(100))
-        .transact()
-        .await?;
-    
-    assert!(!add_with_role.is_success(), "add_group_member with non-zero level must fail");
-    println!("   ✓ add_group_member rejects non-zero level (clean-add)");
-    
-    // Adding as member-only (0) should succeed
+    // Adding as member-only should succeed
     let add_member_only = alice
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "test-community",
-            "member_id": david.id().to_string(),
-            "level": 0
+            "member_id": david.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4740,8 +4641,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "democracy-group",
-            "member_id": kate.id().to_string(),
-            "level": 0}))
+            "member_id": kate.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4758,8 +4658,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "democracy-group",
-            "member_id": jack.id().to_string(),
-            "level": 0}))
+            "member_id": jack.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4838,8 +4737,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-protect-group",
-            "member_id": manager_user.id().to_string(),
-            "level": 0}))
+            "member_id": manager_user.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -4867,8 +4765,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-protect-group",
-            "member_id": regular_user.id().to_string(),
-            "level": 0}))
+            "member_id": regular_user.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -5027,8 +4924,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "dao-group",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -5042,8 +4938,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "dao-group",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -5068,8 +4963,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "group_id": "dao-group",
             "proposal_type": "member_invite",
             "changes": {
-                "target_user": eve.id().to_string(),
-                "level": 0,  // clean-add: invites are member-only
+                "target_user": eve.id().to_string(),  // clean-add: invites are member-only
                 "message": "Eve would be a great addition to our DAO"
             }
         }))
@@ -5238,8 +5132,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "group_id": "dao-group",
             "proposal_type": "member_invite",
             "changes": {
-                "target_user": leo.id().to_string(),
-                "level": 0,  // clean-add: invites are member-only
+                "target_user": leo.id().to_string(),  // clean-add: invites are member-only
                 "message": "Let's add Leo too"
             }
         }))
@@ -5429,8 +5322,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "md-restrict-group",
-            "member_id": nina.id().to_string(),
-            "level": 0}))
+            "member_id": nina.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -5472,8 +5364,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "approve_join_request")
         .args_json(json!({
             "group_id": "md-restrict-group",
-            "requester_id": oscar.id().to_string(),
-            "level": 0
+            "requester_id": oscar.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5523,8 +5414,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "group_id": "md-restrict-group",
             "proposal_type": "member_invite",
             "changes": {
-                "target_user": oscar.id().to_string(),
-                "level": 0,  // clean-add: invites are member-only
+                "target_user": oscar.id().to_string(),  // clean-add: invites are member-only
                 "message": "Adding Oscar for blacklist testing"
             }
         }))
@@ -5683,8 +5573,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "md-restrict-group",
-            "member_id": oscar.id().to_string(),
-            "level": 0}))
+            "member_id": oscar.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -5734,8 +5623,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "trad-group",
-            "member_id": oscar.id().to_string(),
-            "level": 0}))
+            "member_id": oscar.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -7490,8 +7378,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             .call(contract.id(), "add_group_member")
             .args_json(json!({
                 "group_id": "direct_add_test",
-                "member_id": carol.id().to_string(),
-                "level": 0}))
+                "member_id": carol.id().to_string()}))
             .deposit(near_workspaces::types::NearToken::from_millinear(10))
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
@@ -7840,8 +7727,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "set_permission")
         .args_json(json!({
             "grantee": bob.id().to_string(),
-            "path": "events/perm_test",
-            "level": 0}))
+            "path": "events/perm_test"}))
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
@@ -7953,8 +7839,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "event_test_group",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -8033,8 +7918,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "transfer_event_group",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -8157,8 +8041,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "proposal_event_group",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -8171,7 +8054,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             "proposal_type": "Custom",
             "changes": { "action": "test_event" }
         }))
-        .deposit(near_workspaces::types::NearToken::from_millinear(10))
+        .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -8427,8 +8310,7 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "governance-test-group",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -8695,8 +8577,7 @@ async fn test_governance_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "governance-test-group",
-            "member_id": "carol.test.near",
-            "level": 0}))
+            "member_id": "carol.test.near"}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -8810,8 +8691,7 @@ async fn test_governance_direct_query_functions() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -9072,8 +8952,7 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-override-test",
-            "member_id": member1.id().to_string(),
-            "level": 0
+            "member_id": member1.id().to_string()
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -9088,8 +8967,7 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-override-test",
-            "member_id": member2.id().to_string(),
-            "level": 0
+            "member_id": member2.id().to_string()
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -9233,8 +9111,7 @@ async fn test_owner_override_can_propose_vote_bypass_joined_at() -> anyhow::Resu
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "owner-override-test",
-            "member_id": member3.id().to_string(),
-            "level": 0}))
+            "member_id": member3.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9451,8 +9328,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "full-cycle-test",
-            "member_id": alice.id().to_string(),
-            "level": 0
+            "member_id": alice.id().to_string()
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -9479,8 +9355,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "full-cycle-test",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -9517,8 +9392,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "full-cycle-test",
-            "member_id": carol.id().to_string(),
-            "level": 0
+            "member_id": carol.id().to_string()
         }))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -9555,8 +9429,7 @@ async fn test_member_driven_group_full_cycle_happy_path() -> anyhow::Result<()> 
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "full-cycle-test",
-            "member_id": dave.id().to_string(),
-            "level": 0}))
+            "member_id": dave.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9984,8 +9857,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "rejection-test",
-            "member_id": alice.id().to_string(),
-            "level": 0}))
+            "member_id": alice.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -9997,8 +9869,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "rejection-test",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10040,8 +9911,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "rejection-test",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10083,8 +9953,7 @@ async fn test_member_driven_group_full_cycle_rejection_path() -> anyhow::Result<
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "rejection-test",
-            "member_id": dave.id().to_string(),
-            "level": 0}))
+            "member_id": dave.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10603,8 +10472,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "expiry-test",
-            "member_id": alice.id().to_string(),
-            "level": 0}))
+            "member_id": alice.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10693,8 +10561,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "boundary-test",
-            "member_id": alice.id().to_string(),
-            "level": 0}))
+            "member_id": alice.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10706,8 +10573,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "boundary-test",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10867,8 +10733,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "ban-test",
-            "member_id": bob.id().to_string(),
-            "level": 0}))
+            "member_id": bob.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -10882,8 +10747,7 @@ async fn test_governance_security_and_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "ban-test",
-            "member_id": carol.id().to_string(),
-            "level": 0}))
+            "member_id": carol.id().to_string()}))
         .deposit(near_workspaces::types::NearToken::from_millinear(100))
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
@@ -11129,8 +10993,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group1_id,
-            "member_id": alice.id(),
-            "level": 0}))
+            "member_id": alice.id()}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -11141,8 +11004,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group1_id,
-            "member_id": bob.id(),
-            "level": 0}))
+            "member_id": bob.id()}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?;
@@ -11304,8 +11166,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group2_id,
-            "member_id": charlie.id(),
-            "level": 0}))
+            "member_id": charlie.id()}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -11338,8 +11199,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group2_id,
-            "member_id": david.id(),
-            "level": 0}))
+            "member_id": david.id()}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?;
@@ -11423,8 +11283,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group3_id,
-            "member_id": alice.id(),
-            "level": 0}))
+            "member_id": alice.id()}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -11543,8 +11402,7 @@ async fn test_governance_advanced_security() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group4_id,
-            "member_id": bob.id(),
-            "level": 0}))
+            "member_id": bob.id()}))
         .deposit(NearToken::from_millinear(100))
         .transact()
         .await?
@@ -11650,8 +11508,7 @@ async fn test_proposal_auto_vote_false_no_panic() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .transact()
@@ -11877,8 +11734,7 @@ async fn test_invalid_voting_config_change_proposals() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .transact()
@@ -12086,8 +11942,7 @@ async fn test_duplicate_vote_check_before_expiration() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .transact()
@@ -12189,13 +12044,13 @@ async fn test_member_cannot_vote_on_pre_membership_proposal() -> anyhow::Result<
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -12236,7 +12091,7 @@ async fn test_member_cannot_vote_on_pre_membership_proposal() -> anyhow::Result<
     
     // Now add Eve as a member
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": eve.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": eve.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -12316,13 +12171,13 @@ async fn test_expired_proposal_rejects_votes() -> anyhow::Result<()> {
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -12424,13 +12279,13 @@ async fn test_voting_config_change_during_active_voting() -> anyhow::Result<()> 
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -12559,13 +12414,13 @@ async fn test_governance_critical_security_scenarios() -> anyhow::Result<()> {
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -12786,13 +12641,13 @@ async fn test_governance_event_emissions() -> anyhow::Result<()> {
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": bob.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
     
     let _ = alice.call(contract.id(), "add_group_member")
-        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string(), "level": 0}))
+        .args_json(json!({"group_id": group_id, "member_id": charlie.id().to_string()}))
         .deposit(ONE_NEAR)
         .transact()
         .await?;
@@ -13510,8 +13365,7 @@ async fn test_cancel_proposal_before_any_votes() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "cancel-group",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -13632,8 +13486,7 @@ async fn test_cancel_proposal_blocked_after_other_member_votes() -> anyhow::Resu
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "cancel-group-2",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -13645,8 +13498,7 @@ async fn test_cancel_proposal_blocked_after_other_member_votes() -> anyhow::Resu
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "cancel-group-2",
-            "member_id": carol.id().to_string(),
-            "level": 0
+            "member_id": carol.id().to_string()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -14011,8 +13863,7 @@ async fn test_group_endpoints_edge_cases() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "edge-test-group",
-            "member_id": bob.id(),
-            "level": 0
+            "member_id": bob.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -14470,8 +14321,7 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": member1.id(),
-            "level": 0
+            "member_id": member1.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -14484,8 +14334,7 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": member2.id(),
-            "level": 0
+            "member_id": member2.id()
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -14557,6 +14406,7 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
     assert!(pc_extra.contains_key("participation_quorum_bps"), "proposal_created must have participation_quorum_bps");
     assert!(pc_extra.contains_key("majority_threshold_bps"), "proposal_created must have majority_threshold_bps");
     assert!(pc_extra.contains_key("voting_period"), "proposal_created must have voting_period");
+    assert!(pc_extra.contains_key("locked_deposit"), "proposal_created must have locked_deposit");
     assert!(pc_extra.contains_key("path"), "proposal_created must have path");
     assert!(pc_extra.contains_key("value"), "proposal_created must have value");
     assert!(pc_extra.contains_key("tally_path"), "proposal_created must have tally_path");
@@ -14590,7 +14440,7 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
     });
     assert!(has_counter_write, "writes must include counter_path write");
 
-    println!("   ✓ proposal_created schema complete with all 17 required fields");
+    println!("   ✓ proposal_created schema complete with all 18 required fields");
     println!("   ✓ expires_at correctly computed: {} + {} = {}", created_at, voting_period, expires_at);
     println!("   ✓ locked_member_count correctly captured: {}", locked_member_count);
 
@@ -14686,11 +14536,13 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
 
     assert!(ps_extra.contains_key("group_id"), "proposal_status_updated must have group_id");
     assert!(ps_extra.contains_key("proposal_id"), "proposal_status_updated must have proposal_id");
+    assert!(ps_extra.contains_key("proposer"), "proposal_status_updated must have proposer");
     assert!(ps_extra.contains_key("status"), "proposal_status_updated must have status");
     assert!(ps_extra.contains_key("final_total_votes"), "proposal_status_updated must have final_total_votes");
     assert!(ps_extra.contains_key("final_yes_votes"), "proposal_status_updated must have final_yes_votes");
     assert!(ps_extra.contains_key("final_no_votes"), "proposal_status_updated must have final_no_votes");
     assert!(ps_extra.contains_key("locked_member_count"), "proposal_status_updated must have locked_member_count");
+    assert!(ps_extra.contains_key("unlocked_deposit"), "proposal_status_updated must have unlocked_deposit");
     assert!(ps_extra.contains_key("updated_at"), "proposal_status_updated must have updated_at");
     assert!(ps_extra.contains_key("path"), "proposal_status_updated must have path");
     assert!(ps_extra.contains_key("value"), "proposal_status_updated must have value");
@@ -14698,7 +14550,7 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
     let status = ps_extra.get("status").and_then(|v| v.as_str()).expect("status");
     assert_eq!(status, "executed", "status must be 'executed'");
 
-    println!("   ✓ proposal_status_updated schema complete with all 10 required fields");
+    println!("   ✓ proposal_status_updated schema complete with all 12 required fields");
     println!("   ✓ status='executed'");
 
     // ==========================================================================

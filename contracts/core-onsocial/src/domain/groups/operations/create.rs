@@ -64,7 +64,6 @@ impl crate::domain::groups::core::GroupStorage {
                 "created_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
             );
-            obj.insert("is_active".to_string(), Value::Bool(true));
             if !obj.contains_key("member_driven") {
                 obj.insert("member_driven".to_string(), Value::Bool(false));
             }
@@ -119,6 +118,7 @@ impl crate::domain::groups::core::GroupStorage {
             "create_group",
             owner.clone(),
         )
+        .with_field("group_id", group_id)
         .with_path(&config_path)
         .with_value(config)
         .emit(&mut event_batch);

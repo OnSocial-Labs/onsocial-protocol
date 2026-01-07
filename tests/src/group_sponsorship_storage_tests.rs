@@ -101,8 +101,7 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": group_id,
-            "member_id": member.id(),
-            "level": 0
+            "member_id": member.id()
         }))
         .deposit(ONE_NEAR)
         .gas(Gas::from_tgas(140))

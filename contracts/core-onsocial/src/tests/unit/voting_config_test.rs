@@ -109,7 +109,7 @@ mod voting_config_tests {
         contract.platform.storage_set("groups/supermajority/stats", &stats).unwrap();
 
         // Alice creates proposal (auto YES vote: 1/3 = 33.33% participation < 50% quorum, doesn't execute yet)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"update_type": "metadata", "changes": {"description": "Test supermajority"}});
         let proposal_id = contract.create_group_proposal("supermajority".to_string(), "group_update".to_string(), proposal_data, None).unwrap();
 
@@ -144,7 +144,7 @@ mod voting_config_tests {
         contract.create_group("evolving_dao".to_string(), config).unwrap();
 
         // Create proposal to change voting config
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "participation_quorum_bps": 4000,
             "majority_threshold_bps": 7500,
@@ -173,7 +173,7 @@ mod voting_config_tests {
         contract.create_group("solo_dao".to_string(), config).unwrap();
 
         // Propose and auto-execute config change (alice is only member)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "participation_quorum_bps": 3300,
             "majority_threshold_bps": 6000,
@@ -236,7 +236,7 @@ mod voting_config_tests {
         contract.platform.storage_set("groups/changing_dao/stats", &stats).unwrap();
 
         // Change config to require higher participation quorum and threshold
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let config_proposal = json!({
             "participation_quorum_bps": 5000,
             "majority_threshold_bps": 7500
@@ -268,7 +268,7 @@ mod voting_config_tests {
         assert_eq!(proposal.get("status").unwrap().as_str().unwrap(), "executed");
 
         // Now create new proposal with new config in effect (advance time to ensure different proposal ID)
-        let mut context = get_context(alice.clone());
+        let mut context = get_context_for_proposal(alice.clone());
         context.block_timestamp(TEST_BASE_TIMESTAMP + 3_600_000_000_000); // +1 hour to get different proposal ID
         testing_env!(context.build());
         let test_proposal = json!({"update_type": "metadata", "changes": {"description": "Testing new config"}});
@@ -307,7 +307,7 @@ mod voting_config_tests {
         contract.create_group("partial_dao".to_string(), config).unwrap();
 
         // Update only voting period (keep other params unchanged)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "voting_period": "172800000000000" // 2 days, don't change quorum/threshold
         });
@@ -348,7 +348,7 @@ mod voting_config_tests {
         contract.create_group("invalid_dao".to_string(), config).unwrap();
 
         // Try to set quorum > 100%
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"participation_quorum_bps": 15000});
 
         let result = contract.create_group_proposal(
@@ -386,7 +386,7 @@ mod voting_config_tests {
         contract.create_group("invalid_dao2".to_string(), config).unwrap();
 
         // Try to set threshold > 100%
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"majority_threshold_bps": 20000});
 
         let result = contract.create_group_proposal(
@@ -412,7 +412,7 @@ mod voting_config_tests {
         contract.create_group("invalid_dao3".to_string(), config).unwrap();
 
         // Try to set period too short (< 1 hour)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"voting_period": "1000000000"}); // 1 second
 
         let result = contract.create_group_proposal(
@@ -450,7 +450,7 @@ mod voting_config_tests {
         contract.create_group("empty_dao".to_string(), config).unwrap();
 
         // Try to change config without specifying any parameters
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({});
 
         let result = contract.create_group_proposal(
@@ -524,7 +524,7 @@ mod voting_config_tests {
         contract.create_group("evolving".to_string(), config).unwrap();
 
         // First config change
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal1 = json!({"majority_threshold_bps": 6000});
         contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal1, None).unwrap();
 
@@ -562,7 +562,7 @@ mod voting_config_tests {
         contract.create_group("traditional".to_string(), config).unwrap();
 
         // Try to create voting config change proposal (should fail - not member-driven)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"majority_threshold_bps": 6000});
 
         let result = contract.create_group_proposal(
@@ -606,7 +606,7 @@ mod voting_config_tests {
         contract.platform.storage_set("groups/vote_test_dao/stats", &stats).unwrap();
 
         // Alice proposes config change (auto YES vote: 1/3 = 33.33% < 51%, doesn't execute)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "participation_quorum_bps": 6600,
             "majority_threshold_bps": 7500,
@@ -672,7 +672,7 @@ mod voting_config_tests {
         assert!(group_config.get("voting_config_updated_by").is_none(), "Should have no updater initially");
 
         // Alice proposes and executes config change (single member = immediate execution)
-        let mut context = get_context(alice.clone());
+        let mut context = get_context_for_proposal(alice.clone());
         // Use realistic timestamp: 1 hour after test base timestamp
         let test_timestamp = TEST_BASE_TIMESTAMP + 3_600_000_000_000; // +1 hour in nanoseconds
         context.block_timestamp(test_timestamp);

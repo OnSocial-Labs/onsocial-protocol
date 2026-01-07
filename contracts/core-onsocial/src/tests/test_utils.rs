@@ -14,6 +14,17 @@ use std::collections::HashMap;
 #[cfg(test)]
 pub const TEST_BASE_TIMESTAMP: u64 = 1727740800000000000;
 
+/// Minimum deposit required for creating proposals (0.1 NEAR)
+/// Re-exported here for test convenience
+#[cfg(test)]
+pub const MIN_PROPOSAL_DEPOSIT: u128 = crate::constants::MIN_PROPOSAL_DEPOSIT;
+
+/// Get a test context with sufficient deposit for creating proposals
+#[cfg(test)]
+pub fn get_context_for_proposal(predecessor_account_id: AccountId) -> VMContextBuilder {
+    get_context_with_deposit(predecessor_account_id, MIN_PROPOSAL_DEPOSIT)
+}
+
 /// Calculate realistic storage deposit for typical operations
 /// NEAR storage costs are ~1 NEAR per 100KB (10^19 yoctoNEAR per 100,000 bytes)
 /// At testnet rates: 1 byte ≈ 10^14 yoctoNEAR = 0.0001 NEAR
@@ -322,6 +333,12 @@ pub mod test_deposits {
     /// Plus proposal index and vote tracking storage (~500 bytes extra per proposal)
     pub fn member_operations() -> u128 {
         calculate_test_deposit_for_operations(15, 400)
+    }
+    
+    /// Minimum deposit required for creating proposals (0.1 NEAR)
+    /// This is required by the spam prevention mechanism
+    pub fn proposal_creation() -> u128 {
+        crate::constants::MIN_PROPOSAL_DEPOSIT
     }
     
     /// Legacy: 10 NEAR (kept for backward compatibility)

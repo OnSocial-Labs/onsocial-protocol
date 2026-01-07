@@ -64,7 +64,6 @@ mod join_request_tests {
         contract.add_group_member(
             "privategroup".to_string(),
             moderator.clone(),
-            0,
         ).unwrap();
 
         contract
@@ -85,7 +84,6 @@ mod join_request_tests {
         let approve_result = contract.approve_join_request(
             "privategroup".to_string(),
             requester.clone(),
-            0,
         );
         assert!(approve_result.is_ok(), "Moderator should be able to approve join request: {:?}", approve_result);
 
@@ -113,7 +111,6 @@ mod join_request_tests {
         contract.add_group_member(
             "privategroup".to_string(),
             moderator.clone(),
-            0,
         ).unwrap();
 
         contract
@@ -157,7 +154,7 @@ mod join_request_tests {
         contract.create_group("privategroup".to_string(), config).unwrap();
         
         contract
-            .add_group_member("privategroup".to_string(), regular_member.clone(), 0)
+            .add_group_member("privategroup".to_string(), regular_member.clone())
             .unwrap();
 
         // Requester submits join request
@@ -170,7 +167,6 @@ mod join_request_tests {
         let approve_result = contract.approve_join_request(
             "privategroup".to_string(),
             requester.clone(),
-            0,
         );
         
         assert!(approve_result.is_err(), "Regular member should not be able to approve join request");
@@ -200,7 +196,6 @@ mod join_request_tests {
             .add_group_member(
                 "privategroup".to_string(),
                 join_requests_moderator.clone(),
-                crate::domain::groups::permissions::kv::types::NONE,
             )
             .unwrap();
 
@@ -218,28 +213,20 @@ mod join_request_tests {
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
         contract.join_group("privategroup".to_string()).unwrap();
 
-        // Delegate moderator approves (allowed, but must be 0).
+        // Delegate moderator approves (members always join with level=0).
         near_sdk::testing_env!(get_context_with_deposit(join_requests_moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         let approve_none = contract.approve_join_request(
             "privategroup".to_string(),
             requester.clone(),
-            0,
         );
         assert!(approve_none.is_ok(), "Join-requests moderator should be able to approve: {:?}", approve_none);
         assert!(contract.is_group_member("privategroup".to_string(), requester.clone()));
 
-        // Approval must reject non-zero permission flags.
-        let requester2 = test_account(3);
-        near_sdk::testing_env!(get_context_with_deposit(requester2.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("privategroup".to_string()).unwrap();
-
-        near_sdk::testing_env!(get_context_with_deposit(join_requests_moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_moderate = contract.approve_join_request(
-            "privategroup".to_string(),
-            requester2.clone(),
-            MODERATE,
-        );
-        assert!(approve_moderate.is_err(), "Join-requests moderator must not grant MODERATE");
+        // Verify member was added with level=0
+        let member_data = contract.get_member_data("privategroup".to_string(), requester.clone()).unwrap();
+        assert_eq!(member_data.get("level"), Some(&json!(0)), "Member should have level 0");
+        
+        println!("✅ Join-requests moderator can approve join requests (members always join with level=0)");
     }
 
     #[test]
@@ -259,7 +246,7 @@ mod join_request_tests {
 
         // Owner adds moderator as member-only, then delegates moderation on join_requests.
         contract
-            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("testgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -293,7 +280,6 @@ mod join_request_tests {
         contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            0,
         ).unwrap();
 
         // Verify requester is now a member
@@ -351,7 +337,7 @@ mod join_request_tests {
 
         // Owner adds moderator as member-only, then grants moderation on join_requests.
         contract
-            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("testgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -388,7 +374,6 @@ mod join_request_tests {
         let approve_result = contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            0,
         );
 
         assert!(approve_result.is_ok(), "Moderator with MODERATE should be able to approve join requests");
@@ -400,7 +385,7 @@ mod join_request_tests {
     }
 
     #[test]
-    fn test_moderator_without_manage_cannot_approve_manage_request() {
+    fn test_join_request_approval_always_adds_member_with_level_zero() {
         let mut contract = init_live_contract();
         let owner = test_account(0);
         let moderator = test_account(1);
@@ -416,7 +401,7 @@ mod join_request_tests {
 
         // Owner adds moderator (clean-add) and grants MODERATE on join_requests.
         contract
-            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("testgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -427,46 +412,28 @@ mod join_request_tests {
             )
             .unwrap();
 
-        assert!(
-            contract.has_permission(
-                owner.clone(),
-                moderator.clone(),
-                "groups/testgroup/join_requests".to_string(),
-                MODERATE
-            ),
-            "Moderator should have MODERATE on join_requests"
-        );
-
-        // Requester submits join request (starts as 0)
+        // Requester submits join request
         near_sdk::testing_env!(get_context_with_deposit(requester.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group(
-            "testgroup".to_string(),
-        ).unwrap();
+        contract.join_group("testgroup".to_string()).unwrap();
 
         // Verify join request exists
         let join_request = contract.get_join_request("testgroup".to_string(), requester.clone());
         assert!(join_request.is_some(), "Join request should exist");
 
-        // Approvals cannot grant roles. Passing non-zero flags is rejected as invalid input.
+        // Moderator approves (level is no longer a parameter - always 0)
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
         let approve_result = contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            MANAGE, // Try to approve with MANAGE permission
         );
+        assert!(approve_result.is_ok(), "Moderator should be able to approve: {:?}", approve_result);
 
-        assert!(approve_result.is_err(), "Approvals with non-zero flags should fail");
-        let error_msg = approve_result.unwrap_err().to_string();
-        assert!(
-            error_msg.contains("Join approvals cannot grant permissions"),
-            "Should reject non-zero approval flags: {}",
-            error_msg
-        );
+        // Verify requester is now a member with level=0
+        assert!(contract.is_group_member("testgroup".to_string(), requester.clone()));
+        let member_data = contract.get_member_data("testgroup".to_string(), requester.clone()).unwrap();
+        assert_eq!(member_data.get("level"), Some(&json!(0)), "Members always join with level 0");
 
-        // Verify requester is still not a member
-        assert!(!contract.is_group_member("testgroup".to_string(), requester.clone()));
-
-        println!("✅ Join approvals reject non-zero role flags");
+        println!("✅ Join approvals always add members with level=0 (elevated roles granted separately)");
     }
 
     #[test]
@@ -486,7 +453,7 @@ mod join_request_tests {
 
         // Owner adds moderator (clean-add) and grants MODERATE on join_requests.
         contract
-            .add_group_member("testgroup".to_string(), moderator.clone(), 0)
+            .add_group_member("testgroup".to_string(), moderator.clone())
             .unwrap();
         contract
             .set_permission(
@@ -522,7 +489,6 @@ mod join_request_tests {
         let approve_result = contract.approve_join_request(
             "testgroup".to_string(),
             requester.clone(),
-            0,
         );
 
         assert!(approve_result.is_ok(), "Moderator with MODERATE should be able to approve WRITE requests: {:?}", approve_result);
@@ -538,23 +504,6 @@ mod join_request_tests {
               "Member should have member-only level");
 
         println!("✅ Moderator with MODERATE can successfully approve join requests (member-only)");
-        
-        // Test: approve_join_request cannot grant permissions (non-zero must be rejected)
-        let requester2 = test_account(3);
-        near_sdk::testing_env!(get_context_with_deposit(requester2.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group(
-            "testgroup".to_string(),
-        ).unwrap();
-        
-        near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_moderate = contract.approve_join_request(
-            "testgroup".to_string(),
-            requester2.clone(),
-            MODERATE,
-        );
-        
-        assert!(approve_moderate.is_err(), "approve_join_request must reject non-zero level");
-        println!("✅ approve_join_request correctly denied non-zero level");
     }
 
     #[test]
@@ -564,7 +513,6 @@ mod join_request_tests {
         let manager = test_account(1);
         let requester1 = test_account(2);
         let requester2 = test_account(3);
-        let requester3 = test_account(4);
 
         // Owner creates a traditional private group
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
@@ -576,7 +524,7 @@ mod join_request_tests {
 
         // Owner adds manager (clean-add) and grants MODERATE on join_requests.
         contract
-            .add_group_member("testgroup".to_string(), manager.clone(), 0)
+            .add_group_member("testgroup".to_string(), manager.clone())
             .unwrap();
         contract
             .set_permission(
@@ -592,7 +540,7 @@ mod join_request_tests {
         contract.join_group("testgroup".to_string()).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_result1 = contract.approve_join_request("testgroup".to_string(), requester1.clone(), 0);
+        let approve_result1 = contract.approve_join_request("testgroup".to_string(), requester1.clone());
         assert!(approve_result1.is_ok(), "Manager should approve join requests: {:?}", approve_result1);
         assert!(contract.is_group_member("testgroup".to_string(), requester1.clone()));
 
@@ -601,26 +549,17 @@ mod join_request_tests {
         contract.join_group("testgroup".to_string()).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_result2 = contract.approve_join_request("testgroup".to_string(), requester2.clone(), 0);
+        let approve_result2 = contract.approve_join_request("testgroup".to_string(), requester2.clone());
         assert!(approve_result2.is_ok(), "Manager should approve join requests: {:?}", approve_result2);
         assert!(contract.is_group_member("testgroup".to_string(), requester2.clone()));
 
-        // Test 3: Manager tries to approve with non-zero flags (should fail)
-        near_sdk::testing_env!(get_context_with_deposit(requester3.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.join_group("testgroup".to_string()).unwrap();
-        
-        near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let approve_result3 = contract.approve_join_request("testgroup".to_string(), requester3.clone(), WRITE);
-        assert!(approve_result3.is_err(), "approve_join_request must reject non-zero level");
-        assert!(!contract.is_group_member("testgroup".to_string(), requester3.clone()));
-
-        // Verify approved members were added with member-only role flags
+        // Verify all approved members were added with member-only role flags (level=0)
         let member_data1 = contract.get_member_data("testgroup".to_string(), requester1.clone()).unwrap();
         assert_eq!(member_data1.get("level"), Some(&json!(0)));
 
         let member_data2 = contract.get_member_data("testgroup".to_string(), requester2.clone()).unwrap();
         assert_eq!(member_data2.get("level"), Some(&json!(0)));
 
-        println!("✅ Join approvals add member-only; non-zero level are rejected");
+        println!("✅ Manager can approve join requests; all members join with level=0");
     }
 }

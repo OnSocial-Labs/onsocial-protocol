@@ -19,13 +19,15 @@ impl ProposalType {
         message: Option<&str>,
         executor: &AccountId,
     ) -> Result<(), SocialError> {
-        // Clean join semantics: always add as member-only.
+        if GroupStorage::is_blacklisted(platform, group_id, executor) {
+            return Err(crate::permission_denied!("execute_join_request", "Proposer was blacklisted"));
+        }
+
         GroupStorage::add_member_internal(
             platform,
             group_id,
             requester,
             executor,
-            kv_permissions::types::NONE,
             AddMemberAuth::BypassPermissions,
         )?;
 
@@ -35,6 +37,7 @@ impl ProposalType {
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(requester)
+            .with_path(&format!("groups/{}/join_requests/{}", group_id, requester))
             .with_field("level", kv_permissions::types::NONE)
             .with_field("message", message)
             .emit(&mut event_batch);

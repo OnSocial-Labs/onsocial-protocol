@@ -42,8 +42,11 @@ impl SocialPlatform {
             );
         }
 
-        // Group storage charged to predecessor
+        // Group storage: use execution_payer if set (proposal execution), else predecessor
         if crate::storage::utils::parse_groups_path(full_path).is_some() {
+            if let Some(ref payer) = self.execution_payer {
+                return Ok(payer.clone());
+            }
             return Ok(near_sdk::env::predecessor_account_id());
         }
 

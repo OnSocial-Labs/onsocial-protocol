@@ -21,6 +21,9 @@ impl GroupGovernance {
     ) -> Result<String, SocialError> {
         proposal_type.validate(platform, group_id, proposer)?;
 
+        let locked_amount = crate::constants::PROPOSAL_EXECUTION_LOCK;
+        platform.lock_storage_balance(proposer, locked_amount)?;
+
         let proposer_can_vote = GroupStorage::is_member(platform, group_id, proposer)
             || GroupStorage::is_owner(platform, group_id, proposer);
         let should_auto_vote = auto_vote.unwrap_or(true) && proposer_can_vote;
@@ -52,7 +55,8 @@ impl GroupGovernance {
             "data": proposal_type,
             "created_at": env::block_timestamp().to_string(),
             "status": ProposalStatus::Active.as_str(),
-            "voting_config": voting_config
+            "voting_config": voting_config,
+            "locked_deposit": locked_amount.to_string()
         });
 
         let mut tally = VoteTally::new(member_count);
@@ -81,7 +85,12 @@ impl GroupGovernance {
             tally.meets_thresholds(voting_config.participation_quorum_bps, voting_config.majority_threshold_bps);
 
         if should_execute {
-            proposal_type.execute(platform, group_id, &proposal_id, proposer)?;
+            // Charge execution storage costs to proposer
+            platform.set_execution_payer(proposer.clone());
+            let exec_result = proposal_type.execute(platform, group_id, &proposal_id, proposer);
+            platform.clear_execution_payer();
+            exec_result?;
+
             Self::update_proposal_status(
                 platform,
                 group_id,
@@ -109,6 +118,7 @@ impl GroupGovernance {
             member_count,
             voting_config.participation_quorum_bps,
             voting_config.majority_threshold_bps,
+            locked_amount,
             proposal_data.clone(),
             &proposal_path,
             &tally_path,
@@ -177,8 +187,6 @@ impl GroupGovernance {
                 .get("total_votes")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
-            // If more than 1 vote, others have voted (proposer gets auto-vote)
-            // If exactly 1 vote, check if it's the proposer's
             if total_votes > 1 {
                 return Err(invalid_input!(
                     "Cannot cancel: other members have already voted"
@@ -243,6 +251,27 @@ impl GroupGovernance {
             .storage_get(&proposal_path)
             .ok_or_else(|| invalid_input!("Proposal not found"))?;
 
+        let proposer = proposal_data
+            .get("proposer")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<AccountId>().ok());
+        
+        let locked_amount = proposal_data
+            .get("locked_deposit")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<u128>().ok())
+            .unwrap_or(crate::constants::PROPOSAL_EXECUTION_LOCK);
+
+        // Unlock deposit on terminal state
+        let unlocked_deposit = if status != ProposalStatus::Active {
+            if let Some(ref proposer_id) = proposer {
+                platform.unlock_storage_balance(proposer_id, locked_amount);
+            }
+            locked_amount
+        } else {
+            0
+        };
+
         if let Some(obj) = proposal_data.as_object_mut() {
             obj.insert("status".to_string(), json!(status.as_str()));
             obj.insert(
@@ -271,13 +300,17 @@ impl GroupGovernance {
             (0, 0, 0)
         };
 
+        let event_initiator = proposer.unwrap_or_else(env::predecessor_account_id);
+
         events::emit_proposal_status_updated(
             group_id,
             proposal_id,
+            &event_initiator,
             status.as_str(),
             total_votes,
             yes_votes,
             locked_member_count,
+            unlocked_deposit,
             &proposal_path,
             proposal_data.clone(),
         )?;

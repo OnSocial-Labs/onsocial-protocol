@@ -50,6 +50,7 @@ impl SocialPlatform {
             group_pool_usage: LookupMap::new(StorageKey::GroupPoolUsage),
             group_sponsor_quotas: LookupMap::new(StorageKey::GroupSponsorQuotas),
             group_sponsor_defaults: LookupMap::new(StorageKey::GroupSponsorDefaults),
+            execution_payer: None,
         }
     }
 
@@ -116,6 +117,19 @@ impl SocialPlatform {
         storage.assert_storage_covered()
     }
 
+    /// Set the execution payer for proposal execution.
+    /// When set, group path storage costs are charged to this account.
+    #[inline(always)]
+    pub fn set_execution_payer(&mut self, payer: AccountId) {
+        self.execution_payer = Some(payer);
+    }
+
+    /// Clear the execution payer after proposal execution.
+    #[inline(always)]
+    pub fn clear_execution_payer(&mut self) {
+        self.execution_payer = None;
+    }
+
     #[inline(always)]
     pub fn validate_state(&self, require_manager: bool) -> Result<(), SocialError> {
         if self.status != ContractStatus::Live {
@@ -158,6 +172,27 @@ impl SocialPlatform {
         let mut storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
         storage.balance = storage.balance.saturating_add(amount);
         self.user_storage.insert(account_id.clone(), storage);
+    }
+
+    /// Lock storage balance for proposal execution.
+    /// The locked amount cannot be spent until unlocked.
+    pub fn lock_storage_balance(
+        &mut self,
+        account_id: &AccountId,
+        amount: u128,
+    ) -> Result<(), SocialError> {
+        let mut storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
+        storage.lock_balance(amount)?;
+        self.user_storage.insert(account_id.clone(), storage);
+        Ok(())
+    }
+
+    /// Unlock previously locked storage balance.
+    pub fn unlock_storage_balance(&mut self, account_id: &AccountId, amount: u128) {
+        if let Some(mut storage) = self.user_storage.get(account_id).cloned() {
+            storage.unlock_balance(amount);
+            self.user_storage.insert(account_id.clone(), storage);
+        }
     }
 
     /// Finalize leftover deposit: refund or credit to storage balance.

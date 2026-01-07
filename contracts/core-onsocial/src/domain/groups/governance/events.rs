@@ -18,6 +18,7 @@ pub(super) fn emit_proposal_created(
     locked_member_count: u64,
     participation_quorum_bps: u16,
     majority_threshold_bps: u16,
+    locked_deposit: u128,
     proposal_data: serde_json::Value,
     proposal_path: &str,
     tally_path: &str,
@@ -44,14 +45,14 @@ pub(super) fn emit_proposal_created(
         .with_field("participation_quorum_bps", participation_quorum_bps)
         .with_field("majority_threshold_bps", majority_threshold_bps)
         .with_field("voting_period", voting_period.to_string())
+        .with_field("locked_deposit", locked_deposit.to_string())
         .with_path(proposal_path)
         .with_value(proposal_data)
         .with_field("tally_path", tally_path)
         .with_field("counter_path", counter_path)
         .with_write(counter_path, counter_value);
 
-    // When auto-vote is enabled, the vote/tally writes are covered by the subsequent `vote_cast`
-    // event in the same receipt (avoids duplication).
+    // Tally write deferred to subsequent vote_cast event when auto-vote enabled.
     if !auto_vote {
         builder = builder.with_write(tally_path, tally_value);
     }
@@ -93,8 +94,6 @@ pub(super) fn emit_vote_cast(
         0
     };
 
-    // `path` + `value` represent the primary write (vote itself). `writes` captures the additional
-    // tally write required for deterministic replay.
     let mut event_batch = EventBatch::new();
     EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "vote_cast", voter.clone())
         .with_field("group_id", group_id)
@@ -124,10 +123,12 @@ pub(super) fn emit_vote_cast(
 pub(super) fn emit_proposal_status_updated(
     group_id: &str,
     proposal_id: &str,
+    proposer: &AccountId,
     status: &str,
     final_total_votes: u64,
     final_yes_votes: u64,
     locked_member_count: u64,
+    unlocked_deposit: u128,
     proposal_path: &str,
     proposal_value: serde_json::Value,
 ) -> Result<(), crate::SocialError> {
@@ -136,10 +137,11 @@ pub(super) fn emit_proposal_status_updated(
     EventBuilder::new(
         EVENT_TYPE_GROUP_UPDATE,
         "proposal_status_updated",
-        env::predecessor_account_id(),
+        proposer.clone(),
     )
     .with_field("group_id", group_id)
     .with_field("proposal_id", proposal_id)
+    .with_field("proposer", proposer.as_str())
     .with_field("status", status)
     .with_field("final_total_votes", final_total_votes)
     .with_field("final_yes_votes", final_yes_votes)
@@ -148,6 +150,7 @@ pub(super) fn emit_proposal_status_updated(
         final_total_votes.saturating_sub(final_yes_votes),
     )
     .with_field("locked_member_count", locked_member_count)
+    .with_field("unlocked_deposit", unlocked_deposit.to_string())
     .with_field("updated_at", env::block_timestamp().to_string())
     .with_path(proposal_path)
     .with_value(proposal_value)

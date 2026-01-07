@@ -273,7 +273,7 @@ mod group_content_integration_tests {
 
         // Add member with NO group-root permissions (level: 0)
         // This allows us to test path-specific permission isolation
-        contract.add_group_member("restricted".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("restricted".to_string(), member.clone()).unwrap();
 
         // Grant permission only for posts/, NOT comments/
         contract.set_permission(
@@ -330,7 +330,7 @@ mod group_content_integration_tests {
         contract.create_group("revoke_test".to_string(), json!({"is_private": true})).unwrap();
 
         // Add member with NO group-root permissions (level: 0)
-        contract.add_group_member("revoke_test".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("revoke_test".to_string(), member.clone()).unwrap();
 
         // Grant path-specific permission
         contract.set_permission(
@@ -590,10 +590,9 @@ mod group_content_integration_tests {
         // Owner manually adds member
         contract
             .add_group_member(
-                "private_club".to_string(),
-                approved_member.clone(),
-                0,
-            )
+            "private_club".to_string(),
+            approved_member.clone(),
+        )
             .unwrap();
 
         // Grant content permission

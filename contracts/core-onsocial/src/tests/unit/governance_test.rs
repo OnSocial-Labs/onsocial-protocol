@@ -63,7 +63,7 @@ mod governance_tests {
 
         // Add an existing member so proposals don't execute immediately (need 2 members for 50% participation)
         // For member-driven groups, this will create a proposal that executes immediately (1 member = 100% participation)
-        let add_result = contract.add_group_member("demogroup".to_string(), existing_member.clone(), 0);
+        let add_result = contract.add_group_member("demogroup".to_string(), existing_member.clone());
         // In single-member groups, proposals execute immediately, so this should succeed
         assert!(add_result.is_ok(), "Should add first member via immediate proposal execution: {:?}", add_result);
         
@@ -72,7 +72,7 @@ mod governance_tests {
                "Member should be added after immediate proposal execution");
 
         // In member-driven groups, add_group_member creates a proposal instead of directly adding
-        let add_result = contract.add_group_member("demogroup".to_string(), target_member.clone(), 0);
+        let add_result = contract.add_group_member("demogroup".to_string(), target_member.clone());
         assert!(add_result.is_ok(), "Owner should be able to create member invitation proposal: {:?}", add_result);
 
         // Target member should NOT be immediately added to the group (proposal needs voting)
@@ -201,7 +201,7 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("traditional".to_string(), member.clone()).unwrap();
         contract.set_permission(member.clone(), "groups/traditional/config".to_string(), MANAGE, None).unwrap();
 
         // Manager in traditional group can directly add members
@@ -209,7 +209,6 @@ mod governance_tests {
         let direct_add_result = contract.add_group_member(
             "traditional".to_string(),
             target.clone(),
-            0,
         );
         assert!(direct_add_result.is_ok(), "Traditional group should allow direct member addition");
 
@@ -228,7 +227,7 @@ mod governance_tests {
         test_add_member_bypass_proposals(&mut contract, "democratic", &existing_member, WRITE, &owner);
 
         // Owner in member-driven group creates proposal for member addition
-        let proposal_add_result = contract.add_group_member("democratic".to_string(), target.clone(), 0);
+        let proposal_add_result = contract.add_group_member("democratic".to_string(), target.clone());
         assert!(proposal_add_result.is_ok(), "Member-driven group should create proposal for member addition");
 
         // Verify target is not immediately added to member-driven group (needs voting)
@@ -305,7 +304,7 @@ mod governance_tests {
         // Test core governance principles:
         
         // 1. Proposals are required for all member additions
-        let add_result = contract.add_group_member("community".to_string(), accounts(1), 0);
+        let add_result = contract.add_group_member("community".to_string(), accounts(1));
         assert!(add_result.is_ok(), "Should create proposal for member addition");
         assert!(!contract.is_group_member("community".to_string(), accounts(1)), 
                "Member not added until proposal is approved");
@@ -426,7 +425,7 @@ mod governance_tests {
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
         contract
-            .add_group_member("traditional".to_string(), member.clone(), 0)
+            .add_group_member("traditional".to_string(), member.clone())
             .unwrap();
         contract
             .set_permission(member.clone(), "groups/traditional/config".to_string(), MANAGE, None)
@@ -436,7 +435,7 @@ mod governance_tests {
         testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
 
         let member_proposal_result =
-            contract.add_group_member("traditional".to_string(), accounts(2), 0);
+            contract.add_group_member("traditional".to_string(), accounts(2));
 
         assert!(member_proposal_result.is_ok(), "Existing members should be able to add other members in traditional groups");
 
@@ -466,10 +465,10 @@ mod governance_tests {
         
         // Add members with different permission levels
         contract
-            .add_group_member("setup".to_string(), write_member.clone(), 0)
+            .add_group_member("setup".to_string(), write_member.clone())
             .unwrap();
         contract
-            .add_group_member("setup".to_string(), moderate_member.clone(), 0)
+            .add_group_member("setup".to_string(), moderate_member.clone())
             .unwrap();
 
         // Now create a member-driven group 
@@ -486,7 +485,7 @@ mod governance_tests {
 
         // Test 1: Direct permission actions are blocked regardless of permission level
         testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let direct_add_result = contract.add_group_member("democratic".to_string(), write_member.clone(), 0);
+        let direct_add_result = contract.add_group_member("democratic".to_string(), write_member.clone());
         
         // This should create a proposal, not add directly (even for owner)
         assert!(direct_add_result.is_ok(), "Should create proposal instead of direct addition");
@@ -543,7 +542,7 @@ mod governance_tests {
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
         contract
-            .add_group_member("traditional".to_string(), charlie.clone(), 0)
+            .add_group_member("traditional".to_string(), charlie.clone())
             .unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -617,10 +616,10 @@ mod governance_tests {
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
         contract
-            .add_group_member("traditional".to_string(), bob.clone(), 0)
+            .add_group_member("traditional".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("traditional".to_string(), charlie.clone(), 0)
+            .add_group_member("traditional".to_string(), charlie.clone())
             .unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -692,9 +691,9 @@ mod governance_tests {
             None
         );
 
-        // Should succeed at creation (validation happens at execution)
-        assert!(result.is_ok(), "Ban proposal creation should succeed even with missing target_user");
-        println!("✅ Ban proposals can be created (validation happens at execution time)");
+        // Should fail at creation - target_user is required
+        assert!(result.is_err(), "Ban proposal creation should fail with missing target_user");
+        println!("✅ Ban proposals require target_user at creation time");
 
         println!("✅ Democratic Blacklist/Ban System:");
         println!("   - Traditional groups: Direct ban via blacklist_group_member (owner/admin only)");
@@ -722,8 +721,8 @@ mod governance_tests {
         contract.create_group("testgroup".to_string(), config).unwrap();
 
         // Add bob as a member
-        contract.add_group_member("testgroup".to_string(), bob.clone(), 0).unwrap();
-        contract.add_group_member("testgroup".to_string(), charlie.clone(), 0).unwrap();
+        contract.add_group_member("testgroup".to_string(), bob.clone()).unwrap();
+        contract.add_group_member("testgroup".to_string(), charlie.clone()).unwrap();
 
         // Verify bob is a member before ban
         // (We can't directly test this via API, but we know from the add_group_member success)
@@ -751,7 +750,7 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("private".to_string(), private_config).unwrap();
-        contract.add_group_member("private".to_string(), charlie.clone(), 0).unwrap();
+        contract.add_group_member("private".to_string(), charlie.clone()).unwrap();
         contract.blacklist_group_member("private".to_string(), charlie.clone()).unwrap();
         
         // Try to join private group while banned
@@ -949,7 +948,7 @@ mod governance_tests {
 
         // For testing unban proposals, we need to simulate a prior ban
         // In member-driven groups, bans also go through proposals, so we'll create and execute a ban proposal first
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal_data = json!({
             "update_type": "ban",
             "target_user": charlie.to_string(),
@@ -1159,7 +1158,7 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), bob.clone(), 0).unwrap();
+        contract.add_group_member("traditional".to_string(), bob.clone()).unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_transfer = json!({
@@ -1250,8 +1249,8 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), bob.clone(), 0).unwrap();
-        contract.add_group_member("traditional".to_string(), charlie.clone(), 0).unwrap();
+        contract.add_group_member("traditional".to_string(), bob.clone()).unwrap();
+        contract.add_group_member("traditional".to_string(), charlie.clone()).unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_permission = json!({
@@ -1373,7 +1372,7 @@ mod governance_tests {
             "is_private": true,
         });
         contract.create_group("traditional".to_string(), traditional_config).unwrap();
-        contract.add_group_member("traditional".to_string(), charlie.clone(), 0).unwrap();
+        contract.add_group_member("traditional".to_string(), charlie.clone()).unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
         let traditional_invite = json!({

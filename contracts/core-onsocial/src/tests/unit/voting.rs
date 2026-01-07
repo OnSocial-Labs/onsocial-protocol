@@ -48,7 +48,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest1/stats", &stats).unwrap();
 
         // Create proposal (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing vote recording"}
@@ -112,7 +112,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest3/stats", &stats).unwrap();
 
         // Create proposal (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing vote change prevention"}
@@ -178,7 +178,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest4/stats", &stats).unwrap();
 
         // Create proposal (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing vote preservation"}
@@ -221,7 +221,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.create_group("votetest5".to_string(), config).unwrap();
 
         // Create proposal
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing quorum requirement"}
@@ -278,7 +278,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest6/stats", &stats).unwrap();
 
         // Create proposal
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing voting period expiration"}
@@ -324,7 +324,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.create_group("votetest7".to_string(), config).unwrap();
 
         // Create proposal (alice automatically votes YES, which should execute immediately for single member)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing voting with 1 member"}
@@ -366,7 +366,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.create_group("votetest8".to_string(), config).unwrap();
 
         // Create proposal
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing non-member cannot vote"}
@@ -430,7 +430,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest9/stats", &stats).unwrap();
 
         // Create custom proposal (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing execution trigger"}
@@ -489,7 +489,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest10/stats", &stats).unwrap();
 
         // Create member invite proposal (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "target_user": new_member.to_string(),
             "level": 0,
@@ -514,8 +514,8 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         
         let member_info = member_data.unwrap();
         assert_eq!(member_info["level"], json!(0));
-        assert_eq!(member_info["granted_by"], bob.to_string(), 
-            "Should show granted_by as the executor (bob), got: {}", member_info["granted_by"]);
+        assert_eq!(member_info["granted_by"], alice.to_string(), 
+            "Should show granted_by as the proposer (alice), got: {}", member_info["granted_by"]);
         
         println!("✅ Member invite proposal workflow works correctly");
     }
@@ -553,7 +553,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/votetest11/stats", &stats).unwrap();
 
         // Create permission change proposal for self (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "target_user": alice.to_string(),
             "level": MANAGE,
@@ -817,7 +817,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
               "Member should start with member-only (0) permissions");
 
         // Verify member has functional permissions (can create proposals)
-        testing_env!(get_context(requester.clone()).build());
+        testing_env!(get_context_for_proposal(requester.clone()).build());
         let test_proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Test proposal from new member"}
@@ -853,13 +853,13 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Add multiple members to traditional group
         contract
-            .add_group_member("setup".to_string(), bob.clone(), 0)
+            .add_group_member("setup".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("setup".to_string(), charlie.clone(), 0)
+            .add_group_member("setup".to_string(), charlie.clone())
             .unwrap();
         contract
-            .add_group_member("setup".to_string(), dave.clone(), 0)
+            .add_group_member("setup".to_string(), dave.clone())
             .unwrap();
 
         // Now create member-driven group for voting tests
@@ -921,10 +921,10 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Add 2 more members (total 3)
         contract
-            .add_group_member("setup".to_string(), bob.clone(), 0)
+            .add_group_member("setup".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("setup".to_string(), charlie.clone(), 0)
+            .add_group_member("setup".to_string(), charlie.clone())
             .unwrap();
 
         // Create member-driven group
@@ -986,7 +986,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         let traditional_config = json!({"member_driven": false, "is_private": false});
         contract.create_group("setup".to_string(), traditional_config).unwrap();
         contract
-            .add_group_member("setup".to_string(), bob.clone(), 0)
+            .add_group_member("setup".to_string(), bob.clone())
             .unwrap();
 
         // Create member-driven group
@@ -1049,13 +1049,13 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Add 3 more members (total 4)
         contract
-            .add_group_member("setup".to_string(), bob.clone(), 0)
+            .add_group_member("setup".to_string(), bob.clone())
             .unwrap();
         contract
-            .add_group_member("setup".to_string(), charlie.clone(), 0)
+            .add_group_member("setup".to_string(), charlie.clone())
             .unwrap();
         contract
-            .add_group_member("setup".to_string(), dave.clone(), 0)
+            .add_group_member("setup".to_string(), dave.clone())
             .unwrap();
 
         // Create member-driven group
@@ -1142,7 +1142,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.create_group("votetest12".to_string(), config).unwrap();
 
         // Create proposal (alice automatically votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing vote tally tracking"}
@@ -1263,7 +1263,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Test 5: Verify bob cannot vote on proposals
         // Create another proposal to test voting restriction
-        testing_env!(get_context(charlie.clone()).build());
+        testing_env!(get_context_for_proposal(charlie.clone()).build());
         let test_proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing voting restrictions"}
@@ -1439,7 +1439,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/self_removal_test/stats", &stats).unwrap();
 
         // Bob tries to propose his own removal (should this be allowed?)
-        testing_env!(get_context(bob.clone()).build());
+        testing_env!(get_context_for_proposal(bob.clone()).build());
         let self_removal_data = json!({
             "update_type": "remove_member",
             "target_user": bob.to_string(),
@@ -1481,7 +1481,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.create_group("conversion_test".to_string(), config).unwrap();
 
         // Add bob as member so we can test governance
-        contract.add_group_member("conversion_test".to_string(), bob.clone(), 0).unwrap();
+        contract.add_group_member("conversion_test".to_string(), bob.clone()).unwrap();
 
         // Convert to member-driven via direct config update (simulating owner action)
         // This bypasses governance since it's a traditional group
@@ -1531,7 +1531,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Try to change privacy to public via proposal with unknown update_type
         // (privacy update type was removed - not a valid proposal type)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let privacy_change_data = json!({
             "update_type": "privacy",
             "is_private": false
@@ -1852,7 +1852,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         contract.platform.storage_set("groups/joined_at_test/stats", &stats).unwrap();
 
         // Create proposal (with same timestamp as bob's joined_at)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing joined_at boundary"}

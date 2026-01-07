@@ -33,11 +33,9 @@ impl ProposalType {
         let update_type = GroupUpdateType::parse(update_type)
             .ok_or_else(|| invalid_input!("Unknown update type"))?;
 
-        // Apply changes based on update type
         match update_type {
             GroupUpdateType::Permissions | GroupUpdateType::Metadata => {
                 if let Some(config_obj) = config.as_object_mut() {
-                    // Extract the nested "changes" field from the proposal data
                     let actual_changes = changes.get("changes").unwrap_or(changes);
 
                     if let Some(changes_obj) = actual_changes.as_object() {
@@ -46,7 +44,7 @@ impl ProposalType {
                                 config_obj.insert(key.clone(), value.clone());
                             }
                         }
-                        // If member_driven is being changed to true, automatically set is_private to true
+                        // Invariant: member_driven groups must be private
                         if let (Some(member_driven_val), true) = (
                             changes_obj.get("member_driven"),
                             changes_obj.contains_key("member_driven"),
@@ -101,14 +99,12 @@ impl ProposalType {
                 if let Some(new_owner) = changes.get("new_owner").and_then(|v| v.as_str()) {
                     let new_owner_account =
                         crate::validation::parse_account_id_str(new_owner, invalid_input!("Invalid account ID"))?;
-                    // Get the current owner before transfer
                     let transfer_config = platform
                         .storage_get(&config_key)
                         .ok_or_else(|| invalid_input!("Group config not found"))?;
                     let old_owner = GroupConfig::try_from_value(&transfer_config)?.owner;
 
-                    // Transfer ownership (from governance, so bypass member-driven restriction)
-                    // NOTE: This function saves the updated config internally
+                    // Saves config internally; from_governance=true bypasses member-driven restriction
                     GroupStorage::transfer_ownership_internal(
                         platform,
                         group_id,
@@ -117,13 +113,11 @@ impl ProposalType {
                         true,
                     )?;
 
-                    // Check if we should remove the old owner (consistent with direct transfers)
                     let remove_old_owner = changes
                         .get("remove_old_owner")
                         .and_then(|v| v.as_bool())
                         .unwrap_or(true);
 
-                    // Automatically remove the old owner from the group if requested
                     if remove_old_owner && old_owner != new_owner_account {
                         GroupStorage::remove_member_internal(
                             platform,
@@ -134,7 +128,6 @@ impl ProposalType {
                         )?;
                     }
 
-                    // Reload config after transfer_ownership_internal modified it
                     config = platform
                         .storage_get(&config_key)
                         .ok_or_else(|| invalid_input!(
@@ -144,14 +137,18 @@ impl ProposalType {
             }
         }
 
-        // Governance execution must preserve core invariants regardless of update_type.
-        // In particular: member-driven groups must always remain private.
+        // Invariant: member-driven groups must remain private
         let cfg = GroupConfig::try_from_value(&config)?;
         GroupStorage::assert_member_driven_private_invariant(cfg.member_driven, cfg.is_private)?;
 
-        platform.storage_set(&config_key, &config)?;
+        let config_needs_save = matches!(
+            update_type,
+            GroupUpdateType::Permissions | GroupUpdateType::Metadata
+        );
+        if config_needs_save {
+            platform.storage_set(&config_key, &config)?;
+        }
 
-        // Emit event
         let mut event_batch = EventBatch::new();
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "group_updated", executor.clone())
             .with_field("group_id", group_id)
@@ -181,13 +178,11 @@ impl ProposalType {
             .storage_get(&config_key)
             .ok_or_else(|| invalid_input!("Group config not found"))?;
 
-        // Get or create voting_config, then update specified parameters
         let mut voting_config = config
             .get("voting_config")
             .and_then(|v| serde_json::from_value::<VotingConfig>(v.clone()).ok())
             .unwrap_or_default();
 
-        // Update the specified parameters
         if let Some(quorum_bps) = participation_quorum_bps {
             voting_config.participation_quorum_bps = quorum_bps;
         }
@@ -198,10 +193,8 @@ impl ProposalType {
             voting_config.voting_period = near_sdk::json_types::U64(period);
         }
 
-        // Sanitize to enforce min/max bounds
         voting_config = voting_config.sanitized();
 
-        // Update the config with new voting config
         if let Some(obj) = config.as_object_mut() {
             obj.insert("voting_config".to_string(), json!(voting_config));
             obj.insert(
@@ -213,16 +206,13 @@ impl ProposalType {
 
         platform.storage_set(&config_key, &config)?;
 
-        // Emit event with both requested and effective (post-sanitization) values
         let mut event_batch = EventBatch::new();
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "voting_config_changed", executor.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
-            // Requested values (what the proposal specified)
             .with_field("participation_quorum_bps", participation_quorum_bps)
             .with_field("majority_threshold_bps", majority_threshold_bps)
             .with_field("voting_period", voting_period.map(|p| p.to_string()))
-            // Effective values (after sanitization/clamping)
             .with_field("effective_participation_quorum_bps", voting_config.participation_quorum_bps)
             .with_field("effective_majority_threshold_bps", voting_config.majority_threshold_bps)
             .with_field("effective_voting_period", voting_config.voting_period.0.to_string())
@@ -243,11 +233,8 @@ impl ProposalType {
         custom_data: &Value,
         executor: &AccountId,
     ) -> Result<(), SocialError> {
-        // Cache block_height and timestamp for execution metadata
         let block_height = env::block_height();
         let timestamp = env::block_timestamp();
-
-        // Professional governance pattern: Use proposal_id as primary key for direct traceability
         let execution_key = format!("groups/{}/executions/{}", group_id, proposal_id);
 
         let execution_data = json!({
@@ -262,7 +249,6 @@ impl ProposalType {
 
         platform.storage_set(&execution_key, &execution_data)?;
 
-        // Emit event
         let mut event_batch = EventBatch::new();
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "custom_proposal_executed", executor.clone())
             .with_path(&execution_key)

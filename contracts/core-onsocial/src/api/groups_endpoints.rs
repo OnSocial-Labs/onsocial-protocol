@@ -35,11 +35,10 @@ impl Contract {
         self.execute_payable_group_operation(|platform, caller| platform.join_group(group_id, caller))
     }
 
+    #[payable]
     #[handle_result]
     pub fn leave_group(&mut self, group_id: String) -> Result<(), SocialError> {
-        ContractGuards::require_live_state(&self.platform)?;
-        let caller = SocialPlatform::current_caller();
-        self.platform.leave_group(group_id, &caller)
+        self.execute_payable_group_operation(|platform, caller| platform.leave_group(group_id, caller))
     }
 
     #[payable]
@@ -48,10 +47,9 @@ impl Contract {
         &mut self,
         group_id: String,
         member_id: AccountId,
-        level: u8,
     ) -> Result<(), SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
-            platform.add_group_member(group_id, member_id, level, caller)
+            platform.add_group_member(group_id, member_id, caller)
         })
     }
 
@@ -73,10 +71,9 @@ impl Contract {
         &mut self,
         group_id: String,
         requester_id: AccountId,
-        level: u8,
     ) -> Result<(), SocialError> {
         self.execute_payable_group_operation(|platform, caller| {
-            platform.approve_join_request(group_id, requester_id, level, caller)
+            platform.approve_join_request(group_id, requester_id, caller)
         })
     }
 
@@ -159,6 +156,12 @@ impl Contract {
         changes: Value,
         auto_vote: Option<bool>,
     ) -> Result<String, SocialError> {
+        let deposit = near_sdk::env::attached_deposit().as_yoctonear();
+        if deposit < crate::constants::MIN_PROPOSAL_DEPOSIT {
+            return Err(crate::invalid_input!(
+                "Minimum 0.1 NEAR deposit required to create a proposal"
+            ));
+        }
         self.execute_payable_group_operation(|platform, caller| {
             platform.create_group_proposal(group_id, proposal_type, changes, caller, auto_vote)
         })

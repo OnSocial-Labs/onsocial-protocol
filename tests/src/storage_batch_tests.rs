@@ -5500,8 +5500,7 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
         .call(contract.id(), "add_group_member")
         .args_json(json!({
             "group_id": "test_group",
-            "member_id": bob.id().to_string(),
-            "level": 0
+            "member_id": bob.id().to_string()
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))

@@ -10,15 +10,12 @@ impl SocialPlatform {
     /// member-only (`NONE`), while the contract grants default channel access separately.
     /// Additional roles/permissions must be granted explicitly after joining.
     pub fn join_group(&mut self, group_id: String, caller: &AccountId) -> Result<(), SocialError> {
-        let requested_permissions = crate::domain::groups::permissions::kv::types::NONE;
-
         crate::domain::groups::routing::route_group_operation(
             self,
             &group_id,
             |platform| {
                 let proposal_type = crate::domain::groups::ProposalType::JoinRequest {
                     requester: caller.clone(),
-                    requested_permissions,
                     message: Some("Join request submitted for community approval".to_string()),
                 };
 
@@ -47,19 +44,19 @@ impl SocialPlatform {
     }
 
     /// Approve a join request.
+    /// Members always join with level=NONE (0); elevated roles must be granted after joining.
     pub fn approve_join_request(
         &mut self,
         group_id: String,
         requester_id: AccountId,
-        level: u8,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::core::GroupStorage::approve_join_request(
             self,
             &group_id,
             &requester_id,
             caller,
-            level,
         )
     }
 
@@ -71,6 +68,7 @@ impl SocialPlatform {
         caller: &AccountId,
         reason: Option<String>,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::core::GroupStorage::reject_join_request(
             self,
             &group_id,
@@ -86,6 +84,7 @@ impl SocialPlatform {
         group_id: String,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::core::GroupStorage::cancel_join_request(self, &group_id, caller)
     }
 }

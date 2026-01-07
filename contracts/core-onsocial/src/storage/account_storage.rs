@@ -29,6 +29,10 @@ pub struct Storage {
     pub platform_allowance: u64,
     #[serde(default)]
     pub platform_last_refill_ns: u64,
+    /// Balance locked for pending proposal execution.
+    /// This prevents proposers from spending their deposit before execution.
+    #[serde(default)]
+    pub locked_balance: u128,
     #[serde(skip)]
     #[borsh(skip)]
     pub storage_tracker: crate::storage::tracker::StorageTracker,
@@ -47,19 +51,47 @@ impl Storage {
             .saturating_add(self.platform_pool_used_bytes)
     }
 
+    /// Available balance after subtracting locked amount.
+    #[inline(always)]
+    pub fn available_balance(&self) -> u128 {
+        self.balance.saturating_sub(self.locked_balance)
+    }
+
     /// Verify balance covers effective usage (total minus shared-pool-covered bytes).
+    /// Locked balance is reserved and cannot be used for regular storage.
     #[inline(always)]
     pub fn assert_storage_covered(&self) -> Result<(), crate::errors::SocialError> {
         let effective_bytes = crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
         let storage_balance_needed = crate::storage::calculate_storage_balance_needed(effective_bytes);
 
-        if storage_balance_needed > self.balance {
+        // Available balance = total - locked
+        let available = self.available_balance();
+        if storage_balance_needed > available {
             return Err(crate::errors::SocialError::InsufficientStorage(format!(
-                "Required: {}, available: {}",
-                storage_balance_needed, self.balance
+                "Required: {}, available: {} (locked: {})",
+                storage_balance_needed, available, self.locked_balance
             )));
         }
         Ok(())
+    }
+
+    /// Lock balance for proposal execution.
+    /// Returns error if insufficient unlocked balance.
+    pub fn lock_balance(&mut self, amount: u128) -> Result<(), crate::errors::SocialError> {
+        let available = self.available_balance();
+        if amount > available {
+            return Err(crate::errors::SocialError::InsufficientStorage(format!(
+                "Cannot lock {}: only {} available (locked: {})",
+                amount, available, self.locked_balance
+            )));
+        }
+        self.locked_balance = self.locked_balance.saturating_add(amount);
+        Ok(())
+    }
+
+    /// Unlock previously locked balance (on proposal completion).
+    pub fn unlock_balance(&mut self, amount: u128) {
+        self.locked_balance = self.locked_balance.saturating_sub(amount);
     }
 
     pub fn refill_platform_allowance(&mut self, config: &crate::config::GovernanceConfig) {

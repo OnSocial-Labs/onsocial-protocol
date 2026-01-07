@@ -74,19 +74,13 @@ impl crate::domain::groups::core::GroupStorage {
         Ok(())
     }
 
+    /// Members join with level=NONE; elevated roles must be granted separately.
     pub fn approve_join_request(
         platform: &mut SocialPlatform,
         group_id: &str,
         requester_id: &AccountId,
         approver_id: &AccountId,
-        level: u8,
     ) -> Result<(), SocialError> {
-        // Approvals grant member-only (NONE); elevated roles require explicit grant after joining.
-        Self::assert_clean_member_level(
-            level,
-            "Join approvals cannot grant permissions; use 0 and grant roles after joining",
-        )?;
-
         Self::assert_join_requests_not_member_driven(platform, group_id)?;
 
         let group_config_path = Self::group_config_path(group_id);
@@ -125,13 +119,11 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Join request is not pending"));
         }
 
-        // Not governance path: blacklist checks remain enforced.
         Self::add_member_internal(
             platform,
             group_id,
             requester_id,
             approver_id,
-            crate::domain::groups::permissions::kv::types::NONE,
             AddMemberAuth::AlreadyAuthorized,
         )?;
 
@@ -256,6 +248,8 @@ impl crate::domain::groups::core::GroupStorage {
         group_id: &str,
         requester_id: &AccountId,
     ) -> Result<(), SocialError> {
+        Self::assert_join_requests_not_member_driven(platform, group_id)?;
+
         let request_path = format!("groups/{}/join_requests/{}", group_id, requester_id);
 
         let entry = platform

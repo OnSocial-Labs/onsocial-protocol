@@ -63,7 +63,7 @@ mod error_message_tests {
         let bob = test_account(1);
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         // Try to add member to non-existent group
-        let result = contract.add_group_member("nonexistent_group".to_string(), bob.clone(), 0);
+        let result = contract.add_group_member("nonexistent_group".to_string(), bob.clone());
         match result {
             Err(e) => {
                 let msg = e.to_string();
@@ -177,7 +177,7 @@ mod error_message_tests {
         contract.create_group("transfer_test".to_string(), config).unwrap();
         // Add bob
         contract
-            .add_group_member("transfer_test".to_string(), bob.clone(), 0)
+            .add_group_member("transfer_test".to_string(), bob.clone())
             .unwrap();
         // Bob (non-owner) tries to transfer ownership
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());

@@ -148,7 +148,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "path_test", &charlie, WRITE, &alice);
 
         // Alice creates proposal to grant bob MODERATE permission on specific path
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "target_user": bob.to_string(),
             "path": "groups/path_test/moderation",
@@ -199,7 +199,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "reject_path", &dave, WRITE, &alice);
 
         // Alice creates proposal to grant bob MANAGE permission
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "target_user": bob.to_string(),
             "path": "groups/reject_path/admin",
@@ -243,7 +243,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "validation_test", &bob, WRITE, &alice);
 
         // Test 1: Invalid path (outside group) - should fail
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let invalid_path_proposal = json!({
             "target_user": bob.to_string(),
             "path": "groups/different_group/posts", // Wrong group!
@@ -302,7 +302,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "revoke_test", &charlie, WRITE, &alice);
 
         // Step 1: First, grant bob MODERATE permission on specific path via proposal
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let grant_proposal_data = json!({
             "target_user": bob.to_string(),
             "path": "groups/revoke_test/moderation",
@@ -325,7 +325,7 @@ mod voting_proposal_types_tests {
         // For now, we assume the grant executed successfully
 
         // Step 2: Create revoke proposal (bob creates it this time with storage deposit)
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         let revoke_proposal_data = json!({
             "target_user": bob.to_string(),
             "path": "groups/revoke_test/moderation",
@@ -373,7 +373,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "edge_revoke", &charlie, WRITE, &alice);
 
         // Try to revoke a permission that bob never had
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let revoke_proposal_data = json!({
             "target_user": bob.to_string(),
             "path": "groups/edge_revoke/admin",
@@ -431,7 +431,7 @@ mod voting_proposal_types_tests {
         assert_eq!(initial_voting_config.get("participation_quorum_bps").unwrap().as_u64().unwrap(), 5100, "Initial quorum should be 51%");
 
         // Alice creates proposal to change quorum from 51% to 75%
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "participation_quorum_bps": 7500,
             "reason": "Increase quorum to ensure broader consensus"
@@ -492,7 +492,7 @@ mod voting_proposal_types_tests {
         assert_eq!(initial_voting_config.get("majority_threshold_bps").unwrap().as_u64().unwrap(), 5001, "Initial threshold should be >50%");
 
         // Alice creates proposal to change majority threshold from >50% to >75%
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "majority_threshold_bps": 7500,
             "reason": "Require supermajority for important decisions"
@@ -555,7 +555,7 @@ mod voting_proposal_types_tests {
         assert_eq!(initial_period, default_period, "Initial voting period should be 7 days");
 
         // Alice creates proposal to change voting period from 7 days to 3 days
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let new_period = 3 * 24 * 60 * 60 * 1_000_000_000; // 3 days in nanoseconds
         let proposal_data = json!({
             "voting_period": new_period,
@@ -625,7 +625,7 @@ mod voting_proposal_types_tests {
         // CRITICAL TEST: Create proposal to change quorum to 80%
         // This would make the current proposal fail if applied immediately
         // because we'd need 4/5 = 80% participation, but we only have 3 YES votes
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "participation_quorum_bps": 8000,
             "reason": "Increase quorum to require broader participation"
@@ -642,10 +642,10 @@ mod voting_proposal_types_tests {
         // Under OLD rules (51% quorum): This PASSES (60% > 51%)
         // Under NEW rules (80% quorum): This would FAIL (60% < 80%)
         // The proposal should PASS because it uses OLD rules
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("self_ref_test".to_string(), proposal_id.clone(), true).unwrap();
 
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("self_ref_test".to_string(), proposal_id.clone(), true).unwrap();
 
         // Verify the proposal PASSED and config was updated
@@ -656,7 +656,7 @@ mod voting_proposal_types_tests {
         // Now test that FUTURE proposals use the NEW rules (80% quorum)
         // Create a second proposal for a simple custom proposal
         // Use Bob as proposer this time to ensure different proposal ID
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         let future_proposal_data = json!({
             "title": "Test future proposal",
             "description": "This should require 80% participation",
@@ -723,7 +723,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "custom_approval_test", &dave, WRITE, &alice);
 
         // Alice creates custom proposal (gets automatic YES vote)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "title": "Should we implement dark mode?",
             "description": "Community vote on adding dark mode theme to the platform",
@@ -814,7 +814,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "custom_rejection_test", &eve, WRITE, &alice);
 
         // Alice creates controversial custom proposal (gets automatic YES vote)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({
             "title": "Should we ban all memes?",
             "description": "Proposal to remove all meme content from the community",
@@ -838,11 +838,11 @@ mod voting_proposal_types_tests {
         contract.vote_on_proposal("custom_rejection_test".to_string(), proposal_id.clone(), false).unwrap();
 
         // Charlie votes NO (now 1 YES, 2 NO out of 5 members = 60% participation)
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("custom_rejection_test".to_string(), proposal_id.clone(), false).unwrap();
 
         // Dave votes NO (now 1 YES, 3 NO out of 5 members = 80% participation, max possible YES = 1 + 1 = 20% < 50%)
-        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("custom_rejection_test".to_string(), proposal_id.clone(), false).unwrap();
 
         // Now defeat is inevitable: 1 YES, 3 NO, 1 remaining. Max possible: 2 YES out of 5 = 40% < 50%
@@ -857,7 +857,7 @@ mod voting_proposal_types_tests {
 
         // Test 2: Insufficient participation rejection
         // Create another proposal that gets some votes but not enough participation
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         let quorum_test_data = json!({
             "title": "Change group name to something silly",
             "description": "This proposal won't get enough participation",
@@ -918,7 +918,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "metadata_test", &bob, WRITE, &alice);
 
         // Test 1: Complex custom_data with various data types
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let complex_data = json!({
             "title": "Complex budget proposal",
             "description": "Multi-department budget allocation with detailed breakdown",
@@ -1000,7 +1000,7 @@ mod voting_proposal_types_tests {
         assert!(preserved_data["custom_data"]["empty_object"].as_object().unwrap().is_empty(), "Empty object should be preserved");
 
         // Test 2: Minimal custom_data (just title and description, no custom_data field)
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         let minimal_data = json!({
             "title": "Simple yes/no question",
             "description": "Should we proceed with the plan?"
@@ -1030,7 +1030,7 @@ mod voting_proposal_types_tests {
                 "Minimal proposal should not have custom_data or it should be empty/null");
 
         // Test 3: Large custom_data (simulate realistic complex proposal)
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let large_custom_data = json!({
             "title": "Comprehensive platform redesign",
             "description": "Major redesign involving multiple teams and stakeholders",
@@ -1126,7 +1126,7 @@ mod voting_proposal_types_tests {
         test_add_member_bypass_proposals(&mut contract, "edge_cases_test", &bob, WRITE, &alice);
 
         // Test 1: Validation - Missing required title
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let missing_title = json!({
             "description": "This should fail - no title",
             "custom_data": {"test": "value"}
@@ -1224,7 +1224,7 @@ mod voting_proposal_types_tests {
         ).unwrap();
 
         // Execute the extreme proposal
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("edge_cases_test".to_string(), extreme_proposal_id.clone(), true).unwrap();
 
         // Verify extreme data is preserved
@@ -1241,7 +1241,7 @@ mod voting_proposal_types_tests {
         assert!(custom_data["unicode_extreme"].as_str().unwrap().contains("🚀"), "Extreme unicode should be preserved");
 
         // Test 6: Vote changing (if allowed by system)
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let vote_change_data = json!({
             "title": "Test vote changing",
             "description": "Testing if votes can be changed"

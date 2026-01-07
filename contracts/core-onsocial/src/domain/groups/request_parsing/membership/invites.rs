@@ -5,11 +5,11 @@ use crate::state::models::SocialPlatform;
 
 impl SocialPlatform {
     /// Add a member to a group.
+    /// Members always join with level=NONE (0); elevated roles must be granted after joining.
     pub fn add_group_member(
         &mut self,
         group_id: String,
         member_id: AccountId,
-        level: u8,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
         crate::domain::groups::routing::route_group_operation(
@@ -18,7 +18,6 @@ impl SocialPlatform {
             |platform| {
                 let proposal_type = crate::domain::groups::ProposalType::MemberInvite {
                     target_user: member_id.clone(),
-                    level,
                     message: Some("Community member invitation".to_string()),
                 };
 
@@ -37,7 +36,6 @@ impl SocialPlatform {
                     &group_id,
                     &member_id,
                     caller,
-                    level,
                 )
             },
         )

@@ -13,15 +13,9 @@ pub(crate) fn parse_member_invite_proposal(
         target_user_str,
         invalid_input!("Invalid target_user account ID"),
     )?;
-    let level = changes
-        .get("level")
-        .and_then(|v| v.as_u64())
-        .and_then(|f| if f <= 255 { Some(f as u8) } else { None })
-        .unwrap_or(crate::domain::groups::permissions::kv::types::NONE); // Default to NONE (member-only)
     let message = changes.get("message").and_then(|v| v.as_str());
     Ok(crate::domain::groups::ProposalType::MemberInvite {
         target_user,
-        level,
         message: message.map(|s| s.to_string()),
     })
 }
@@ -37,15 +31,9 @@ pub(crate) fn parse_join_request_proposal(
         requester_str,
         invalid_input!("Invalid requester account ID"),
     )?;
-    let requested_permissions = changes
-        .get("requested_permissions")
-        .and_then(|v| v.as_u64())
-        .and_then(|f| if f <= 255 { Some(f as u8) } else { None })
-        .unwrap_or(crate::domain::groups::permissions::kv::types::NONE);
     let message = changes.get("message").and_then(|v| v.as_str());
     Ok(crate::domain::groups::ProposalType::JoinRequest {
         requester,
-        requested_permissions,
         message: message.map(|s| s.to_string()),
     })
 }

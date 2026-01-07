@@ -28,8 +28,8 @@ mod permission_tests {
         // Add members to the group first with NO permissions (required for path-specific isolation test)
         // Using 0 level ensures members have no group-root permissions,
         // allowing us to test path-specific grants in isolation
-        contract.add_group_member("testgroup".to_string(), member1.clone(), 0).unwrap();
-        contract.add_group_member("testgroup".to_string(), member2.clone(), 0).unwrap();
+        contract.add_group_member("testgroup".to_string(), member1.clone()).unwrap();
+        contract.add_group_member("testgroup".to_string(), member2.clone()).unwrap();
 
         // Define different paths within the group
         let events_path = "groups/testgroup/events".to_string();
@@ -238,15 +238,15 @@ mod permission_tests {
 
         // Add manager (clean-add) then grant MANAGE on config path.
         contract
-            .add_group_member("testgroup".to_string(), manager.clone(), 0)
+            .add_group_member("testgroup".to_string(), manager.clone())
             .unwrap();
         contract
             .set_permission(manager.clone(), "groups/testgroup/config".to_string(), MANAGE, None)
             .unwrap();
 
         // Owner adds basic members with NO group-root permissions (for path-specific isolation testing)
-        contract.add_group_member("testgroup".to_string(), member1.clone(), 0).unwrap();
-        contract.add_group_member("testgroup".to_string(), member2.clone(), 0).unwrap();
+        contract.add_group_member("testgroup".to_string(), member1.clone()).unwrap();
+        contract.add_group_member("testgroup".to_string(), member2.clone()).unwrap();
 
         // Define specific paths within the group
         let events_path = "groups/testgroup/events".to_string();
@@ -420,12 +420,12 @@ mod permission_tests {
 
         // Add manager with member-only role (cannot grant anything)
         contract
-            .add_group_member("testgroup".to_string(), manager.clone(), 0)
+            .add_group_member("testgroup".to_string(), manager.clone())
             .unwrap();
 
         // Group path permissions only apply to members.
         contract
-            .add_group_member("testgroup".to_string(), member.clone(), 0)
+            .add_group_member("testgroup".to_string(), member.clone())
             .unwrap();
 
         let test_path = "groups/testgroup/test".to_string();
@@ -488,7 +488,7 @@ mod permission_tests {
 
         // Add member to the group first with NO group-root permissions
         // This allows us to test path-specific permission grant/revoke in isolation
-        contract.add_group_member("testgroup".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("testgroup".to_string(), member.clone()).unwrap();
 
         let test_path = "groups/testgroup/content".to_string();
 
@@ -533,7 +533,7 @@ mod permission_tests {
 
         // Add member to the group first (clean-add)
         contract
-            .add_group_member("testgroup".to_string(), member.clone(), 0)
+            .add_group_member("testgroup".to_string(), member.clone())
             .unwrap();
 
         let test_path = "groups/testgroup/content".to_string();
@@ -582,7 +582,7 @@ mod permission_tests {
 
         // Start member as member-only
         contract
-            .add_group_member("promotion_test".to_string(), member.clone(), 0)
+            .add_group_member("promotion_test".to_string(), member.clone())
             .unwrap();
         
         // Verify initial role
@@ -622,7 +622,7 @@ mod permission_tests {
         // This allows us to test path-specific permission demotion
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("demotion_test".to_string(), config).unwrap();
-        contract.add_group_member("demotion_test".to_string(), admin_member.clone(), 0).unwrap();
+        contract.add_group_member("demotion_test".to_string(), admin_member.clone()).unwrap();
 
         // Grant MANAGE permission to the config path
         contract.set_permission(admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE, None).unwrap();
@@ -667,13 +667,13 @@ mod permission_tests {
         contract.create_group("hierarchy_test".to_string(), config).unwrap();
         
         contract
-            .add_group_member("hierarchy_test".to_string(), admin.clone(), 0)
+            .add_group_member("hierarchy_test".to_string(), admin.clone())
             .unwrap();
         contract
-            .add_group_member("hierarchy_test".to_string(), moderator.clone(), 0)
+            .add_group_member("hierarchy_test".to_string(), moderator.clone())
             .unwrap();
         contract
-            .add_group_member("hierarchy_test".to_string(), writer.clone(), 0)
+            .add_group_member("hierarchy_test".to_string(), writer.clone())
             .unwrap();
 
         // Establish path-scoped role-like permissions explicitly.
@@ -725,7 +725,7 @@ mod permission_tests {
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("inheritance_test".to_string(), config).unwrap();
         contract
-            .add_group_member("inheritance_test".to_string(), member.clone(), 0)
+            .add_group_member("inheritance_test".to_string(), member.clone())
             .unwrap();
 
         // Grant specific path permissions

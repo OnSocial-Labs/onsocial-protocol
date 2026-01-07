@@ -34,7 +34,7 @@ mod governance_status_tests {
         test_add_member_bypass_proposals(&mut contract, "status_missing", &bob, 0, &owner);
 
         // Create a proposal (should be active).
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
         let proposal_id = contract
             .create_group_proposal(
                 "status_missing".to_string(),
@@ -65,7 +65,7 @@ mod governance_status_tests {
             .expect("test setup: failed to write corrupted proposal");
 
         // Voting should now fail at ProposalStatus::from_json_status(None).
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         let res = contract.vote_on_proposal(
             "status_missing".to_string(),
             proposal_id.clone(),
@@ -96,7 +96,7 @@ mod governance_status_tests {
         test_add_member_bypass_proposals(&mut contract, "status_invalid", &bob, 0, &owner);
 
         // Create a proposal (should be active).
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
         let proposal_id = contract
             .create_group_proposal(
                 "status_invalid".to_string(),
@@ -124,7 +124,7 @@ mod governance_status_tests {
             .expect("test setup: failed to write corrupted proposal");
 
         // Cancel should fail at ProposalStatus::parse("bogus") -> None.
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
         let res = contract.cancel_proposal("status_invalid".to_string(), proposal_id);
 
         let err = res.expect_err("cancel must fail when status is invalid");

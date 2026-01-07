@@ -253,7 +253,6 @@ mod comprehensive_integration_tests {
         let approve_result = contract.approve_join_request(
             "private-group".to_string(),
             requester.clone(),
-            0,
         );
         assert!(approve_result.is_ok(), "Join approval should succeed: {:?}", approve_result.err());
         // Verify member was added
@@ -290,14 +289,14 @@ mod comprehensive_integration_tests {
         // In member-driven groups, adding members creates proposals
         // Owner proposes member1 (auto-executes since owner is only voter)
         contract
-            .add_group_member("demo-group".to_string(), member1.clone(), 0)
+            .add_group_member("demo-group".to_string(), member1.clone())
             .unwrap();
         assert!(contract.is_group_member("demo-group".to_string(), member1.clone()), 
                 "Member1 should be added (auto-executed proposal)");
         // Now we have 2 members (owner + member1), so next proposal needs 2 votes
         // Owner proposes member2
         let _proposal_id1 = contract
-            .add_group_member("demo-group".to_string(), member2.clone(), 0)
+            .add_group_member("demo-group".to_string(), member2.clone())
             .unwrap();
         
         // Member1 must also approve for quorum (2/2 = 100% participation, >51% required)
@@ -685,11 +684,11 @@ mod comprehensive_integration_tests {
         ).unwrap();
         // Add moderator (clean-add: onboarding starts member-only)
         contract
-            .add_group_member("moderated-group".to_string(), moderator.clone(), 0)
+            .add_group_member("moderated-group".to_string(), moderator.clone())
             .unwrap();
         // Add regular user (clean-add)
         contract
-            .add_group_member("moderated-group".to_string(), user.clone(), 0)
+            .add_group_member("moderated-group".to_string(), user.clone())
             .unwrap();
         // User posts content to their own space (not group path)
         let context = get_context_with_deposit(user.clone(), 10_000_000_000_000_000_000_000_000);
@@ -818,7 +817,7 @@ mod comprehensive_integration_tests {
         ).unwrap();
         // Add member
         contract
-            .add_group_member("secret-group".to_string(), member.clone(), 0)
+            .add_group_member("secret-group".to_string(), member.clone())
             .unwrap();
         // Member writes private content to their own space
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);

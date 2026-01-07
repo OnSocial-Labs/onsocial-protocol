@@ -134,7 +134,7 @@ mod event_emission_tests {
 
         let config = json!({ "is_private": false });
         contract.create_group("multi_event".to_string(), config).unwrap();
-        contract.add_group_member("multi_event".to_string(), bob.clone(), 0).unwrap();
+        contract.add_group_member("multi_event".to_string(), bob.clone()).unwrap();
 
         let logs = get_logs();
         let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
@@ -223,7 +223,7 @@ mod event_emission_tests {
 
         let _ = get_logs();
 
-        contract.add_group_member("member_evt_test".to_string(), bob.clone(), 0).unwrap();
+        contract.add_group_member("member_evt_test".to_string(), bob.clone()).unwrap();
 
         let logs = get_logs();
         

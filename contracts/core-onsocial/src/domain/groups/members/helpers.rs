@@ -29,17 +29,6 @@ impl crate::domain::groups::core::GroupStorage {
     }
 
     #[inline]
-    pub(crate) fn assert_clean_member_level(
-        level: u8,
-        error_message: &'static str,
-    ) -> Result<(), SocialError> {
-        if level != crate::domain::groups::permissions::kv::types::NONE {
-            return Err(invalid_input!(error_message));
-        }
-        Ok(())
-    }
-
-    #[inline]
     pub(in crate::domain::groups::members) fn assert_not_member_driven_unless_governance(
         platform: &SocialPlatform,
         group_id: &str,

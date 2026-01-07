@@ -24,32 +24,26 @@ mod member_security_tests {
         // Create group and add member with WRITE permissions only
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone()).unwrap();
 
-        // Switch to member context - member tries to grant themselves MANAGE permissions
+        // Switch to member context - member tries to add themselves again (should fail as already a member)
         let member_context = get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(member_context.build());
 
-        // Attempt 1: Direct self-permission grant (should fail)
-        let self_grant_result = contract.add_group_member("test_group".to_string(), member.clone(), MANAGE);
+        // Attempt: Try to add self again (should fail - already a member)
+        let self_add_result = contract.add_group_member("test_group".to_string(), member.clone());
         
-        if self_grant_result.is_err() {
-            let error_msg = format!("{:?}", self_grant_result.unwrap_err());
-            assert!(
-                error_msg.contains("permission")
-                    || error_msg.contains("denied")
-                    || error_msg.contains("already exists")
-                    || error_msg.contains("cannot grant permissions"),
-                   "Should get permission denied or member exists error: {}", error_msg);
-            println!("✅ Correctly blocked self-permission grant");
-        } else {
-            panic!("SECURITY VULNERABILITY: Member was able to grant themselves higher permissions!");
-        }
+        assert!(self_add_result.is_err(), "Adding self when already a member should fail");
+        let error_msg = format!("{:?}", self_add_result.unwrap_err());
+        assert!(
+            error_msg.contains("already exists") || error_msg.contains("Member already exists"),
+            "Should get member already exists error: {}", error_msg
+        );
 
-        // Verify member still only has WRITE permissions
+        // Verify member still only has their original permissions
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should still be a member");
 
-        println!("✅ Prevented member from self-granting higher permissions");
+        println!("✅ Prevented member from re-adding themselves");
     }
 
     #[test]
@@ -62,25 +56,25 @@ mod member_security_tests {
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(context.build());
 
-        // Create group and add users with MODERATE permissions
+        // Create group and add users
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), user_a.clone(), 0).unwrap();
-        contract.add_group_member("test_group".to_string(), user_b.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), user_a.clone()).unwrap();
+        contract.add_group_member("test_group".to_string(), user_b.clone()).unwrap();
 
-        // Switch to user_a - try to grant user_b MANAGE permissions (should fail)
+        // Switch to user_a - try to add user_b again (should fail - already a member)
         let user_a_context = get_context_with_deposit(user_a.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(user_a_context.build());
 
-        let grant_result = contract.add_group_member("test_group".to_string(), user_b.clone(), MANAGE);
-        assert!(grant_result.is_err(), "User with MODERATE permissions should not be able to grant MANAGE permissions");
+        let grant_result = contract.add_group_member("test_group".to_string(), user_b.clone());
+        assert!(grant_result.is_err(), "Adding existing member should fail");
 
-        // Switch to user_b - try to grant user_a MANAGE permissions (should also fail)
+        // Switch to user_b - try to add user_a again (should also fail)
         let user_b_context = get_context_with_deposit(user_b.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(user_b_context.build());
 
-        let grant_result_2 = contract.add_group_member("test_group".to_string(), user_a.clone(), MANAGE);
-        assert!(grant_result_2.is_err(), "User with MODERATE permissions should not be able to grant MANAGE permissions");
+        let grant_result_2 = contract.add_group_member("test_group".to_string(), user_a.clone());
+        assert!(grant_result_2.is_err(), "Adding existing member should fail");
 
         println!("✅ Prevented circular permission delegation attacks");
     }
@@ -97,7 +91,7 @@ mod member_security_tests {
         // Create group and add attacker with minimal WRITE permissions
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), attacker.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), attacker.clone()).unwrap();
 
         // Switch to attacker context
         let attacker_context = get_context_with_deposit(attacker.clone(), 1_000_000_000_000_000_000_000_000);
@@ -144,7 +138,7 @@ mod member_security_tests {
         // Create group and add user
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), bad_user.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), bad_user.clone()).unwrap();
 
         // Blacklist the user
         contract.blacklist_group_member("test_group".to_string(), bad_user.clone()).unwrap();
@@ -165,7 +159,7 @@ mod member_security_tests {
         let owner_context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(owner_context.build());
 
-        let approve_result = contract.approve_join_request("test_group".to_string(), bad_user.clone(), 0);
+        let approve_result = contract.approve_join_request("test_group".to_string(), bad_user.clone());
         assert!(approve_result.is_err(), "Should not be able to approve join request for blacklisted user");
 
         println!("✅ Prevented blacklist bypass via rejoin attempts");
@@ -186,7 +180,7 @@ mod member_security_tests {
         contract.create_group("group_b".to_string(), config).unwrap();
 
         // Add attacker to group_a with WRITE permissions
-        contract.add_group_member("group_a".to_string(), attacker.clone(), 0).unwrap();
+        contract.add_group_member("group_a".to_string(), attacker.clone()).unwrap();
 
         // Switch to attacker context
         let attacker_context = get_context_with_deposit(attacker.clone(), 1_000_000_000_000_000_000_000_000);
@@ -196,7 +190,7 @@ mod member_security_tests {
         let fake_user = test_account(2);
         
         // Try to add member to group_b (should fail - no permissions)
-        let add_result = contract.add_group_member("group_b".to_string(), fake_user.clone(), 0);
+        let add_result = contract.add_group_member("group_b".to_string(), fake_user.clone());
         assert!(add_result.is_err(), "Attacker should not be able to add members to group_b");
 
         // Try to blacklist someone in group_b (should fail - no permissions)
@@ -228,12 +222,12 @@ mod member_security_tests {
         contract.create_group("user_group".to_string(), config).unwrap();
 
         // Give user MANAGE permissions in admin_group (via explicit path permission)
-        contract.add_group_member("admin_group".to_string(), user.clone(), 0).unwrap();
+        contract.add_group_member("admin_group".to_string(), user.clone()).unwrap();
         contract.set_permission(user.clone(), "groups/admin_group/config".to_string(), MANAGE, None).unwrap();
         
         // Give user only WRITE permissions in user_group
-        contract.add_group_member("user_group".to_string(), user.clone(), 0).unwrap();
-        contract.add_group_member("user_group".to_string(), target.clone(), 0).unwrap();
+        contract.add_group_member("user_group".to_string(), user.clone()).unwrap();
+        contract.add_group_member("user_group".to_string(), target.clone()).unwrap();
 
         // Switch to user context
         let user_context = get_context_with_deposit(user.clone(), 1_000_000_000_000_000_000_000_000);
@@ -274,9 +268,9 @@ mod member_security_tests {
         // Create group and add user with MANAGE permissions
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), user.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), user.clone()).unwrap();
         contract.set_permission(user.clone(), "groups/test_group/config".to_string(), MANAGE, None).unwrap();
-        contract.add_group_member("test_group".to_string(), target.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), target.clone()).unwrap();
 
         // Owner removes user from group (revokes all permissions)
         contract.remove_group_member("test_group".to_string(), user.clone()).unwrap();
@@ -295,7 +289,7 @@ mod member_security_tests {
 
         // Attack: Try to add new members using expired permissions
         let new_member = test_account(3);
-        let add_result = contract.add_group_member("test_group".to_string(), new_member.clone(), 0);
+        let add_result = contract.add_group_member("test_group".to_string(), new_member.clone());
         assert!(add_result.is_err(), "Removed user should not be able to add members");
 
         println!("✅ Prevented permission timing window attacks");

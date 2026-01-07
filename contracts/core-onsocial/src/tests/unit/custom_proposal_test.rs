@@ -26,7 +26,7 @@ fn test_custom_proposal_creation_and_voting() {
     test_add_member_bypass_proposals(&mut contract, "community_dao", &charlie, WRITE, &alice);
 
     // Alice creates custom proposal (gets automatic YES vote)
-    testing_env!(get_context(alice.clone()).build());
+    testing_env!(get_context_for_proposal(alice.clone()).build());
     let proposal_id = contract.create_group_proposal(
         "community_dao".to_string(),
         "custom_proposal".to_string(),
@@ -78,7 +78,7 @@ fn test_custom_proposal_rejection() {
     test_add_member_bypass_proposals(&mut contract, "dao", &charlie, WRITE, &alice);
 
     // Alice proposes controversial decision
-    testing_env!(get_context(alice.clone()).build());
+    testing_env!(get_context_for_proposal(alice.clone()).build());
     let proposal_id = contract.create_group_proposal(
         "dao".to_string(),
         "custom_proposal".to_string(),
@@ -115,7 +115,7 @@ fn test_custom_proposal_validation_errors() {
     contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
 
     // Test: Missing title
-    testing_env!(get_context(alice.clone()).build());
+    testing_env!(get_context_for_proposal(alice.clone()).build());
     let result = contract.create_group_proposal(
         "dao".to_string(),
         "custom_proposal".to_string(),
@@ -179,7 +179,7 @@ fn test_custom_proposal_budget_decision() {
     test_add_member_bypass_proposals(&mut contract, "treasury_dao", &bob, WRITE, &alice);
 
     // Alice proposes budget allocation
-    testing_env!(get_context(alice.clone()).build());
+    testing_env!(get_context_for_proposal(alice.clone()).build());
     let proposal_id = contract.create_group_proposal(
         "treasury_dao".to_string(),
         "custom_proposal".to_string(),
@@ -226,7 +226,7 @@ fn test_custom_proposal_community_poll() {
     test_add_member_bypass_proposals(&mut contract, "artists", &charlie, WRITE, &alice);
 
     // Create poll about event theme
-    testing_env!(get_context(alice.clone()).build());
+    testing_env!(get_context_for_proposal(alice.clone()).build());
     let proposal_id = contract.create_group_proposal(
         "artists".to_string(),
         "custom_proposal".to_string(),
@@ -272,7 +272,7 @@ fn test_custom_proposal_non_member_cannot_create() {
     contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
 
     // Non-member tries to create proposal
-    testing_env!(get_context(non_member.clone()).build());
+    testing_env!(get_context_for_proposal(non_member.clone()).build());
     let result = contract.create_group_proposal(
         "dao".to_string(),
         "custom_proposal".to_string(),
@@ -301,7 +301,7 @@ fn test_custom_proposal_with_optional_custom_data() {
     contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
 
     // Create proposal without custom_data (should default to empty object)
-    testing_env!(get_context(alice.clone()).build());
+    testing_env!(get_context_for_proposal(alice.clone()).build());
     let proposal_id = contract.create_group_proposal(
         "dao".to_string(),
         "custom_proposal".to_string(),

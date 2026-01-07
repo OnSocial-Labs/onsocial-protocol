@@ -32,7 +32,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("early_exec_test".to_string(), config).unwrap();
         
@@ -43,7 +43,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals(&mut contract, "early_exec_test", &eve, WRITE, &alice);
         
         // Alice creates a proposal to ban eve (alice auto-votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": eve.to_string()
@@ -87,7 +87,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("rejection_test".to_string(), config).unwrap();
         
@@ -98,7 +98,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals(&mut contract, "rejection_test", &eve, WRITE, &alice);
         
         // Alice creates a proposal (auto-votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": eve.to_string()
@@ -150,7 +150,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group (51% quorum means need 3/5 votes minimum)
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("quorum_test".to_string(), config).unwrap();
         
@@ -161,7 +161,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals(&mut contract, "quorum_test", &eve, WRITE, &alice);
         
         // Alice creates a proposal to ban eve (alice auto-votes YES)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": eve.to_string()
@@ -214,7 +214,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4); // Will join during voting
         
         // Create member-driven group with 3 initial members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("join_test".to_string(), config).unwrap();
         
@@ -222,7 +222,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals(&mut contract, "join_test", &charlie, WRITE, &alice);
         
         // Alice creates Proposal A - metadata update (locks member count at 3)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let metadata_proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Original proposal"}
@@ -272,7 +272,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("removal_test".to_string(), config).unwrap();
         
@@ -282,7 +282,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals(&mut contract, "removal_test", &eve, WRITE, &alice);
         
         // Alice creates Proposal A - metadata update (locks member count at 5)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let metadata_proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Testing vote persistence"}
@@ -343,7 +343,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("threshold_test".to_string(), config).unwrap();
         
@@ -353,7 +353,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals(&mut contract, "threshold_test", &eve, WRITE, &alice);
         
         // Alice creates proposal (locks member count at 5)
-        testing_env!(get_context(alice.clone()).build());
+        testing_env!(get_context_for_proposal(alice.clone()).build());
         let metadata_proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Threshold test"}
@@ -424,7 +424,7 @@ mod voting_edge_cases_tests {
         let grace = test_account(6);
         
         // Create member-driven group with 7 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 2).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 2).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("concurrent_test".to_string(), config).unwrap();
         
@@ -436,7 +436,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "concurrent_test", &grace, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
         
         // Alice creates 3 different proposals simultaneously
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
         
         // Proposal A: Update metadata to "Description A"
         let proposal_a = json!({
@@ -451,7 +451,7 @@ mod voting_edge_cases_tests {
         ).unwrap();
         
         // Proposal B: Update metadata to "Description B"
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
         let proposal_b = json!({
             "update_type": "metadata",
             "changes": {"description": "Description B"}
@@ -464,7 +464,7 @@ mod voting_edge_cases_tests {
         ).unwrap();
         
         // Proposal C: Update metadata to "Description C"
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 3).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 3).build());
         let proposal_c = json!({
             "update_type": "metadata",
             "changes": {"description": "Description C"}
@@ -574,7 +574,7 @@ mod voting_edge_cases_tests {
         let grace = test_account(6);
         
         // Create member-driven group with 7 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("conflict_test".to_string(), config).unwrap();
         
@@ -587,7 +587,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "conflict_test", &grace, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
         
         // Alice creates two CONFLICTING proposals that update the same field
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
         
         // Proposal A: Set description to "Version A"
         let proposal_a = json!({
@@ -602,7 +602,7 @@ mod voting_edge_cases_tests {
         ).unwrap();
         
         // Proposal B: Set description to "Version B" (conflicts with A)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
         let proposal_b = json!({
             "update_type": "metadata",
             "changes": {"description": "Version B"}
@@ -674,7 +674,7 @@ mod voting_edge_cases_tests {
         let kate = test_account(10);
         
         // Create member-driven group with 11 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 2).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 2).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("execution_order_test".to_string(), config).unwrap();
         
@@ -691,7 +691,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "execution_order_test", &kate, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
         
         // Alice creates Proposal 1 first (Alice auto-votes YES = 1/11 = 9%)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
         let proposal_1 = json!({
             "update_type": "metadata",
             "changes": {"tag": "first_created"}
@@ -704,14 +704,14 @@ mod voting_edge_cases_tests {
         ).unwrap();
         
         // Bob and Charlie vote on Proposal 1 (Alice YES, Bob YES, Charlie NO = 3 votes, 27% < 51%)
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), true).unwrap();
         
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("execution_order_test".to_string(), proposal_1_id.clone(), false).unwrap();
         
         // Alice creates Proposal 2 second (Alice auto-votes YES = 1/11 = 9%)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
         let proposal_2 = json!({
             "update_type": "metadata",
             "changes": {"tag": "second_created"}
@@ -822,7 +822,7 @@ mod voting_edge_cases_tests {
         }
         
         // Alice creates a proposal to update description (alice auto-votes YES)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Updated by 50-member community"}
@@ -917,7 +917,7 @@ mod voting_edge_cases_tests {
         }
         
         // Test insufficient quorum scenario first
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
         let proposal_insufficient = json!({
             "update_type": "metadata",
             "changes": {"description": "Insufficient quorum test"}
@@ -949,7 +949,7 @@ mod voting_edge_cases_tests {
         assert_ne!(description, "Insufficient quorum test", "Description should not change without quorum");
         
         // Now test successful execution with sufficient quorum
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
         let proposal_sufficient = json!({
             "update_type": "metadata",
             "changes": {"description": "Sufficient quorum test"}
@@ -1018,7 +1018,7 @@ mod voting_edge_cases_tests {
         let alice = test_account(0); // Owner
         
         // Create member-driven group with significant member count
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 5).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 5).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("gas_test_community".to_string(), config).unwrap();
         
@@ -1037,7 +1037,7 @@ mod voting_edge_cases_tests {
         }
         
         // Alice creates a proposal (should be O(1) regardless of member count)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Gas efficiency test"}
@@ -1055,7 +1055,7 @@ mod voting_edge_cases_tests {
         // Threshold check: simple arithmetic (O(1))
         for i in 1..11 { // 10 votes to reach quorum (11/21 = 52% > 51%)
             let member_account: AccountId = format!("gas_member{}.near", i).parse().unwrap();
-            testing_env!(get_context_with_deposit(member_account.clone(), test_deposits::member_operations()).build());
+            testing_env!(get_context_with_deposit(member_account.clone(), test_deposits::proposal_creation()).build());
             
             // Each vote operation should complete successfully without gas issues
             let vote_result = contract.vote_on_proposal("gas_test_community".to_string(), proposal_id.clone(), true);
@@ -1078,7 +1078,7 @@ mod voting_edge_cases_tests {
         assert_eq!(description, "Gas efficiency test", "Execution should complete efficiently");
         
         // Test multiple concurrent operations don't compound gas usage
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2).build());
         let proposal_2 = json!({
             "update_type": "metadata",
             "changes": {"tag": "concurrent_gas_test"}
@@ -1133,7 +1133,7 @@ mod voting_edge_cases_tests {
         
         // Create member-driven group with 5 members to prevent early execution
         // Need 51% quorum = 3 votes minimum, but we'll only give 1 vote to prevent execution
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("expiration_test".to_string(), config).unwrap();
         
@@ -1147,7 +1147,7 @@ mod voting_edge_cases_tests {
         
         // Alice creates proposal at TEST_BASE_TIMESTAMP + 1000
         let proposal_timestamp = TEST_BASE_TIMESTAMP + 1000;
-        testing_env!(get_context(alice.clone()).block_timestamp(proposal_timestamp).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(proposal_timestamp).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "This proposal will expire"}
@@ -1232,7 +1232,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("resubmission_test".to_string(), config).unwrap();
         
@@ -1243,7 +1243,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "resubmission_test", &eve, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
         
         // === FIRST ATTEMPT: Create proposal that will be rejected ===
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let proposal_content = json!({
             "update_type": "metadata",
             "changes": {"description": "Controversial change"}
@@ -1257,13 +1257,13 @@ mod voting_edge_cases_tests {
         
         // Vote to REJECT the first proposal
         // Alice auto-voted YES, now Bob, Charlie, Dave vote NO to reject it
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false).unwrap();
         
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false).unwrap();
         
-        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
+        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::proposal_creation()).build());
         contract.vote_on_proposal("resubmission_test".to_string(), first_proposal_id.clone(), false).unwrap();
         
         // Verify first proposal was rejected
@@ -1284,7 +1284,7 @@ mod voting_edge_cases_tests {
         
         // === SECOND ATTEMPT: Create identical proposal again ===
         // Wait some time and create the exact same proposal content
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 100000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 100000).build());
         let second_proposal_id = contract.create_group_proposal(
             "resubmission_test".to_string(),
             "group_update".to_string(),
@@ -1353,7 +1353,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("expiration_state_test".to_string(), config).unwrap();
         
@@ -1365,7 +1365,7 @@ mod voting_edge_cases_tests {
         
         // Create proposal that will expire
         let proposal_timestamp = TEST_BASE_TIMESTAMP + 1000;
-        testing_env!(get_context(alice.clone()).block_timestamp(proposal_timestamp).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(proposal_timestamp).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Will expire with partial votes"}
@@ -1379,12 +1379,12 @@ mod voting_edge_cases_tests {
         
         // Get some votes but not enough for execution
         // Alice auto-voted (1/5), Bob votes YES (2/5 = 40% participation < 51% quorum)
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(proposal_timestamp + 1000).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).block_timestamp(proposal_timestamp + 1000).build());
         contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), true).unwrap();
         
         // Charlie votes NO (3/5 = 60% participation >= 51% quorum, but 2 YES vs 1 NO = 67% approval)
         // This still shouldn't execute because we want to test expiration state
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(proposal_timestamp + 2000).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).block_timestamp(proposal_timestamp + 2000).build());
         contract.vote_on_proposal("expiration_state_test".to_string(), proposal_id.clone(), false).unwrap();
         
         // Verify proposal hasn't executed yet (3 votes: 2 YES, 1 NO = 67% approval, should execute)
@@ -1399,7 +1399,7 @@ mod voting_edge_cases_tests {
         // Check if it executed early (2 YES, 1 NO might trigger execution)
         if proposal_status == "executed" {
             // If it executed, let's create a new proposal with just 1 vote to test expiration
-            testing_env!(get_context(alice.clone()).block_timestamp(proposal_timestamp + 5000).build());
+            testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(proposal_timestamp + 5000).build());
             let second_proposal = json!({
                 "update_type": "metadata",
                 "changes": {"description": "This one will really expire"}
@@ -1502,7 +1502,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
         
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("timing_test".to_string(), config).unwrap();
         
@@ -1514,7 +1514,7 @@ mod voting_edge_cases_tests {
         
         // Create proposal at precise timestamp
         let proposal_timestamp = TEST_BASE_TIMESTAMP + 10000; // Clear timestamp for calculations
-        testing_env!(get_context(alice.clone()).block_timestamp(proposal_timestamp).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(proposal_timestamp).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Exact timing test"}
@@ -1603,7 +1603,7 @@ mod voting_edge_cases_tests {
         let charlie = test_account(2); // Existing member
 
         // Create member-driven group with initial members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("membership_timing_test".to_string(), config).unwrap();
 
@@ -1611,7 +1611,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "membership_timing_test", &charlie, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
 
         // Step 1: Alice creates proposal A (Bob is NOT a member yet)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let proposal_a = json!({
             "update_type": "metadata",
             "changes": {"description": "Proposal A - created before Bob joins"}
@@ -1632,7 +1632,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "membership_timing_test", &bob, WRITE, &alice, TEST_BASE_TIMESTAMP + 2000);
 
         // Step 3: Charlie creates proposal C (Bob is now a member)
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
         let proposal_c = json!({
             "update_type": "metadata",
             "changes": {"description": "Proposal C - created after Bob joins"}
@@ -1745,7 +1745,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
 
         // Create member-driven group with default quorum (51%)
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 3).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 3).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({
             "member_driven": true,
             "is_private": true
@@ -1765,7 +1765,7 @@ mod voting_edge_cases_tests {
         assert_eq!(member_count, 5, "Should have 5 members total");
 
         // Test 1: Proposal creation succeeds and stores data
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Storage cost test"}
@@ -1867,7 +1867,7 @@ mod voting_edge_cases_tests {
         let bob = test_account(1);
 
         // Create member-driven group
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 2).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 2).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("deposit_test".to_string(), config).unwrap();
 
@@ -1875,7 +1875,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "deposit_test", &bob, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
 
         // Test 1: Proposal creation with standard deposit should succeed
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Deposit test"}
@@ -1895,7 +1895,7 @@ mod voting_edge_cases_tests {
         assert!(proposal_data.get("created_at").is_some(), "Creation timestamp should be stored");
 
         // Test 2: Multiple proposals can be created successfully
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
         let proposal_2 = json!({
             "update_type": "metadata",
             "changes": {"description": "Second proposal"}
@@ -1951,7 +1951,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
 
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 3).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 3).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("gas_limit_test".to_string(), config).unwrap();
 
@@ -1962,7 +1962,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "gas_limit_test", &eve, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
 
         // Test 1: Complex ban proposal execution
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -1976,10 +1976,10 @@ mod voting_edge_cases_tests {
         ).unwrap();
 
         // Get 3 votes to reach quorum (alice auto-voted, need 2 more for 3/5 = 60% > 51%)
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
         contract.vote_on_proposal("gas_limit_test".to_string(), ban_proposal_id.clone(), true).unwrap();
 
-        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
+        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
         contract.vote_on_proposal("gas_limit_test".to_string(), ban_proposal_id.clone(), true).unwrap();
 
         // Proposal should execute after Dave's vote (3/5 votes = 60% >= 51% quorum, 100% approval)
@@ -1992,7 +1992,7 @@ mod voting_edge_cases_tests {
         assert!(!contract.is_group_member("gas_limit_test".to_string(), bob.clone()), "Bob should be removed from group");
 
         // Test 2: Complex permission change proposal
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
         let permission_proposal = json!({
             "update_type": "permissions",
             "changes": {
@@ -2015,10 +2015,10 @@ mod voting_edge_cases_tests {
         // Get enough votes for execution
         // After bob was banned, we have 4 members left (alice, charlie, dave, eve)
         // With 51% quorum on 4 members, we need 3 votes (2.04 rounds up to 3)
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 6000).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 6000).build());
         contract.vote_on_proposal("gas_limit_test".to_string(), permission_proposal_id.clone(), true).unwrap();
 
-        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 7000).build());
+        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 7000).build());
         contract.vote_on_proposal("gas_limit_test".to_string(), permission_proposal_id.clone(), true).unwrap();
 
         // Proposal should execute after Dave's vote (3/4 votes = 75% >= 51% quorum, 100% approval)
@@ -2034,7 +2034,7 @@ mod voting_edge_cases_tests {
         assert_eq!(voting_config.get("participation_quorum_bps").and_then(|v| v.as_u64()).unwrap(), 6000, "Quorum should be updated");
 
         // Test 3: Multiple complex proposals can execute in sequence
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 9000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 9000).build());
         let unban_proposal = json!({
             "update_type": "unban",
             "target_user": bob.to_string()
@@ -2090,7 +2090,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
 
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("cascading_test".to_string(), config).unwrap();
 
@@ -2101,7 +2101,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "cascading_test", &eve, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
 
         // Step 1: Alice creates proposal A (metadata change)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let proposal_a = json!({
             "update_type": "metadata",
             "changes": {"description": "Alice's proposal - should survive her removal"}
@@ -2123,7 +2123,7 @@ mod voting_edge_cases_tests {
         assert_eq!(vote_tally_a.get("locked_member_count").and_then(|v| v.as_u64()).unwrap(), 5, "Member count locked at 5");
 
         // Step 2: Bob creates proposal B to remove Charlie (not the owner)
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
         let proposal_b = json!({
             "update_type": "remove_member",
             "target_user": charlie.to_string()
@@ -2209,7 +2209,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
 
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("permission_cascade_test".to_string(), config).unwrap();
 
@@ -2220,7 +2220,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "permission_cascade_test", &eve, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
 
         // Step 1: Bob creates proposal with WRITE permissions
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let bob_proposal = json!({
             "update_type": "metadata",
             "changes": {"description": "Bob's proposal - created with WRITE permissions"}
@@ -2239,7 +2239,7 @@ mod voting_edge_cases_tests {
 
         // Step 2: Alice creates a proposal to revoke Bob's WRITE permission (effectively downgrading to READ or removing permissions)
         // Using metadata change as a proxy since direct permission changes might use path_permission_grant/revoke
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
         let permission_change_proposal = json!({
             "update_type": "metadata",
             "changes": {"tag": "permission_change_test"}
@@ -2320,7 +2320,7 @@ mod voting_edge_cases_tests {
         let eve = test_account(4);
 
         // Create member-driven group with 5 members
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP).build());
         let config = json!({"member_driven": true, "is_private": true});
         contract.create_group("ban_cascade_test".to_string(), config).unwrap();
 
@@ -2331,7 +2331,7 @@ mod voting_edge_cases_tests {
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "ban_cascade_test", &eve, WRITE, &alice, TEST_BASE_TIMESTAMP - 1000);
 
         // Step 1: Alice creates proposal A (metadata change)
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 1000).build());
         let proposal_a = json!({
             "update_type": "metadata",
             "changes": {"description": "Proposal A - Bob will vote on this"}
@@ -2344,7 +2344,7 @@ mod voting_edge_cases_tests {
         ).unwrap();
 
         // Step 2: Bob votes YES on proposal A
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 2000).build());
         contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_a_id.clone(), true).unwrap();
 
         // Verify Bob's vote was recorded
@@ -2357,7 +2357,7 @@ mod voting_edge_cases_tests {
         assert_eq!(bob_vote.get("approve").and_then(|v| v.as_bool()).unwrap(), true, "Bob's vote should be YES");
 
         // Step 3: Charlie creates proposal B (another metadata change)
-        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations() * 2).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
+        testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation() * 2).block_timestamp(TEST_BASE_TIMESTAMP + 3000).build());
         let proposal_b = json!({
             "update_type": "metadata",
             "changes": {"tag": "Proposal B - Bob voted before ban"}
@@ -2370,7 +2370,7 @@ mod voting_edge_cases_tests {
         ).unwrap();
 
         // Step 4: Bob votes YES on proposal B as well
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 4000).build());
+        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 4000).build());
         contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_b_id.clone(), true).unwrap();
 
         // Verify Bob's vote on proposal B
@@ -2378,7 +2378,7 @@ mod voting_edge_cases_tests {
         assert_eq!(vote_tally_b_before_ban.get("total_votes").and_then(|v| v.as_u64()).unwrap(), 2, "Should have 2 votes (charlie + bob)");
 
         // Step 5: Alice creates proposal C to BAN Bob
-        testing_env!(get_context(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
+        testing_env!(get_context_for_proposal(alice.clone()).block_timestamp(TEST_BASE_TIMESTAMP + 5000).build());
         let ban_proposal = json!({
             "update_type": "ban",
             "target_user": bob.to_string()
@@ -2422,7 +2422,7 @@ mod voting_edge_cases_tests {
 
         // Step 8: Proposal A can still execute with one more vote
         // Currently: 2/5 votes = 40% < 51% quorum, need 1 more vote
-        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).block_timestamp(TEST_BASE_TIMESTAMP + 8000).build());
+        testing_env!(get_context_with_deposit(dave.clone(), test_deposits::proposal_creation()).block_timestamp(TEST_BASE_TIMESTAMP + 8000).build());
         contract.vote_on_proposal("ban_cascade_test".to_string(), proposal_a_id.clone(), true).unwrap();
 
         // Verify proposal A executed (3/5 = 60% >= 51% quorum, 100% approval)
@@ -2439,7 +2439,7 @@ mod voting_edge_cases_tests {
         assert_eq!(final_tally_a.get("yes_votes").and_then(|v| v.as_u64()).unwrap(), 3, "All 3 votes should be YES");
 
         // Step 9: Verify Bob cannot vote on NEW proposals after being banned
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations() * 2).block_timestamp(TEST_BASE_TIMESTAMP + 9000).build());
+        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::proposal_creation() * 2).block_timestamp(TEST_BASE_TIMESTAMP + 9000).build());
         let proposal_c = json!({
             "update_type": "metadata",
             "changes": {"description": "Proposal C - created after Bob's ban"}

@@ -33,7 +33,7 @@ mod member_edge_cases {
         let zero_context = get_context_with_deposit(owner.clone(), 0); 
         near_sdk::testing_env!(zero_context.build());
 
-        let add_result = contract.add_group_member("test_group".to_string(), member.clone(), 0);
+        let add_result = contract.add_group_member("test_group".to_string(), member.clone());
         
         // This might succeed because the contract already has storage balance
         // Let's verify the operation completed successfully and the member was added
@@ -67,7 +67,7 @@ mod member_edge_cases {
         let used_before_add = balance_before_add.used_bytes;
 
         // Add member
-        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone()).unwrap();
         
         // Get storage after adding member
         let balance_after_add = contract.get_storage_balance(owner.clone()).unwrap();
@@ -103,7 +103,7 @@ mod member_edge_cases {
         // Create group and add member with WRITE permission
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), member.clone()).unwrap();
 
         // Member tries to grant themselves higher permissions
         near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -138,8 +138,8 @@ mod member_edge_cases {
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
         
-        contract.add_group_member("test_group".to_string(), manager_a.clone(), 0).unwrap();
-        contract.add_group_member("test_group".to_string(), manager_b.clone(), 0).unwrap();
+        contract.add_group_member("test_group".to_string(), manager_a.clone()).unwrap();
+        contract.add_group_member("test_group".to_string(), manager_b.clone()).unwrap();
 
         // Grant manager_a MANAGE permission on specific path
         let path_admin = "groups/test_group/admin".to_string();
@@ -192,9 +192,9 @@ mod member_edge_cases {
         contract.create_group("group_c".to_string(), config).unwrap();
 
         // Add same member to different groups with different permissions
-        contract.add_group_member("group_a".to_string(), multi_member.clone(), 0).unwrap();
-        contract.add_group_member("group_b".to_string(), multi_member.clone(), 0).unwrap();
-        contract.add_group_member("group_c".to_string(), multi_member.clone(), 0).unwrap();
+        contract.add_group_member("group_a".to_string(), multi_member.clone()).unwrap();
+        contract.add_group_member("group_b".to_string(), multi_member.clone()).unwrap();
+        contract.add_group_member("group_c".to_string(), multi_member.clone()).unwrap();
 
         // Verify member has different permissions in each group (via path permissions)
         assert!(contract.is_group_member("group_a".to_string(), multi_member.clone()));
@@ -259,10 +259,10 @@ mod member_edge_cases {
         contract.create_group("group_beta".to_string(), config).unwrap();
 
         contract
-            .add_group_member("group_alpha".to_string(), member.clone(), 0)
+            .add_group_member("group_alpha".to_string(), member.clone())
             .unwrap();
         contract
-            .add_group_member("group_beta".to_string(), member.clone(), 0)
+            .add_group_member("group_beta".to_string(), member.clone())
             .unwrap();
 
         // Verify member is in both groups
@@ -300,7 +300,7 @@ mod member_edge_cases {
 
         // Add member first
         contract
-            .add_group_member("test_group".to_string(), member.clone(), 0)
+            .add_group_member("test_group".to_string(), member.clone())
             .unwrap();
 
         // Simulate concurrent operations (in reality these would be separate transactions)
@@ -347,7 +347,7 @@ mod member_edge_cases {
         assert!(blacklist_result.is_ok(), "Blacklist should succeed");
 
         // Try to approve join request after blacklisting
-        let approve_result = contract.approve_join_request("private_group".to_string(), member.clone(), 0);
+        let approve_result = contract.approve_join_request("private_group".to_string(), member.clone());
         
         // This should fail - cannot approve join request for blacklisted user
         assert!(approve_result.is_err(), "Should not be able to approve join request for blacklisted user");
@@ -374,7 +374,7 @@ mod member_edge_cases {
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("test_group".to_string(), config).unwrap();
         contract
-            .add_group_member("test_group".to_string(), member.clone(), 0)
+            .add_group_member("test_group".to_string(), member.clone())
             .unwrap();
 
         // Verify member exists
@@ -411,7 +411,7 @@ mod member_edge_cases {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Try to add member with very long account ID
-        let add_result = contract.add_group_member("test_group".to_string(), long_member.clone(), 0);
+        let add_result = contract.add_group_member("test_group".to_string(), long_member.clone());
         
         // Should handle long account IDs gracefully
         if add_result.is_ok() {
@@ -451,7 +451,7 @@ mod member_edge_cases {
             let member_id: AccountId = member_name.parse().unwrap();
             
             // Events enabled (None = use defaults)
-            let add_result = contract.add_group_member("large_group".to_string(), member_id.clone(), 0);
+            let add_result = contract.add_group_member("large_group".to_string(), member_id.clone());
             
             if add_result.is_err() {
                 println!("Failed to add member {} due to: {:?}", i, add_result.unwrap_err());
@@ -479,7 +479,7 @@ mod member_edge_cases {
         contract.create_group("test_group".to_string(), config).unwrap();
 
         // Try to add member - might fail due to storage limits
-        let add_result = contract.add_group_member("test_group".to_string(), member.clone(), 0);
+        let add_result = contract.add_group_member("test_group".to_string(), member.clone());
         
         if add_result.is_err() {
             // Expected failure - now add more storage and retry
@@ -487,7 +487,7 @@ mod member_edge_cases {
             near_sdk::testing_env!(more_storage_context.build());
             
             // Should now succeed with more storage
-            let retry_result = contract.add_group_member("test_group".to_string(), member.clone(), 0);
+            let retry_result = contract.add_group_member("test_group".to_string(), member.clone());
             
             if retry_result.is_ok() {
                 assert!(contract.is_group_member("test_group".to_string(), member.clone()));
@@ -518,7 +518,7 @@ mod member_edge_cases {
         // Multi-step operation: Add member, grant permissions, update role, remove permissions
         // Step 1: Add member
         contract
-            .add_group_member("consistency_test".to_string(), member.clone(), 0)
+            .add_group_member("consistency_test".to_string(), member.clone())
             .unwrap();
         assert!(contract.is_group_member("consistency_test".to_string(), member.clone()), "Step 1: Member should be added");
 
@@ -559,13 +559,13 @@ mod member_edge_cases {
 
         // Add member to all groups (clean-add)
         contract
-            .add_group_member("group_alpha".to_string(), member.clone(), 0)
+            .add_group_member("group_alpha".to_string(), member.clone())
             .unwrap();
         contract
-            .add_group_member("group_beta".to_string(), member.clone(), 0)
+            .add_group_member("group_beta".to_string(), member.clone())
             .unwrap();
         contract
-            .add_group_member("group_gamma".to_string(), member.clone(), 0)
+            .add_group_member("group_gamma".to_string(), member.clone())
             .unwrap();
 
         // Establish different path permissions per group for isolation testing.
@@ -679,7 +679,7 @@ mod member_edge_cases {
         // Create group and establish baseline state
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("recovery_test".to_string(), config).unwrap();
-        contract.add_group_member("recovery_test".to_string(), member.clone(), 0).unwrap();
+        contract.add_group_member("recovery_test".to_string(), member.clone()).unwrap();
 
         // Capture baseline state
         let baseline_member_data = contract.get_member_data("recovery_test".to_string(), member.clone()).unwrap();
@@ -687,7 +687,7 @@ mod member_edge_cases {
 
         // Attempt operations that should fail
         // Test 1: Try to add member to non-existent group (should fail without affecting existing state)
-        let failed_add = contract.add_group_member("nonexistent".to_string(), member.clone(), 0);
+        let failed_add = contract.add_group_member("nonexistent".to_string(), member.clone());
         assert!(failed_add.is_err(), "Should fail to add to non-existent group");
 
         // Verify original state is unchanged
@@ -730,10 +730,10 @@ mod member_edge_cases {
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("concurrent_test".to_string(), config).unwrap();
         contract
-            .add_group_member("concurrent_test".to_string(), admin.clone(), 0)
+            .add_group_member("concurrent_test".to_string(), admin.clone())
             .unwrap();
         contract
-            .add_group_member("concurrent_test".to_string(), member.clone(), 0)
+            .add_group_member("concurrent_test".to_string(), member.clone())
             .unwrap();
 
         // Simulate concurrent modifications (in real blockchain, these would be separate transactions)
@@ -803,7 +803,7 @@ mod member_edge_cases {
         let config = json!({"member_driven": false, "is_private": false});
         contract.create_group("permission_consistency".to_string(), config).unwrap();
         contract
-            .add_group_member("permission_consistency".to_string(), member.clone(), 0)
+            .add_group_member("permission_consistency".to_string(), member.clone())
             .unwrap();
 
         // Create complex permission structure
