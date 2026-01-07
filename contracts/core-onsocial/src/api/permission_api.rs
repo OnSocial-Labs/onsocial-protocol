@@ -1,30 +1,18 @@
-use crate::{state::models::SocialPlatform, SocialError};
-use near_sdk::{near, json_types::U64, AccountId, PublicKey};
-
-use crate::api::guards::{ContractGuards, DepositPolicy, PayableCaller};
+use near_sdk::{near, AccountId, PublicKey};
 
 use crate::{Contract, ContractExt};
 
 #[near]
 impl Contract {
-    fn execute_payable_permission_operation<F, R>(&mut self, operation: F) -> Result<R, SocialError>
-    where
-        F: FnOnce(&mut SocialPlatform, &AccountId, &mut u128) -> Result<R, SocialError>,
-    {
-        ContractGuards::execute_payable_operation(
-            &mut self.platform,
-            PayableCaller::Signer,
-            DepositPolicy::SaveUnused {
-                reason: "unused_deposit_saved",
-            },
-            |platform, caller, attached_balance| {
-                let attached_balance = attached_balance.ok_or_else(|| {
-                    crate::invalid_input!("Internal error: missing attached balance")
-                })?;
-                operation(platform, caller, attached_balance)
-            },
-        )
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Permission Query API (View Methods)
+    // 
+    // All mutating permission operations are now handled via the unified execute()
+    // endpoint with full auth support (Direct, SignedPayload, DelegateAction, Intent).
+    // 
+    // Use: execute({ action: { type: "set_permission", ... }, auth: ... })
+    // Use: execute({ action: { type: "set_key_permission", ... }, auth: ... })
+    // ─────────────────────────────────────────────────────────────────────────
 
     pub fn has_permission(
         &self,
@@ -74,50 +62,6 @@ impl Contract {
             &path,
             required_level,
         )
-    }
-
-    #[payable]
-    #[handle_result]
-    pub fn set_permission(
-        &mut self,
-        grantee: AccountId,
-        path: String,
-        level: u8,
-        expires_at: Option<U64>,
-    ) -> Result<(), SocialError> {
-        self.execute_payable_permission_operation(|platform, caller, attached_balance| {
-            platform.set_permission(
-                grantee,
-                path,
-                level,
-                expires_at.map(|v| v.0),
-                caller,
-                None,
-                Some(attached_balance),
-            )
-        })
-    }
-
-    #[payable]
-    #[handle_result]
-    pub fn set_key_permission(
-        &mut self,
-        public_key: PublicKey,
-        path: String,
-        level: u8,
-        expires_at: Option<U64>,
-    ) -> Result<(), SocialError> {
-        self.execute_payable_permission_operation(|platform, caller, attached_balance| {
-            platform.set_key_permission(
-                public_key,
-                path,
-                level,
-                expires_at.map(|v| v.0),
-                caller,
-                None,
-                Some(attached_balance),
-            )
-        })
     }
 
     pub fn has_group_admin_permission(&self, group_id: String, user_id: AccountId) -> bool {

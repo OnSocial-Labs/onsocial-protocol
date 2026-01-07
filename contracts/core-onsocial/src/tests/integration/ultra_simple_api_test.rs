@@ -1,34 +1,40 @@
 // --- Ultra-Simple API Tests ---
+// Tests for the unified execute() API with various operation types
 #[cfg(test)]
 mod ultra_simple_api_tests {
-    use super::*;
     use crate::tests::test_utils::*;
+    use crate::domain::groups::permissions::kv::types::{WRITE, NONE};
     use near_sdk::serde_json::json;
-    use near_sdk::test_utils::{accounts, VMContextBuilder};
+    use near_sdk::test_utils::accounts;
 
     #[test]
     fn test_ultra_simple_set_api() {
         let mut contract = init_live_contract();
         let alice = accounts(1);
 
-        // Set up context for alice
+        // Set up context for alice with deposit
         let context = get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000); // 1 NEAR
         near_sdk::testing_env!(context.build());
 
-        // Test the ultra-simple API: set profile data
+        // Test the ultra-simple API: set profile data using the Set action
         let data = json!({
             "profile/name": "Alice",
             "profile/bio": "Developer",
             "posts/1": {"text": "Hello world!", "timestamp": 1234567890}
         });
 
-        let result = contract.set(set_request(data, None));
-        assert!(result.is_ok(), "Simple set operation should succeed");
+        let result = contract.execute(set_request(data));
+        assert!(result.is_ok(), "Simple set operation should succeed: {:?}", result);
 
-        // Verify data was set
-        let keys = vec!["alice.testnet/profile".to_string()];
-        let retrieved = contract_get_values_map(&contract, keys, Some(alice.clone()));
-        assert!(!retrieved.is_empty(), "Data should be retrievable");
+        // Verify data was set by reading it back
+        let keys = vec![
+            format!("{}/profile/name", alice),
+            format!("{}/profile/bio", alice),
+        ];
+        let retrieved = contract.get(keys, Some(alice.clone()));
+        assert_eq!(retrieved.len(), 2, "Should retrieve 2 entries");
+        assert!(retrieved.iter().any(|e| e.value == Some(json!("Alice"))), "Should find Alice name");
+        assert!(retrieved.iter().any(|e| e.value == Some(json!("Developer"))), "Should find Developer bio");
 
         println!("✓ Ultra-simple set API test passed");
     }
@@ -38,30 +44,31 @@ mod ultra_simple_api_tests {
         let mut contract = init_live_contract();
         let bob = accounts(2);
 
-        // Set up context for bob
+        // Set up context for bob with deposit
         let context = get_context_with_deposit(bob.clone(), 2_000_000_000_000_000_000_000_000); // 2 NEAR
         near_sdk::testing_env!(context.build());
 
-        // Test storage deposit
+        // Test storage deposit using the storage/deposit key
         let deposit_data = json!({
             "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
         });
 
-        let result = contract.set(set_request(deposit_data, None));
-        assert!(result.is_ok(), "Storage deposit should succeed");
+        let result = contract.execute(set_request(deposit_data));
+        assert!(result.is_ok(), "Storage deposit should succeed: {:?}", result);
 
         // Verify storage balance
         let balance = contract.get_storage_balance(bob.clone());
         assert!(balance.is_some(), "Storage balance should exist");
-        assert!(balance.unwrap().balance > 0, "Storage balance should be positive");
+        let balance_val = balance.unwrap();
+        assert!(balance_val.balance > 0, "Storage balance should be positive");
 
-        // Test storage withdraw
+        // Test storage withdraw using the storage/withdraw key
         let withdraw_data = json!({
             "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
         });
 
-        let result = contract.set(set_request(withdraw_data, None));
-        assert!(result.is_ok(), "Storage withdraw should succeed");
+        let result = contract.execute(set_request(withdraw_data));
+        assert!(result.is_ok(), "Storage withdraw should succeed: {:?}", result);
 
         println!("✓ Simple storage operations test passed");
     }
@@ -72,50 +79,45 @@ mod ultra_simple_api_tests {
         let alice = accounts(1);
         let bob = accounts(2);
 
-        // Set up context for alice
-        let context = get_context(alice.clone());
+        // Set up context for alice with deposit
+        let context = get_context_with_deposit(alice.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(context.build());
 
-        // Grant permission to bob
-        let permission_data = json!({
-            "permission/grant": {
-                "grantee": bob.to_string(),
-                "path": "alice.testnet/posts",
-                "flags": 1
-            }
-        });
-
-        let result = contract.set(set_request(permission_data, None));
-        assert!(result.is_ok(), "Permission grant should succeed");
+        // Grant WRITE permission to bob using the SetPermission action
+        let result = contract.execute(set_permission_request(
+            bob.clone(),
+            format!("{}/posts", alice),  // Path format: owner/subpath
+            WRITE,  // Permission level
+            None,   // No expiration
+        ));
+        assert!(result.is_ok(), "Permission grant should succeed: {:?}", result);
 
         // Verify permission was granted
         let has_perm = contract.has_permission(
             alice.clone(),
             bob.clone(),
-            "alice.testnet/posts".to_string(),
-            1
+            format!("{}/posts", alice),
+            WRITE
         );
-        assert!(has_perm, "Bob should have permission on alice's posts");
+        assert!(has_perm, "Bob should have WRITE permission on alice's posts");
 
-        // Revoke permission
-        let revoke_data = json!({
-            "permission/revoke": {
-                "grantee": bob.to_string(),
-                "path": "alice.testnet/posts"
-            }
-        });
-
-        let result = contract.set(set_request(revoke_data, None));
-        assert!(result.is_ok(), "Permission revoke should succeed");
+        // Revoke permission by setting level to NONE
+        let result = contract.execute(set_permission_request(
+            bob.clone(),
+            format!("{}/posts", alice),
+            NONE,  // Revoke
+            None,
+        ));
+        assert!(result.is_ok(), "Permission revoke should succeed: {:?}", result);
 
         // Verify permission was revoked
         let has_perm = contract.has_permission(
             alice.clone(),
             bob.clone(),
-            "alice.testnet/posts".to_string(),
-            1
+            format!("{}/posts", alice),
+            WRITE
         );
-        assert!(!has_perm, "Bob should not have permission on alice's posts");
+        assert!(!has_perm, "Bob should not have permission on alice's posts after revoke");
 
         println!("✓ Simple permission operations test passed");
     }
@@ -124,34 +126,52 @@ mod ultra_simple_api_tests {
     fn test_mixed_operations() {
         let mut contract = init_live_contract();
         let charlie = accounts(3);
+        let dave = accounts(4);
 
         // Set up context for charlie with deposit
-        let context = get_context_with_deposit(charlie.clone(), 1_500_000_000_000_000_000_000_000); // 1.5 NEAR
+        let context = get_context_with_deposit(charlie.clone(), 2_000_000_000_000_000_000_000_000); // 2 NEAR
         near_sdk::testing_env!(context.build());
 
-        // Mix of all operation types in one call
-        let mixed_data = json!({
-            "storage/deposit": {"amount": "500000000000000000000000"},  // 0.5 NEAR
-            "profile/name": "Charlie",
-            "profile/status": "Online",
-            "permission/grant": {
-                "grantee": accounts(4).to_string(),
-                "path": "charlie.testnet/friends",
-                "flags": 1
-            }
-        });
+        // Step 1: Storage deposit
+        let deposit_result = contract.execute(set_request(json!({
+            "storage/deposit": {"amount": "500000000000000000000000"}  // 0.5 NEAR
+        })));
+        assert!(deposit_result.is_ok(), "Storage deposit should succeed");
 
-        let result = contract.set(set_request(mixed_data, None));
-        assert!(result.is_ok(), "Mixed operations should succeed");
+        // Step 2: Set profile data
+        let data_result = contract.execute(set_request(json!({
+            "profile/name": "Charlie",
+            "profile/status": "Online"
+        })));
+        assert!(data_result.is_ok(), "Profile data set should succeed");
+
+        // Step 3: Grant WRITE permission to dave
+        let perm_result = contract.execute(set_permission_request(
+            dave.clone(),
+            format!("{}/friends", charlie),
+            WRITE,
+            None,
+        ));
+        assert!(perm_result.is_ok(), "Permission grant should succeed");
 
         // Verify storage was deposited
         let balance = contract.get_storage_balance(charlie.clone());
         assert!(balance.is_some(), "Storage balance should exist");
 
         // Verify data was set
-        let keys = vec!["charlie.testnet/profile".to_string()];
-        let retrieved = contract_get_values_map(&contract, keys, Some(charlie.clone()));
-        assert!(!retrieved.is_empty(), "Profile data should be retrievable");
+        let keys = vec![format!("{}/profile/name", charlie)];
+        let retrieved = contract.get(keys, Some(charlie.clone()));
+        assert_eq!(retrieved.len(), 1, "Should retrieve profile name");
+        assert_eq!(retrieved[0].value, Some(json!("Charlie")), "Profile name should be Charlie");
+
+        // Verify permission was granted
+        let has_perm = contract.has_permission(
+            charlie.clone(),
+            dave.clone(),
+            format!("{}/friends", charlie),
+            WRITE
+        );
+        assert!(has_perm, "Dave should have permission on charlie's friends");
 
         println!("✓ Mixed operations test passed");
     }

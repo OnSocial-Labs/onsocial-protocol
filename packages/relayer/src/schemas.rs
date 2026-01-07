@@ -1,3 +1,4 @@
+use near_primitives::action::delegate::SignedDelegateAction;
 use near_primitives::borsh::BorshDeserialize;
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -7,7 +8,7 @@ pub struct RelayInputArgs {
 
 #[derive(Debug, Clone)]
 pub struct SignedDelegateActionAsBase64 {
-    inner: near_primitives::delegate_action::SignedDelegateAction,
+    inner: SignedDelegateAction,
 }
 
 impl std::str::FromStr for SignedDelegateActionAsBase64 {
@@ -15,7 +16,7 @@ impl std::str::FromStr for SignedDelegateActionAsBase64 {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self {
-            inner: near_primitives::delegate_action::SignedDelegateAction::try_from_slice(
+            inner: SignedDelegateAction::try_from_slice(
                 &near_primitives::serialize::from_base64(s)
                 .map_err(|err| format!("parsing of signed delegate action failed due to base64 sequence being invalid: {}", err))?,
             )
@@ -24,14 +25,14 @@ impl std::str::FromStr for SignedDelegateActionAsBase64 {
     }
 }
 
-impl From<SignedDelegateActionAsBase64> for near_primitives::delegate_action::SignedDelegateAction {
+impl From<SignedDelegateActionAsBase64> for SignedDelegateAction {
     fn from(inner: SignedDelegateActionAsBase64) -> Self {
         inner.inner
     }
 }
 
-impl From<near_primitives::delegate_action::SignedDelegateAction> for SignedDelegateActionAsBase64 {
-    fn from(inner: near_primitives::delegate_action::SignedDelegateAction) -> Self {
+impl From<SignedDelegateAction> for SignedDelegateActionAsBase64 {
+    fn from(inner: SignedDelegateAction) -> Self {
         Self { inner }
     }
 }

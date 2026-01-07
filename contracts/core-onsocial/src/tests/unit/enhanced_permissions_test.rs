@@ -59,7 +59,7 @@ mod test_enhanced_permissions {
             }
         });
         contract
-            .set(set_request(deposit_data, None))
+            .execute(set_request(deposit_data))
             .unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
@@ -75,7 +75,7 @@ mod test_enhanced_permissions {
                 "flags": WRITE
             }
         });
-        let result = contract.set(set_request(grant_data, None));
+        let result = contract.execute(set_request(grant_data));
         assert!(result.is_ok());
 
         // Now grantee should have write permission
@@ -90,7 +90,7 @@ mod test_enhanced_permissions {
                 "path": test_path
             }
         });
-        let result = contract.set(set_request(revoke_data, None));
+        let result = contract.execute(set_request(revoke_data));
         assert!(result.is_ok());
 
         // Now grantee should not have write permission again
@@ -112,7 +112,7 @@ mod test_enhanced_permissions {
             }
         });
         contract
-            .set(set_request(deposit_data, None))
+            .execute(set_request(deposit_data))
             .unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
@@ -130,7 +130,7 @@ mod test_enhanced_permissions {
             }
         });
         contract
-            .set(set_request(grant_data, None))
+            .execute(set_request(grant_data))
             .unwrap();
 
         // get_permissions should return WRITE flag (1)
@@ -147,7 +147,7 @@ mod test_enhanced_permissions {
             }
         });
         contract
-            .set(set_request(grant_manage, None))
+            .execute(set_request(grant_manage))
             .unwrap();
 
         // get_permissions should return the stored flag value
@@ -163,7 +163,7 @@ mod test_enhanced_permissions {
             }
         });
         contract
-            .set(set_request(revoke_data, None))
+            .execute(set_request(revoke_data))
             .unwrap();
 
         // get_permissions should return 0 after revocation

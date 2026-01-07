@@ -23,26 +23,22 @@ mod governance_status_tests {
 
         // Create member-driven group.
         testing_env!(get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build());
-        contract
-            .create_group(
+        contract.execute(create_group_request(
                 "status_missing".to_string(),
                 json!({"member_driven": true, "is_private": true}),
-            )
-            .unwrap();
+            )).unwrap();
 
         // Add a member so proposals remain active (1/2 = 50% < 51% quorum).
         test_add_member_bypass_proposals(&mut contract, "status_missing", &bob, 0, &owner);
 
         // Create a proposal (should be active).
         testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
-        let proposal_id = contract
-            .create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
                 "status_missing".to_string(),
                 "custom_proposal".to_string(),
                 json!({"title": "t", "description": "d", "custom_data": {}}),
                 None,
-            )
-            .unwrap();
+            )).unwrap().as_str().unwrap().to_string();
 
         let proposal_key = format!("groups/status_missing/proposals/{}", proposal_id);
         let mut proposal = contract
@@ -66,11 +62,11 @@ mod governance_status_tests {
 
         // Voting should now fail at ProposalStatus::from_json_status(None).
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
-        let res = contract.vote_on_proposal(
+        let res = contract.execute(vote_proposal_request(
             "status_missing".to_string(),
             proposal_id.clone(),
             true,
-        );
+        ));
 
         let err = res.expect_err("vote must fail when status is missing");
         assert!(matches!(err, crate::SocialError::InvalidInput(_)));
@@ -85,26 +81,22 @@ mod governance_status_tests {
 
         // Create member-driven group.
         testing_env!(get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build());
-        contract
-            .create_group(
+        contract.execute(create_group_request(
                 "status_invalid".to_string(),
                 json!({"member_driven": true, "is_private": true}),
-            )
-            .unwrap();
+            )).unwrap();
 
         // Add a member so proposals remain active.
         test_add_member_bypass_proposals(&mut contract, "status_invalid", &bob, 0, &owner);
 
         // Create a proposal (should be active).
         testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
-        let proposal_id = contract
-            .create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
                 "status_invalid".to_string(),
                 "custom_proposal".to_string(),
                 json!({"title": "t", "description": "d", "custom_data": {}}),
                 None,
-            )
-            .unwrap();
+            )).unwrap().as_str().unwrap().to_string();
 
         let proposal_key = format!("groups/status_invalid/proposals/{}", proposal_id);
         let mut proposal = contract
@@ -125,7 +117,7 @@ mod governance_status_tests {
 
         // Cancel should fail at ProposalStatus::parse("bogus") -> None.
         testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
-        let res = contract.cancel_proposal("status_invalid".to_string(), proposal_id);
+        let res = contract.execute(cancel_proposal_request("status_invalid".to_string(), proposal_id));
 
         let err = res.expect_err("cancel must fail when status is invalid");
         assert!(matches!(err, crate::SocialError::InvalidInput(_)));

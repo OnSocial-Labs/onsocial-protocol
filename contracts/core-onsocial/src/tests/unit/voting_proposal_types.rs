@@ -36,24 +36,24 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("md_gate".to_string(), config).unwrap();
+        contract.execute(create_group_request("md_gate".to_string(), config)).unwrap();
 
         // Direct permission changes on group paths must be rejected
-        let direct_group_grant = contract.set_permission(
+        let direct_group_grant = contract.execute(set_permission_request(
             bob.clone(),
             "groups/md_gate/posts".to_string(),
             WRITE,
             None,
-        );
+        ));
         assert!(direct_group_grant.is_err(), "Direct set_permission on member-driven group path must fail");
 
         // Non-group paths should remain unaffected
-        let direct_personal_grant = contract.set_permission(
+        let direct_personal_grant = contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
             None,
-        );
+        ));
         assert!(direct_personal_grant.is_ok(), "Non-group permissions should still be grantable");
     }
 
@@ -71,7 +71,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("md_delegation".to_string(), config).unwrap();
+        contract.execute(create_group_request("md_delegation".to_string(), config)).unwrap();
 
         // Add members
         test_add_member_bypass_proposals(&mut contract, "md_delegation", &manager, WRITE, &alice);
@@ -97,33 +97,33 @@ mod voting_proposal_types_tests {
 
         // Ensure manager has storage balance for permission writes.
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        let delegated_ok = contract.set_permission(
+        let delegated_ok = contract.execute(set_permission_request(
             bob.clone(),
             "groups/md_delegation/content/posts".to_string(),
             WRITE,
             Some(U64(crate::tests::test_utils::TEST_BASE_TIMESTAMP + 1_000_000_000)),
-        );
+        ));
         assert!(delegated_ok.is_ok(), "Delegated grant within subtree should succeed: {:?}", delegated_ok.err());
 
         // Missing expires_at must fail.
-        let delegated_missing_exp = contract.set_permission(
+        let delegated_missing_exp = contract.execute(set_permission_request(
             bob.clone(),
             "groups/md_delegation/content/comments".to_string(),
             WRITE,
             None,
-        );
+        ));
         assert!(delegated_missing_exp.is_err(), "Delegated grants without expires_at must fail");
 
         // Delegation to non-members must fail.
-        let delegated_to_non_member = contract.set_permission(
+        let delegated_to_non_member = contract.execute(set_permission_request(
             non_member.clone(),
             "groups/md_delegation/content/media".to_string(),
             WRITE,
             Some(U64(crate::tests::test_utils::TEST_BASE_TIMESTAMP + 2_000_000_000)),
-        );
+        ));
         assert!(delegated_to_non_member.is_err(), "Delegated grants to non-members must fail");
     }
     // ============================================================================
@@ -141,7 +141,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("path_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("path_test".to_string(), config)).unwrap();
 
         // Add bob and charlie as members (using test utility)
         test_add_member_bypass_proposals(&mut contract, "path_test", &bob, WRITE, &alice);
@@ -156,17 +156,17 @@ mod voting_proposal_types_tests {
             "reason": "Bob needs moderation access for the moderation section"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "path_test".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie votes YES (alice already voted YES automatically)
         // 2 YES votes out of 3 members = 66% participation, 100% approval
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        let vote_result = contract.vote_on_proposal("path_test".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("path_test".to_string(), proposal_id.clone(), true));
         assert!(vote_result.is_ok(), "Charlie's vote should succeed: {:?}", vote_result.err());
 
         // Verify bob now has path-specific permission
@@ -191,7 +191,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("reject_path".to_string(), config).unwrap();
+        contract.execute(create_group_request("reject_path".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "reject_path", &bob, WRITE, &alice);
@@ -207,20 +207,20 @@ mod voting_proposal_types_tests {
             "reason": "Grant admin access"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "reject_path".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie and Dave vote NO (alice voted YES automatically)
         // 1 YES, 2 NO = rejection
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("reject_path".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("reject_path".to_string(), proposal_id.clone(), false)).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("reject_path".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("reject_path".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Verify bob does NOT have path-specific permission
         // TODO: Add verification once we have a getter
@@ -237,7 +237,7 @@ mod voting_proposal_types_tests {
         // Create member-driven group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("validation_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("validation_test".to_string(), config)).unwrap();
 
         // Add bob using test utility
         test_add_member_bypass_proposals(&mut contract, "validation_test", &bob, WRITE, &alice);
@@ -251,12 +251,12 @@ mod voting_proposal_types_tests {
             "reason": "Test invalid path"
         });
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "validation_test".to_string(),
             "path_permission_grant".to_string(),
             invalid_path_proposal,
             None,
-        );
+        ));
         assert!(result.is_err(), "Should reject path outside group");
 
         // Test 2: Zero permission flags - should fail
@@ -267,12 +267,12 @@ mod voting_proposal_types_tests {
             "reason": "Test zero permissions"
         });
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "validation_test".to_string(),
             "path_permission_grant".to_string(),
             zero_perms_proposal,
             None,
-        );
+        ));
         assert!(result.is_err(), "Should reject zero permission flags");
 
         println!("✅ PathPermissionGrant validation correctly rejects invalid proposals");
@@ -295,7 +295,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("revoke_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("revoke_test".to_string(), config)).unwrap();
 
         // Add bob and charlie as members using test utility
         test_add_member_bypass_proposals(&mut contract, "revoke_test", &bob, WRITE, &alice);
@@ -310,16 +310,16 @@ mod voting_proposal_types_tests {
             "reason": "Grant moderation access initially"
         });
 
-        let grant_proposal_id = contract.create_group_proposal(
+        let grant_proposal_id = contract.execute(create_proposal_request(
             "revoke_test".to_string(),
             "path_permission_grant".to_string(),
             grant_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie votes YES to approve grant (alice already voted YES automatically)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::legacy_10_near()).build());
-        contract.vote_on_proposal("revoke_test".to_string(), grant_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("revoke_test".to_string(), grant_proposal_id.clone(), true)).unwrap();
 
         // Verify bob has the permission (would need getter to verify properly)
         // For now, we assume the grant executed successfully
@@ -332,17 +332,17 @@ mod voting_proposal_types_tests {
             "reason": "Remove moderation access - no longer needed"
         });
 
-        let revoke_proposal_id = contract.create_group_proposal(
+        let revoke_proposal_id = contract.execute(create_proposal_request(
             "revoke_test".to_string(),
             "path_permission_revoke".to_string(),
             revoke_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Step 3: Alice votes YES to approve revoke (bob already voted YES automatically as proposer)
         // 2 YES votes out of 3 members = 66% participation, 100% approval
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
-        let vote_result = contract.vote_on_proposal("revoke_test".to_string(), revoke_proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("revoke_test".to_string(), revoke_proposal_id.clone(), true));
         assert!(vote_result.is_ok(), "Alice's vote should succeed: {:?}", vote_result.err());
 
         // Step 4: Verify bob's path permission is revoked
@@ -366,7 +366,7 @@ mod voting_proposal_types_tests {
         // Create member-driven group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("edge_revoke".to_string(), config).unwrap();
+        contract.execute(create_group_request("edge_revoke".to_string(), config)).unwrap();
 
         // Add bob and charlie as members using test utility
         test_add_member_bypass_proposals(&mut contract, "edge_revoke", &bob, WRITE, &alice);
@@ -380,16 +380,16 @@ mod voting_proposal_types_tests {
             "reason": "Revoke permission that doesn't exist"
         });
 
-        let revoke_proposal_id = contract.create_group_proposal(
+        let revoke_proposal_id = contract.execute(create_proposal_request(
             "edge_revoke".to_string(),
             "path_permission_revoke".to_string(),
             revoke_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie votes YES to approve the revoke
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        let vote_result = contract.vote_on_proposal("edge_revoke".to_string(), revoke_proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("edge_revoke".to_string(), revoke_proposal_id.clone(), true));
         
         // This should succeed - revoking nonexistent permission is idempotent
         // No error because the end state is correct (bob doesn't have permission)
@@ -418,7 +418,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("quorum_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("quorum_test".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "quorum_test", &bob, WRITE, &alice);
@@ -437,20 +437,20 @@ mod voting_proposal_types_tests {
             "reason": "Increase quorum to ensure broader consensus"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "quorum_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob and Charlie vote YES (alice already voted YES automatically)
         // 3 YES votes out of 4 members = 75% participation, 100% approval
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("quorum_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("quorum_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("quorum_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("quorum_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify voting config was updated
         let updated_config = contract.platform.storage_get("groups/quorum_test/config").unwrap();
@@ -480,7 +480,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("threshold_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("threshold_test".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "threshold_test", &bob, WRITE, &alice);
@@ -498,17 +498,17 @@ mod voting_proposal_types_tests {
             "reason": "Require supermajority for important decisions"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "threshold_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes YES (alice already voted YES automatically)
         // 2 YES votes out of 3 members = 66% participation, 100% approval (>50% threshold)
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("threshold_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("threshold_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify majority threshold was updated
         let updated_config = contract.platform.storage_get("groups/threshold_test/config").unwrap();
@@ -538,7 +538,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("period_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("period_test".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "period_test", &bob, WRITE, &alice);
@@ -562,17 +562,17 @@ mod voting_proposal_types_tests {
             "reason": "Reduce voting period to speed up decision making"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "period_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes YES (alice already voted YES automatically)
         // 2 YES votes out of 3 members = 66% participation, 100% approval
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("period_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("period_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify voting period was updated
         let updated_config = contract.platform.storage_get("groups/period_test/config").unwrap();
@@ -608,7 +608,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("self_ref_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("self_ref_test".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "self_ref_test", &bob, WRITE, &alice);
@@ -631,22 +631,22 @@ mod voting_proposal_types_tests {
             "reason": "Increase quorum to require broader participation"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "self_ref_test".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Vote with only 3 YES votes out of 5 members (60% participation)
         // Under OLD rules (51% quorum): This PASSES (60% > 51%)
         // Under NEW rules (80% quorum): This would FAIL (60% < 80%)
         // The proposal should PASS because it uses OLD rules
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
-        contract.vote_on_proposal("self_ref_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("self_ref_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
-        contract.vote_on_proposal("self_ref_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("self_ref_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify the proposal PASSED and config was updated
         let updated_config = contract.platform.storage_get("groups/self_ref_test/config").unwrap();
@@ -663,20 +663,20 @@ mod voting_proposal_types_tests {
             "custom_data": {"test": "value"}
         });
 
-        let future_proposal_id = contract.create_group_proposal(
+        let future_proposal_id = contract.execute(create_proposal_request(
             "self_ref_test".to_string(),
             "custom_proposal".to_string(),
             future_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Try to pass with only 3 YES votes (60% participation) - should FAIL under new 80% quorum
         // Bob already voted YES when creating the proposal
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("self_ref_test".to_string(), future_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("self_ref_test".to_string(), future_proposal_id.clone(), true)).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("self_ref_test".to_string(), future_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("self_ref_test".to_string(), future_proposal_id.clone(), true)).unwrap();
 
         // The future proposal should still be ACTIVE (not executed) because it needs 80% participation
         let proposal_status = contract.platform.storage_get(&format!("groups/self_ref_test/proposals/{}", future_proposal_id)).unwrap();
@@ -684,7 +684,7 @@ mod voting_proposal_types_tests {
 
         // Now add one more vote to reach 80% participation (4 out of 5 = 80%)
         testing_env!(get_context_with_deposit(eve.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("self_ref_test".to_string(), future_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("self_ref_test".to_string(), future_proposal_id.clone(), true)).unwrap();
 
         // Now the future proposal should execute
         let final_proposal_status = contract.platform.storage_get(&format!("groups/self_ref_test/proposals/{}", future_proposal_id)).unwrap();
@@ -715,7 +715,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("custom_approval_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("custom_approval_test".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "custom_approval_test", &bob, WRITE, &alice);
@@ -736,12 +736,12 @@ mod voting_proposal_types_tests {
             }
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "custom_approval_test".to_string(),
             "custom_proposal".to_string(),
             proposal_data.clone(),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify proposal was created and has correct initial state
         let proposal_path = format!("groups/custom_approval_test/proposals/{}", proposal_id);
@@ -753,7 +753,7 @@ mod voting_proposal_types_tests {
         // Bob votes YES (alice already voted YES automatically)
         // 2 YES votes out of 4 members = 50% participation, 100% approval
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        let vote_result = contract.vote_on_proposal("custom_approval_test".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("custom_approval_test".to_string(), proposal_id.clone(), true));
         assert!(vote_result.is_ok(), "Bob's YES vote should succeed: {:?}", vote_result.err());
 
         // Proposal should still be active (needs majority threshold, which is >50%)
@@ -762,7 +762,7 @@ mod voting_proposal_types_tests {
 
         // Charlie votes YES (now 3 YES out of 4 = 75% participation, 100% approval)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("custom_approval_test".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("custom_approval_test".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Proposal should now execute (>50% threshold met with 3 YES votes)
         let proposal_after_vote2 = contract.platform.storage_get(&proposal_path).unwrap();
@@ -776,7 +776,7 @@ mod voting_proposal_types_tests {
 
         // Dave tries to vote on executed proposal - should fail
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        let late_vote = contract.vote_on_proposal("custom_approval_test".to_string(), proposal_id.clone(), true);
+        let late_vote = contract.execute(vote_proposal_request("custom_approval_test".to_string(), proposal_id.clone(), true));
         assert!(late_vote.is_err(), "Should not be able to vote on executed proposal");
         let error = late_vote.unwrap_err().to_string();
         assert!(error.contains("not active") || error.contains("executed"), 
@@ -805,7 +805,7 @@ mod voting_proposal_types_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("custom_rejection_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("custom_rejection_test".to_string(), config)).unwrap();
 
         // Add members using test utility
         test_add_member_bypass_proposals(&mut contract, "custom_rejection_test", &bob, WRITE, &alice);
@@ -826,24 +826,24 @@ mod voting_proposal_types_tests {
             }
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "custom_rejection_test".to_string(),
             "custom_proposal".to_string(),
             proposal_data.clone(),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes NO
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Charlie votes NO (now 1 YES, 2 NO out of 5 members = 60% participation)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::proposal_creation()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Dave votes NO (now 1 YES, 3 NO out of 5 members = 80% participation, max possible YES = 1 + 1 = 20% < 50%)
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::proposal_creation()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Now defeat is inevitable: 1 YES, 3 NO, 1 remaining. Max possible: 2 YES out of 5 = 40% < 50%
         // The proposal should be rejected immediately
@@ -864,32 +864,32 @@ mod voting_proposal_types_tests {
             "custom_data": {"change_type": "cosmetic"}
         });
 
-        let quorum_proposal_id = contract.create_group_proposal(
+        let quorum_proposal_id = contract.execute(create_proposal_request(
             "custom_rejection_test".to_string(),
             "custom_proposal".to_string(),
             quorum_test_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob already voted YES when creating the proposal
         // Charlie votes NO, Dave votes NO first (to prevent execution)
         // Then Alice votes YES - but it's too late, defeat is inevitable
         // 1 YES, 2 NO out of 5 members, with 2 more potential YES votes = max 3 YES out of 5 = 60% approval (<50% threshold)
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), quorum_proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), quorum_proposal_id.clone(), false)).unwrap();
 
         testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), quorum_proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), quorum_proposal_id.clone(), false)).unwrap();
 
         // Now we have 1 YES, 2 NO, 2 not voted. Max possible: 1 + 2 = 3 YES out of 5 = 60% > 50%, so not rejected yet
         // Alice votes YES - now 2 YES, 2 NO, 1 not voted. Max possible: 2 + 1 = 3 YES out of 5 = 60% > 50%, still not rejected
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), quorum_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), quorum_proposal_id.clone(), true)).unwrap();
 
         // Still not rejected. Eve needs to vote NO to make defeat inevitable
         // 2 YES, 3 NO out of 5, max possible: 2 + 0 = 2 YES out of 5 = 40% < 50%
         testing_env!(get_context_with_deposit(eve.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("custom_rejection_test".to_string(), quorum_proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("custom_rejection_test".to_string(), quorum_proposal_id.clone(), false)).unwrap();
 
         // After voting period, this should be rejected due to insufficient participation
         let quorum_proposal_path = format!("groups/custom_rejection_test/proposals/{}", quorum_proposal_id);
@@ -912,7 +912,7 @@ mod voting_proposal_types_tests {
         // Create member-driven group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("metadata_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("metadata_test".to_string(), config)).unwrap();
 
         // Add bob as member
         test_add_member_bypass_proposals(&mut contract, "metadata_test", &bob, WRITE, &alice);
@@ -957,16 +957,16 @@ mod voting_proposal_types_tests {
             }
         });
 
-        let complex_proposal_id = contract.create_group_proposal(
+        let complex_proposal_id = contract.execute(create_proposal_request(
             "metadata_test".to_string(),
             "custom_proposal".to_string(),
             complex_data.clone(),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes YES to execute
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("metadata_test".to_string(), complex_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("metadata_test".to_string(), complex_proposal_id.clone(), true)).unwrap();
 
         // Verify complex custom_data is perfectly preserved
         let proposal_path = format!("groups/metadata_test/proposals/{}", complex_proposal_id);
@@ -1006,16 +1006,16 @@ mod voting_proposal_types_tests {
             "description": "Should we proceed with the plan?"
         });
 
-        let minimal_proposal_id = contract.create_group_proposal(
+        let minimal_proposal_id = contract.execute(create_proposal_request(
             "metadata_test".to_string(),
             "custom_proposal".to_string(),
             minimal_data.clone(),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice votes YES to execute (Bob already voted YES automatically as proposer)
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("metadata_test".to_string(), minimal_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("metadata_test".to_string(), minimal_proposal_id.clone(), true)).unwrap();
 
         // Verify minimal proposal executes and data is preserved
         let minimal_proposal_path = format!("groups/metadata_test/proposals/{}", minimal_proposal_id);
@@ -1076,18 +1076,18 @@ mod voting_proposal_types_tests {
             }
         });
 
-        let large_proposal_id = contract.create_group_proposal(
+        let large_proposal_id = contract.execute(create_proposal_request(
             "metadata_test".to_string(),
             "custom_proposal".to_string(),
             large_custom_data.clone(),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie votes YES to execute (Alice already auto-voted as proposer)
         let charlie = test_account(2);
         test_add_member_bypass_proposals(&mut contract, "metadata_test", &charlie, WRITE, &alice);
         testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("metadata_test".to_string(), large_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("metadata_test".to_string(), large_proposal_id.clone(), true)).unwrap();
 
         // Verify large custom_data is preserved
         let large_proposal_path = format!("groups/metadata_test/proposals/{}", large_proposal_id);
@@ -1120,7 +1120,7 @@ mod voting_proposal_types_tests {
         // Create member-driven group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("edge_cases_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("edge_cases_test".to_string(), config)).unwrap();
 
         // Add bob as member
         test_add_member_bypass_proposals(&mut contract, "edge_cases_test", &bob, WRITE, &alice);
@@ -1132,12 +1132,12 @@ mod voting_proposal_types_tests {
             "custom_data": {"test": "value"}
         });
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             missing_title,
             None,
-        );
+        ));
         assert!(result.is_err(), "Should fail without title");
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("title") || error_msg.contains("required"),
@@ -1149,12 +1149,12 @@ mod voting_proposal_types_tests {
             "custom_data": {"test": "value"}
         });
 
-        let result2 = contract.create_group_proposal(
+        let result2 = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             missing_desc,
             None,
-        );
+        ));
         assert!(result2.is_err(), "Should fail without description");
 
         // Test 3: Validation - Empty title
@@ -1163,12 +1163,12 @@ mod voting_proposal_types_tests {
             "description": "Valid description"
         });
 
-        let result3 = contract.create_group_proposal(
+        let result3 = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             empty_title,
             None,
-        );
+        ));
         assert!(result3.is_err(), "Should fail with empty title");
 
         // Test 4: Validation - Empty description
@@ -1177,12 +1177,12 @@ mod voting_proposal_types_tests {
             "description": ""
         });
 
-        let result4 = contract.create_group_proposal(
+        let result4 = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             empty_desc,
             None,
-        );
+        ));
         assert!(result4.is_err(), "Should fail with empty description");
 
         // Test 5: Valid proposal with extreme custom_data
@@ -1216,16 +1216,16 @@ mod voting_proposal_types_tests {
             }
         });
 
-        let extreme_proposal_id = contract.create_group_proposal(
+        let extreme_proposal_id = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             extreme_data.clone(),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Execute the extreme proposal
         testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
-        contract.vote_on_proposal("edge_cases_test".to_string(), extreme_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("edge_cases_test".to_string(), extreme_proposal_id.clone(), true)).unwrap();
 
         // Verify extreme data is preserved
         let extreme_proposal_path = format!("groups/edge_cases_test/proposals/{}", extreme_proposal_id);
@@ -1247,16 +1247,16 @@ mod voting_proposal_types_tests {
             "description": "Testing if votes can be changed"
         });
 
-        let vote_change_id = contract.create_group_proposal(
+        let vote_change_id = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             vote_change_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice tries to change her vote (from automatic YES to NO)
         // This should either succeed or fail depending on system design
-        let vote_change_result = contract.vote_on_proposal("edge_cases_test".to_string(), vote_change_id.clone(), false);
+        let vote_change_result = contract.execute(vote_proposal_request("edge_cases_test".to_string(), vote_change_id.clone(), false));
         // We don't assert success/failure here - just that the system handles it gracefully
         println!("Vote change attempt result: {:?}", vote_change_result);
 
@@ -1271,19 +1271,19 @@ mod voting_proposal_types_tests {
             "description": "Testing multiple active proposals"
         });
 
-        let concurrent1_id = contract.create_group_proposal(
+        let concurrent1_id = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             concurrent1_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
-        let concurrent2_id = contract.create_group_proposal(
+        let concurrent2_id = contract.execute(create_proposal_request(
             "edge_cases_test".to_string(),
             "custom_proposal".to_string(),
             concurrent2_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Both should be active initially
         let concurrent1_path = format!("groups/edge_cases_test/proposals/{}", concurrent1_id);

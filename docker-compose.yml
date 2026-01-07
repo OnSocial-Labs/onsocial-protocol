@@ -1,16 +1,16 @@
 services:
   relayer:
-    image: relayer-builder:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.relayer
     container_name: relayer
     ports:
       - "3040:3040"
     volumes:
-      - ./packages/relayer/config.toml:/relayer-app/config.toml
-      - ./packages/relayer/account_keys:/relayer-app/account_keys
+      - ./packages/relayer/relayer.toml:/app/relayer.toml
+      - ./packages/relayer/account_keys:/app/account_keys
     environment:
-      - VERBOSE=1
-    depends_on:
-      - redis
+      - RUST_LOG=info
 
   backend:
     build:
@@ -28,15 +28,6 @@ services:
     command: ["pnpm", "start"]
     depends_on:
       - relayer
-      - redis
-
-  redis:
-    image: redis:latest
-    container_name: redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
 
   onsocial-app:
     build:
@@ -126,6 +117,3 @@ services:
     command: ["pnpm", "run", "lint"]
     environment:
       - NODE_ENV=development
-
-volumes:
-  redis-data:

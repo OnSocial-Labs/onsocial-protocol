@@ -33,13 +33,11 @@ async fn propose_and_approve(
     extra_yes_voters: &[&Account],
 ) -> anyhow::Result<String> {
     let res = proposer
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "proposal_type": proposal_type,
-            "changes": changes,
-            "event_config": null,
-            "auto_vote": null
+            "request": {
+                "action": { "type": "create_proposal", "group_id": group_id, "proposal_type": proposal_type, "changes": changes, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(180))
@@ -54,13 +52,12 @@ async fn propose_and_approve(
 
     for voter in extra_yes_voters {
         let vote = voter
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": group_id,
-                "proposal_id": proposal_id,
-                "approve": true,
-                "event_config": null
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": group_id, "proposal_id": proposal_id, "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(160))
             .transact()
@@ -121,14 +118,13 @@ async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::
 async fn deposit_storage(contract: &Contract, user: &Account, amount: NearToken) -> anyhow::Result<()> {
     let yocto = amount.as_yoctonear().to_string();
     let res = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": { "amount": yocto }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -142,10 +138,11 @@ async fn deposit_storage(contract: &Contract, user: &Account, amount: NearToken)
 
 async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": group_id, "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -161,12 +158,13 @@ async fn create_member_driven_group(
     group_id: &str,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": group_id, "config": {
                 "is_private": true,
                 "member_driven": true
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -183,10 +181,11 @@ async fn create_member_driven_group(
 
 async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "member_id": member.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": group_id, "member_id": member.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -212,12 +211,11 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
 
     // Grant with trailing slash.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": delegated_dir,
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": delegated_dir, "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(90))
         .transact()
@@ -239,13 +237,12 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
 
     // Inheritance: permission on .../delegated/ must allow cross-account set at deeper paths.
     let res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": { "delegated/message": "hello" },
+                "action": { "type": "set", "data": { "delegated/message": "hello"  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -257,12 +254,11 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
 
     // Revoke and verify denial.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/delegated/", alice.id()),
-            "level": 0,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/delegated/", alice.id()), "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(90))
         .transact()
@@ -270,13 +266,12 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
     assert!(res.is_success(), "revoke should succeed: {:?}", res.failures());
 
     let res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": { "delegated/message": "should fail" },
+                "action": { "type": "set", "data": { "delegated/message": "should fail"  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -310,7 +305,7 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
     add_member(&contract, &alice, "devs", &bob).await?;
     add_member(&contract, &alice, "devs", &carol).await?;
 
-    // Members get default WRITE on groups/{id}/content at join time.
+// Members get default WRITE on groups/{id/content at join time.
     // So delegation tests should use a higher required level.
     let carol_has_moderate_before: bool = contract
         .view("has_permission")
@@ -329,12 +324,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
 
     // Owner grants MANAGE on a subtree to Bob.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/devs/content",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/devs/content", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
@@ -343,12 +337,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
 
     // Bob delegates MODERATE downwards to Carol.
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/devs/content/posts/",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/devs/content/posts/", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
@@ -387,10 +380,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
     // Membership gating: once removed from the group, Carol must lose group-scoped permissions
     // immediately (even if a permission entry still exists in storage).
     let remove_carol = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "devs",
-            "member_id": carol.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "devs", "member_id": carol.id() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -433,12 +427,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
 
     // Non-member gating: group permissions cannot be granted to non-members.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": dave.id(),
-            "path": "groups/devs/content/",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": dave.id(), "path": "groups/devs/content/", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
@@ -463,12 +456,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
 
     // Bob cannot delegate MANAGE (explicitly forbidden).
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/devs/content/posts/",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/devs/content/posts/", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
@@ -477,12 +469,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
 
     // Bob cannot set permissions at the group root without being owner.
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/devs/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/devs/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
@@ -505,12 +496,11 @@ async fn test_member_driven_groups_reject_direct_permission_changes() -> anyhow:
 
     // Owner direct permission changes are rejected (member-driven groups require proposals).
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/md/content/posts/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/md/content/posts/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -527,12 +517,11 @@ async fn test_member_driven_groups_reject_direct_permission_changes() -> anyhow:
 
     // Non-owner direct permission changes should also fail (unauthorized).
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/md/content/posts/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/md/content/posts/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -566,7 +555,7 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
     create_group(&contract, &alice, "expiry").await?;
     add_member(&contract, &alice, "expiry", &bob).await?;
 
-    // Use a non-default path (members only get default WRITE on groups/{id}/content).
+// Use a non-default path (members only get default WRITE on groups/{id/content).
     let path = "groups/expiry/private/";
 
     let now = now_nanos(&worker).await?;
@@ -574,12 +563,11 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
 
     // Grant expired WRITE.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": path,
-            "level": WRITE,
-            "expires_at": past.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": path, "level": WRITE, "expires_at": past.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -600,14 +588,13 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
 
     // Attempt write (should fail).
     let res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/expiry/private/test": {"x": 1}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -620,12 +607,11 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
     // Grant valid WRITE.
     let future = now.saturating_add(3_600_000_000_000);
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": path,
-            "level": WRITE,
-            "expires_at": future.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": path, "level": WRITE, "expires_at": future.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -633,14 +619,13 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
     assert!(res.is_success(), "set_permission(valid) should succeed: {:?}", res.failures());
 
     let res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/expiry/private/test": {"x": 2}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -673,12 +658,11 @@ async fn test_key_permission_does_not_bypass_group_membership() -> anyhow::Resul
     // are validated using membership + account-based permissions only.
     let relayer_pk = relayer.secret_key().public_key();
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "groups/keygrp/content/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "groups/keygrp/content/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -687,15 +671,14 @@ async fn test_key_permission_does_not_bypass_group_membership() -> anyhow::Resul
 
     // Relayer tries to write group content via cross-account set (should still fail: not a member).
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/keygrp/content/posts/hello": {"t": "nope"}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -784,12 +767,11 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
 
     // Bob tries to delegate WRITE downwards WITHOUT expires_at -> must fail.
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/md2/content/posts/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/md2/content/posts/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
@@ -802,12 +784,11 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
     // Bob tries to delegate to a non-member even WITH expires_at -> must fail.
     let future = now_nanos(&worker).await?.saturating_add(3_600_000_000_000);
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": dave.id(),
-            "path": "groups/md2/content/posts/",
-            "level": WRITE,
-            "expires_at": future.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": dave.id(), "path": "groups/md2/content/posts/", "level": WRITE, "expires_at": future.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
@@ -819,12 +800,11 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
 
     // Bob delegates WRITE downwards WITH expires_at -> should succeed.
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/md2/content/posts/",
-            "level": WRITE,
-            "expires_at": future.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/md2/content/posts/", "level": WRITE, "expires_at": future.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
@@ -845,12 +825,11 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
 
     // Disallowed: delegation on group root.
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/md2/",
-            "level": WRITE,
-            "expires_at": future.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/md2/", "level": WRITE, "expires_at": future.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
@@ -859,12 +838,11 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
 
     // Disallowed: delegation on group config.
     let res = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/md2/config/",
-            "level": WRITE,
-            "expires_at": future.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/md2/config/", "level": WRITE, "expires_at": future.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
@@ -909,12 +887,11 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
 
     // 2. Grant MODERATE to Bob, verify get_permissions returns 2.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/gperms/content/",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/gperms/content/", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -949,10 +926,11 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
 
     // 4. Removed member returns 0.
     let remove_bob = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gperms",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "gperms", "member_id": bob.id() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -971,7 +949,7 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
     assert_eq!(bob_level_after_remove, 0, "removed member must get 0");
 
     // 5. Carol (still member but no explicit grant beyond default) should return her default level.
-    // Members get WRITE on groups/{id}/content at join; verify that path hierarchy applies.
+// Members get WRITE on groups/{id/content at join; verify that path hierarchy applies.
     let carol_level_content: u8 = contract
         .view("get_permissions")
         .args_json(json!({
@@ -999,12 +977,11 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
     let now = now_nanos(&worker).await?;
     let past = now.saturating_sub(1_000_000_000);
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/gperms/private/",
-            "level": MODERATE,
-            "expires_at": past.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/gperms/private/", "level": MODERATE, "expires_at": past.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1041,12 +1018,11 @@ async fn test_account_permission_hierarchy_walk() -> anyhow::Result<()> {
 
     // Grant WRITE at alice/docs/
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/docs/", alice.id()),
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/docs/", alice.id()), "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1079,13 +1055,12 @@ async fn test_account_permission_hierarchy_walk() -> anyhow::Result<()> {
 
     // Cross-account write must succeed at child path.
     let res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": { "docs/deeply/nested/file": "content" },
+                "action": { "type": "set", "data": { "docs/deeply/nested/file": "content"  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1116,12 +1091,11 @@ async fn test_group_rejoin_nonce_invalidates_old_permissions() -> anyhow::Result
 
     // Grant Bob MODERATE on a non-default path.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/nonce/private/",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/nonce/private/", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1142,10 +1116,11 @@ async fn test_group_rejoin_nonce_invalidates_old_permissions() -> anyhow::Result
 
     // Remove Bob.
     let res = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonce",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "nonce", "member_id": bob.id() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1223,13 +1198,11 @@ async fn test_revoke_nonexistent_permission_succeeds() -> anyhow::Result<()> {
 
     // Revoke non-existent permission (level=0).
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/random/path", alice.id()),
-            "level": 0,
-            "level": 0,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/random/path", alice.id()), "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1265,12 +1238,11 @@ async fn test_invalid_permission_level_rejected() -> anyhow::Result<()> {
 
     // Try invalid level (e.g., 99).
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/test/", alice.id()),
-            "level": 99,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/test/", alice.id()), "level": 99, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1284,12 +1256,11 @@ async fn test_invalid_permission_level_rejected() -> anyhow::Result<()> {
 
     // Try level 4 (not valid: only 0,1,2,3 are valid).
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/test/", alice.id()),
-            "level": 4,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/test/", alice.id()), "level": 4, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1317,12 +1288,11 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
 
     // Grant permission on group path.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/evtgrp/private/",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/evtgrp/private/", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1350,12 +1320,11 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
 
     // Revoke and verify nonce in revoke event.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/evtgrp/private/",
-            "level": 0,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/evtgrp/private/", "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1385,12 +1354,11 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
 
     // Verify account-scoped permissions do NOT include permission_nonce.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/docs/", alice.id()),
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/docs/", alice.id()), "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1439,12 +1407,11 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
     let direct_path = "groups/keyfmt/private/docs/";
 
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": owner_prefixed_path,
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": owner_prefixed_path, "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1483,12 +1450,11 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
 
     // Revoke to reset.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": direct_path,
-            "level": 0,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": direct_path, "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1509,12 +1475,11 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
 
     // --- Scenario 2: Grant via DIRECT path, lookup via OWNER-PREFIXED path ---
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": direct_path,
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": direct_path, "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
@@ -1590,12 +1555,11 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
     // --- Scenario 1: Path with owner prefix (strip should work) ---
     let full_path = format!("{}/documents/reports/", alice.id());
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": full_path,
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": full_path, "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1615,15 +1579,14 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
     assert_eq!(bob_level, WRITE, "permission should apply to child path");
 
     // --- Scenario 2: Permission at top-level subpath (minimal depth) ---
-    // Use a single-segment relative path which becomes "{account}/segment"
+// Use a single-segment relative path which becomes "{account/segment"
     let top_level_path = format!("{}/data/", alice.id());
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": top_level_path,
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": top_level_path, "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1646,14 +1609,13 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
     );
 
     // --- Scenario 3: Permission granted via relative path (auto-prefixed) ---
-    // Grant using just "config/" which becomes "{alice}/config/"
+// Grant using just "config/" which becomes "{alice/config/"
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "config/",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "config/", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1749,12 +1711,11 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
 
     // 4. Grant MODERATE to bob on group config path.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/test-perms/config",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/test-perms/config", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1784,12 +1745,11 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
     // 5. Add carol as member and grant MANAGE.
     add_member(&contract, &alice, "test-perms", &carol).await?;
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/test-perms/config",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/test-perms/config", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1886,12 +1846,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
     let expired_at = now.saturating_sub(1); // 1 ns in the past
 
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/expiry-test/config",
-            "level": MODERATE,
-            "expires_at": expired_at.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/expiry-test/config", "level": MODERATE, "expires_at": expired_at.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1923,12 +1882,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
     let future_at = now + 3_600_000_000_000u64; // +1 hour in nanoseconds
 
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/expiry-test/config",
-            "level": MODERATE,
-            "expires_at": future_at.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/expiry-test/config", "level": MODERATE, "expires_at": future_at.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1955,12 +1913,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
     let boundary_at = now + 10_000_000_000u64; // +10 seconds
 
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id(),
-            "path": "groups/expiry-test/config",
-            "level": MANAGE,
-            "expires_at": boundary_at.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "groups/expiry-test/config", "level": MANAGE, "expires_at": boundary_at.to_string() }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1979,12 +1936,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
 
     // 4. Revoke by setting level to 0 (NONE) and verify.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/expiry-test/config",
-            "level": 0,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/expiry-test/config", "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2092,12 +2048,11 @@ async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()>
 
     // Grant WRITE at parent path (groups/hierarchy-max/content/).
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/hierarchy-max/content/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/hierarchy-max/content/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2106,12 +2061,11 @@ async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()>
 
     // Grant MODERATE at child path (groups/hierarchy-max/content/posts/).
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/hierarchy-max/content/posts/",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/hierarchy-max/content/posts/", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2144,12 +2098,11 @@ async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()>
 
     // Grant MANAGE at an even deeper path - should return MANAGE there.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/hierarchy-max/content/posts/special",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/hierarchy-max/content/posts/special", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2188,12 +2141,11 @@ async fn test_group_path_normalization_consistency() -> anyhow::Result<()> {
     // Grant permission using owner-prefixed path.
     let prefixed_path = format!("{}/groups/norm-test/data/", alice.id());
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": prefixed_path,
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": prefixed_path, "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2320,12 +2272,11 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
 
     // Grant permission with trailing slash
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/edge-case-group/content/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/edge-case-group/content/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2427,12 +2378,11 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
 
     // Malformed path: "groups/" with no group ID - should fail validation
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2441,12 +2391,11 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
 
     // Malformed path: "groups//foo" (empty group ID) - should fail validation
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups//foo",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups//foo", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2458,12 +2407,11 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
     add_member(&contract, &alice, "valid-group", &bob).await?;
 
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/valid-group/content/",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/valid-group/content/", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2472,12 +2420,11 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
 
     // Additional edge case: "groups" without trailing slash
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups",
-            "level": WRITE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups", "level": WRITE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()

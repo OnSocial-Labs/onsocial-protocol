@@ -2,14 +2,9 @@
 
 mod get;
 
-// Write path (SetRequest + auth flows, intents, delegation)
-mod set;
-mod delegate_action;
-mod direct;
+// Set operation processing and helpers
 mod helpers;
-mod intent;
 mod nonce;
-mod signed_payload;
 
 // Low-level data operation processing
 mod data_ops;

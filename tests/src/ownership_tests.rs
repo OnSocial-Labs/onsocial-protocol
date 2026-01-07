@@ -150,10 +150,11 @@ async fn test_is_owner_distinguishes_owner_from_non_owner() -> anyhow::Result<()
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "owner_test_group",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "owner_test_group", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -163,10 +164,11 @@ async fn test_is_owner_distinguishes_owner_from_non_owner() -> anyhow::Result<()
 
     // Add Bob as a member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "owner_test_group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "owner_test_group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -230,10 +232,11 @@ async fn test_ownership_transfer_updates_is_owner() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "transfer_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "transfer_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -243,10 +246,11 @@ async fn test_ownership_transfer_updates_is_owner() -> anyhow::Result<()> {
 
     // Add Bob as a member (required for transfer)
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "transfer_test",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "transfer_test", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -278,11 +282,11 @@ async fn test_ownership_transfer_updates_is_owner() -> anyhow::Result<()> {
 
     // Transfer ownership to Bob
     let transfer_result = alice
-        .call(contract.id(), "transfer_group_ownership")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "transfer_test",
-            "new_owner": bob.id().to_string(),
-            "remove_old_owner": false
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "transfer_test", "new_owner": bob.id().to_string(), "remove_old_owner": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -337,10 +341,11 @@ async fn test_owner_cannot_be_blacklisted() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_owner_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklist_owner_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -350,10 +355,11 @@ async fn test_owner_cannot_be_blacklisted() -> anyhow::Result<()> {
 
     // Add Bob as a member with MANAGE permission
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_owner_test",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "blacklist_owner_test", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -363,12 +369,11 @@ async fn test_owner_cannot_be_blacklisted() -> anyhow::Result<()> {
 
     // Grant Bob MANAGE permission
     let grant_manage = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id().to_string(),
-            "path": "groups/blacklist_owner_test/config",
-            "level": 3,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "groups/blacklist_owner_test/config", "level": 3, "expires_at": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -379,10 +384,11 @@ async fn test_owner_cannot_be_blacklisted() -> anyhow::Result<()> {
 
     // Bob (with MANAGE) tries to blacklist Alice (owner) - SHOULD FAIL
     let blacklist_attempt = bob
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_owner_test",
-            "member_id": alice.id().to_string()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklist_owner_test", "member_id": alice.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -439,10 +445,11 @@ async fn test_owner_cannot_be_removed_by_manage() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove_owner_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "remove_owner_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -452,10 +459,11 @@ async fn test_owner_cannot_be_removed_by_manage() -> anyhow::Result<()> {
 
     // Add Bob as a member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove_owner_test",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "remove_owner_test", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -465,12 +473,11 @@ async fn test_owner_cannot_be_removed_by_manage() -> anyhow::Result<()> {
 
     // Grant Bob MANAGE permission
     let grant_manage = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id().to_string(),
-            "path": "groups/remove_owner_test/config",
-            "level": 3,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "groups/remove_owner_test/config", "level": 3, "expires_at": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -481,10 +488,11 @@ async fn test_owner_cannot_be_removed_by_manage() -> anyhow::Result<()> {
 
     // Bob (with MANAGE) tries to remove Alice (owner) - SHOULD FAIL
     let remove_attempt = bob
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove_owner_test",
-            "member_id": alice.id().to_string()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "remove_owner_test", "member_id": alice.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -537,10 +545,11 @@ async fn test_owner_cannot_leave_group() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "owner_leave_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "owner_leave_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -561,9 +570,11 @@ async fn test_owner_cannot_leave_group() -> anyhow::Result<()> {
 
     // Alice tries to leave - SHOULD FAIL
     let leave_attempt = alice
-        .call(contract.id(), "leave_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "owner_leave_test"
+            "request": {
+                "action": { "type": "leave_group", "group_id": "owner_leave_test" }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -643,10 +654,11 @@ async fn test_is_owner_special_characters_group_id() -> anyhow::Result<()> {
 
     // Create a valid group with underscores and hyphens
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "valid-group_123",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "valid-group_123", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -692,10 +704,11 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm_grant_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "perm_grant_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -706,11 +719,12 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
     // Add Bob and Charlie as members
     for (user, name) in [(&bob, "bob"), (&charlie, "charlie")] {
         let add_result = alice
-            .call(contract.id(), "add_group_member")
-            .args_json(json!({
-                "group_id": "perm_grant_test",
-                "member_id": user.id().to_string()
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "perm_grant_test", "member_id": user.id().to_string() }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
@@ -720,12 +734,11 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
 
     // Alice (owner) can grant permissions
     let owner_grant = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id().to_string(),
-            "path": "groups/perm_grant_test/content",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": "groups/perm_grant_test/content", "level": 1, "expires_at": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -736,12 +749,11 @@ async fn test_is_owner_in_permission_granting() -> anyhow::Result<()> {
 
     // Bob (non-owner, no MANAGE) cannot grant to Charlie
     let non_owner_grant = bob
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": charlie.id().to_string(),
-            "path": "groups/perm_grant_test/content",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": charlie.id().to_string(), "path": "groups/perm_grant_test/content", "level": 1, "expires_at": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -775,10 +787,11 @@ async fn test_transfer_to_blacklisted_member_fails() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_transfer_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklist_transfer_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -788,10 +801,11 @@ async fn test_transfer_to_blacklisted_member_fails() -> anyhow::Result<()> {
 
     // Add Bob as a member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_transfer_test",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "blacklist_transfer_test", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -801,10 +815,11 @@ async fn test_transfer_to_blacklisted_member_fails() -> anyhow::Result<()> {
 
     // Blacklist Bob (this also removes membership)
     let blacklist_bob = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_transfer_test",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklist_transfer_test", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -827,11 +842,11 @@ async fn test_transfer_to_blacklisted_member_fails() -> anyhow::Result<()> {
     // Try to transfer ownership to blacklisted Bob - SHOULD FAIL
     // Either due to membership check (blacklist removes membership) or blacklist check
     let transfer_result = alice
-        .call(contract.id(), "transfer_group_ownership")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_transfer_test",
-            "new_owner": bob.id().to_string(),
-            "remove_old_owner": false
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "blacklist_transfer_test", "new_owner": bob.id().to_string(), "remove_old_owner": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -885,10 +900,11 @@ async fn test_member_driven_group_creates_transfer_proposal() -> anyhow::Result<
 
     // Alice creates a member-driven group (must be private)
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_transfer_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "member_driven_transfer_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -902,13 +918,13 @@ async fn test_member_driven_group_creates_transfer_proposal() -> anyhow::Result<
 
     // Add Bob via proposal (member-driven groups require proposals for member changes)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_transfer_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "member_driven_transfer_test", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string(),
                 "message": "Add Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -923,11 +939,11 @@ async fn test_member_driven_group_creates_transfer_proposal() -> anyhow::Result<
 
     // Alice calls transfer_group_ownership - for member-driven, this creates a PROPOSAL
     let transfer_result = alice
-        .call(contract.id(), "transfer_group_ownership")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_transfer_test",
-            "new_owner": bob.id().to_string(),
-            "remove_old_owner": false
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "member_driven_transfer_test", "new_owner": bob.id().to_string(), "remove_old_owner": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -987,10 +1003,11 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
 
     // Alice creates a member-driven group (must be private)
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_transfer_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "gov_transfer_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1001,13 +1018,13 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
 
     // Add Bob via proposal (Alice auto-approves as proposer in 1-member group)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_transfer_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "gov_transfer_test", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string(),
                 "message": "Add Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1019,13 +1036,13 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
 
     // Add Charlie via proposal - Alice creates, Bob votes
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_transfer_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "gov_transfer_test", "proposal_type": "member_invite", "changes": {
                 "target_user": charlie.id().to_string(),
                 "message": "Add Charlie"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1037,11 +1054,11 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
 
     // Bob votes to pass Charlie's invite
     let bob_vote_charlie = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_transfer_test",
-            "proposal_id": charlie_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "gov_transfer_test", "proposal_id": charlie_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1053,15 +1070,15 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
     // Alice creates transfer proposal to Bob using create_group_proposal
     // (transfer_group_ownership for member-driven groups returns () not proposal ID)
     let transfer_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_transfer_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "gov_transfer_test", "proposal_type": "group_update", "changes": {
                 "update_type": "transfer_ownership",
                 "new_owner": bob.id().to_string(),
                 "remove_old_owner": false,
                 "action": "transfer_ownership"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1086,11 +1103,11 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
     // Bob votes YES on transfer proposal
     // Since Alice auto-votes as proposer, Bob's vote reaches 2/3 quorum
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_transfer_test",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "gov_transfer_test", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1158,10 +1175,11 @@ async fn test_governance_proposal_rejects_non_member_new_owner() -> anyhow::Resu
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_non_member_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "validate_non_member_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1171,11 +1189,11 @@ async fn test_governance_proposal_rejects_non_member_new_owner() -> anyhow::Resu
 
     // Add Bob as member (so we have 2 members for voting)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_non_member_test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validate_non_member_test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1186,14 +1204,14 @@ async fn test_governance_proposal_rejects_non_member_new_owner() -> anyhow::Resu
 
     // Try to create transfer proposal to Charlie (NOT a member) - SHOULD FAIL
     let transfer_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_non_member_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validate_non_member_test", "proposal_type": "group_update", "changes": {
                 "update_type": "transfer_ownership",
                 "new_owner": charlie.id().to_string(),
                 "remove_old_owner": false
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1233,10 +1251,11 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "validate_blacklist_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1246,11 +1265,11 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
 
     // Add Bob and Charlie as members
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validate_blacklist_test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1259,11 +1278,11 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
     assert!(add_bob.is_success(), "Add Bob should succeed");
 
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validate_blacklist_test", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1274,11 +1293,11 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
 
     // Bob votes to pass Charlie's invite
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "proposal_id": charlie_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "validate_blacklist_test", "proposal_id": charlie_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1289,13 +1308,13 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
 
     // Now ban Charlie via proposal
     let ban_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validate_blacklist_test", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": charlie.id().to_string()
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1307,11 +1326,11 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
 
     // Bob votes to pass the ban
     let bob_vote_ban = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "proposal_id": ban_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "validate_blacklist_test", "proposal_id": ban_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1333,14 +1352,14 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
 
     // Try to create transfer proposal to blacklisted Charlie - SHOULD FAIL
     let transfer_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validate_blacklist_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validate_blacklist_test", "proposal_type": "group_update", "changes": {
                 "update_type": "transfer_ownership",
                 "new_owner": charlie.id().to_string(),
                 "remove_old_owner": false
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1379,10 +1398,11 @@ async fn test_transfer_event_includes_triggered_by_and_from_governance() -> anyh
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "event_fields_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "event_fields_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1392,10 +1412,11 @@ async fn test_transfer_event_includes_triggered_by_and_from_governance() -> anyh
 
     // Add Bob as member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "event_fields_test",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "event_fields_test", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1405,11 +1426,11 @@ async fn test_transfer_event_includes_triggered_by_and_from_governance() -> anyh
 
     // Transfer ownership (direct, not governance)
     let transfer_result = alice
-        .call(contract.id(), "transfer_group_ownership")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "event_fields_test",
-            "new_owner": bob.id().to_string(),
-            "remove_old_owner": false
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "event_fields_test", "new_owner": bob.id().to_string(), "remove_old_owner": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1476,10 +1497,11 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_event_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "gov_event_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1489,11 +1511,11 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Add Bob via proposal (Alice auto-approves)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_event_test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "gov_event_test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1503,11 +1525,11 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Add Charlie via proposal
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_event_test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "gov_event_test", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1518,11 +1540,11 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Bob votes to pass Charlie's invite
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_event_test",
-            "proposal_id": charlie_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "gov_event_test", "proposal_id": charlie_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1533,14 +1555,14 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Create transfer ownership proposal to Bob
     let transfer_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_event_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "gov_event_test", "proposal_type": "group_update", "changes": {
                 "update_type": "transfer_ownership",
                 "new_owner": bob.id().to_string(),
                 "remove_old_owner": false
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1553,11 +1575,11 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Bob votes YES - this reaches quorum (Alice + Bob = 2/3) and executes
     let bob_vote_transfer = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "gov_event_test",
-            "proposal_id": proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "gov_event_test", "proposal_id": proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1610,10 +1632,11 @@ async fn test_governance_proposal_rejects_missing_new_owner() -> anyhow::Result<
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "missing_owner_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "missing_owner_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1623,11 +1646,11 @@ async fn test_governance_proposal_rejects_missing_new_owner() -> anyhow::Result<
 
     // Add Bob as member
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "missing_owner_test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "missing_owner_test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1637,13 +1660,13 @@ async fn test_governance_proposal_rejects_missing_new_owner() -> anyhow::Result<
 
     // Try to create transfer proposal WITHOUT new_owner field - SHOULD FAIL
     let transfer_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "missing_owner_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "missing_owner_test", "proposal_type": "group_update", "changes": {
                 "update_type": "transfer_ownership",
                 "remove_old_owner": false
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)

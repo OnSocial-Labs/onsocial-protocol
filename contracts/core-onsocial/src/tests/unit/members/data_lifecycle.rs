@@ -22,8 +22,8 @@ mod member_data_lifecycle_tests {
 
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("data_test".to_string(), config).unwrap();
-       contract.add_group_member("data_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("data_test".to_string(), config)).unwrap();
+       contract.execute(add_group_member_request("data_test".to_string(), member.clone())).unwrap();
 
         // Verify initial member data structure
         let initial_data = contract.get_member_data("data_test".to_string(), member.clone()).unwrap();
@@ -35,7 +35,7 @@ mod member_data_lifecycle_tests {
         let initial_granted_by = initial_data["granted_by"].as_str().unwrap();
 
         // Perform various operations and verify data persists
-        contract.set_permission(member.clone(), "groups/data_test/posts".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/data_test/posts".to_string(), MODERATE, None)).unwrap();
         
         let after_permission_data = contract.get_member_data("data_test".to_string(), member.clone()).unwrap();
        assert_eq!(after_permission_data["joined_at"], json!(initial_joined_at), 
@@ -44,7 +44,7 @@ mod member_data_lifecycle_tests {
                   "granted_by should persist after permission grant");
 
         // Update member permissions through proper channel and verify core data persists  
-        contract.set_permission(member.clone(), "groups/data_test/config".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/data_test/config".to_string(), MODERATE, None)).unwrap();
         
         let after_role_update_data = contract.get_member_data("data_test".to_string(), member.clone()).unwrap();
        assert_eq!(after_role_update_data["joined_at"], json!(initial_joined_at), 
@@ -71,8 +71,8 @@ mod member_data_lifecycle_tests {
 
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("cleanup_test".to_string(), config).unwrap();
-       contract.add_group_member("cleanup_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("cleanup_test".to_string(), config)).unwrap();
+       contract.execute(add_group_member_request("cleanup_test".to_string(), member.clone())).unwrap();
 
         // Verify member data exists
         let member_data = contract.get_member_data("cleanup_test".to_string(), member.clone());
@@ -80,7 +80,7 @@ mod member_data_lifecycle_tests {
         assert!(contract.is_group_member("cleanup_test".to_string(), member.clone()), "Should be a member");
 
         // Remove member and verify data cleanup
-        contract.remove_group_member("cleanup_test".to_string(), member.clone()).unwrap();
+        contract.execute(remove_group_member_request("cleanup_test".to_string(), member.clone())).unwrap();
         
         let after_removal_data = contract.get_member_data("cleanup_test".to_string(), member.clone());
         assert!(after_removal_data.is_none() || after_removal_data == Some(serde_json::Value::Null), 
@@ -102,11 +102,11 @@ mod member_data_lifecycle_tests {
 
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("blacklist_cleanup_test".to_string(), config).unwrap();
-       contract.add_group_member("blacklist_cleanup_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("blacklist_cleanup_test".to_string(), config)).unwrap();
+       contract.execute(add_group_member_request("blacklist_cleanup_test".to_string(), member.clone())).unwrap();
 
         // Grant additional permissions
-        contract.set_permission(member.clone(), "groups/blacklist_cleanup_test/special".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/blacklist_cleanup_test/special".to_string(), MODERATE, None)).unwrap();
 
         // Verify initial state
         assert!(contract.is_group_member("blacklist_cleanup_test".to_string(), member.clone()), "Should be a member");
@@ -114,7 +114,7 @@ mod member_data_lifecycle_tests {
                "Should have special permissions");
 
         // Blacklist member
-        contract.blacklist_group_member("blacklist_cleanup_test".to_string(), member.clone()).unwrap();
+        contract.execute(blacklist_group_member_request("blacklist_cleanup_test".to_string(), member.clone())).unwrap();
 
         // Verify member data is cleaned up but blacklist entry exists
         assert!(!contract.is_group_member("blacklist_cleanup_test".to_string(), member.clone()), 
@@ -145,8 +145,8 @@ mod member_data_lifecycle_tests {
 
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("metadata_test".to_string(), config).unwrap();
-       contract.add_group_member("metadata_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("metadata_test".to_string(), config)).unwrap();
+       contract.execute(add_group_member_request("metadata_test".to_string(), member.clone())).unwrap();
 
         // Verify standard metadata fields
         let member_data = contract.get_member_data("metadata_test".to_string(), member.clone()).unwrap();
@@ -164,7 +164,7 @@ mod member_data_lifecycle_tests {
        println!("Member joined at timestamp: {}", joined_at);
 
         // Test metadata after permission change
-        contract.set_permission(member.clone(), "groups/metadata_test/config".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/metadata_test/config".to_string(), MODERATE, None)).unwrap();
         
         let updated_data = contract.get_member_data("metadata_test".to_string(), member.clone()).unwrap();
         // Note: set_permission doesn't update member data level, it just grants path-specific permissions
@@ -191,16 +191,16 @@ mod member_data_lifecycle_tests {
 
         // Create group with admin hierarchy
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("versioning_test".to_string(), config).unwrap();
-       contract.add_group_member("versioning_test".to_string(), admin.clone()).unwrap();
-       contract.add_group_member("versioning_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("versioning_test".to_string(), config)).unwrap();
+       contract.execute(add_group_member_request("versioning_test".to_string(), admin.clone())).unwrap();
+       contract.execute(add_group_member_request("versioning_test".to_string(), member.clone())).unwrap();
         
         // Grant admin permission to manage config
               // set_permission does not consume attached_deposit, so ensure owner has a storage balance.
               contract
-                     .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+                     .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
                      .unwrap();
-        contract.set_permission(admin.clone(), "groups/versioning_test/config".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(admin.clone(), "groups/versioning_test/config".to_string(), MANAGE, None)).unwrap();
 
         // Get initial data
         let initial_data = contract.get_member_data("versioning_test".to_string(), member.clone()).unwrap();
@@ -210,9 +210,9 @@ mod member_data_lifecycle_tests {
               near_sdk::testing_env!(get_context_with_deposit(admin.clone(), 1_000_000_000_000_000_000_000_000).build());
               // Ensure admin has storage balance for permission writes.
               contract
-                     .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+                     .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
                      .unwrap();
-        contract.set_permission(member.clone(), "groups/versioning_test/config".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/versioning_test/config".to_string(), MODERATE, None)).unwrap();
 
         // Verify permissions were updated (check with admin context since admin granted it)
         let has_moderate = contract.has_permission(admin.clone(), member.clone(), "groups/versioning_test/config".to_string(), MODERATE);
@@ -229,9 +229,9 @@ mod member_data_lifecycle_tests {
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
               // Ensure owner has storage balance for permission writes.
               contract
-                     .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+                     .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
                      .unwrap();
-        contract.set_permission(member.clone(), "groups/versioning_test/config".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/versioning_test/config".to_string(), MANAGE, None)).unwrap();
 
         // Verify final permissions
         let has_manage = contract.has_permission(owner.clone(), member.clone(), "groups/versioning_test/config".to_string(), MANAGE);
@@ -255,19 +255,19 @@ mod member_data_lifecycle_tests {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("integrity_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("integrity_test".to_string(), config)).unwrap();
         
         // Complex scenario: add, remove, re-add member
-       contract.add_group_member("integrity_test".to_string(), member.clone()).unwrap();
+       contract.execute(add_group_member_request("integrity_test".to_string(), member.clone())).unwrap();
         let first_join_data = contract.get_member_data("integrity_test".to_string(), member.clone()).unwrap();
        let first_join_time: u64 = first_join_data["joined_at"].as_str().unwrap().parse().unwrap();
 
         // Remove member
-        contract.remove_group_member("integrity_test".to_string(), member.clone()).unwrap();
+        contract.execute(remove_group_member_request("integrity_test".to_string(), member.clone())).unwrap();
         assert!(!contract.is_group_member("integrity_test".to_string(), member.clone()), "Should be removed");
 
         // Re-add member with different role
-       contract.add_group_member("integrity_test".to_string(), member.clone()).unwrap();
+       contract.execute(add_group_member_request("integrity_test".to_string(), member.clone())).unwrap();
         let rejoin_data = contract.get_member_data("integrity_test".to_string(), member.clone()).unwrap();
        let rejoin_time: u64 = rejoin_data["joined_at"].as_str().unwrap().parse().unwrap();
 
@@ -277,16 +277,16 @@ mod member_data_lifecycle_tests {
         assert_eq!(rejoin_data["granted_by"], json!(owner.to_string()), "Should track current granter");
 
         // Test blacklist and unblacklist cycle
-        contract.blacklist_group_member("integrity_test".to_string(), member.clone()).unwrap();
+        contract.execute(blacklist_group_member_request("integrity_test".to_string(), member.clone())).unwrap();
         assert!(contract.is_blacklisted("integrity_test".to_string(), member.clone()), "Should be blacklisted");
         assert!(!contract.is_group_member("integrity_test".to_string(), member.clone()), "Should not be member");
 
-        contract.unblacklist_group_member("integrity_test".to_string(), member.clone()).unwrap();
+        contract.execute(unblacklist_group_member_request("integrity_test".to_string(), member.clone())).unwrap();
         assert!(!contract.is_blacklisted("integrity_test".to_string(), member.clone()), "Should not be blacklisted");
         assert!(!contract.is_group_member("integrity_test".to_string(), member.clone()), "Should not automatically be member");
 
         // Re-add after unblacklist
-       contract.add_group_member("integrity_test".to_string(), member.clone()).unwrap();
+       contract.execute(add_group_member_request("integrity_test".to_string(), member.clone())).unwrap();
         let final_data = contract.get_member_data("integrity_test".to_string(), member.clone()).unwrap();
         
         // Verify clean state after complex lifecycle
@@ -308,12 +308,12 @@ mod member_data_lifecycle_tests {
 
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("permission_persistence_test".to_string(), config).unwrap();
-       contract.add_group_member("permission_persistence_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("permission_persistence_test".to_string(), config)).unwrap();
+       contract.execute(add_group_member_request("permission_persistence_test".to_string(), member.clone())).unwrap();
 
         // Grant additional path-specific permissions
-        contract.set_permission(member.clone(), "groups/permission_persistence_test/posts".to_string(), MODERATE, None).unwrap();
-        contract.set_permission(member.clone(), "groups/permission_persistence_test/admin".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/permission_persistence_test/posts".to_string(), MODERATE, None)).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/permission_persistence_test/admin".to_string(), MANAGE, None)).unwrap();
 
         // Verify initial permissions work
         assert!(contract.has_permission(owner.clone(), member.clone(), "groups/permission_persistence_test/posts".to_string(), MODERATE), 
@@ -322,7 +322,7 @@ mod member_data_lifecycle_tests {
                "Should have MANAGE permission on admin initially");
 
         // Blacklist member (removes membership, permissions become inaccessible)
-        contract.blacklist_group_member("permission_persistence_test".to_string(), member.clone()).unwrap();
+        contract.execute(blacklist_group_member_request("permission_persistence_test".to_string(), member.clone())).unwrap();
         
         // Verify member is removed and permissions are inaccessible
         assert!(!contract.is_group_member("permission_persistence_test".to_string(), member.clone()), 
@@ -333,12 +333,12 @@ mod member_data_lifecycle_tests {
                "Should NOT have MANAGE permission while blacklisted");
 
         // Unblacklist member
-        contract.unblacklist_group_member("permission_persistence_test".to_string(), member.clone()).unwrap();
+        contract.execute(unblacklist_group_member_request("permission_persistence_test".to_string(), member.clone())).unwrap();
         assert!(!contract.is_blacklisted("permission_persistence_test".to_string(), member.clone()), 
                "Should not be blacklisted after unblacklisting");
 
         // Re-add member with different permissions (simulating admin decision)
-       contract.add_group_member("permission_persistence_test".to_string(), member.clone()).unwrap();
+       contract.execute(add_group_member_request("permission_persistence_test".to_string(), member.clone())).unwrap();
         
         // Verify member is back and OLD permissions do NOT resurrect (nonce-scoped)
         assert!(contract.is_group_member("permission_persistence_test".to_string(), member.clone()), 

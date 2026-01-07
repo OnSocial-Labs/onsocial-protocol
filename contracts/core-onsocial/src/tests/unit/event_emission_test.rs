@@ -39,7 +39,7 @@ mod event_emission_tests {
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.create_group("event_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("event_test".to_string(), config)).unwrap();
 
         let logs = get_logs();
         assert!(!logs.is_empty(), "Should emit at least one log");
@@ -60,7 +60,7 @@ mod event_emission_tests {
         let _ = get_logs();
         
         let config = json!({ "is_private": false });
-        contract.create_group("json_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("json_test".to_string(), config)).unwrap();
 
         let logs = get_logs();
         
@@ -93,7 +93,7 @@ mod event_emission_tests {
         let _ = get_logs();
         
         let config = json!({ "is_private": false });
-        contract.create_group("partition_meta_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("partition_meta_test".to_string(), config)).unwrap();
 
         let logs = get_logs();
 
@@ -133,8 +133,8 @@ mod event_emission_tests {
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.create_group("multi_event".to_string(), config).unwrap();
-        contract.add_group_member("multi_event".to_string(), bob.clone()).unwrap();
+        contract.execute(create_group_request("multi_event".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("multi_event".to_string(), bob.clone())).unwrap();
 
         let logs = get_logs();
         let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
@@ -158,7 +158,7 @@ mod event_emission_tests {
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.create_group("author_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("author_test".to_string(), config)).unwrap();
 
         let logs = get_logs();
 
@@ -188,7 +188,7 @@ mod event_emission_tests {
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.create_group("type_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("type_test".to_string(), config)).unwrap();
 
         let logs = get_logs();
         
@@ -219,11 +219,11 @@ mod event_emission_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("member_evt_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("member_evt_test".to_string(), config)).unwrap();
 
         let _ = get_logs();
 
-        contract.add_group_member("member_evt_test".to_string(), bob.clone()).unwrap();
+        contract.execute(add_group_member_request("member_evt_test".to_string(), bob.clone())).unwrap();
 
         let logs = get_logs();
         

@@ -121,15 +121,24 @@ pub fn init_live_contract() -> Contract {
 }
 
 #[cfg(test)]
-pub fn set_request(
-    data: near_sdk::serde_json::Value,
-    options: Option<SetOptions>,
-) -> SetRequest {
-    SetRequest {
+pub fn set_request(data: near_sdk::serde_json::Value) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
         target_account: None,
-        data,
-        options,
+        action: Action::Set { data },
         auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn set_request_with_options(data: near_sdk::serde_json::Value, options: Option<crate::protocol::Options>) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::Set { data },
+        auth: None,
+        options,
     }
 }
 
@@ -137,13 +146,214 @@ pub fn set_request(
 pub fn set_request_for(
     target_account: AccountId,
     data: near_sdk::serde_json::Value,
-    options: Option<SetOptions>,
-) -> SetRequest {
-    SetRequest {
+) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
         target_account: Some(target_account),
-        data,
-        options,
+        action: Action::Set { data },
         auth: None,
+        options: None,
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Execute request builders for all action types
+// ─────────────────────────────────────────────────────────────────────────────
+
+// --- KV Operations ---
+
+#[cfg(test)]
+pub fn create_group_request(group_id: String, config: near_sdk::serde_json::Value) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::CreateGroup { group_id, config },
+        auth: None,
+        options: None,
+    }
+}
+
+// --- Group Lifecycle ---
+
+#[cfg(test)]
+pub fn join_group_request(group_id: String) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::JoinGroup { group_id },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn leave_group_request(group_id: String) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::LeaveGroup { group_id },
+        auth: None,
+        options: None,
+    }
+}
+
+// --- Group Membership Management ---
+
+#[cfg(test)]
+pub fn add_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::AddGroupMember { group_id, member_id },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn remove_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::RemoveGroupMember { group_id, member_id },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn approve_join_request(group_id: String, requester_id: AccountId) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::ApproveJoinRequest { group_id, requester_id },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn reject_join_request(group_id: String, requester_id: AccountId, reason: Option<String>) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::RejectJoinRequest { group_id, requester_id, reason },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn cancel_join_request(group_id: String) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::CancelJoinRequest { group_id },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn blacklist_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::BlacklistGroupMember { group_id, member_id },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn unblacklist_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::UnblacklistGroupMember { group_id, member_id },
+        auth: None,
+        options: None,
+    }
+}
+
+// --- Group Governance ---
+
+#[cfg(test)]
+pub fn transfer_group_ownership_request(group_id: String, new_owner: AccountId, remove_old_owner: Option<bool>) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::TransferGroupOwnership { group_id, new_owner, remove_old_owner },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn set_group_privacy_request(group_id: String, is_private: bool) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::SetGroupPrivacy { group_id, is_private },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn create_proposal_request(group_id: String, proposal_type: String, changes: near_sdk::serde_json::Value, auto_vote: Option<bool>) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::CreateProposal { group_id, proposal_type, changes, auto_vote },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn vote_proposal_request(group_id: String, proposal_id: String, approve: bool) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::VoteOnProposal { group_id, proposal_id, approve },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn cancel_proposal_request(group_id: String, proposal_id: String) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::CancelProposal { group_id, proposal_id },
+        auth: None,
+        options: None,
+    }
+}
+
+// --- Permission Operations ---
+
+#[cfg(test)]
+pub fn set_permission_request(grantee: AccountId, path: String, level: u8, expires_at: Option<near_sdk::json_types::U64>) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::SetPermission { grantee, path, level, expires_at },
+        auth: None,
+        options: None,
+    }
+}
+
+#[cfg(test)]
+pub fn set_key_permission_request(public_key: near_sdk::PublicKey, path: String, level: u8, expires_at: Option<near_sdk::json_types::U64>) -> crate::protocol::Request {
+    use crate::protocol::{Action, Request};
+    Request {
+        target_account: None,
+        action: Action::SetKeyPermission { public_key, path, level, expires_at },
+        auth: None,
+        options: None,
     }
 }
 

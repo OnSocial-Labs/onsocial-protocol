@@ -34,7 +34,7 @@ mod voting_config_tests {
             }
         });
         
-        contract.create_group("strict_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("strict_dao".to_string(), config)).unwrap();
 
         // Verify custom config was stored
         let group_config = contract.get_group_config("strict_dao".to_string()).unwrap();
@@ -63,7 +63,7 @@ mod voting_config_tests {
             "is_private": true,
         });
         
-        contract.create_group("default_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("default_dao".to_string(), config)).unwrap();
 
         // Verify default config was set
         let group_config = contract.get_group_config("default_dao".to_string()).unwrap();
@@ -98,7 +98,7 @@ mod voting_config_tests {
                 "voting_period": "604800000000000"
             }
         });
-        contract.create_group("supermajority".to_string(), config).unwrap();
+        contract.execute(create_group_request("supermajority".to_string(), config)).unwrap();
 
         // Add two more members (total 3: alice, bob, charlie)
         let member_data = json!({"level": MODERATE, "granted_by": alice, "joined_at": 0, "is_creator": false});
@@ -111,7 +111,7 @@ mod voting_config_tests {
         // Alice creates proposal (auto YES vote: 1/3 = 33.33% participation < 50% quorum, doesn't execute yet)
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"update_type": "metadata", "changes": {"description": "Test supermajority"}});
-        let proposal_id = contract.create_group_proposal("supermajority".to_string(), "group_update".to_string(), proposal_data, None).unwrap();
+        let proposal_id = contract.execute(create_proposal_request("supermajority".to_string(), "group_update".to_string(), proposal_data, None)).unwrap().as_str().unwrap().to_string();
 
         // Verify not executed yet (insufficient participation)
         let proposal = contract.platform.storage_get(&format!("groups/supermajority/proposals/{}", proposal_id)).unwrap();
@@ -119,7 +119,7 @@ mod voting_config_tests {
 
         // Bob votes YES - now 2/3 votes cast = 66.67% participation ≥ 50%, 2/2 YES = 100% approval ≥ 66.67%, should execute!
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("supermajority".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("supermajority".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Check if executed
         let proposal = contract.platform.storage_get(&format!("groups/supermajority/proposals/{}", proposal_id)).unwrap();
@@ -141,7 +141,7 @@ mod voting_config_tests {
         // Create member-driven group with default config
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("evolving_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("evolving_dao".to_string(), config)).unwrap();
 
         // Create proposal to change voting config
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -151,12 +151,12 @@ mod voting_config_tests {
             "voting_period": "259200000000000" // 3 days
         });
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "evolving_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_ok(), "Should be able to propose voting config change");
         println!("✅ Voting config change proposal created successfully");
@@ -170,7 +170,7 @@ mod voting_config_tests {
         // Create single-member group (proposals execute immediately with 1 vote)
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("solo_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("solo_dao".to_string(), config)).unwrap();
 
         // Propose and auto-execute config change (alice is only member)
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -180,12 +180,12 @@ mod voting_config_tests {
             "voting_period": "86400000000000" // 1 day
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "solo_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify proposal executed
         let proposal = contract.platform.storage_get(&format!("groups/solo_dao/proposals/{}", proposal_id)).unwrap();
@@ -223,7 +223,7 @@ mod voting_config_tests {
                 "voting_period": "604800000000000"
             }
         });
-        contract.create_group("changing_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("changing_dao".to_string(), config)).unwrap();
 
         // Add bob, charlie, and dave (total 4 members for cleaner math)
         let member_data = json!({"level": MODERATE, "granted_by": alice, "joined_at": 0, "is_creator": false});
@@ -241,12 +241,12 @@ mod voting_config_tests {
             "participation_quorum_bps": 5000,
             "majority_threshold_bps": 7500
         });
-        let config_prop_id = contract.create_group_proposal(
+        let config_prop_id = contract.execute(create_proposal_request(
             "changing_dao".to_string(),
             "voting_config_change".to_string(),
             config_proposal,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice's vote: 1/4 = 25% participation < 51% quorum, should NOT execute yet
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", config_prop_id)).unwrap();
@@ -254,14 +254,14 @@ mod voting_config_tests {
 
         // Bob votes YES - now 2/4 = 50% participation < 51% quorum, should NOT execute yet
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("changing_dao".to_string(), config_prop_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("changing_dao".to_string(), config_prop_id.clone(), true)).unwrap();
 
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", config_prop_id)).unwrap();
         assert_eq!(proposal.get("status").unwrap().as_str().unwrap(), "active");
 
         // Charlie votes YES - now 3/4 = 75% participation ≥ 51%, 3/3 = 100% > 75%, should execute
         testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("changing_dao".to_string(), config_prop_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("changing_dao".to_string(), config_prop_id.clone(), true)).unwrap();
 
         // Verify config change executed
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", config_prop_id)).unwrap();
@@ -272,12 +272,12 @@ mod voting_config_tests {
         context.block_timestamp(TEST_BASE_TIMESTAMP + 3_600_000_000_000); // +1 hour to get different proposal ID
         testing_env!(context.build());
         let test_proposal = json!({"update_type": "metadata", "changes": {"description": "Testing new config"}});
-        let test_prop_id = contract.create_group_proposal(
+        let test_prop_id = contract.execute(create_proposal_request(
             "changing_dao".to_string(),
             "group_update".to_string(),
             test_proposal,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify IDs are different
         assert_ne!(config_prop_id, test_prop_id, "Proposal IDs should be different");
@@ -288,7 +288,7 @@ mod voting_config_tests {
 
         // Bob votes YES - now 2/4 = 50% participation = 50% quorum, 2/2 = 100% ≥ 75%, should execute
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("changing_dao".to_string(), test_prop_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("changing_dao".to_string(), test_prop_id.clone(), true)).unwrap();
 
         let proposal = contract.platform.storage_get(&format!("groups/changing_dao/proposals/{}", test_prop_id)).unwrap();
         assert_eq!(proposal.get("status").unwrap().as_str().unwrap(), "executed");
@@ -304,7 +304,7 @@ mod voting_config_tests {
         // Create group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("partial_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("partial_dao".to_string(), config)).unwrap();
 
         // Update only voting period (keep other params unchanged)
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -312,12 +312,12 @@ mod voting_config_tests {
             "voting_period": "172800000000000" // 2 days, don't change quorum/threshold
         });
 
-        contract.create_group_proposal(
+        contract.execute(create_proposal_request(
             "partial_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap();
 
         // Verify config - period changed, others remain default
         let group_config = contract.get_group_config("partial_dao".to_string()).unwrap();
@@ -345,30 +345,30 @@ mod voting_config_tests {
 
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("invalid_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("invalid_dao".to_string(), config)).unwrap();
 
         // Try to set quorum > 100%
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"participation_quorum_bps": 15000});
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "invalid_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("between 0 and 10000"));
 
         // Try to set quorum to an invalid type/value
         let proposal_data = json!({"participation_quorum_bps": "-1"});
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "invalid_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid participation_quorum_bps"));
@@ -383,18 +383,18 @@ mod voting_config_tests {
 
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("invalid_dao2".to_string(), config).unwrap();
+        contract.execute(create_group_request("invalid_dao2".to_string(), config)).unwrap();
 
         // Try to set threshold > 100%
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"majority_threshold_bps": 20000});
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "invalid_dao2".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("between 0 and 10000"));
@@ -409,30 +409,30 @@ mod voting_config_tests {
 
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("invalid_dao3".to_string(), config).unwrap();
+        contract.execute(create_group_request("invalid_dao3".to_string(), config)).unwrap();
 
         // Try to set period too short (< 1 hour)
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"voting_period": "1000000000"}); // 1 second
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "invalid_dao3".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("between 1 hour and 365 days"));
 
         // Try to set period too long (> 365 days)
         let proposal_data = json!({"voting_period": 400 * 24 * 60 * 60 * 1_000_000_000u64}); // 400 days
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "invalid_dao3".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("between 1 hour and 365 days"));
@@ -447,18 +447,18 @@ mod voting_config_tests {
 
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("empty_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("empty_dao".to_string(), config)).unwrap();
 
         // Try to change config without specifying any parameters
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({});
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "empty_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("At least one voting config parameter"));
@@ -487,7 +487,7 @@ mod voting_config_tests {
             }
         });
         
-        contract.create_group("permissive_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("permissive_dao".to_string(), config)).unwrap();
 
         // Verify it was accepted
         let group_config = contract.get_group_config("permissive_dao".to_string()).unwrap();
@@ -504,7 +504,7 @@ mod voting_config_tests {
             }
         });
         
-        contract.create_group("strict_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("strict_dao".to_string(), config)).unwrap();
 
         // Verify it was accepted
         let group_config = contract.get_group_config("strict_dao".to_string()).unwrap();
@@ -521,20 +521,20 @@ mod voting_config_tests {
         // Create group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("evolving".to_string(), config).unwrap();
+        contract.execute(create_group_request("evolving".to_string(), config)).unwrap();
 
         // First config change
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal1 = json!({"majority_threshold_bps": 6000});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal1, None).unwrap();
+        contract.execute(create_proposal_request("evolving".to_string(), "voting_config_change".to_string(), proposal1, None)).unwrap();
 
         // Second config change
         let proposal2 = json!({"participation_quorum_bps": 3000});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal2, None).unwrap();
+        contract.execute(create_proposal_request("evolving".to_string(), "voting_config_change".to_string(), proposal2, None)).unwrap();
 
         // Third config change
         let proposal3 = json!({"voting_period": "259200000000000"});
-        contract.create_group_proposal("evolving".to_string(), "voting_config_change".to_string(), proposal3, None).unwrap();
+        contract.execute(create_proposal_request("evolving".to_string(), "voting_config_change".to_string(), proposal3, None)).unwrap();
 
         // Verify all changes were applied
         let group_config = contract.get_group_config("evolving".to_string()).unwrap();
@@ -559,18 +559,18 @@ mod voting_config_tests {
         // Create traditional (non-member-driven) group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("traditional".to_string(), config).unwrap();
+        contract.execute(create_group_request("traditional".to_string(), config)).unwrap();
 
         // Try to create voting config change proposal (should fail - not member-driven)
         testing_env!(get_context_for_proposal(alice.clone()).build());
         let proposal_data = json!({"majority_threshold_bps": 6000});
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "traditional".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        );
+        ));
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not member-driven"));
@@ -596,7 +596,7 @@ mod voting_config_tests {
                 "voting_period": "604800000000000" // 7 days
             }
         });
-        contract.create_group("vote_test_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("vote_test_dao".to_string(), config)).unwrap();
 
         // Add bob and charlie as members (total 3)
         let member_data = json!({"level": MODERATE, "granted_by": alice, "joined_at": 0, "is_creator": false});
@@ -612,12 +612,12 @@ mod voting_config_tests {
             "majority_threshold_bps": 7500,
             "voting_period": "1209600000000000" // Increase to 14 days
         });
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "vote_test_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify proposal is active (not executed yet)
         let proposal = contract.platform.storage_get(&format!("groups/vote_test_dao/proposals/{}", proposal_id)).unwrap();
@@ -636,7 +636,7 @@ mod voting_config_tests {
 
         // Bob votes YES (2/3 = 66.67% ≥ 51%, 2/2 = 100% > 50.01%, should execute!)
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("vote_test_dao".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("vote_test_dao".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify proposal executed
         let proposal = contract.platform.storage_get(&format!("groups/vote_test_dao/proposals/{}", proposal_id)).unwrap();
@@ -664,7 +664,7 @@ mod voting_config_tests {
         // Create group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("metadata_dao".to_string(), config).unwrap();
+        contract.execute(create_group_request("metadata_dao".to_string(), config)).unwrap();
 
         // Verify no metadata before any changes
         let group_config = contract.get_group_config("metadata_dao".to_string()).unwrap();
@@ -679,12 +679,12 @@ mod voting_config_tests {
         testing_env!(context.build());
         
         let proposal_data = json!({"participation_quorum_bps": 4000});
-        contract.create_group_proposal(
+        contract.execute(create_proposal_request(
             "metadata_dao".to_string(),
             "voting_config_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap();
 
         // Verify metadata was set
         let group_config = contract.get_group_config("metadata_dao".to_string()).unwrap();

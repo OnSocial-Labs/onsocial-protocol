@@ -37,9 +37,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Alice writes her own data through the contract
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/bio": "Updated via contract"
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ SIGNER (alice) should be able to write own paths through contract"
@@ -58,12 +58,12 @@ mod signer_validation_core_tests {
         // Step 1: Alice grants permission to contract (hypothetically, for testing concept)
         let context = get_context_with_deposit(alice.clone(), calculate_test_deposit_for_operations(1, 100));
         testing_env!(context.build());
-        let _ = contract.set_permission(
+        let _ = contract.execute(set_permission_request(
             malicious_contract.clone(),
             format!("{}/apps/delegated/", alice),
             WRITE,
             None,
-        );
+        ));
         // Step 2-3: Bob signs, calls malicious_contract, which tries to write to alice's path
         let context = VMContextBuilder::new()
             .signer_account_id(bob.clone())                    // Bob is the signer
@@ -74,9 +74,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Try to write to alice's account (must be explicit via target_account)
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "apps/delegated/data": "Hacked by Bob via contract!"
-            }), None));
+            })));
         assert!(
             result.is_err(),
             "❌ SECURITY: Contract should NOT be able to use alice's permissions when bob is signer"
@@ -98,22 +98,21 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(owner.clone(), calculate_test_deposit_for_operations(1, 1000));
         testing_env!(context.build());
         
-        let result = contract.create_group(
+        let result = contract.execute(create_group_request(
             "project_2026".to_string(),
             json!({"name": "Project 2026", "description": "Our project"}),
-        );
+        ));
         assert!(result.is_ok(), "Group should be created");
         // Non-member tries to write to group path
         let context = get_context_with_deposit(non_member.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "groups/project_2026/posts/1": {
                     "text": "Unauthorized post",
                     "author": non_member.to_string()
                 }
             }),
-            None,
         ));
         assert!(
             result.is_err(),
@@ -135,11 +134,10 @@ mod signer_validation_core_tests {
         // Test: User cannot write to group paths without proper setup
         let context = get_context_with_deposit(bob.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "groups/test_group/posts/1": {"text": "Unauthorized"}
             }),
-            None,
         ));
         assert!(
             result.is_err(), 
@@ -163,10 +161,10 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(owner.clone(), calculate_test_deposit_for_operations(1, 2000));
         testing_env!(context.build());
         
-        contract.create_group(
+        contract.execute(create_group_request(
             "project_2026".to_string(),
             json!({"name": "Project 2026"}),
-        ).unwrap();
+        )).unwrap();
         test_add_member_bypass_proposals(
             &mut contract,
             "project_2026",
@@ -175,23 +173,22 @@ mod signer_validation_core_tests {
             &owner,
         );
         // Step 2: Grant member WRITE permission ONLY to content/ path
-        contract.set_permission(
+        contract.execute(set_permission_request(
             member.clone(),
             "groups/project_2026/content/".to_string(),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Step 3: Member CAN write to content/ path (has permission)
         let context = get_context_with_deposit(member.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let content_result = contract.set(set_request(
+        let content_result = contract.execute(set_request(
             json!({
                 "groups/project_2026/content/post1": {
                     "title": "My Post",
                     "author": member.to_string()
                 }
             }),
-            None,
         ));
         assert!(
             content_result.is_ok(),
@@ -201,14 +198,13 @@ mod signer_validation_core_tests {
         // Step 4: Member CANNOT write to events/ path (different path, no permission)
         let context = get_context_with_deposit(member.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let events_result = contract.set(set_request(
+        let events_result = contract.execute(set_request(
             json!({
                 "groups/project_2026/events/event1": {
                     "title": "Unauthorized Event",
                     "organizer": member.to_string()
                 }
             }),
-            None,
         ));
         assert!(
             events_result.is_err(),
@@ -221,13 +217,12 @@ mod signer_validation_core_tests {
         // Step 5: Member CANNOT write to admin/ path either
         let context = get_context_with_deposit(member.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let admin_result = contract.set(set_request(
+        let admin_result = contract.execute(set_request(
             json!({
                 "groups/project_2026/admin/config": {
                     "setting": "malicious"
                 }
             }),
-            None,
         ));
         assert!(
             admin_result.is_err(),
@@ -249,10 +244,10 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(owner.clone(), calculate_test_deposit_for_operations(1, 2000));
         testing_env!(context.build());
         
-        contract.create_group(
+        contract.execute(create_group_request(
             "dev_team".to_string(),
             json!({"name": "Development Team"}),
-        ).unwrap();
+        )).unwrap();
         // Add member with WRITE permission for posts path
         test_add_member_bypass_proposals(
             &mut contract,
@@ -262,23 +257,22 @@ mod signer_validation_core_tests {
             &owner,
         );
         // Grant explicit path permission for posts
-        contract.set_permission(
+        contract.execute(set_permission_request(
             member.clone(),
             "groups/dev_team/posts/".to_string(),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Step 2: Member writes to group path (has permission)
         let context = get_context_with_deposit(member.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "groups/dev_team/posts/1": {
                     "title": "Sprint Update",
                     "author": member.to_string()
                 }
             }),
-            None,
         ));
         assert!(
             result.is_ok(),
@@ -310,29 +304,28 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         
-        contract.create_group(
+        contract.execute(create_group_request(
             "standard_group".to_string(),
             json!({"name": "Standard Group"}),
-        ).unwrap();
+        )).unwrap();
         test_add_member_bypass_proposals(&mut contract, "standard_group", &alice, WRITE, &owner);
         // Grant path permission
-        contract.set_permission(
+        contract.execute(set_permission_request(
             alice.clone(),
             "groups/standard_group/posts/".to_string(),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Alice writes using set() - this is the standard pattern
         let context = get_context_with_deposit(alice.clone(), calculate_test_deposit_for_operations(1, 500));
         testing_env!(context.build());
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "groups/standard_group/posts/1": {
                     "title": "Standard group post via set()",
                     "author": alice.to_string()
                 }
             }),
-            None,
         ));
         assert!(
             result.is_ok(),
@@ -352,18 +345,18 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         
-        contract.create_group(
+        contract.execute(create_group_request(
             "blog_group".to_string(),
             json!({"name": "Blog Group"}),
-        ).unwrap();
+        )).unwrap();
         test_add_member_bypass_proposals(&mut contract, "blog_group", &member, WRITE, &owner);
         // Grant path permission for posts
-        contract.set_permission(
+        contract.execute(set_permission_request(
             member.clone(),
             "groups/blog_group/posts/".to_string(),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Step 2: Member calls publishing contract → contract writes to group
         let context = VMContextBuilder::new()
             .signer_account_id(member.clone())  // Member signed the transaction
@@ -373,14 +366,13 @@ mod signer_validation_core_tests {
             .is_view(false)
             .build();
         testing_env!(context);
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "groups/blog_group/posts/article1": {
                     "title": "Published via contract",
                     "author": member.to_string()
                 }
             }),
-            None,
         ));
         assert!(
             result.is_ok(),
@@ -408,9 +400,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Alice writes through contract chain
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/bio": "Written through contract chain"
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ Contract chain should work - uses original signer (alice) for permissions"
@@ -427,9 +419,9 @@ mod signer_validation_core_tests {
         // Alice tries to write to Bob's account (without permission)
         let context = get_context_with_deposit(alice.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request_for(bob.clone(), json!({
+        let result = contract.execute(set_request_for(bob.clone(), json!({
                 "profile/bio": "Hacking Bob's profile"
-            }), None));
+            })));
         assert!(
             result.is_err(),
             "❌ User should NOT be able to write to other user's paths without permission"
@@ -454,27 +446,26 @@ mod signer_validation_core_tests {
         testing_env!(context.build());
 
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({"storage/deposit": {"amount": deposit.to_string()}}),
-                None,
             ))
             .expect("Storage deposit should succeed");
 
-        let result = contract.set_permission(
+        let result = contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/profile/", alice),
             WRITE,
             None,
-        );
+        ));
         assert!(result.is_ok(), "Permission grant should succeed");
 
         // Step 2: Bob tries to "fake" an alice write by prefixing the key.
         // This must not modify alice's state.
         let context = get_context_with_deposit(bob.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "alice.near/profile/bio": "This should stay under bob's namespace"
-            }), None));
+            })));
         assert!(result.is_ok(), "Prefixed key write should be a self-namespace write");
 
         let alice_bio = contract.get_one("profile/bio".to_string(), Some(alice.clone()));
@@ -486,9 +477,9 @@ mod signer_validation_core_tests {
         // Step 3: Bob writes to alice explicitly via target_account (delegated write) — should succeed with permission.
         let context = get_context_with_deposit(bob.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "profile/bio": "Bob writing via set_for() with permission"
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ With permission, Bob CAN use set_for() to write to alice's account: {:?}",
@@ -510,17 +501,16 @@ mod signer_validation_core_tests {
         
         // Deposit storage for Alice to cover operations
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
                 }),
-                None,
             ))
             .expect("Storage deposit should succeed");
         
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/name": "Alice"
-            }), None));
+            })));
         assert!(result.is_ok(), "✅ User should write own paths");
         // ✅ TEST 2: Alice can write through contract (signer = alice)
         let context = VMContextBuilder::new()
@@ -532,9 +522,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/bio": "Via contract"
-            }), None));
+            })));
         assert!(result.is_ok(), "✅ User through contract should work");
         // ❌ TEST 3: Bob CANNOT write alice's data through contract (signer = bob)
         let context = VMContextBuilder::new()
@@ -546,9 +536,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "profile/bio": "Attack!"
-            }), None));
+            })));
         assert!(result.is_err(), "❌ Other user should NOT bypass signer check");
         println!("\n✅ ✅ ✅ SIGNER SECURITY MODEL VALIDATED ✅ ✅ ✅");
         println!("   - Direct user writes: ✓");
@@ -569,30 +559,29 @@ mod signer_validation_core_tests {
         testing_env!(context.build());
         // Explicitly allocate storage for alice
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
                 }),
-                None,
             ))
             .unwrap();
         // Grant permission on the system/ directory (with trailing slash for hierarchical permission)
-        let result = contract.set_permission(
+        let result = contract.execute(set_permission_request(
             verification_service.clone(),
             format!("{}/system/", alice),
             WRITE,
             None,
-        );
+        ));
         assert!(result.is_ok(), "Permission grant should succeed");
         // Step 2: Verification service writes to Alice's path using set_for()
         let context = get_context_with_deposit(verification_service.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "system/verified": true,
                 "system/verification_date": 1234567890u64
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ Service WITH permission should be able to write to user's account via set_for()"
@@ -606,9 +595,9 @@ mod signer_validation_core_tests {
         // Malicious service tries to write to Alice's path WITHOUT permission
         let context = get_context_with_deposit(malicious_service.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "system/hacked": true
-            }), None));
+            })));
         assert!(
             result.is_err(),
             "❌ Service WITHOUT permission should NOT be able to write via set_for()"
@@ -629,29 +618,28 @@ mod signer_validation_core_tests {
         testing_env!(context.build());
 
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({"storage/deposit": {"amount": deposit.to_string()}}),
-                None,
             ))
             .expect("Storage deposit should succeed");
 
-        contract.set_permission(
+        contract.execute(set_permission_request(
             service.clone(),
             format!("{}/system/badges/", alice),  // Only badges subdirectory
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Service tries to write to ALLOWED path
         let context = get_context_with_deposit(service.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "system/badges/contributor": true
-            }), None));
+            })));
         assert!(result.is_ok(), "✅ Write to allowed path should succeed");
         // Service tries to write to DIFFERENT path (not granted)
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "profile/bio": "Hacked by service"  // Different path!
-            }), None));
+            })));
         assert!(
             result.is_err(),
             "❌ Write to non-granted path should fail"
@@ -673,18 +661,17 @@ mod signer_validation_core_tests {
         testing_env!(context.build());
 
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({"storage/deposit": {"amount": deposit.to_string()}}),
-                None,
             ))
             .expect("Storage deposit should succeed");
 
-        contract.set_permission(
+        contract.execute(set_permission_request(
             service.clone(),
             format!("{}/system/verified", alice),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // ATTACK: Bob signs → malicious_contract calls → set_for(alice)
         // Should fail because signer = bob, not service
         let bob = test_account(2);
@@ -696,9 +683,9 @@ mod signer_validation_core_tests {
             .is_view(false)
             .build();
         testing_env!(context);
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "system/verified": true
-            }), None));
+            })));
         assert!(
             result.is_err(),
             "❌ set_for() should use SIGNER (bob), not predecessor (contract), for permission check"
@@ -720,21 +707,20 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": NearToken::from_near(3).as_yoctonear().to_string()
                     }
                 }),
-                None,
             ))
             .unwrap();
-        contract.set_permission(
+        contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/staking/", alice),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Step 2: Bob calls staking contract (bob signs → staking_contract is predecessor)
         let context = VMContextBuilder::new()
             .signer_account_id(bob.clone())  // Bob signed the transaction
@@ -745,10 +731,10 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Step 3: Staking contract calls set_for() to write to Alice's account
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "staking/tier": "gold",
                 "staking/delegated_by": bob.to_string()
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ Bob (with permission) can delegate through external contract to write to alice: {:?}",
@@ -775,10 +761,10 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Staking contract writes to alice's path using set() - NO PERMISSION NEEDED
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "staking/tier": "gold",
                 "staking/amount": "1000000000000000000000000"  // 1 NEAR
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ External contract can write via set() without permission (signer=alice): {:?}",
@@ -797,21 +783,20 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": NearToken::from_near(2).as_yoctonear().to_string()
                     }
                 }),
-                None,
             ))
             .unwrap();
-        contract.set_permission(
+        contract.execute(set_permission_request(
             staking_contract.clone(),
             format!("{}/staking/", alice),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Step 2: Alice initiates staking
         let context = VMContextBuilder::new()
             .signer_account_id(alice.clone())
@@ -822,9 +807,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Staking contract uses set_for() - permission IS checked
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "staking/tier": "platinum"
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ set_for() works WITH permission: {:?}",
@@ -854,9 +839,9 @@ mod signer_validation_core_tests {
             .build();
         testing_env!(context);
         // Malicious contract tries to write to BOB's account using alice's signature
-        let result = contract.set(set_request_for(bob.clone(), json!({
+        let result = contract.execute(set_request_for(bob.clone(), json!({
                 "profile/hacked": true
-            }), None));
+            })));
         assert!(
             result.is_err(),
             "❌ Contract cannot use alice's signature to write to bob's account"
@@ -878,25 +863,24 @@ mod signer_validation_core_tests {
         testing_env!(context.build());
 
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({"storage/deposit": {"amount": deposit.to_string()}}),
-                None,
             ))
             .expect("Storage deposit should succeed");
 
-        contract.set_permission(
+        contract.execute(set_permission_request(
             service.clone(),
             format!("{}/system/badges/", alice),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // TEST 1: Service uses set() with an account-prefixed key.
         // Under SetRequest semantics this remains a write to the service's own namespace.
         let context = get_context_with_deposit(service.clone(), calculate_test_deposit_for_operations(1, 200));
         testing_env!(context.build());
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "alice.near/system/badges/verified": true  // Absolute path with account
-            }), None));
+            })));
         assert!(result.is_ok(), "set() with account-prefixed key should be a self-namespace write");
 
         // Ensure Alice was NOT modified.
@@ -911,9 +895,9 @@ mod signer_validation_core_tests {
         assert_eq!(service_badge.value, Some(json!(true)));
 
         // TEST 2: Service uses set_for() with relative path (should SUCCEED - has permission)
-        let result = contract.set(set_request_for(alice.clone(), json!({
+        let result = contract.execute(set_request_for(alice.clone(), json!({
                 "system/badges/verified": true  // Relative path
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ set_for() with relative path should work (has permission)"
@@ -935,26 +919,25 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
                 }),
-                None,
             ))
             .unwrap();
         // Grant service permission to write to owner's data directory
-        contract.set_permission(
+        contract.execute(set_permission_request(
             service.clone(),
             format!("{}/data/", owner),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         // Service writes to owner's account using set_for() - demonstrating delegation
         let context = get_context_with_deposit(service.clone(), calculate_test_deposit_for_operations(1, 300));
         testing_env!(context.build());
-        let result = contract.set(set_request_for(
+        let result = contract.execute(set_request_for(
             owner.clone(),
             json!({
                 "data/service_update": {
@@ -962,7 +945,6 @@ mod signer_validation_core_tests {
                     "timestamp": 1234567890u64
                 }
             }),
-            None,
         ));
         assert!(
             result.is_ok(),
@@ -980,10 +962,10 @@ mod signer_validation_core_tests {
         // Alice writes data with attached deposit (no pre-deposit)
         let context = get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear());
         testing_env!(context.build());
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/bio": "Test bio",
                 "profile/name": "Alice"
-            }), None));
+            })));
         assert!(
             result.is_ok(),
             "✅ Writing with attached deposit should automatically allocate storage"
@@ -995,7 +977,8 @@ mod signer_validation_core_tests {
     }
     #[test]
     fn test_set_for_storage_goes_to_target_not_signer() {
-        // Test that in set_for(), storage balance goes to target_account, not signer
+        // Test that in set_for(), storage for the write is charged to target_account
+        // but unused attached deposit goes to the payer
         let mut contract = init_live_contract();
         let alice = test_account(0);
         let service = test_account(1);
@@ -1006,52 +989,46 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         
-        // Use refund_unused_deposit: true for explicit deposit operations
-        let options = Some(crate::SetOptions { refund_unused_deposit: true });
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 }),
-                options,
             ))
             .unwrap();
-        contract.set_permission(
+        contract.execute(set_permission_request(
             service.clone(),
             format!("{}/data/", alice),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         let alice_storage_before = contract.get_storage_balance(alice.clone()).unwrap().balance;
         // Service writes to alice WITH attached deposit
         let attached = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(service.clone(), attached);
         testing_env!(context.build());
-        // Use refund_unused_deposit: true so unused deposit is refunded to service's wallet, not added to service's storage
-        let options = Some(crate::SetOptions { refund_unused_deposit: true });
-        let result = contract.set(set_request_for(
+        let result = contract.execute(set_request_for(
             alice.clone(),
             json!({
                 "data/update": "Test data"
             }),
-            options,
         ));
         assert!(result.is_ok(), "set_for with attached deposit should succeed");
-        // Current behavior: Alice already has balance (1 NEAR), so attached deposit doesn't auto-add
-        // The attached deposit is only used for operations, not auto-deposited to balance
+        // Alice's storage is used for the write operation (charged to target_account)
         let alice_storage_after = contract.get_storage_balance(alice.clone()).unwrap().balance;
-        // Balance stays the same or increases only if storage operation needed it
+        // Alice's pre-deposited balance may decrease slightly for the write
         assert!(
-            alice_storage_after >= alice_storage_before,
-            "✅ Alice's storage should remain or increase"
+            alice_storage_after <= alice_storage_before,
+            "✅ Alice's pre-deposited balance is used for storage"
         );
-        // Verify: Service's storage unchanged (storage went to alice)
+        // With unified execute() API: unused attached deposit goes to payer (service) as storage credit
+        // because default is refund_unused_deposit: false
         let service_storage_after = contract.get_storage_balance(service.clone());
         assert!(
-            service_storage_after.is_none() || service_storage_after.unwrap().balance == 0,
-            "✅ Service's storage should remain 0 (storage went to target_account)"
+            service_storage_after.is_some() && service_storage_after.unwrap().balance > 0,
+            "✅ Unused attached deposit credited to service (payer)"
         );
     }
     #[test]
@@ -1063,16 +1040,13 @@ mod signer_validation_core_tests {
         let predeposit = NearToken::from_near(1).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), predeposit);
         testing_env!(context.build());
-        // Use refund_unused_deposit: true for explicit deposit
-        let options = Some(crate::SetOptions { refund_unused_deposit: true });
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": predeposit.to_string()
                     }
                 }),
-                options,
             ))
             .unwrap();
         let storage_after_deposit = contract.get_storage_balance(alice.clone()).unwrap();
@@ -1082,25 +1056,28 @@ mod signer_validation_core_tests {
         let additional = NearToken::from_millinear(500).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), additional);
         testing_env!(context.build());
-        // Use refund_unused_deposit: true to test the old behavior where attached deposit is refunded
-        let options = Some(crate::SetOptions { refund_unused_deposit: true });
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "profile/bio": "Test bio that uses storage"
                 }),
-                options,
             ))
             .unwrap();
-        // Step 3: Current behavior - attached deposit is NOT auto-added when user already has balance
-        // Instead, the pre-deposited balance is used for the operation
+        // Step 3: With unified execute() API:
+        // - Pre-deposited balance is used for storage consumption (this is correct)
+        // - Unused attached deposit is credited to storage (default refund_unused_deposit: false)
+        // So final balance = initial_balance - write_cost + additional
         let storage_final = contract.get_storage_balance(alice.clone()).unwrap();
         
-        // Storage should be <= initial_balance (some was consumed for the write operation)
-        // The attached deposit gets refunded since user already has coverage
+        // Storage should be >= initial_balance (because additional was credited)
+        // and <= initial_balance + additional (because some storage may be consumed for write)
         assert!(
-            storage_final.balance <= initial_balance,
-            "✅ Contract uses pre-deposited balance (attached deposit refunded when user has coverage)"
+            storage_final.balance >= initial_balance,
+            "✅ Unused attached deposit credited to storage"
+        );
+        assert!(
+            storage_final.balance <= initial_balance + additional,
+            "✅ Storage balance is within expected range"
         );
     }
     #[test]
@@ -1115,37 +1092,36 @@ mod signer_validation_core_tests {
         let context = get_context_with_deposit(alice.clone(), deposit1);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/data1": "test"
-                }), None))
+                })))
             .unwrap();
         let alice_storage = contract.get_storage_balance(alice.clone()).unwrap();
         // Scenario 2: Bob grants permission to service, service uses set_for() with attached deposit
         let context = get_context_with_deposit(bob.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
                 }),
-                None,
             ))
             .unwrap();
-        contract.set_permission(
+        contract.execute(set_permission_request(
             service.clone(),
             format!("{}/profile/", bob),
             WRITE,
             None,
-        ).unwrap();
+        )).unwrap();
         let deposit2 = NearToken::from_near(1).as_yoctonear();
         let context = get_context_with_deposit(service.clone(), deposit2);
         testing_env!(context.build());
         contract
-            .set(set_request_for(bob.clone(), json!({
+            .execute(set_request_for(bob.clone(), json!({
                     "profile/data1": "test"
-                }), None))
+                })))
             .unwrap();
         let bob_storage = contract.get_storage_balance(bob.clone()).unwrap();
         // Both should have similar storage patterns (deposit was added, then used)

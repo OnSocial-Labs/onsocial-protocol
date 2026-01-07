@@ -100,15 +100,14 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
     // Pre-deposit storage so the permission write is paid from user balance,
     // not from the attached deposit of the permission call.
     alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": { "amount": ONE_NEAR.as_yoctonear().to_string() }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -121,12 +120,11 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
     // First grant: creates the permission entry (may consume some storage balance).
     let owner_path = format!("{}/profile/", alice.id());
     alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": owner_path,
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": owner_path, "level": 1, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(140))
         .transact()
@@ -151,12 +149,11 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
     // Repeat the exact same grant, but attach a deposit. This should not increase
     // storage usage, so the attached deposit should be fully unused and saved.
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": format!("{}/profile/", alice.id()),
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/profile/", alice.id()), "level": 1, "expires_at": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(Gas::from_tgas(140))
@@ -237,11 +234,11 @@ async fn test_set_blocked_in_readonly_mode() -> Result<()> {
 
     // Attempt to call set - should fail with ContractReadOnly
     let set_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "profile/name": "Alice" },
+                "action": { "type": "set", "data": { "profile/name": "Alice"  } },
                 "options": null,
                 "auth": null
             }
@@ -292,11 +289,11 @@ async fn test_set_blocked_in_genesis_mode() -> Result<()> {
 
     // Attempt to call set - should fail
     let set_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "profile/name": "Alice" },
+                "action": { "type": "set", "data": { "profile/name": "Alice"  } },
                 "options": null,
                 "auth": null
             }
@@ -402,11 +399,11 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
 
     // Step 1: Confirm set works in Live mode
     let initial_set = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "profile/name": "Alice" },
+                "action": { "type": "set", "data": { "profile/name": "Alice"  } },
                 "options": null,
                 "auth": null
             }
@@ -428,11 +425,11 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
 
     // Step 3: Confirm set fails in ReadOnly
     let blocked_set = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "profile/bio": "Should fail" },
+                "action": { "type": "set", "data": { "profile/bio": "Should fail"  } },
                 "options": null,
                 "auth": null
             }
@@ -454,11 +451,11 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
 
     // Step 5: Confirm set works again
     let recovered_set = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "profile/bio": "Now it works" },
+                "action": { "type": "set", "data": { "profile/bio": "Now it works"  } },
                 "options": null,
                 "auth": null
             }

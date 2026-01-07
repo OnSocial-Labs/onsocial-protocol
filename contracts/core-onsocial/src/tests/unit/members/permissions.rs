@@ -23,13 +23,13 @@ mod permission_tests {
             "member_driven": false,
             "is_private": true,
         });
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add members to the group first with NO permissions (required for path-specific isolation test)
         // Using 0 level ensures members have no group-root permissions,
         // allowing us to test path-specific grants in isolation
-        contract.add_group_member("testgroup".to_string(), member1.clone()).unwrap();
-        contract.add_group_member("testgroup".to_string(), member2.clone()).unwrap();
+        contract.execute(add_group_member_request("testgroup".to_string(), member1.clone())).unwrap();
+        contract.execute(add_group_member_request("testgroup".to_string(), member2.clone())).unwrap();
 
         // Define different paths within the group
         let events_path = "groups/testgroup/events".to_string();
@@ -37,21 +37,21 @@ mod permission_tests {
         let admin_path = "groups/testgroup/admin".to_string();
 
         // Grant member1 WRITE permission only to events path
-        let grant_result1 = contract.set_permission(
+        let grant_result1 = contract.execute(set_permission_request(
             member1.clone(),
             events_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(grant_result1.is_ok(), "Owner should be able to grant permissions to events path");
 
         // Grant member2 WRITE permission only to posts path
-        let grant_result2 = contract.set_permission(
+        let grant_result2 = contract.execute(set_permission_request(
             member2.clone(),
             posts_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(grant_result2.is_ok(), "Owner should be able to grant permissions to posts path");
 
         // Test path isolation: member1 should have access to events but NOT posts
@@ -152,15 +152,13 @@ mod permission_tests {
         // Member1 writes to events path (should succeed)
         near_sdk::testing_env!(get_context_with_deposit(member1.clone(), 1_000_000_000_000_000_000_000_000).build());
         
-        let member1_write = contract.set(set_request(
+        let member1_write = contract.execute(set_request(
             json!({
                 "groups/testgroup/events/event1": {
                     "title": "Member1's Event",
                     "organizer": member1.to_string()
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             member1_write.is_ok(),
@@ -169,14 +167,12 @@ mod permission_tests {
         );
 
         // Member1 tries to write to posts path (should fail)
-        let member1_unauthorized = contract.set(set_request(
+        let member1_unauthorized = contract.execute(set_request(
             json!({
                 "groups/testgroup/posts/post1": {
                     "title": "Unauthorized Post"
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             member1_unauthorized.is_err(),
@@ -186,15 +182,13 @@ mod permission_tests {
         // Member2 writes to posts path (should succeed)
         near_sdk::testing_env!(get_context_with_deposit(member2.clone(), 1_000_000_000_000_000_000_000_000).build());
         
-        let member2_write = contract.set(set_request(
+        let member2_write = contract.execute(set_request(
             json!({
                 "groups/testgroup/posts/post1": {
                     "title": "Member2's Post",
                     "author": member2.to_string()
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             member2_write.is_ok(),
@@ -203,14 +197,12 @@ mod permission_tests {
         );
 
         // Member2 tries to write to events path (should fail)
-        let member2_unauthorized = contract.set(set_request(
+        let member2_unauthorized = contract.execute(set_request(
             json!({
                 "groups/testgroup/events/event2": {
                     "title": "Unauthorized Event"
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             member2_unauthorized.is_err(),
@@ -234,19 +226,17 @@ mod permission_tests {
             "member_driven": false,
             "is_private": true,
         });
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add manager (clean-add) then grant MANAGE on config path.
-        contract
-            .add_group_member("testgroup".to_string(), manager.clone())
+        contract.execute(add_group_member_request("testgroup".to_string(), manager.clone()))
             .unwrap();
-        contract
-            .set_permission(manager.clone(), "groups/testgroup/config".to_string(), MANAGE, None)
+        contract.execute(set_permission_request(manager.clone(), "groups/testgroup/config".to_string(), MANAGE, None))
             .unwrap();
 
         // Owner adds basic members with NO group-root permissions (for path-specific isolation testing)
-        contract.add_group_member("testgroup".to_string(), member1.clone()).unwrap();
-        contract.add_group_member("testgroup".to_string(), member2.clone()).unwrap();
+        contract.execute(add_group_member_request("testgroup".to_string(), member1.clone())).unwrap();
+        contract.execute(add_group_member_request("testgroup".to_string(), member2.clone())).unwrap();
 
         // Define specific paths within the group
         let events_path = "groups/testgroup/events".to_string();
@@ -272,21 +262,21 @@ mod permission_tests {
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
         
         // Owner grants manager MANAGE permission on events path
-        let owner_grant_events = contract.set_permission(
+        let owner_grant_events = contract.execute(set_permission_request(
             manager.clone(),
             events_path.clone(),
             MANAGE,
             None,
-        );
+        ));
         assert!(owner_grant_events.is_ok(), "Owner should be able to grant MANAGE to events path: {:?}", owner_grant_events);
         
         // Owner grants manager MANAGE permission on moderation path too
-        let owner_grant_moderation = contract.set_permission(
+        let owner_grant_moderation = contract.execute(set_permission_request(
             manager.clone(),
             moderation_path.clone(),
             MANAGE,
             None,
-        );
+        ));
         assert!(owner_grant_moderation.is_ok(), "Owner should be able to grant MANAGE to moderation path: {:?}", owner_grant_moderation);
 
         // Switch back to manager context
@@ -294,56 +284,56 @@ mod permission_tests {
 
         // Ensure manager has storage balance for permission writes.
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
         
         // Test 1: Manager with MANAGE on events path grants WRITE permission to member1
-        let grant_write_result = contract.set_permission(
+        let grant_write_result = contract.execute(set_permission_request(
             member1.clone(),
             events_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(grant_write_result.is_ok(), "Manager with MANAGE on events should be able to grant WRITE permissions: {:?}", grant_write_result);
         
         // Test 2: Manager with MANAGE on moderation path grants WRITE permission to member2
-        let grant_manage_delegation = contract.set_permission(
+        let grant_manage_delegation = contract.execute(set_permission_request(
             member2.clone(),
             moderation_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(grant_manage_delegation.is_ok(), "Manager with MANAGE on moderation should be able to grant WRITE permissions: {:?}", grant_manage_delegation);
 
         // Test for negative case: Create a DIFFERENT user (member2) with only MODERATE permission on admin path
         // Note: Manager has MANAGE at group root, so we need a separate user to test MODERATE-only access
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let owner_grant_moderate_only = contract.set_permission(
+        let owner_grant_moderate_only = contract.execute(set_permission_request(
             member2.clone(), // Use member2 who has NO group-level permissions
             admin_path.clone(),
             MODERATE, // Only MODERATE, not MANAGE
             None,
-        );
+        ));
         assert!(owner_grant_moderate_only.is_ok(), "Owner should be able to grant MODERATE to admin path: {:?}", owner_grant_moderate_only);
 
         // Switch to member2 and try to delegate with only MODERATE permission
         near_sdk::testing_env!(get_context_with_deposit(member2.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let moderate_cannot_delegate = contract.set_permission(
+        let moderate_cannot_delegate = contract.execute(set_permission_request(
             member1.clone(),
             admin_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(moderate_cannot_delegate.is_err(), "User with only MODERATE should NOT be able to delegate permissions");
 
         // Test 3: member2 tries to grant permission to path where they have no authority at all
         let no_permission_path = "groups/testgroup/secret".to_string();
-        let grant_unauthorized = contract.set_permission(
+        let grant_unauthorized = contract.execute(set_permission_request(
             member1.clone(),
             no_permission_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(grant_unauthorized.is_err(), "User should NOT be able to grant permissions to paths they have no authority on");
 
         // Verify the granted permissions work - check with manager as the granter
@@ -416,57 +406,55 @@ mod permission_tests {
             "member_driven": false,
             "is_private": true,
         });
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add manager with member-only role (cannot grant anything)
-        contract
-            .add_group_member("testgroup".to_string(), manager.clone())
+        contract.execute(add_group_member_request("testgroup".to_string(), manager.clone()))
             .unwrap();
 
         // Group path permissions only apply to members.
-        contract
-            .add_group_member("testgroup".to_string(), member.clone())
+        contract.execute(add_group_member_request("testgroup".to_string(), member.clone()))
             .unwrap();
 
         let test_path = "groups/testgroup/test".to_string();
 
         // Manager tries to grant MANAGE permission (should fail - they only have WRITE)
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let grant_manage_result = contract.set_permission(
+        let grant_manage_result = contract.execute(set_permission_request(
             member.clone(),
             test_path.clone(),
             MANAGE,
             None,
-        );
+        ));
         assert!(grant_manage_result.is_err(), "Manager with only WRITE should not be able to grant MANAGE permissions");
 
         // Manager tries to grant MODERATE permission (should also fail)
-        let grant_moderate_result = contract.set_permission(
+        let grant_moderate_result = contract.execute(set_permission_request(
             member.clone(),
             test_path.clone(),
             MODERATE,
             None,
-        );
+        ));
         assert!(grant_moderate_result.is_err(), "Manager with only WRITE should not be able to grant MODERATE permissions");
 
         // Give manager MANAGE permission and try again
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.set_permission(manager.clone(), test_path.clone(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(manager.clone(), test_path.clone(), MANAGE, None)).unwrap();
 
         // Now manager should be able to grant lower permissions
         near_sdk::testing_env!(get_context_with_deposit(manager.clone(), 1_000_000_000_000_000_000_000_000).build());
 
         // Ensure manager has storage balance for permission writes.
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        let grant_write_result = contract.set_permission(
+        let grant_write_result = contract.execute(set_permission_request(
             member.clone(),
             test_path.clone(),
             WRITE,
             None,
-        );
+        ));
         assert!(grant_write_result.is_ok(), "Manager with MANAGE should be able to grant WRITE permissions: {:?}", grant_write_result);
 
         println!("✅ Permission hierarchy properly enforced - cannot grant higher permissions than possessed");
@@ -484,16 +472,16 @@ mod permission_tests {
             "member_driven": false,
             "is_private": true,
         });
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add member to the group first with NO group-root permissions
         // This allows us to test path-specific permission grant/revoke in isolation
-        contract.add_group_member("testgroup".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("testgroup".to_string(), member.clone())).unwrap();
 
         let test_path = "groups/testgroup/content".to_string();
 
         // Grant permission to member
-        contract.set_permission(member.clone(), test_path.clone(), WRITE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), test_path.clone(), WRITE, None)).unwrap();
 
         // Verify permission was granted
         assert!(
@@ -503,7 +491,7 @@ mod permission_tests {
 
         // Revoke permission (typically done by setting permission to 0 or using a revoke method)
         // Note: This depends on your actual revocation implementation
-        let revoke_result = contract.set_permission(member.clone(), test_path.clone(), 0, None); // Assuming 0 revokes
+        let revoke_result = contract.execute(set_permission_request(member.clone(), test_path.clone(), 0, None)); // Assuming 0 revokes
         
         if revoke_result.is_ok() {
             // Verify permission was revoked
@@ -529,24 +517,23 @@ mod permission_tests {
             "member_driven": false,
             "is_private": true,
         });
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add member to the group first (clean-add)
-        contract
-            .add_group_member("testgroup".to_string(), member.clone())
+        contract.execute(add_group_member_request("testgroup".to_string(), member.clone()))
             .unwrap();
 
         let test_path = "groups/testgroup/content".to_string();
 
         // Grant WRITE permission first
-        contract.set_permission(member.clone(), test_path.clone(), WRITE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), test_path.clone(), WRITE, None)).unwrap();
         assert!(
             contract.has_permission(owner.clone(), member.clone(), test_path.clone(), WRITE),
             "Member should have WRITE permission"
         );
 
         // Upgrade to MODERATE permission
-        contract.set_permission(member.clone(), test_path.clone(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), test_path.clone(), MODERATE, None)).unwrap();
         assert!(
             contract.has_permission(owner.clone(), member.clone(), test_path.clone(), MODERATE),
             "Member should have MODERATE permission"
@@ -557,7 +544,7 @@ mod permission_tests {
         println!("WRITE permission after MODERATE grant: {}", write_still_available);
 
         // Upgrade to MANAGE permission
-        contract.set_permission(member.clone(), test_path.clone(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), test_path.clone(), MANAGE, None)).unwrap();
         assert!(
             contract.has_permission(owner.clone(), member.clone(), test_path.clone(), MANAGE),
             "Member should have MANAGE permission"
@@ -578,11 +565,10 @@ mod permission_tests {
         
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("promotion_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("promotion_test".to_string(), config)).unwrap();
 
         // Start member as member-only
-        contract
-            .add_group_member("promotion_test".to_string(), member.clone())
+        contract.execute(add_group_member_request("promotion_test".to_string(), member.clone()))
             .unwrap();
         
         // Verify initial role
@@ -594,14 +580,14 @@ mod permission_tests {
         );
 
         // Promote to MODERATE role using set_permission
-        contract.set_permission(member.clone(), "groups/promotion_test/config".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/promotion_test/config".to_string(), MODERATE, None)).unwrap();
         
         // Verify they can perform moderate actions
         assert!(contract.has_permission(owner.clone(), member.clone(), "groups/promotion_test/config".to_string(), MODERATE), 
                "Member should have moderate permissions");
 
         // Promote to MANAGE role (admin) using set_permission
-        contract.set_permission(member.clone(), "groups/promotion_test/config".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/promotion_test/config".to_string(), MANAGE, None)).unwrap();
         
         // Verify they can perform admin actions
         assert!(contract.has_permission(owner.clone(), member.clone(), "groups/promotion_test/config".to_string(), MANAGE), 
@@ -621,18 +607,18 @@ mod permission_tests {
         // Create group and add member with NO group-root permissions
         // This allows us to test path-specific permission demotion
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("demotion_test".to_string(), config).unwrap();
-        contract.add_group_member("demotion_test".to_string(), admin_member.clone()).unwrap();
+        contract.execute(create_group_request("demotion_test".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("demotion_test".to_string(), admin_member.clone())).unwrap();
 
         // Grant MANAGE permission to the config path
-        contract.set_permission(admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE, None)).unwrap();
 
         // Verify initial admin role
         assert!(contract.has_permission(owner.clone(), admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE), 
                "Member should start with MANAGE permissions on path");
 
         // Demote to MODERATE role using set_permission (replaces the path permission)
-        contract.set_permission(admin_member.clone(), "groups/demotion_test/config".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(admin_member.clone(), "groups/demotion_test/config".to_string(), MODERATE, None)).unwrap();
 
         // Verify they no longer have admin permissions but retain moderate
         assert!(!contract.has_permission(owner.clone(), admin_member.clone(), "groups/demotion_test/config".to_string(), MANAGE), 
@@ -641,7 +627,7 @@ mod permission_tests {
                "Member should retain MODERATE permissions");
 
         // Demote to basic WRITE role using set_permission
-        contract.set_permission(admin_member.clone(), "groups/demotion_test/config".to_string(), WRITE, None).unwrap();
+        contract.execute(set_permission_request(admin_member.clone(), "groups/demotion_test/config".to_string(), WRITE, None)).unwrap();
 
         // Verify they only have basic permissions
         assert!(!contract.has_permission(owner.clone(), admin_member.clone(), "groups/demotion_test/config".to_string(), MODERATE), 
@@ -664,29 +650,24 @@ mod permission_tests {
         
         // Create group and establish role hierarchy
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("hierarchy_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("hierarchy_test".to_string(), config)).unwrap();
         
-        contract
-            .add_group_member("hierarchy_test".to_string(), admin.clone())
+        contract.execute(add_group_member_request("hierarchy_test".to_string(), admin.clone()))
             .unwrap();
-        contract
-            .add_group_member("hierarchy_test".to_string(), moderator.clone())
+        contract.execute(add_group_member_request("hierarchy_test".to_string(), moderator.clone()))
             .unwrap();
-        contract
-            .add_group_member("hierarchy_test".to_string(), writer.clone())
+        contract.execute(add_group_member_request("hierarchy_test".to_string(), writer.clone()))
             .unwrap();
 
         // Establish path-scoped role-like permissions explicitly.
-        contract
-            .set_permission(admin.clone(), "groups/hierarchy_test/config".to_string(), MANAGE, None)
+        contract.execute(set_permission_request(admin.clone(), "groups/hierarchy_test/config".to_string(), MANAGE, None))
             .unwrap();
-        contract
-            .set_permission(
+        contract.execute(set_permission_request(
                 moderator.clone(),
                 "groups/hierarchy_test/config".to_string(),
                 MODERATE,
                 None,
-            )
+            ))
             .unwrap();
 
         // Test admin can manage roles using set_permission
@@ -694,20 +675,20 @@ mod permission_tests {
 
         // Ensure admin has storage balance for permission writes.
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        let admin_promote_result = contract.set_permission(writer.clone(), "groups/hierarchy_test/config".to_string(), MODERATE, None);
+        let admin_promote_result = contract.execute(set_permission_request(writer.clone(), "groups/hierarchy_test/config".to_string(), MODERATE, None));
         assert!(admin_promote_result.is_ok(), "Admin should be able to promote members");
 
         // Test moderator cannot grant admin privileges
         near_sdk::testing_env!(get_context_with_deposit(moderator.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let moderator_promote_result = contract.set_permission(writer.clone(), "groups/hierarchy_test/config".to_string(), MANAGE, None);
+        let moderator_promote_result = contract.execute(set_permission_request(writer.clone(), "groups/hierarchy_test/config".to_string(), MANAGE, None));
         assert!(moderator_promote_result.is_err(), "Moderator should not be able to grant MANAGE permissions");
 
         // Test writer cannot grant any privileges  
         near_sdk::testing_env!(get_context_with_deposit(writer.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let writer_promote_result = contract.set_permission(moderator.clone(), "groups/hierarchy_test/config".to_string(), MODERATE, None);
+        let writer_promote_result = contract.execute(set_permission_request(moderator.clone(), "groups/hierarchy_test/config".to_string(), MODERATE, None));
         assert!(writer_promote_result.is_err(), "Writer should not be able to grant higher permissions");
 
         println!("✅ Role hierarchy enforcement works correctly");
@@ -723,17 +704,16 @@ mod permission_tests {
         
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("inheritance_test".to_string(), config).unwrap();
-        contract
-            .add_group_member("inheritance_test".to_string(), member.clone())
+        contract.execute(create_group_request("inheritance_test".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("inheritance_test".to_string(), member.clone()))
             .unwrap();
 
         // Grant specific path permissions
         let posts_path = "groups/inheritance_test/posts";
         let events_path = "groups/inheritance_test/events";
         
-        contract.set_permission(member.clone(), posts_path.to_string(), MODERATE, None).unwrap();
-        contract.set_permission(member.clone(), events_path.to_string(), WRITE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), posts_path.to_string(), MODERATE, None)).unwrap();
+        contract.execute(set_permission_request(member.clone(), events_path.to_string(), WRITE, None)).unwrap();
 
         // Verify initial permissions
         assert!(contract.has_permission(owner.clone(), member.clone(), posts_path.to_string(), MODERATE), 
@@ -742,7 +722,7 @@ mod permission_tests {
                "Should have WRITE on events");
 
         // Grant additional permissions to test inheritance 
-        contract.set_permission(member.clone(), "groups/inheritance_test/config".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/inheritance_test/config".to_string(), MODERATE, None)).unwrap();
 
         // Verify path-specific permissions are preserved
         assert!(contract.has_permission(owner.clone(), member.clone(), posts_path.to_string(), MODERATE), 
@@ -773,7 +753,7 @@ mod permission_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("demo_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("demo_group".to_string(), config)).unwrap();
 
         // Add bob and charlie as members (bypassing proposals for setup)
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "demo_group", &bob, WRITE, &alice, 1000);
@@ -796,17 +776,17 @@ mod permission_tests {
             "reason": "Bob needs access to manage meeting notes"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "demo_group".to_string(),
             "path_permission_grant".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie votes YES (alice automatically voted YES when creating)
         // 2 YES votes out of 3 members = 66% participation, 100% approval
         near_sdk::testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        let vote_result = contract.vote_on_proposal("demo_group".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("demo_group".to_string(), proposal_id.clone(), true));
         assert!(vote_result.is_ok(), "Charlie's vote should succeed: {:?}", vote_result.err());
 
         // Verify bob now has WRITE permission to meetings path
@@ -819,16 +799,14 @@ mod permission_tests {
         // Step 3: Bob actually WRITES data using set() - the realistic workflow
         near_sdk::testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
 
-        let write_result = contract.set(set_request(
+        let write_result = contract.execute(set_request(
             json!({
                 "groups/demo_group/meetings/meeting1": {
                     "title": "Team Sync Meeting",
                     "organizer": bob.to_string(),
                     "date": "2025-10-15"
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             write_result.is_ok(),
@@ -839,14 +817,12 @@ mod permission_tests {
         // Step 4: Verify bob CANNOT write to other paths (path isolation enforcement)
         let admin_path = "groups/demo_group/admin".to_string();
         
-        let unauthorized_write = contract.set(set_request(
+        let unauthorized_write = contract.execute(set_request(
             json!({
                 "groups/demo_group/admin/config": {
                     "setting": "unauthorized"
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             unauthorized_write.is_err(),
@@ -879,7 +855,7 @@ mod permission_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("revoke_demo".to_string(), config).unwrap();
+        contract.execute(create_group_request("revoke_demo".to_string(), config)).unwrap();
 
         // Add bob and charlie as members
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "revoke_demo", &bob, WRITE, &alice, 1000);
@@ -896,16 +872,16 @@ mod permission_tests {
             "reason": "Bob will manage events"
         });
 
-        let grant_proposal_id = contract.create_group_proposal(
+        let grant_proposal_id = contract.execute(create_proposal_request(
             "revoke_demo".to_string(),
             "path_permission_grant".to_string(),
             grant_proposal,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Charlie votes YES on grant proposal
         near_sdk::testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("revoke_demo".to_string(), grant_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("revoke_demo".to_string(), grant_proposal_id.clone(), true)).unwrap();
 
         // Verify bob has permission (alice is the group owner, used as permission owner)
         assert!(
@@ -921,16 +897,16 @@ mod permission_tests {
             "reason": "Bob no longer needs event management access"
         });
 
-        let revoke_proposal_id = contract.create_group_proposal(
+        let revoke_proposal_id = contract.execute(create_proposal_request(
             "revoke_demo".to_string(),
             "path_permission_revoke".to_string(),
             revoke_proposal,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice votes YES on revoke proposal (charlie already voted YES automatically)
         near_sdk::testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
-        let revoke_vote = contract.vote_on_proposal("revoke_demo".to_string(), revoke_proposal_id.clone(), true);
+        let revoke_vote = contract.execute(vote_proposal_request("revoke_demo".to_string(), revoke_proposal_id.clone(), true));
         assert!(revoke_vote.is_ok(), "Alice's vote on revoke should succeed: {:?}", revoke_vote.err());
 
         // Verify bob NO LONGER has permission to events path
@@ -942,15 +918,13 @@ mod permission_tests {
         // Step 3: Verify bob CANNOT write data after revoke (realistic test)
         near_sdk::testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
 
-        let write_attempt = contract.set(set_request(
+        let write_attempt = contract.execute(set_request(
             json!({
                 "groups/revoke_demo/events/event1": {
                     "title": "Unauthorized Event",
                     "organizer": bob.to_string()
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             write_attempt.is_err(),
@@ -976,7 +950,7 @@ mod permission_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("default_perms".to_string(), config).unwrap();
+        contract.execute(create_group_request("default_perms".to_string(), config)).unwrap();
 
         // Add bob as new member with member-only global role (0). Default /content access is granted separately.
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "default_perms", &bob, 0, &alice, 1000);
@@ -1024,7 +998,7 @@ mod permission_tests {
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("multi_path".to_string(), config).unwrap();
+        contract.execute(create_group_request("multi_path".to_string(), config)).unwrap();
 
         // Add all members
         test_add_member_bypass_proposals_with_timestamp(&mut contract, "multi_path", &bob, WRITE, &alice, 1000);
@@ -1044,20 +1018,20 @@ mod permission_tests {
             "reason": "Bob manages meetings"
         });
 
-        let bob_proposal_id = contract.create_group_proposal(
+        let bob_proposal_id = contract.execute(create_proposal_request(
             "multi_path".to_string(),
             "path_permission_grant".to_string(),
             bob_proposal,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice and Charlie vote YES on bob's proposal (dave already voted YES automatically)
         // Need 3 votes for 51% participation with 4 members
         near_sdk::testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("multi_path".to_string(), bob_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("multi_path".to_string(), bob_proposal_id.clone(), true)).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("multi_path".to_string(), bob_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("multi_path".to_string(), bob_proposal_id.clone(), true)).unwrap();
 
         // Proposal 2: Grant charlie WRITE permission to events (Bob creates this one)
         near_sdk::testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations() * 2).build());
@@ -1068,20 +1042,20 @@ mod permission_tests {
             "reason": "Charlie manages events"
         });
 
-        let charlie_proposal_id = contract.create_group_proposal(
+        let charlie_proposal_id = contract.execute(create_proposal_request(
             "multi_path".to_string(),
             "path_permission_grant".to_string(),
             charlie_proposal,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice and Dave vote YES on charlie's proposal (bob already voted YES automatically)
         // Need 3 votes for 51% participation with 4 members
         near_sdk::testing_env!(get_context_with_deposit(alice.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("multi_path".to_string(), charlie_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("multi_path".to_string(), charlie_proposal_id.clone(), true)).unwrap();
         
         near_sdk::testing_env!(get_context_with_deposit(dave.clone(), test_deposits::member_operations()).build());
-        contract.vote_on_proposal("multi_path".to_string(), charlie_proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("multi_path".to_string(), charlie_proposal_id.clone(), true)).unwrap();
 
         // Verify path isolation: Bob has meetings, Charlie has events
         // (alice is the group owner, used as permission owner)
@@ -1120,15 +1094,13 @@ mod permission_tests {
         // Realistic test: Bob writes to meetings (should succeed)
         near_sdk::testing_env!(get_context_with_deposit(bob.clone(), test_deposits::member_operations()).build());
 
-        let bob_write = contract.set(set_request(
+        let bob_write = contract.execute(set_request(
             json!({
                 "groups/multi_path/meetings/meeting1": {
                     "title": "Bob's Meeting",
                     "organizer": bob.to_string()
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             bob_write.is_ok(),
@@ -1137,14 +1109,12 @@ mod permission_tests {
         );
 
         // Bob tries to write to events (should fail - path isolation)
-        let bob_unauthorized = contract.set(set_request(
+        let bob_unauthorized = contract.execute(set_request(
             json!({
                 "groups/multi_path/events/event1": {
                     "title": "Bob's Unauthorized Event"
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             bob_unauthorized.is_err(),
@@ -1154,15 +1124,13 @@ mod permission_tests {
         // Realistic test: Charlie writes to events (should succeed)
         near_sdk::testing_env!(get_context_with_deposit(charlie.clone(), test_deposits::member_operations()).build());
 
-        let charlie_write = contract.set(set_request(
+        let charlie_write = contract.execute(set_request(
             json!({
                 "groups/multi_path/events/event1": {
                     "title": "Charlie's Event",
                     "moderator": charlie.to_string()
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             charlie_write.is_ok(),
@@ -1171,14 +1139,12 @@ mod permission_tests {
         );
 
         // Charlie tries to write to meetings (should fail - path isolation)
-        let charlie_unauthorized = contract.set(set_request(
+        let charlie_unauthorized = contract.execute(set_request(
             json!({
                 "groups/multi_path/meetings/meeting2": {
                     "title": "Charlie's Unauthorized Meeting"
                 }
-            }),
-            None,
-        ));
+            })));
 
         assert!(
             charlie_unauthorized.is_err(),

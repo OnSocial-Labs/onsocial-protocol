@@ -23,15 +23,15 @@ mod member_security_tests {
 
         // Create group and add member with WRITE permissions only
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), member.clone())).unwrap();
 
         // Switch to member context - member tries to add themselves again (should fail as already a member)
         let member_context = get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(member_context.build());
 
         // Attempt: Try to add self again (should fail - already a member)
-        let self_add_result = contract.add_group_member("test_group".to_string(), member.clone());
+        let self_add_result = contract.execute(add_group_member_request("test_group".to_string(), member.clone()));
         
         assert!(self_add_result.is_err(), "Adding self when already a member should fail");
         let error_msg = format!("{:?}", self_add_result.unwrap_err());
@@ -58,22 +58,22 @@ mod member_security_tests {
 
         // Create group and add users
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), user_a.clone()).unwrap();
-        contract.add_group_member("test_group".to_string(), user_b.clone()).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), user_a.clone())).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), user_b.clone())).unwrap();
 
         // Switch to user_a - try to add user_b again (should fail - already a member)
         let user_a_context = get_context_with_deposit(user_a.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(user_a_context.build());
 
-        let grant_result = contract.add_group_member("test_group".to_string(), user_b.clone());
+        let grant_result = contract.execute(add_group_member_request("test_group".to_string(), user_b.clone()));
         assert!(grant_result.is_err(), "Adding existing member should fail");
 
         // Switch to user_b - try to add user_a again (should also fail)
         let user_b_context = get_context_with_deposit(user_b.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(user_b_context.build());
 
-        let grant_result_2 = contract.add_group_member("test_group".to_string(), user_a.clone());
+        let grant_result_2 = contract.execute(add_group_member_request("test_group".to_string(), user_a.clone()));
         assert!(grant_result_2.is_err(), "Adding existing member should fail");
 
         println!("✅ Prevented circular permission delegation attacks");
@@ -90,19 +90,19 @@ mod member_security_tests {
 
         // Create group and add attacker with minimal WRITE permissions
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), attacker.clone()).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), attacker.clone())).unwrap();
 
         // Switch to attacker context
         let attacker_context = get_context_with_deposit(attacker.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(attacker_context.build());
 
         // Attack 1: Try to blacklist the owner (should fail)
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), owner.clone());
+        let blacklist_result = contract.execute(blacklist_group_member_request("test_group".to_string(), owner.clone()));
         assert!(blacklist_result.is_err(), "Attacker should not be able to blacklist the owner");
 
         // Attack 2: Try to remove the owner (should fail)
-        let remove_result = contract.remove_group_member("test_group".to_string(), owner.clone());
+        let remove_result = contract.execute(remove_group_member_request("test_group".to_string(), owner.clone()));
         assert!(remove_result.is_err(), "Attacker should not be able to remove the owner");
 
         // Attack 3: Try to join with higher permissions (should fail due to self-join restriction)
@@ -113,12 +113,12 @@ mod member_security_tests {
         near_sdk::testing_env!(fake_user_context.build());
         
         // This should fail because non-owners cannot grant themselves elevated group permissions.
-        let self_grant_result = contract.set_permission(
+        let self_grant_result = contract.execute(set_permission_request(
             fake_user.clone(),
             "groups/test_group/config".to_string(),
             MANAGE,
             None,
-        );
+        ));
         assert!(self_grant_result.is_err(), "Non-owner should not be able to self-grant MANAGE");
 
         println!("✅ Prevented permission escalation via group operations");
@@ -137,11 +137,11 @@ mod member_security_tests {
 
         // Create group and add user
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), bad_user.clone()).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), bad_user.clone())).unwrap();
 
         // Blacklist the user
-        contract.blacklist_group_member("test_group".to_string(), bad_user.clone()).unwrap();
+        contract.execute(blacklist_group_member_request("test_group".to_string(), bad_user.clone())).unwrap();
         assert!(contract.is_blacklisted("test_group".to_string(), bad_user.clone()), "User should be blacklisted");
         assert!(!contract.is_group_member("test_group".to_string(), bad_user.clone()), "User should be removed from group");
 
@@ -149,7 +149,7 @@ mod member_security_tests {
         let bad_user_context = get_context_with_deposit(bad_user.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(bad_user_context.build());
 
-        let rejoin_result = contract.join_group("test_group".to_string());
+        let rejoin_result = contract.execute(join_group_request("test_group".to_string()));
         assert!(rejoin_result.is_err(), "Blacklisted user should not be able to request rejoin");
 
         let error_msg = format!("{:?}", rejoin_result.unwrap_err());
@@ -159,7 +159,7 @@ mod member_security_tests {
         let owner_context = get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(owner_context.build());
 
-        let approve_result = contract.approve_join_request("test_group".to_string(), bad_user.clone());
+        let approve_result = contract.execute(approve_join_request("test_group".to_string(), bad_user.clone()));
         assert!(approve_result.is_err(), "Should not be able to approve join request for blacklisted user");
 
         println!("✅ Prevented blacklist bypass via rejoin attempts");
@@ -176,11 +176,11 @@ mod member_security_tests {
 
         // Create two separate groups
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("group_a".to_string(), config.clone()).unwrap();
-        contract.create_group("group_b".to_string(), config).unwrap();
+        contract.execute(create_group_request("group_a".to_string(), config.clone())).unwrap();
+        contract.execute(create_group_request("group_b".to_string(), config)).unwrap();
 
         // Add attacker to group_a with WRITE permissions
-        contract.add_group_member("group_a".to_string(), attacker.clone()).unwrap();
+        contract.execute(add_group_member_request("group_a".to_string(), attacker.clone())).unwrap();
 
         // Switch to attacker context
         let attacker_context = get_context_with_deposit(attacker.clone(), 1_000_000_000_000_000_000_000_000);
@@ -190,11 +190,11 @@ mod member_security_tests {
         let fake_user = test_account(2);
         
         // Try to add member to group_b (should fail - no permissions)
-        let add_result = contract.add_group_member("group_b".to_string(), fake_user.clone());
+        let add_result = contract.execute(add_group_member_request("group_b".to_string(), fake_user.clone()));
         assert!(add_result.is_err(), "Attacker should not be able to add members to group_b");
 
         // Try to blacklist someone in group_b (should fail - no permissions)
-        let blacklist_result = contract.blacklist_group_member("group_b".to_string(), fake_user.clone());
+        let blacklist_result = contract.execute(blacklist_group_member_request("group_b".to_string(), fake_user.clone()));
         assert!(blacklist_result.is_err(), "Attacker should not be able to blacklist in group_b");
 
         // Verify attacker still only has access to group_a
@@ -218,27 +218,27 @@ mod member_security_tests {
 
         // Create multiple groups with different permission levels for the same user
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("admin_group".to_string(), config.clone()).unwrap();
-        contract.create_group("user_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("admin_group".to_string(), config.clone())).unwrap();
+        contract.execute(create_group_request("user_group".to_string(), config)).unwrap();
 
         // Give user MANAGE permissions in admin_group (via explicit path permission)
-        contract.add_group_member("admin_group".to_string(), user.clone()).unwrap();
-        contract.set_permission(user.clone(), "groups/admin_group/config".to_string(), MANAGE, None).unwrap();
+        contract.execute(add_group_member_request("admin_group".to_string(), user.clone())).unwrap();
+        contract.execute(set_permission_request(user.clone(), "groups/admin_group/config".to_string(), MANAGE, None)).unwrap();
         
         // Give user only WRITE permissions in user_group
-        contract.add_group_member("user_group".to_string(), user.clone()).unwrap();
-        contract.add_group_member("user_group".to_string(), target.clone()).unwrap();
+        contract.execute(add_group_member_request("user_group".to_string(), user.clone())).unwrap();
+        contract.execute(add_group_member_request("user_group".to_string(), target.clone())).unwrap();
 
         // Switch to user context
         let user_context = get_context_with_deposit(user.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(user_context.build());
 
         // User should be able to blacklist in admin_group (has MANAGE permissions)
-        let _admin_blacklist_result = contract.blacklist_group_member("admin_group".to_string(), target.clone());
+        let _admin_blacklist_result = contract.execute(blacklist_group_member_request("admin_group".to_string(), target.clone()));
         // This might fail if target is not in admin_group, but should not be a permission error
         
         // User should NOT be able to blacklist in user_group (only has WRITE permissions)
-        let user_blacklist_result = contract.blacklist_group_member("user_group".to_string(), target.clone());
+        let user_blacklist_result = contract.execute(blacklist_group_member_request("user_group".to_string(), target.clone()));
         
         // This test should fail because bob only has WRITE permissions in user_group, not MANAGE
         assert!(user_blacklist_result.is_err(), "Expected blacklist to fail in user_group due to insufficient permissions");
@@ -267,13 +267,13 @@ mod member_security_tests {
 
         // Create group and add user with MANAGE permissions
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
-        contract.add_group_member("test_group".to_string(), user.clone()).unwrap();
-        contract.set_permission(user.clone(), "groups/test_group/config".to_string(), MANAGE, None).unwrap();
-        contract.add_group_member("test_group".to_string(), target.clone()).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), user.clone())).unwrap();
+        contract.execute(set_permission_request(user.clone(), "groups/test_group/config".to_string(), MANAGE, None)).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), target.clone())).unwrap();
 
         // Owner removes user from group (revokes all permissions)
-        contract.remove_group_member("test_group".to_string(), user.clone()).unwrap();
+        contract.execute(remove_group_member_request("test_group".to_string(), user.clone())).unwrap();
         assert!(!contract.is_group_member("test_group".to_string(), user.clone()), "User should be removed");
 
         // Switch to removed user context - try to use old permissions
@@ -281,7 +281,7 @@ mod member_security_tests {
         near_sdk::testing_env!(user_context.build());
 
         // Attack: Try to blacklist someone using expired permissions
-        let blacklist_result = contract.blacklist_group_member("test_group".to_string(), target.clone());
+        let blacklist_result = contract.execute(blacklist_group_member_request("test_group".to_string(), target.clone()));
         
         // With membership-based permissions, this should fail because user is not a member
         assert!(blacklist_result.is_err(), "Removed user should not be able to blacklist members");
@@ -289,7 +289,7 @@ mod member_security_tests {
 
         // Attack: Try to add new members using expired permissions
         let new_member = test_account(3);
-        let add_result = contract.add_group_member("test_group".to_string(), new_member.clone());
+        let add_result = contract.execute(add_group_member_request("test_group".to_string(), new_member.clone()));
         assert!(add_result.is_err(), "Removed user should not be able to add members");
 
         println!("✅ Prevented permission timing window attacks");
@@ -316,7 +316,7 @@ mod member_security_tests {
 
         for malicious_id in malicious_ids {
             let config = json!({"member_driven": false, "is_private": false});
-            let create_result = contract.create_group(malicious_id.to_string(), config);
+            let create_result = contract.execute(create_group_request(malicious_id.to_string(), config));
             
             // Either should fail with validation error, or be sanitized to safe path
             if create_result.is_ok() {
@@ -331,7 +331,7 @@ mod member_security_tests {
         // Attack 2: Try extremely long input strings (buffer overflow attempt)
         let long_string = "a".repeat(10000);
         let config = json!({"member_driven": false, "is_private": false});
-        let long_id_result = contract.create_group(long_string, config);
+        let long_id_result = contract.execute(create_group_request(long_string, config));
         
         // Should either fail gracefully or handle large inputs safely
         if long_id_result.is_err() {

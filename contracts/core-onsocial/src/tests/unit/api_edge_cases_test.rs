@@ -72,7 +72,7 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("admin_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("admin_test".to_string(), config)).unwrap();
 
         // Owner should have admin permission
         let has_admin = contract.has_group_admin_permission("admin_test".to_string(), alice.clone());
@@ -90,11 +90,11 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("admin_test2".to_string(), config).unwrap();
+        contract.execute(create_group_request("admin_test2".to_string(), config)).unwrap();
 
         // Add bob as regular member (clean-add)
         contract
-            .add_group_member("admin_test2".to_string(), bob.clone())
+            .execute(add_group_member_request("admin_test2".to_string(), bob.clone()))
             .unwrap();
 
         // Bob should not have admin permission
@@ -113,19 +113,19 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("admin_test3".to_string(), config).unwrap();
+        contract.execute(create_group_request("admin_test3".to_string(), config)).unwrap();
 
         // Add bob (clean-add) and then grant MANAGE on group config
         contract
-            .add_group_member("admin_test3".to_string(), bob.clone())
+            .execute(add_group_member_request("admin_test3".to_string(), bob.clone()))
             .unwrap();
         contract
-            .set_permission(
+            .execute(set_permission_request(
                 bob.clone(),
                 "groups/admin_test3/config".to_string(),
                 MANAGE,
                 None,
-            )
+            ))
             .unwrap();
 
         // Check admin permission - may or may not have it depending on implementation
@@ -156,7 +156,7 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("admin_test4".to_string(), config).unwrap();
+        contract.execute(create_group_request("admin_test4".to_string(), config)).unwrap();
 
         // Bob is not a member
         let has_admin = contract.has_group_admin_permission("admin_test4".to_string(), bob.clone());
@@ -177,7 +177,7 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("mod_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("mod_test".to_string(), config)).unwrap();
 
         // Owner should have moderate permission
         let has_moderate = contract.has_group_moderate_permission("mod_test".to_string(), alice.clone());
@@ -195,14 +195,14 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("mod_test2".to_string(), config).unwrap();
+        contract.execute(create_group_request("mod_test2".to_string(), config)).unwrap();
 
         // Add bob (clean-add) and then grant MODERATE on group config
         contract
-            .add_group_member("mod_test2".to_string(), bob.clone())
+            .execute(add_group_member_request("mod_test2".to_string(), bob.clone()))
             .unwrap();
         contract
-            .set_permission(bob.clone(), "groups/mod_test2/config".to_string(), MODERATE, None)
+            .execute(set_permission_request(bob.clone(), "groups/mod_test2/config".to_string(), MODERATE, None))
             .unwrap();
 
         // Bob should have moderate permission
@@ -221,11 +221,11 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("mod_test3".to_string(), config).unwrap();
+        contract.execute(create_group_request("mod_test3".to_string(), config)).unwrap();
 
         // Add bob with member-only role
         contract
-            .add_group_member("mod_test3".to_string(), bob.clone())
+            .execute(add_group_member_request("mod_test3".to_string(), bob.clone()))
             .unwrap();
 
         // Bob should not have moderate permission
@@ -247,9 +247,9 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Test with unicode characters in path
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/unicode_测试": "value_🚀"
-            }), None));
+            })));
 
         // Check if unicode is supported
         match result {
@@ -268,9 +268,9 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Test with dashes and underscores
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "posts/path-with-dash_and_underscore": "value"
-            }), None));
+            })));
 
         // Dashes and underscores should be allowed
         assert!(result.is_ok(), "Dashes and underscores should be allowed: {:?}", result.err());
@@ -287,9 +287,9 @@ mod api_edge_cases_tests {
 
         // Store deep data
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "level1/level2/level3/level4/deep_value": "test"
-                }), None))
+                })))
             .unwrap();
         
         // Verify we can read it back
@@ -335,10 +335,10 @@ mod api_edge_cases_tests {
 
         // Set some data
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/name": "Alice",
                     "posts/1": "First post"
-                }), None))
+                })))
             .unwrap();
 
         // Get multiple keys
@@ -364,7 +364,7 @@ mod api_edge_cases_tests {
             "is_private": true,
             "description": "Test group"
         });
-        contract.create_group("config_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("config_test".to_string(), config)).unwrap();
 
         let retrieved = contract.get_group_config("config_test".to_string());
         assert!(retrieved.is_some(), "Should retrieve group config");
@@ -394,9 +394,9 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("member_data_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("member_data_test".to_string(), config)).unwrap();
         contract
-            .add_group_member("member_data_test".to_string(), bob.clone())
+            .execute(add_group_member_request("member_data_test".to_string(), bob.clone()))
             .unwrap();
 
         let member_data = contract.get_member_data("member_data_test".to_string(), bob.clone());
@@ -417,7 +417,7 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("member_data_test2".to_string(), config).unwrap();
+        contract.execute(create_group_request("member_data_test2".to_string(), config)).unwrap();
 
         // Bob is not a member
         let member_data = contract.get_member_data("member_data_test2".to_string(), bob.clone());
@@ -435,9 +435,9 @@ mod api_edge_cases_tests {
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         let config = json!({ "is_private": false });
-        contract.create_group("stats_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("stats_test".to_string(), config)).unwrap();
         contract
-            .add_group_member("stats_test".to_string(), bob.clone())
+            .execute(add_group_member_request("stats_test".to_string(), bob.clone()))
             .unwrap();
 
         let stats = contract.get_group_stats("stats_test".to_string());

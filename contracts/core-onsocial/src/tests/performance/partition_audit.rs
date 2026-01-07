@@ -463,24 +463,24 @@ mod partition_audit_tests {
         // Create a group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": false, "is_private": true});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Add members
         contract
-            .add_group_member("test_group".to_string(), bob.clone())
+            .execute(add_group_member_request("test_group".to_string(), bob.clone()))
             .unwrap();
         contract
-            .add_group_member("test_group".to_string(), charlie.clone())
+            .execute(add_group_member_request("test_group".to_string(), charlie.clone()))
             .unwrap();
 
         // Grant permission to Charlie
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.set_permission(
+        contract.execute(set_permission_request(
             charlie.clone(),
             "groups/test_group/config".to_string(),
             MODERATE,
             None
-        ).unwrap();
+        )).unwrap();
 
         println!("✓ Permission granted: charlie.near -> MODERATE on groups/test_group/config");
 
@@ -523,16 +523,16 @@ mod partition_audit_tests {
         // Create group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("data_test".to_string(), config.clone()).unwrap();
+        contract.execute(create_group_request("data_test".to_string(), config.clone())).unwrap();
 
         println!("✓ Group created: data_test");
 
         // Add members
         contract
-            .add_group_member("data_test".to_string(), bob.clone())
+            .execute(add_group_member_request("data_test".to_string(), bob.clone()))
             .unwrap();
         contract
-            .add_group_member("data_test".to_string(), charlie.clone())
+            .execute(add_group_member_request("data_test".to_string(), charlie.clone()))
             .unwrap();
 
         println!("✓ Members added: bob.near, charlie.near");
@@ -580,24 +580,24 @@ mod partition_audit_tests {
         // Create group
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
         let config = json!({"member_driven": false, "is_private": true});
-        contract.create_group("transfer_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("transfer_test".to_string(), config)).unwrap();
 
         // Add members
         contract
-            .add_group_member("transfer_test".to_string(), bob.clone())
+            .execute(add_group_member_request("transfer_test".to_string(), bob.clone()))
             .unwrap();
         contract
-            .add_group_member("transfer_test".to_string(), charlie.clone())
+            .execute(add_group_member_request("transfer_test".to_string(), charlie.clone()))
             .unwrap();
 
         // Grant Charlie MODERATE permission BEFORE transfer
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.set_permission(
+        contract.execute(set_permission_request(
             charlie.clone(),
             "groups/transfer_test/config".to_string(),
             MODERATE,
             None
-        ).unwrap();
+        )).unwrap();
 
         println!("BEFORE transfer:");
         println!("  Owner: alice.near");
@@ -611,7 +611,7 @@ mod partition_audit_tests {
 
         // Transfer ownership to Bob
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.transfer_group_ownership("transfer_test".to_string(), bob.clone(), None).unwrap();
+        contract.execute(transfer_group_ownership_request("transfer_test".to_string(), bob.clone(), None)).unwrap();
 
         println!("\nAFTER transfer:");
         println!("  Owner: bob.near");
@@ -678,24 +678,24 @@ mod partition_audit_tests {
 
         // 1. Create multiple groups
         testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.create_group("group1".to_string(), json!({"is_private": false})).unwrap();
-        contract.create_group("group2".to_string(), json!({"is_private": true})).unwrap();
+        contract.execute(create_group_request("group1".to_string(), json!({"is_private": false}))).unwrap();
+        contract.execute(create_group_request("group2".to_string(), json!({"is_private": true}))).unwrap();
 
         println!("✓ Groups created: group1, group2");
 
         // 2. Add members
         contract
-            .add_group_member("group1".to_string(), bob.clone())
+            .execute(add_group_member_request("group1".to_string(), bob.clone()))
             .unwrap();
         contract
-            .add_group_member("group2".to_string(), charlie.clone())
+            .execute(add_group_member_request("group2".to_string(), charlie.clone()))
             .unwrap();
 
         println!("✓ Members added to groups");
 
         // 3. Grant permissions
-        contract.set_permission(bob.clone(), "groups/group1/config".to_string(), MODERATE, None).unwrap();
-        contract.set_permission(charlie.clone(), "groups/group2/config".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(bob.clone(), "groups/group1/config".to_string(), MODERATE, None)).unwrap();
+        contract.execute(set_permission_request(charlie.clone(), "groups/group2/config".to_string(), MANAGE, None)).unwrap();
 
         println!("✓ Permissions granted");
 

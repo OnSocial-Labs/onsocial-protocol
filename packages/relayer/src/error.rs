@@ -1,22 +1,40 @@
-use axum::http::StatusCode;
-use utoipa::ToSchema;
+//! Error types for the relayer.
 
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::Json;
 use std::fmt;
 
-// Define a custom error type for process_signed_delegate_action
-#[derive(Debug, ToSchema)]
-pub struct RelayError {
-    // NOTE: imported StatusCode itself doesn't have a corresponding schema in the OpenAPI document
-    #[schema(example = "400")]
-    pub(crate) status_code: StatusCode,
-    #[schema(example = "AccountId example.near does not have enough remaining gas allowance.")]
-    pub(crate) message: String,
+/// Relayer error type.
+#[derive(Debug)]
+pub enum Error {
+    /// Configuration error.
+    Config(String),
+    /// RPC communication error.
+    Rpc(String),
 }
 
-impl fmt::Display for RelayError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.status_code, self.message)
+        match self {
+            Error::Config(msg) => write!(f, "config error: {msg}"),
+            Error::Rpc(msg) => write!(f, "rpc error: {msg}"),
+        }
     }
 }
 
-impl std::error::Error for RelayError {}
+impl std::error::Error for Error {}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Error::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::Rpc(_) => StatusCode::BAD_GATEWAY,
+        };
+        let body = serde_json::json!({
+            "success": false,
+            "error": self.to_string()
+        });
+        (status, Json(body)).into_response()
+    }
+}

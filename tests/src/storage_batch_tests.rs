@@ -66,9 +66,8 @@ fn user_profile_data(user_id: &str, name: &str, bio: Option<&str>) -> serde_json
     json!({
         "request": {
             "target_account": null,
-            "data": data,
+            "action": { "type": "set", "data": data },
             "options": null,
-            "event_config": null,
             "auth": null
         }
     })
@@ -83,9 +82,8 @@ fn user_profile_with_deposit(user_id: &str, name: &str, deposit_amount: u128) ->
     json!({
         "request": {
             "target_account": null,
-            "data": data,
+            "action": { "type": "set", "data": data },
             "options": null,
-            "event_config": null,
             "auth": null
         }
     })
@@ -166,17 +164,16 @@ async fn test_batch_storage_deposit_with_data_real_balance() -> anyhow::Result<(
     let deposit_amount = NearToken::from_millinear(500); // 0.5 NEAR
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
                     "profile/name": "TestUser",
                     "profile/bio": "Testing batch operations with real NEAR"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -253,15 +250,14 @@ async fn test_storage_deposit_cant_exceed_attached() -> anyhow::Result<()> {
     let large_deposit = NearToken::from_near(1); // 1 NEAR (more than attached)
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": large_deposit.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -303,13 +299,13 @@ async fn test_storage_deposit_zero_amount() -> anyhow::Result<()> {
     println!("\n📦 Try to deposit 0 NEAR...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "0"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -350,13 +346,13 @@ async fn test_storage_deposit_missing_amount() -> anyhow::Result<()> {
     println!("\n📦 Try deposit without amount field...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -397,13 +393,13 @@ async fn test_storage_deposit_invalid_amount_format() -> anyhow::Result<()> {
     println!("\n📦 Try deposit with invalid amount format...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "not_a_number"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -451,17 +447,16 @@ async fn test_storage_refund_goes_to_user() -> anyhow::Result<()> {
     let deposit = NearToken::from_millinear(500); // 0.5 NEAR
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit.as_yoctonear().to_string()}
-                },
+                } },
                 "options": {
                     "refund_unused_deposit": true
                 },
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -514,15 +509,14 @@ async fn test_storage_deposit_exact_amount() -> anyhow::Result<()> {
     let exact_amount = NearToken::from_millinear(500); // 0.5 NEAR
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": exact_amount.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -584,17 +578,16 @@ async fn test_data_operation_uses_remaining_balance() -> anyhow::Result<()> {
     // Remaining 0.7 NEAR should auto-deposit for data operations
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
                     "posts/1": {"title": "First Post", "content": "Hello World"},
                     "posts/2": {"title": "Second Post", "content": "More content here"}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -668,20 +661,19 @@ async fn test_shared_pool_deposit_uses_attached_balance() -> anyhow::Result<()> 
     let pool_deposit = NearToken::from_near(1);
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "pool_id": user.id().to_string(),
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": {
                     "refund_unused_deposit": true
                 },
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -736,18 +728,17 @@ async fn test_shared_pool_deposit_cant_exceed_attached() -> anyhow::Result<()> {
     let large_deposit = NearToken::from_near(1); // 1 NEAR
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "pool_id": user.id().to_string(),
                         "amount": large_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -794,19 +785,18 @@ async fn test_batch_storage_and_shared_pool_operations() -> anyhow::Result<()> {
     // Total: 1 NEAR used, 1 NEAR should be refunded
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": personal_deposit.as_yoctonear().to_string()},
                     "storage/shared_pool_deposit": {
                         "pool_id": user.id().to_string(),
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -861,19 +851,18 @@ async fn test_batch_exceeds_attached_fails_atomically() -> anyhow::Result<()> {
     // Total: 1.2 NEAR > 1 NEAR attached
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit1.as_yoctonear().to_string()},
                     "storage/shared_pool_deposit": {
                         "pool_id": user.id().to_string(),
                         "amount": deposit2.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -934,15 +923,14 @@ async fn test_storage_withdraw_goes_to_signer() -> anyhow::Result<()> {
     let deposit_amount = NearToken::from_near(1);
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -960,15 +948,14 @@ async fn test_storage_withdraw_goes_to_signer() -> anyhow::Result<()> {
     let withdraw_amount = NearToken::from_millinear(500); // 0.5 NEAR
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/withdraw": {"amount": withdraw_amount.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1027,15 +1014,14 @@ async fn test_storage_withdraw_all() -> anyhow::Result<()> {
     let deposit_amount = NearToken::from_near(1);
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1051,15 +1037,14 @@ async fn test_storage_withdraw_all() -> anyhow::Result<()> {
     println!("\n📦 Step 2: Withdraw all...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/withdraw": {}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1118,15 +1103,14 @@ async fn test_zero_deposit_rejected() -> anyhow::Result<()> {
     println!("\n📦 Try zero amount deposit...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "0"}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1168,15 +1152,14 @@ async fn test_withdraw_more_than_available_fails() -> anyhow::Result<()> {
     let deposit_amount = NearToken::from_millinear(100);
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1192,15 +1175,14 @@ async fn test_withdraw_more_than_available_fails() -> anyhow::Result<()> {
     let large_withdraw = NearToken::from_near(1);
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/withdraw": {"amount": large_withdraw.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1242,18 +1224,17 @@ async fn test_shared_pool_only_owner_can_deposit() -> anyhow::Result<()> {
     println!("\n📦 Bob tries to deposit to Alice's shared pool...");
     
     let result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "pool_id": alice.id().to_string(),
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1269,18 +1250,17 @@ async fn test_shared_pool_only_owner_can_deposit() -> anyhow::Result<()> {
     println!("\n📦 Alice deposits to her own shared pool...");
     
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "pool_id": alice.id().to_string(),
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1324,15 +1304,14 @@ async fn test_multiple_deposits_in_sequence() -> anyhow::Result<()> {
     
     for i in 1..=3 {
         let result = user
-            .call(contract.id(), "set")
+            .call(contract.id(), "execute")
             .args_json(json!({
                 "request": {
                     "target_account": null,
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -1404,17 +1383,16 @@ async fn test_universal_storage_user_writes_without_deposit() -> anyhow::Result<
     
     // Fund the platform pool (contract account is the platform pool)
     let pool_deposit = NearToken::from_near(5);
-    let result = contract.call("set")
+    let result = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1434,7 +1412,7 @@ async fn test_universal_storage_user_writes_without_deposit() -> anyhow::Result<
     println!("\n📦 User writes profile without deposit...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_data(user.id().as_str(), "Alice", Some("Testing universal storage - no deposit needed!")))
         // NO DEPOSIT ATTACHED!
         .gas(Gas::from_tgas(100))
@@ -1497,7 +1475,7 @@ async fn test_universal_storage_disabled_requires_deposit() -> anyhow::Result<()
     println!("\n📦 User tries to write without deposit (pool empty)...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_data(user.id().as_str(), "Bob", None))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -1513,7 +1491,7 @@ async fn test_universal_storage_disabled_requires_deposit() -> anyhow::Result<()
     println!("\n📦 User writes with deposit...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_with_deposit(user.id().as_str(), "Bob", NearToken::from_millinear(100).as_yoctonear()))
         .deposit(NearToken::from_millinear(100))
         .gas(Gas::from_tgas(100))
@@ -1544,7 +1522,7 @@ async fn test_universal_storage_pool_empty_fallback() -> anyhow::Result<()> {
     println!("\n📦 User tries to write without deposit (pool empty)...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_data(user.id().as_str(), "Charlie", None))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -1559,7 +1537,7 @@ async fn test_universal_storage_pool_empty_fallback() -> anyhow::Result<()> {
     println!("\n📦 User pays themselves as fallback...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_with_deposit(user.id().as_str(), "Charlie", NearToken::from_millinear(100).as_yoctonear()))
         .deposit(NearToken::from_millinear(100))
         .gas(Gas::from_tgas(100))
@@ -1582,17 +1560,16 @@ async fn test_universal_storage_user_with_deposit_uses_personal() -> anyhow::Res
     let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
     
     // Fund platform pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1613,7 +1590,7 @@ async fn test_universal_storage_user_with_deposit_uses_personal() -> anyhow::Res
     
     let user_deposit = NearToken::from_millinear(200);
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_with_deposit(user.id().as_str(), "David", user_deposit.as_yoctonear()))
         .deposit(user_deposit)
         .gas(Gas::from_tgas(100))
@@ -1673,17 +1650,16 @@ async fn test_universal_storage_multiple_users_share_pool() -> anyhow::Result<()
     
     // Fund platform pool
     let pool_deposit = NearToken::from_near(5);
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1702,7 +1678,7 @@ async fn test_universal_storage_multiple_users_share_pool() -> anyhow::Result<()
         let user = sandbox.dev_create_account().await?;
         
         let result = user
-            .call(contract.id(), "set")
+            .call(contract.id(), "execute")
             .args_json(user_profile_data(user.id().as_str(), &format!("User{}", i), Some(&format!("I am user number {} using platform storage", i))))
             // NO DEPOSIT!
             .gas(Gas::from_tgas(100))
@@ -1740,17 +1716,16 @@ async fn test_universal_storage_sponsored_user_can_still_deposit() -> anyhow::Re
     let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
     
     // Fund platform pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1767,7 +1742,7 @@ async fn test_universal_storage_sponsored_user_can_still_deposit() -> anyhow::Re
     println!("\n📦 Step 1: User writes without deposit (becomes sponsored)...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(user_profile_data(user.id().as_str(), "Eve", None))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -1793,15 +1768,14 @@ async fn test_universal_storage_sponsored_user_can_still_deposit() -> anyhow::Re
     
     let user_deposit = NearToken::from_millinear(500);
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1863,17 +1837,16 @@ async fn test_sponsored_user_delete_frees_pool_capacity() -> anyhow::Result<()> 
     
     // Fund platform pool with small amount to track usage precisely
     let pool_deposit = NearToken::from_near(1);
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1902,16 +1875,15 @@ async fn test_sponsored_user_delete_frees_pool_capacity() -> anyhow::Result<()> 
     println!("\n📦 Step 1: User writes data (platform sponsored)...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/name", user.id()): "TestUser",
                     format!("{}/profile/bio", user.id()): "This is some data that will be deleted later to test pool recycling"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1939,16 +1911,15 @@ async fn test_sponsored_user_delete_frees_pool_capacity() -> anyhow::Result<()> 
     println!("\n📦 Step 2: User deletes data...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/name", user.id()): null,
                     format!("{}/profile/bio", user.id()): null
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1987,17 +1958,16 @@ async fn test_sponsored_user_cannot_withdraw_platform_near() -> anyhow::Result<(
     let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
     
     // Fund platform pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2016,23 +1986,22 @@ async fn test_sponsored_user_cannot_withdraw_platform_near() -> anyhow::Result<(
     println!("\n📦 Step 1: User writes and deletes data (sponsored)...");
     
     // Write
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(user_profile_data(user.id().as_str(), "Attacker", Some("Data to delete")))
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
     
     // Delete
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/name", user.id()): null,
                     format!("{}/profile/bio", user.id()): null
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2066,15 +2035,14 @@ async fn test_sponsored_user_cannot_withdraw_platform_near() -> anyhow::Result<(
     println!("\n📦 Step 2: User tries to withdraw...");
     
     let _result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/withdraw": {}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2107,17 +2075,16 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
     
     // Fund platform pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2133,15 +2100,14 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     // ==========================================================================
     println!("\n📦 Step 1: User writes initial data...");
     
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/bio", user.id()): "Short bio"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2164,15 +2130,14 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     // ==========================================================================
     println!("\n📦 Step 2: User updates with larger data...");
     
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/bio", user.id()): "This is a much longer bio that contains a lot more text and will require more storage bytes to store on the blockchain"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2199,15 +2164,14 @@ async fn test_sponsored_user_updates_existing_data() -> anyhow::Result<()> {
     // ==========================================================================
     println!("\n📦 Step 3: User updates with smaller data...");
     
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/bio", user.id()): "Tiny"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2244,17 +2208,16 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     // Fund platform pool with VERY SMALL amount (only ~1KB capacity)
     // 1 yoctoNEAR per byte × 100 bytes ≈ very small pool
     let tiny_pool = NearToken::from_yoctonear(10_000_000_000_000_000_000_000u128); // ~0.01 NEAR = ~1KB
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": tiny_pool.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2279,15 +2242,14 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     
     // User deposits their own storage first (for fallback)
     let user_deposit = NearToken::from_near(1);
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2307,15 +2269,14 @@ async fn test_pool_exhausts_mid_batch_fallback() -> anyhow::Result<()> {
     let large_bio = "X".repeat(5000); // 5KB of data
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/bio", user.id()): large_bio
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2361,17 +2322,16 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
     
     // Fund platform pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2390,7 +2350,7 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     // ==========================================================================
     println!("\n📦 User 1: Writing without deposit (sponsored)...");
     
-    let _ = sponsored_user.call(contract.id(), "set")
+    let _ = sponsored_user.call(contract.id(), "execute")
         .args_json(user_profile_data(sponsored_user.id().as_str(), "SponsoredUser", Some("I use platform storage")))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -2414,15 +2374,14 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     println!("\n📦 User 2: Deposit first, then write...");
     
     // Deposit first
-    let deposit_result = depositing_user.call(contract.id(), "set")
+    let deposit_result = depositing_user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2442,7 +2401,7 @@ async fn test_mixed_sponsored_and_personal_operations() -> anyhow::Result<()> {
     println!("   Storage after deposit: {:?}", after_deposit);
     
     // Then write
-    let write_result = depositing_user.call(contract.id(), "set")
+    let write_result = depositing_user.call(contract.id(), "execute")
         .args_json(user_profile_data(depositing_user.id().as_str(), "DepositingUser", Some("I deposited but platform pays first")))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -2517,17 +2476,16 @@ async fn test_pool_capacity_exact_match() -> anyhow::Result<()> {
     let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
     
     // Fund pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2559,7 +2517,7 @@ async fn test_pool_capacity_exact_match() -> anyhow::Result<()> {
         let user = sandbox.dev_create_account().await?;
         
         let result = user
-            .call(contract.id(), "set")
+            .call(contract.id(), "execute")
             .args_json(user_profile_data(user.id().as_str(), "User", Some("Filling the pool")))
             .gas(Gas::from_tgas(100))
             .transact()
@@ -2595,15 +2553,14 @@ async fn test_pool_capacity_exact_match() -> anyhow::Result<()> {
     // Try writing large data without deposit - should fail
     let large_data = "X".repeat(5000);
     let result = final_user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/bio", final_user.id()): large_data
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2636,17 +2593,16 @@ async fn test_pool_exhausts_mid_batch_falls_back_to_personal() -> anyhow::Result
     
     // Fund platform pool with SMALL amount (will exhaust quickly)
     let small_pool = NearToken::from_millinear(10); // Only 0.01 NEAR - very small pool
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": small_pool.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2669,15 +2625,14 @@ async fn test_pool_exhausts_mid_batch_falls_back_to_personal() -> anyhow::Result
     // User deposits their own storage first
     let user_deposit = NearToken::from_near(1);
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": user_deposit.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2703,17 +2658,16 @@ async fn test_pool_exhausts_mid_batch_falls_back_to_personal() -> anyhow::Result
     let large_bio = "X".repeat(2000); // Large content to exhaust small pool quickly
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/name", user.id()): "Test User",
                     format!("{}/profile/bio", user.id()): large_bio,
                     format!("{}/profile/about", user.id()): "This should use personal balance if pool exhausted"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2778,17 +2732,16 @@ async fn test_pool_exhausts_no_personal_balance_fails() -> anyhow::Result<()> {
     
     // Fund pool with tiny amount
     let tiny_pool = NearToken::from_millinear(1); // 0.001 NEAR - very tiny
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": tiny_pool.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2808,15 +2761,14 @@ async fn test_pool_exhausts_no_personal_balance_fails() -> anyhow::Result<()> {
     
     let large_data = "Y".repeat(5000);
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/large_field", user.id()): large_data
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2846,17 +2798,16 @@ async fn test_pool_exhausts_attached_deposit_saves() -> anyhow::Result<()> {
     
     // Fund platform pool with TINY amount (100 bytes worth)
     let tiny_amount = NearToken::from_yoctonear(100u128 * 10_000_000_000_000_000_000u128);
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": tiny_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -2879,15 +2830,14 @@ async fn test_pool_exhausts_attached_deposit_saves() -> anyhow::Result<()> {
     let attached_deposit = NearToken::from_near(1); // 1 NEAR should be plenty
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/profile/large_field", user.id()): large_data
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3008,17 +2958,16 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     
     // ~500 bytes worth of storage (100 yocto per byte = 50000 yoctoNEAR)
     let platform_pool_amount = NearToken::from_yoctonear(50_000_000_000_000_000_000_000u128); // 0.05 NEAR
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": platform_pool_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3043,18 +2992,17 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     
     // Sponsor creates their own shared pool
     let sponsor_pool_amount = NearToken::from_near(1);
-    let _ = sponsor.call(contract.id(), "set")
+    let _ = sponsor.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "pool_id": sponsor.id().to_string(),
                         "amount": sponsor_pool_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3068,18 +3016,17 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     let user = sandbox.dev_create_account().await?;
     
     // Sponsor allocates ~1000 bytes to user
-    let _ = sponsor.call(contract.id(), "set")
+    let _ = sponsor.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/share_storage": {
                         "target_id": user.id().to_string(),
                         "max_bytes": 1000
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3095,15 +3042,14 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     println!("\n📦 STEP 3: User deposits small personal balance (~500 bytes)...");
     
     let personal_deposit = NearToken::from_yoctonear(50_000_000_000_000_000_000_000u128); // 0.05 NEAR
-    let _ = user.call(contract.id(), "set")
+    let _ = user.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": personal_deposit.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3143,13 +3089,12 @@ async fn test_full_priority_chain_multi_source_batch() -> anyhow::Result<()> {
     let attached_deposit = NearToken::from_near(1); // 1 NEAR to cover remainder
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": batch_data,
+                "action": { "type": "set", "data": batch_data },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3254,17 +3199,16 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     // SETUP: Fund platform pool with known amount
     // ==========================================================================
     let platform_deposit = NearToken::from_near(1);
-    let _ = contract.call("set")
+    let _ = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": platform_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3296,15 +3240,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let key_1 = format!("{}/test/data1", user.id());
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key_1.clone(): test_data_1.clone()
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3346,15 +3289,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let key_2 = format!("{}/test/data2", user.id());
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key_2.clone(): test_data_2.clone()
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3390,15 +3332,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let test_data_1_large = "Z".repeat(500); // Now 500 bytes
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key_1.clone(): test_data_1_large.clone()
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3431,15 +3372,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     let test_data_1_small = "A".repeat(50); // Now only 50 bytes
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key_1.clone(): test_data_1_small.clone()
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3470,15 +3410,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     println!("\n📦 TEST 5: Delete data2 (200 bytes)...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key_2.clone(): null
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3510,15 +3449,14 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
     println!("\n📦 TEST 6: Delete data1 (remaining 50 bytes)...");
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key_1.clone(): null
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3598,19 +3536,18 @@ async fn test_platform_pool_deposit_basic() -> anyhow::Result<()> {
     let donate_amount = NearToken::from_near(1);
     
     let result = donor
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": donate_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": {
                     "refund_unused_deposit": true
                 },
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3676,17 +3613,16 @@ async fn test_platform_pool_deposit_insufficient_attached() -> anyhow::Result<()
     let large_deposit = NearToken::from_near(1); // 1 NEAR
     
     let result = donor
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": large_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3733,17 +3669,16 @@ async fn test_platform_pool_deposit_multiple_donors() -> anyhow::Result<()> {
     
     // Donor 1
     let result1 = donor1
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": donate_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3756,17 +3691,16 @@ async fn test_platform_pool_deposit_multiple_donors() -> anyhow::Result<()> {
     
     // Donor 2
     let result2 = donor2
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": donate_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3779,17 +3713,16 @@ async fn test_platform_pool_deposit_multiple_donors() -> anyhow::Result<()> {
     
     // Donor 3
     let result3 = donor3
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": donate_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3843,13 +3776,12 @@ async fn test_platform_pool_deposit_with_data_operations() -> anyhow::Result<()>
     data.insert(format!("{}/profile/bio", user_id), json!("I support the platform!"));
     
     let result = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": data,
+                "action": { "type": "set", "data": data },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3917,17 +3849,16 @@ async fn test_platform_pool_deposit_zero_amount() -> anyhow::Result<()> {
     let attached = NearToken::from_millinear(10); // Small amount for gas
     
     let result = donor
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": "0"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -3974,17 +3905,16 @@ async fn test_platform_pool_deposit_exact_attached() -> anyhow::Result<()> {
     let exact_amount = NearToken::from_near(1);
     
     let result = donor
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": exact_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4040,17 +3970,16 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     let donate_amount = NearToken::from_near(5); // Large donation
     
     let result = donor
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": donate_amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4069,18 +3998,17 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     
     // Contract is the manager, so we use contract.call directly
     let share_result = contract
-        .call("set")
+        .call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/share_storage": {
                         "target_id": new_user.id().to_string(),
                         "max_bytes": 100000 // 100KB allocation
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4105,13 +4033,12 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     profile_data.insert(format!("{}/profile/status", new_user_id), json!("active"));
     
     let write_result = new_user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": profile_data,
+                "action": { "type": "set", "data": profile_data },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4159,7 +4086,7 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
 // =============================================================================
 // These tests verify error handling for invalid inputs to the set() API.
 
-/// Test that empty data object {} is rejected
+/// Test that empty data object { is rejected
 #[tokio::test]
 async fn test_empty_data_object_rejected() -> anyhow::Result<()> {
     println!("\n🧪 TEST: Empty data object is rejected");
@@ -4179,13 +4106,12 @@ async fn test_empty_data_object_rejected() -> anyhow::Result<()> {
     
     // Try to call set() with empty data object
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {},
+                "action": { "type": "set", "data": { } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4230,13 +4156,12 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     // Test 1: Array data should fail
     println!("\n   Testing array data...");
     let array_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": ["item1", "item2"],
+                "action": { "type": "set", "data": ["item1", "item2"] },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4251,13 +4176,12 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     // Test 2: String data should fail
     println!("   Testing string data...");
     let string_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": "just a string",
+                "action": { "type": "set", "data": "just a string" },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4272,13 +4196,12 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     // Test 3: Null data should fail
     println!("   Testing null data...");
     let null_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": null,
+                "action": { "type": "set", "data": null },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4293,13 +4216,12 @@ async fn test_non_object_data_rejected() -> anyhow::Result<()> {
     // Test 4: Number data should fail
     println!("   Testing number data...");
     let number_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": 12345,
+                "action": { "type": "set", "data": 12345 },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4336,15 +4258,14 @@ async fn test_invalid_operation_key_rejected() -> anyhow::Result<()> {
     
     // Test invalid key without slash
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "invalid_key_no_slash": "some value"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4390,19 +4311,18 @@ async fn test_set_for_unused_deposit_goes_to_signer() -> anyhow::Result<()> {
     println!("\n   Step 1: Alice grants permission to Bob...");
     let alice_id = alice.id().to_string();
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/delegated/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4446,15 +4366,14 @@ async fn test_set_for_unused_deposit_goes_to_signer() -> anyhow::Result<()> {
     // Step 2: Bob writes to Alice's namespace with extra deposit
     println!("\n   Step 2: Bob calls set(target_account=Alice) with 1 NEAR deposit...");
     let set_for_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "delegated/message": "Written by Bob"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4551,17 +4470,16 @@ async fn test_refund_unused_deposit_true_returns_to_wallet() -> anyhow::Result<(
     
     // Write small data with large deposit and refund_unused_deposit: true
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/test/small", alice_id): "tiny"
-                },
+                } },
                 "options": {
                     "refund_unused_deposit": true
                 },
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4625,15 +4543,14 @@ async fn test_refund_unused_deposit_false_saves_to_balance() -> anyhow::Result<(
     
     // Write small data with large deposit and default options (refund_unused_deposit: false)
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     format!("{}/test/small", alice_id): "tiny"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4697,18 +4614,17 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     // Test 1: Revoke non-existent permission (should handle gracefully)
     println!("\n   Test 1: Revoke non-existent permission...");
     let revoke_nonexistent = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/never/granted/", alice_id)
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4726,19 +4642,18 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     
     // First, Alice grants permission to Bob
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": "apps/",
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4751,18 +4666,17 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     
     // Carol (non-owner) tries to revoke Alice's permission grant
     let carol_revoke = carol
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": "apps/"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4777,18 +4691,17 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     // Test 3: Owner can revoke their own grants
     println!("\n   Test 3: Owner can revoke their own grants...");
     let alice_revoke = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": "apps/"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4827,18 +4740,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
     // Test 1: Try to share storage without having a pool (should fail gracefully)
     println!("\n   Test 1: Try to share without pool funds...");
     let share_no_pool = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/share_storage": {
                         "recipient": bob.id().to_string(),
                         "max_bytes": 10000
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4854,17 +4766,16 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
     // Setup: Manager deposits to shared pool for realistic test
     println!("\n   Setup: Manager deposits to shared pool...");
     let manager_deposit = contract
-        .call("set")
+        .call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4879,18 +4790,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
         // Test 2: Share excessive bytes (should fail or cap)
         println!("\n   Test 2: Try to share excessive bytes...");
         let share_too_much = contract
-            .call("set")
+            .call("execute")
             .args_json(json!({
                 "request": {
                     "target_account": null,
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "storage/share_storage": {
                             "recipient": alice.id().to_string(),
                             "max_bytes": 999999999999_u64 // Way more than 1 NEAR can support
                         }
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -4905,18 +4815,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
         // Test 3: Share to self (should fail or be no-op)
         println!("\n   Test 3: Try to share storage to self...");
         let share_to_self = contract
-            .call("set")
+            .call("execute")
             .args_json(json!({
                 "request": {
                     "target_account": null,
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "storage/share_storage": {
                             "recipient": contract.id().to_string(),
                             "max_bytes": 1000
                         }
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -4931,18 +4840,17 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
         // Test 4: Valid share should work
         println!("\n   Test 4: Valid share should succeed...");
         let valid_share = contract
-            .call("set")
+            .call("execute")
             .args_json(json!({
                 "request": {
                     "target_account": null,
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "storage/share_storage": {
                             "recipient": bob.id().to_string(),
                             "max_bytes": 10000
                         }
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -4958,15 +4866,14 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
             println!("\n   Test 5: Bob writes using shared storage...");
             let bob_id = bob.id().to_string();
             let bob_write = bob
-                .call(contract.id(), "set")
+                .call(contract.id(), "execute")
                 .args_json(json!({
                     "request": {
                         "target_account": null,
-                        "data": {
+                        "action": { "type": "set", "data": {
                             format!("{}/profile/name", bob_id): "Bob"
-                        },
+                        } },
                         "options": null,
-                        "event_config": null,
                         "auth": null
                     }
                 }))
@@ -5013,15 +4920,14 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
     // Test 1: Return storage when none was shared (should handle gracefully)
     println!("\n   Test 1: Return storage when none was shared...");
     let return_none = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/return_shared_storage": {}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5039,17 +4945,16 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
     
     // Manager deposits to its shared pool
     let manager_deposit = contract
-        .call("set")
+        .call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "amount": NearToken::from_near(1).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5063,18 +4968,17 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
         
         // Manager shares with Bob
         let share_result = contract
-            .call("set")
+            .call("execute")
             .args_json(json!({
                 "request": {
                     "target_account": null,
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "storage/share_storage": {
                             "recipient": bob.id().to_string(),
                             "max_bytes": 10000
                         }
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -5089,15 +4993,14 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
             // Test 2: Bob returns the shared storage
             println!("\n   Test 2: Bob returns shared storage...");
             let return_result = bob
-                .call(contract.id(), "set")
+                .call(contract.id(), "execute")
                 .args_json(json!({
                     "request": {
                         "target_account": null,
-                        "data": {
+                        "action": { "type": "set", "data": {
                             "storage/return_shared_storage": {}
-                        },
+                        } },
                         "options": null,
-                        "event_config": null,
                         "auth": null
                     }
                 }))
@@ -5114,15 +5017,14 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
             // Test 3: Double return (should handle gracefully)
             println!("\n   Test 3: Double return (already returned)...");
             let double_return = bob
-                .call(contract.id(), "set")
+                .call(contract.id(), "execute")
                 .args_json(json!({
                     "request": {
                         "target_account": null,
-                        "data": {
+                        "action": { "type": "set", "data": {
                             "storage/return_shared_storage": {}
-                        },
+                        } },
                         "options": null,
-                        "event_config": null,
                         "auth": null
                     }
                 }))
@@ -5172,19 +5074,18 @@ async fn test_set_for_with_refund_unused_deposit_to_signer_wallet() -> anyhow::R
     println!("\n   Step 1: Alice grants permission to Bob...");
     let alice_id = alice.id().to_string();
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/delegated/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5217,17 +5118,16 @@ async fn test_set_for_with_refund_unused_deposit_to_signer_wallet() -> anyhow::R
     // Step 2: Bob writes to Alice with refund_unused_deposit: true
     println!("\n   Step 2: Bob calls set(target_account=Alice) with refund_unused_deposit=true...");
     let set_for_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "delegated/test": "tiny"
-                },
+                } },
                 "options": {
                     "refund_unused_deposit": true
                 },
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5296,15 +5196,14 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 1: set_for without any permission should fail
     println!("\n   Test 1: set_for without permission fails...");
     let unauthorized_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Unauthorized write"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5319,19 +5218,18 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 2: Grant permission for specific path, try to write to different path
     println!("\n   Test 2: Permission for one path doesn't grant access to another...");
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/posts/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5343,15 +5241,14 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     
     // Try to write to profile (not posts) - should fail
     let wrong_path_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Should fail"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5366,15 +5263,14 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 3: Writing to the correct path should succeed
     println!("\n   Test 3: Writing to correct path succeeds...");
     let correct_path_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "posts/1/title": "My First Post"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5389,15 +5285,14 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 4: Third party (Charlie) cannot use Bob's permission
     println!("\n   Test 4: Third party cannot use another's permission...");
     let third_party_result = charlie
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "posts/2/title": "Charlie's attempt"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5412,18 +5307,17 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     // Test 5: Revoke permission, then try again
     println!("\n   Test 5: After permission revoke, access is denied...");
     let revoke_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/posts/", alice_id)
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5434,15 +5328,14 @@ async fn test_set_for_cross_account_permission_edge_cases() -> anyhow::Result<()
     assert!(revoke_result.is_success(), "Revoke should succeed");
     
     let post_revoke_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "posts/3/title": "Should fail after revoke"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5482,10 +5375,11 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     // Alice creates a group using the proper API
     println!("\n   Step 1: Alice creates a group...");
     let create_group_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_group",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "test_group", "config": { "is_private": false } }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -5497,10 +5391,11 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     // Alice adds Bob to the group with WRITE permission (1)
     println!("\n   Step 2: Alice adds Bob with WRITE permission...");
     let add_bob_result = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "test_group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -5512,15 +5407,14 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     // Test 1: Bob can write to group path using regular set()
     println!("\n   Test 1: Bob writes to group path with regular set()...");
     let bob_set_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/test_group/content/posts/1/title": "Bob's post"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5536,19 +5430,18 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     println!("\n   Test 2: Bob grants permission to Charlie for delegation...");
     let bob_id = bob.id().to_string();
     let bob_grant_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": charlie.id().to_string(),
                         "path": format!("{}/", bob_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5562,15 +5455,14 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     // Charlie uses set_for to write to Bob's namespace (simulating a relayer pattern)
     println!("\n   Test 3: Charlie (relayer) writes to Bob's namespace via set_for...");
     let charlie_set_for_result = charlie
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": bob.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/status": "Written by Charlie (relayer) for Bob"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5584,15 +5476,14 @@ async fn test_set_for_with_group_permissions() -> anyhow::Result<()> {
     // Test 4: Non-member (Charlie) cannot write directly to group
     println!("\n   Test 4: Non-member cannot write to group path...");
     let charlie_group_result = charlie
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/test_group/content/posts/2/title": "Charlie's unauthorized post"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5631,19 +5522,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     println!("\n   Step 1: Alice grants broad permission to Bob...");
     let alice_id = alice.id().to_string();
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5657,19 +5547,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     // Test 1: Multiple paths in single set_for call
     println!("\n   Test 1: Multiple paths in single set_for call...");
     let batch_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice Updated",
                     "profile/bio": "Updated by Bob",
                     "settings/theme": "dark",
                     "posts/1/title": "First Post",
                     "posts/1/content": "Content here"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5703,18 +5592,17 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     
     // First, fully revoke the broad permission
     let revoke_broad_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/", alice_id)
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5726,19 +5614,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     
     // Grant only for profile and posts (not settings)
     let regrant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/profile/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5749,19 +5636,18 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     assert!(regrant_result.is_success(), "Re-grant should succeed");
     
     let regrant2_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/posts/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5774,17 +5660,16 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
     
     // Now try batch with settings/ included - should fail because settings/ is not authorized
     let mixed_batch_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/status": "online",
                     "settings/notifications": "disabled",
                     "posts/2/title": "Another post"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5847,19 +5732,18 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     println!("\n   Step 1: Alice grants permission to Bob...");
     let alice_id = alice.id().to_string();
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5875,15 +5759,14 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     
     // Bob attaches deposit for the operation
     let set_for_personal_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/test1": "Written with personal deposit"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5915,17 +5798,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     
     // Manager deposits to platform pool
     let platform_deposit_result = manager
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": NearToken::from_near(5).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -5940,15 +5822,14 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
         
         // Now Bob can set_for without attaching much deposit
         let set_for_pool_result = bob
-            .call(contract.id(), "set")
+            .call(contract.id(), "execute")
             .args_json(json!({
                 "request": {
                     "target_account": alice.id().to_string(),
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "profile/test2": "Written with platform pool coverage"
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -5980,17 +5861,16 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
     
     // Manager deposits to shared pool first
     let shared_pool_deposit_result = manager
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "amount": NearToken::from_near(2).as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6004,18 +5884,17 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
         
         // Manager shares storage with Alice
         let share_result = manager
-            .call(contract.id(), "set")
+            .call(contract.id(), "execute")
             .args_json(json!({
                 "request": {
                     "target_account": null,
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "storage/share_storage": {
                             "recipient": alice.id().to_string(),
                             "amount_bytes": 10000
                         }
-                    },
+                    } },
                     "options": null,
-                    "event_config": null,
                     "auth": null
                 }
             }))
@@ -6029,15 +5908,14 @@ async fn test_set_for_storage_source_priority() -> anyhow::Result<()> {
             
             // Bob can set_for Alice using Alice's shared storage
             let set_for_shared_result = bob
-                .call(contract.id(), "set")
+                .call(contract.id(), "execute")
                 .args_json(json!({
                     "request": {
                         "target_account": alice.id().to_string(),
-                        "data": {
+                        "action": { "type": "set", "data": {
                             "profile/test3": "Written with shared pool coverage"
-                        },
+                        } },
                         "options": null,
-                        "event_config": null,
                         "auth": null
                     }
                 }))
@@ -6118,19 +5996,18 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     // Step 1: Grant bob BROAD permission for alice/ (root path)
     println!("\n   Step 1: Grant Bob permission for alice/ (root path)...");
     let grant_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/", alice_id),
                         "level": 2
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6144,15 +6021,14 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     // Step 2: Bob writes to alice/test - should succeed
     println!("\n   Step 2: Bob writes to alice/test (should succeed)...");
     let write1_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "test/data": "first write"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6166,18 +6042,17 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     // Step 3: Revoke the root permission
     println!("\n   Step 3: Revoke Bob's root permission...");
     let revoke_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/", alice_id)
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6191,15 +6066,14 @@ async fn test_root_path_revoke_blocks_access() -> anyhow::Result<()> {
     // Step 4: Bob tries to write to alice/test2 - should FAIL
     println!("\n   Step 4: Bob tries to write after revoke (should FAIL)...");
     let write2_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "test/data2": "second write after revoke"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6579,14 +6453,15 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     // Step 1: Alice creates a private group
     println!("   Step 1: Alice creates a private group...");
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_club",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "private_club", "config": {
                 "name": "Private Club",
                 "description": "A private group for testing",
                 "is_private": true,
                 "member_driven": false
+            } }
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -6599,9 +6474,11 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     // Step 2: Bob requests to join the private group
     println!("\n   Step 2: Bob requests to join the private group...");
     let join_result = bob
-        .call(contract.id(), "join_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_club"
+            "request": {
+                "action": { "type": "join_group", "group_id": "private_club" }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -6626,9 +6503,11 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     // Step 4: Bob cancels his join request
     println!("\n   Step 4: Bob cancels his join request...");
     let cancel_result = bob
-        .call(contract.id(), "cancel_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_club"
+            "request": {
+                "action": { "type": "cancel_join_request", "group_id": "private_club" }
+            }
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(100))
@@ -6653,9 +6532,11 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     // Step 5b: Cancelling again should fail and must not decrement counters again
     println!("\n   Step 5b: Cancelling already-cancelled request should fail...");
     let cancel_again = bob
-        .call(contract.id(), "cancel_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_club"
+            "request": {
+                "action": { "type": "cancel_join_request", "group_id": "private_club" }
+            }
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(100))
@@ -6681,9 +6562,11 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     // Step 6: Bob can submit a new join request
     println!("\n   Step 6: Bob submits a new join request after cancellation...");
     let rejoin_result = bob
-        .call(contract.id(), "join_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_club"
+            "request": {
+                "action": { "type": "join_group", "group_id": "private_club" }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -6707,9 +6590,11 @@ async fn test_cancel_join_request_flow() -> anyhow::Result<()> {
     // Step 8: Non-existent request cancellation should fail
     println!("\n   Step 8: Cancelling non-existent request should fail...");
     let alice_cancel = alice
-        .call(contract.id(), "cancel_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_club"  // Alice never requested to join
+            "request": {
+                "action": { "type": "cancel_join_request", "group_id": "private_club" }
+            }
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(100))
@@ -6746,14 +6631,15 @@ async fn test_public_group_self_join_write_only() -> anyhow::Result<()> {
     let bob = sandbox.dev_create_account().await?;
 
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "public_club",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "public_club", "config": {
                 "name": "Public Club",
                 "description": "A public group for testing",
                 "is_private": false,
                 "member_driven": false
+            } }
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -6763,9 +6649,11 @@ async fn test_public_group_self_join_write_only() -> anyhow::Result<()> {
     assert!(create_result.is_success(), "Group creation should succeed: {:?}", create_result.failures());
 
     let join_write = bob
-        .call(contract.id(), "join_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "public_club"
+            "request": {
+                "action": { "type": "join_group", "group_id": "public_club" }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -6818,15 +6706,14 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 1: Alice deposits storage
     println!("   Step 1: Alice deposits storage...");
     let _deposit = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "10000000000000000000000000"}  // 10 NEAR
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6846,12 +6733,11 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     let past_timestamp = current_timestamp - 1_000_000_000;  // 1 second in the past
     
     let grant_expired = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id().to_string(),
-            "path": format!("{}/expired_test/", alice_id),
-            "level": 1,  // WRITE
-            "expires_at": past_timestamp.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": format!("{}/expired_test/", alice_id), "level": 1, "expires_at": past_timestamp.to_string() }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -6862,15 +6748,14 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 3: Bob tries to use expired permission - should FAIL
     println!("\n   Step 3: Bob tries to write with expired permission (should FAIL)...");
     let expired_write = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "expired_test/data": "should not work"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6887,12 +6772,11 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     let future_timestamp = current_timestamp + 3600_000_000_000;  // 1 hour in the future
     
     let grant_future = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id().to_string(),
-            "path": format!("{}/future_test/", alice_id),
-            "level": 1,  // WRITE
-            "expires_at": future_timestamp.to_string()
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id().to_string(), "path": format!("{}/future_test/", alice_id), "level": 1, "expires_at": future_timestamp.to_string() }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -6903,15 +6787,14 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 5: Carol uses valid (not expired) permission - should SUCCEED
     println!("\n   Step 5: Carol writes with valid permission (should SUCCEED)...");
     let valid_write = carol
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "future_test/data": "this should work"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -6926,12 +6809,11 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 6: Grant Bob permission with NO expiration (expires_at = 0)
     println!("\n   Step 6: Grant Bob permission with NO expiration...");
     let grant_permanent = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id().to_string(),
-            "path": format!("{}/permanent_test/", alice_id),
-            "level": 1,  // WRITE
-            "expires_at": null  // No expiration
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": format!("{}/permanent_test/", alice_id), "level": 1, "expires_at": null }// No expiration
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -6942,15 +6824,14 @@ async fn test_permission_expiration() -> anyhow::Result<()> {
     // Step 7: Bob uses permanent permission - should SUCCEED
     println!("\n   Step 7: Bob writes with permanent permission (should SUCCEED)...");
     let permanent_write = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permanent_test/data": "permanent access works"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7040,19 +6921,18 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
     // Step 1: Alice and Bob write some data
     println!("   Step 1: Write test data for Alice and Bob...");
     let alice_write = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice",
                     "profile/bio": "Test user Alice",
                     "posts/post1": {"title": "First post", "content": "Hello world"},
                     "posts/post2": {"title": "Second post", "content": "Another post"},
                     "settings/theme": "dark"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7063,16 +6943,15 @@ async fn test_get_api_comprehensive() -> anyhow::Result<()> {
     assert!(alice_write.is_success(), "Alice write should succeed: {:?}", alice_write.failures());
     
     let bob_write = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Bob",
                     "profile/bio": "Test user Bob"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7220,15 +7099,14 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 1: Owner creates a group and deposits storage
     println!("   Step 1: Owner creates group with storage...");
     let owner_deposit = owner
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": NearToken::from_near(5).as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7239,13 +7117,14 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     assert!(owner_deposit.is_success(), "Storage deposit should succeed: {:?}", owner_deposit.failures());
     
     let create_group = owner
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_blacklist_group",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "test_blacklist_group", "config": {
                 "name": "Blacklist Test Group",
                 "description": "Testing blacklist enforcement",
                 "is_private": false
+            } }
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -7258,15 +7137,14 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 2: Member joins and gets storage + WRITE permission
     println!("\n   Step 2: Member joins group with WRITE permission...");
     let member_storage = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": NearToken::from_near(5).as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7277,9 +7155,11 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     assert!(member_storage.is_success(), "Member storage deposit should succeed: {:?}", member_storage.failures());
     
     let join_result = member
-        .call(contract.id(), "join_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_blacklist_group"
+            "request": {
+                "action": { "type": "join_group", "group_id": "test_blacklist_group" }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -7289,12 +7169,11 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     
     // Owner grants WRITE permission on posts path
     let grant_perm = owner
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": member.id().to_string(),
-            "path": "groups/test_blacklist_group/content/",
-            "level": 1,  // WRITE
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": member.id().to_string(), "path": "groups/test_blacklist_group/content/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -7305,18 +7184,17 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 3: Member writes to group (should succeed)
     println!("\n   Step 3: Member writes to group (should succeed)...");
     let write_result = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/test_blacklist_group/content/posts/post1": {
                         "title": "My Post",
                         "content": "Hello from member!"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7330,10 +7208,11 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 4: Owner blacklists the member
     println!("\n   Step 4: Owner blacklists the member...");
     let blacklist_result = owner
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_blacklist_group",
-            "member_id": member.id().to_string()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "test_blacklist_group", "member_id": member.id().to_string() }
+            }
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(100))
@@ -7356,18 +7235,17 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 5: Blacklisted member tries to write (should FAIL)
     println!("\n   Step 5: Blacklisted member tries to write (should FAIL)...");
     let blocked_write = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/test_blacklist_group/content/posts/post2": {
                         "title": "Blocked Post",
                         "content": "This should not work"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7382,17 +7260,16 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 6: Blacklisted member tries set_for (should also FAIL)
     println!("\n   Step 6: Blacklisted member tries set_for (should FAIL)...");
     let blocked_set_for = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": owner.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/test_blacklist_group/content/posts/post3": {
                         "title": "Bypass Attempt"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7407,10 +7284,11 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 7: Owner unblacklists the member
     println!("\n   Step 7: Owner unblacklists the member...");
     let unblacklist_result = owner
-        .call(contract.id(), "unblacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_blacklist_group",
-            "member_id": member.id().to_string()
+            "request": {
+                "action": { "type": "unblacklist_group_member", "group_id": "test_blacklist_group", "member_id": member.id().to_string() }
+            }
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(100))
@@ -7422,9 +7300,11 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 8: Member rejoins group
     println!("\n   Step 8: Member rejoins group...");
     let rejoin_result = member
-        .call(contract.id(), "join_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "test_blacklist_group"
+            "request": {
+                "action": { "type": "join_group", "group_id": "test_blacklist_group" }
+            }
         }))
         .deposit(NearToken::from_near(1))
         .gas(Gas::from_tgas(100))
@@ -7434,12 +7314,11 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     
     // Owner re-grants permission
     let regrant_perm = owner
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": member.id().to_string(),
-            "path": "groups/test_blacklist_group/content/",
-            "level": 1,  // WRITE
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": member.id().to_string(), "path": "groups/test_blacklist_group/content/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -7450,18 +7329,17 @@ async fn test_blacklisted_user_cannot_write_to_group() -> anyhow::Result<()> {
     // Step 9: Member can write again after unblacklist + rejoin
     println!("\n   Step 9: Member writes again after unblacklist (should succeed)...");
     let write_again = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/test_blacklist_group/content/posts/post4": {
                         "title": "Back Again",
                         "content": "I can write after unblacklist!"
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7510,15 +7388,14 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     // Step 1: Alice deposits storage
     println!("   Step 1: Alice deposits storage...");
     let deposit = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": NearToken::from_near(10).as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7534,12 +7411,11 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     
     // Bob gets WRITE (1)
     let grant_bob = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id().to_string(),
-            "path": format!("{}/data/", alice_id),
-            "level": 1,  // WRITE only
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id().to_string(), "path": format!("{}/data/", alice_id), "level": 1, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -7549,12 +7425,11 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     
     // Carol gets MODERATE (2)
     let grant_carol = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": carol.id().to_string(),
-            "path": format!("{}/data/", alice_id),
-            "level": 2,  // MODERATE (includes WRITE hierarchically)
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id().to_string(), "path": format!("{}/data/", alice_id), "level": 2, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -7564,12 +7439,11 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     
     // Dan gets MANAGE (3)
     let grant_dan = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": dan.id().to_string(),
-            "path": format!("{}/data/", alice_id),
-            "level": 3,  // MANAGE (includes MODERATE+WRITE hierarchically)
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": dan.id().to_string(), "path": format!("{}/data/", alice_id), "level": 3, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(100))
         .transact()
@@ -7580,15 +7454,14 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     // Step 3: Bob (WRITE) uses set_for - should succeed
     println!("\n   Step 3: Bob (WRITE) uses set_for...");
     let bob_write = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "data/bob_entry": {"from": "bob", "permission": "WRITE"}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7602,15 +7475,14 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     // Step 4: Carol (MODERATE) uses set_for - should succeed (MODERATE includes WRITE)
     println!("\n   Step 4: Carol (MODERATE) uses set_for...");
     let carol_write = carol
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "data/carol_entry": {"from": "carol", "permission": "MODERATE"}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7624,15 +7496,14 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     // Step 5: Dan (MANAGE) uses set_for - should succeed (MANAGE includes WRITE)
     println!("\n   Step 5: Dan (MANAGE) uses set_for...");
     let dan_write = dan
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "data/dan_entry": {"from": "dan", "permission": "MANAGE"}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7680,20 +7551,19 @@ async fn test_permission_hierarchy_for_set_for() -> anyhow::Result<()> {
     println!("\n   Step 7: Carol (MODERATE) cannot grant MANAGE to others...");
     // Attempt cross-account permission grant via `set` (should be rejected).
     let carol_grant_attempt = carol
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": "data/special/",
                         "level": 3,
                         "expires_at": null
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -7739,16 +7609,16 @@ async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
     // Alice grants Bob FULL permission (MANAGE=3) on all her paths
     println!("\n   Setup: Alice grants Bob MANAGE permission on profile/...");
     let grant_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": "profile/",
                         "level": 3
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7763,17 +7633,17 @@ async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
     // Test 1: Bob cannot call permission/grant targeting Alice
     println!("\n   Test 1: Bob cannot call permission/grant targeting Alice...");
     let cross_grant_res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": "some/path/",
                         "level": 1
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7791,15 +7661,15 @@ async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
     // Test 2: Bob cannot call storage/deposit targeting Alice
     println!("\n   Test 2: Bob cannot call storage/deposit targeting Alice...");
     let cross_deposit_res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {
                         "amount": "1000000000000000000000000"
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7814,13 +7684,13 @@ async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
     // Test 3: Bob cannot call storage/withdraw targeting Alice
     println!("\n   Test 3: Bob cannot call storage/withdraw targeting Alice...");
     let cross_withdraw_res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/withdraw": {}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7835,16 +7705,16 @@ async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
     // Test 4: Bob cannot call permission/revoke targeting Alice
     println!("\n   Test 4: Bob cannot call permission/revoke targeting Alice...");
     let cross_revoke_res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/revoke": {
                         "grantee": bob.id().to_string(),
                         "path": "profile/"
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7859,13 +7729,13 @@ async fn test_reserved_ops_blocked_for_cross_account() -> anyhow::Result<()> {
     // Test 5: Bob CAN write data to Alice (with permission) in same scenario
     println!("\n   Test 5: Bob CAN write data to Alice (permission-based)...");
     let data_write_res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice (written by Bob)"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7903,16 +7773,16 @@ async fn test_mixed_batch_with_reserved_ops_cross_account_fails() -> anyhow::Res
 
     // Grant Bob write permission
     let grant_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": "profile/",
                         "level": 1
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7926,18 +7796,18 @@ async fn test_mixed_batch_with_reserved_ops_cross_account_fails() -> anyhow::Res
     // Test: Bob tries a mixed batch - data write (allowed) + permission/grant (not allowed)
     println!("\n   Test: Mixed batch with valid data + invalid reserved op fails...");
     let mixed_batch_res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id().to_string(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/bio": "This should be allowed",
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": "profile/test/",
                         "level": 1
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -7984,15 +7854,15 @@ async fn test_zero_delta_replacement_no_pool_change() -> anyhow::Result<()> {
 
     // Fund platform pool (contract calls itself)
     let pool_deposit = NearToken::from_near(5);
-    let fund_res = contract.call("set")
+    let fund_res = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -8008,12 +7878,12 @@ async fn test_zero_delta_replacement_no_pool_change() -> anyhow::Result<()> {
     // Write initial value
     let initial_value = "AAAA"; // 4 bytes
     let write1_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "test/key": initial_value
-                }
+                } }
             }
         }))
         .gas(Gas::from_tgas(50))
@@ -8036,12 +7906,12 @@ async fn test_zero_delta_replacement_no_pool_change() -> anyhow::Result<()> {
     // Replace with same-size value (zero delta)
     let replacement_value = "BBBB"; // Still 4 bytes
     let write2_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "test/key": replacement_value
-                }
+                } }
             }
         }))
         .gas(Gas::from_tgas(50))
@@ -8102,15 +7972,15 @@ async fn test_exact_pool_exhaustion_boundary() -> anyhow::Result<()> {
 
     // Fund platform pool with minimal amount
     let pool_deposit = NearToken::from_millinear(100); // Small pool
-    let fund_res = contract.call("set")
+    let fund_res = contract.call("execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": pool_deposit.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -8137,12 +8007,12 @@ async fn test_exact_pool_exhaustion_boundary() -> anyhow::Result<()> {
 
     // First write uses some capacity
     let write1_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "data/item1": "value1"
-                }
+                } }
             }
         }))
         .gas(Gas::from_tgas(50))
@@ -8164,12 +8034,12 @@ async fn test_exact_pool_exhaustion_boundary() -> anyhow::Result<()> {
 
     // Second write should also succeed (uses more capacity)
     let write2_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "data/item2": "value2"
-                }
+                } }
             }
         }))
         .gas(Gas::from_tgas(50))
@@ -8214,12 +8084,12 @@ async fn test_sequential_writes_same_key_tracker_reset() -> anyhow::Result<()> {
     // Deposit storage balance for alice
     let deposit_amount = NearToken::from_millinear(500); // 0.5 NEAR
     let deposit_res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
-                }
+                } }
             }
         }))
         .deposit(NearToken::from_near(1))
@@ -8233,12 +8103,12 @@ async fn test_sequential_writes_same_key_tracker_reset() -> anyhow::Result<()> {
     
     for (i, val) in values.iter().enumerate() {
         let write_res = alice
-            .call(contract.id(), "set")
+            .call(contract.id(), "execute")
             .args_json(json!({
                 "request": {
-                    "data": {
+                    "action": { "type": "set", "data": {
                         "test/sequential": *val
-                    }
+                    } }
                 }
             }))
             .gas(Gas::from_tgas(50))
@@ -8321,15 +8191,14 @@ async fn test_path_with_shared_storage_substring_not_misidentified() -> anyhow::
     // Alice deposits storage to cover writes
     println!("\n   Step 1: Alice deposits storage...");
     let deposit_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": { "amount": NearToken::from_near(1).as_yoctonear().to_string() }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -8346,15 +8215,14 @@ async fn test_path_with_shared_storage_substring_not_misidentified() -> anyhow::
     println!("\n   Step 2: Write to path containing 'shared_storage' substring...");
     let tricky_path = "data/shared_storage_backup";
     let write_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     (tricky_path): { "test": "value" }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -8399,15 +8267,14 @@ async fn test_path_with_shared_storage_substring_not_misidentified() -> anyhow::
     println!("\n   Step 4: Test another variant (my_shared_storage_logs)...");
     let another_tricky = "notes/my_shared_storage_logs";
     let write2 = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     (another_tricky): "log entry"
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))

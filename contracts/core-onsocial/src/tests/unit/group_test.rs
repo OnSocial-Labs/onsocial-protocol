@@ -24,7 +24,7 @@ mod group_creation_tests {
         });
 
         // Create the group (storage will be automatically allocated from attached deposit)
-        let result = contract.create_group(group_id.to_string(), config.clone());
+        let result = contract.execute(create_group_request(group_id.to_string(), config.clone()));
         match result {
             Ok(_) => {},
             Err(e) => panic!("Group creation failed with error: {:?}", e),
@@ -71,7 +71,7 @@ mod group_creation_tests {
         });
 
         // Create member-driven group
-        let result = contract.create_group(group_id.to_string(), config.clone());
+        let result = contract.execute(create_group_request(group_id.to_string(), config.clone()));
         assert!(result.is_ok(), "Member-driven group creation should succeed");
 
         // Verify group config
@@ -110,7 +110,7 @@ mod group_creation_tests {
         });
 
         // Create private group
-        let result = contract.create_group(group_id.to_string(), config.clone());
+        let result = contract.execute(create_group_request(group_id.to_string(), config.clone()));
         assert!(result.is_ok(), "Private group creation should succeed");
 
         // Verify group config
@@ -139,7 +139,7 @@ mod group_creation_tests {
         });
 
         // Create first group
-        let result = contract.create_group(group_id.to_string(), config);
+        let result = contract.execute(create_group_request(group_id.to_string(), config));
         assert!(result.is_ok(), "First group creation should succeed");
 
         // Try to create the same group again - should fail
@@ -148,7 +148,7 @@ mod group_creation_tests {
             "is_private": true
         });
 
-        let result = contract.create_group(group_id.to_string(), config2);
+        let result = contract.execute(create_group_request(group_id.to_string(), config2));
         assert!(result.is_err(), "Duplicate group creation should fail");
 
         println!("✓ Duplicate group creation prevention test passed");
@@ -167,7 +167,7 @@ mod group_creation_tests {
         let config = json!({"description": "Should fail"});
 
         // Try to create group with insufficient deposit
-        let result = contract.create_group(group_id.to_string(), config);
+        let result = contract.execute(create_group_request(group_id.to_string(), config));
         
         // Verify that insufficient storage error is correctly detected and returned
         assert!(result.is_err(), "Group creation with insufficient deposit should fail");
@@ -200,7 +200,7 @@ mod group_creation_tests {
         });
 
         // Create the group
-        let result = contract.create_group(group_id.to_string(), config);
+        let result = contract.execute(create_group_request(group_id.to_string(), config));
         assert!(result.is_ok(), "Group creation should succeed");
 
         // Check storage balance after creation
@@ -237,7 +237,7 @@ mod group_creation_tests {
         // Clear any previous logs
         let _ = get_logs();
 
-        let result = contract.create_group(group_id.to_string(), config);
+        let result = contract.execute(create_group_request(group_id.to_string(), config));
         assert!(result.is_ok(), "Group creation should succeed");
 
         // Check that events were emitted
@@ -292,7 +292,7 @@ mod group_creation_tests {
         // Create group with minimal config
         let config = json!({});
 
-        let result = contract.create_group(group_id.to_string(), config);
+        let result = contract.execute(create_group_request(group_id.to_string(), config));
         assert!(result.is_ok(), "Group creation with minimal config should succeed");
 
         // Verify default values were set
@@ -325,7 +325,7 @@ mod group_creation_tests {
         ];
 
         for (group_id, config) in groups {
-            let result = contract.create_group(group_id.to_string(), config);
+            let result = contract.execute(create_group_request(group_id.to_string(), config));
             assert!(result.is_ok(), "Group {} creation should succeed", group_id);
 
             // Verify group exists
@@ -359,33 +359,33 @@ mod group_creation_tests {
             "description": "Test group for ownership transfer API"
         });
 
-        contract.create_group(group_id.to_string(), config).unwrap();
+        contract.execute(create_group_request(group_id.to_string(), config)).unwrap();
 
         // Test that the new API signature works with all parameter combinations
         
         // Test 1: With None (default behavior)
-        let result = contract.transfer_group_ownership(
+        let result = contract.execute(transfer_group_ownership_request(
             group_id.to_string(), 
             bob.clone(), 
             None // Default behavior
-        );
+        ));
         // This should fail because Bob is not a member yet, but the API should work
         assert!(result.is_err(), "Transfer to non-member should fail (but API signature works)");
 
         // Test 2: With Some(true) (explicit remove old owner)
-        let result = contract.transfer_group_ownership(
+        let result = contract.execute(transfer_group_ownership_request(
             group_id.to_string(), 
             bob.clone(), 
             Some(true) // Explicitly remove old owner
-        );
+        ));
         assert!(result.is_err(), "Transfer to non-member should fail (but API signature works)");
 
         // Test 3: With Some(false) (keep old owner as member)
-        let result = contract.transfer_group_ownership(
+        let result = contract.execute(transfer_group_ownership_request(
             group_id.to_string(), 
             bob.clone(), 
             Some(false) // Keep old owner as member
-        );
+        ));
         assert!(result.is_err(), "Transfer to non-member should fail (but API signature works)");
 
         println!("✓ Ownership transfer API signature test passed");
@@ -407,32 +407,32 @@ mod group_creation_tests {
             "description": "Test group for ownership transfer validation"
         });
 
-        contract.create_group(group_id.to_string(), config).unwrap();
+        contract.execute(create_group_request(group_id.to_string(), config)).unwrap();
 
         // Test 1: Cannot transfer to non-member (this is the validation we can test)
-        let result = contract.transfer_group_ownership(
+        let result = contract.execute(transfer_group_ownership_request(
             group_id.to_string(), 
             bob.clone(), 
-            None);
+            None));
         assert!(result.is_err(), "Should not be able to transfer to non-member");
         let error_msg = format!("{:?}", result.unwrap_err());
         assert!(error_msg.contains("must be a member"), "Error should mention membership requirement");
 
         // Test 2: Cannot transfer to self 
-        let result = contract.transfer_group_ownership(
+        let result = contract.execute(transfer_group_ownership_request(
             group_id.to_string(), 
             alice.clone(), 
-            None);
+            None));
         assert!(result.is_err(), "Should not be able to transfer to yourself");
 
         // Test 3: Non-owner cannot transfer ownership
         let context = get_context_with_deposit(charlie.clone(), 500_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(context.build());
 
-        let result = contract.transfer_group_ownership(
+        let result = contract.execute(transfer_group_ownership_request(
             group_id.to_string(), 
             alice.clone(), 
-            None);
+            None));
         assert!(result.is_err(), "Non-owner should not be able to transfer ownership");
 
         println!("✓ Ownership transfer basic validation test passed");
@@ -458,7 +458,7 @@ mod group_creation_tests {
         let gas_before = near_sdk::env::used_gas().as_gas();
 
         // Create the group
-        let result = contract.create_group(group_id.to_string(), config.clone());
+        let result = contract.execute(create_group_request(group_id.to_string(), config.clone()));
         assert!(result.is_ok(), "Group creation should succeed");
 
         // Measure gas after group creation

@@ -1,10 +1,13 @@
+//! API operation classification for the Set action.
+
 use near_sdk::serde_json::{Map, Value};
 
 use crate::{invalid_input, SocialError};
 
+/// Classifies the type of operation based on the key in the data object.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ApiOperationKey<'a> {
-    // Supported operations.
+    // Storage operations
     StorageDeposit,
     StorageWithdraw,
     StorageSharedPoolDeposit,
@@ -15,13 +18,16 @@ pub(crate) enum ApiOperationKey<'a> {
     StorageShareStorage,
     StorageReturnSharedStorage,
 
+    // Permission operations
     PermissionGrant,
     PermissionRevoke,
 
+    // Regular data path
     DataPath(&'a str),
 }
 
 impl ApiOperationKey<'_> {
+    /// Returns true if this operation requires target_account == actor.
     #[inline]
     pub(crate) fn requires_target_owner(self) -> bool {
         matches!(
@@ -41,6 +47,7 @@ impl ApiOperationKey<'_> {
     }
 }
 
+/// Classify an API operation key from the data object.
 #[inline]
 pub(crate) fn classify_api_operation_key(key: &str) -> Result<ApiOperationKey<'_>, SocialError> {
     Ok(match key {
@@ -69,7 +76,6 @@ pub(crate) fn classify_api_operation_key(key: &str) -> Result<ApiOperationKey<'_
         "permission/revoke" => ApiOperationKey::PermissionRevoke,
 
         // Prevent arbitrary user data from being written under reserved namespaces.
-        // These prefixes are reserved for dedicated operations and/or dedicated methods.
         path if path.starts_with("storage/") => return Err(invalid_input!("Invalid operation key")),
         path if path.starts_with("permission/") => return Err(invalid_input!("Invalid operation key")),
         path if path.starts_with("status/") => return Err(invalid_input!("Invalid operation key")),
@@ -81,7 +87,7 @@ pub(crate) fn classify_api_operation_key(key: &str) -> Result<ApiOperationKey<'_
     })
 }
 
-/// Common `set`-API invariant: the request payload must be a non-empty JSON object.
+/// Common API invariant: the request payload must be a non-empty JSON object.
 pub(crate) fn require_non_empty_object(value: &Value) -> Result<&Map<String, Value>, SocialError> {
     let obj = value
         .as_object()

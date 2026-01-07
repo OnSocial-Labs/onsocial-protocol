@@ -1,5 +1,9 @@
+//! Canonical JSON serialization for signature verification.
+
 use near_sdk::serde_json::{Map, Value};
 
+/// Canonicalize a JSON value by sorting object keys recursively.
+/// This ensures consistent serialization for signature verification.
 pub(crate) fn canonicalize_json_value(value: &Value) -> Value {
     match value {
         Value::Object(map) => {

@@ -15,10 +15,10 @@ pub fn validate_cross_account_permissions_simple(
     actor_pk: Option<&PublicKey>,
     require_key_for_group_paths: bool,
 ) -> Result<(), SocialError> {
-    let data_obj = crate::protocol::set::operation::require_non_empty_object(data)?;
+    let data_obj = crate::protocol::operation::require_non_empty_object(data)?;
 
     for key in data_obj.keys() {
-        use crate::protocol::set::operation::{classify_api_operation_key, ApiOperationKey};
+        use crate::protocol::operation::{classify_api_operation_key, ApiOperationKey};
         let kind = classify_api_operation_key(key.as_str())?;
 
         match kind {

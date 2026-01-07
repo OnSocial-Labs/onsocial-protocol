@@ -30,16 +30,16 @@ mod comprehensive_integration_tests {
 
         // Ensure Alice has a storage balance (set_permission does not consume attached_deposit).
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         // Alice grants Bob permission to write to her posts path
-        let grant_result = contract.set_permission(
+        let grant_result = contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
             None
-        );
+        ));
         assert!(grant_result.is_ok(), "Permission grant should succeed: {:?}", grant_result.err());
         // Verify Bob has permission
         let has_perm = contract.has_permission(alice.clone(), bob.clone(), format!("{}/posts", alice), WRITE);
@@ -48,15 +48,14 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Bob writes to Alice's posts path using set_for
-        let write_result = contract.set(set_request_for(
+        let write_result = contract.execute(set_request_for(
             alice.clone(),
             json!({
                 "posts/shared": {
                     "text": "Bob writing to Alice's space",
                     "author": bob.to_string()
                 }
-            }),
-            None,
+            })
         ));
         assert!(write_result.is_ok(), "Bob should be able to write with permission: {:?}", write_result.err());
         println!("✓ Cross-account write with permissions test passed");
@@ -68,17 +67,16 @@ mod comprehensive_integration_tests {
         // Setup storage for Alice
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let _ = contract.set(set_request(json!({"profile/name": "Alice"}), None));
+        let _ = contract.execute(set_request(json!({"profile/name": "Alice"})));
         // Bob tries to write to Alice's data without permission
         let bob = test_account(2);
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let write_result = contract.set(set_request_for(
+        let write_result = contract.execute(set_request_for(
             alice.clone(),
             json!({
                 "posts/unauthorized": "Bob's unauthorized post"
-            }),
-            None,
+            })
         ));
         assert!(write_result.is_err(), "Write without permission should fail");
         println!("✓ Cross-account write without permissions correctly fails");
@@ -94,30 +92,29 @@ mod comprehensive_integration_tests {
 
         // Ensure Alice has a storage balance (set_permission does not consume attached_deposit).
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
-        contract.set_permission(
+        contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
             None
-        ).unwrap();
+        )).unwrap();
         // Bob can write to posts/
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let posts_write = contract.set(set_request_for(
+        let posts_write = contract.execute(set_request_for(
             alice.clone(),
             json!({
                 "posts/test": "Allowed"
-            }),
-            None,
+            })
         ));
         assert!(posts_write.is_ok(), "Write to posts/ should succeed: {:?}", posts_write.err());
         // Bob cannot write to profile/
-        let profile_write = contract.set(set_request_for(alice.clone(), json!({
+        let profile_write = contract.execute(set_request_for(alice.clone(), json!({
                 "profile/bio": "Unauthorized"
-            }), None));
+            })));
         assert!(profile_write.is_err(), "Write to profile/ should fail");
         println!("✓ Permission boundary enforcement test passed");
     }
@@ -131,7 +128,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Write data across different paths
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "profile/name": "Alice",
                 "profile/bio": "Developer",
@@ -141,8 +138,7 @@ mod comprehensive_integration_tests {
                 "friends/bob": {"status": "friend"},
                 "friends/charlie": {"status": "friend"},
                 "settings/privacy": "public"
-            }),
-            None,
+            })
         ));
         assert!(result.is_ok(), "Writes should succeed");
         // Retrieve data from different paths
@@ -167,17 +163,17 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({"posts/1": "Alice's post"}), None))
+            .execute(set_request(json!({"posts/1": "Alice's post"})))
             .unwrap();
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({"posts/1": "Bob's post"}), None))
+            .execute(set_request(json!({"posts/1": "Bob's post"})))
             .unwrap();
         let context = get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({"posts/1": "Charlie's post"}), None))
+            .execute(set_request(json!({"posts/1": "Charlie's post"})))
             .unwrap();
         // Verify all writes succeeded independently
         let alice_data = contract_get_values_map(&contract, vec![format!("{}/posts/1", alice)], None);
@@ -199,21 +195,21 @@ mod comprehensive_integration_tests {
         // Step 1: Owner creates public group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let create_result = contract.create_group(
+        let create_result = contract.execute(create_group_request(
             "test-group".to_string(),
             json!({
                 "description": "Integration test group",
                 "is_private": false,
                 "member_driven": false
             }),
-        );
+        ));
         assert!(create_result.is_ok(), "Group creation should succeed: {:?}", create_result.err());
         // Step 2: Member joins public group (self-join)
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let join_result = contract.join_group(
+        let join_result = contract.execute(join_group_request(
             "test-group".to_string(),
-        );
+        ));
         assert!(join_result.is_ok(), "Public group join should succeed: {:?}", join_result.err());
         // Verify member was added
         let is_member = contract.is_group_member("test-group".to_string(), member.clone());
@@ -232,28 +228,28 @@ mod comprehensive_integration_tests {
         // Step 1: Owner creates private group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.create_group(
+        contract.execute(create_group_request(
             "private-group".to_string(),
             json!({
                 "name": "Private Group",
                 "is_private": true,
                 "member_driven": false
             }),
-        ).unwrap();
+        )).unwrap();
         // Step 2: User requests to join
         let context = get_context_with_deposit(requester.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let request_result = contract.join_group(
+        let request_result = contract.execute(join_group_request(
             "private-group".to_string(),
-        );
+        ));
         assert!(request_result.is_ok(), "Join request should be created");
         // Step 3: Owner approves request
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let approve_result = contract.approve_join_request(
+        let approve_result = contract.execute(approve_join_request(
             "private-group".to_string(),
             requester.clone(),
-        );
+        ));
         assert!(approve_result.is_ok(), "Join approval should succeed: {:?}", approve_result.err());
         // Verify member was added
         let is_member = contract.is_group_member("private-group".to_string(), requester.clone());
@@ -270,7 +266,7 @@ mod comprehensive_integration_tests {
         // Create member-driven group (must be private)
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.create_group(
+        contract.execute(create_group_request(
             "demo-group".to_string(),
             json!({
                 "name": "Democratic Group",
@@ -282,21 +278,21 @@ mod comprehensive_integration_tests {
                     "voting_period": "604800000000000"  // 1 week in nanoseconds
                 }
             }),
-        ).unwrap();
+        )).unwrap();
         // Owner is automatically a member
         assert!(contract.is_group_member("demo-group".to_string(), owner.clone()), 
                 "Owner should be a group member");
         // In member-driven groups, adding members creates proposals
         // Owner proposes member1 (auto-executes since owner is only voter)
         contract
-            .add_group_member("demo-group".to_string(), member1.clone())
+            .execute(add_group_member_request("demo-group".to_string(), member1.clone()))
             .unwrap();
         assert!(contract.is_group_member("demo-group".to_string(), member1.clone()), 
                 "Member1 should be added (auto-executed proposal)");
         // Now we have 2 members (owner + member1), so next proposal needs 2 votes
         // Owner proposes member2
         let _proposal_id1 = contract
-            .add_group_member("demo-group".to_string(), member2.clone())
+            .execute(add_group_member_request("demo-group".to_string(), member2.clone()))
             .unwrap();
         
         // Member1 must also approve for quorum (2/2 = 100% participation, >51% required)
@@ -311,7 +307,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(member1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "demo-group".to_string(),
             "member_invite".to_string(),
             json!({
@@ -319,13 +315,13 @@ mod comprehensive_integration_tests {
                 "level": 0
             }),
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
         println!("Created proposal by member1: {}", proposal_id);
         // Member1 votes YES (creator auto-votes YES: 1/2)
         // Now owner votes YES to reach quorum
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.vote_on_proposal("demo-group".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("demo-group".to_string(), proposal_id, true)).unwrap();
         // With 2/2 members voting YES (100% participation, 100% approval), proposal should execute
         // Verify candidate was added after democratic vote
         assert!(contract.is_group_member("demo-group".to_string(), candidate.clone()), 
@@ -344,36 +340,34 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         // Deposit storage
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {"amount": "3000000000000000000000000"}
-                }),
-                None,
+                })
             ))
             .unwrap();
         let balance_1 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_1.balance >= 3_000_000_000_000_000_000_000_000u128, "Initial deposit should be recorded");
         // Write data (consumes storage)
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "profile/name": "Alice",
                     "profile/bio": "Long bio text that consumes storage space",
                     "posts/1": {"text": "Post 1", "timestamp": 12345},
                     "posts/2": {"text": "Post 2", "timestamp": 12346},
                     "posts/3": {"text": "Post 3", "timestamp": 12347},
-                }),
-                None,
+                })
             ))
             .unwrap();
         let balance_2 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_2.used_bytes > 0, "Storage should be consumed");
         // Delete data (releases storage)
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "posts/1": null,
                     "posts/2": null,
-                }), None))
+                })))
             .unwrap();
         let balance_3 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(balance_3.used_bytes < balance_2.used_bytes, "Deleted data should release storage");
@@ -389,30 +383,29 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(pool_owner.clone(), 10_000_000_000_000_000_000_000_000u128);
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {"amount": "5000000000000000000000000"}
-                }),
-                None,
+                })
             ))
             .unwrap();
         // User 1 writes data with their own storage
         let context = get_context_with_deposit(user1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/name": "User 1",
                     "posts/1": "Using storage"
-                }), None))
+                })))
             .unwrap();
         // User 2 writes data with their own storage
         let context = get_context_with_deposit(user2.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/name": "User 2",
                     "posts/1": "Using storage"
-                }), None))
+                })))
             .unwrap();
         // Verify storage tracking works
         let user1_balance = contract.get_storage_balance(user1.clone()).unwrap();
@@ -429,20 +422,19 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), initial_deposit);
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {"amount": initial_deposit.to_string()}
-                }),
-                None,
+                })
             ))
             .unwrap();
         let initial_balance = contract.get_storage_balance(alice.clone()).unwrap();
         // Try to write to Bob's account without permission (should fail and refund)
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let failed_write = contract.set(set_request_for(bob.clone(), json!({
+        let failed_write = contract.execute(set_request_for(bob.clone(), json!({
                 "posts/unauthorized": "Should fail"
-            }), None));
+            })));
         assert!(failed_write.is_err(), "Unauthorized write should fail");
         // Alice's storage balance should remain unchanged (refunded)
         let final_balance = contract.get_storage_balance(alice.clone()).unwrap();
@@ -459,12 +451,11 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Perform operations that should emit events
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "profile/name": "Alice",
                 "posts/1": {"text": "Hello world"}
-            }),
-            None,
+            })
         ));
         assert!(result.is_ok(), "Operations with events should succeed");
         // In a real scenario, we'd check logs here
@@ -481,7 +472,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Multiple operations in one call should batch events
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             json!({
                 "storage/deposit": {"amount": "1000000000000000000000000"},
                 "profile/name": "Alice",
@@ -493,8 +484,7 @@ mod comprehensive_integration_tests {
                     "path": format!("{}/posts", alice),
                     "flags": WRITE
                 }
-            }),
-            None,
+            })
         ));
         assert!(result.is_ok(), "Batched operations should succeed");
         println!("✓ Event batching across operations test passed");
@@ -509,12 +499,12 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         // Mix of valid and invalid operations
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "profile/name": "Alice",  // Valid
                 "profile/bio": "Developer",  // Valid
                 // The following would fail if we tried to write to Bob's account
                 // "bob.testnet/posts/hack": "Invalid",  // Would fail
-            }), None));
+            })));
         // Valid operations should succeed
         assert!(result.is_ok(), "Valid operations should succeed");
         // Verify only valid data was written
@@ -531,16 +521,16 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         // Write initial data
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/name": "Alice",
                     "profile/version": 1
-                }), None))
+                })))
             .unwrap();
         // Write empty string (valid operation that overwrites)
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/name": "".to_string(),
-                }), None))
+                })))
             .unwrap();
         // Verify the empty string was written (contract allows it)
         let keys = vec![format!("{}/profile/name", alice)];
@@ -561,20 +551,19 @@ mod comprehensive_integration_tests {
         // Create post
         let post_id = "post-123";
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("posts/{}", post_id): {
                         "text": "My first post!",
                         "timestamp": 1234567890,
                         "likes": 0
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Edit post
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("posts/{}", post_id): {
                         "text": "My edited post!",
@@ -582,29 +571,26 @@ mod comprehensive_integration_tests {
                         "edited": true,
                         "likes": 0
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Add reaction
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("posts/{}/reactions/user1", post_id): {
                         "type": "like",
                         "timestamp": 1234567900
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Delete post
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("posts/{}", post_id): null
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Verify deletion
@@ -624,7 +610,7 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         // Alice adds friends
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("friends/{}", bob): {
                         "status": "friend",
@@ -634,27 +620,24 @@ mod comprehensive_integration_tests {
                         "status": "friend",
                         "since": 1234567891
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Alice adds followers
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "followers/user1": {"since": 1234567900},
                     "followers/user2": {"since": 1234567901},
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Alice unfriends Bob
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("friends/{}", bob): null
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Verify friend list
@@ -674,34 +657,33 @@ mod comprehensive_integration_tests {
         // Create group with moderation
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.create_group(
+        contract.execute(create_group_request(
             "moderated-group".to_string(),
             json!({
                 "name": "Moderated Group",
                 "is_private": false,
                 "member_driven": false
             }),
-        ).unwrap();
+        )).unwrap();
         // Add moderator (clean-add: onboarding starts member-only)
         contract
-            .add_group_member("moderated-group".to_string(), moderator.clone())
+            .execute(add_group_member_request("moderated-group".to_string(), moderator.clone()))
             .unwrap();
         // Add regular user (clean-add)
         contract
-            .add_group_member("moderated-group".to_string(), user.clone())
+            .execute(add_group_member_request("moderated-group".to_string(), user.clone()))
             .unwrap();
         // User posts content to their own space (not group path)
         let context = get_context_with_deposit(user.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("{}/posts/user-post", user): {
                         "text": "User's post",
                         "author": user.to_string()
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Moderator can read the post via get()
@@ -728,7 +710,7 @@ mod comprehensive_integration_tests {
         testing_env!(context.build());
         // Write diverse data
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "profile/name": "Alice",
                     "profile/bio": "Developer",
@@ -737,8 +719,7 @@ mod comprehensive_integration_tests {
                     "posts/2": {"text": "Post 2"},
                     "settings/theme": "dark",
                     "settings/language": "en"
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Retrieve multiple keys at once
@@ -761,7 +742,7 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({ "profile/name": "Alice" }), None))
+            .execute(set_request(json!({ "profile/name": "Alice" })))
             .unwrap();
         // Get with metadata
         let keys = vec![format!("{}/profile/name", alice)];
@@ -779,13 +760,13 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({"profile/name": "Alice"}), None))
+            .execute(set_request(json!({"profile/name": "Alice"})))
             .unwrap();
         // Bob writes his data
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(json!({"profile/name": "Bob"}), None))
+            .execute(set_request(json!({"profile/name": "Bob"})))
             .unwrap();
         // Retrieve data from both accounts
         let keys = vec![
@@ -807,27 +788,26 @@ mod comprehensive_integration_tests {
         // Create private group
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        contract.create_group(
+        contract.execute(create_group_request(
             "secret-group".to_string(),
             json!({
                 "name": "Secret Group",
                 "is_private": true,
                 "member_driven": false
             }),
-        ).unwrap();
+        )).unwrap();
         // Add member
         contract
-            .add_group_member("secret-group".to_string(), member.clone())
+            .execute(add_group_member_request("secret-group".to_string(), member.clone()))
             .unwrap();
         // Member writes private content to their own space
         let context = get_context_with_deposit(member.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     format!("{}/private-data", member): "Secret information"
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Member can read their own data
@@ -866,68 +846,63 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "projects/project1": {
                         "name": "Collaborative Project",
                         "status": "active"
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Grant permissions to editors
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "permission/grant": {
                         "grantee": editor1.to_string(),
                         "path": format!("{}/projects/project1", owner),
                         "flags": WRITE
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "permission/grant": {
                         "grantee": editor2.to_string(),
                         "path": format!("{}/projects/project1", owner),
                         "flags": WRITE
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Editors collaborate
         let context = get_context_with_deposit(editor1.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request_for(
+            .execute(set_request_for(
                 owner.clone(),
                 json!({
                     "projects/project1/tasks/task1": {
                         "title": "Task 1",
                         "assignee": editor1.to_string()
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         let context = get_context_with_deposit(editor2.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
         contract
-            .set(set_request_for(
+            .execute(set_request_for(
                 owner.clone(),
                 json!({
                     "projects/project1/tasks/task2": {
                         "title": "Task 2",
                         "assignee": editor2.to_string()
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Verify collaboration
@@ -949,31 +924,30 @@ mod comprehensive_integration_tests {
 
         // Ensure Alice has a storage balance (permission grants do not consume attached_deposit).
         contract
-            .set(set_request(json!({"storage/deposit": {"amount": "1"}}), None))
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         // Grant directory-level permission
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "permission/grant": {
                         "grantee": bob.to_string(),
                         "path": format!("{}/posts", alice),
                         "flags": WRITE
                     }
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Bob should be able to write to any path under posts/
         let context = get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000);
         testing_env!(context.build());
-        let write1 = contract.set(set_request_for(alice.clone(), json!({
+        let write1 = contract.execute(set_request_for(alice.clone(), json!({
                 "posts/2024/january/post1": "Post in January"
-            }), None));
-        let write2 = contract.set(set_request_for(alice.clone(), json!({
+            })));
+        let write2 = contract.execute(set_request_for(alice.clone(), json!({
                 "posts/2024/february/post2": "Post in February"
-            }), None));
+            })));
         assert!(write1.is_ok(), "Subdirectory write 1 should succeed");
         assert!(write2.is_ok(), "Subdirectory write 2 should succeed");
         println!("✓ Cascading permissions test passed");
@@ -987,20 +961,19 @@ mod comprehensive_integration_tests {
         let context = get_context_with_deposit(alice.clone(), small_deposit);
         testing_env!(context.build());
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
                     "storage/deposit": {"amount": small_deposit.to_string()}
-                }),
-                None,
+                })
             ))
             .unwrap();
         // Try to write more data than storage allows
         let large_data = "x".repeat(100000); // Large string
-        let result = contract.set(set_request(json!({
+        let result = contract.execute(set_request(json!({
                 "large/data1": large_data.clone(),
                 "large/data2": large_data.clone(),
                 "large/data3": large_data,
-            }), None));
+            })));
         // Should either succeed with available storage or fail gracefully
         // The important thing is consistent behavior
         match result {

@@ -3,6 +3,9 @@ mod group_transfer_ownership_security_test {
     use crate::tests::test_utils::*;
     use near_sdk::test_utils::accounts;
 
+    // Import request builders for execute() API
+    use crate::tests::test_utils::transfer_group_ownership_request;
+
     // Simple unit test for transfer_ownership logic without storage complexity
     #[test]
     fn test_transfer_ownership_logic_validation() {
@@ -36,9 +39,9 @@ mod group_transfer_ownership_security_test {
         near_sdk::testing_env!(context.build());
         let mut contract = init_live_contract();
 
-        // Test that the transfer_group_ownership method exists and can be called
+        // Test that the transfer_group_ownership method exists and can be called via execute()
         // (it will fail due to storage issues, but the method should exist)
-        let result = contract.transfer_group_ownership("test".to_string(), accounts(1), None);
+        let result = contract.execute(transfer_group_ownership_request("test".to_string(), accounts(1), None));
         assert!(result.is_err(), "Method should exist but fail due to test setup");
 
         // Check that the error is about storage, not about missing method

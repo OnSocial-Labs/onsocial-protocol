@@ -1,0 +1,8 @@
+# Relayer configuration
+# Can also be set via environment variables with RELAYER_ prefix
+
+rpc_url = "https://rpc.testnet.near.org"
+contract_id = "core.onsocial.testnet"
+keys_path = "./account_keys/relayer.onsocial.testnet.json"
+bind_address = "0.0.0.0:3040"
+gas_tgas = 100

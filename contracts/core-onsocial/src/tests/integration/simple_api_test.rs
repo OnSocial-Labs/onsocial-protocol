@@ -20,7 +20,7 @@ fn test_ultra_simple_set_api() {
         "posts/1": {"text": "Hello world!", "timestamp": 1234567890}
     });
 
-    let result = contract.set(set_request(data, None));
+    let result = contract.execute(set_request(data));
     assert!(result.is_ok(), "Simple set operation should succeed");
 
         // Verify data was set
@@ -45,7 +45,7 @@ fn test_simple_storage_operations() {
         "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
     });
 
-    let result = contract.set(set_request(deposit_data, None));
+    let result = contract.execute(set_request(deposit_data));
     assert!(result.is_ok(), "Storage deposit should succeed");
 
     // Verify storage balance
@@ -58,7 +58,7 @@ fn test_simple_storage_operations() {
         "storage/withdraw": {"amount": "500000000000000000000000"}  // 0.5 NEAR
     });
 
-    let result = contract.set(set_request(withdraw_data, None));
+    let result = contract.execute(set_request(withdraw_data));
     assert!(result.is_ok(), "Storage withdraw should succeed");
 
     println!("✓ Simple storage operations test passed");
@@ -88,7 +88,7 @@ fn test_simple_permission_operations() {
         }
     });
 
-    let result = contract.set(set_request(permission_data, None));
+    let result = contract.execute(set_request(permission_data));
     match result {
         Ok(_) => {},
         Err(e) => panic!("Permission grant failed with error: {:?}", e),
@@ -113,7 +113,7 @@ fn test_simple_permission_operations() {
         }
     });
 
-    let result = contract.set(set_request(revoke_data, None));
+    let result = contract.execute(set_request(revoke_data));
     assert!(result.is_ok(), "Permission revoke should succeed");
 
     // TODO: Fix permission checking logic
@@ -150,7 +150,7 @@ fn test_mixed_operations() {
         }
     });
 
-    let result = contract.set(set_request(mixed_data, None));
+    let result = contract.execute(set_request(mixed_data));
     match result {
         Ok(_) => {},
         Err(e) => panic!("Mixed operations failed with error: {:?}", e),

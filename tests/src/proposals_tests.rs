@@ -90,10 +90,11 @@ async fn test_single_member_group_auto_executes_proposal() -> anyhow::Result<()>
 
     // Create member-driven group with only Alice (single member)
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-member-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "single-member-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -107,13 +108,13 @@ async fn test_single_member_group_auto_executes_proposal() -> anyhow::Result<()>
     // Create proposal to invite Bob with auto_vote=true (default)
     // This should auto-execute since Alice is sole member + auto-votes
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-member-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "single-member-group", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string(),
                 "message": "Welcome Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -224,10 +225,11 @@ async fn test_auto_vote_false_skips_proposer_vote() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-auto-vote-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "no-auto-vote-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -237,10 +239,11 @@ async fn test_auto_vote_false_skips_proposer_vote() -> anyhow::Result<()> {
 
     // Add Bob so we have 2 members
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-auto-vote-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "no-auto-vote-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -250,16 +253,15 @@ async fn test_auto_vote_false_skips_proposer_vote() -> anyhow::Result<()> {
 
     // Create proposal with auto_vote=false
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-auto-vote-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "no-auto-vote-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Test auto_vote=false",
                 "description": "Proposer should not auto-vote",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -320,10 +322,11 @@ async fn test_cancel_by_non_proposer_blocked() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-auth-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "cancel-auth-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -333,10 +336,11 @@ async fn test_cancel_by_non_proposer_blocked() -> anyhow::Result<()> {
 
     // Add Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-auth-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "cancel-auth-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -346,16 +350,15 @@ async fn test_cancel_by_non_proposer_blocked() -> anyhow::Result<()> {
 
     // Alice creates proposal with auto_vote=false
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-auth-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "cancel-auth-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Alice's proposal",
                 "description": "Bob should not be able to cancel this",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -369,10 +372,11 @@ async fn test_cancel_by_non_proposer_blocked() -> anyhow::Result<()> {
 
     // Bob tries to cancel Alice's proposal (should fail)
     let cancel = bob
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-auth-group",
-            "proposal_id": proposal_id
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "cancel-auth-group", "proposal_id": proposal_id }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -406,10 +410,11 @@ async fn test_cancel_executed_proposal_blocked() -> anyhow::Result<()> {
 
     // Create single-member group so proposals auto-execute
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-executed-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "cancel-executed-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -419,13 +424,13 @@ async fn test_cancel_executed_proposal_blocked() -> anyhow::Result<()> {
 
     // Create proposal that auto-executes (single member + auto_vote=true)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-executed-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "cancel-executed-group", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string(),
                 "message": "Invite Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -453,10 +458,11 @@ async fn test_cancel_executed_proposal_blocked() -> anyhow::Result<()> {
 
     // Try to cancel executed proposal (should fail)
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-executed-group",
-            "proposal_id": proposal_id
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "cancel-executed-group", "proposal_id": proposal_id }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -490,10 +496,11 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "counter-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -503,10 +510,11 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
 
     // Add Bob so proposals don't auto-execute
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "counter-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -516,16 +524,15 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
 
     // Create first proposal
     let create_proposal1 = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "counter-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Proposal 1",
                 "description": "First proposal",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -536,16 +543,15 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
 
     // Create second proposal
     let create_proposal2 = bob
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "counter-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Proposal 2",
                 "description": "Second proposal",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -618,10 +624,11 @@ async fn test_update_proposal_status_sets_timestamp() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "timestamp-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "timestamp-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -631,10 +638,11 @@ async fn test_update_proposal_status_sets_timestamp() -> anyhow::Result<()> {
 
     // Add Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "timestamp-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "timestamp-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -644,16 +652,15 @@ async fn test_update_proposal_status_sets_timestamp() -> anyhow::Result<()> {
 
     // Create proposal with auto_vote=false
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "timestamp-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "timestamp-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Timestamp test",
                 "description": "Will be cancelled to check updated_at",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -682,10 +689,11 @@ async fn test_update_proposal_status_sets_timestamp() -> anyhow::Result<()> {
 
     // Cancel proposal (triggers update_proposal_status)
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "timestamp-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "timestamp-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -741,10 +749,11 @@ async fn test_join_request_target_uses_requester() -> anyhow::Result<()> {
 
     // Create member-driven group (private - join requests go through proposals)
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join-request-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "join-request-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -815,10 +824,11 @@ async fn test_proposer_can_cancel_with_only_self_vote() -> anyhow::Result<()> {
 
     // Create member-driven group with 3 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "self-vote-cancel-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "self-vote-cancel-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -828,10 +838,11 @@ async fn test_proposer_can_cancel_with_only_self_vote() -> anyhow::Result<()> {
 
     // Add Bob and Carol
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "self-vote-cancel-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "self-vote-cancel-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -840,10 +851,11 @@ async fn test_proposer_can_cancel_with_only_self_vote() -> anyhow::Result<()> {
     assert!(add_bob.is_success(), "Adding Bob should succeed");
 
     let add_carol = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "self-vote-cancel-group",
-            "member_id": carol.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "self-vote-cancel-group", "member_id": carol.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -853,14 +865,14 @@ async fn test_proposer_can_cancel_with_only_self_vote() -> anyhow::Result<()> {
 
     // Alice creates proposal with auto_vote=true (default), so she has 1 vote
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "self-vote-cancel-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "self-vote-cancel-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Self vote cancel test",
                 "description": "Alice will cancel this",
                 "custom_data": {}
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -891,10 +903,11 @@ async fn test_proposer_can_cancel_with_only_self_vote() -> anyhow::Result<()> {
 
     // Alice cancels (should succeed since only her vote exists)
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "self-vote-cancel-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "self-vote-cancel-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -945,10 +958,11 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
 
     // Create member-driven group with 3 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "vote-cancelled-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "vote-cancelled-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -958,10 +972,11 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
 
     // Add Bob and Carol
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "vote-cancelled-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "vote-cancelled-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -970,10 +985,11 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
     assert!(add_bob.is_success(), "Adding Bob should succeed");
 
     let add_carol = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "vote-cancelled-group",
-            "member_id": carol.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "vote-cancelled-group", "member_id": carol.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -983,14 +999,14 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
 
     // Alice creates proposal with auto_vote=true (default)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "vote-cancelled-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "vote-cancelled-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Vote on cancelled test",
                 "description": "Will be cancelled before Bob votes",
                 "custom_data": {}
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1005,10 +1021,11 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
 
     // Alice cancels the proposal
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "vote-cancelled-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "vote-cancelled-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1032,11 +1049,11 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
 
     // Bob tries to vote on the cancelled proposal (should fail)
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "vote-cancelled-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "vote-cancelled-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1079,10 +1096,11 @@ async fn test_vote_on_nonexistent_proposal() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonexistent-proposal-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "nonexistent-proposal-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1092,10 +1110,11 @@ async fn test_vote_on_nonexistent_proposal() -> anyhow::Result<()> {
 
     // Add Bob as member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonexistent-proposal-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "nonexistent-proposal-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1106,11 +1125,11 @@ async fn test_vote_on_nonexistent_proposal() -> anyhow::Result<()> {
     // Bob tries to vote on a completely fake proposal ID
     let fake_proposal_id = "fake_proposal_12345_67890_alice_999";
     let vote_result = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonexistent-proposal-group",
-            "proposal_id": fake_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "nonexistent-proposal-group", "proposal_id": fake_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1151,11 +1170,11 @@ async fn test_vote_on_nonexistent_group() -> anyhow::Result<()> {
 
     // Alice tries to vote on a proposal in a group that doesn't exist
     let vote_result = alice
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "this-group-does-not-exist",
-            "proposal_id": "fake_proposal_id",
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "this-group-does-not-exist", "proposal_id": "fake_proposal_id", "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1200,10 +1219,11 @@ async fn test_cancel_already_cancelled_proposal_blocked() -> anyhow::Result<()> 
 
     // Create member-driven group with 2 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "double-cancel-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "double-cancel-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1213,10 +1233,11 @@ async fn test_cancel_already_cancelled_proposal_blocked() -> anyhow::Result<()> 
 
     // Add Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "double-cancel-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "double-cancel-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1226,14 +1247,14 @@ async fn test_cancel_already_cancelled_proposal_blocked() -> anyhow::Result<()> 
 
     // Alice creates proposal with auto_vote=true (default)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "double-cancel-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "double-cancel-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Double cancel test",
                 "description": "Will be cancelled twice",
                 "custom_data": {}
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1248,10 +1269,11 @@ async fn test_cancel_already_cancelled_proposal_blocked() -> anyhow::Result<()> 
 
     // Alice cancels the proposal (first cancel - should succeed)
     let cancel1 = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "double-cancel-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "double-cancel-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1275,10 +1297,11 @@ async fn test_cancel_already_cancelled_proposal_blocked() -> anyhow::Result<()> 
 
     // Alice tries to cancel again (should fail)
     let cancel2 = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "double-cancel-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "double-cancel-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1321,10 +1344,11 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "reject-cancel-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1334,10 +1358,11 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
 
     // Add Bob - auto-executes (1/1 = 100% > 51% quorum)
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "reject-cancel-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1347,13 +1372,13 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
 
     // Add Carol via create_group_proposal (1/2 = 50% < 51% quorum, creates pending proposal)
     let add_carol = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "reject-cancel-group", "proposal_type": "member_invite", "changes": {
                 "target_user": carol.id().to_string(),
                 "message": "Inviting Carol"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1365,11 +1390,11 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
 
     // Bob votes YES on add_carol proposal (2/2 = 100%) - Carol becomes member
     let bob_approve_carol = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "proposal_id": add_carol_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "reject-cancel-group", "proposal_id": add_carol_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1381,14 +1406,14 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
     // Alice creates proposal with auto_vote=true (she gets 1 YES)
     // 1/3 = 33% participation < 51% quorum, proposal stays pending
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "reject-cancel-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Rejection test",
                 "description": "Will be rejected by NO votes",
                 "custom_data": {}
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1405,11 +1430,11 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
     // With 1 YES, 1 NO: approval = 50% < 50.01% majority
     // max_possible_yes = 1 + 1 = 2/3 = 67% > 50.01%, so not defeated yet
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "reject-cancel-group", "proposal_id": proposal_id.clone(), "approve": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1421,11 +1446,11 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
     // With 1 YES, 2 NO: approval = 33% < 50.01% majority
     // max_possible_yes = 1, max_yes_pct = 33% < 50.01%, defeat is inevitable
     let carol_vote = carol
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "reject-cancel-group", "proposal_id": proposal_id.clone(), "approve": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1449,10 +1474,11 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
 
     // Try to cancel rejected proposal (should fail)
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject-cancel-group",
-            "proposal_id": proposal_id
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "reject-cancel-group", "proposal_id": proposal_id }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1485,10 +1511,11 @@ async fn test_voting_config_change_target_is_proposer() -> anyhow::Result<()> {
 
     // Create single-member group so proposal auto-executes
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "voting-config-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "voting-config-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1498,13 +1525,13 @@ async fn test_voting_config_change_target_is_proposer() -> anyhow::Result<()> {
 
     // Create VotingConfigChange proposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "voting-config-group",
-            "proposal_type": "voting_config_change",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "voting-config-group", "proposal_type": "voting_config_change", "changes": {
                 "participation_quorum_bps": 6000,
                 "majority_threshold_bps": 6000
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1566,10 +1593,11 @@ async fn test_permission_change_target_is_target_user() -> anyhow::Result<()> {
 
     // Create single-member group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "perm-change-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1579,10 +1607,11 @@ async fn test_permission_change_target_is_target_user() -> anyhow::Result<()> {
 
     // Add Bob first so we can change his permissions
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "perm-change-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1592,14 +1621,14 @@ async fn test_permission_change_target_is_target_user() -> anyhow::Result<()> {
 
     // Create PermissionChange proposal to promote Bob
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-group",
-            "proposal_type": "permission_change",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "perm-change-group", "proposal_type": "permission_change", "changes": {
                 "target_user": bob.id().to_string(),
                 "level": 2,
                 "reason": "Promoting Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1661,10 +1690,11 @@ async fn test_path_permission_grant_target_is_target_user() -> anyhow::Result<()
 
     // Create single-member group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "path-grant-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "path-grant-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1674,10 +1704,11 @@ async fn test_path_permission_grant_target_is_target_user() -> anyhow::Result<()
 
     // Add Bob first
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "path-grant-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "path-grant-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1687,15 +1718,15 @@ async fn test_path_permission_grant_target_is_target_user() -> anyhow::Result<()
 
     // Create PathPermissionGrant proposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "path-grant-group",
-            "proposal_type": "path_permission_grant",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "path-grant-group", "proposal_type": "path_permission_grant", "changes": {
                 "target_user": bob.id().to_string(),
                 "path": "groups/path-grant-group/content",
                 "level": 2,
                 "reason": "Grant Bob write access to content"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1756,10 +1787,11 @@ async fn test_path_permission_revoke_target_is_target_user() -> anyhow::Result<(
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "path-revoke-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "path-revoke-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1769,10 +1801,11 @@ async fn test_path_permission_revoke_target_is_target_user() -> anyhow::Result<(
 
     // Add Bob first
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "path-revoke-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "path-revoke-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1782,16 +1815,15 @@ async fn test_path_permission_revoke_target_is_target_user() -> anyhow::Result<(
 
     // Create PathPermissionRevoke proposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "path-revoke-group",
-            "proposal_type": "path_permission_revoke",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "path-revoke-group", "proposal_type": "path_permission_revoke", "changes": {
                 "target_user": bob.id().to_string(),
                 "path": "groups/path-revoke-group/content",
                 "reason": "Revoke Bob access to content"
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1851,10 +1883,11 @@ async fn test_member_invite_target_is_target_user() -> anyhow::Result<()> {
 
     // Create member-driven group with 2 members (proposals won't auto-execute)
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "invite-target-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "invite-target-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1864,10 +1897,11 @@ async fn test_member_invite_target_is_target_user() -> anyhow::Result<()> {
 
     // Add Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "invite-target-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "invite-target-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1877,15 +1911,14 @@ async fn test_member_invite_target_is_target_user() -> anyhow::Result<()> {
 
     // Alice creates MemberInvite proposal for Carol
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "invite-target-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "invite-target-group", "proposal_type": "member_invite", "changes": {
                 "target_user": carol.id().to_string(),
                 "message": "Inviting Carol"
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1945,10 +1978,11 @@ async fn test_custom_proposal_target_is_proposer() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "custom-target-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "custom-target-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1958,10 +1992,11 @@ async fn test_custom_proposal_target_is_proposer() -> anyhow::Result<()> {
 
     // Add Bob so the group isn't single-member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "custom-target-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "custom-target-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -1971,16 +2006,15 @@ async fn test_custom_proposal_target_is_proposer() -> anyhow::Result<()> {
 
     // Create CustomProposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "custom-target-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "custom-target-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Custom proposal target test",
                 "description": "Target should be proposer",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2035,10 +2069,11 @@ async fn test_cancel_nonexistent_proposal_fails() -> anyhow::Result<()> {
 
     // Create group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonexistent-proposal-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "nonexistent-proposal-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2048,10 +2083,11 @@ async fn test_cancel_nonexistent_proposal_fails() -> anyhow::Result<()> {
 
     // Try to cancel a proposal that doesn't exist
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonexistent-proposal-group",
-            "proposal_id": "fake-proposal-id-12345"
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "nonexistent-proposal-group", "proposal_id": "fake-proposal-id-12345" }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -2084,10 +2120,11 @@ async fn test_group_update_target_is_proposer() -> anyhow::Result<()> {
 
     // Create single-member group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "group-update-target",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "group-update-target", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2098,10 +2135,11 @@ async fn test_group_update_target_is_proposer() -> anyhow::Result<()> {
     // Add Bob first so we have someone to ban
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "group-update-target",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "group-update-target", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2111,13 +2149,13 @@ async fn test_group_update_target_is_proposer() -> anyhow::Result<()> {
 
     // Create GroupUpdate proposal - use ban type which doesn't need nested changes
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "group-update-target",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "group-update-target", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": bob.id().to_string()
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -2177,10 +2215,11 @@ async fn test_empty_voting_config_change_rejected() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "empty-config-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "empty-config-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2190,11 +2229,11 @@ async fn test_empty_voting_config_change_rejected() -> anyhow::Result<()> {
 
     // Attempt empty VotingConfigChange (no params specified)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "empty-config-group",
-            "proposal_type": "voting_config_change",
-            "changes": {}
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "empty-config-group", "proposal_type": "voting_config_change", "changes": {}, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2232,10 +2271,11 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
 
     // Create group with default config (51% quorum, >50% majority)
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "snapshot-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "snapshot-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2246,11 +2286,12 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
     // Add Bob and Charlie
     for member in [&bob, &charlie] {
         let add_member = alice
-            .call(contract.id(), "add_group_member")
-            .args_json(json!({
-                "group_id": "snapshot-group",
-                "member_id": member.id().to_string()
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "snapshot-group", "member_id": member.id().to_string() }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -2261,11 +2302,11 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
     // Alice creates a metadata proposal (auto-votes YES)
     // With 3 members and 51% quorum, needs 2 votes to reach quorum
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "snapshot-group",
-            "proposal_type": "group_update",
-            "changes": { "update_type": "metadata", "changes": { "description": "Test" } }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "snapshot-group", "proposal_type": "group_update", "changes": { "update_type": "metadata", "changes": { "description": "Test" } }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2291,11 +2332,11 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
 
     // Now change the group's voting config to 99% quorum (would block most proposals)
     let config_change = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "snapshot-group",
-            "proposal_type": "voting_config_change",
-            "changes": { "participation_quorum_bps": 9900 }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "snapshot-group", "proposal_type": "voting_config_change", "changes": { "participation_quorum_bps": 9900 }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2306,11 +2347,11 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
 
     // Bob votes YES on config change (2/3 = 66% >= 51%, executes)
     let vote_config = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "snapshot-group",
-            "proposal_id": config_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "snapshot-group", "proposal_id": config_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2334,11 +2375,11 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
 
     // Now Bob votes on the ORIGINAL proposal (should use 51% snapshot, not 99%)
     let vote_original = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "snapshot-group",
-            "proposal_id": proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "snapshot-group", "proposal_id": proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2381,10 +2422,10 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
     // MIN_VOTING_MAJORITY_THRESHOLD_BPS = 5001 (>50%)
     // MIN_VOTING_PERIOD = 1 hour in nanos
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "clamp-group",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "clamp-group", "config": {
                 "member_driven": true,
                 "is_private": true,
                 "voting_config": {
@@ -2392,6 +2433,7 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
                     "majority_threshold_bps": 3000,
                     "voting_period": "1000"
                 }
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -2414,11 +2456,11 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
     // The sanitization happens at read time in get_voting_config().
     // To test this, we create a proposal and verify the snapshot has clamped values.
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "clamp-group",
-            "proposal_type": "group_update",
-            "changes": { "update_type": "metadata", "changes": { "description": "Test" } }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "clamp-group", "proposal_type": "group_update", "changes": { "update_type": "metadata", "changes": { "description": "Test" } }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2498,10 +2540,11 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group with 3 members for voting
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-effect-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "grant-effect-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2511,11 +2554,11 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-effect-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2525,11 +2568,11 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
 
     // Add Charlie via member_invite proposal (2 members - Alice auto-votes, so it passes)
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-effect-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2555,17 +2598,16 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
     // Create PathPermissionGrant proposal with auto_vote=false
     // Grant level 2 (MODERATE) so it's distinct from the default content WRITE
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-effect-group",
-            "proposal_type": "path_permission_grant",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-effect-group", "proposal_type": "path_permission_grant", "changes": {
                 "target_user": bob.id().to_string(),
                 "path": "groups/grant-effect-group/docs",
                 "level": 2,
                 "reason": "Grant Bob moderate access to docs"
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2578,12 +2620,12 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES to pass (need quorum)
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "grant-effect-group",
-                "proposal_id": proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "grant-effect-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -2645,10 +2687,11 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "grant-nonmember-test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2658,11 +2701,11 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
 
     // Add Bob (auto-executes as Alice is sole member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-nonmember-test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2672,12 +2715,11 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
 
     // Add Charlie via explicit voting (to ensure proper membership before next proposals)
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() },
-            "auto_vote": false
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-nonmember-test", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2689,12 +2731,12 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
     // Alice and Bob vote YES to add Charlie
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "grant-nonmember-test",
-                "proposal_id": invite_charlie_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "grant-nonmember-test", "proposal_id": invite_charlie_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -2705,17 +2747,16 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
 
     // Create PathPermissionGrant proposal for Bob with auto_vote=false
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "proposal_type": "path_permission_grant",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-nonmember-test", "proposal_type": "path_permission_grant", "changes": {
                 "target_user": bob.id().to_string(),
                 "path": "groups/grant-nonmember-test/docs",
                 "level": 2,
                 "reason": "Grant Bob moderate access"
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2727,15 +2768,14 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
 
     // Remove Bob from group via RemoveMember proposal (Alice + Charlie vote)
     let remove_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "grant-nonmember-test", "proposal_type": "group_update", "changes": {
                 "update_type": "remove_member",
                 "target_user": bob.id().to_string()
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2748,12 +2788,12 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
     // Alice and Charlie vote YES on remove proposal
     for (user, name) in [(&alice, "alice"), (&charlie, "charlie")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "grant-nonmember-test",
-                "proposal_id": remove_proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "grant-nonmember-test", "proposal_id": remove_proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -2777,11 +2817,11 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
     // Now try to execute the PathPermissionGrant proposal by voting
     // Alice votes YES
     let alice_vote = alice
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "grant-nonmember-test", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2794,11 +2834,11 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
     // 2/2 votes = 100%, which should trigger execution.
     // But execution should FAIL because Bob is not a member.
     let charlie_vote = charlie
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "grant-nonmember-test",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "grant-nonmember-test", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2868,10 +2908,11 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "revoke-effect-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "revoke-effect-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2881,11 +2922,11 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "revoke-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "revoke-effect-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2895,11 +2936,11 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
 
     // Add Charlie via member_invite proposal
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "revoke-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "revoke-effect-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2910,15 +2951,15 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
 
     // First, grant Bob WRITE (level 1) on content via a proposal
     let grant_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "revoke-effect-group",
-            "proposal_type": "path_permission_grant",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "revoke-effect-group", "proposal_type": "path_permission_grant", "changes": {
                 "target_user": bob.id().to_string(),
                 "path": "groups/revoke-effect-group/content",
                 "level": 1,
                 "reason": "Grant Bob write access"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -2944,14 +2985,14 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
 
     // Create PathPermissionRevoke proposal (Alice auto-votes via default)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "revoke-effect-group",
-            "proposal_type": "path_permission_revoke",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "revoke-effect-group", "proposal_type": "path_permission_revoke", "changes": {
                 "target_user": bob.id().to_string(),
                 "path": "groups/revoke-effect-group/content",
                 "reason": "Revoke Bob's content access"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -2964,11 +3005,11 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
 
     // Bob votes YES to reach quorum (2/3 votes)
     let vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "revoke-effect-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "revoke-effect-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3029,10 +3070,11 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-effect",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "perm-change-effect", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3042,11 +3084,11 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-effect",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "perm-change-effect", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3056,11 +3098,11 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
 
     // Add Charlie via member_invite proposal
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-effect",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "perm-change-effect", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3083,16 +3125,15 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
 
     // Create PermissionChange proposal to promote Bob to level 2 (MODERATE)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "perm-change-effect",
-            "proposal_type": "permission_change",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "perm-change-effect", "proposal_type": "permission_change", "changes": {
                 "target_user": bob.id().to_string(),
                 "level": 2,
                 "reason": "Promote Bob to moderator"
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3105,12 +3146,12 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "perm-change-effect",
-                "proposal_id": proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "perm-change-effect", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3152,10 +3193,11 @@ async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group with default voting config
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "voting-config-effect",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "voting-config-effect", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3165,11 +3207,11 @@ async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "voting-config-effect",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "voting-config-effect", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3180,14 +3222,13 @@ async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
 
     // Create VotingConfigChange proposal to set quorum to 9000 (90%)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "voting-config-effect",
-            "proposal_type": "voting_config_change",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "voting-config-effect", "proposal_type": "voting_config_change", "changes": {
                 "participation_quorum_bps": 9000
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3200,12 +3241,12 @@ async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
     // Both vote YES
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "voting-config-effect",
-                "proposal_id": proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "voting-config-effect", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3252,10 +3293,11 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove-member-effect",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "remove-member-effect", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3265,11 +3307,11 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove-member-effect",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "remove-member-effect", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3279,12 +3321,11 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
 
     // Add Charlie via member_invite proposal (need Bob to vote now - 2 members)
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove-member-effect",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() },
-            "auto_vote": false
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "remove-member-effect", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3296,12 +3337,12 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
     // Alice and Bob vote YES to add Charlie
     for (user, _) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "remove-member-effect",
-                "proposal_id": invite_charlie_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "remove-member-effect", "proposal_id": invite_charlie_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3324,15 +3365,14 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
 
     // Create GroupUpdate RemoveMember proposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove-member-effect",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "remove-member-effect", "proposal_type": "group_update", "changes": {
                 "update_type": "remove_member",
                 "target_user": charlie.id().to_string()
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3345,12 +3385,12 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
     // Alice and Bob vote YES
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "remove-member-effect",
-                "proposal_id": proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "remove-member-effect", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3394,10 +3434,11 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unban-effect-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "unban-effect-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3407,11 +3448,11 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unban-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "unban-effect-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3421,11 +3462,11 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
 
     // Add Charlie via member_invite proposal
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unban-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "unban-effect-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3436,15 +3477,14 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
 
     // Ban Charlie via proposal first
     let ban_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unban-effect-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "unban-effect-group", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": charlie.id().to_string()
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3456,12 +3496,12 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES to ban
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "unban-effect-group",
-                "proposal_id": ban_proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "unban-effect-group", "proposal_id": ban_proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3483,15 +3523,14 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
 
     // Create Unban proposal
     let unban_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unban-effect-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "unban-effect-group", "proposal_type": "group_update", "changes": {
                 "update_type": "unban",
                 "target_user": charlie.id().to_string()
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3504,12 +3543,12 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES to unban
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "unban-effect-group",
-                "proposal_id": unban_proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "unban-effect-group", "proposal_id": unban_proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3552,10 +3591,11 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "metadata-effect-group",
-            "config": { "member_driven": true, "is_private": true, "description": "Original" }
+            "request": {
+                "action": { "type": "create_group", "group_id": "metadata-effect-group", "config": { "member_driven": true, "is_private": true, "description": "Original" } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3565,11 +3605,11 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "metadata-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "metadata-effect-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3592,17 +3632,16 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
 
     // Create GroupUpdate Metadata proposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "metadata-effect-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "metadata-effect-group", "proposal_type": "group_update", "changes": {
                 "update_type": "metadata",
                 "changes": {
                     "description": "Updated via governance"
                 }
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3615,12 +3654,12 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
     // Both vote YES
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "metadata-effect-group",
-                "proposal_id": proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "metadata-effect-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3663,10 +3702,11 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven private group (join requests go through proposals)
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join-request-effect",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "join-request-effect", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3676,11 +3716,11 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join-request-effect",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "join-request-effect", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3703,9 +3743,11 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
 
     // Charlie submits a join request (creates JoinRequest proposal)
     let join_request = charlie
-        .call(contract.id(), "join_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join-request-effect"
+            "request": {
+                "action": { "type": "join_group", "group_id": "join-request-effect" }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3728,12 +3770,12 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES to approve the join request
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "join-request-effect",
-                "proposal_id": proposal_id,
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "join-request-effect", "proposal_id": proposal_id, "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3792,10 +3834,11 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban-effect-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "ban-effect-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3805,11 +3848,11 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
 
     // Add Bob via member_invite proposal (auto-executes with 1 member)
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "ban-effect-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3819,12 +3862,11 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
 
     // Add Charlie via member_invite proposal (need explicit voting with 2 members)
     let invite_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban-effect-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() },
-            "auto_vote": false
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "ban-effect-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3836,12 +3878,12 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES to add Charlie
     for (user, _) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "ban-effect-group",
-                "proposal_id": invite_charlie_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "ban-effect-group", "proposal_id": invite_charlie_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3874,15 +3916,14 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
 
     // Create Ban proposal
     let ban_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban-effect-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "ban-effect-group", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": charlie.id().to_string()
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -3895,12 +3936,12 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
     // Alice and Bob vote YES to ban Charlie
     for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
         let vote = user
-            .call(contract.id(), "vote_on_proposal")
-            .args_json(json!({
-                "group_id": "ban-effect-group",
-                "proposal_id": proposal_id.clone(),
-                "approve": true
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "ban-effect-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
@@ -3970,10 +4011,11 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "validation-test-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3983,12 +4025,12 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Add Bob as member for a valid ban target
     let invite_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validation-test-group", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string()
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4000,12 +4042,12 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Test 1: Ban proposal WITHOUT target_user should FAIL
     let ban_no_target = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validation-test-group", "proposal_type": "group_update", "changes": {
                 "update_type": "ban"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4017,12 +4059,12 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Test 2: RemoveMember proposal WITHOUT target_user should FAIL
     let remove_no_target = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validation-test-group", "proposal_type": "group_update", "changes": {
                 "update_type": "remove_member"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4034,12 +4076,12 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Test 3: Unban proposal WITHOUT target_user should FAIL
     let unban_no_target = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validation-test-group", "proposal_type": "group_update", "changes": {
                 "update_type": "unban"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4051,13 +4093,13 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Test 4: Ban proposal with INVALID target_user should FAIL
     let ban_invalid_target = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validation-test-group", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": "not a valid account id!!!"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4069,15 +4111,14 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
 
     // Test 5: Ban proposal with VALID target_user should SUCCEED
     let ban_valid = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "validation-test-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "validation-test-group", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": bob.id().to_string()
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4112,10 +4153,11 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
 
     // Setup: Create member-driven group with Alice and Bob
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "config": { "member_driven": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "deposit-test-group", "config": { "member_driven": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4126,12 +4168,12 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
 
     // Add Bob as member (auto-executes since Alice is sole member)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "deposit-test-group", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string()  // member_invite must use level 0
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4143,12 +4185,12 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
 
     // Add Charlie so we have 3 members (need 2/3 > 51% to execute)
     let add_charlie_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "deposit-test-group", "proposal_type": "member_invite", "changes": {
                 "target_user": "charlie.test.near"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4160,11 +4202,11 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
 
     // Bob votes to execute Charlie invite
     let vote_charlie = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "proposal_id": charlie_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "deposit-test-group", "proposal_id": charlie_proposal_id, "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4179,13 +4221,13 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     println!("\n📦 TEST 1: Insufficient deposit rejection...");
 
     let insufficient_deposit = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "deposit-test-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Test proposal",
                 "description": "This should fail due to insufficient deposit"
+            }, "auto_vote": null }
             }
         }))
         .deposit(NearToken::from_millinear(10)) // 0.01 NEAR < 0.1 NEAR minimum
@@ -4207,15 +4249,14 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     println!("\n📦 TEST 2: Minimum deposit acceptance...");
 
     let minimum_deposit = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "deposit-test-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Minimum deposit test",
                 "description": "This should succeed with exactly 0.1 NEAR"
-            },
-            "auto_vote": true  // Alice auto-votes (1/3 = 33% < 51% quorum)
+            }, "auto_vote": true }// Alice auto-votes (1/3 = 33% < 51% quorum)
+            }
         }))
         .deposit(NearToken::from_millinear(100)) // Exactly 0.1 NEAR
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4304,11 +4345,11 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
 
     // Bob votes YES to reach quorum (2/2 = 100%)
     let vote_result = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "deposit-test-group",
-            "proposal_id": proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "deposit-test-group", "proposal_id": proposal_id, "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4448,10 +4489,11 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
 
     // Setup: Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "lock-test-group",
-            "config": { "member_driven": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "lock-test-group", "config": { "member_driven": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4461,11 +4503,11 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
 
     // Add Bob (auto-executes)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "lock-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "lock-test-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4497,15 +4539,14 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
     println!("\n📦 TEST 1: Create proposal with minimum deposit...");
 
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "lock-test-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "lock-test-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Lock test proposal",
                 "description": "Testing that locked balance is protected"
-            },
-            "auto_vote": true
+            }, "auto_vote": true }
+            }
         }))
         .deposit(NearToken::from_millinear(100)) // Exactly 0.1 NEAR
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4539,14 +4580,13 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
     // Try to write large data that would consume available balance
     // This should succeed if there's enough unlocked balance, or fail if not
     let write_attempt = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/test_data": "x".repeat(1000) // ~1KB of data
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -4585,11 +4625,11 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
 
     // Bob votes to execute
     let vote_result = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "lock-test-group",
-            "proposal_id": proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "lock-test-group", "proposal_id": proposal_id, "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4632,10 +4672,11 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
 
     // Setup: Create member-driven group with 3 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "config": { "member_driven": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "rejection-test-group", "config": { "member_driven": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4645,11 +4686,11 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
 
     // Add Bob (auto-executes)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "rejection-test-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4659,11 +4700,11 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
 
     // Add Charlie (Bob votes YES, 2/2 = 100%)
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "rejection-test-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4673,11 +4714,11 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
     let charlie_proposal_id: String = add_charlie.json()?;
 
     let vote_charlie = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "proposal_id": charlie_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "rejection-test-group", "proposal_id": charlie_proposal_id, "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4688,15 +4729,14 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
 
     // Alice creates a proposal that will be rejected
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "rejection-test-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Controversial proposal",
                 "description": "This will be rejected by Bob and Charlie"
-            },
-            "auto_vote": true  // Alice votes YES
+            }, "auto_vote": true }// Alice votes YES
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4708,11 +4748,11 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
 
     // Bob votes NO
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "proposal_id": proposal_id,
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "rejection-test-group", "proposal_id": proposal_id, "approve": false }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4723,11 +4763,11 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
 
     // Charlie votes NO - this triggers rejection (1 YES, 2 NO = 33% < 50%)
     let charlie_vote = charlie
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "rejection-test-group",
-            "proposal_id": proposal_id,
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "rejection-test-group", "proposal_id": proposal_id, "approve": false }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4790,10 +4830,11 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "cancel-after-vote-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -4803,10 +4844,11 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
 
     // Add Bob (auto-executes since Alice is sole member, 1/1 = 100%)
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "cancel-after-vote-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -4839,10 +4881,11 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .unwrap_or(0);
 
     let add_carol = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "member_id": carol.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "cancel-after-vote-group", "member_id": carol.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -4862,7 +4905,7 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
     assert!(seq_after > seq_before, "Proposal counter should increment");
     
     // Find Carol's proposal by looking for proposals at sequence seq_after
-    // The proposal ID format is: {group_id}_{sequence}_{block_height}_{proposer}_{nonce}
+// The proposal ID format is: {group_id_{sequence}_{block_height}_{proposer}_{nonce}
     // We can find it by looking at the proposal_created event in the logs
     let add_carol_logs = add_carol.logs();
     let carol_proposal_events = find_events_by_operation(&add_carol_logs, "proposal_created");
@@ -4877,11 +4920,11 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
 
     // Bob votes YES on Carol's invite to make her a member (2/2 = 100%)
     let bob_vote_carol = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "proposal_id": carol_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "cancel-after-vote-group", "proposal_id": carol_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4914,14 +4957,14 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
     // Now Alice creates the test proposal
     // With 3 members, Alice's auto-vote = 1/3 = 33% < 51% quorum
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "cancel-after-vote-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Cancel after vote test",
                 "description": "Bob will vote NO, then Alice tries to cancel",
                 "custom_data": {}
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -4947,11 +4990,11 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
     // Bob votes NO (2/3 = 66% participation >= 51%, 1/2 = 50% < 50.01% majority)
     // With 1 remaining vote (Carol), can_reach_majority = 2/3 = 66% >= 50.01% → NOT defeat inevitable
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "cancel-after-vote-group", "proposal_id": proposal_id.clone(), "approve": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -4985,10 +5028,11 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
 
     // Alice tries to cancel (should fail - other member has voted)
     let cancel_attempt = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-after-vote-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "cancel-after-vote-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5049,10 +5093,11 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
 
     // Create member-driven group with 2 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-unlock-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "cancel-unlock-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5062,10 +5107,11 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
 
     // Add Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-unlock-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "cancel-unlock-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5075,14 +5121,14 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
 
     // Alice creates proposal
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-unlock-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "cancel-unlock-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Unlock on cancel test",
                 "description": "Deposit should unlock on cancel",
                 "custom_data": {}
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -5116,10 +5162,11 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
 
     // Alice cancels the proposal
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel-unlock-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "cancel-unlock-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5203,10 +5250,11 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
 
     // Create member-driven group
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "single-vote-cancel-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5216,10 +5264,11 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
 
     // Add Bob (auto-executes since Alice is sole member)
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "single-vote-cancel-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5229,10 +5278,11 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
 
     // Add Carol via proposal + Bob vote
     let add_carol = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "member_id": carol.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "single-vote-cancel-group", "member_id": carol.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5250,11 +5300,11 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .expect("Should have proposal_id in event");
 
     let bob_vote_carol = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "proposal_id": carol_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "single-vote-cancel-group", "proposal_id": carol_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5266,16 +5316,15 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
     // Alice creates proposal with auto_vote=false
     // With 3 members and no auto-vote, total_votes = 0
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "single-vote-cancel-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "No auto-vote test",
                 "description": "Alice did not auto-vote",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5299,11 +5348,11 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
 
     // Bob votes YES (now total_votes = 1, but it's NOT Alice's vote)
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "single-vote-cancel-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5325,10 +5374,11 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
 
     // Alice tries to cancel (should fail - the single vote is not hers)
     let cancel_attempt = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "single-vote-cancel-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "single-vote-cancel-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5390,10 +5440,11 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
 
     // Create member-driven group with 2 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-vote-cancel-group",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "no-vote-cancel-group", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5403,10 +5454,11 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
 
     // Add Bob (auto-executes)
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-vote-cancel-group",
-            "member_id": bob.id().to_string()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "no-vote-cancel-group", "member_id": bob.id().to_string() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5417,16 +5469,15 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
 
     // Alice creates proposal with auto_vote=false
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-vote-cancel-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "no-vote-cancel-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Zero votes cancel test",
                 "description": "Alice can cancel since no one voted",
                 "custom_data": {}
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5469,10 +5520,11 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
 
     // Alice cancels immediately (should succeed with 0 votes)
     let cancel = alice
-        .call(contract.id(), "cancel_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "no-vote-cancel-group",
-            "proposal_id": proposal_id.clone()
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "no-vote-cancel-group", "proposal_id": proposal_id.clone() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -5546,15 +5598,16 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
 
     // Create member-driven group with 3 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "defeat-test-group", "config": {
                 "member_driven": true,
                 "voting_config": {
                     "participation_quorum_bps": 5100,
                     "majority_threshold_bps": 5100
                 }
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -5566,11 +5619,11 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
 
     // Add Bob (auto-executes since Alice is sole member)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "defeat-test-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5581,11 +5634,11 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
 
     // Add Charlie (Bob votes YES → 2/2 = 100%)
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "defeat-test-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5595,11 +5648,11 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
     let charlie_invite_id: String = add_charlie.json()?;
 
     let vote_charlie = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "proposal_id": charlie_invite_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "defeat-test-group", "proposal_id": charlie_invite_id, "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5610,15 +5663,14 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
 
     // Alice creates a proposal with auto_vote=false so she doesn't vote
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "proposal_type": "custom_proposal",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "defeat-test-group", "proposal_type": "custom_proposal", "changes": {
                 "title": "Proposal to be defeated",
                 "description": "This will be auto-rejected"
-            },
-            "auto_vote": false
+            }, "auto_vote": false }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5645,11 +5697,11 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
 
     // Bob votes NO
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "defeat-test-group", "proposal_id": proposal_id.clone(), "approve": false }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5675,11 +5727,11 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
     // Charlie votes NO - this makes defeat inevitable:
     // 0 YES / 2 NO with 1 remaining vote → max 1 YES / 2 NO = 33% < 51%
     let charlie_vote = charlie
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "defeat-test-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": false
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "defeat-test-group", "proposal_id": proposal_id.clone(), "approve": false }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5748,10 +5800,11 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
 
     // Create member-driven group with 3 members
     let create_group = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "payer-test-group",
-            "config": { "member_driven": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "payer-test-group", "config": { "member_driven": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -5761,11 +5814,11 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
 
     // Add Bob (auto-executes)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "payer-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": bob.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "payer-test-group", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5775,11 +5828,11 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
 
     // Add Charlie (Bob votes YES → 2/2 = 100%)
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "payer-test-group",
-            "proposal_type": "member_invite",
-            "changes": { "target_user": charlie.id().to_string() }
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "payer-test-group", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5789,11 +5842,11 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
     let charlie_invite_id: String = add_charlie.json()?;
 
     let vote_charlie = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "payer-test-group",
-            "proposal_id": charlie_invite_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "payer-test-group", "proposal_id": charlie_invite_id, "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5804,17 +5857,16 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
 
     // Alice creates proposal to update group metadata (auto_vote=true)
     let create_proposal = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "payer-test-group",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "payer-test-group", "proposal_type": "group_update", "changes": {
                 "update_type": "metadata",
                 "changes": {
                     "description": "Updated via proposal execution"
                 }
-            },
-            "auto_vote": true
+            }, "auto_vote": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -5826,11 +5878,11 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
 
     // Bob votes YES → 2/3 ≥ 51%, triggers execution
     let bob_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "payer-test-group",
-            "proposal_id": proposal_id.clone(),
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "payer-test-group", "proposal_id": proposal_id.clone(), "approve": true }
+            }
         }))
         .deposit(NearToken::from_millinear(10))
         .gas(near_workspaces::types::Gas::from_tgas(150))

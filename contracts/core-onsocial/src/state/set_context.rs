@@ -1,4 +1,4 @@
-use near_sdk::{AccountId, PublicKey};
+use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
 use crate::events::EventBatch;
@@ -29,6 +29,5 @@ pub(crate) struct VerifiedContext {
     pub actor_id: AccountId,
     pub payer_id: AccountId,
     pub deposit_owner: AccountId,
-    pub actor_pk: Option<PublicKey>,
     pub auth_type: &'static str,
 }

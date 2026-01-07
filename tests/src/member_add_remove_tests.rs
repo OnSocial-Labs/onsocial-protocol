@@ -88,10 +88,11 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "nonce_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "nonce_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -101,8 +102,12 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
 
     // Bob joins the group
     let bob_join = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "nonce_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "nonce_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -111,12 +116,11 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
 
     // Alice grants Bob MANAGE on group config
     let grant_manage = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "groups/nonce_test/config",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/nonce_test/config", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -138,8 +142,12 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
 
     // Bob leaves the group
     let bob_leave = bob
-        .call(contract.id(), "leave_group")
-        .args_json(json!({ "group_id": "nonce_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "nonce_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -148,8 +156,12 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
 
     // Bob rejoins
     let bob_rejoin = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "nonce_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "nonce_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -209,10 +221,11 @@ async fn test_add_existing_member_fails() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "duplicate_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "duplicate_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -222,10 +235,11 @@ async fn test_add_existing_member_fails() -> anyhow::Result<()> {
 
     // Alice adds Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "duplicate_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "duplicate_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -236,10 +250,11 @@ async fn test_add_existing_member_fails() -> anyhow::Result<()> {
 
     // Alice tries to add Bob again - should fail
     let add_bob_again = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "duplicate_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "duplicate_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -278,10 +293,11 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "manager_remove_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "manager_remove_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -291,10 +307,11 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Add manager as member
     let add_manager = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "manager_remove_test",
-            "member_id": manager.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "manager_remove_test", "member_id": manager.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -304,12 +321,11 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Grant manager MANAGE permission on group config
     let grant_manage = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": manager.id(),
-            "path": "groups/manager_remove_test/config",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": manager.id(), "path": "groups/manager_remove_test/config", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -319,10 +335,11 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Add regular member
     let add_regular = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "manager_remove_test",
-            "member_id": regular.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "manager_remove_test", "member_id": regular.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -333,10 +350,11 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Manager removes regular member - should succeed
     let manager_remove_regular = manager
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "manager_remove_test",
-            "member_id": regular.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "manager_remove_test", "member_id": regular.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -359,10 +377,11 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
 
     // Manager tries to remove owner - should fail
     let manager_remove_owner = manager
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "manager_remove_test",
-            "member_id": alice.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "manager_remove_test", "member_id": alice.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -391,10 +410,11 @@ async fn test_cannot_add_blacklisted_user() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_add_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklist_add_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -404,10 +424,11 @@ async fn test_cannot_add_blacklisted_user() -> anyhow::Result<()> {
 
     // Alice blacklists Bob (without Bob ever being a member)
     let blacklist_bob = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_add_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklist_add_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -429,10 +450,11 @@ async fn test_cannot_add_blacklisted_user() -> anyhow::Result<()> {
 
     // Alice tries to add blacklisted Bob - should fail
     let add_blacklisted = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_add_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "blacklist_add_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -470,10 +492,11 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklisted_granter_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklisted_granter_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -483,10 +506,11 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
 
     // Add manager and grant MANAGE
     let add_manager = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklisted_granter_test",
-            "member_id": manager.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "blacklisted_granter_test", "member_id": manager.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -495,12 +519,11 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
     assert!(add_manager.is_success(), "Add manager should succeed");
 
     let grant_manage = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": manager.id(),
-            "path": "groups/blacklisted_granter_test/config",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": manager.id(), "path": "groups/blacklisted_granter_test/config", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -510,10 +533,11 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
 
     // Alice blacklists manager (removes them from group too)
     let blacklist_manager = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklisted_granter_test",
-            "member_id": manager.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklisted_granter_test", "member_id": manager.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -524,10 +548,11 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
 
     // Blacklisted manager tries to add Charlie - should fail
     let manager_add_charlie = manager
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklisted_granter_test",
-            "member_id": charlie.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "blacklisted_granter_test", "member_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -564,10 +589,11 @@ async fn test_blacklist_idempotency() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_idempotent_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklist_idempotent_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -577,10 +603,11 @@ async fn test_blacklist_idempotency() -> anyhow::Result<()> {
 
     // Alice blacklists Bob
     let first_blacklist = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_idempotent_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklist_idempotent_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -607,10 +634,11 @@ async fn test_blacklist_idempotency() -> anyhow::Result<()> {
 
     // Alice blacklists Bob again (should succeed - idempotent)
     let second_blacklist = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_idempotent_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklist_idempotent_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -658,10 +686,11 @@ async fn test_regular_member_cannot_blacklist() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "regular_blacklist_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "regular_blacklist_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -671,8 +700,12 @@ async fn test_regular_member_cannot_blacklist() -> anyhow::Result<()> {
 
     // Bob joins (regular member, no special permissions)
     let bob_join = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "regular_blacklist_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "regular_blacklist_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -681,8 +714,12 @@ async fn test_regular_member_cannot_blacklist() -> anyhow::Result<()> {
 
     // Charlie joins
     let charlie_join = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "regular_blacklist_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "regular_blacklist_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -692,10 +729,11 @@ async fn test_regular_member_cannot_blacklist() -> anyhow::Result<()> {
 
     // Bob (regular member) tries to blacklist Charlie - should fail
     let bob_blacklist_charlie = bob
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "regular_blacklist_test",
-            "member_id": charlie.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "regular_blacklist_test", "member_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -743,10 +781,11 @@ async fn test_owner_cannot_blacklist_self() -> anyhow::Result<()> {
 
     // Alice creates a group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "owner_self_blacklist_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "owner_self_blacklist_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -756,10 +795,11 @@ async fn test_owner_cannot_blacklist_self() -> anyhow::Result<()> {
 
     // Alice (owner) tries to blacklist herself - should fail
     let self_blacklist = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "owner_self_blacklist_test",
-            "member_id": alice.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "owner_self_blacklist_test", "member_id": alice.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -820,10 +860,11 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "admin_blacklist_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "admin_blacklist_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -833,10 +874,11 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
 
     // Add admin and grant MANAGE permission
     let add_admin = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "admin_blacklist_test",
-            "member_id": admin.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "admin_blacklist_test", "member_id": admin.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -845,12 +887,11 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
     assert!(add_admin.is_success(), "Add admin should succeed");
 
     let grant_manage = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": admin.id(),
-            "path": "groups/admin_blacklist_test/config",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": admin.id(), "path": "groups/admin_blacklist_test/config", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -860,8 +901,12 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
 
     // Target joins the group
     let target_join = target
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "admin_blacklist_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "admin_blacklist_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -871,10 +916,11 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
 
     // Admin blacklists target - should succeed
     let admin_blacklist_target = admin
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "admin_blacklist_test",
-            "member_id": target.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "admin_blacklist_test", "member_id": target.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -928,10 +974,11 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_blacklist_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "member_driven_blacklist_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -942,13 +989,13 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
     // Add Bob as member (use direct storage for setup since it's member-driven)
     // For member-driven groups, owner can still add initial members
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_blacklist_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "member_driven_blacklist_test", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string(),
                 "message": "Add Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -972,10 +1019,11 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
     // Now with 2 members, proposals won't auto-execute
     // Alice tries to blacklist Charlie (non-member) - should create proposal, not direct blacklist
     let blacklist_result = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_blacklist_test",
-            "member_id": charlie.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "member_driven_blacklist_test", "member_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1022,10 +1070,11 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban_owner_proposal_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "ban_owner_proposal_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1035,13 +1084,13 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
 
     // Add Bob (auto-executes since single member)
     let add_bob = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban_owner_proposal_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "ban_owner_proposal_test", "proposal_type": "member_invite", "changes": {
                 "target_user": bob.id().to_string(),
                 "message": "Add Bob"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1052,13 +1101,13 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
 
     // Add Charlie (needs voting now - Alice auto-votes, Bob votes too)
     let add_charlie = alice
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban_owner_proposal_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "ban_owner_proposal_test", "proposal_type": "member_invite", "changes": {
                 "target_user": charlie.id().to_string(),
                 "message": "Add Charlie"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1070,11 +1119,11 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
 
     // Bob votes to pass Charlie's invite
     let bob_vote_charlie = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban_owner_proposal_test",
-            "proposal_id": charlie_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "ban_owner_proposal_test", "proposal_id": charlie_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1086,14 +1135,14 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
     // Now Bob creates a ban proposal against Alice (the owner)
     // Proposal creation should succeed (validation doesn't check target is owner)
     let ban_owner_proposal = bob
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban_owner_proposal_test",
-            "proposal_type": "group_update",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "ban_owner_proposal_test", "proposal_type": "group_update", "changes": {
                 "update_type": "ban",
                 "target_user": alice.id().to_string(),
                 "action": "ban"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1106,11 +1155,11 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
 
     // Charlie votes YES to try to pass the ban proposal
     let charlie_vote = charlie
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "ban_owner_proposal_test",
-            "proposal_id": ban_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "ban_owner_proposal_test", "proposal_id": ban_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1246,10 +1295,11 @@ async fn test_add_member_event_schema() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "event_add_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "event_add_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1259,8 +1309,12 @@ async fn test_add_member_event_schema() -> anyhow::Result<()> {
 
     // Bob joins the group
     let join_result = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "event_add_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "event_add_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1329,10 +1383,11 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "event_remove_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "event_remove_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1342,8 +1397,12 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
 
     // Bob joins
     let join_bob = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "event_remove_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "event_remove_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1352,8 +1411,12 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
 
     // Charlie joins
     let join_charlie = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "event_remove_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "event_remove_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1362,8 +1425,12 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
 
     // Test 1: Self-removal (Bob leaves)
     let leave_result = bob
-        .call(contract.id(), "leave_group")
-        .args_json(json!({ "group_id": "event_remove_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "event_remove_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -1389,10 +1456,11 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
 
     // Test 2: Owner removes Charlie (not self-removal)
     let owner_remove = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "event_remove_test",
-            "member_id": charlie.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "event_remove_test", "member_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1439,10 +1507,11 @@ async fn test_group_stats_member_count() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "stats_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "stats_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1469,8 +1538,12 @@ async fn test_group_stats_member_count() -> anyhow::Result<()> {
 
     // Bob joins -> 2 members
     let join_bob = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "stats_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "stats_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1483,8 +1556,12 @@ async fn test_group_stats_member_count() -> anyhow::Result<()> {
 
     // Charlie joins -> 3 members
     let join_charlie = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "stats_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "stats_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1497,8 +1574,12 @@ async fn test_group_stats_member_count() -> anyhow::Result<()> {
 
     // Bob leaves -> 2 members
     let leave_bob = bob
-        .call(contract.id(), "leave_group")
-        .args_json(json!({ "group_id": "stats_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "stats_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -1510,10 +1591,11 @@ async fn test_group_stats_member_count() -> anyhow::Result<()> {
 
     // Owner removes Charlie -> 1 member
     let remove_charlie = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "stats_test",
-            "member_id": charlie.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "stats_test", "member_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1548,13 +1630,14 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
 
     // Alice creates a member-driven group (requires governance for member changes)
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "governance_test",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "governance_test", "config": {
                 "is_private": true,
                 "member_driven": true,
                 "group_name": "Governance Test Group"
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1567,11 +1650,12 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
     // Add Bob and Carol as members (owner can add directly even in member-driven groups)
     for (name, user) in [("bob", &bob), ("carol", &carol)] {
         let add = alice
-            .call(contract.id(), "add_group_member")
-            .args_json(json!({
-                "group_id": "governance_test",
-                "member_id": user.id()
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "governance_test", "member_id": user.id() }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
@@ -1582,13 +1666,13 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
 
     // Bob creates proposal to invite target
     let create_proposal = bob
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "governance_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "governance_test", "proposal_type": "member_invite", "changes": {
                 "target_user": target.id().to_string(),
                 "message": "Invite target via governance"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1602,11 +1686,11 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
     // Alice votes YES (Bob already voted as proposer)
     // With 2/3 votes (67%), proposal should pass with default 50% thresholds
     let vote_result = alice
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "governance_test",
-            "proposal_id": proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "governance_test", "proposal_id": proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1667,13 +1751,14 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_bypass_test",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklist_bypass_test", "config": {
                 "is_private": true,
                 "member_driven": true,
                 "group_name": "Blacklist Bypass Test"
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1686,11 +1771,12 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
     // Add Bob, Carol, and target as members (so we can later ban target)
     for (name, user) in [("bob", &bob), ("carol", &carol), ("target", &target)] {
         let add = alice
-            .call(contract.id(), "add_group_member")
-            .args_json(json!({
-                "group_id": "blacklist_bypass_test",
-                "member_id": user.id()
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "blacklist_bypass_test", "member_id": user.id() }
+            }
+        }))
             .deposit(ONE_NEAR)
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
@@ -1702,10 +1788,11 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
     // First, blacklist target via ban proposal (member-driven requires governance)
     // Alice initiates blacklist which creates a ban proposal
     let ban_proposal_result = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_bypass_test",
-            "member_id": target.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "blacklist_bypass_test", "member_id": target.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1721,11 +1808,11 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
 
     // Bob votes YES on ban proposal (Alice auto-voted, now 2/4 = 50%, passes with default thresholds)
     let ban_vote = bob
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_bypass_test",
-            "proposal_id": ban_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "blacklist_bypass_test", "proposal_id": ban_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1760,13 +1847,13 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
 
     // Now Bob creates a member_invite proposal to re-add the blacklisted target
     let create_invite_proposal = bob
-        .call(contract.id(), "create_group_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_bypass_test",
-            "proposal_type": "member_invite",
-            "changes": {
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "blacklist_bypass_test", "proposal_type": "member_invite", "changes": {
                 "target_user": target.id().to_string(),
                 "message": "Invite blacklisted user via governance"
+            }, "auto_vote": null }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1783,11 +1870,11 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
     // Alice votes YES to reach quorum and trigger execution
     // With Bob (proposer auto-voted) + Alice = 2/3 remaining members > 50% = passes
     let vote_result = alice
-        .call(contract.id(), "vote_on_proposal")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "blacklist_bypass_test",
-            "proposal_id": invite_proposal_id,
-            "approve": true
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "blacklist_bypass_test", "proposal_id": invite_proposal_id, "approve": true }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -1862,10 +1949,11 @@ async fn test_approve_join_request_cannot_add_blacklisted_user() -> anyhow::Resu
 
     // Alice creates a private (non-member-driven) group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join_blacklist_test",
-            "config": { "is_private": true, "member_driven": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "join_blacklist_test", "config": { "is_private": true, "member_driven": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1876,8 +1964,12 @@ async fn test_approve_join_request_cannot_add_blacklisted_user() -> anyhow::Resu
 
     // Bob submits a join request
     let join_request = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "join_blacklist_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "join_blacklist_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -1887,10 +1979,11 @@ async fn test_approve_join_request_cannot_add_blacklisted_user() -> anyhow::Resu
 
     // Alice blacklists Bob AFTER join request was submitted
     let blacklist_bob = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join_blacklist_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "join_blacklist_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1912,10 +2005,11 @@ async fn test_approve_join_request_cannot_add_blacklisted_user() -> anyhow::Resu
 
     // Alice tries to approve Bob's join request - should fail due to blacklist
     let approve_result = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join_blacklist_test",
-            "requester_id": bob.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "join_blacklist_test", "requester_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1965,13 +2059,14 @@ async fn test_blacklisted_user_cannot_create_join_request_proposal() -> anyhow::
 
     // Alice creates a member-driven private group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join_proposal_blacklist_test",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "join_proposal_blacklist_test", "config": {
                 "is_private": true,
                 "member_driven": true,
                 "group_name": "Join Proposal Test"
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -1983,10 +2078,11 @@ async fn test_blacklisted_user_cannot_create_join_request_proposal() -> anyhow::
 
     // Alice blacklists Bob
     let blacklist_bob = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "join_proposal_blacklist_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "join_proposal_blacklist_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -1998,8 +2094,12 @@ async fn test_blacklisted_user_cannot_create_join_request_proposal() -> anyhow::
     // Bob (blacklisted) tries to submit join request via join_group
     // In member-driven groups, this creates a JoinRequest proposal
     let join_result = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "join_proposal_blacklist_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "join_proposal_blacklist_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2038,10 +2138,11 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
 
     // Create a PUBLIC group
     let create_public = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "public_routing_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "public_routing_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2052,10 +2153,11 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
 
     // Create a PRIVATE group
     let create_private = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_routing_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "private_routing_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2066,8 +2168,12 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
 
     // Bob joins PUBLIC group - should add directly as member
     let bob_join_public = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "public_routing_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "public_routing_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2088,8 +2194,12 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
 
     // Charlie joins PRIVATE group - should create join request, not add directly
     let charlie_join_private = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "private_routing_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "private_routing_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2125,10 +2235,11 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
 
     // Alice approves Charlie's request
     let approve_charlie = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_routing_test",
-            "requester_id": charlie.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "private_routing_test", "requester_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2170,10 +2281,11 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
 
     // Alice creates a member-driven group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "md_remove_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "md_remove_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2184,10 +2296,11 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
 
     // Add Bob (will auto-execute with single member)
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "md_remove_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "md_remove_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2210,10 +2323,11 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
     // Alice tries to directly remove Bob - should create proposal instead
     // (route_group_operation routes to proposal creation for member-driven groups)
     let remove_result = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "md_remove_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "md_remove_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(150))
@@ -2263,10 +2377,11 @@ async fn test_reject_join_request_full_flow() -> anyhow::Result<()> {
 
     // Alice creates a private group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "reject_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2277,8 +2392,12 @@ async fn test_reject_join_request_full_flow() -> anyhow::Result<()> {
 
     // Bob submits join request
     let join_request = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "reject_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "reject_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2304,11 +2423,11 @@ async fn test_reject_join_request_full_flow() -> anyhow::Result<()> {
     // Alice rejects with reason
     let reject_reason = "Profile incomplete - please add bio";
     let reject_result = alice
-        .call(contract.id(), "reject_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "reject_test",
-            "requester_id": bob.id(),
-            "reason": reject_reason
+            "request": {
+                "action": { "type": "reject_join_request", "group_id": "reject_test", "requester_id": bob.id(), "reason": reject_reason }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2374,10 +2493,11 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
 
     // Alice creates private group, adds Bob as regular member (no MODERATE)
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "mod_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2386,10 +2506,11 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
     assert!(create_result.is_success());
 
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "mod_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2400,8 +2521,12 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
 
     // Charlie submits join request
     let charlie_join = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "mod_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "mod_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2411,10 +2536,11 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
 
     // Bob (regular member) tries to approve - should fail
     let bob_approve = bob
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_test",
-            "requester_id": charlie.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "mod_test", "requester_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2430,11 +2556,11 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
 
     // Bob tries to reject - should also fail
     let bob_reject = bob
-        .call(contract.id(), "reject_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_test",
-            "requester_id": charlie.id(),
-            "reason": null
+            "request": {
+                "action": { "type": "reject_join_request", "group_id": "mod_test", "requester_id": charlie.id(), "reason": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2450,10 +2576,11 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
 
     // Owner (Alice) can approve
     let alice_approve = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_test",
-            "requester_id": charlie.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "mod_test", "requester_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2484,10 +2611,11 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Setup: Alice creates private group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "status_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "status_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2497,8 +2625,12 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Bob submits join request
     let bob_join = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "status_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "status_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2507,10 +2639,11 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Alice approves Bob
     let approve_bob = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "status_test",
-            "requester_id": bob.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "status_test", "requester_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2521,10 +2654,11 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Try to approve again - should fail (already approved)
     let approve_again = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "status_test",
-            "requester_id": bob.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "status_test", "requester_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2540,8 +2674,12 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Charlie submits and gets rejected
     let charlie_join = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "status_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "status_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2549,11 +2687,11 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
     assert!(charlie_join.is_success());
 
     let reject_charlie = alice
-        .call(contract.id(), "reject_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "status_test",
-            "requester_id": charlie.id(),
-            "reason": "test"
+            "request": {
+                "action": { "type": "reject_join_request", "group_id": "status_test", "requester_id": charlie.id(), "reason": "test" }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2564,11 +2702,11 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Try to reject again - should fail
     let reject_again = alice
-        .call(contract.id(), "reject_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "status_test",
-            "requester_id": charlie.id(),
-            "reason": "again"
+            "request": {
+                "action": { "type": "reject_join_request", "group_id": "status_test", "requester_id": charlie.id(), "reason": "again" }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2579,10 +2717,11 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
 
     // Try to approve rejected request - should also fail
     let approve_rejected = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "status_test",
-            "requester_id": charlie.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "status_test", "requester_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2612,10 +2751,11 @@ async fn test_cancel_already_processed_fails() -> anyhow::Result<()> {
 
     // Setup
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel_status_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "cancel_status_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2625,8 +2765,12 @@ async fn test_cancel_already_processed_fails() -> anyhow::Result<()> {
 
     // Bob submits join request
     let bob_join = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "cancel_status_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "cancel_status_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2636,10 +2780,11 @@ async fn test_cancel_already_processed_fails() -> anyhow::Result<()> {
 
     // Alice approves
     let approve = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "cancel_status_test",
-            "requester_id": bob.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "cancel_status_test", "requester_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2650,8 +2795,12 @@ async fn test_cancel_already_processed_fails() -> anyhow::Result<()> {
 
     // Bob tries to cancel approved request - should fail
     let cancel_approved = bob
-        .call(contract.id(), "cancel_join_request")
-        .args_json(json!({ "group_id": "cancel_status_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "cancel_join_request", "group_id": "cancel_status_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -2686,10 +2835,11 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Setup
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "counter_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2718,8 +2868,12 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Bob joins -> count = 1
     let bob_join = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "counter_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "counter_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2731,8 +2885,12 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Charlie joins -> count = 2
     let charlie_join = charlie
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "counter_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "counter_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2744,8 +2902,12 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Dave joins -> count = 3
     let dave_join = dave
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "counter_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "counter_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2757,10 +2919,11 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Alice approves Bob -> count = 2
     let approve_bob = alice
-        .call(contract.id(), "approve_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter_test",
-            "requester_id": bob.id()
+            "request": {
+                "action": { "type": "approve_join_request", "group_id": "counter_test", "requester_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2773,11 +2936,11 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Alice rejects Charlie -> count = 1
     let reject_charlie = alice
-        .call(contract.id(), "reject_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "counter_test",
-            "requester_id": charlie.id(),
-            "reason": null
+            "request": {
+                "action": { "type": "reject_join_request", "group_id": "counter_test", "requester_id": charlie.id(), "reason": null }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2790,8 +2953,12 @@ async fn test_join_request_counter_tracking() -> anyhow::Result<()> {
 
     // Dave cancels -> count = 0
     let cancel_dave = dave
-        .call(contract.id(), "cancel_join_request")
-        .args_json(json!({ "group_id": "counter_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "cancel_join_request", "group_id": "counter_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -2825,10 +2992,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_add_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "mod_add_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2838,10 +3006,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
 
     // Add moderator as member
     let add_mod = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_add_test",
-            "member_id": moderator.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "mod_add_test", "member_id": moderator.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2851,12 +3020,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
 
     // Grant MODERATE (not MANAGE) on group config
     let grant_moderate = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": moderator.id(),
-            "path": "groups/mod_add_test/config",
-            "level": MODERATE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": moderator.id(), "path": "groups/mod_add_test/config", "level": MODERATE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2879,10 +3047,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
     // Test 1: Moderator with MODERATE can add member with level=0 (NONE)
     // This tests queries.rs:can_grant_permissions lines 38-48
     let add_target1 = moderator
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_add_test",
-            "member_id": target1.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "mod_add_test", "member_id": target1.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2905,12 +3074,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
     // Test 2: Moderator cannot grant MANAGE permission (set_permission requires MANAGE to delegate)
     // This is a separate path from can_grant_permissions, but related security check
     let grant_manage_fail = moderator
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": target1.id(),
-            "path": "groups/mod_add_test/config",
-            "level": MANAGE,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": target1.id(), "path": "groups/mod_add_test/config", "level": MANAGE, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2921,10 +3089,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
     // Test 3: Regular member (no MODERATE) CANNOT add other members
     // This verifies can_grant_permissions returns false for non-privileged users
     let add_target2_by_target1 = target1
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "mod_add_test",
-            "member_id": target2.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "mod_add_test", "member_id": target2.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2962,10 +3131,11 @@ async fn test_is_member_returns_false_for_left_members() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "is_member_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "is_member_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -2975,8 +3145,12 @@ async fn test_is_member_returns_false_for_left_members() -> anyhow::Result<()> {
 
     // Bob joins the group
     let bob_join = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "is_member_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "is_member_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -2997,8 +3171,12 @@ async fn test_is_member_returns_false_for_left_members() -> anyhow::Result<()> {
 
     // Bob leaves the group
     let bob_leave = bob
-        .call(contract.id(), "leave_group")
-        .args_json(json!({ "group_id": "is_member_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "is_member_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -3093,10 +3271,11 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
 
     // Alice creates a member-driven group (requires governance for changes)
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_grant_test",
-            "config": { "member_driven": true, "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "member_driven_grant_test", "config": { "member_driven": true, "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3107,10 +3286,11 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
 
     // Alice (owner) tries to directly add Bob - should fail (member-driven requires proposal)
     let _direct_add = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_grant_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "member_driven_grant_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3141,13 +3321,12 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
     // This should fail because can_grant_permissions returns false
     if is_bob_member {
         let direct_permission = alice
-            .call(contract.id(), "set_permission")
-            .args_json(json!({
-                "grantee": bob.id(),
-                "path": "groups/member_driven_grant_test/config",
-                "level": MANAGE,
-                "expires_at": null
-            }))
+            .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/member_driven_grant_test/config", "level": MANAGE, "expires_at": null }
+            }
+        }))
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
             .await?;
@@ -3179,10 +3358,11 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "underflow_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "underflow_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3213,8 +3393,12 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
 
     // Bob joins public group
     let join_bob = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "underflow_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "underflow_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3244,8 +3428,12 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
 
     // Bob leaves
     let leave_bob = bob
-        .call(contract.id(), "leave_group")
-        .args_json(json!({ "group_id": "underflow_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "underflow_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -3293,10 +3481,11 @@ async fn test_remove_nonexistent_member_fails() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove_nonexistent_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "remove_nonexistent_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3307,10 +3496,11 @@ async fn test_remove_nonexistent_member_fails() -> anyhow::Result<()> {
 
     // Bob never joined - Alice tries to remove Bob
     let remove_result = alice
-        .call(contract.id(), "remove_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "remove_nonexistent_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "remove_nonexistent_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3350,10 +3540,11 @@ async fn test_unprivileged_cannot_add_to_private_group() -> anyhow::Result<()> {
 
     // Alice creates a PRIVATE group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_add_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "private_add_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3364,10 +3555,11 @@ async fn test_unprivileged_cannot_add_to_private_group() -> anyhow::Result<()> {
 
     // Alice adds Bob as regular member
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_add_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "private_add_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3378,10 +3570,11 @@ async fn test_unprivileged_cannot_add_to_private_group() -> anyhow::Result<()> {
 
     // Bob (no MANAGE permission) tries to add Charlie - should fail
     let bob_add_charlie = bob
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "private_add_test",
-            "member_id": charlie.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "private_add_test", "member_id": charlie.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3432,10 +3625,11 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
 
     // Alice creates a public group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unblacklist_flow_test",
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": "unblacklist_flow_test", "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3446,10 +3640,11 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
 
     // Alice blacklists Bob
     let blacklist_bob = alice
-        .call(contract.id(), "blacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unblacklist_flow_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "unblacklist_flow_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3471,10 +3666,11 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
 
     // Alice tries to add blacklisted Bob - should fail
     let add_blacklisted = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unblacklist_flow_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "unblacklist_flow_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3485,10 +3681,11 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
 
     // Alice unblacklists Bob
     let unblacklist_bob = alice
-        .call(contract.id(), "unblacklist_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unblacklist_flow_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "unblacklist_group_member", "group_id": "unblacklist_flow_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3510,10 +3707,11 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
 
     // Alice can now add Bob
     let add_bob = alice
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "unblacklist_flow_test",
-            "member_id": bob.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "unblacklist_flow_test", "member_id": bob.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3557,11 +3755,12 @@ async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Re
 
     // Alice creates a member-driven group (implicitly private)
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "member_driven_cancel_test",
-            "config": {
+            "request": {
+                "action": { "type": "create_group", "group_id": "member_driven_cancel_test", "config": {
                 "member_driven": true
+            } }
             }
         }))
         .deposit(ONE_NEAR)
@@ -3573,8 +3772,12 @@ async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Re
 
     // Bob attempts to join (creates proposal in member-driven group)
     let join_result = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "member_driven_cancel_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "member_driven_cancel_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3584,8 +3787,12 @@ async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Re
 
     // Bob tries to cancel - should fail because member-driven groups use proposals
     let cancel_result = bob
-        .call(contract.id(), "cancel_join_request")
-        .args_json(json!({ "group_id": "member_driven_cancel_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "cancel_join_request", "group_id": "member_driven_cancel_test" }
+            }
+        }))
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
@@ -3620,10 +3827,11 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
 
     // Alice creates private group
     let create_result = alice
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "resubmit_test",
-            "config": { "is_private": true }
+            "request": {
+                "action": { "type": "create_group", "group_id": "resubmit_test", "config": { "is_private": true } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3634,8 +3842,12 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
 
     // Bob submits first join request
     let join1 = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "resubmit_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "resubmit_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
@@ -3645,11 +3857,11 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
 
     // Alice rejects
     let reject = alice
-        .call(contract.id(), "reject_join_request")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": "resubmit_test",
-            "requester_id": bob.id(),
-            "reason": "Profile incomplete"
+            "request": {
+                "action": { "type": "reject_join_request", "group_id": "resubmit_test", "requester_id": bob.id(), "reason": "Profile incomplete" }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -3676,8 +3888,12 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
 
     // Bob submits again - should succeed (overwrite rejected)
     let join2 = bob
-        .call(contract.id(), "join_group")
-        .args_json(json!({ "group_id": "resubmit_test" }))
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "resubmit_test" }
+            }
+        }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()

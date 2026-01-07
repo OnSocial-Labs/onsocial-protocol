@@ -25,7 +25,7 @@ mod stats_counter_tests {
             "description": "Test group for underflow",
             "is_private": false
         });
-        contract.create_group(group_id.to_string(), config).expect("Group creation should succeed");
+        contract.execute(create_group_request(group_id.to_string(), config)).expect("Group creation should succeed");
 
         // Manually set stats to have total_members = 0 (edge case)
         let stats_path = format!("groups/{}/stats", group_id);
@@ -76,7 +76,7 @@ mod stats_counter_tests {
             "description": "Test group",
             "is_private": true
         });
-        contract.create_group(group_id.to_string(), config).expect("Group creation should succeed");
+        contract.execute(create_group_request(group_id.to_string(), config)).expect("Group creation should succeed");
 
         // Force stats to 0 join requests
         let stats_path = format!("groups/{}/stats", group_id);
@@ -117,7 +117,7 @@ mod stats_counter_tests {
 
         let group_id = "increment_test";
         let config = json!({ "is_private": false });
-        contract.create_group(group_id.to_string(), config).expect("Create group");
+        contract.execute(create_group_request(group_id.to_string(), config)).expect("Create group");
 
         // Get initial member count (should be 1 for owner)
         let initial_stats = GroupStorage::get_group_stats(&contract.platform, group_id);
@@ -147,7 +147,7 @@ mod stats_counter_tests {
 
         let group_id = "timestamp_test";
         let config = json!({ "is_private": false });
-        contract.create_group(group_id.to_string(), config).expect("Create group");
+        contract.execute(create_group_request(group_id.to_string(), config)).expect("Create group");
 
         let stats = GroupStorage::get_group_stats(&contract.platform, group_id);
         assert!(stats.is_some());

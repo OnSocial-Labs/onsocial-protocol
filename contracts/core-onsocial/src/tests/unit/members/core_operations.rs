@@ -27,14 +27,14 @@ mod core_member_operations {
             "is_private": false
         });
 
-        let result = contract.create_group("testgroup".to_string(), group_config);
+        let result = contract.execute(create_group_request("testgroup".to_string(), group_config));
         assert!(result.is_ok(), "Group creation should succeed");
 
         // Add a member as the owner
-        let add_result = contract.add_group_member(
+        let add_result = contract.execute(add_group_member_request(
             "testgroup".to_string(),
             new_member.clone(),
-        );
+        ));
         assert!(add_result.is_ok(), "Member addition by owner should succeed");
 
         // Verify member was added
@@ -68,17 +68,17 @@ mod core_member_operations {
             "is_private": false
         });
 
-        let result = contract.create_group("testgroup".to_string(), group_config);
+        let result = contract.execute(create_group_request("testgroup".to_string(), group_config));
         assert!(result.is_ok());
 
         // Try to add member as non-owner
         let context = get_context_with_deposit(non_owner.clone(), 1_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(context.build());
 
-        let add_result = contract.add_group_member(
+        let add_result = contract.execute(add_group_member_request(
             "testgroup".to_string(),
             target_member.clone(),
-        );
+        ));
         assert!(add_result.is_err(), "Non-owner should not be able to add members");
         
         let error_msg = add_result.unwrap_err().to_string();
@@ -100,7 +100,7 @@ mod core_member_operations {
 
         // Create group
         let group_config = json!({"member_driven": false, "is_private": false});
-        let result = contract.create_group("testgroup".to_string(), group_config);
+        let result = contract.execute(create_group_request("testgroup".to_string(), group_config));
         assert!(result.is_ok());
 
         // Check storage balance before adding member
@@ -109,10 +109,10 @@ mod core_member_operations {
         let initial_used = initial_balance.unwrap().used_bytes;
 
         // Add member
-        let add_result = contract.add_group_member(
+        let add_result = contract.execute(add_group_member_request(
             "testgroup".to_string(),
             new_member.clone(),
-        );
+        ));
         assert!(add_result.is_ok(), "Member addition should succeed with sufficient deposit");
 
         // Verify storage was charged
@@ -135,10 +135,10 @@ mod core_member_operations {
 
         // Create group
         let group_config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("testgroup".to_string(), group_config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), group_config)).unwrap();
 
         // Add member and verify event emission
-        let result = contract.add_group_member("testgroup".to_string(), new_member.clone());
+        let result = contract.execute(add_group_member_request("testgroup".to_string(), new_member.clone()));
         
         assert!(result.is_ok(), "Member addition should succeed");
         assert!(contract.is_group_member("testgroup".to_string(), new_member.clone()), "Member should be added");
@@ -155,14 +155,14 @@ mod core_member_operations {
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
         
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add member first time
-        contract.add_group_member("testgroup".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("testgroup".to_string(), member.clone())).unwrap();
         assert!(contract.is_group_member("testgroup".to_string(), member.clone()));
 
         // Try to add same member again
-        let duplicate_result = contract.add_group_member("testgroup".to_string(), member.clone());
+        let duplicate_result = contract.execute(add_group_member_request("testgroup".to_string(), member.clone()));
 
         // Duplicate adds should fail with "already a member" error
         assert!(duplicate_result.is_err(), "Duplicate add should be rejected");
@@ -183,7 +183,7 @@ mod core_member_operations {
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Try to add member to non-existent group
-        let add_result = contract.add_group_member("nonexistent".to_string(), member.clone());
+        let add_result = contract.execute(add_group_member_request("nonexistent".to_string(), member.clone()));
         assert!(add_result.is_err(), "Should not be able to add member to non-existent group");
 
         let error_msg = format!("{:?}", add_result.unwrap_err());
@@ -202,15 +202,13 @@ mod core_member_operations {
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build());
         
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Add member (member-only) then explicitly grant role permissions.
-        contract
-            .add_group_member("testgroup".to_string(), member.clone())
+        contract.execute(add_group_member_request("testgroup".to_string(), member.clone()))
             .unwrap();
 
-        contract
-            .set_permission(member.clone(), "groups/testgroup/config".to_string(), MANAGE, None)
+        contract.execute(set_permission_request(member.clone(), "groups/testgroup/config".to_string(), MANAGE, None))
             .unwrap();
 
         // Verify member has all permissions
@@ -240,17 +238,17 @@ mod core_member_operations {
 
         // Create traditional group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Add member
-        contract.add_group_member("test_group".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), member.clone())).unwrap();
 
         // Verify member was added
         assert!(contract.is_group_member("test_group".to_string(), member.clone()), "Member should be added");
 
         // Member leaves group
         near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let leave_result = contract.leave_group("test_group".to_string());
+        let leave_result = contract.execute(leave_group_request("test_group".to_string()));
         assert!(leave_result.is_ok(), "Member should be able to leave group: {:?}", leave_result);
 
         // Verify member is no longer in group
@@ -273,10 +271,10 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Owner tries to leave group
-        let leave_result = contract.leave_group("test_group".to_string());
+        let leave_result = contract.execute(leave_group_request("test_group".to_string()));
         assert!(leave_result.is_err(), "Owner should not be able to leave group");
         
         let error_msg = format!("{:?}", leave_result.unwrap_err());
@@ -298,11 +296,11 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Non-member tries to leave group
         near_sdk::testing_env!(get_context_with_deposit(non_member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let leave_result = contract.leave_group("test_group".to_string());
+        let leave_result = contract.execute(leave_group_request("test_group".to_string()));
         assert!(leave_result.is_err(), "Non-member should not be able to leave group");
 
         let error_msg = format!("{:?}", leave_result.unwrap_err());
@@ -326,14 +324,14 @@ mod core_member_operations {
             "is_private": true
         });
 
-        let result = contract.create_group("demogroup".to_string(), group_config);
+        let result = contract.execute(create_group_request("demogroup".to_string(), group_config));
         assert!(result.is_ok());
 
         // Add proposer as initial member
-        let add_result = contract.add_group_member(
+        let add_result = contract.execute(add_group_member_request(
             "demogroup".to_string(),
             proposer.clone(),
-        );
+        ));
         assert!(add_result.is_ok());
 
         // In member-driven groups, additional member additions create proposals
@@ -351,17 +349,17 @@ mod core_member_operations {
 
         // Create traditional group for testing self-removal
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("demo_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("demo_group".to_string(), config)).unwrap();
 
         // Add member normally
-        contract.add_group_member("demo_group".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("demo_group".to_string(), member.clone())).unwrap();
 
         // Verify member was added
         assert!(contract.is_group_member("demo_group".to_string(), member.clone()), "Member should be added");
 
         // Member leaves group (self-removal is always allowed)
         near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let leave_result = contract.leave_group("demo_group".to_string());
+        let leave_result = contract.execute(leave_group_request("demo_group".to_string()));
         assert!(leave_result.is_ok(), "Member should be able to leave group: {:?}", leave_result);
 
         // Verify member is no longer in group
@@ -381,11 +379,11 @@ mod core_member_operations {
 
         // Create traditional group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Add members
-        contract.add_group_member("test_group".to_string(), member1.clone()).unwrap();
-        contract.add_group_member("test_group".to_string(), member2.clone()).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), member1.clone())).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), member2.clone())).unwrap();
 
         // Verify members were added
         assert!(contract.is_group_member("test_group".to_string(), member1.clone()), "Member1 should be added");
@@ -408,17 +406,17 @@ mod core_member_operations {
 
         // Create traditional group to test self-removal
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Add member normally
-        contract.add_group_member("test_group".to_string(), member1.clone()).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), member1.clone())).unwrap();
 
         // Verify member was added
         assert!(contract.is_group_member("test_group".to_string(), member1.clone()), "Member1 should be added");
 
         // Member1 can leave on their own (self-removal is always allowed)
         near_sdk::testing_env!(get_context_with_deposit(member1.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let self_leave_result = contract.leave_group("test_group".to_string());
+        let self_leave_result = contract.execute(leave_group_request("test_group".to_string()));
         assert!(self_leave_result.is_ok(), "Member should be able to leave group");
 
         assert!(!contract.is_group_member("test_group".to_string(), member1.clone()), "Member1 should be removed after leaving");
@@ -434,7 +432,7 @@ mod core_member_operations {
         let mut contract = init_live_contract();
 
         // Try to leave non-existent group
-        let leave_result = contract.leave_group("nonexistent_group".to_string());
+        let leave_result = contract.execute(leave_group_request("nonexistent_group".to_string()));
         assert!(leave_result.is_err(), "Should not be able to leave non-existent group");
 
         println!("✅ Leaving non-existent group handled gracefully");
@@ -450,17 +448,17 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
 
         // Add member
-        contract.add_group_member("test_group".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("test_group".to_string(), member.clone())).unwrap();
 
         // Clear previous logs
         near_sdk::test_utils::get_logs().clear();
 
         // Member leaves group (this should emit remove_member event)
         near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let leave_result = contract.leave_group("test_group".to_string());
+        let leave_result = contract.execute(leave_group_request("test_group".to_string()));
         assert!(leave_result.is_ok(), "Member should be able to leave group");
 
         // Check that events were emitted
@@ -487,10 +485,10 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("event_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("event_test".to_string(), config)).unwrap();
 
         // Test 1: Add member event validation
-        contract.add_group_member("event_test".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("event_test".to_string(), member.clone())).unwrap();
         let add_logs = near_sdk::test_utils::get_logs();
         
         // Since we can see the add_member event being emitted in the logs, let's just verify events were emitted
@@ -498,21 +496,21 @@ mod core_member_operations {
         assert!(any_event_found, "Events should be emitted during member operations");
 
         // Test 2: Permission grant event validation  
-        contract.set_permission(member.clone(), "groups/event_test/posts".to_string(), MODERATE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/event_test/posts".to_string(), MODERATE, None)).unwrap();
         
         // Since events are being emitted (visible in previous logs), just verify the operation succeeded
         // The real validation is that the operation completed without error
         assert!(true, "Permission grant should succeed");
 
         // Test 3: Additional permission grant event validation
-        contract.set_permission(member.clone(), "groups/event_test/admin".to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), "groups/event_test/admin".to_string(), MANAGE, None)).unwrap();
         
         // Since events are being emitted, just verify the operation succeeded
         assert!(true, "Additional permission grant should succeed");
 
         // Test 4: Member leave event validation
         near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        contract.leave_group("event_test".to_string()).unwrap();
+        contract.execute(leave_group_request("event_test".to_string())).unwrap();
         
         // Since events are being emitted, just verify the operation succeeded
         assert!(true, "Member leave should succeed");
@@ -532,16 +530,16 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("ordering_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("ordering_test".to_string(), config)).unwrap();
 
         // Clear initial logs
         let _ = near_sdk::test_utils::get_logs();
 
         // Perform series of operations
-        contract.add_group_member("ordering_test".to_string(), member1.clone()).unwrap();
-        contract.add_group_member("ordering_test".to_string(), member2.clone()).unwrap();
-        contract.set_permission(member1.clone(), "groups/ordering_test/posts".to_string(), MODERATE, None).unwrap();
-        contract.blacklist_group_member("ordering_test".to_string(), member2.clone()).unwrap();
+        contract.execute(add_group_member_request("ordering_test".to_string(), member1.clone())).unwrap();
+        contract.execute(add_group_member_request("ordering_test".to_string(), member2.clone())).unwrap();
+        contract.execute(set_permission_request(member1.clone(), "groups/ordering_test/posts".to_string(), MODERATE, None)).unwrap();
+        contract.execute(blacklist_group_member_request("ordering_test".to_string(), member2.clone())).unwrap();
 
         let all_logs = near_sdk::test_utils::get_logs();
         let event_logs: Vec<&String> = all_logs.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
@@ -569,13 +567,13 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("payload_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("payload_test".to_string(), config)).unwrap();
 
         // Clear logs
         let _ = near_sdk::test_utils::get_logs();
 
         // Add member and capture event
-        contract.add_group_member("payload_test".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("payload_test".to_string(), member.clone())).unwrap();
         let logs = near_sdk::test_utils::get_logs();
         
         let event_log = logs.iter().find(|log| log.starts_with("EVENT_JSON:")).expect("Should have event log");
@@ -602,13 +600,13 @@ mod core_member_operations {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("failure_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("failure_test".to_string(), config)).unwrap();
 
         // Test operations that should fail don't emit success events
         let initial_log_count = near_sdk::test_utils::get_logs().len();
 
         // Try to add member to non-existent group (should fail)
-        let failed_add = contract.add_group_member("nonexistent".to_string(), member.clone());
+        let failed_add = contract.execute(add_group_member_request("nonexistent".to_string(), member.clone()));
         assert!(failed_add.is_err(), "Should fail to add to non-existent group");
 
         let logs_after_failure = near_sdk::test_utils::get_logs();
@@ -624,8 +622,8 @@ mod core_member_operations {
         assert!(!success_events, "Should not emit success events for failed operations");
 
         // Try duplicate member addition
-        contract.add_group_member("failure_test".to_string(), member.clone()).unwrap();
-        let duplicate_result = contract.add_group_member("failure_test".to_string(), member.clone());
+        contract.execute(add_group_member_request("failure_test".to_string(), member.clone())).unwrap();
+        let duplicate_result = contract.execute(add_group_member_request("failure_test".to_string(), member.clone()));
         assert!(duplicate_result.is_err(), "Should fail to add duplicate member");
 
         println!("✅ Event emission failure handling verified");

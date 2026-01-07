@@ -6,7 +6,7 @@ use crate::SocialError;
 
 impl SocialPlatform {
     #[inline]
-    pub(super) fn signed_payload_nonce_storage_key(owner: &AccountId, public_key: &PublicKey) -> String {
+    fn signed_payload_nonce_storage_key(owner: &AccountId, public_key: &PublicKey) -> String {
         // Account-scoped replay protection.
         format!(
             "{}/signed_payload_nonces/{}",
@@ -15,28 +15,7 @@ impl SocialPlatform {
         )
     }
 
-    #[inline]
-    pub(super) fn signed_payload_last_nonce(&self, owner: &AccountId, public_key: &PublicKey) -> u64 {
-        let k = Self::signed_payload_nonce_storage_key(owner, public_key);
-        self.storage_get_string(&k)
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(0)
-    }
-
-    pub(super) fn signed_payload_assert_nonce_fresh(
-        &self,
-        owner: &AccountId,
-        public_key: &PublicKey,
-        nonce: u64,
-    ) -> Result<(), SocialError> {
-        let last = self.signed_payload_last_nonce(owner, public_key);
-        if nonce <= last {
-            return Err(crate::invalid_input!("Nonce too low"));
-        }
-        Ok(())
-    }
-
-    pub(super) fn signed_payload_record_nonce(
+    pub(crate) fn signed_payload_record_nonce(
         &mut self,
         owner: &AccountId,
         public_key: &PublicKey,

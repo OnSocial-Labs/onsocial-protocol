@@ -83,10 +83,11 @@ async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::
 
 async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": group_id, "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(Gas::from_tgas(140))
@@ -98,10 +99,11 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
 
 async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "member_id": member.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": group_id, "member_id": member.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(Gas::from_tgas(140))
@@ -119,11 +121,11 @@ async fn fund_group_pool_and_set_default_quota(
     allowance_max_bytes: u64,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/group_pool_deposit": {
                         "group_id": group_id,
                         "amount": pool_deposit.as_yoctonear().to_string()
@@ -134,9 +136,8 @@ async fn fund_group_pool_and_set_default_quota(
                         "daily_refill_bytes": 0,
                         "allowance_max_bytes": allowance_max_bytes
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -156,17 +157,16 @@ async fn fund_group_pool_and_set_default_quota(
 
 async fn fund_platform_pool(contract: &Contract, funder: &Account, amount: NearToken) -> anyhow::Result<()> {
     let res = funder
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": {
                         "amount": amount.as_yoctonear().to_string()
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -184,15 +184,14 @@ async fn fund_platform_pool(contract: &Contract, funder: &Account, amount: NearT
 
 async fn deposit_personal_storage(contract: &Contract, user: &Account, amount: NearToken) -> anyhow::Result<()> {
     let res = user
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": amount.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -211,20 +210,19 @@ async fn update_group_default_quota(
     allowance_max_bytes: u64,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/group_sponsor_default_set": {
                         "group_id": group_id,
                         "enabled": true,
                         "daily_refill_bytes": 0,
                         "allowance_max_bytes": allowance_max_bytes
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -250,11 +248,11 @@ async fn set_member_quota_override(
     allowance_max_bytes: u64,
 ) -> anyhow::Result<()> {
     let res = owner
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/group_sponsor_quota_set": {
                         "group_id": group_id,
                         "target_id": target.id(),
@@ -262,9 +260,8 @@ async fn set_member_quota_override(
                         "daily_refill_bytes": 0,
                         "allowance_max_bytes": allowance_max_bytes
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -321,15 +318,14 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
     let key = author_group_key(&member, group_id, "content/posts/to_delete");
 
     let write = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key.clone(): {"text": large_text}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -349,15 +345,14 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
 
     // Delete once: should free bytes and refund back to group pool up to usage.
     let del1 = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key.clone(): serde_json::Value::Null
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -380,15 +375,14 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
 
     // Delete again (idempotent): should NOT reduce pool usage further.
     let del2 = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key.clone(): serde_json::Value::Null
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -439,15 +433,14 @@ async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -
     // Member writes a group key with 0 deposit: should be covered by group pool,
     // and should emit group_sponsor_spend if event emission is enabled.
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -497,15 +490,14 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
 
     // 1) Without deposit should fail due to quota gating.
     let blocked = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     blocked_key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -518,15 +510,14 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
 
     // 2) With attached deposit should succeed (fallback to user-paid storage).
     let fallback = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     fallback_key: {"text": "hello"}
-                },
+                } },
                 "options": {"refund_unused_deposit": true},
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -574,15 +565,14 @@ async fn test_group_pool_insufficient_blocks_even_when_quota_allows() -> anyhow:
 
     let key = author_group_key(&member, group_id, "content/posts/pool_insufficient");
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -624,15 +614,14 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
 
     // Pre-fund member personal balance in a prior tx so the next tx can run with 0 attached deposit.
     let deposit_res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": ONE_NEAR.as_yoctonear().to_string()}
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -649,16 +638,15 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
     // - one group content write (should be sponsored by group pool)
     // - one personal write (should be covered by member's personal balance)
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     group_key: {"text": "hello"},
                     profile_key: "Member"
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -708,15 +696,14 @@ async fn test_group_write_uses_platform_pool_before_group_pool_when_available() 
 
     let key = author_group_key(&member, group_id, "content/posts/platform_first");
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -774,15 +761,14 @@ async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_atta
 
     let key = author_group_key(&member, group_id, "content/posts/pool_exhausted_personal");
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -834,15 +820,14 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
     let key = author_group_key(&member, group_id, "content/posts/shrink");
 
     let write_big = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key.clone(): {"text": "x".repeat(1500)}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -861,15 +846,14 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
     assert!(group_used_before > 0, "expected group_pool_used_bytes > 0 after sponsored write, got: {before:?}");
 
     let write_small = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key.clone(): {"text": "small"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -914,15 +898,14 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
     let key2 = author_group_key(&member2, group_id, "content/posts/by_member2");
 
     let w1 = member1
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key1.clone(): {"text": "x".repeat(800)}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -933,15 +916,14 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
     assert!(w1.is_success(), "member1 write should succeed");
 
     let w2 = member2
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key2: {"text": "x".repeat(800)}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -968,15 +950,14 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
 
     // Delete member1 content. This must not reduce member2's tracked usage.
     let d1 = member1
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key1.clone(): serde_json::Value::Null
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -1030,15 +1011,14 @@ async fn test_group_default_update_applies_without_clamping_existing_member_allo
     let key1 = author_group_key(&member, group_id, "content/posts/init_allowance");
     // First write: initializes the member's default-derived quota entry and spends a bit.
     let first = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key1: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -1055,15 +1035,14 @@ async fn test_group_default_update_applies_without_clamping_existing_member_allo
 
     let key2 = author_group_key(&member, group_id, "content/posts/after_default_reduced");
     let second = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key2: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -1105,19 +1084,18 @@ async fn test_author_prefixed_group_path_is_sponsored_by_group_pool() -> anyhow:
 
     fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 50_000).await?;
 
-    // Most realistic storage path for group content is "{author}/groups/{group_id}/...".
+// Most realistic storage path for group content is "{author/groups/{group_id}/...".
     let key = author_group_key(&member, group_id, "content/posts/author_prefixed");
 
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -1171,15 +1149,14 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
     let blocked_key = author_group_key(&member, group_id, "content/posts/override_blocks");
     // 1) With 0 attached deposit, the write should fail due to override gating.
     let blocked = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     blocked_key: {"text": "hello"}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -1192,15 +1169,14 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
     let fallback_key = author_group_key(&member, group_id, "content/posts/override_fallback");
     // 2) With attached deposit, fallback should succeed and should NOT emit group_sponsor_spend.
     let fallback = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     fallback_key: {"text": "hello"}
-                },
+                } },
                 "options": {"refund_unused_deposit": true},
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -1240,16 +1216,15 @@ async fn test_failed_multi_operation_set_does_not_persist_partial_state() -> any
     // We assert the first write does NOT persist.
     let key = author_group_key(&member, group_id, "content/posts/should_not_persist");
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     key.clone(): {"text": "hello"},
                     "storage/group_sponsor_default_set": {"group_id": group_id}
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": false},
                 "auth": null
             }
         }))
@@ -1305,17 +1280,16 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
     // Attach deposit so that after quota is exhausted, the second key can still succeed
     // via attached-deposit fallback within the same transaction.
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     small_key.clone(): {"text": "a"},
                     large_key.clone(): {"text": large_text}
-                },
+                } },
                 "options": {"refund_unused_deposit": true},
                 // Keep events on: payload is moderate; this also exercises the normal pipeline.
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))
@@ -1368,16 +1342,15 @@ async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_
     let profile_key = user_key(&member, "profile/name");
 
     let res = member
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     group_key: {"text": "hello"},
                     profile_key: "Member"
-                },
+                } },
                 "options": null,
-                "event_config": {"emit": true},
                 "auth": null
             }
         }))

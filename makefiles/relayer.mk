@@ -174,3 +174,30 @@ keys-relayer:
 	@$(call log_progress,Running multikey setup script)
 	@bash packages/relayer/multikey_setup.sh
 	@$(call log_success,Relayer keys setup completed)
+
+# =============================================================================
+# SIMPLE RELAYER (Unified execute() API)
+# =============================================================================
+
+.PHONY: build-simple-relayer
+build-simple-relayer: build-docker-relayer
+	@$(call log_start,Building Simple Relayer)
+	@$(call log_progress,Building simple-relayer binary)
+	@$(call docker_run_relayer,cargo build --release --bin simple-relayer)
+	@$(call log_success,Simple relayer built successfully)
+
+.PHONY: check-simple-relayer
+check-simple-relayer: build-docker-relayer
+	@$(call log_start,Checking Simple Relayer)
+	@$(call log_progress,Running cargo check on simple-relayer)
+	@$(call docker_run_relayer,cargo check --bin simple-relayer)
+	@$(call log_success,Simple relayer check passed)
+
+.PHONY: run-simple-relayer
+run-simple-relayer: build-docker-relayer
+	@$(call log_start,Starting Simple Relayer Service)
+	@$(call log_progress,Starting simple relayer on port 3040)
+	@echo "$(INFO) Simple Relayer will be available at http://localhost:3040$(RESET)"
+	@echo "$(INFO) Endpoints: GET /health, POST /execute$(RESET)"
+	@echo "$(INFO) Press Ctrl+C to stop$(RESET)"
+	@$(call docker_run_relayer,cargo run --release --bin simple-relayer)

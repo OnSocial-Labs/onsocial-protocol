@@ -35,19 +35,18 @@ mod set_permission_signer_tests {
 
         // Create a storage balance for Alice.
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({"storage/deposit": {"amount": storage_deposit.to_string()}}),
-                Some(crate::SetOptions { refund_unused_deposit: true }),
             ))
             .unwrap();
 
         // Alice (via contract) grants permission to Bob on her own path
-        let result = contract.set_permission(
+        let result = contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/profile", alice),
             WRITE,
             None
-        );
+        ));
 
         assert!(result.is_ok(), "Permission grant should succeed when signer owns the path");
 
@@ -80,12 +79,12 @@ mod set_permission_signer_tests {
         testing_env!(context);
 
         // Bob tries to grant Charlie permission on Alice's path
-        let result = contract.set_permission(
+        let result = contract.execute(set_permission_request(
             charlie.clone(),
             format!("{}/profile", alice),
             WRITE,
             None
-        );
+        ));
 
         assert!(result.is_err(), "Should fail when signer doesn't own the path");
     }
@@ -107,19 +106,17 @@ mod set_permission_signer_tests {
 
         // Create a storage balance for Alice.
         contract
-            .set(set_request(
-                json!({"storage/deposit": {"amount": "1"}}),
-                None,
-            ))
+            .execute(set_request(
+                json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         // Alice grants permission to Bob
-        let result = contract.set_permission(
+        let result = contract.execute(set_permission_request(
             bob.clone(),
             format!("{}/posts", alice),
             WRITE,
             None
-        );
+        ));
 
         assert!(result.is_ok(), "Direct wallet calls should work");
 
@@ -149,12 +146,12 @@ mod set_permission_signer_tests {
             .build();
         testing_env!(context);
 
-        let _ = contract.set_permission(
+        let _ = contract.execute(set_permission_request(
             malicious_contract.clone(),
             format!("{}/apps/malicious", alice),
             WRITE,
             None
-        );
+        ));
 
         // Step 2: Bob calls the malicious contract, which tries to grant Charlie permission on Alice's path
         let context = get_context(bob.clone())
@@ -165,12 +162,12 @@ mod set_permission_signer_tests {
 
         // The contract tries to grant Charlie permission on Alice's path
         // This should FAIL because the signer (Bob) doesn't own Alice's path
-        let result = contract.set_permission(
+        let result = contract.execute(set_permission_request(
             charlie.clone(),
             format!("{}/apps/malicious", alice),
             WRITE,
             None
-        );
+        ));
 
         assert!(result.is_err(), "Malicious contract should not be able to grant permissions when called by non-owner");
 

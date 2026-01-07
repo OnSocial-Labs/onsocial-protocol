@@ -81,12 +81,12 @@ async fn test_key_permission_allows_cross_account_set_for() -> anyhow::Result<()
 
     // Pre-deposit storage for Alice so she can grant key permissions
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -99,13 +99,13 @@ async fn test_key_permission_allows_cross_account_set_for() -> anyhow::Result<()
 
     // 1) Relayer cannot write to Alice by default.
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice via relayer"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -118,12 +118,11 @@ async fn test_key_permission_allows_cross_account_set_for() -> anyhow::Result<()
 
     // 2) Alice grants WRITE to relayer public key for her profile subtree.
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -132,13 +131,13 @@ async fn test_key_permission_allows_cross_account_set_for() -> anyhow::Result<()
 
     // 3) Relayer can now write to Alice via set(request), without being Alice.
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice via relayer (authorized)"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -170,12 +169,12 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
 
     // Pre-deposit storage for Alice so she can grant key permissions
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}  // 1 NEAR
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -188,12 +187,11 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
 
     // Grant
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -202,13 +200,13 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
 
     // Works
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "ok"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -221,12 +219,11 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
 
     // Revoke (level=0)
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 0,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -235,13 +232,13 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
 
     // Fails again
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "should fail"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -266,12 +263,12 @@ async fn test_session_key_access_key_can_call_set_without_wallet() -> anyhow::Re
     // Pre-allocate storage using Alice's normal signer key.
     // (Function-call access keys are not allowed to attach deposits in this sandbox/runtime setup.)
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice initial"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -292,7 +289,7 @@ async fn test_session_key_access_key_can_call_set_without_wallet() -> anyhow::Re
         .batch(alice.id())
         .add_key(
             session_pk.clone(),
-            AccessKey::function_call_access(contract.id(), &["set"], Some(TEN_NEAR)),
+            AccessKey::function_call_access(contract.id(), &["execute"], Some(TEN_NEAR)),
         )
         .transact()
         .await?;
@@ -304,12 +301,12 @@ async fn test_session_key_access_key_can_call_set_without_wallet() -> anyhow::Re
 
     // Allowed: `set` (writing on her own account paths).
     let res = alice_session
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice via session key"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -322,12 +319,12 @@ async fn test_session_key_access_key_can_call_set_without_wallet() -> anyhow::Re
 
     // Not allowed: depositing with a function-call access key.
     let res = alice_session
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "should fail (deposit)"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -343,12 +340,11 @@ async fn test_session_key_access_key_can_call_set_without_wallet() -> anyhow::Re
 
     // Not allowed: other call methods (not whitelisted on the function-call access key).
     let res = alice_session
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": session_pk,
-            "path": "profile/",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": session_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .deposit(NearToken::from_yoctonear(0))
         .gas(near_workspaces::types::Gas::from_tgas(120))
@@ -372,12 +368,12 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
     // Note: the platform pool is stored under the contract account ID.
     let fund_amount = NearToken::from_near(5);
     let res = root
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/platform_pool_deposit": { "amount": fund_amount.as_yoctonear().to_string() }
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -398,7 +394,7 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
         .batch(alice.id())
         .add_key(
             session_pk,
-            AccessKey::function_call_access(contract.id(), &["set"], Some(TEN_NEAR)),
+            AccessKey::function_call_access(contract.id(), &["execute"], Some(TEN_NEAR)),
         )
         .transact()
         .await?;
@@ -409,12 +405,12 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
     alice_session.set_secret_key(session_sk);
 
     let res = alice_session
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice via session key (platform sponsored)"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -456,12 +452,11 @@ async fn test_key_permission_invalid_level_rejected() -> anyhow::Result<()> {
 
     // Attempt to grant FULL_ACCESS (0xFF) - should be rejected
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 255,  // FULL_ACCESS = 0xFF
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 255, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -470,12 +465,11 @@ async fn test_key_permission_invalid_level_rejected() -> anyhow::Result<()> {
 
     // Attempt to grant an undefined level (e.g., 100) - should be rejected
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 100,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 100, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -503,12 +497,11 @@ async fn test_key_permission_error_near_balance_preserved() -> anyhow::Result<()
     // Attempt to grant an invalid level (255) with deposit attached
     let deposit_amount = ONE_NEAR;
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 255,  // Invalid: FULL_ACCESS
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 255, "expires_at": null }
+            }
         }))
         .deposit(deposit_amount)
         .gas(near_workspaces::types::Gas::from_tgas(80))
@@ -565,12 +558,12 @@ async fn test_key_permission_expired_blocks_access() -> anyhow::Result<()> {
 
     // Pre-deposit storage for Alice
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -584,12 +577,11 @@ async fn test_key_permission_expired_blocks_access() -> anyhow::Result<()> {
     // Grant permission with an already-expired timestamp (1 nanosecond in the past is fine,
     // but we use 1 which is epoch + 1ns, definitely in the past)
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 1,
-            "expires_at": "1"  // Expired at 1 nanosecond since epoch
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 1, "expires_at": "1" }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -598,13 +590,13 @@ async fn test_key_permission_expired_blocks_access() -> anyhow::Result<()> {
 
     // Relayer attempts to use expired permission - should fail
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Should fail - expired"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -630,12 +622,12 @@ async fn test_key_permission_view_methods() -> anyhow::Result<()> {
 
     // Pre-deposit storage for Alice
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -673,12 +665,11 @@ async fn test_key_permission_view_methods() -> anyhow::Result<()> {
 
     // Grant WRITE (level=1)
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -743,12 +734,12 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
 
     // Pre-deposit storage for Alice
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -761,12 +752,11 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
 
     // Grant WRITE to parent path "profile/"
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -775,13 +765,13 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
 
     // Should be able to write to child path "profile/bio"
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/bio": "Hello from relayer"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -794,13 +784,13 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
 
     // Should NOT be able to write to sibling path "settings/theme"
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "settings/theme": "dark"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -845,12 +835,12 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
 
     // Pre-deposit storage for Alice
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -864,13 +854,13 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
     // Verify relayer has NO account permission (this is the default)
     // Attempt should fail - neither account perm nor key perm exists yet.
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Should fail"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -883,12 +873,11 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
 
     // Grant KEY permission (not account permission) to relayer's public key
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 1,  // WRITE
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -897,13 +886,13 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
 
     // Now relayer should succeed via KEY fallback (account check fails, key check passes)
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice via key fallback"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -916,12 +905,11 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
 
     // Revoke the key permission
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": relayer_pk,
-            "path": "profile/",
-            "level": 0,  // NONE - revoke
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk, "path": "profile/", "level": 0, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -930,13 +918,13 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
 
     // Now relayer should fail again (no account perm, no key perm)
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Should fail again"
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -963,12 +951,12 @@ async fn test_account_permission_takes_precedence_over_key() -> anyhow::Result<(
 
     // Pre-deposit storage for Alice
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": {
+                "action": { "type": "set", "data": {
                     "storage/deposit": {"amount": "1000000000000000000000000"}
-                },
+                } },
                 "options": null,
                 "auth": null
             }
@@ -981,12 +969,11 @@ async fn test_account_permission_takes_precedence_over_key() -> anyhow::Result<(
 
     // Grant ACCOUNT permission to Bob (not key permission)
     let res = alice
-        .call(contract.id(), "set_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "grantee": bob.id(),
-            "path": "profile/",
-            "level": 1,  // WRITE
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
@@ -995,13 +982,13 @@ async fn test_account_permission_takes_precedence_over_key() -> anyhow::Result<(
 
     // Bob can write via account permission (no key permission needed)
     let res = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": {
+                "action": { "type": "set", "data": {
                     "profile/name": "Alice via Bob's account permission"
-                },
+                } },
                 "options": null,
                 "auth": null
             }

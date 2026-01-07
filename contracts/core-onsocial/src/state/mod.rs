@@ -7,6 +7,7 @@ pub(crate) mod set_context;
 
 // SocialPlatform API surface (impl blocks consolidated here).
 pub(crate) mod data;
+pub(crate) mod execute;
 pub(crate) mod permissions;
 pub(crate) mod storage_pools;
 

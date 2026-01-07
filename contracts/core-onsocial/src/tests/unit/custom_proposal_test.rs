@@ -19,7 +19,7 @@ fn test_custom_proposal_creation_and_voting() {
         "member_driven": true,
         "is_private": true,
     });
-    contract.create_group("community_dao".to_string(), config).unwrap();
+    contract.execute(create_group_request("community_dao".to_string(), config)).unwrap();
 
     // Add members for voting
     test_add_member_bypass_proposals(&mut contract, "community_dao", &bob, WRITE, &alice);
@@ -27,7 +27,7 @@ fn test_custom_proposal_creation_and_voting() {
 
     // Alice creates custom proposal (gets automatic YES vote)
     testing_env!(get_context_for_proposal(alice.clone()).build());
-    let proposal_id = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "community_dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -40,7 +40,8 @@ fn test_custom_proposal_creation_and_voting() {
             }
         }),
         None,
-    ).unwrap();
+    )).unwrap();
+    let proposal_id = result.as_str().expect("Should return proposal_id").to_string();
 
     // Proposal created successfully (if it failed, unwrap above would panic)
     println!("✅ Custom proposal created: {}", proposal_id);
@@ -48,13 +49,13 @@ fn test_custom_proposal_creation_and_voting() {
     // Bob votes YES - this triggers execution!
     // With 2/3 votes (67% approval, 67% participation), thresholds are met
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("community_dao".to_string(), proposal_id.clone(), true).unwrap();
+    contract.execute(vote_proposal_request("community_dao".to_string(), proposal_id.clone(), true)).unwrap();
 
     println!("✅ Proposal executed after Bob's vote (2/3 = 67% meets thresholds)");
 
     // Charlie tries to vote but proposal is already executed
     testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-    let late_vote = contract.vote_on_proposal("community_dao".to_string(), proposal_id.clone(), true);
+    let late_vote = contract.execute(vote_proposal_request("community_dao".to_string(), proposal_id.clone(), true));
     assert!(late_vote.is_err(), "Should not be able to vote on executed proposal");
     let error = late_vote.unwrap_err().to_string();
     assert!(error.contains("not active") || error.contains("executed"), 
@@ -72,14 +73,14 @@ fn test_custom_proposal_rejection() {
 
     // Create member-driven group
     testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
+    contract.execute(create_group_request("dao".to_string(), json!({"member_driven": true}))).unwrap();
 
     test_add_member_bypass_proposals(&mut contract, "dao", &bob, WRITE, &alice);
     test_add_member_bypass_proposals(&mut contract, "dao", &charlie, WRITE, &alice);
 
     // Alice proposes controversial decision
     testing_env!(get_context_for_proposal(alice.clone()).build());
-    let proposal_id = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -88,15 +89,16 @@ fn test_custom_proposal_rejection() {
             "custom_data": {"policy": "strict_no_memes"}
         }),
         None,
-    ).unwrap();
+    )).unwrap();
+    let proposal_id = result.as_str().expect("Should return proposal_id").to_string();
 
     // Bob votes NO
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("dao".to_string(), proposal_id.clone(), false).unwrap();
+    contract.execute(vote_proposal_request("dao".to_string(), proposal_id.clone(), false)).unwrap();
 
     // Charlie votes NO
     testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("dao".to_string(), proposal_id.clone(), false).unwrap();
+    contract.execute(vote_proposal_request("dao".to_string(), proposal_id.clone(), false)).unwrap();
 
     // Votes were cast successfully (1 YES from Alice, 2 NO from Bob and Charlie)
     // With only 33% YES votes, proposal should not reach majority threshold
@@ -112,35 +114,35 @@ fn test_custom_proposal_validation_errors() {
 
     // Create member-driven group
     testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
+    contract.execute(create_group_request("dao".to_string(), json!({"member_driven": true}))).unwrap();
 
     // Test: Missing title
     testing_env!(get_context_for_proposal(alice.clone()).build());
-    let result = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
             "description": "Some description",
         }),
         None,
-    );
+    ));
     assert!(result.is_err(), "Should fail without title");
     assert!(result.unwrap_err().to_string().contains("title required"));
 
     // Test: Missing description
-    let result2 = contract.create_group_proposal(
+    let result2 = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
             "title": "Some title",
         }),
         None,
-    );
+    ));
     assert!(result2.is_err(), "Should fail without description");
     assert!(result2.unwrap_err().to_string().contains("description required"));
 
     // Test: Empty title
-    let result3 = contract.create_group_proposal(
+    let result3 = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -148,11 +150,11 @@ fn test_custom_proposal_validation_errors() {
             "description": "Some description",
         }),
         None,
-    );
+    ));
     assert!(result3.is_err(), "Should fail with empty title");
 
     // Test: Empty description
-    let result4 = contract.create_group_proposal(
+    let result4 = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -160,7 +162,7 @@ fn test_custom_proposal_validation_errors() {
             "description": "",
         }),
         None,
-    );
+    ));
     assert!(result4.is_err(), "Should fail with empty description");
 
     println!("✅ Custom proposal validation working correctly");
@@ -174,13 +176,13 @@ fn test_custom_proposal_budget_decision() {
 
     // Create member-driven group
     testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.create_group("treasury_dao".to_string(), json!({"member_driven": true})).unwrap();
+    contract.execute(create_group_request("treasury_dao".to_string(), json!({"member_driven": true}))).unwrap();
 
     test_add_member_bypass_proposals(&mut contract, "treasury_dao", &bob, WRITE, &alice);
 
     // Alice proposes budget allocation
     testing_env!(get_context_for_proposal(alice.clone()).build());
-    let proposal_id = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "treasury_dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -198,11 +200,12 @@ fn test_custom_proposal_budget_decision() {
             }
         }),
         None,
-    ).unwrap();
+    )).unwrap();
+    let proposal_id = result.as_str().expect("Should return proposal_id").to_string();
 
     // Bob approves
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("treasury_dao".to_string(), proposal_id.clone(), true).unwrap();
+    contract.execute(vote_proposal_request("treasury_dao".to_string(), proposal_id.clone(), true)).unwrap();
 
     // Budget proposal was created and voted on successfully
     // The detailed budget data (1000 NEAR allocation) is preserved in proposal
@@ -220,14 +223,14 @@ fn test_custom_proposal_community_poll() {
 
     // Create member-driven group
     testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.create_group("artists".to_string(), json!({"member_driven": true})).unwrap();
+    contract.execute(create_group_request("artists".to_string(), json!({"member_driven": true}))).unwrap();
 
     test_add_member_bypass_proposals(&mut contract, "artists", &bob, WRITE, &alice);
     test_add_member_bypass_proposals(&mut contract, "artists", &charlie, WRITE, &alice);
 
     // Create poll about event theme
     testing_env!(get_context_for_proposal(alice.clone()).build());
-    let proposal_id = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "artists".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -245,17 +248,18 @@ fn test_custom_proposal_community_poll() {
             }
         }),
         None,
-    ).unwrap();
+    )).unwrap();
+    let proposal_id = result.as_str().expect("Should return proposal_id").to_string();
 
     // Bob votes YES - triggers execution (2/3 = 67% meets thresholds)
     testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.vote_on_proposal("artists".to_string(), proposal_id.clone(), true).unwrap();
+    contract.execute(vote_proposal_request("artists".to_string(), proposal_id.clone(), true)).unwrap();
     
     println!("✅ Poll executed after 2/3 votes");
     
     // Charlie tries to vote but proposal already executed
     testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-    let late_vote = contract.vote_on_proposal("artists".to_string(), proposal_id.clone(), true);
+    let late_vote = contract.execute(vote_proposal_request("artists".to_string(), proposal_id.clone(), true));
     assert!(late_vote.is_err(), "Late vote should fail");
 
     println!("✅ Community poll: realistic voting thresholds working correctly");
@@ -269,11 +273,11 @@ fn test_custom_proposal_non_member_cannot_create() {
 
     // Create member-driven group
     testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
+    contract.execute(create_group_request("dao".to_string(), json!({"member_driven": true}))).unwrap();
 
     // Non-member tries to create proposal
     testing_env!(get_context_for_proposal(non_member.clone()).build());
-    let result = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -281,7 +285,7 @@ fn test_custom_proposal_non_member_cannot_create() {
             "description": "But I want to propose something",
         }),
         None,
-    );
+    ));
 
     assert!(result.is_err(), "Non-member should not be able to create proposal");
     // Error could be permission denied or member validation - both are correct
@@ -298,11 +302,11 @@ fn test_custom_proposal_with_optional_custom_data() {
 
     // Create member-driven group
     testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-    contract.create_group("dao".to_string(), json!({"member_driven": true})).unwrap();
+    contract.execute(create_group_request("dao".to_string(), json!({"member_driven": true}))).unwrap();
 
     // Create proposal without custom_data (should default to empty object)
     testing_env!(get_context_for_proposal(alice.clone()).build());
-    let proposal_id = contract.create_group_proposal(
+    let result = contract.execute(create_proposal_request(
         "dao".to_string(),
         "custom_proposal".to_string(),
         json!({
@@ -310,7 +314,8 @@ fn test_custom_proposal_with_optional_custom_data() {
             "description": "Should we proceed with plan A?",
         }),
         None,
-    ).unwrap();
+    )).unwrap();
+    let proposal_id = result.as_str().expect("Should return proposal_id").to_string();
 
     let proposal_path = format!("groups/dao/proposals/{}", proposal_id);
     let proposal = contract.platform.storage_get(&proposal_path).unwrap();

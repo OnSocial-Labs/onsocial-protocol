@@ -1,19 +1,10 @@
-use crate::{state::models::SocialPlatform, EntryView, PlatformPoolInfo, SocialError, SetRequest};
+use crate::{state::models::SocialPlatform, EntryView, PlatformPoolInfo};
 use near_sdk::{near, serde_json::Value, AccountId};
-
-use crate::api::guards::ContractGuards;
 
 use crate::{Contract, ContractExt};
 
 #[near]
 impl Contract {
-    #[payable]
-    #[handle_result]
-    pub fn set(&mut self, request: SetRequest) -> Result<(), SocialError> {
-        ContractGuards::require_live_state(&self.platform)?;
-        self.platform.set(request)
-    }
-
     pub fn get(&self, keys: Vec<String>, account_id: Option<AccountId>) -> Vec<EntryView> {
         self.platform.get(keys, account_id)
     }

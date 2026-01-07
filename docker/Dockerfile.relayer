@@ -1,31 +1,22 @@
-FROM rust:1.86 AS builder
-# Ensure Cargo is updated inside the container
-RUN rustup update && rustup default stable
-RUN rustup component add clippy rustfmt
-WORKDIR /usr/src/relayer
-COPY packages/relayer/Cargo.toml ./
-COPY Cargo.lock ./
+# Build stage
+FROM rust:slim AS builder
+WORKDIR /app
+
+# Copy relayer crate sources into image
+COPY packages/relayer/Cargo.toml packages/relayer/Cargo.lock ./
 COPY packages/relayer/src ./src
-ARG BUILD_FLAGS
-RUN if [ -z "$BUILD_FLAGS" ]; then cargo build --release; else cargo build --release --features ${BUILD_FLAGS}; fi
 
+RUN cargo build --release --bin relayer
 
-# Test stage (for CI)
-FROM builder AS tester
-RUN cargo test --all --locked --release -- --nocapture
+# Runtime stage
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-FROM ubuntu:22.04 AS production
-WORKDIR /relayer-app
-RUN apt-get update && apt-get install -y \
-    openssl \
-    ca-certificates \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/src/relayer/target/release/relayer .
-COPY packages/relayer/config.toml ./config.toml
+COPY --from=builder /app/target/release/relayer .
+COPY packages/relayer/relayer.toml ./relayer.toml
 
-ENTRYPOINT ["/relayer-app/relayer", "--config", "config.toml"]
+ENV RUST_LOG=info
+EXPOSE 3040
 
-FROM builder AS linter
-WORKDIR /usr/src/relayer
-CMD ["cargo", "clippy", "--all-targets", "--all-features", "--", "-D", "warnings"]
+CMD ["./relayer"]

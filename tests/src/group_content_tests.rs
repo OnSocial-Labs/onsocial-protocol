@@ -4,8 +4,8 @@
 // Comprehensive tests for group content operations with user-owned storage
 //
 // Storage Design:
-// - User sends: groups/{group_id}/content/posts/1
-// - Contract stores at: {author}/groups/{group_id}/content/posts/1
+// - User sends: groups/{group_id/content/posts/1
+// - Contract stores at: {author/groups/{group_id}/content/posts/1
 // - User reads using the returned path directly
 //
 // Run tests with:
@@ -147,10 +147,11 @@ async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::
 
 async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> anyhow::Result<()> {
     let result = owner
-        .call(contract.id(), "create_group")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "config": { "is_private": false }
+            "request": {
+                "action": { "type": "create_group", "group_id": group_id, "config": { "is_private": false } }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -163,10 +164,11 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
 
 async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account, _permissions: u8) -> anyhow::Result<()> {
     let result = owner
-        .call(contract.id(), "add_group_member")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "group_id": group_id,
-            "member_id": member.id()
+            "request": {
+                "action": { "type": "add_group_member", "group_id": group_id, "member_id": member.id() }
+            }
         }))
         .deposit(ONE_NEAR)
         .gas(near_workspaces::types::Gas::from_tgas(100))
@@ -198,15 +200,14 @@ async fn test_member_can_create_content() -> anyhow::Result<()> {
     
     // Bob creates content
     let result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/devs/content/posts/hello": { "title": "Hello World", "body": "My first post" }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -235,15 +236,14 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
     add_member(&contract, &alice, "devs", &bob, 1).await?;
     
     // Bob creates content via groups/devs/content/posts/hello
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/devs/content/posts/hello": { "title": "Test Post" }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -252,7 +252,7 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    // Content should be at {bob}/groups/devs/content/posts/hello
+// Content should be at {bob/groups/devs/content/posts/hello
     let user_owned_path = format!("{}/groups/devs/content/posts/hello", bob.id());
     
     // get() now returns ordered EntryView values (no stored metadata envelope).
@@ -309,15 +309,14 @@ async fn test_metadata_block_height() -> anyhow::Result<()> {
     create_group(&contract, &alice, "mygroup").await?;
     
     // Alice creates content
-    let _ = alice.call(contract.id(), "set")
+    let _ = alice.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/mygroup/content/posts/1": { "title": "Test" }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -367,11 +366,11 @@ async fn test_content_metadata() -> anyhow::Result<()> {
     create_group(&contract, &alice, "testgroup").await?;
     add_member(&contract, &alice, "testgroup", &bob, 1).await?;
     
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": {
+                "action": { "type": "set", "data": {
                     "groups/testgroup/content/posts/meta": {
                         "title": "Metadata Test",
                         "metadata": {
@@ -380,9 +379,8 @@ async fn test_content_metadata() -> anyhow::Result<()> {
                             "parent_id": "p1"
                         }
                     }
-                },
+                } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -463,13 +461,12 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
     add_member(&contract, &alice, "devs", &bob, 1).await?;
     
     // Bob creates content
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/devs/content/posts/update": { "title": "Original" } },
+                "action": { "type": "set", "data": { "groups/devs/content/posts/update": { "title": "Original" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -480,13 +477,12 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
     
     // Bob updates content
     let update_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/devs/content/posts/update": { "title": "Updated" } },
+                "action": { "type": "set", "data": { "groups/devs/content/posts/update": { "title": "Updated" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -538,13 +534,12 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
     add_member(&contract, &alice, "devs", &bob, 1).await?;
     
     // Bob creates content
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/devs/content/posts/delete_me": { "title": "To Delete" } },
+                "action": { "type": "set", "data": { "groups/devs/content/posts/delete_me": { "title": "To Delete" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -574,13 +569,12 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
     
     // Bob deletes content (null value)
     let delete_result = bob
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/devs/content/posts/delete_me": null },
+                "action": { "type": "set", "data": { "groups/devs/content/posts/delete_me": null  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -634,13 +628,12 @@ async fn test_non_member_cannot_write() -> anyhow::Result<()> {
     
     // Charlie tries to write
     let result = charlie
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/private_group/content/posts/hack": { "title": "Unauthorized" } },
+                "action": { "type": "set", "data": { "groups/private_group/content/posts/hack": { "title": "Unauthorized" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -670,13 +663,12 @@ async fn test_owner_can_write_without_explicit_membership() -> anyhow::Result<()
     
     // Alice (owner) writes without being explicitly added as member
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/alice_group/content/posts/owner": { "title": "Owner Post" } },
+                "action": { "type": "set", "data": { "groups/alice_group/content/posts/owner": { "title": "Owner Post" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -713,13 +705,12 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
     add_member(&contract, &alice, "group_b", &bob, 1).await?;
     
     // Bob posts same path to both groups
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/group_a/content/posts/1": { "title": "Post in A" } },
+                "action": { "type": "set", "data": { "groups/group_a/content/posts/1": { "title": "Post in A" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -728,13 +719,12 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/group_b/content/posts/1": { "title": "Post in B" } },
+                "action": { "type": "set", "data": { "groups/group_b/content/posts/1": { "title": "Post in B" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -792,13 +782,12 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
     add_member(&contract, &alice, "shared", &charlie, 1).await?;
     
     // Both post to same path
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/shared/content/posts/1": { "title": "Bob's Post" } },
+                "action": { "type": "set", "data": { "groups/shared/content/posts/1": { "title": "Bob's Post" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -807,13 +796,12 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    let _ = charlie.call(contract.id(), "set")
+    let _ = charlie.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/shared/content/posts/1": { "title": "Charlie's Post" } },
+                "action": { "type": "set", "data": { "groups/shared/content/posts/1": { "title": "Charlie's Post" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -873,13 +861,12 @@ async fn test_cannot_write_to_groups_namespace_without_membership() -> anyhow::R
     
     // Attacker tries to write directly to groups/ path
     let result = attacker
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/protected/content/posts/hack": { "title": "Hacked!" } },
+                "action": { "type": "set", "data": { "groups/protected/content/posts/hack": { "title": "Hacked!" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -907,13 +894,12 @@ async fn test_cannot_write_to_nonexistent_group() -> anyhow::Result<()> {
     
     // Try to write to a group that doesn't exist
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/nonexistent/content/posts/1": { "title": "Ghost Post" } },
+                "action": { "type": "set", "data": { "groups/nonexistent/content/posts/1": { "title": "Ghost Post" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -946,13 +932,12 @@ async fn test_content_creation_emits_event() -> anyhow::Result<()> {
     create_group(&contract, &alice, "event_group").await?;
     
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/event_group/content/posts/1": { "title": "Event Test" } },
+                "action": { "type": "set", "data": { "groups/event_group/content/posts/1": { "title": "Event Test" }  } },
                 "options": null,
-                "event_config": { "emit": true },
                 "auth": null
             }
         }))
@@ -987,13 +972,12 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
     create_group(&contract, &alice, "delete_event").await?;
     
     // Create content first
-    let _ = alice.call(contract.id(), "set")
+    let _ = alice.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/delete_event/content/posts/1": { "title": "To Delete" } },
+                "action": { "type": "set", "data": { "groups/delete_event/content/posts/1": { "title": "To Delete" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1004,13 +988,12 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
     
     // Delete with events enabled
     let delete_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/delete_event/content/posts/1": null },
+                "action": { "type": "set", "data": { "groups/delete_event/content/posts/1": null  } },
                 "options": null,
-                "event_config": { "emit": true },
                 "auth": null
             }
         }))
@@ -1045,13 +1028,12 @@ async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
     
     // Create content with events enabled
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/block_test/content/posts/1": { "title": "Block Height Test" } },
+                "action": { "type": "set", "data": { "groups/block_test/content/posts/1": { "title": "Block Height Test" }  } },
                 "options": null,
-                "event_config": { "emit": true },
                 "auth": null
             }
         }))
@@ -1115,13 +1097,12 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
     
     // Create new content
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/op_test/content/posts/new": { "title": "New Post" } },
+                "action": { "type": "set", "data": { "groups/op_test/content/posts/new": { "title": "New Post" }  } },
                 "options": null,
-                "event_config": { "emit": true },
                 "auth": null
             }
         }))
@@ -1172,13 +1153,12 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
     create_group(&contract, &alice, "op_test2").await?;
     
     // First create content
-    let _ = alice.call(contract.id(), "set")
+    let _ = alice.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/op_test2/content/posts/1": { "title": "Original" } },
+                "action": { "type": "set", "data": { "groups/op_test2/content/posts/1": { "title": "Original" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1189,13 +1169,12 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
     
     // Now update the same content
     let update_result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/op_test2/content/posts/1": { "title": "Updated" } },
+                "action": { "type": "set", "data": { "groups/op_test2/content/posts/1": { "title": "Updated" }  } },
                 "options": null,
-                "event_config": { "emit": true },
                 "auth": null
             }
         }))
@@ -1254,13 +1233,12 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
     add_member(&contract, &alice, "shared_group", &charlie, 1).await?;
     
     // Bob creates content
-    let _ = bob.call(contract.id(), "set")
+    let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Bob's Original" } },
+                "action": { "type": "set", "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Bob's Original" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1271,13 +1249,12 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
     
     // Charlie tries to update Bob's content by using Bob's path directly
     // This should create Charlie's own content, NOT modify Bob's
-    let _ = charlie.call(contract.id(), "set")
+    let _ = charlie.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Charlie's Attempt" } },
+                "action": { "type": "set", "data": { "groups/shared_group/content/posts/bobs_post": { "title": "Charlie's Attempt" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -1344,13 +1321,12 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
     
     // Try: groups/mygroup (no content path after group_id)
     let result = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
-                "data": { "groups/mygroup": { "title": "Bad" } },
+                "action": { "type": "set", "data": { "groups/mygroup": { "title": "Bad" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))

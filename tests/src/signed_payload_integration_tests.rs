@@ -98,19 +98,18 @@ struct SignedSetPayload {
     public_key: String,
     nonce: U64,
     expires_at_ms: U64,
-    action: Option<Value>,
-    data: Value,
-    options: Option<Value>,
+    action: Value,
+    delegate_action: Option<Value>,
 }
 
 fn sign_payload(contract_id: &str, payload: &SignedSetPayload, sk: &SigningKey) -> anyhow::Result<String> {
     // Must match on-chain: sha256(domain || 0x00 || json(payload))
-    // where domain = "onsocial:set:v1:{contract_id}".
-    let domain = format!("onsocial:set:v1:{contract_id}");
+    // where domain = "onsocial:execute:v1:{contract_id}"
+    let domain = format!("onsocial:execute:v1:{contract_id}");
 
     let payload = SignedSetPayload {
-        action: payload.action.as_ref().map(canonicalize_json),
-        data: canonicalize_json(&payload.data),
+        action: canonicalize_json(&payload.action),
+        delegate_action: payload.delegate_action.as_ref().map(canonicalize_json),
         ..payload.clone()
     };
 
@@ -168,12 +167,11 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
 
     // Alice deposits storage so she can grant permissions.
     let res = alice
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "data": { "storage/deposit": { "amount": "1000000000000000000000000" } },
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" }  } },
                 "options": null,
-                "event_config": null,
                 "auth": null
             }
         }))
@@ -186,12 +184,11 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
     // Create deterministic payload keypair and bind that key to Alice for profile/* writes.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
-        .call(contract.id(), "set_key_permission")
+        .call(contract.id(), "execute")
         .args_json(json!({
-            "public_key": pk_str.clone(),
-            "path": "profile/",
-            "level": 1,
-            "expires_at": null
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
         }))
         .gas(Gas::from_tgas(80))
         .transact()
@@ -199,26 +196,25 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
     assert!(res.is_success(), "Expected set_key_permission to succeed: {:?}", res.failures());
 
     // Relayer submits signed payload (payer=relayer, actor=alice).
+    let action = json!({ "type": "set", "data": { "profile/name": "Alice (signed)" } });
     let payload = SignedSetPayload {
         target_account: alice.id().to_string(),
         public_key: pk_str.clone(),
         nonce: U64(1),
         expires_at_ms: U64(0),
-        action: None,
-        data: json!({ "profile/name": "Alice (signed)" }),
-        options: None,
+        action: action.clone(),
+        delegate_action: None,
     };
 
     let signature = sign_payload(contract.id().as_str(), &payload, &sk)?;
 
     let res = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": payload.data,
+                "action": action,
                 "options": null,
-                "event_config": null,
                 "auth": {
                     "type": "signed_payload",
                     "public_key": pk_str.clone(),
@@ -255,25 +251,24 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
     assert_eq!(v.get("value"), Some(&json!("Alice (signed)")));
 
     // Replay protection: reusing the same nonce should fail.
+    let action_replay = json!({ "type": "set", "data": { "profile/name": "Alice (replay)" } });
     let payload_replay = SignedSetPayload {
         target_account: alice.id().to_string(),
         public_key: pk_str.clone(),
         nonce: U64(1),
         expires_at_ms: U64(0),
-        action: None,
-        data: json!({ "profile/name": "Alice (replay)" }),
-        options: None,
+        action: action_replay.clone(),
+        delegate_action: None,
     };
     let signature_replay = sign_payload(contract.id().as_str(), &payload_replay, &sk)?;
 
     let res2 = relayer
-        .call(contract.id(), "set")
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": alice.id(),
-                "data": payload_replay.data,
+                "action": action_replay,
                 "options": null,
-                "event_config": null,
                 "auth": {
                     "type": "signed_payload",
                     "public_key": pk_str,

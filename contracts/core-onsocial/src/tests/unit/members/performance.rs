@@ -28,7 +28,7 @@ mod member_performance_tests {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("bulk_test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("bulk_test_group".to_string(), config)).unwrap();
 
         let start_time = Instant::now();
         // NEAR-realistic bulk size: 3-4 operations per transaction with events enabled
@@ -44,10 +44,10 @@ mod member_performance_tests {
             
             // Measure gas for this operation
             let gas_before = env::used_gas();
-            let add_result = contract.add_group_member(
+            let add_result = contract.execute(add_group_member_request(
                 "bulk_test_group".to_string(), 
                 member_id.clone(),
-            );
+            ));
             let gas_after = env::used_gas();
             
             if add_result.is_ok() {
@@ -79,10 +79,10 @@ mod member_performance_tests {
             
             // Measure gas for this operation
             let gas_before = env::used_gas();
-            let remove_result = contract.remove_group_member(
+            let remove_result = contract.execute(remove_group_member_request(
                 "bulk_test_group".to_string(), 
                 member_id.clone(),
-            );
+            ));
             let gas_after = env::used_gas();
             
             if remove_result.is_ok() {
@@ -126,14 +126,14 @@ mod member_performance_tests {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("timing_test_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("timing_test_group".to_string(), config)).unwrap();
 
         println!("=== Operation Timing & Gas Analysis ===");
 
         // Test add_group_member timing and gas
         let gas_before = env::used_gas();
         let start = Instant::now();
-        contract.add_group_member("timing_test_group".to_string(), member.clone()).unwrap();
+        contract.execute(add_group_member_request("timing_test_group".to_string(), member.clone())).unwrap();
         let add_duration = start.elapsed();
         let gas_after = env::used_gas();
         let add_gas = gas_after.as_gas() - gas_before.as_gas();
@@ -151,12 +151,12 @@ mod member_performance_tests {
         // Test set_permission timing and gas
         let gas_before = env::used_gas();
         let start = Instant::now();
-        contract.set_permission(
+        contract.execute(set_permission_request(
             member.clone(),
             "groups/timing_test_group/special".to_string(),
             MODERATE,
             None,
-        ).unwrap();
+        )).unwrap();
         let perm_duration = start.elapsed();
         let gas_after = env::used_gas();
         let perm_gas = gas_after.as_gas() - gas_before.as_gas();
@@ -179,7 +179,7 @@ mod member_performance_tests {
         // Test blacklist operations timing and gas
         let gas_before = env::used_gas();
         let start = Instant::now();
-        contract.blacklist_group_member("timing_test_group".to_string(), member.clone()).unwrap();
+        contract.execute(blacklist_group_member_request("timing_test_group".to_string(), member.clone())).unwrap();
         let blacklist_duration = start.elapsed();
         let gas_after = env::used_gas();
         let blacklist_gas = gas_after.as_gas() - gas_before.as_gas();
@@ -206,7 +206,7 @@ mod member_performance_tests {
         near_sdk::testing_env!(context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("large_group".to_string(), config).unwrap();
+        contract.execute(create_group_request("large_group".to_string(), config)).unwrap();
 
         println!("=== Large Group Management Test ===");
         let target_members = 8; // Reduced to avoid log limits
@@ -219,9 +219,9 @@ mod member_performance_tests {
             let member_name = format!("large_member_{}.testnet", i);
             let member_id: near_sdk::AccountId = member_name.parse().unwrap();
             
-            contract.add_group_member(
+            contract.execute(add_group_member_request(
                 "large_group".to_string(), 
-                member_id.clone()).unwrap();
+                member_id.clone())).unwrap();
         }
 
         let total_time = start_time.elapsed();
@@ -250,8 +250,8 @@ mod member_performance_tests {
         near_sdk::testing_env!(context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("hierarchy_test".to_string(), config).unwrap();
-        contract.add_group_member("hierarchy_test".to_string(), member.clone()).unwrap();
+        contract.execute(create_group_request("hierarchy_test".to_string(), config)).unwrap();
+        contract.execute(add_group_member_request("hierarchy_test".to_string(), member.clone())).unwrap();
 
         println!("=== Permission Hierarchy Performance Test ===");
 
@@ -267,12 +267,12 @@ mod member_performance_tests {
 
         for (depth, path) in test_paths.iter().enumerate() {
             // Grant permission at this level
-            contract.set_permission(
+            contract.execute(set_permission_request(
                 member.clone(),
                 path.to_string(),
                 MODERATE,
                 None,
-            ).unwrap();
+            )).unwrap();
 
             // Test permission check performance at various depths
             let check_start = Instant::now();
@@ -297,7 +297,7 @@ mod member_performance_tests {
         let parent_path = "groups/hierarchy_test/content";
         let child_path = "groups/hierarchy_test/content/posts/daily/special";
 
-        contract.set_permission(member.clone(), parent_path.to_string(), MANAGE, None).unwrap();
+        contract.execute(set_permission_request(member.clone(), parent_path.to_string(), MANAGE, None)).unwrap();
 
         let hierarchy_start = Instant::now();
         let inherits_permission = contract.has_permission(
@@ -326,7 +326,7 @@ mod member_performance_tests {
         near_sdk::testing_env!(context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("storage_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("storage_test".to_string(), config)).unwrap();
 
         // Get initial storage usage (reduced logging)
         let initial_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -340,8 +340,7 @@ mod member_performance_tests {
             let member_name = format!("storage_member_{}.testnet", i);
             let member_id: near_sdk::AccountId = member_name.parse().unwrap();
             
-            contract
-                .add_group_member("storage_test".to_string(), member_id.clone())
+            contract.execute(add_group_member_request("storage_test".to_string(), member_id.clone()))
                 .unwrap();
 
             // Measure storage after each addition
@@ -369,7 +368,7 @@ mod member_performance_tests {
             let member_name = format!("storage_member_{}.testnet", i);
             let member_id: near_sdk::AccountId = member_name.parse().unwrap();
             
-            contract.remove_group_member("storage_test".to_string(), member_id).unwrap();
+            contract.execute(remove_group_member_request("storage_test".to_string(), member_id)).unwrap();
         }
 
         let after_cleanup_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -410,7 +409,7 @@ mod member_performance_tests {
         near_sdk::testing_env!(context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("min_cost_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("min_cost_test".to_string(), config)).unwrap();
 
         // Get baseline after group creation
         let initial_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -419,8 +418,7 @@ mod member_performance_tests {
         
         // Test single member addition with cost tracking
         let member_id: near_sdk::AccountId = "cost_test_member.testnet".parse().unwrap();
-        contract
-            .add_group_member("min_cost_test".to_string(), member_id.clone())
+        contract.execute(add_group_member_request("min_cost_test".to_string(), member_id.clone()))
             .unwrap();
 
         let post_add_balance = contract.get_storage_balance(owner.clone()).unwrap();
@@ -467,7 +465,7 @@ mod member_performance_tests {
         near_sdk::testing_env!(context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("bulk_deposit_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("bulk_deposit_test".to_string(), config)).unwrap();
 
         // Add members and track cumulative storage costs
         let target_members = 4; // NEAR-realistic batch size
@@ -478,8 +476,7 @@ mod member_performance_tests {
             
             let pre_balance = contract.get_storage_balance(owner.clone()).unwrap();
             
-            contract
-                .add_group_member("bulk_deposit_test".to_string(), member_id)
+            contract.execute(add_group_member_request("bulk_deposit_test".to_string(), member_id))
                 .unwrap();
 
             let post_balance = contract.get_storage_balance(owner.clone()).unwrap();

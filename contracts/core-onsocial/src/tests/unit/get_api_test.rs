@@ -23,13 +23,11 @@ mod test_get_api {
 
         // Write some data
         contract
-            .set(set_request(
+            .execute(set_request(
                 json!({
             "profile/name": "Alice",
             "posts/1": {"text": "Hello world"}
-        }),
-                None,
-            ))
+        })))
             .unwrap();
 
         // Test 1: Full path (with account prefix)
@@ -56,7 +54,7 @@ mod test_get_api {
 
         // Create a group
         let config = json!({"member_driven": false, "is_private": true});
-        contract.create_group("testgroup".to_string(), config).unwrap();
+        contract.execute(create_group_request("testgroup".to_string(), config)).unwrap();
 
         // Test: Retrieve group config using full path
         let keys = vec!["groups/testgroup/config".to_string()];
@@ -104,7 +102,7 @@ mod test_get_api {
 
         // Write data (metadata is managed internally)
         contract
-            .set(set_request(json!({ "profile/name": "Alice" }), None))
+            .execute(set_request(json!({ "profile/name": "Alice" })))
             .unwrap();
 
         // Test: Get works normally (metadata is no longer stored)
@@ -141,7 +139,7 @@ mod test_get_api {
 
         // Write only one key
         contract
-            .set(set_request(json!({ "profile/name": "Alice" }), None))
+            .execute(set_request(json!({ "profile/name": "Alice" })))
             .unwrap();
 
         // Request multiple keys where only one exists
@@ -171,14 +169,14 @@ mod test_get_api {
 
         // Alice writes her data
         contract
-            .set(set_request(json!({ "profile/name": "Alice" }), None))
+            .execute(set_request(json!({ "profile/name": "Alice" })))
             .unwrap();
 
         // Bob writes his data
         let context_bob = get_context_with_deposit(bob.clone(), 5_000_000_000_000_000_000_000_000);
         near_sdk::testing_env!(context_bob.build());
         contract
-            .set(set_request(json!({ "profile/name": "Bob" }), None))
+            .execute(set_request(json!({ "profile/name": "Bob" })))
             .unwrap();
 
         // Retrieve both accounts' data in one call
@@ -203,10 +201,10 @@ mod test_get_api {
         let mut contract = init_live_contract();
 
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "profile/name": "Alice",
                     "posts/1": "Post 1"
-                }), None))
+                })))
             .unwrap();
 
         // Test: Using full paths (recommended approach)
@@ -240,9 +238,9 @@ mod test_get_api {
 
         // Alice writes "private" data
         contract
-            .set(set_request(json!({
+            .execute(set_request(json!({
                     "private/secrets": "Alice's secret data"
-                }), None))
+                })))
             .unwrap();
 
         // Bob tries to read Alice's "private" data

@@ -29,6 +29,7 @@ target/
 # Security: Private keys
 keys/
 configs/keys/
+**/account_keys/
 
 # Temporary and sandbox data
 tmp/

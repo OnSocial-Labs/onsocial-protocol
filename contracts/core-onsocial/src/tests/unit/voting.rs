@@ -27,7 +27,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest1".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest1".to_string(), config)).unwrap();
 
         // Manually add bob as a member (bypassing permission checks for testing)
         let member_data = json!({
@@ -54,16 +54,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing vote recording"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest1".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice (proposer) should not be able to vote again since they already voted YES during creation
         testing_env!(get_context(alice.clone()).build());
-        let second_vote = contract.vote_on_proposal("votetest1".to_string(), proposal_id.clone(), false);
+        let second_vote = contract.execute(vote_proposal_request("votetest1".to_string(), proposal_id.clone(), false));
         assert!(second_vote.is_err(), "Should not be able to vote twice");
         let error_msg = second_vote.unwrap_err().to_string();
         assert!(error_msg.contains("already voted") || error_msg.contains("not active") || error_msg.contains("Proposal not found"), 
@@ -71,7 +71,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Bob can vote since he hasn't voted yet
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let bob_vote = contract.vote_on_proposal("votetest1".to_string(), proposal_id.clone(), true);
+        let bob_vote = contract.execute(vote_proposal_request("votetest1".to_string(), proposal_id.clone(), true));
         assert!(bob_vote.is_ok(), "Bob should be able to vote successfully: {:?}", bob_vote.err());
     }
 
@@ -91,7 +91,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest3".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest3".to_string(), config)).unwrap();
 
         // Manually add bob as a member
         let member_data = json!({
@@ -118,16 +118,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing vote change prevention"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest3".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice (proposer) cannot change her automatic YES vote
         testing_env!(get_context(alice.clone()).build());
-        let result = contract.vote_on_proposal("votetest3".to_string(), proposal_id.clone(), false);
+        let result = contract.execute(vote_proposal_request("votetest3".to_string(), proposal_id.clone(), false));
         assert!(result.is_err());
         let error_msg = result.unwrap_err().to_string();
         assert!(error_msg.contains("already voted"),
@@ -135,11 +135,11 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         
         // Bob votes YES
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("votetest3".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("votetest3".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Bob cannot change his vote
         testing_env!(get_context(bob.clone()).build());
-        let change_vote = contract.vote_on_proposal("votetest3".to_string(), proposal_id.clone(), false);
+        let change_vote = contract.execute(vote_proposal_request("votetest3".to_string(), proposal_id.clone(), false));
         assert!(change_vote.is_err(), "Should not be able to change vote");
         
         println!("✅ Vote change prevention works correctly");
@@ -157,7 +157,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest4".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest4".to_string(), config)).unwrap();
 
         // Manually add bob as a member
         let member_data = json!({
@@ -184,20 +184,20 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing vote preservation"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest4".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes NO
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("votetest4".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("votetest4".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Bob tries to change vote to YES - should fail
         testing_env!(get_context(bob.clone()).build());
-        let result = contract.vote_on_proposal("votetest4".to_string(), proposal_id.clone(), true);
+        let result = contract.execute(vote_proposal_request("votetest4".to_string(), proposal_id.clone(), true));
         assert!(result.is_err(), "Second vote should be rejected");
 
         println!("✅ Original vote is preserved and cannot be changed");
@@ -218,7 +218,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest5".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest5".to_string(), config)).unwrap();
 
         // Create proposal
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -227,12 +227,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing quorum requirement"}
         });
 
-        contract.create_group_proposal(
+        contract.execute(create_proposal_request(
             "votetest5".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap();
 
         // Alice already voted YES automatically during proposal creation
         // For a single member, this meets both quorum and majority requirements
@@ -257,7 +257,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest6".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest6".to_string(), config)).unwrap();
 
         // Add bob as a member (need 2 members so 1 vote = 50% participation, doesn't meet 51% quorum)
         let member_data = json!({
@@ -284,12 +284,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing voting period expiration"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest6".to_string(),
             "group_update".to_string(),
             proposal_data,
             Some(false), // auto_vote: false - don't auto-vote so we can test voting after expiration
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Fast forward beyond voting period using contract constant
         context = get_context(alice.clone());
@@ -297,7 +297,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         testing_env!(context.build());
 
         // Try to vote - should fail due to expiration
-        let result = contract.vote_on_proposal("votetest6".to_string(), proposal_id.clone(), true);
+        let result = contract.execute(vote_proposal_request("votetest6".to_string(), proposal_id.clone(), true));
         assert!(result.is_err(), "Vote should fail when proposal expired");
         let error_msg = result.unwrap_err().to_string();
         println!("Actual error message: {}", error_msg);
@@ -321,7 +321,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest7".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest7".to_string(), config)).unwrap();
 
         // Create proposal (alice automatically votes YES, which should execute immediately for single member)
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -330,16 +330,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing voting with 1 member"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest7".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Alice (the only member and proposer) should not be able to vote again since proposal likely executed
         testing_env!(get_context(alice.clone()).build());
-        let vote_result = contract.vote_on_proposal("votetest7".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("votetest7".to_string(), proposal_id.clone(), true));
         // This might fail because the proposal was already executed (single member auto-executes)
         // or because alice already voted. Both are acceptable behaviors.
         if vote_result.is_err() {
@@ -363,7 +363,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest8".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest8".to_string(), config)).unwrap();
 
         // Create proposal
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -372,16 +372,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing non-member cannot vote"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest8".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Non-member tries to vote
         testing_env!(get_context(non_member.clone()).build());
-        let result = contract.vote_on_proposal("votetest8".to_string(), proposal_id.clone(), true);
+        let result = contract.execute(vote_proposal_request("votetest8".to_string(), proposal_id.clone(), true));
         
         assert!(result.is_err(), "Non-member should not be able to vote");
         let error_msg = result.unwrap_err().to_string();
@@ -409,7 +409,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest9".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest9".to_string(), config)).unwrap();
 
         // Manually add bob as member
         let member_data = json!({
@@ -436,16 +436,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing execution trigger"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest9".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes YES - with 2 members, this should trigger execution check (2 YES votes)
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("votetest9".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("votetest9".to_string(), proposal_id.clone(), true)).unwrap();
 
         // The proposal should have been executed (or at least execution checked)
         println!("✅ Vote triggers execution check correctly");
@@ -468,7 +468,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest10".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest10".to_string(), config)).unwrap();
 
         // Manually add bob as a member so we have 2 members for voting
         let member_data = json!({
@@ -496,16 +496,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "message": "Welcome to the group!"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest10".to_string(),
             "member_invite".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes YES - should now execute successfully with 2 YES votes (meets majority for 2 members)
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("votetest10".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("votetest10".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify member was added
         let member_path = format!("groups/votetest10/members/{}", new_member);
@@ -532,7 +532,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest11".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest11".to_string(), config)).unwrap();
 
         // Manually add bob as a member
         let member_data = json!({
@@ -560,16 +560,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "reason": "Upgrade to manager"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "votetest11".to_string(),
             "permission_change".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob votes YES - should meet majority requirement
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let vote_result = contract.vote_on_proposal("votetest11".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("votetest11".to_string(), proposal_id.clone(), true));
 
         // The proposal mechanism should work
         assert!(vote_result.is_ok(), "Permission change proposal voting should work");
@@ -618,7 +618,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("democratic".to_string(), config).unwrap();
+        contract.execute(create_group_request("democratic".to_string(), config)).unwrap();
 
         // Manually add bob as a member so we have 2 members for voting
         let member_data = json!({
@@ -646,12 +646,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "message": "I would like to join this community"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "democratic".to_string(),
             "join_request".to_string(),
             join_request_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify requester is not a member before voting
         assert!(!contract.is_group_member("democratic".to_string(), requester.clone()),
@@ -660,11 +660,11 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
          // Non-member proposers do NOT auto-vote; existing members must approve.
          // With 2 members and default majority_threshold > 0.5, both members must vote YES.
          testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-         let alice_vote = contract.vote_on_proposal("democratic".to_string(), proposal_id.clone(), true);
+         let alice_vote = contract.execute(vote_proposal_request("democratic".to_string(), proposal_id.clone(), true));
          assert!(alice_vote.is_ok(), "Owner vote should succeed: {:?}", alice_vote.err());
 
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let vote_result = contract.vote_on_proposal("democratic".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("democratic".to_string(), proposal_id.clone(), true));
         assert!(vote_result.is_ok(), "Vote on join request should succeed: {:?}", vote_result.err());
 
         // Verify requester is now a member after approval
@@ -694,7 +694,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("democratic".to_string(), config).unwrap();
+        contract.execute(create_group_request("democratic".to_string(), config)).unwrap();
 
         // Manually add bob as a member
         let member_data = json!({
@@ -722,12 +722,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "message": "I would like to join this community"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "democratic".to_string(),
             "join_request".to_string(),
             join_request_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify requester is not a member before voting
         assert!(!contract.is_group_member("democratic".to_string(), requester.clone()),
@@ -735,7 +735,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
          // A single NO vote (with 2 total members) makes majority > 0.5 impossible.
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let vote_result = contract.vote_on_proposal("democratic".to_string(), proposal_id.clone(), false);
+        let vote_result = contract.execute(vote_proposal_request("democratic".to_string(), proposal_id.clone(), false));
         assert!(vote_result.is_ok(), "Vote on join request should succeed: {:?}", vote_result.err());
 
         // Verify requester is still not a member after rejection (since majority is needed)
@@ -762,7 +762,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("community".to_string(), config).unwrap();
+        contract.execute(create_group_request("community".to_string(), config)).unwrap();
 
         // Manually add bob as a member
         let member_data = json!({
@@ -790,22 +790,21 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "message": "I want to contribute to moderation"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "community".to_string(),
             "join_request".to_string(),
             join_request_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Non-member proposers do NOT auto-vote; existing members must approve.
         // With 2 members and default majority_threshold > 0.5, both members must vote YES.
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract
-            .vote_on_proposal("community".to_string(), proposal_id.clone(), true)
+        contract.execute(vote_proposal_request("community".to_string(), proposal_id.clone(), true))
             .unwrap();
 
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("community".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("community".to_string(), proposal_id.clone(), true)).unwrap();
 
         // Verify requester is now a member
         assert!(contract.is_group_member("community".to_string(), requester.clone()),
@@ -823,12 +822,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Test proposal from new member"}
         });
 
-        let test_proposal_result = contract.create_group_proposal(
+        let test_proposal_result = contract.execute(create_proposal_request(
             "community".to_string(),
             "group_update".to_string(),
             test_proposal_data,
             None,
-        );
+        ));
         assert!(test_proposal_result.is_ok(), "New member should be able to create proposals");
 
         println!("✅ Join request proposal execution creates proper member state and permissions");
@@ -849,23 +848,20 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create traditional groups to establish members, then test member-driven voting
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let traditional_config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("setup".to_string(), traditional_config).unwrap();
+        contract.execute(create_group_request("setup".to_string(), traditional_config)).unwrap();
 
         // Add multiple members to traditional group
-        contract
-            .add_group_member("setup".to_string(), bob.clone())
+        contract.execute(add_group_member_request("setup".to_string(), bob.clone()))
             .unwrap();
-        contract
-            .add_group_member("setup".to_string(), charlie.clone())
+        contract.execute(add_group_member_request("setup".to_string(), charlie.clone()))
             .unwrap();
-        contract
-            .add_group_member("setup".to_string(), dave.clone())
+        contract.execute(add_group_member_request("setup".to_string(), dave.clone()))
             .unwrap();
 
         // Now create member-driven group for voting tests
         let member_driven_config = json!({"member_driven": true,
             "is_private": true});
-        contract.create_group("multitest".to_string(), member_driven_config).unwrap();
+        contract.execute(create_group_request("multitest".to_string(), member_driven_config)).unwrap();
 
         // Manually add bob, charlie, dave as members for testing (normally this would be through proposals)
         let member_data = json!({
@@ -894,12 +890,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing quorum with 4 members"}
         });
 
-        contract.create_group_proposal(
+        contract.execute(create_proposal_request(
             "multitest".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap();
 
         // Test quorum: With 4 members, need at least 1 vote (25% of 4 = 1)
         // Alice already voted YES automatically, so quorum is met but we don't add more votes
@@ -917,20 +913,18 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create traditional group to establish members
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let traditional_config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("setup".to_string(), traditional_config).unwrap();
+        contract.execute(create_group_request("setup".to_string(), traditional_config)).unwrap();
 
         // Add 2 more members (total 3)
-        contract
-            .add_group_member("setup".to_string(), bob.clone())
+        contract.execute(add_group_member_request("setup".to_string(), bob.clone()))
             .unwrap();
-        contract
-            .add_group_member("setup".to_string(), charlie.clone())
+        contract.execute(add_group_member_request("setup".to_string(), charlie.clone()))
             .unwrap();
 
         // Create member-driven group
         let member_driven_config = json!({"member_driven": true,
             "is_private": true});
-        contract.create_group("majoritytest".to_string(), member_driven_config).unwrap();
+        contract.execute(create_group_request("majoritytest".to_string(), member_driven_config)).unwrap();
 
         // Manually add bob and charlie as members for testing (normally this would be through proposals)
         let member_data = json!({
@@ -958,17 +952,17 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing majority with 3 members"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "majoritytest".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Test majority: With 3 members, need >50% YES votes (2 out of 3)
         // Alice already voted YES automatically, Bob votes NO, Charlie doesn't vote
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("majoritytest".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("majoritytest".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Result: 1 YES (alice), 1 NO (bob) - should NOT meet majority (>50% YES required)
         // Proposal should remain active but not execute
@@ -984,15 +978,14 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create traditional group to establish members
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let traditional_config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("setup".to_string(), traditional_config).unwrap();
-        contract
-            .add_group_member("setup".to_string(), bob.clone())
+        contract.execute(create_group_request("setup".to_string(), traditional_config)).unwrap();
+        contract.execute(add_group_member_request("setup".to_string(), bob.clone()))
             .unwrap();
 
         // Create member-driven group
         let member_driven_config = json!({"member_driven": true,
             "is_private": true});
-        contract.create_group("unanimoustest".to_string(), member_driven_config).unwrap();
+        contract.execute(create_group_request("unanimoustest".to_string(), member_driven_config)).unwrap();
 
         // Manually add bob as member for testing
         let member_data = json!({
@@ -1019,16 +1012,16 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing unanimous approval with 2 members"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "unanimoustest".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Both members vote YES (alice already voted automatically, bob votes YES)
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("unanimoustest".to_string(), proposal_id.clone(), true).unwrap();
+        contract.execute(vote_proposal_request("unanimoustest".to_string(), proposal_id.clone(), true)).unwrap();
 
         // With 2 members: 2 YES votes = 100% participation, 100% YES = meets all thresholds
         println!("✅ Unanimous approval meets all voting thresholds");
@@ -1045,23 +1038,20 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create traditional group to establish members
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let traditional_config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("setup".to_string(), traditional_config).unwrap();
+        contract.execute(create_group_request("setup".to_string(), traditional_config)).unwrap();
 
         // Add 3 more members (total 4)
-        contract
-            .add_group_member("setup".to_string(), bob.clone())
+        contract.execute(add_group_member_request("setup".to_string(), bob.clone()))
             .unwrap();
-        contract
-            .add_group_member("setup".to_string(), charlie.clone())
+        contract.execute(add_group_member_request("setup".to_string(), charlie.clone()))
             .unwrap();
-        contract
-            .add_group_member("setup".to_string(), dave.clone())
+        contract.execute(add_group_member_request("setup".to_string(), dave.clone()))
             .unwrap();
 
         // Create member-driven group
         let member_driven_config = json!({"member_driven": true,
             "is_private": true});
-        contract.create_group("tietest".to_string(), member_driven_config).unwrap();
+        contract.execute(create_group_request("tietest".to_string(), member_driven_config)).unwrap();
 
         // Manually add bob, charlie, dave as members for testing
         let member_data = json!({
@@ -1090,24 +1080,24 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing tie scenario with 4 members"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "tietest".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Test early execution: alice voted YES (when creating proposal), now bob votes NO
         // With 1 YES and 1 NO, we have 50% approval which does NOT meet >50.01% threshold
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("tietest".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("tietest".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Charlie votes NO - this triggers early rejection!
         // Now: 1 YES / 3 total votes, with 1 member remaining
         // Max possible: 2 YES / 4 total = 50% which does NOT meet >50.01% threshold
         // Defeat is inevitable → proposal auto-rejected
         testing_env!(get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("tietest".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("tietest".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Verify proposal was auto-rejected (early rejection triggered)
         let proposal_key = format!("groups/tietest/proposals/{}", proposal_id);
@@ -1117,7 +1107,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Dave tries to vote but should fail (proposal already rejected)
         testing_env!(get_context_with_deposit(dave.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let result = contract.vote_on_proposal("tietest".to_string(), proposal_id.clone(), false);
+        let result = contract.execute(vote_proposal_request("tietest".to_string(), proposal_id.clone(), false));
         assert!(result.is_err(), "Should not allow voting on rejected proposal");
 
         // Result: Early rejection correctly detects when defeat is inevitable
@@ -1139,7 +1129,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("votetest12".to_string(), config).unwrap();
+        contract.execute(create_group_request("votetest12".to_string(), config)).unwrap();
 
         // Create proposal (alice automatically votes YES)
         testing_env!(get_context_for_proposal(alice.clone()).build());
@@ -1148,12 +1138,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing vote tally tracking"}
         });
 
-        contract.create_group_proposal(
+        contract.execute(create_proposal_request(
             "votetest12".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap();
 
         // Alice's automatic YES vote should be tracked in the tally
         // (Actual tally verification would require getter methods or events)
@@ -1177,7 +1167,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("removal_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("removal_test".to_string(), config)).unwrap();
 
         // Add bob and charlie as members (through owner proposal system)
         // For testing purposes, manually add them to simulate approved proposals
@@ -1218,18 +1208,18 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "reason": "Inappropriate behavior - spamming group chat"
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "removal_test".to_string(),
             "group_update".to_string(),
             removal_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Test 2: Members vote on the removal proposal
         // Charlie already voted YES (by creating the proposal)
         // Alice votes YES (2 out of 3 members = 66% > 50% majority, 2/3 = 66% > 25% quorum)
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let vote_result = contract.vote_on_proposal("removal_test".to_string(), proposal_id.clone(), true);
+        let vote_result = contract.execute(vote_proposal_request("removal_test".to_string(), proposal_id.clone(), true));
         assert!(vote_result.is_ok(), "Alice's vote should succeed: {:?}", vote_result.err());
 
         // Debug: Check member count and proposal status
@@ -1253,12 +1243,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Test 4: Verify bob cannot perform member actions anymore
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let bob_proposal_result = contract.create_group_proposal(
+        let bob_proposal_result = contract.execute(create_proposal_request(
             "removal_test".to_string(),
             "group_update".to_string(),
             json!({"update_type": "metadata", "changes": {"description": "Test"}}),
             None,
-        );
+        ));
         assert!(bob_proposal_result.is_err(), "Removed member should not be able to create proposals");
 
         // Test 5: Verify bob cannot vote on proposals
@@ -1268,15 +1258,15 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "update_type": "metadata",
             "changes": {"description": "Testing voting restrictions"}
         });
-        let test_proposal_id = contract.create_group_proposal(
+        let test_proposal_id = contract.execute(create_proposal_request(
             "removal_test".to_string(),
             "group_update".to_string(),
             test_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         testing_env!(get_context_with_deposit(bob.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let bob_vote_result = contract.vote_on_proposal("removal_test".to_string(), test_proposal_id.clone(), true);
+        let bob_vote_result = contract.execute(vote_proposal_request("removal_test".to_string(), test_proposal_id.clone(), true));
         assert!(bob_vote_result.is_err(), "Removed member should not be able to vote");
 
         println!("✅ GroupUpdate remove_member proposal workflow works correctly");
@@ -1300,7 +1290,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("insufficient_votes".to_string(), config).unwrap();
+        contract.execute(create_group_request("insufficient_votes".to_string(), config)).unwrap();
 
         // Add members manually for testing
         let member_data = json!({
@@ -1329,12 +1319,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "reason": "Testing insufficient votes scenario"
         });
 
-        let _proposal_id = contract.create_group_proposal(
+        let _proposal_id = contract.execute(create_proposal_request(
             "insufficient_votes".to_string(),
             "group_update".to_string(),
             removal_proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Only Charlie votes YES (1 out of 4 = 25% participation, 25% approval)
         // Need >25% quorum AND >50% majority
@@ -1363,7 +1353,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("security_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("security_test".to_string(), config)).unwrap();
 
         // Add bob as member
         let member_data = json!({
@@ -1390,12 +1380,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "reason": "Unauthorized attempt"
         });
 
-        let proposal_result = contract.create_group_proposal(
+        let proposal_result = contract.execute(create_proposal_request(
             "security_test".to_string(),
             "group_update".to_string(),
             removal_proposal_data,
             None,
-        );
+        ));
 
         assert!(proposal_result.is_err(), "Non-member should not be able to propose member removal");
         let error_msg = proposal_result.unwrap_err().to_string();
@@ -1419,7 +1409,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("self_removal_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("self_removal_test".to_string(), config)).unwrap();
 
         // Add bob as member
         let member_data = json!({
@@ -1446,12 +1436,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "reason": "I want to leave the group"
         });
 
-        let proposal_result = contract.create_group_proposal(
+        let proposal_result = contract.execute(create_proposal_request(
             "self_removal_test".to_string(),
             "group_update".to_string(),
             self_removal_data,
             None,
-        );
+        ));
 
         // This might be allowed or blocked - depends on design decision
         // For now, let's see what happens and document the behavior
@@ -1478,10 +1468,10 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create traditional public group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": false, "is_private": false});
-        contract.create_group("conversion_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("conversion_test".to_string(), config)).unwrap();
 
         // Add bob as member so we can test governance
-        contract.add_group_member("conversion_test".to_string(), bob.clone()).unwrap();
+        contract.execute(add_group_member_request("conversion_test".to_string(), bob.clone())).unwrap();
 
         // Convert to member-driven via direct config update (simulating owner action)
         // This bypasses governance since it's a traditional group
@@ -1510,7 +1500,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create member-driven group as private (this should work)
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let private_config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("member_driven_test".to_string(), private_config).unwrap();
+        contract.execute(create_group_request("member_driven_test".to_string(), private_config)).unwrap();
 
         let config = contract.get_group_config("member_driven_test".to_string()).unwrap();
         assert_eq!(config.get("member_driven"), Some(&json!(true)));
@@ -1527,7 +1517,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create member-driven private group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": true, "is_private": true});
-        contract.create_group("privacy_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("privacy_test".to_string(), config)).unwrap();
 
         // Try to change privacy to public via proposal with unknown update_type
         // (privacy update type was removed - not a valid proposal type)
@@ -1537,12 +1527,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "is_private": false
         });
 
-        let result = contract.create_group_proposal(
+        let result = contract.execute(create_proposal_request(
             "privacy_test".to_string(),
             "group_update".to_string(),
             privacy_change_data,
             None,
-        );
+        ));
 
         // This should fail because "privacy" is not a recognized update_type
         assert!(result.is_err(), "Unknown update_type should be rejected");
@@ -1562,17 +1552,17 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create traditional private group
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": false, "is_private": true});
-        contract.create_group("traditional_privacy_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("traditional_privacy_test".to_string(), config)).unwrap();
 
         // Change to public (should work for traditional groups)
-        let result = contract.set_group_privacy("traditional_privacy_test".to_string(), false);
+        let result = contract.execute(set_group_privacy_request("traditional_privacy_test".to_string(), false));
         assert!(result.is_ok(), "Traditional groups should be able to change privacy freely");
 
         let config = contract.get_group_config("traditional_privacy_test".to_string()).unwrap();
         assert_eq!(config.get("is_private"), Some(&json!(false)));
 
         // Change back to private (should also work)
-        let result = contract.set_group_privacy("traditional_privacy_test".to_string(), true);
+        let result = contract.execute(set_group_privacy_request("traditional_privacy_test".to_string(), true));
         assert!(result.is_ok(), "Traditional groups should be able to change privacy back");
 
         let config = contract.get_group_config("traditional_privacy_test".to_string()).unwrap();
@@ -1597,7 +1587,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("auto_vote_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("auto_vote_test".to_string(), config)).unwrap();
 
         // Add bob as a member
         let member_data = json!({
@@ -1624,12 +1614,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Discussion-first proposal"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "auto_vote_test".to_string(),
             "group_update".to_string(),
             proposal_data,
             Some(false),  // auto_vote = false
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
         println!("Created proposal with auto_vote=false: {}", proposal_id);
 
         // Verify Bob's vote is NOT recorded (check vote tally)
@@ -1642,11 +1632,11 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         assert_eq!(yes_votes, 0, "yes_votes should be 0 when auto_vote=false, got: {}", yes_votes);
 
         // Bob should be able to vote on his own proposal
-        let bob_vote = contract.vote_on_proposal(
+        let bob_vote = contract.execute(vote_proposal_request(
             "auto_vote_test".to_string(),
             proposal_id.clone(),
             true,
-        );
+        ));
         assert!(bob_vote.is_ok(), "Bob should be able to vote when auto_vote=false: {:?}", bob_vote.err());
         println!("✅ Proposer can vote later when auto_vote=false");
     }
@@ -1663,7 +1653,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("auto_vote_test2".to_string(), config).unwrap();
+        contract.execute(create_group_request("auto_vote_test2".to_string(), config)).unwrap();
 
         // Add bob as a member
         let member_data = json!({
@@ -1690,12 +1680,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Auto-vote proposal"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "auto_vote_test2".to_string(),
             "group_update".to_string(),
             proposal_data,
             Some(true),  // auto_vote = true (explicit)
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
         println!("Created proposal with auto_vote=true: {}", proposal_id);
 
         // Verify Bob's vote IS recorded
@@ -1708,11 +1698,11 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         assert_eq!(yes_votes, 1, "yes_votes should be 1 when auto_vote=true, got: {}", yes_votes);
 
         // Bob should NOT be able to vote again
-        let bob_vote = contract.vote_on_proposal(
+        let bob_vote = contract.execute(vote_proposal_request(
             "auto_vote_test2".to_string(),
             proposal_id.clone(),
             true,
-        );
+        ));
         assert!(bob_vote.is_err(), "Bob should NOT be able to vote when already auto-voted");
         let err = bob_vote.unwrap_err().to_string();
         assert!(err.contains("already voted"), "Expected 'already voted' error, got: {}", err);
@@ -1830,7 +1820,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("joined_at_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("joined_at_test".to_string(), config)).unwrap();
 
         // Manually add bob as a member with joined_at = current block timestamp
         let current_timestamp = near_sdk::env::block_timestamp();
@@ -1858,20 +1848,20 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing joined_at boundary"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "joined_at_test".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Bob should be able to vote because joined_at == created_at (not >)
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let bob_vote = contract.vote_on_proposal(
+        let bob_vote = contract.execute(vote_proposal_request(
             "joined_at_test".to_string(),
             proposal_id.clone(),
             true,
-        );
+        ));
         
         assert!(bob_vote.is_ok(), "Bob should be able to vote when joined_at == created_at: {:?}", bob_vote.err());
         println!("✅ Member can vote when joined_at == proposal created_at");
@@ -1891,7 +1881,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("joined_after_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("joined_after_test".to_string(), config)).unwrap();
 
         // Create proposal first
         let proposal_data = json!({
@@ -1899,12 +1889,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Testing joined after"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "joined_after_test".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Get proposal's created_at timestamp
         let tally_path = format!("groups/joined_after_test/votes/{}", proposal_id);
@@ -1936,11 +1926,11 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Bob should NOT be able to vote because joined_at > created_at
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let bob_vote = contract.vote_on_proposal(
+        let bob_vote = contract.execute(vote_proposal_request(
             "joined_after_test".to_string(),
             proposal_id.clone(),
             true,
-        );
+        ));
         
         assert!(bob_vote.is_err(), "Bob should NOT be able to vote when joined_at > created_at");
         let err = bob_vote.unwrap_err().to_string();
@@ -2007,7 +1997,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("id_format_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("id_format_test".to_string(), config)).unwrap();
 
         // Add member for voting
         let bob = test_account(1);
@@ -2027,12 +2017,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Test proposal ID format"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "id_format_test".to_string(),
             "group_update".to_string(),
             proposal_data,
             None,
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // Verify proposal ID format: {group_id}_{sequence}_{timestamp}_{proposer}_{nonce}
         // Example: id_format_test_1_1727740800000000000_alice_12345
@@ -2090,7 +2080,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("early_reject_test".to_string(), config).unwrap();
+        contract.execute(create_group_request("early_reject_test".to_string(), config)).unwrap();
 
         // Add 3 more members (alice is owner = member) using their actual AccountId strings
         for member in [bob.clone(), carol.clone(), dave.clone()] {
@@ -2111,12 +2101,12 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "changes": {"description": "Test early rejection"}
         });
 
-        let proposal_id = contract.create_group_proposal(
+        let proposal_id = contract.execute(create_proposal_request(
             "early_reject_test".to_string(),
             "group_update".to_string(),
             proposal_data,
             Some(false), // No auto-vote
-        ).unwrap();
+        )).unwrap().as_str().unwrap().to_string();
 
         // With 4 members and majority_threshold = 0.5001:
         // Need > 50.01% YES to pass
@@ -2124,7 +2114,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         
         // Bob votes NO
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("early_reject_test".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("early_reject_test".to_string(), proposal_id.clone(), false)).unwrap();
         
         // Check proposal is still active (1 NO not enough for inevitable defeat yet)
         let proposal_path = format!("groups/early_reject_test/proposals/{}", proposal_id);
@@ -2134,7 +2124,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Carol votes NO
         testing_env!(get_context_with_deposit(carol.clone(), 10_000_000_000_000_000_000_000_000).build());
-        contract.vote_on_proposal("early_reject_test".to_string(), proposal_id.clone(), false).unwrap();
+        contract.execute(vote_proposal_request("early_reject_test".to_string(), proposal_id.clone(), false)).unwrap();
 
         // Check proposal status - with 2 NO out of 4, max YES = 2/4 = 50% < 50.01% threshold
         // So defeat should be inevitable now
@@ -2242,7 +2232,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
             "member_driven": true,
             "is_private": true,
         });
-        contract.create_group("tally-missing-group".to_string(), config).unwrap();
+        contract.execute(create_group_request("tally-missing-group".to_string(), config)).unwrap();
 
         // Add bob as a member
         let member_data = json!({
@@ -2299,11 +2289,11 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
 
         // Bob tries to vote - should fail with "Vote tally not found"
         testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let vote_result = contract.vote_on_proposal(
+        let vote_result = contract.execute(vote_proposal_request(
             "tally-missing-group".to_string(),
             fake_proposal_id.to_string(),
             true
-        );
+        ));
 
         assert!(vote_result.is_err(), "Vote should fail when tally is missing");
         let error_msg = vote_result.unwrap_err().to_string();
@@ -2330,7 +2320,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create a valid traditional group first
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": false, "is_private": true});
-        contract.create_group("config-corruption-test".to_string(), config).unwrap();
+        contract.execute(create_group_request("config-corruption-test".to_string(), config)).unwrap();
 
         // Corrupt storage: replace config with a non-object value (e.g., string)
         let corrupted_config = Value::String("this is not a JSON object".to_string());
@@ -2340,7 +2330,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         ).unwrap();
 
         // Now try to change privacy - should fail with explicit error
-        let result = contract.set_group_privacy("config-corruption-test".to_string(), false);
+        let result = contract.execute(set_group_privacy_request("config-corruption-test".to_string(), false));
 
         assert!(result.is_err(), "set_group_privacy must fail when config is not a JSON object");
         let error_msg = result.unwrap_err().to_string();
@@ -2365,7 +2355,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Create a valid traditional group first
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
         let config = json!({"member_driven": false, "is_private": true});
-        contract.create_group("config-array-test".to_string(), config).unwrap();
+        contract.execute(create_group_request("config-array-test".to_string(), config)).unwrap();
 
         // Corrupt storage: replace config with a JSON array
         let corrupted_config = json!(["element1", "element2"]);
@@ -2375,7 +2365,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         ).unwrap();
 
         // Now try to change privacy - should fail
-        let result = contract.set_group_privacy("config-array-test".to_string(), false);
+        let result = contract.execute(set_group_privacy_request("config-array-test".to_string(), false));
 
         assert!(result.is_err(), "set_group_privacy must fail when config is a JSON array");
         let error_msg = result.unwrap_err().to_string();
@@ -2400,7 +2390,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
 
         // Try to set privacy on empty group_id
-        let result = contract.set_group_privacy("".to_string(), false);
+        let result = contract.execute(set_group_privacy_request("".to_string(), false));
 
         assert!(result.is_err(), "set_group_privacy must fail on empty group_id");
         let error_msg = result.unwrap_err().to_string();

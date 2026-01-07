@@ -24,8 +24,8 @@ mod test_advanced_functionalities {
         });
 
         // Use refund_unused_deposit: true so only 2 NEAR is deposited (not 5)
-        let options = Some(crate::SetOptions { refund_unused_deposit: true });
-        let result = contract.set(set_request(deposit_data, options));
+        let options = Some(crate::Options { refund_unused_deposit: true });
+        let result = contract.execute(set_request_with_options(deposit_data, options));
         assert!(result.is_ok(), "Storage deposit should succeed");
 
         // Verify storage balance
@@ -43,7 +43,7 @@ mod test_advanced_functionalities {
             "settings/notifications": {"email": true, "push": false, "sms": true}
         });
 
-        let result = contract.set(set_request(data, None));
+        let result = contract.execute(set_request(data));
         assert!(result.is_ok(), "Data storage should succeed");
 
         // Verify storage usage increased
@@ -71,8 +71,8 @@ mod test_advanced_functionalities {
             }
         });
         // Use refund_unused_deposit: true so only 2 NEAR is deposited (not 3)
-        let options = Some(crate::SetOptions { refund_unused_deposit: true });
-        let result = contract.set(set_request(deposit_data, options));
+        let options = Some(crate::Options { refund_unused_deposit: true });
+        let result = contract.execute(set_request_with_options(deposit_data, options));
         assert!(result.is_ok());
 
         // Add some data
@@ -83,7 +83,7 @@ mod test_advanced_functionalities {
             "profile/name": "Bob",
             "posts/1": {"text": "Test post", "timestamp": 1234567890}
         });
-        let result = contract.set(set_request(data, None));
+        let result = contract.execute(set_request(data));
         assert!(result.is_ok());
 
         // Try to withdraw more than available (should fail)
@@ -92,7 +92,7 @@ mod test_advanced_functionalities {
                 "amount": (deposit_amount + 1_000_000_000_000_000_000_000_000).to_string() // More than deposited
             }
         });
-        let result = contract.set(set_request(withdraw_too_much, None));
+        let result = contract.execute(set_request(withdraw_too_much));
         assert!(result.is_err(), "Withdrawal of more than balance should fail");
 
         // Withdraw partial amount (should succeed)
@@ -102,7 +102,7 @@ mod test_advanced_functionalities {
                 "amount": withdraw_amount.to_string()
             }
         });
-        let result = contract.set(set_request(withdraw_data, None));
+        let result = contract.execute(set_request(withdraw_data));
         assert!(result.is_ok(), "Partial withdrawal should succeed");
 
         // Verify balance decreased
@@ -129,7 +129,7 @@ mod test_advanced_functionalities {
                 "amount": pool_deposit.to_string()
             }
         });
-        let result = contract.set(set_request(pool_deposit_data, None));
+        let result = contract.execute(set_request(pool_deposit_data));
         assert!(result.is_ok(), "Shared pool deposit should succeed");
 
         // Owner shares storage capacity with beneficiary
@@ -140,7 +140,7 @@ mod test_advanced_functionalities {
                 "max_bytes": max_bytes
             }
         });
-        let result = contract.set(set_request(share_data, None));
+        let result = contract.execute(set_request(share_data));
         assert!(result.is_ok(), "Storage sharing should succeed");
 
         // Verify beneficiary has shared storage allocation
@@ -167,8 +167,8 @@ mod test_advanced_functionalities {
 
         // Convert attached deposit into storage balance for `owner`.
         contract
-            .set(
-                set_request(json!({"storage/deposit": {"amount": "1"}}), None),
+            .execute(
+                set_request(json!({"storage/deposit": {"amount": "1"}})),
             )
             .unwrap();
 
@@ -187,7 +187,7 @@ mod test_advanced_functionalities {
                 "flags": WRITE
             }
         });
-        let result = contract.set(set_request(grant_write, None));
+        let result = contract.execute(set_request(grant_write));
         assert!(result.is_ok());
 
         // Verify WRITE permission at base level and inherited paths
@@ -208,7 +208,7 @@ mod test_advanced_functionalities {
                 "flags": MODERATE
             }
         });
-        let result = contract.set(set_request(grant_moderate, None));
+        let result = contract.execute(set_request(grant_moderate));
         assert!(result.is_ok());
 
         // Now grantee has both WRITE and MODERATE at the specific path
@@ -231,8 +231,8 @@ mod test_advanced_functionalities {
 
         // Convert attached deposit into storage balance for `owner`.
         contract
-            .set(
-                set_request(json!({"storage/deposit": {"amount": "1"}}), None),
+            .execute(
+                set_request(json!({"storage/deposit": {"amount": "1"}})),
             )
             .unwrap();
 
@@ -248,7 +248,7 @@ mod test_advanced_functionalities {
                 "expires_at": expires_at
             }
         });
-        let result = contract.set(set_request(grant_data, None));
+        let result = contract.execute(set_request(grant_data));
         assert!(result.is_ok());
 
         // Permission should be active now
@@ -280,7 +280,7 @@ mod test_advanced_functionalities {
                 "amount": "3000000000000000000000000"  // 3 NEAR
             }
         });
-        let result = contract.set(set_request(deposit_data, None));
+        let result = contract.execute(set_request(deposit_data));
         assert!(result.is_ok());
 
         // Content creator sets up collaborative workspace
@@ -296,7 +296,7 @@ mod test_advanced_functionalities {
                 "version": 1
             }
         });
-        let result = contract.set(set_request(workspace_data, None));
+        let result = contract.execute(set_request(workspace_data));
         assert!(result.is_ok());
 
         // Grant WRITE permission to collaborator for content editing
@@ -308,7 +308,7 @@ mod test_advanced_functionalities {
                 "flags": WRITE
             }
         });
-        let result = contract.set(set_request(grant_collaborator, None));
+        let result = contract.execute(set_request(grant_collaborator));
         assert!(result.is_ok());
 
         // Grant MODERATE permission to moderator for oversight (implies WRITE in checks)
@@ -319,7 +319,7 @@ mod test_advanced_functionalities {
                 "flags": MODERATE
             }
         });
-        let result = contract.set(set_request(grant_moderator, None));
+        let result = contract.execute(set_request(grant_moderator));
         assert!(result.is_ok());
 
         // Verify permissions are correctly set
@@ -341,7 +341,7 @@ mod test_advanced_functionalities {
                 "last_edited_by": collaborator.to_string()
             }
         });
-        let result = contract.set(set_request(collab_content, None));
+        let result = contract.execute(set_request(collab_content));
         assert!(result.is_ok(), "Collaborator should be able to edit content");
 
         // Verify storage balance reflects usage
@@ -375,7 +375,7 @@ mod test_advanced_functionalities {
                 "flags": WRITE
             }
         });
-        let result = contract.set(set_request(grant_broad, None));
+        let result = contract.execute(set_request(grant_broad));
         assert!(result.is_ok());
 
         // Verify inheritance works
@@ -391,7 +391,7 @@ mod test_advanced_functionalities {
                 "path": restricted_path.clone()
             }
         });
-        let result = contract.set(set_request(revoke_data, None));
+        let result = contract.execute(set_request(revoke_data));
         assert!(result.is_ok());
 
         // User should still have WRITE at root and public paths (inheritance works)
@@ -410,7 +410,7 @@ mod test_advanced_functionalities {
                 "path": root_path.clone()
             }
         });
-        let result = contract.set(set_request(revoke_root, None));
+        let result = contract.execute(set_request(revoke_root));
         assert!(result.is_ok());
 
         // Now user should have no permissions anywhere in the hierarchy
@@ -439,7 +439,7 @@ mod test_advanced_functionalities {
                 "amount": pool_deposit.to_string()
             }
         });
-        let result = contract.set(set_request(pool_deposit_data, None));
+        let result = contract.execute(set_request(pool_deposit_data));
         assert!(result.is_ok());
 
         // Share storage with multiple users
@@ -449,7 +449,7 @@ mod test_advanced_functionalities {
                 "max_bytes": 50_000  // 50KB each
             }
         });
-        let result = contract.set(set_request(share_user1, None));
+        let result = contract.execute(set_request(share_user1));
         assert!(result.is_ok());
 
         let share_user2 = json!({
@@ -458,7 +458,7 @@ mod test_advanced_functionalities {
                 "max_bytes": 50_000  // 50KB each
             }
         });
-        let result = contract.set(set_request(share_user2, None));
+        let result = contract.execute(set_request(share_user2));
         assert!(result.is_ok());
 
         // Users can now store data without individual deposits
@@ -470,7 +470,7 @@ mod test_advanced_functionalities {
             "content/large_doc": "x".repeat(100),  // 100 bytes of content
             "settings/preferences": {"theme": "light"}
         });
-        let result = contract.set(set_request(user1_data, None));
+        let result = contract.execute(set_request(user1_data));
         assert!(result.is_ok(), "User1 should be able to store data using shared pool");
 
         let user2_context = get_context(user2.clone());
@@ -481,7 +481,7 @@ mod test_advanced_functionalities {
             "content/large_doc": "y".repeat(150),  // 150 bytes of content
             "projects/project1": {"name": "Test"}
         });
-        let result = contract.set(set_request(user2_data, None));
+        let result = contract.execute(set_request(user2_data));
         assert!(result.is_ok(), "User2 should be able to store data using shared pool");
 
         // Verify shared storage usage is tracked
@@ -531,7 +531,7 @@ mod test_advanced_functionalities {
         });
 
         // This should automatically handle storage deposits
-        let result = contract.set(set_request(post_data, None));
+        let result = contract.execute(set_request(post_data));
         assert!(result.is_ok(), "New user posting should succeed with automatic storage handling");
 
         // Verify storage was automatically allocated
@@ -573,7 +573,7 @@ mod test_advanced_functionalities {
                 "amount": "2000000000000000000000000"  // 2 NEAR for storage
             }
         });
-        let result = contract.set(set_request(deposit_data, None));
+        let result = contract.execute(set_request(deposit_data));
         assert!(result.is_ok());
 
         // Verify storage balance
@@ -602,7 +602,7 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.set(set_request(post_data, None));
+        let result = contract.execute(set_request(post_data));
         assert!(result.is_ok(), "Existing user with storage should post without additional deposit");
 
         // Verify storage was consumed but user still has balance
@@ -636,7 +636,7 @@ mod test_advanced_functionalities {
                 "amount": "100000000000000000000000"  // 0.1 NEAR (minimal)
             }
         });
-        let result = contract.set(set_request(small_deposit, None));
+        let result = contract.execute(set_request(small_deposit));
         assert!(result.is_ok());
 
         // Fill up storage with large content to deplete balance
@@ -645,7 +645,7 @@ mod test_advanced_functionalities {
             "content/even_larger": "y".repeat(200),  // 200 bytes of content
             "backup/data": "z".repeat(50)  // 50 bytes of content
         });
-        let result = contract.set(set_request(large_content, None));
+        let result = contract.execute(set_request(large_content));
         assert!(result.is_ok());
 
         // Check that storage is nearly depleted
@@ -669,7 +669,7 @@ mod test_advanced_functionalities {
         // Current behavior: Attached deposit is NOT auto-deposited if user has existing balance
         // User must explicitly deposit via storage/deposit operation
         // In this case, the write will fail due to insufficient storage
-        let result = contract.set(set_request(post_data.clone(), None));
+        let result = contract.execute(set_request(post_data.clone()));
         
         // The current design doesn't auto-deposit when user already has balance (even if insufficient)
         // User needs to explicitly deposit first, then write
@@ -678,12 +678,12 @@ mod test_advanced_functionalities {
             // Now explicitly deposit and retry
             let deposit_op = json!({"storage/deposit": {"amount": "1000000000000000000000000"}});
             contract
-                .set(set_request(deposit_op, None))
+                .execute(set_request(deposit_op))
                 .expect("Deposit should succeed");
             
             // Now retry the write
             contract
-                .set(set_request(post_data, None))
+                .execute(set_request(post_data))
                 .expect("Write should succeed after deposit");
         }
         
@@ -713,7 +713,7 @@ mod test_advanced_functionalities {
                 "amount": "10000000000000000000000000"  // 10 NEAR pool
             }
         });
-        let result = contract.set(set_request(pool_deposit, None));
+        let result = contract.execute(set_request(pool_deposit));
         assert!(result.is_ok());
 
         // Pool owner shares storage with Dave
@@ -723,7 +723,7 @@ mod test_advanced_functionalities {
                 "max_bytes": 100_000  // 100KB allocation
             }
         });
-        let result = contract.set(set_request(share_data, None));
+        let result = contract.execute(set_request(share_data));
         assert!(result.is_ok());
 
         // Verify Dave has shared storage allocation
@@ -754,7 +754,7 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.set(set_request(post_data, None));
+        let result = contract.execute(set_request(post_data));
         assert!(result.is_ok(), "User with shared storage should post without personal deposit");
 
         // Verify shared storage usage
@@ -813,7 +813,7 @@ mod test_advanced_functionalities {
         });
 
         // This should fail because the attached deposit is insufficient for the storage needed
-        let result = contract.set(set_request(comprehensive_post, None));
+        let result = contract.execute(set_request(comprehensive_post));
         assert!(result.is_err(), "Posting with insufficient deposit should fail");
         
         // Verify the error is about insufficient storage
@@ -843,7 +843,7 @@ mod test_advanced_functionalities {
                 "amount": "5000000000000000000000000"  // 5 NEAR
             }
         });
-        let result = contract.set(set_request(initial_deposit, None));
+        let result = contract.execute(set_request(initial_deposit));
         assert!(result.is_ok());
 
         // Frank creates his profile
@@ -853,7 +853,7 @@ mod test_advanced_functionalities {
             "profile/skills": ["Rust", "TypeScript", "React", "NEAR Protocol", "Smart Contracts"],
             "profile/experience": "5+ years in blockchain development"
         });
-        let result = contract.set(set_request(profile_data, None));
+        let result = contract.execute(set_request(profile_data));
         assert!(result.is_ok());
 
         // Frank posts several pieces of content over time
@@ -865,7 +865,7 @@ mod test_advanced_functionalities {
                 "media": null
             }
         });
-        let result = contract.set(set_request(post1, None));
+        let result = contract.execute(set_request(post1));
         assert!(result.is_ok());
 
         // Frank creates additional content
@@ -882,7 +882,7 @@ mod test_advanced_functionalities {
                 "push": false
             }
         });
-        let result = contract.set(set_request(additional_content, None));
+        let result = contract.execute(set_request(additional_content));
         assert!(result.is_ok());
 
         // Frank interacts with content (notifications settings)
@@ -893,7 +893,7 @@ mod test_advanced_functionalities {
                 "sms": false
             }
         });
-        let result = contract.set(set_request(interactions, None));
+        let result = contract.execute(set_request(interactions));
         assert!(result.is_ok());
 
         // Verify Frank's storage usage reflects all his activity
@@ -947,7 +947,7 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.set(set_request(post_data, None));
+        let result = contract.execute(set_request(post_data));
         assert!(result.is_ok(), "Single post should succeed");
 
         // Get storage usage after posting
@@ -1000,9 +1000,8 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.set(set_request(
+        let result = contract.execute(set_request(
             post_data_no_events,
-            None,
         ));
         assert!(result.is_ok(), "Post without events should succeed");
 
@@ -1025,7 +1024,7 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.set(set_request(post_data_with_events, None)); // Default: events enabled
+        let result = contract.execute(set_request(post_data_with_events)); // Default: events enabled
         assert!(result.is_ok(), "Post with events should succeed");
 
         let storage_with_events = contract.get_storage_balance(user.clone()).unwrap();
@@ -1079,7 +1078,7 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.set(set_request(post_data, None));
+        let result = contract.execute(set_request(post_data));
 
         assert!(result.is_ok(), "Post without events should succeed");
 
@@ -1159,7 +1158,7 @@ mod test_advanced_functionalities {
         println!("JSON string length: {} bytes", json_bytes);
         println!("JSON string: {}", post_json_string);
 
-        let result = contract.set(set_request(post_data, None));
+        let result = contract.execute(set_request(post_data));
 
         // Also check what gets stored in the contract
         assert!(result.is_ok(), "Post should succeed");
@@ -1210,7 +1209,7 @@ mod test_advanced_functionalities {
             "settings/theme": "dark"
         });
 
-        let result = contract.set(set_request(alice_data, None));
+        let result = contract.execute(set_request(alice_data));
         assert!(result.is_ok(), "Alice data storage should succeed");
 
         // Switch to Bob's context
@@ -1224,7 +1223,7 @@ mod test_advanced_functionalities {
             "projects/project1": {"name": "Bob's Project", "status": "active"}
         });
 
-        let result = contract.set(set_request(bob_data, None));
+        let result = contract.execute(set_request(bob_data));
         assert!(result.is_ok(), "Bob data storage should succeed");
 
         // Switch to Charlie's context
@@ -1236,7 +1235,7 @@ mod test_advanced_functionalities {
             "posts/1": {"text": "Charlie's contribution", "timestamp": 1730003000}
         });
 
-        let result = contract.set(set_request(charlie_data, None));
+        let result = contract.execute(set_request(charlie_data));
         assert!(result.is_ok(), "Charlie data storage should succeed");
 
         // Now verify that data is stored with correct sharded keys and can be retrieved
