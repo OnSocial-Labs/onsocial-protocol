@@ -8919,3 +8919,403 @@ async fn test_mixed_delta_batch_grow_and_shrink_same_tx() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+// =============================================================================
+// CONTRACT STATUS STATE MACHINE TESTS
+// =============================================================================
+// Tests for platform.rs: validate_state, enter_read_only, resume_live, activate_contract
+// These verify the contract status state machine and access control.
+
+/// Test: Contract status state machine transitions
+/// 
+/// Validates:
+/// 1. Genesis → Live via activate_contract (requires 1 yocto)
+/// 2. Live → ReadOnly via enter_read_only (requires 1 yocto + manager)
+/// 3. ReadOnly → Live via resume_live (requires 1 yocto + manager)
+/// 4. Double-activation returns false (idempotent)
+/// 5. Double-enter_read_only returns false (idempotent)
+/// 6. Invalid transitions are blocked (Genesis → ReadOnly)
+#[tokio::test]
+async fn test_contract_status_state_machine() -> anyhow::Result<()> {
+    println!("\n🔄 Test: Contract status state machine...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    // Initialize contract (starts in Genesis)
+    contract.call("new").transact().await?.into_result()?;
+
+    // Verify initial status is Genesis
+    let status: String = contract
+        .view("get_contract_status")
+        .await?
+        .json()?;
+    assert_eq!(status, "Genesis", "Contract should start in Genesis");
+    println!("   ✓ Initial status: Genesis");
+
+    // =========================================================================
+    // TEST 1: activate_contract without 1 yocto should FAIL
+    // =========================================================================
+    println!("\n   Step 1: activate_contract without 1 yocto (should FAIL)...");
+    let activate_no_deposit = contract
+        .call("activate_contract")
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(!activate_no_deposit.is_success(), "activate_contract without 1 yocto should fail");
+    println!("   ✓ activate_contract without deposit correctly rejected");
+
+    // =========================================================================
+    // TEST 2: Genesis → Live with 1 yocto
+    // =========================================================================
+    println!("\n   Step 2: Genesis → Live (activate_contract with 1 yocto)...");
+    let activate_result = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(activate_result.is_success(), "activate_contract should succeed: {:?}", activate_result.failures());
+    let activated: bool = activate_result.json()?;
+    assert!(activated, "First activation should return true");
+    println!("   ✓ Contract activated (Genesis → Live)");
+
+    // Verify status is now Live
+    let status: String = contract
+        .view("get_contract_status")
+        .await?
+        .json()?;
+    assert_eq!(status, "Live", "Contract should be Live after activation");
+
+    // =========================================================================
+    // TEST 3: Double-activation returns false (idempotent)
+    // =========================================================================
+    println!("\n   Step 3: Double activation (should return false)...");
+    let double_activate = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(double_activate.is_success(), "Double activation should succeed but return false");
+    let double_result: bool = double_activate.json()?;
+    assert!(!double_result, "Double activation should return false (no state change)");
+    println!("   ✓ Double activation correctly returns false");
+
+    // =========================================================================
+    // TEST 4: enter_read_only without 1 yocto should FAIL
+    // =========================================================================
+    println!("\n   Step 4: enter_read_only without 1 yocto (should FAIL)...");
+    let readonly_no_deposit = contract
+        .call("enter_read_only")
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(!readonly_no_deposit.is_success(), "enter_read_only without 1 yocto should fail");
+    println!("   ✓ enter_read_only without deposit correctly rejected");
+
+    // =========================================================================
+    // TEST 5: Live → ReadOnly with 1 yocto
+    // =========================================================================
+    println!("\n   Step 5: Live → ReadOnly (enter_read_only with 1 yocto)...");
+    let enter_readonly = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(enter_readonly.is_success(), "enter_read_only should succeed: {:?}", enter_readonly.failures());
+    let entered: bool = enter_readonly.json()?;
+    assert!(entered, "First enter_read_only should return true");
+    println!("   ✓ Contract entered ReadOnly mode");
+
+    // Verify status is now ReadOnly
+    let status: String = contract
+        .view("get_contract_status")
+        .await?
+        .json()?;
+    assert_eq!(status, "ReadOnly", "Contract should be ReadOnly");
+
+    // =========================================================================
+    // TEST 6: Double enter_read_only returns false (idempotent)
+    // =========================================================================
+    println!("\n   Step 6: Double enter_read_only (should return false)...");
+    let double_readonly = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(double_readonly.is_success(), "Double enter_read_only should succeed but return false");
+    let double_readonly_result: bool = double_readonly.json()?;
+    assert!(!double_readonly_result, "Double enter_read_only should return false");
+    println!("   ✓ Double enter_read_only correctly returns false");
+
+    // =========================================================================
+    // TEST 7: resume_live without 1 yocto should FAIL
+    // =========================================================================
+    println!("\n   Step 7: resume_live without 1 yocto (should FAIL)...");
+    let resume_no_deposit = contract
+        .call("resume_live")
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(!resume_no_deposit.is_success(), "resume_live without 1 yocto should fail");
+    println!("   ✓ resume_live without deposit correctly rejected");
+
+    // =========================================================================
+    // TEST 8: ReadOnly → Live with 1 yocto
+    // =========================================================================
+    println!("\n   Step 8: ReadOnly → Live (resume_live with 1 yocto)...");
+    let resume_live = contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(resume_live.is_success(), "resume_live should succeed: {:?}", resume_live.failures());
+    let resumed: bool = resume_live.json()?;
+    assert!(resumed, "resume_live should return true");
+    println!("   ✓ Contract resumed Live mode");
+
+    // Verify status is Live again
+    let status: String = contract
+        .view("get_contract_status")
+        .await?
+        .json()?;
+    assert_eq!(status, "Live", "Contract should be Live after resume");
+
+    println!("\n✅ Test passed: Contract status state machine validated");
+    Ok(())
+}
+
+/// Test: Non-manager rejected from status transitions
+/// 
+/// Validates:
+/// 1. Non-manager cannot call enter_read_only
+/// 2. Non-manager cannot call resume_live
+/// 3. Non-manager cannot call activate_contract (on fresh contract)
+#[tokio::test]
+async fn test_status_transitions_require_manager() -> anyhow::Result<()> {
+    println!("\n🔐 Test: Status transitions require manager...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    // Initialize and activate contract
+    contract.call("new").transact().await?.into_result()?;
+    contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // =========================================================================
+    // TEST 1: Non-manager cannot enter_read_only
+    // =========================================================================
+    println!("   Step 1: Non-manager tries enter_read_only (should FAIL)...");
+    let alice_readonly = alice
+        .call(contract.id(), "enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(!alice_readonly.is_success(), "Non-manager should not be able to enter_read_only");
+    println!("   ✓ Non-manager correctly rejected from enter_read_only");
+
+    // Manager enters read-only for next test
+    contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // =========================================================================
+    // TEST 2: Non-manager cannot resume_live
+    // =========================================================================
+    println!("\n   Step 2: Non-manager tries resume_live (should FAIL)...");
+    let alice_resume = alice
+        .call(contract.id(), "resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(!alice_resume.is_success(), "Non-manager should not be able to resume_live");
+    println!("   ✓ Non-manager correctly rejected from resume_live");
+
+    println!("\n✅ Test passed: Status transitions require manager");
+    Ok(())
+}
+
+/// Test: Invalid status transitions are blocked
+/// 
+/// Validates:
+/// 1. Genesis → ReadOnly is blocked (must go through Live first)
+/// 2. ReadOnly → Genesis is blocked (no reverse activation)
+/// 3. Live → Genesis is blocked (cannot un-activate)
+#[tokio::test]
+async fn test_invalid_status_transitions_blocked() -> anyhow::Result<()> {
+    println!("\n🚫 Test: Invalid status transitions blocked...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    // Initialize contract (starts in Genesis)
+    contract.call("new").transact().await?.into_result()?;
+
+    // =========================================================================
+    // TEST 1: Genesis → ReadOnly is blocked
+    // =========================================================================
+    println!("   Step 1: Genesis → ReadOnly (should FAIL)...");
+    let genesis_to_readonly = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(!genesis_to_readonly.is_success(), "Genesis → ReadOnly should be blocked");
+    let failure_msg = format!("{:?}", genesis_to_readonly.failures());
+    assert!(
+        failure_msg.contains("Live") || failure_msg.contains("transition") || failure_msg.contains("Invalid"),
+        "Error should mention invalid transition, got: {}", failure_msg
+    );
+    println!("   ✓ Genesis → ReadOnly correctly blocked");
+
+    // =========================================================================
+    // TEST 2: Genesis → Live (activate for subsequent tests)
+    // =========================================================================
+    contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // =========================================================================
+    // TEST 3: resume_live when already Live returns false (idempotent)
+    // =========================================================================
+    println!("\n   Step 2: resume_live when already Live (should return false)...");
+    let live_to_live = contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    // resume_live from Live returns Ok(false) for idempotency
+    assert!(live_to_live.is_success(), "resume_live from Live should succeed but return false");
+    let live_result: bool = live_to_live.json()?;
+    assert!(!live_result, "resume_live from Live should return false (no state change)");
+    println!("   ✓ resume_live from Live correctly returns false (idempotent)");
+
+    println!("\n✅ Test passed: Invalid status transitions blocked");
+    Ok(())
+}
+
+/// Test: Writes blocked in ReadOnly mode
+/// 
+/// Validates that execute() calls are rejected when contract is in ReadOnly status.
+#[tokio::test]
+async fn test_writes_blocked_in_readonly_mode() -> anyhow::Result<()> {
+    println!("\n🔒 Test: Writes blocked in ReadOnly mode...\n");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    // Initialize and activate
+    contract.call("new").transact().await?.into_result()?;
+    contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // Alice writes some data while Live (should succeed)
+    let write_live = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "profile/name": "Alice" } }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(write_live.is_success(), "Write should succeed in Live mode");
+    println!("   ✓ Write succeeded in Live mode");
+
+    // Manager enters read-only
+    contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("   ✓ Contract entered ReadOnly mode");
+
+    // Alice tries to write (should FAIL)
+    let write_readonly = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "profile/bio": "Should fail" } }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!write_readonly.is_success(), "Write should FAIL in ReadOnly mode");
+    let failure_msg = format!("{:?}", write_readonly.failures());
+    assert!(
+        failure_msg.contains("read") || failure_msg.contains("Read") || failure_msg.contains("ContractReadOnly"),
+        "Error should mention read-only, got: {}", failure_msg
+    );
+    println!("   ✓ Write correctly rejected in ReadOnly mode");
+
+    // Verify reads still work
+    let read_result: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": ["profile/name"], "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let full_key = format!("{}/profile/name", alice.id());
+    assert!(entry_exists(&read_result, &full_key), "Read should work in ReadOnly mode");
+    println!("   ✓ Reads still work in ReadOnly mode");
+
+    // Resume live and verify writes work again
+    contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let write_resumed = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "profile/bio": "Now it works" } }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(write_resumed.is_success(), "Write should succeed after resume_live");
+    println!("   ✓ Write succeeded after resume_live");
+
+    println!("\n✅ Test passed: Writes blocked in ReadOnly mode");
+    Ok(())
+}

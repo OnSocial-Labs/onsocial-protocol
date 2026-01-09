@@ -42,7 +42,7 @@ impl SocialPlatform {
         let config = GovernanceConfig::default();
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            status: ContractStatus::Genesis, // Start in Genesis mode for production safety
+            status: ContractStatus::Genesis,
             manager,
             config: config.clone(),
             shared_storage_pools: LookupMap::new(StorageKey::SharedStoragePools),
@@ -117,14 +117,12 @@ impl SocialPlatform {
         storage.assert_storage_covered()
     }
 
-    /// Set the execution payer for proposal execution.
-    /// When set, group path storage costs are charged to this account.
+    /// Override storage payer for group paths during proposal execution.
     #[inline(always)]
     pub fn set_execution_payer(&mut self, payer: AccountId) {
         self.execution_payer = Some(payer);
     }
 
-    /// Clear the execution payer after proposal execution.
     #[inline(always)]
     pub fn clear_execution_payer(&mut self) {
         self.execution_payer = None;
@@ -174,8 +172,7 @@ impl SocialPlatform {
         self.user_storage.insert(account_id.clone(), storage);
     }
 
-    /// Lock storage balance for proposal execution.
-    /// The locked amount cannot be spent until unlocked.
+    /// Locked balance is reserved and excluded from available balance.
     pub fn lock_storage_balance(
         &mut self,
         account_id: &AccountId,
@@ -187,7 +184,6 @@ impl SocialPlatform {
         Ok(())
     }
 
-    /// Unlock previously locked storage balance.
     pub fn unlock_storage_balance(&mut self, account_id: &AccountId, amount: u128) {
         if let Some(mut storage) = self.user_storage.get(account_id).cloned() {
             storage.unlock_balance(amount);
@@ -195,7 +191,6 @@ impl SocialPlatform {
         }
     }
 
-    /// Finalize leftover deposit: refund or credit to storage balance.
     pub fn finalize_unused_attached_deposit(
         &mut self,
         attached_balance: &mut u128,
