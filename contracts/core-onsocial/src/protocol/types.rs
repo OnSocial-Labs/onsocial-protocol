@@ -1,26 +1,10 @@
-//! Unified protocol types for all contract operations.
-//!
-//! This module defines the core API types:
-//! - `Auth`: Authentication mode (Direct, SignedPayload, DelegateAction, Intent)
-//! - `Action`: All operations that can be performed
-//! - `Request`: Unified request structure
-//! - `Options`: Common operation options
+//! Protocol types for the unified execute API.
 
 use near_sdk::{AccountId, PublicKey};
 use near_sdk::json_types::{Base64VecU8, U64};
 use near_sdk::serde_json::Value;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Authentication
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Authentication mode for contract operations.
-///
-/// Supports 4 modes to enable gasless transactions and relayer integration:
-/// - `Direct`: Standard NEAR transaction (predecessor == actor)
-/// - `SignedPayload`: Off-chain signed payload verified on-chain
-/// - `DelegateAction`: NEP-366 meta-transactions
-/// - `Intent`: Cross-chain intents via solver network
+/// Authentication mode. Defaults to `Direct` (standard NEAR transaction).
 #[derive(
     near_sdk_macros::NearSchema,
     serde::Serialize,
@@ -29,16 +13,13 @@ use near_sdk::serde_json::Value;
 )]
 #[serde(crate = "near_sdk::serde", tag = "type", rename_all = "snake_case")]
 pub enum Auth {
-    /// Standard NEAR transaction - predecessor is the actor.
     Direct,
-    /// Off-chain signed payload for gasless UX.
     SignedPayload {
         public_key: PublicKey,
         nonce: U64,
         expires_at_ms: U64,
         signature: Base64VecU8,
     },
-    /// NEP-366 meta-transaction.
     DelegateAction {
         public_key: PublicKey,
         nonce: U64,
@@ -46,7 +27,6 @@ pub enum Auth {
         signature: Base64VecU8,
         action: Value,
     },
-    /// Cross-chain intent via solver network.
     Intent {
         actor_id: AccountId,
         intent: Value,
@@ -59,11 +39,7 @@ impl Default for Auth {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Actions
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// All contract actions that can be executed with unified auth.
+/// Executable actions dispatched via the unified execute API.
 #[derive(
     near_sdk_macros::NearSchema,
     serde::Serialize,
@@ -72,120 +48,28 @@ impl Default for Auth {
 )]
 #[serde(crate = "near_sdk::serde", tag = "type", rename_all = "snake_case")]
 pub enum Action {
-    // ─────────────────────────────────────────────────────────────
-    // KV Operations
-    // ─────────────────────────────────────────────────────────────
-    /// Write data to the key-value store.
-    Set {
-        data: Value,
-    },
+    Set { data: Value },
 
-    // ─────────────────────────────────────────────────────────────
-    // Group Lifecycle
-    // ─────────────────────────────────────────────────────────────
-    /// Create a new group.
-    CreateGroup {
-        group_id: String,
-        config: Value,
-    },
-    /// Request to join a group.
-    JoinGroup {
-        group_id: String,
-    },
-    /// Leave a group.
-    LeaveGroup {
-        group_id: String,
-    },
+    CreateGroup { group_id: String, config: Value },
+    JoinGroup { group_id: String },
+    LeaveGroup { group_id: String },
 
-    // ─────────────────────────────────────────────────────────────
-    // Group Membership Management
-    // ─────────────────────────────────────────────────────────────
-    /// Add a member to a group (admin only).
-    AddGroupMember {
-        group_id: String,
-        member_id: AccountId,
-    },
-    /// Remove a member from a group (admin only).
-    RemoveGroupMember {
-        group_id: String,
-        member_id: AccountId,
-    },
-    /// Approve a pending join request.
-    ApproveJoinRequest {
-        group_id: String,
-        requester_id: AccountId,
-    },
-    /// Reject a pending join request.
-    RejectJoinRequest {
-        group_id: String,
-        requester_id: AccountId,
-        reason: Option<String>,
-    },
-    /// Cancel own pending join request.
-    CancelJoinRequest {
-        group_id: String,
-    },
-    /// Blacklist a member from rejoining.
-    BlacklistGroupMember {
-        group_id: String,
-        member_id: AccountId,
-    },
-    /// Remove a member from the blacklist.
-    UnblacklistGroupMember {
-        group_id: String,
-        member_id: AccountId,
-    },
+    AddGroupMember { group_id: String, member_id: AccountId },
+    RemoveGroupMember { group_id: String, member_id: AccountId },
+    ApproveJoinRequest { group_id: String, requester_id: AccountId },
+    RejectJoinRequest { group_id: String, requester_id: AccountId, reason: Option<String> },
+    CancelJoinRequest { group_id: String },
+    BlacklistGroupMember { group_id: String, member_id: AccountId },
+    UnblacklistGroupMember { group_id: String, member_id: AccountId },
 
-    // ─────────────────────────────────────────────────────────────
-    // Group Governance
-    // ─────────────────────────────────────────────────────────────
-    /// Transfer group ownership.
-    TransferGroupOwnership {
-        group_id: String,
-        new_owner: AccountId,
-        remove_old_owner: Option<bool>,
-    },
-    /// Set group privacy (public/private).
-    SetGroupPrivacy {
-        group_id: String,
-        is_private: bool,
-    },
-    /// Create a governance proposal.
-    CreateProposal {
-        group_id: String,
-        proposal_type: String,
-        changes: Value,
-        auto_vote: Option<bool>,
-    },
-    /// Vote on a proposal.
-    VoteOnProposal {
-        group_id: String,
-        proposal_id: String,
-        approve: bool,
-    },
-    /// Cancel a proposal (creator only).
-    CancelProposal {
-        group_id: String,
-        proposal_id: String,
-    },
+    TransferGroupOwnership { group_id: String, new_owner: AccountId, remove_old_owner: Option<bool> },
+    SetGroupPrivacy { group_id: String, is_private: bool },
+    CreateProposal { group_id: String, proposal_type: String, changes: Value, auto_vote: Option<bool> },
+    VoteOnProposal { group_id: String, proposal_id: String, approve: bool },
+    CancelProposal { group_id: String, proposal_id: String },
 
-    // ─────────────────────────────────────────────────────────────
-    // Permission Operations
-    // ─────────────────────────────────────────────────────────────
-    /// Grant account-based permission.
-    SetPermission {
-        grantee: AccountId,
-        path: String,
-        level: u8,
-        expires_at: Option<U64>,
-    },
-    /// Grant key-based permission.
-    SetKeyPermission {
-        public_key: PublicKey,
-        path: String,
-        level: u8,
-        expires_at: Option<U64>,
-    },
+    SetPermission { grantee: AccountId, path: String, level: u8, expires_at: Option<U64> },
+    SetKeyPermission { public_key: PublicKey, path: String, level: u8, expires_at: Option<U64> },
 }
 
 impl Action {
@@ -214,11 +98,6 @@ impl Action {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Request & Options
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Unified request for all authenticated operations.
 #[derive(
     near_sdk_macros::NearSchema,
     serde::Serialize,
@@ -227,17 +106,14 @@ impl Action {
 )]
 #[serde(crate = "near_sdk::serde")]
 pub struct Request {
-    /// Target account namespace (defaults to actor for Direct auth).
+    /// Defaults to actor for `Auth::Direct`.
     pub target_account: Option<AccountId>,
-    /// The action to perform.
     pub action: Action,
-    /// Auth mode (defaults to Direct).
+    /// Defaults to `Auth::Direct`.
     pub auth: Option<Auth>,
-    /// Common options.
     pub options: Option<Options>,
 }
 
-/// Options for execute operations.
 #[derive(
     near_sdk_macros::NearSchema,
     serde::Serialize,
@@ -247,7 +123,7 @@ pub struct Request {
 )]
 #[serde(crate = "near_sdk::serde")]
 pub struct Options {
-    /// If true, refund unused attached deposit to deposit_owner.
+    /// Refund unused deposit to payer instead of crediting actor's storage.
     #[serde(default)]
     pub refund_unused_deposit: bool,
 }

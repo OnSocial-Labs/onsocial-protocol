@@ -7,7 +7,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Handle shared pool deposit.
     pub(crate) fn handle_api_shared_pool_deposit(
         &mut self,
         value: &Value,

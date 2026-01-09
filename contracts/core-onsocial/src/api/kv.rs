@@ -53,6 +53,24 @@ impl Contract {
         }))
     }
 
+    pub fn get_shared_pool(&self, pool_id: AccountId) -> Option<Value> {
+        let pool = self.platform.shared_storage_pools.get(&pool_id)?;
+
+        let available_bytes = pool.available_bytes();
+        let total_capacity_u128 =
+            pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear();
+        let total_capacity = u64::try_from(total_capacity_u128).unwrap_or(u64::MAX);
+
+        Some(serde_json::json!({
+            "pool_id": pool_id.to_string(),
+            "storage_balance": pool.storage_balance.to_string(),
+            "used_bytes": pool.used_bytes,
+            "shared_bytes": pool.shared_bytes,
+            "available_bytes": available_bytes,
+            "total_capacity_bytes": total_capacity
+        }))
+    }
+
     pub fn get_platform_allowance(&self, account_id: AccountId) -> Value {
         let storage = self.platform.user_storage.get(&account_id);
         let config = &self.platform.config;

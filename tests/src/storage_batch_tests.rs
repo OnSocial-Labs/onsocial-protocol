@@ -896,6 +896,472 @@ async fn test_batch_exceeds_attached_fails_atomically() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_shared_pool_deposit_unauthorized_cross_account() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - UNAUTHORIZED CROSS-ACCOUNT TEST");
+    println!("=========================================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let attacker = sandbox.dev_create_account().await?;
+    let victim = sandbox.dev_create_account().await?;
+    
+    // TEST: Attacker tries to deposit to victim's shared pool
+    println!("\n📦 Attacker tries to deposit to victim's shared pool...");
+    
+    let result = attacker
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": victim.id().to_string(),
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Cross-account shared pool deposit should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("Permission denied") || failure_msg.contains("Unauthorized"),
+        "Should be permission/authorization error: {}", failure_msg
+    );
+    println!("   ✓ Cross-account deposit correctly rejected");
+    
+    println!("\n✅ Unauthorized cross-account test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_shared_pool_deposit_zero_amount() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - ZERO AMOUNT TEST");
+    println!("==========================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Zero amount deposit to shared pool
+    println!("\n📦 Try to deposit 0 to shared pool...");
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": "0"
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_millinear(10))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Zero amount shared pool deposit should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("amount must be greater than zero"),
+        "Should contain 'amount must be greater than zero': {}", failure_msg
+    );
+    println!("   ✓ Zero amount correctly rejected");
+    
+    println!("\n✅ Zero amount shared pool test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_shared_pool_deposit_missing_pool_id() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - MISSING POOL_ID TEST");
+    println!("==============================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Missing pool_id field
+    println!("\n📦 Try deposit without pool_id field...");
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Missing pool_id should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("pool_id required"),
+        "Should contain 'pool_id required': {}", failure_msg
+    );
+    println!("   ✓ Missing pool_id correctly rejected");
+    
+    println!("\n✅ Missing pool_id test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_shared_pool_deposit_invalid_pool_id() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - INVALID POOL_ID TEST");
+    println!("==============================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Invalid pool_id (not a valid account ID)
+    println!("\n📦 Try deposit with invalid pool_id...");
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": "not a valid account id!!!",
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Invalid pool_id should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("Invalid pool_id"),
+        "Should contain 'Invalid pool_id': {}", failure_msg
+    );
+    println!("   ✓ Invalid pool_id correctly rejected");
+    
+    println!("\n✅ Invalid pool_id test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_shared_pool_deposit_accumulates_balance() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - BALANCE ACCUMULATION TEST");
+    println!("===================================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Multiple deposits accumulate correctly
+    println!("\n📦 First deposit to shared pool...");
+    let deposit1 = NearToken::from_near(1);
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": deposit1.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit1)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "First deposit should succeed: {:?}", result.failures());
+    
+    // Check pool balance after first deposit
+    let pool1: Option<serde_json::Value> = contract
+        .view("get_shared_pool")
+        .args_json(json!({"pool_id": user.id().to_string()}))
+        .await?
+        .json()?;
+    
+    let balance1 = pool1
+        .as_ref()
+        .and_then(|p| p.get("storage_balance"))
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .unwrap_or(0);
+    
+    assert_eq!(balance1, deposit1.as_yoctonear(), "First deposit should be in pool");
+    println!("   ✓ First deposit: pool balance = {} yoctoNEAR", balance1);
+    
+    // Second deposit
+    println!("\n📦 Second deposit to shared pool...");
+    let deposit2 = NearToken::from_millinear(500);
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": deposit2.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit2)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Second deposit should succeed: {:?}", result.failures());
+    
+    // Check pool balance after second deposit
+    let pool2: Option<serde_json::Value> = contract
+        .view("get_shared_pool")
+        .args_json(json!({"pool_id": user.id().to_string()}))
+        .await?
+        .json()?;
+    
+    let balance2 = pool2
+        .as_ref()
+        .and_then(|p| p.get("storage_balance"))
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .unwrap_or(0);
+    
+    let expected = deposit1.as_yoctonear() + deposit2.as_yoctonear();
+    assert_eq!(balance2, expected, "Pool should have accumulated balance");
+    println!("   ✓ Second deposit: pool balance = {} yoctoNEAR (expected {})", balance2, expected);
+    
+    println!("\n✅ Balance accumulation test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_shared_pool_deposit_missing_amount() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - MISSING AMOUNT TEST");
+    println!("=============================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Missing amount field
+    println!("\n📦 Try deposit without amount field...");
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Missing amount should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("amount required"),
+        "Should contain 'amount required': {}", failure_msg
+    );
+    println!("   ✓ Missing amount correctly rejected");
+    
+    println!("\n✅ Missing amount test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_shared_pool_deposit_emits_correct_event() -> anyhow::Result<()> {
+    println!("\n🧪 SHARED POOL DEPOSIT - EVENT EMISSION TEST");
+    println!("=============================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    let deposit_amount = NearToken::from_near(1);
+    
+    // First deposit - should have previous_pool_balance = 0
+    println!("\n📦 First deposit and check event...");
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": user.id().to_string(),
+                        "amount": deposit_amount.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Deposit should succeed: {:?}", result.failures());
+    
+    // Parse logs to find STORAGE_UPDATE event with pool_deposit operation
+    let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
+    let event_log = logs.iter()
+        .find(|log| log.contains("STORAGE_UPDATE") && log.contains("pool_deposit"))
+        .expect("Should have STORAGE_UPDATE pool_deposit event");
+    
+    // Verify event contains expected fields
+    assert!(event_log.contains("pool_id"), "Event should contain pool_id");
+    assert!(event_log.contains("amount"), "Event should contain amount");
+    assert!(event_log.contains("previous_pool_balance"), "Event should contain previous_pool_balance");
+    assert!(event_log.contains("new_pool_balance"), "Event should contain new_pool_balance");
+    assert!(event_log.contains(&deposit_amount.as_yoctonear().to_string()), "Event should contain deposit amount");
+    println!("   ✓ Event contains all required fields");
+    
+    // Verify previous_pool_balance was 0 for first deposit
+    assert!(event_log.contains("\"previous_pool_balance\":\"0\""), 
+        "First deposit should have previous_pool_balance=0: {}", event_log);
+    println!("   ✓ First deposit correctly shows previous_pool_balance=0");
+    
+    println!("\n✅ Event emission test passed!");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_shared_pool_nonexistent() -> anyhow::Result<()> {
+    println!("\n🧪 GET SHARED POOL - NONEXISTENT POOL TEST");
+    println!("==========================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // TEST: Query pool that doesn't exist
+    println!("\n📦 Query nonexistent shared pool...");
+    
+    let pool: Option<serde_json::Value> = contract
+        .view("get_shared_pool")
+        .args_json(json!({"pool_id": user.id().to_string()}))
+        .await?
+        .json()?;
+    
+    assert!(pool.is_none(), "Nonexistent pool should return None");
+    println!("   ✓ Nonexistent pool correctly returns None");
+    
+    println!("\n✅ Nonexistent pool test passed!");
+    Ok(())
+}
+
 // =============================================================================
 // STORAGE WITHDRAW TESTS
 // =============================================================================
@@ -8311,6 +8777,145 @@ async fn test_path_with_shared_storage_substring_not_misidentified() -> anyhow::
     println!("   ✓ Second variant correctly stored at: {}", expected2);
 
     println!("\n✅ Test passed: Paths with shared_storage substring are correctly handled");
+
+    Ok(())
+}
+
+// =============================================================================
+// EDGE CASE: Mixed Delta Batch (Grow + Shrink Same Transaction)
+// =============================================================================
+// When a batch contains both positive deltas (grow) and negative deltas (shrink),
+// the tracker must correctly accumulate both bytes_added and bytes_released,
+// yielding the correct net delta.
+
+#[tokio::test]
+async fn test_mixed_delta_batch_grow_and_shrink_same_tx() -> anyhow::Result<()> {
+    println!("\n🧪 Testing: Mixed delta batch (grow one key + shrink another in same tx)");
+
+    let (sandbox, contract) = setup_platform_pool_funded_contract().await?;
+
+    // Fund platform pool
+    let pool_deposit = NearToken::from_near(5);
+    let fund_res = contract.call("execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": pool_deposit.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(pool_deposit)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(fund_res.is_success(), "Platform pool deposit should succeed");
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // Step 1: Write initial values with distinct sizes
+    // key1 = 50 bytes, key2 = 200 bytes
+    println!("\n   Step 1: Write initial values (key1=50B, key2=200B)...");
+    let key1_initial = "A".repeat(50);
+    let key2_initial = "B".repeat(200);
+
+    let write_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "data/key1": key1_initial,
+                    "data/key2": key2_initial
+                } }
+            }
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(write_res.is_success(), "Initial write should succeed: {:?}", write_res.failures());
+
+    let pool_after_init: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let used_after_init = pool_after_init
+        .as_ref()
+        .and_then(|p| p.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool used_bytes after init: {}", used_after_init);
+
+    // Step 2: Mixed delta batch in single transaction
+    // key1: 50 → 300 bytes (+250 delta)
+    // key2: 200 → 50 bytes (-150 delta)
+    // Net delta: +100 bytes
+    println!("\n   Step 2: Mixed delta batch (key1: +250B, key2: -150B, net: +100B)...");
+    let key1_grow = "X".repeat(300);
+    let key2_shrink = "Y".repeat(50);
+
+    let mixed_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "data/key1": key1_grow,
+                    "data/key2": key2_shrink
+                } }
+            }
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(mixed_res.is_success(), "Mixed delta batch should succeed: {:?}", mixed_res.failures());
+
+    let pool_after_mixed: Option<serde_json::Value> = contract
+        .view("get_platform_pool")
+        .await?
+        .json()?;
+    let used_after_mixed = pool_after_mixed
+        .as_ref()
+        .and_then(|p| p.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Pool used_bytes after mixed batch: {}", used_after_mixed);
+
+    // Verify net delta is approximately +100 bytes (allowing for serialization overhead variance)
+    let net_delta = used_after_mixed as i64 - used_after_init as i64;
+    println!("   Net delta: {:+} bytes (expected ~+100)", net_delta);
+
+    // Net delta should be positive and close to +100 (allow +/- 30 for overhead)
+    assert!(
+        net_delta >= 70 && net_delta <= 130,
+        "Net delta should be ~+100 bytes (key1 +250, key2 -150), got {:+}",
+        net_delta
+    );
+    println!("   ✓ Net delta correctly computed from mixed grow+shrink");
+
+    // Step 3: Verify data was correctly updated
+    let check: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": ["data/key1", "data/key2"],
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+
+    let key1_full = format!("{}/data/key1", alice.id());
+    let key2_full = format!("{}/data/key2", alice.id());
+
+    let val1 = entry_value_str(&check, &key1_full).unwrap_or("");
+    let val2 = entry_value_str(&check, &key2_full).unwrap_or("");
+
+    assert_eq!(val1.len(), 300, "key1 should be 300 bytes");
+    assert_eq!(val2.len(), 50, "key2 should be 50 bytes");
+    println!("   ✓ Both values correctly updated (key1={}B, key2={}B)", val1.len(), val2.len());
+
+    println!("\n✅ Test passed: Mixed delta batch correctly accumulates bytes_added and bytes_released");
 
     Ok(())
 }

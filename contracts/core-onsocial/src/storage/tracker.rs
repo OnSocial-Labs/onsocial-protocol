@@ -78,7 +78,7 @@ impl StorageTracker {
         (out, delta)
     }
 
-    /// Like `track`, but works with `Result` flows and `?` at call sites.
+    /// For `Result` flows; always stops+resets on return.
     #[inline(always)]
     pub fn track_result<T, E>(
         &mut self,

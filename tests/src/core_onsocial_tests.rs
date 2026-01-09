@@ -14906,3 +14906,340 @@ async fn test_governance_events_schema_completeness() -> anyhow::Result<()> {
     println!("\n✅ All governance events schema tests passed!");
     Ok(())
 }
+
+// =============================================================================
+// API OPERATION KEY CLASSIFICATION TESTS
+// =============================================================================
+// Tests for operation.rs: classify_api_operation_key(), reserved namespaces,
+// forbidden keys, and require_non_empty_object().
+
+/// Test: Reserved namespace keys are rejected (storage/*, permission/*, status/*).
+#[tokio::test]
+async fn test_reserved_namespace_keys_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Reserved Namespace Keys Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Invalid keys under reserved namespaces
+    let invalid_keys = vec![
+        ("storage/arbitrary", "storage namespace"),
+        ("storage/unknown_op", "storage namespace"),
+        ("permission/arbitrary", "permission namespace"),
+        ("permission/unknown", "permission namespace"),
+        ("status/unknown", "status namespace"),
+        ("status/custom", "status namespace"),
+    ];
+
+    for (key, namespace) in invalid_keys {
+        println!("Testing rejection of key: {}", key);
+
+        let result = alice
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set", "data": { key: "test_value" } }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?;
+
+        assert!(
+            !result.is_success(),
+            "Set with {} key '{}' should fail",
+            namespace,
+            key
+        );
+
+        let failure_text = format!("{:?}", result.failures());
+        assert!(
+            failure_text.contains("Invalid operation key"),
+            "Error should mention 'Invalid operation key' for {}: got {}",
+            key,
+            failure_text
+        );
+
+        println!("  ✓ {} correctly rejected", key);
+    }
+
+    println!("✅ Reserved namespace keys rejected test passed");
+    Ok(())
+}
+
+/// Test: Forbidden contract-level keys are rejected (manager, config).
+#[tokio::test]
+async fn test_forbidden_contract_keys_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Forbidden Contract-Level Keys Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Test "manager" key rejection
+    let manager_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "manager": "attacker.near" } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !manager_result.is_success(),
+        "Set with 'manager' key should fail"
+    );
+    let manager_failure = format!("{:?}", manager_result.failures());
+    assert!(
+        manager_failure.contains("update_manager"),
+        "Error should mention 'update_manager()': got {}",
+        manager_failure
+    );
+    println!("  ✓ 'manager' key correctly rejected");
+
+    // Test "config" key rejection
+    let config_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "config": { "evil": true } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        !config_result.is_success(),
+        "Set with 'config' key should fail"
+    );
+    let config_failure = format!("{:?}", config_result.failures());
+    assert!(
+        config_failure.contains("update_config"),
+        "Error should mention 'update_config()': got {}",
+        config_failure
+    );
+    println!("  ✓ 'config' key correctly rejected");
+
+    println!("✅ Forbidden contract-level keys rejected test passed");
+    Ok(())
+}
+
+/// Test: Status transition keys must use dedicated methods.
+#[tokio::test]
+async fn test_status_transition_keys_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Status Transition Keys Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    let status_keys = vec![
+        ("status/read_only", "enter_read_only"),
+        ("status/live", "resume_live"),
+        ("status/activate", "activate_contract"),
+    ];
+
+    for (key, expected_method) in status_keys {
+        println!("Testing rejection of key: {}", key);
+
+        let result = alice
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set", "data": { key: true } }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?;
+
+        assert!(
+            !result.is_success(),
+            "Set with '{}' key should fail",
+            key
+        );
+
+        let failure_text = format!("{:?}", result.failures());
+        assert!(
+            failure_text.contains(expected_method),
+            "Error should mention '{}': got {}",
+            expected_method,
+            failure_text
+        );
+
+        println!("  ✓ '{}' correctly rejected with hint to use {}()", key, expected_method);
+    }
+
+    println!("✅ Status transition keys rejected test passed");
+    Ok(())
+}
+
+/// Test: Single-segment keys (no slash) are rejected.
+#[tokio::test]
+async fn test_single_segment_keys_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Single-Segment Keys Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Single-segment keys without slash should be rejected
+    let invalid_keys = vec!["profile", "data", "posts", "settings", "arbitrary"];
+
+    for key in invalid_keys {
+        println!("Testing rejection of single-segment key: {}", key);
+
+        let result = alice
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set", "data": { key: "value" } }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?;
+
+        assert!(
+            !result.is_success(),
+            "Set with single-segment key '{}' should fail",
+            key
+        );
+
+        let failure_text = format!("{:?}", result.failures());
+        assert!(
+            failure_text.contains("Invalid operation key"),
+            "Error should mention 'Invalid operation key' for '{}': got {}",
+            key,
+            failure_text
+        );
+
+        println!("  ✓ '{}' correctly rejected", key);
+    }
+
+    println!("✅ Single-segment keys rejected test passed");
+    Ok(())
+}
+
+/// Test: Empty data object is rejected.
+#[tokio::test]
+async fn test_empty_data_object_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Empty Data Object Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {} }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!result.is_success(), "Set with empty data should fail");
+
+    let failure_text = format!("{:?}", result.failures());
+    assert!(
+        failure_text.contains("empty") || failure_text.contains("cannot be empty"),
+        "Error should mention empty data: got {}",
+        failure_text
+    );
+
+    println!("✅ Empty data object rejected test passed");
+    Ok(())
+}
+
+/// Test: Valid operation keys are correctly classified and executed.
+#[tokio::test]
+async fn test_valid_operation_keys_work() -> anyhow::Result<()> {
+    println!("\n=== Test: Valid Operation Keys Work ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Test valid storage/deposit
+    let deposit_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": { "amount": "1000000000000000000000000" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(deposit_result.is_success(), "storage/deposit should succeed");
+    println!("  ✓ storage/deposit works");
+
+    // Test valid data path
+    let data_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/name": "Alice",
+                    "profile/bio": "Test user"
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(data_result.is_success(), "Valid data paths should succeed");
+    println!("  ✓ profile/name, profile/bio work");
+
+    // Verify data was stored
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/profile/name", alice.id())]
+        }))
+        .await?
+        .json()?;
+
+    let name_key = format!("{}/profile/name", alice.id());
+    assert_eq!(
+        entry_value_str(&get_result, &name_key),
+        Some("Alice"),
+        "Name should be stored correctly"
+    );
+    println!("  ✓ Data correctly stored and retrieved");
+
+    println!("✅ Valid operation keys work test passed");
+    Ok(())
+}
