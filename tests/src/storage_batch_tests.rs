@@ -4547,6 +4547,189 @@ async fn test_platform_pool_deposit_funds_new_users() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn test_platform_pool_deposit_missing_amount_field() -> anyhow::Result<()> {
+    println!("\n🧪 PLATFORM POOL DEPOSIT - MISSING AMOUNT FIELD");
+    println!("================================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let donor = sandbox.dev_create_account().await?;
+    
+    // Missing "amount" field entirely
+    let result = donor
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Missing amount field should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount required"), 
+            "Should mention 'amount required': {}", failure_msg);
+    println!("   ✓ Missing amount field correctly rejected");
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_platform_pool_deposit_non_string_amount() -> anyhow::Result<()> {
+    println!("\n🧪 PLATFORM POOL DEPOSIT - NON-STRING AMOUNT");
+    println!("=============================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let donor = sandbox.dev_create_account().await?;
+    
+    // Amount as number instead of string (u128 requires string in JSON)
+    let result = donor
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": 1000000000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Non-string amount should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount required"), 
+            "Should mention 'amount required': {}", failure_msg);
+    println!("   ✓ Non-string amount correctly rejected");
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_platform_pool_deposit_cross_account_rejected() -> anyhow::Result<()> {
+    println!("\n🧪 PLATFORM POOL DEPOSIT - CROSS-ACCOUNT REJECTION");
+    println!("===================================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let attacker = sandbox.dev_create_account().await?;
+    let victim = sandbox.dev_create_account().await?;
+    
+    // Attacker tries to deposit "on behalf of" victim (target_account = victim)
+    let result = attacker
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": victim.id().to_string(),
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Cross-account platform_pool_deposit should be rejected");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.to_lowercase().contains("permission") || failure_msg.to_lowercase().contains("denied"),
+            "Should mention permission denied: {}", failure_msg);
+    println!("   ✓ Cross-account deposit correctly rejected");
+    
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_platform_pool_deposit_unparseable_amount() -> anyhow::Result<()> {
+    println!("\n🧪 PLATFORM POOL DEPOSIT - UNPARSEABLE AMOUNT");
+    println!("==============================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let donor = sandbox.dev_create_account().await?;
+    
+    // Negative amount string
+    let result = donor
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": "-1000"
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Negative amount should fail");
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(failure_msg.contains("amount required"), 
+            "Should mention 'amount required' (parse failure): {}", failure_msg);
+    println!("   ✓ Negative amount string correctly rejected");
+    
+    Ok(())
+}
+
 // =============================================================================
 // API EDGE CASES AND VALIDATION TESTS
 // =============================================================================

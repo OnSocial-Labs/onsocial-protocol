@@ -7,7 +7,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Handle platform pool deposit.
     pub(crate) fn handle_api_platform_pool_deposit(
         &mut self,
         value: &Value,
@@ -22,7 +21,6 @@ impl SocialPlatform {
 
         Self::require_positive_amount(amount)?;
 
-        // Use shared `attached_balance` for batch accounting.
         if *ctx.attached_balance < amount {
             return Err(crate::invalid_input!("Insufficient deposit for platform pool"));
         }
@@ -32,7 +30,6 @@ impl SocialPlatform {
         self.platform_pool_deposit_internal(amount, account_id, ctx.event_batch)
     }
 
-    /// Internal helper for platform pool deposits.
     fn platform_pool_deposit_internal(
         &mut self,
         amount: u128,
