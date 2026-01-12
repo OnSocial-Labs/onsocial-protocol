@@ -92,8 +92,7 @@ pub fn revoke_permissions(
 
     if let Some(key) = key_opt.as_deref() {
         if let Some(entry) = platform.get_entry(key) {
-            crate::storage::soft_delete_entry(platform, key, entry)?;
-            deleted = true;
+            deleted = crate::storage::soft_delete_entry(platform, key, entry)?;
         }
     }
 

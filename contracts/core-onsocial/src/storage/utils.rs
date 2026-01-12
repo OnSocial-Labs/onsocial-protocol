@@ -9,15 +9,17 @@ pub fn calculate_effective_bytes(used_bytes: u64, shared_allocation: u64) -> u64
     used_bytes.saturating_sub(shared_allocation)
 }
 
+/// Soft-deletes an entry by converting it to a tombstone.
+/// Returns `Ok(true)` if deletion occurred, `Ok(false)` if already deleted (idempotent).
 #[inline(always)]
 pub fn soft_delete_entry(
     platform: &mut crate::state::SocialPlatform,
     key: &str,
     entry: crate::state::models::DataEntry,
-) -> Result<(), crate::errors::SocialError> {
+) -> Result<bool, crate::errors::SocialError> {
     // Idempotent: if already deleted, don't rewrite.
     if matches!(entry.value, crate::state::models::DataValue::Deleted(_)) {
-        return Ok(());
+        return Ok(false);
     }
 
     let mut updated_entry = entry;
@@ -28,7 +30,7 @@ pub fn soft_delete_entry(
     // Keep block_height consistent across all mutations (set/remove).
     updated_entry.block_height = deleted_at;
     platform.insert_entry(key, updated_entry)?;
-    Ok(())
+    Ok(true)
 }
 
 #[inline(always)]

@@ -1660,3 +1660,216 @@ async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
     println!("✅ Event derived fields on delete are correct");
     Ok(())
 }
+
+// =============================================================================
+// CONFIG NAMESPACE PROTECTION TESTS
+// =============================================================================
+
+/// Critical: Config namespace is reserved and cannot be written via group content API
+#[tokio::test]
+async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
+    println!("\n=== Test: Cannot Write to Config Namespace ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    create_group(&contract, &alice, "testgroup").await?;
+    
+    // Attempt to write directly to config path
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/testgroup/config": { "owner": "attacker.near" } } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!result.is_success(), "Writing to config namespace should fail");
+    println!("   Direct config write blocked: ✓");
+    
+    // Attempt to write to config subpath
+    let result2 = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/testgroup/config/malicious": { "data": "evil" } } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!result2.is_success(), "Writing to config subpath should fail");
+    println!("   Config subpath write blocked: ✓");
+    
+    println!("✅ Config namespace is protected");
+    Ok(())
+}
+
+// =============================================================================
+// IDEMPOTENT DELETION TESTS
+// =============================================================================
+
+/// High: Deleting nonexistent entry should succeed (idempotent)
+#[tokio::test]
+async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
+    println!("\n=== Test: Delete Nonexistent Entry Is Idempotent ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    create_group(&contract, &alice, "idempotent_group").await?;
+    
+    // Delete an entry that was never created
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/idempotent_group/content/posts/never_existed": null } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Deleting nonexistent entry should succeed");
+    println!("   First delete of nonexistent: ✓");
+    
+    // Delete again - should still succeed
+    let result2 = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/idempotent_group/content/posts/never_existed": null } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result2.is_success(), "Second delete should also succeed");
+    println!("   Second delete of nonexistent: ✓");
+
+    // No GROUP_UPDATE delete event should be emitted for nonexistent entry
+    let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
+    let delete_events = find_events_by_type(&logs, "GROUP_UPDATE")
+        .into_iter()
+        .filter(|e| get_event_operation(e) == Some("delete"))
+        .count();
+    
+    assert_eq!(delete_events, 0, "No delete event should be emitted for nonexistent entry");
+    println!("   No spurious delete event: ✓");
+    
+    println!("✅ Delete nonexistent entry is idempotent");
+    Ok(())
+}
+
+/// High: Double delete of existing entry should be idempotent
+#[tokio::test]
+async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
+    println!("\n=== Test: Double Delete Is Idempotent ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    create_group(&contract, &alice, "double_del_group").await?;
+    
+    // Create content first
+    let _ = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/double_del_group/content/posts/to_delete": { "title": "Will be deleted" } } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    // First delete
+    let result1 = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/double_del_group/content/posts/to_delete": null } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result1.is_success(), "First delete should succeed");
+    
+    let logs1: Vec<String> = result1.logs().iter().map(|s| s.to_string()).collect();
+    let delete_events1 = find_events_by_type(&logs1, "GROUP_UPDATE")
+        .into_iter()
+        .filter(|e| get_event_operation(e) == Some("delete"))
+        .count();
+    assert_eq!(delete_events1, 1, "First delete should emit delete event");
+    println!("   First delete emits event: ✓");
+    
+    // Second delete (entry now has Deleted tombstone)
+    let result2 = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/double_del_group/content/posts/to_delete": null } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result2.is_success(), "Second delete should succeed");
+    
+    let logs2: Vec<String> = result2.logs().iter().map(|s| s.to_string()).collect();
+    let delete_events2 = find_events_by_type(&logs2, "GROUP_UPDATE")
+        .into_iter()
+        .filter(|e| get_event_operation(e) == Some("delete"))
+        .count();
+    assert_eq!(delete_events2, 0, "Second delete should NOT emit delete event (already deleted)");
+    println!("   Second delete is no-op: ✓");
+    
+    println!("✅ Double delete is idempotent");
+    Ok(())
+}

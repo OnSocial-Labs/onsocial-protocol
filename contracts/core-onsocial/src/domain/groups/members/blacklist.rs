@@ -160,7 +160,7 @@ impl crate::domain::groups::core::GroupStorage {
 
         if let Some(entry) = platform.get_entry(&blacklist_path) {
             if matches!(entry.value, crate::state::models::DataValue::Value(_)) {
-                crate::storage::soft_delete_entry(platform, &blacklist_path, entry)?;
+                let _ = crate::storage::soft_delete_entry(platform, &blacklist_path, entry)?;
             }
         }
 

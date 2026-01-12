@@ -15755,3 +15755,119 @@ async fn test_dispatch_vote_returns_null() -> anyhow::Result<()> {
     println!("✅ VoteOnProposal returns null test passed");
     Ok(())
 }
+
+// =============================================================================
+// NON-GROUP DATA IDEMPOTENT DELETE TESTS
+// =============================================================================
+
+/// Verifies that deleting already-deleted non-group data is idempotent:
+/// - First delete emits a DATA_UPDATE "remove" event
+/// - Second delete succeeds silently (no event, no error)
+///
+/// This mirrors `test_double_delete_is_idempotent` in group_content_tests.rs
+/// but exercises the non-group code path in `data_ops.rs`.
+#[tokio::test]
+async fn test_non_group_double_delete_is_idempotent() -> anyhow::Result<()> {
+    println!("\n=== Test: Non-Group Double Delete Is Idempotent ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // 1. Create data entry
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "posts/ephemeral": "temporary content"
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create should succeed");
+    println!("   ✓ Created posts/ephemeral");
+
+    // Verify entry exists
+    let key = format!("{}/posts/ephemeral", alice.id());
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [&key] }))
+        .await?
+        .json()?;
+    assert_eq!(
+        entry_value_str(&get_result, &key),
+        Some("temporary content"),
+        "Entry should exist before deletion"
+    );
+
+    // 2. First delete — should emit "remove" event
+    let delete1_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "posts/ephemeral": null
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(delete1_result.is_success(), "First delete should succeed");
+
+    let remove_events_1 = find_events_by_operation(&delete1_result.logs(), "remove");
+    assert_eq!(
+        remove_events_1.len(),
+        1,
+        "First delete must emit exactly 1 remove event, got {}",
+        remove_events_1.len()
+    );
+    println!("   ✓ First delete emitted 1 remove event");
+
+    // Verify entry is now tombstoned (get returns null/missing)
+    let get_result_after: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [&key] }))
+        .await?
+        .json()?;
+    let value_after = entry_value(&get_result_after, &key);
+    assert!(
+        value_after.is_none() || value_after == Some(&Value::Null),
+        "Entry should be deleted (null or missing)"
+    );
+
+    // 3. Second delete — should succeed with NO event (idempotent)
+    let delete2_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "posts/ephemeral": null
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(delete2_result.is_success(), "Second delete should succeed");
+
+    let remove_events_2 = find_events_by_operation(&delete2_result.logs(), "remove");
+    assert_eq!(
+        remove_events_2.len(),
+        0,
+        "Second delete must emit 0 remove events (idempotent), got {}",
+        remove_events_2.len()
+    );
+    println!("   ✓ Second delete emitted 0 events (idempotent)");
+
+    println!("✅ Non-group double delete is idempotent test passed");
+    Ok(())
+}

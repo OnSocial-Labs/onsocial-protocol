@@ -277,7 +277,7 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Join request is not pending"));
         }
 
-        crate::storage::soft_delete_entry(platform, &request_path, entry)?;
+        let _ = crate::storage::soft_delete_entry(platform, &request_path, entry)?;
 
         let mut event_batch = EventBatch::new();
         Self::decrement_join_request_count(platform, group_id, requester_id, &mut event_batch)?;

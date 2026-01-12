@@ -217,7 +217,7 @@ impl crate::domain::groups::core::GroupStorage {
             return Err(invalid_input!("Owner cannot leave group. Transfer ownership to another member first using transfer_ownership operation."));
         }
 
-        crate::storage::soft_delete_entry(platform, &member_path, member_entry)?;
+        let _ = crate::storage::soft_delete_entry(platform, &member_path, member_entry)?;
 
         let mut event_batch = EventBatch::new();
 

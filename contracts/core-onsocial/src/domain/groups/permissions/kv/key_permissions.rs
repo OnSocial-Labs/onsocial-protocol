@@ -66,8 +66,7 @@ pub fn revoke_permissions_for_key(
     let mut deleted = false;
 
     if let Some(entry) = platform.get_entry(&key) {
-        crate::storage::soft_delete_entry(platform, &key, entry)?;
-        deleted = true;
+        deleted = crate::storage::soft_delete_entry(platform, &key, entry)?;
     }
 
     let key_str = String::from(public_key);

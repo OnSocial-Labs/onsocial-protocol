@@ -465,7 +465,7 @@ pub fn test_remove_member_bypass_proposals(
     // Get existing member entry and soft delete it
     let member_path = format!("groups/{}/members/{}", group_id, member_id.as_str());
     if let Some(entry) = contract.platform.get_entry(&member_path) {
-        crate::storage::soft_delete_entry(&mut contract.platform, &member_path, entry)
+        let _ = crate::storage::soft_delete_entry(&mut contract.platform, &member_path, entry)
             .expect("Test setup: failed to soft delete member");
     }
 

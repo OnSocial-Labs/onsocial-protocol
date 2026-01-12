@@ -67,26 +67,45 @@ impl SocialPlatform {
             block_height: near_sdk::env::block_height(),
         };
 
-        let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
-        crate::events::insert_block_context(&mut extra);
-        let mut builder = crate::events::EventBuilder::new(
-            crate::constants::EVENT_TYPE_DATA_UPDATE,
-            if data_ctx.value.is_null() { "remove" } else { "set" },
-            data_ctx.account_id.clone(),
-        )
-        .with_path(data_ctx.full_path)
-        .with_value(data_ctx.value.clone());
-        for (k, v) in extra {
-            builder = builder.with_field(k, v);
-        }
-        builder.emit(ctx.event_batch);
-
         if data_ctx.value.is_null() {
             // Soft delete for storage release.
-            if let Some(entry) = self.get_entry(data_ctx.full_path) {
-                crate::storage::soft_delete_entry(self, data_ctx.full_path, entry)?;
+            let deleted = if let Some(entry) = self.get_entry(data_ctx.full_path) {
+                crate::storage::soft_delete_entry(self, data_ctx.full_path, entry)?
+            } else {
+                false
+            };
+            
+            if deleted {
+                let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
+                crate::events::insert_block_context(&mut extra);
+                let mut builder = crate::events::EventBuilder::new(
+                    crate::constants::EVENT_TYPE_DATA_UPDATE,
+                    "remove",
+                    data_ctx.account_id.clone(),
+                )
+                .with_path(data_ctx.full_path)
+                .with_value(data_ctx.value.clone());
+                for (k, v) in extra {
+                    builder = builder.with_field(k, v);
+                }
+                builder.emit(ctx.event_batch);
             }
         } else {
+            // Emit "set" event for non-null values.
+            let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
+            crate::events::insert_block_context(&mut extra);
+            let mut builder = crate::events::EventBuilder::new(
+                crate::constants::EVENT_TYPE_DATA_UPDATE,
+                "set",
+                data_ctx.account_id.clone(),
+            )
+            .with_path(data_ctx.full_path)
+            .with_value(data_ctx.value.clone());
+            for (k, v) in extra {
+                builder = builder.with_field(k, v);
+            }
+            builder.emit(ctx.event_batch);
+
             let sponsor_outcome = self
                 .insert_entry_with_fallback(
                     data_ctx.full_path,
