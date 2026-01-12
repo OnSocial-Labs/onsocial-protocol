@@ -35,7 +35,7 @@ impl Default for GovernanceConfig {
         Self {
             max_key_length: 256,
             max_path_depth: 12,
-            max_batch_size: 100,
+            max_batch_size: 10,
             max_value_bytes: default_max_value_bytes(),
             platform_onboarding_bytes: default_platform_onboarding_bytes(),
             platform_daily_refill_bytes: default_platform_daily_refill_bytes(),

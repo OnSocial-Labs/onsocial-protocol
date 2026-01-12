@@ -951,6 +951,213 @@ async fn test_events_emitted_on_set() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Tests emitter.rs partition consistency:
+/// - Same namespace → same partition across batch
+/// - Different namespaces → potentially different partitions
+/// - Fallback to account_id when path has no namespace prefix
+#[tokio::test]
+async fn test_event_partition_consistency_across_batch() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Partition Consistency Across Batch ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    // Set multiple paths under alice's namespace in a single batch
+    let batch_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/name": "Alice",
+                    "profile/bio": "Developer",
+                    "settings/theme": "dark",
+                    "data/items/1": "first"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(batch_result.is_success(), "Batch set should succeed");
+    
+    let logs = batch_result.logs();
+    let events: Vec<Event> = logs.iter()
+        .filter_map(|log| decode_event(log))
+        .collect();
+    
+    assert!(!events.is_empty(), "Should emit events");
+    
+    // Collect all partition_ids from events
+    let partition_ids: Vec<u16> = events.iter()
+        .flat_map(|e| e.data.iter())
+        .filter_map(|d| d.partition_id)
+        .collect();
+    
+    assert!(!partition_ids.is_empty(), "Events should have partition_ids");
+    
+    // Calculate expected partition for alice's namespace
+    let expected_partition = calculate_expected_partition(alice.id().as_str());
+    
+    // All events for alice's namespace should have the same partition
+    for (i, pid) in partition_ids.iter().enumerate() {
+        assert_eq!(
+            *pid, expected_partition,
+            "Event {} partition {} should match expected {} for namespace {}",
+            i, pid, expected_partition, alice.id()
+        );
+    }
+    
+    println!("   ✅ All {} events have consistent partition_id={}", partition_ids.len(), expected_partition);
+    println!("✅ Event partition consistency test passed");
+    Ok(())
+}
+
+/// Tests that group paths use group_id as namespace for partition calculation
+#[tokio::test]
+async fn test_event_partition_for_group_paths() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Partition For Group Paths ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    // Create a group first
+    let group_id = "partition-test-group";
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { 
+                    "type": "create_group", 
+                    "group_id": group_id,
+                    "config": {
+                        "name": "Partition Test Group",
+                        "privacy": "public"
+                    }
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(create_result.is_success(), "Group creation should succeed");
+    
+    // Find the group_create event and verify its partition
+    let logs = create_result.logs();
+    let create_events = find_events_by_operation(&logs, "create_group");
+    
+    assert!(!create_events.is_empty(), "Should emit create_group event");
+    
+    let create_event = &create_events[0];
+    let create_partition = create_event.data.first()
+        .and_then(|d| d.partition_id)
+        .expect("group_create event should have partition_id");
+    
+    // Partition should be based on group_id, not alice's account
+    let expected_group_partition = calculate_expected_partition(group_id);
+    let alice_partition = calculate_expected_partition(alice.id().as_str());
+    
+    println!("   Group ID: {}", group_id);
+    println!("   Expected group partition: {}", expected_group_partition);
+    println!("   Alice's partition: {}", alice_partition);
+    println!("   Actual event partition: {}", create_partition);
+    
+    assert_eq!(
+        create_partition, expected_group_partition,
+        "Group event partition should be based on group_id, not account_id"
+    );
+    
+    // If group_id and alice happen to hash to same partition, skip differentiation assertion
+    if expected_group_partition != alice_partition {
+        println!("   ✅ Confirmed: group partition ({}) differs from user partition ({})", 
+                 expected_group_partition, alice_partition);
+    } else {
+        println!("   ℹ️ Note: group and user hash to same partition (collision)");
+    }
+    
+    println!("✅ Event partition for group paths test passed");
+    Ok(())
+}
+
+/// Tests that events without a `path` field fall back to account_id for partition calculation.
+/// This exercises the `unwrap_or_else(|| account_id.to_string())` path in emitter.rs.
+#[tokio::test]
+async fn test_event_partition_fallback_to_account_id() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Partition Fallback to Account ID ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    // Explicitly trigger a storage_deposit event via the execute API
+    // storage_deposit events are emitted WITHOUT a path field (see deposit.rs:55-65)
+    // This triggers the fallback to account_id for partition calculation
+    let deposit_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": { "amount": ONE_NEAR.as_yoctonear().to_string() }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(deposit_result.is_success(), "Storage deposit should succeed");
+    
+    let logs = deposit_result.logs();
+    
+    // Find storage_deposit events (these have no path field)
+    let storage_events = find_events_by_operation(&logs, "storage_deposit");
+    
+    assert!(!storage_events.is_empty(), "Should emit storage_deposit event");
+    
+    let event = &storage_events[0];
+    let partition = event.data.first()
+        .and_then(|d| d.partition_id)
+        .expect("storage_deposit event should have partition_id");
+    
+    let expected_partition = calculate_expected_partition(alice.id().as_str());
+    
+    println!("   Event: storage_deposit (no path field)");
+    println!("   Expected partition (from account_id): {}", expected_partition);
+    println!("   Actual partition: {}", partition);
+    
+    assert_eq!(
+        partition, expected_partition,
+        "Event without path should use account_id for partition"
+    );
+    
+    // Verify the event does NOT have a path field (confirming we're testing the fallback)
+    let has_path = event.data.first()
+        .and_then(|d| d.extra.get("path"))
+        .is_some();
+    
+    assert!(!has_path, "storage_deposit event should NOT have a path field");
+    println!("   ✅ Confirmed: event has no path field, used account_id fallback");
+    
+    println!("✅ Event partition fallback to account_id test passed");
+    Ok(())
+}
+
 // =============================================================================
 // ERROR HANDLING TESTS
 // =============================================================================
@@ -1470,12 +1677,12 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     println!("   ✓ All fields verified on-chain");
     
     // ==========================================================================
-    // TEST 2: Larger batch - 20 keys in one transaction
+    // TEST 2: Batch with programmatic keys - 10 keys in one transaction
     // ==========================================================================
-    println!("\n📦 TEST 2: Setting 20 keys in one transaction...");
+    println!("\n📦 TEST 2: Setting 10 programmatic keys in one transaction...");
     
     let mut large_batch = serde_json::Map::new();
-    for i in 0..20 {
+    for i in 0..10 {
         large_batch.insert(
             format!("data/items/{}/value", i),
             json!(format!("Item number {}", i))
@@ -1491,8 +1698,8 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                 "auth": null
             }
         }))
-        .deposit(NearToken::from_near(3)) // More storage needed
-        .gas(near_workspaces::types::Gas::from_tgas(200))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
     
@@ -1502,18 +1709,18 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             println!("      Error: {:?}", failure);
         }
     }
-    assert!(large_batch_result.is_success(), "Large batch should succeed");
+    assert!(large_batch_result.is_success(), "Programmatic batch should succeed");
     
-    // Verify events for 20-key batch
+    // Verify events for 10-key batch
     // NOTE: With SetOptions default (refund_unused_deposit: false), we emit an additional
     // auto_deposit event when unused deposit is saved to storage balance
     let logs_2 = large_batch_result.logs();
     let event_logs_2: Vec<_> = logs_2.iter().filter(|log| log.starts_with("EVENT_JSON:")).collect();
     println!("   📣 Events emitted: {}", event_logs_2.len());
-    // 20 data events + 1 auto_deposit event = 21 total
-    assert!(event_logs_2.len() >= 20, "Should emit at least 20 events for 20 keys");
+    // 10 data events + 1 auto_deposit event = 11 total
+    assert!(event_logs_2.len() >= 10, "Should emit at least 10 events for 10 keys");
     
-    // Query storage after 20 keys added
+    // Query storage after 10 keys added
     let storage_balance_2: serde_json::Value = contract
         .view("get_storage_balance")
         .args_json(json!({ "account_id": alice.id().to_string() }))
@@ -1522,20 +1729,20 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
     
     let bytes_used_2 = storage_balance_2["used_bytes"].as_u64().unwrap_or(0);
     let storage_near_2 = bytes_used_2 as f64 * 0.00001;
-    let bytes_for_20_keys = bytes_used_2 - bytes_used; // delta from Test 1
+    let bytes_for_batch = bytes_used_2 - bytes_used; // delta from Test 1
     
-    println!("   ✓ 20 keys set in single transaction");
+    println!("   ✓ 10 programmatic keys set in single transaction");
     println!("   ⛽ Gas used: {} TGas", large_batch_result.total_gas_burnt.as_tgas());
-    println!("   💾 Storage: +{} bytes (total: {} bytes, ~{:.4} NEAR)", bytes_for_20_keys, bytes_used_2, storage_near_2);
+    println!("   💾 Storage: +{} bytes (total: {} bytes, ~{:.4} NEAR)", bytes_for_batch, bytes_used_2, storage_near_2);
     
-    // Verify some of the batch items (0-19 range since we created 20 items)
+    // Verify some of the batch items (0-9 range since we created 10 items)
     let verify_result: Vec<serde_json::Value> = contract
         .view("get")
         .args_json(json!({
             "keys": [
                 format!("{}/data/items/0/value", alice.id()),
-                format!("{}/data/items/10/value", alice.id()),
-                format!("{}/data/items/19/value", alice.id())
+                format!("{}/data/items/5/value", alice.id()),
+                format!("{}/data/items/9/value", alice.id())
             ]
         }))
         .await?

@@ -1341,3 +1341,322 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
     println!("✅ Path without content path rejected");
     Ok(())
 }
+
+// =============================================================================
+// EVENT DERIVED FIELDS TESTS (events/fields.rs coverage)
+// =============================================================================
+
+/// Helper to extract a string from event extra fields
+fn get_extra_str(event: &Event, key: &str) -> Option<String> {
+    event.data.first()
+        .and_then(|d| d.extra.get(key))
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+}
+
+/// Helper to extract a bool from event extra fields
+fn get_extra_bool_val(event: &Event, key: &str) -> Option<bool> {
+    event.data.first()
+        .and_then(|d| d.extra.get(key))
+        .and_then(|v| v.as_bool())
+}
+
+/// Helper to extract a u64 from event extra fields
+fn get_extra_u64(event: &Event, key: &str) -> Option<u64> {
+    event.data.first()
+        .and_then(|d| d.extra.get(key))
+        .and_then(|v| v.as_u64())
+}
+
+/// Find events by event type from logs
+fn find_events_by_type(logs: &[String], event_type: &str) -> Vec<Event> {
+    logs.iter()
+        .filter_map(|log| decode_event(log))
+        .filter(|e| e.event == event_type)
+        .collect()
+}
+
+/// Tests that GROUP_UPDATE events contain correct derived fields from events/fields.rs:
+/// - id: last path segment
+/// - type: collection segment (e.g., "posts")
+/// - group_id: extracted group identifier
+/// - group_path: relative path within group
+/// - is_group_content: true for group paths
+/// - block_height: current block height
+/// - block_timestamp: current block timestamp
+#[tokio::test]
+async fn test_event_derived_fields_for_group_content() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Derived Fields for Group Content ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    create_group(&contract, &alice, "testgrp").await?;
+    
+    // Create group content at: groups/testgrp/posts/article1
+    // Stored at: {alice}/groups/testgrp/posts/article1
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "groups/testgrp/posts/article1": { "title": "Test Article" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Content creation should succeed: {:?}", result.failures());
+    
+    let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
+    let group_events = find_events_by_type(&logs, "GROUP_UPDATE");
+    
+    assert!(!group_events.is_empty(), "Should emit GROUP_UPDATE event");
+    
+    // Find the create event (not the meta event)
+    let create_event = group_events.iter()
+        .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("create"))
+        .expect("Should have create operation event");
+    
+    // Verify derived fields from derived_fields_from_path()
+    let id = get_extra_str(create_event, "id");
+    let typ = get_extra_str(create_event, "type");
+    let group_id = get_extra_str(create_event, "group_id");
+    let group_path = get_extra_str(create_event, "group_path");
+    let is_group_content = get_extra_bool_val(create_event, "is_group_content");
+    
+    println!("   id: {:?}", id);
+    println!("   type: {:?}", typ);
+    println!("   group_id: {:?}", group_id);
+    println!("   group_path: {:?}", group_path);
+    println!("   is_group_content: {:?}", is_group_content);
+    
+    // Path stored: {alice}/groups/testgrp/posts/article1
+    // Expected derived fields:
+    assert_eq!(id.as_deref(), Some("article1"), "id should be last path segment");
+    assert_eq!(typ.as_deref(), Some("posts"), "type should be collection segment");
+    assert_eq!(group_id.as_deref(), Some("testgrp"), "group_id should be extracted");
+    assert_eq!(group_path.as_deref(), Some("posts/article1"), "group_path should be relative path within group");
+    assert_eq!(is_group_content, Some(true), "is_group_content should be true");
+    
+    // Verify block context from insert_block_context()
+    let block_height = get_extra_u64(create_event, "block_height");
+    let block_timestamp = get_extra_u64(create_event, "block_timestamp");
+    
+    println!("   block_height: {:?}", block_height);
+    println!("   block_timestamp: {:?}", block_timestamp);
+    
+    assert!(block_height.is_some(), "block_height should be present");
+    assert!(block_height.unwrap() > 0, "block_height should be positive");
+    assert!(block_timestamp.is_some(), "block_timestamp should be present");
+    assert!(block_timestamp.unwrap() > 0, "block_timestamp should be positive");
+    
+    println!("✅ Event derived fields for group content are correct");
+    Ok(())
+}
+
+/// Tests that DATA_UPDATE events for non-group paths contain correct derived fields:
+/// - id: last path segment
+/// - type: collection segment
+/// - No group_id, group_path, is_group_content fields
+#[tokio::test]
+async fn test_event_derived_fields_for_non_group_data() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Derived Fields for Non-Group Data ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    // Write non-group data: profile/settings
+    // Stored at: {alice}/profile/settings
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/settings": { "theme": "dark" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Data write should succeed: {:?}", result.failures());
+    
+    let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
+    let data_events = find_events_by_type(&logs, "DATA_UPDATE");
+    
+    assert!(!data_events.is_empty(), "Should emit DATA_UPDATE event");
+    
+    let set_event = data_events.iter()
+        .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("set"))
+        .expect("Should have set operation event");
+    
+    // Verify derived fields
+    let id = get_extra_str(set_event, "id");
+    let typ = get_extra_str(set_event, "type");
+    let group_id = get_extra_str(set_event, "group_id");
+    let is_group_content = get_extra_bool_val(set_event, "is_group_content");
+    
+    println!("   id: {:?}", id);
+    println!("   type: {:?}", typ);
+    println!("   group_id: {:?}", group_id);
+    println!("   is_group_content: {:?}", is_group_content);
+    
+    // Path: {alice}/profile/settings
+    // Expected: id=settings, type=profile, no group fields
+    assert_eq!(id.as_deref(), Some("settings"), "id should be last path segment");
+    assert_eq!(typ.as_deref(), Some("profile"), "type should be collection segment");
+    assert!(group_id.is_none(), "group_id should NOT be present for non-group paths");
+    assert!(is_group_content.is_none(), "is_group_content should NOT be present for non-group paths");
+    
+    // Verify block context
+    let block_height = get_extra_u64(set_event, "block_height");
+    let block_timestamp = get_extra_u64(set_event, "block_timestamp");
+    
+    assert!(block_height.is_some() && block_height.unwrap() > 0, "block_height should be present and positive");
+    assert!(block_timestamp.is_some() && block_timestamp.unwrap() > 0, "block_timestamp should be present and positive");
+    
+    println!("✅ Event derived fields for non-group data are correct");
+    Ok(())
+}
+
+/// Tests derived fields for deeply nested group paths
+#[tokio::test]
+async fn test_event_derived_fields_deep_nested_path() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Derived Fields for Deep Nested Path ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    create_group(&contract, &alice, "deepgrp").await?;
+    
+    // Deep path: groups/deepgrp/content/posts/2024/01/10/article
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "groups/deepgrp/content/posts/2024/01/10/article": { "title": "Deep" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Deep path write should succeed: {:?}", result.failures());
+    
+    let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
+    let group_events = find_events_by_type(&logs, "GROUP_UPDATE");
+    
+    let create_event = group_events.iter()
+        .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("create"))
+        .expect("Should have create operation event");
+    
+    let id = get_extra_str(create_event, "id");
+    let typ = get_extra_str(create_event, "type");
+    let group_id = get_extra_str(create_event, "group_id");
+    let group_path = get_extra_str(create_event, "group_path");
+    
+    println!("   id: {:?}", id);
+    println!("   type: {:?}", typ);
+    println!("   group_id: {:?}", group_id);
+    println!("   group_path: {:?}", group_path);
+    
+    // Path: {alice}/groups/deepgrp/content/posts/2024/01/10/article
+    // parts[0]=alice, parts[1]=groups, parts[2]=deepgrp, parts[3]=content, ...
+    // type = parts[3] = content (account-prefixed group pattern)
+    assert_eq!(id.as_deref(), Some("article"), "id should be last segment");
+    assert_eq!(typ.as_deref(), Some("content"), "type should be parts[3] for account-prefixed group");
+    assert_eq!(group_id.as_deref(), Some("deepgrp"), "group_id should be extracted");
+    assert_eq!(group_path.as_deref(), Some("content/posts/2024/01/10/article"), "group_path should be full relative path");
+    
+    println!("✅ Event derived fields for deep nested path are correct");
+    Ok(())
+}
+
+/// Tests derived fields for group content deletion
+#[tokio::test]
+async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
+    println!("\n=== Test: Event Derived Fields on Delete ===");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+    
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    
+    create_group(&contract, &alice, "delgrp").await?;
+    
+    // Create content first
+    let _ = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "groups/delgrp/posts/todelete": { "title": "Will Delete" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    // Delete content (set to null)
+    let delete_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "groups/delgrp/posts/todelete": null
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(delete_result.is_success(), "Delete should succeed: {:?}", delete_result.failures());
+    
+    let logs: Vec<String> = delete_result.logs().iter().map(|s| s.to_string()).collect();
+    let group_events = find_events_by_type(&logs, "GROUP_UPDATE");
+    
+    let delete_event = group_events.iter()
+        .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("delete"))
+        .expect("Should have delete operation event");
+    
+    // Verify derived fields are still present on delete events
+    let id = get_extra_str(delete_event, "id");
+    let group_id = get_extra_str(delete_event, "group_id");
+    let is_group_content = get_extra_bool_val(delete_event, "is_group_content");
+    let block_height = get_extra_u64(delete_event, "block_height");
+    
+    println!("   id: {:?}", id);
+    println!("   group_id: {:?}", group_id);
+    println!("   is_group_content: {:?}", is_group_content);
+    println!("   block_height: {:?}", block_height);
+    
+    assert_eq!(id.as_deref(), Some("todelete"), "id should be present on delete");
+    assert_eq!(group_id.as_deref(), Some("delgrp"), "group_id should be present on delete");
+    assert_eq!(is_group_content, Some(true), "is_group_content should be true on delete");
+    assert!(block_height.is_some(), "block_height should be present on delete");
+    
+    println!("✅ Event derived fields on delete are correct");
+    Ok(())
+}

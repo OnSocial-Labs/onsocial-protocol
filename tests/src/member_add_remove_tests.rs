@@ -3921,3 +3921,113 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
     Ok(())
 }
 
+// =============================================================================
+// TEST: Event builder field precedence and partition_id
+// =============================================================================
+// Verifies EventBuilder behavior at integration level:
+// - Builder fields (path, target_id) are present and correct
+// - partition_id is included for data locality
+// - Structured data fields are merged correctly
+#[tokio::test]
+async fn test_event_builder_field_precedence_and_partition() -> anyhow::Result<()> {
+    println!("\n=== Test: EventBuilder field precedence and partition_id ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates a public group
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "builder_test", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success());
+    println!("   ✓ Group created");
+
+    // Bob joins
+    let join_result = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "builder_test" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(join_result.is_success());
+    println!("   ✓ Bob joined");
+
+    // Alice removes Bob - triggers remove_member event with structured_data
+    let remove_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "builder_test", "member_id": bob.id() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(remove_result.is_success(), "Remove should succeed: {:?}", remove_result.failures());
+
+    let logs = remove_result.logs();
+    let remove_events = find_events_by_operation(&logs, "remove_member");
+    assert!(!remove_events.is_empty(), "Should emit remove_member event");
+
+    let event = &remove_events[0];
+    let data = event.data.first().expect("Event should have data");
+
+    // Verify builder-set fields are present (set via with_path, with_target)
+    let path = data.extra.get("path").and_then(|v| v.as_str());
+    assert!(path.is_some(), "path field must be present");
+    assert!(
+        path.unwrap().contains("builder_test") && path.unwrap().contains("members"),
+        "path should contain group and members: got {:?}",
+        path
+    );
+    println!("   ✓ path field present and correct: {}", path.unwrap());
+
+    let target_id = data.extra.get("target_id").and_then(|v| v.as_str());
+    assert!(target_id.is_some(), "target_id field must be present");
+    assert_eq!(target_id.unwrap(), bob.id().as_str(), "target_id should be Bob");
+    println!("   ✓ target_id field present and correct: {}", target_id.unwrap());
+
+    // Verify structured_data fields merged (removed_by, is_self_removal, etc.)
+    let removed_by = data.extra.get("removed_by").and_then(|v| v.as_str());
+    assert_eq!(removed_by, Some(alice.id().as_str()), "removed_by should be Alice");
+    println!("   ✓ structured_data field 'removed_by' merged correctly");
+
+    let is_self_removal = data.extra.get("is_self_removal").and_then(|v| v.as_bool());
+    assert_eq!(is_self_removal, Some(false), "is_self_removal should be false");
+    println!("   ✓ structured_data field 'is_self_removal' merged correctly");
+
+    // Verify partition_id is present (set by EventBatch::emit via emitter)
+    // partition_id is in extra since local EventData doesn't parse it separately
+    let partition_id = data.extra.get("partition_id").and_then(|v| v.as_u64());
+    assert!(
+        partition_id.is_some(),
+        "partition_id must be present for data locality"
+    );
+    println!("   ✓ partition_id present: {}", partition_id.unwrap());
+
+    // Verify event standard and version
+    assert_eq!(event.standard, "onsocial", "standard should be 'onsocial'");
+    assert_eq!(event.version, "1.0.0", "version should be '1.0.0'");
+    println!("   ✓ Event standard={} version={}", event.standard, event.version);
+
+    println!("✅ EventBuilder field precedence and partition test passed");
+    Ok(())
+}

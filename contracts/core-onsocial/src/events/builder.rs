@@ -59,9 +59,7 @@ impl EventBuilder {
                 return self;
             }
         };
-        // Do not allow structured data to override fields already set via the builder
-        // (e.g. `path`, `value`, `target_id`). This prevents user-controlled metadata
-        // from spoofing core event fields.
+        // Builder fields take precedence to prevent user-controlled data from spoofing core fields.
         for (key, value) in map {
             self.additional_fields.entry(key).or_insert(value);
         }

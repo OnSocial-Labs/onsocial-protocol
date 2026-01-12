@@ -34,7 +34,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.86.0 \
 
 # Install cargo-near (this is the slowest step - separate for better caching)
 RUN . "$HOME/.cargo/env" \
-    && cargo install --locked --verbose cargo-near
+    && cargo install --locked --verbose cargo-near@0.17.0
 
 # Set environment variables
 ENV CARGO_HOME=/root/.cargo

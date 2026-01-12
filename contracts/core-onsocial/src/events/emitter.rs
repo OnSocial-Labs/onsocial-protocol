@@ -31,7 +31,6 @@ impl EventBatch {
             return Ok(());
         }
 
-        // Cache partition calculations for batch operations
         use std::collections::{HashMap, VecDeque};
         let mut partition_cache: HashMap<String, u16> = HashMap::new();
 
@@ -47,7 +46,6 @@ impl EventBatch {
                     .ok_or_else(|| invalid_input!("Event extra_data must be a JSON object"))?;
                 let path = extra.get("path").and_then(|v| v.as_str());
 
-                // Calculate partition based on namespace for data locality
                 let namespace_id = path
                     .and_then(|p| {
                         parse_groups_path(p)
@@ -60,7 +58,6 @@ impl EventBatch {
                     .entry(namespace_id.clone())
                     .or_insert_with(|| get_partition(&namespace_id));
 
-                // Build and emit NEP-297 event
                 let event = Event::new(&event_type, vec![EventData {
                     operation: operation.clone(),
                     author: account_id.to_string(),

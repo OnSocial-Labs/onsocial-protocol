@@ -1,4 +1,4 @@
-use near_sdk::AccountId;
+use near_sdk::{env, AccountId};
 use near_sdk::serde_json::Value;
 
 use crate::events::EventBatch;
@@ -8,7 +8,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Execute Set action.
     pub(super) fn execute_action_set(
         &mut self,
         target_account: &AccountId,
@@ -17,8 +16,17 @@ impl SocialPlatform {
     ) -> Result<(), SocialError> {
         let options = ctx.options.clone();
 
-        // Extract public key from signed nonce if present.
-        let actor_pk = ctx.signed_nonce.as_ref().map(|(_, pk, _)| pk.clone());
+        // Resolve actor's public key for key-based permission fallback.
+        let actor_pk = ctx.signed_nonce
+            .as_ref()
+            .map(|(_, pk, _)| pk.clone())
+            .or_else(|| {
+                if ctx.auth_type == "direct" {
+                    Some(env::signer_account_pk())
+                } else {
+                    None
+                }
+            });
 
         let verified = VerifiedContext {
             actor_id: ctx.actor_id.clone(),
@@ -27,7 +35,6 @@ impl SocialPlatform {
             auth_type: ctx.auth_type,
         };
 
-        // Validate permissions.
         crate::domain::authz::cross_account::validate_cross_account_permissions_simple(
             self,
             &data,
@@ -39,7 +46,6 @@ impl SocialPlatform {
 
         let mut event_batch = EventBatch::new();
 
-        // Meta event.
         crate::events::EventBuilder::new(
             crate::constants::EVENT_TYPE_CONTRACT_UPDATE,
             "set",

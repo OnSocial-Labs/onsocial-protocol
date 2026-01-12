@@ -37,19 +37,16 @@ impl SocialPlatform {
         let auth = auth.unwrap_or_default();
         let options = options.unwrap_or_default();
 
-        // Resolve actor and validate auth.
         let mut ctx = self.verify_execute_auth(&auth, target_account.as_ref(), &action, options.clone())?;
 
         // Resolve target account (defaults to actor for most actions).
         let target_account = target_account.unwrap_or_else(|| ctx.actor_id.clone());
 
-        // Dispatch to action handler.
         let result = self.dispatch_action(&action, &target_account, &mut ctx)?;
 
-        // Record nonce after successful execution (replay protection).
+        // Commit nonce for replay protection.
         self.finalize_execute_nonce(&mut ctx)?;
 
-        // Handle unused deposit.
         self.finalize_execute_deposit(&mut ctx, &options)?;
 
         Ok(result)
@@ -91,7 +88,6 @@ impl SocialPlatform {
                     crate::invalid_input!("target_account required for signed_payload")
                 })?;
 
-                // Verify signature.
                 self.verify_execute_signature(
                     "onsocial:execute:v1",
                     target,
@@ -126,7 +122,6 @@ impl SocialPlatform {
                     crate::invalid_input!("target_account required for delegate_action")
                 })?;
 
-                // Verify signature with action field.
                 self.verify_execute_signature_with_action(
                     "onsocial:execute:delegate:v1",
                     target,
@@ -154,7 +149,6 @@ impl SocialPlatform {
             Auth::Intent { actor_id, intent: _ } => {
                 let payer = Self::current_caller();
 
-                // Validate intent executor.
                 if !self.config.intents_executors.contains(&payer) {
                     return Err(crate::unauthorized!("intent_executor", payer.to_string()));
                 }
@@ -207,20 +201,16 @@ impl SocialPlatform {
         action: &Action,
         delegate_action: Option<&Value>,
     ) -> Result<(), SocialError> {
-        // Expiry check.
         let now_ms = env::block_timestamp_ms();
         if expires_at_ms.0 != 0 && now_ms > expires_at_ms.0 {
             return Err(crate::invalid_input!("Signed payload expired"));
         }
 
-        // ed25519 only.
         let pk_bytes = crate::validation::ed25519_public_key_bytes(public_key)?;
         let sig_bytes = crate::validation::ed25519_signature_bytes(signature.0.as_slice())?;
 
-        // Domain separation.
+        // Domain separation: prevents cross-contract replay.
         let domain = format!("{}:{}", domain_prefix, env::current_account_id());
-
-        // Construct signed payload.
         let action_json = near_sdk::serde_json::to_value(action)
             .map_err(|_| crate::invalid_input!("Failed to serialize action"))?;
         let action_canonical = crate::protocol::canonical_json::canonicalize_json_value(&action_json);
@@ -248,7 +238,6 @@ impl SocialPlatform {
             return Err(crate::permission_denied!("invalid signature", "execute"));
         }
 
-        // Assert nonce is fresh (replay protection).
         self.execute_assert_nonce_fresh(target_account, public_key, nonce.0)?;
 
         Ok(())
@@ -291,23 +280,28 @@ impl SocialPlatform {
         Ok(())
     }
 
-    /// Finalize deposit handling.
+    /// Finalize deposit handling with proper event emission.
     fn finalize_execute_deposit(
         &mut self,
         ctx: &mut ExecuteContext,
         options: &Options,
     ) -> Result<(), SocialError> {
         if ctx.attached_balance > 0 {
-            if options.refund_unused_deposit {
-                // Refund to deposit owner.
-                near_sdk::Promise::new(ctx.deposit_owner.clone())
-                    .transfer(near_sdk::NearToken::from_yoctonear(ctx.attached_balance))
-                    .detach();
-            } else {
-                // Credit to actor's storage balance.
-                self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            }
-            ctx.attached_balance = 0;
+            let mut event_batch = crate::events::EventBatch::new();
+            self.finalize_unused_attached_deposit(
+                &mut ctx.attached_balance,
+                &ctx.deposit_owner,
+                options.refund_unused_deposit,
+                "unused_deposit_saved",
+                &mut event_batch,
+                Some(crate::state::platform::UnusedDepositEventMeta {
+                    auth_type: ctx.auth_type,
+                    actor_id: &ctx.actor_id,
+                    payer_id: &ctx.payer_id,
+                    target_account: &ctx.actor_id,
+                }),
+            )?;
+            event_batch.emit()?;
         }
         Ok(())
     }

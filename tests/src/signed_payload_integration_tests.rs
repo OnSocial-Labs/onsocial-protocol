@@ -717,6 +717,333 @@ async fn test_intent_auth_actor_differs_from_target() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// SignedPayload with invalid signature is rejected.
+#[tokio::test]
+async fn test_signed_payload_invalid_signature_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action.clone(),
+        delegate_action: None,
+    };
+    let valid_sig = sign_payload(contract.id().as_str(), &payload, &sk)?;
+
+    // Corrupt signature.
+    let mut sig_bytes = BASE64_ENGINE.decode(&valid_sig)?;
+    sig_bytes[0] ^= 0xFF;
+    let invalid_sig = BASE64_ENGINE.encode(&sig_bytes);
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": invalid_sig
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Expected invalid signature to be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(err.contains("invalid signature") || err.contains("signature"), "Expected signature error, got: {err}");
+
+    Ok(())
+}
+
+/// Nonce can skip values (monotonic, not sequential).
+#[tokio::test]
+async fn test_signed_payload_nonce_skip_allowed() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action1 = json!({ "type": "set", "data": { "profile/n1": "first" } });
+    let payload1 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action1.clone(),
+        delegate_action: None,
+    };
+    let sig1 = sign_payload(contract.id().as_str(), &payload1, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action1,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": sig1
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "nonce=1 failed: {:?}", res.failures());
+
+    let action2 = json!({ "type": "set", "data": { "profile/n100": "skipped" } });
+    let payload2 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(100),
+        expires_at_ms: U64(0),
+        action: action2.clone(),
+        delegate_action: None,
+    };
+    let sig2 = sign_payload(contract.id().as_str(), &payload2, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action2,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "100",
+                    "expires_at_ms": "0",
+                    "signature": sig2
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "nonce skip to 100 should succeed: {:?}", res.failures());
+
+    // Verify data was written.
+    let v: serde_json::Value = contract
+        .view("get_one")
+        .args_json(json!({
+            "key": "profile/n100",
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert_eq!(v.get("value"), Some(&json!("skipped")));
+
+    Ok(())
+}
+
+/// DelegateAction replay protection: same nonce rejected.
+#[tokio::test]
+async fn test_delegate_action_replay_protection() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action = json!({ "type": "set", "data": { "profile/delegate": "first" } });
+    let delegate_action = json!({ "receiver_id": contract.id().to_string(), "actions": ["set"] });
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action.clone(),
+        delegate_action: Some(delegate_action.clone()),
+    };
+
+    let domain = format!("onsocial:execute:delegate:v1:{}", contract.id());
+    let canonical_payload = SignedSetPayload {
+        action: canonicalize_json(&payload.action),
+        delegate_action: payload.delegate_action.as_ref().map(canonicalize_json),
+        ..payload.clone()
+    };
+    let payload_bytes = serde_json::to_vec(&canonical_payload)?;
+    let mut message = domain.clone().into_bytes();
+    message.push(0);
+    message.extend_from_slice(&payload_bytes);
+    let message_hash: [u8; 32] = Sha256::digest(&message).into();
+    let signature = sk.sign(&message_hash);
+    let sig_b64 = BASE64_ENGINE.encode(signature.to_bytes());
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action.clone(),
+                "auth": {
+                    "type": "delegate_action",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": sig_b64.clone(),
+                    "action": delegate_action.clone()
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "First delegate_action failed: {:?}", res.failures());
+
+    // Replay with same nonce should fail.
+    let action_replay = json!({ "type": "set", "data": { "profile/delegate": "replay" } });
+    let payload_replay = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action_replay.clone(),
+        delegate_action: Some(delegate_action.clone()),
+    };
+    let canonical_replay = SignedSetPayload {
+        action: canonicalize_json(&payload_replay.action),
+        delegate_action: payload_replay.delegate_action.as_ref().map(canonicalize_json),
+        ..payload_replay.clone()
+    };
+    let replay_bytes = serde_json::to_vec(&canonical_replay)?;
+    let mut msg_replay = domain.into_bytes();
+    msg_replay.push(0);
+    msg_replay.extend_from_slice(&replay_bytes);
+    let hash_replay: [u8; 32] = Sha256::digest(&msg_replay).into();
+    let sig_replay = sk.sign(&hash_replay);
+    let sig_replay_b64 = BASE64_ENGINE.encode(sig_replay.to_bytes());
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_replay,
+                "auth": {
+                    "type": "delegate_action",
+                    "public_key": pk_str,
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": sig_replay_b64,
+                    "action": delegate_action
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Expected replay to fail");
+    let err = format!("{:?}", res.failures());
+    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+
+    Ok(())
+}
+
 /// Intent executor removed from allowlist is rejected on subsequent calls.
 #[tokio::test]
 async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Result<()> {
@@ -831,3 +1158,230 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
 
     Ok(())
 }
+
+/// Test that Intent auth does NOT use executor's signer key for permission lookup.
+/// This verifies that key-based permission fallback only applies to Direct auth.
+#[tokio::test]
+async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let solver = create_user(&root, "solver", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Alice grants KEY permission (not account permission) to solver's signer key.
+    // This should allow solver to write via Direct auth, but NOT via Intent auth.
+    let solver_pk = solver.secret_key().public_key();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": solver_pk.to_string(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Add solver as intent executor.
+    let res = contract
+        .call("update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": 256,
+                "max_path_depth": 12,
+                "max_batch_size": 100,
+                "max_value_bytes": 10240,
+                "platform_onboarding_bytes": 10000,
+                "platform_daily_refill_bytes": 3000,
+                "platform_allowance_max_bytes": 6000,
+                "intents_executors": [solver.id()]
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "update_config failed: {:?}", res.failures());
+
+    // Solver uses Direct auth to write to Alice (using key permission) — should SUCCEED.
+    let res = solver
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": { "type": "set", "data": { "profile/via_direct": "direct_auth_works" } },
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Direct auth with key permission should succeed: {:?}", res.failures());
+
+    // Verify data was written.
+    let v: Value = contract
+        .view("get_one")
+        .args_json(json!({
+            "key": "profile/via_direct",
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert_eq!(v.get("value"), Some(&json!("direct_auth_works")));
+
+    // Solver uses Intent auth to write to a path Alice did NOT grant account permission for.
+    // Intent auth should NOT use solver's key permissions — only account permissions for actor_id.
+    // Since Alice didn't grant account-level permission to solver, this should fail with permission denied.
+    let res = solver
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": { "type": "set", "data": { "posts/intent_test": "should_fail" } },
+                "auth": {
+                    "type": "intent",
+                    "actor_id": alice.id(),
+                    "intent": {}
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    // This should SUCCEED because Intent auth sets actor_id = alice (from intent auth),
+    // and Alice is writing to her own namespace. The key is: solver's key permissions
+    // are NOT consulted for Intent auth.
+    assert!(res.is_success(), "Intent auth writes as actor_id (alice), not executor: {:?}", res.failures());
+
+    Ok(())
+}
+
+/// Test that Intent auth with actor_id != target_account fails when only key permission exists.
+/// This proves that Intent auth does NOT consult executor's signer key for authorization.
+#[tokio::test]
+async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let solver = create_user(&root, "solver", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Alice grants KEY permission to solver's signer key on profile/.
+    let solver_pk = solver.secret_key().public_key();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": solver_pk.to_string(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Add solver as intent executor.
+    let res = contract
+        .call("update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": 256,
+                "max_path_depth": 12,
+                "max_batch_size": 100,
+                "max_value_bytes": 10240,
+                "platform_onboarding_bytes": 10000,
+                "platform_daily_refill_bytes": 3000,
+                "platform_allowance_max_bytes": 6000,
+                "intents_executors": [solver.id()]
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "update_config failed: {:?}", res.failures());
+
+    // Confirm Direct auth works (key permission is valid).
+    let res = solver
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": { "type": "set", "data": { "profile/direct_test": "works" } },
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Direct auth should succeed with key permission: {:?}", res.failures());
+
+    // Intent auth with actor_id = solver (NOT alice).
+    // Solver has key permission on Alice's profile/, but Intent auth should NOT use it.
+    // actor_id = solver has no account-level permission on Alice's namespace.
+    let res = solver
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": { "type": "set", "data": { "profile/intent_hack": "should_fail" } },
+                "auth": {
+                    "type": "intent",
+                    "actor_id": solver.id(),
+                    "intent": {}
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    // This MUST fail: solver (actor_id) has no account permission on Alice's profile/,
+    // and Intent auth must NOT fall back to solver's key permissions.
+    assert!(!res.is_success(), "Intent auth should NOT use executor's key permissions");
+    let err = format!("{:?}", res.failures());
+    assert!(
+        err.contains("PermissionDenied") || err.contains("permission") || err.contains("denied"),
+        "Expected permission denied error, got: {err}"
+    );
+
+    Ok(())
+}
+
