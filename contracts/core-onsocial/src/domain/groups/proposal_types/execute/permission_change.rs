@@ -27,12 +27,10 @@ impl ProposalType {
     ) -> Result<(), SocialError> {
         let member_key = GroupStorage::group_member_path(group_id, target_user.as_str());
 
-        // Read existing member data to preserve joined_at, granted_by, is_creator
         let mut member_data = platform
             .storage_get(&member_key)
             .ok_or_else(|| invalid_input!("Member not found"))?;
 
-        // Update only the permission-related fields, preserving original membership data
         if let Some(obj) = member_data.as_object_mut() {
             obj.insert("level".to_string(), json!(level));
             obj.insert("updated_at".to_string(), Value::String(env::block_timestamp().to_string()));
@@ -46,7 +44,6 @@ impl ProposalType {
 
         let mut event_batch = EventBatch::new();
 
-        // Apply the global (group-root) permission change.
         let group_root_path = format!("groups/{}", group_id);
         if level == 0 {
             kv_permissions::revoke_permissions(platform, executor, target_user, &group_root_path, &mut event_batch)?;
@@ -63,13 +60,13 @@ impl ProposalType {
             )?;
         }
 
-        // Emit event
+
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "permission_changed", executor.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(target_user)
             .with_field("level", level)
-            .with_field("reason", reason)
+            .with_field("reason", reason.unwrap_or(""))
             .with_path(&member_key)
             .with_value(member_data)
             .emit(&mut event_batch);
@@ -83,14 +80,13 @@ impl ProposalType {
         proposal_id: &str,
         data: PathPermissionGrantData,
     ) -> Result<(), SocialError> {
-        // Get the group owner (permissions are granted by the group owner, not the group_id)
+        // Granter must be group owner for KV permission keys
         let config = GroupStorage::get_group_config(ctx.platform, ctx.group_id)
             .ok_or_else(|| invalid_input!("Group not found"))?;
         let group_owner: AccountId = GroupConfig::try_from_value(&config)?.owner;
 
         let mut event_batch = EventBatch::new();
 
-        // Grant the path permission using the KV permissions system (with group owner as granter)
         kv_permissions::grant_permissions(
             ctx.platform,
             &group_owner,
@@ -102,7 +98,6 @@ impl ProposalType {
             None,
         )?;
 
-        // Emit event
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_granted", ctx.executor.clone())
             .with_field("group_id", ctx.group_id)
             .with_field("proposal_id", proposal_id)
@@ -125,17 +120,15 @@ impl ProposalType {
         reason: &str,
         executor: &AccountId,
     ) -> Result<(), SocialError> {
-        // Get the group owner (permissions are revoked by the group owner, not the group_id)
+        // Revoker must be group owner for KV permission keys
         let config = GroupStorage::get_group_config(platform, group_id)
             .ok_or_else(|| invalid_input!("Group not found"))?;
         let group_owner: AccountId = GroupConfig::try_from_value(&config)?.owner;
 
         let mut event_batch = EventBatch::new();
 
-        // Revoke the path permission using the KV permissions system (with group owner as revoker)
         kv_permissions::revoke_permissions(platform, &group_owner, target_user, path, &mut event_batch)?;
 
-        // Emit event
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_revoked", executor.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
