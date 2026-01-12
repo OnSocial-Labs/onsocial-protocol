@@ -4,12 +4,9 @@ use crate::SocialError;
 use crate::state::models::SocialPlatform;
 
 impl SocialPlatform {
-    /// Join a group.
-    ///
-    /// Clean join semantics: joining never grants a global role. All joins start as
-    /// member-only (`NONE`), while the contract grants default channel access separately.
-    /// Additional roles/permissions must be granted explicitly after joining.
+    /// New members join with permission level `NONE`; elevated roles must be granted separately.
     pub fn join_group(&mut self, group_id: String, caller: &AccountId) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::routing::route_group_operation(
             self,
             &group_id,
@@ -38,13 +35,13 @@ impl SocialPlatform {
         )
     }
 
-    /// Leave a group (removes caller from group)
+    /// Self-exit is always permitted, even in member-driven groups.
     pub fn leave_group(&mut self, group_id: String, caller: &AccountId) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::core::GroupStorage::remove_member(self, &group_id, caller, caller)
     }
 
-    /// Approve a join request.
-    /// Members always join with level=NONE (0); elevated roles must be granted after joining.
+    /// Approved members join with level `NONE`.
     pub fn approve_join_request(
         &mut self,
         group_id: String,
@@ -60,7 +57,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Reject a join request.
     pub fn reject_join_request(
         &mut self,
         group_id: String,
@@ -78,7 +74,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Cancel your own join request.
     pub fn cancel_join_request(
         &mut self,
         group_id: String,

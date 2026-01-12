@@ -4031,3 +4031,438 @@ async fn test_event_builder_field_precedence_and_partition() -> anyhow::Result<(
     println!("✅ EventBuilder field precedence and partition test passed");
     Ok(())
 }
+
+// =============================================================================
+// TEST: create_group rejects non-object config
+// =============================================================================
+// Covers: admin.rs L18-20 - Config validation must reject array/null/string
+#[tokio::test]
+async fn test_create_group_rejects_non_object_config() -> anyhow::Result<()> {
+    println!("\n=== Test: create_group rejects non-object config ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Test 1: Array config should fail
+    let array_config = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "array_config_test", "config": ["invalid", "array"] }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!array_config.is_success(), "Array config should be rejected");
+    let err = format!("{:?}", array_config.failures());
+    assert!(
+        err.contains("JSON object") || err.contains("must be") || err.contains("Config"),
+        "Error should mention config must be object: {}", err
+    );
+    println!("   ✓ Array config rejected");
+
+    // Test 2: Null config should fail
+    let null_config = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "null_config_test", "config": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!null_config.is_success(), "Null config should be rejected");
+    println!("   ✓ Null config rejected");
+
+    // Test 3: String config should fail
+    let string_config = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "string_config_test", "config": "not_an_object" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!string_config.is_success(), "String config should be rejected");
+    println!("   ✓ String config rejected");
+
+    // Test 4: Valid object config should succeed
+    let valid_config = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "valid_config_test", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(valid_config.is_success(), "Valid object config should succeed: {:?}", valid_config.failures());
+    println!("   ✓ Valid object config accepted");
+
+    println!("✅ create_group config validation test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: create_group validates group_id format
+// =============================================================================
+// Covers: admin.rs L17 -> validation/group.rs - Group ID validation edge cases
+#[tokio::test]
+async fn test_create_group_validates_group_id_format() -> anyhow::Result<()> {
+    println!("\n=== Test: create_group validates group_id format ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Test 1: Group ID > 64 chars should fail
+    let long_id = "a".repeat(65);
+    let long_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": long_id, "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!long_result.is_success(), "Group ID > 64 chars should be rejected");
+    let err = format!("{:?}", long_result.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length: {}", err
+    );
+    println!("   ✓ Group ID > 64 chars rejected");
+
+    // Test 2: Group ID with special characters should fail
+    let special_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "invalid@group#id", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!special_result.is_success(), "Special characters should be rejected");
+    let err = format!("{:?}", special_result.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("underscores") || err.contains("hyphens") || err.contains("Group ID"),
+        "Error should mention allowed characters: {}", err
+    );
+    println!("   ✓ Special characters rejected");
+
+    // Test 3: Valid group IDs (alphanumeric, underscore, hyphen) should succeed
+    let valid_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "valid_group-123", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(valid_result.is_success(), "Valid group ID should succeed: {:?}", valid_result.failures());
+    println!("   ✓ Valid group ID accepted");
+
+    println!("✅ create_group group_id validation test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: transfer_group_ownership to non-member fails
+// =============================================================================
+// Covers: ownership.rs L64 - New owner must be a member of the group
+#[tokio::test]
+async fn test_transfer_ownership_to_non_member_fails() -> anyhow::Result<()> {
+    println!("\n=== Test: transfer_group_ownership to non-member fails ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates a group
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "transfer_non_member_test", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+    println!("   ✓ Group created");
+
+    // Bob is NOT a member - verify
+    let is_bob_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "transfer_non_member_test",
+            "member_id": bob.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_bob_member, "Bob should NOT be a member");
+    println!("   ✓ Bob is not a member");
+
+    // Alice tries to transfer ownership to non-member Bob - should fail
+    let transfer_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "transfer_non_member_test", "new_owner": bob.id().to_string(), "remove_old_owner": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!transfer_result.is_success(), "Transfer to non-member should fail");
+    let err = format!("{:?}", transfer_result.failures());
+    assert!(
+        err.contains("must be a member") || err.contains("New owner"),
+        "Error should indicate new owner must be member: {}", err
+    );
+    println!("   ✓ Transfer to non-member correctly rejected");
+
+    // Verify Alice is still owner
+    let is_alice_owner: bool = contract
+        .view("is_group_owner")
+        .args_json(json!({
+            "group_id": "transfer_non_member_test",
+            "user_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_alice_owner, "Alice should still be owner");
+    println!("   ✓ Alice remains owner");
+
+    // Now Bob joins, and transfer should succeed
+    let bob_join = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "transfer_non_member_test" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(bob_join.is_success(), "Bob join should succeed");
+    println!("   ✓ Bob joined group");
+
+    let transfer_success = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "transfer_non_member_test", "new_owner": bob.id().to_string(), "remove_old_owner": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(transfer_success.is_success(), "Transfer to member should succeed: {:?}", transfer_success.failures());
+
+    // Verify Bob is now owner
+    let is_bob_owner: bool = contract
+        .view("is_group_owner")
+        .args_json(json!({
+            "group_id": "transfer_non_member_test",
+            "user_id": bob.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_bob_owner, "Bob should now be owner");
+    println!("   ✓ Transfer to member succeeded, Bob is now owner");
+
+    println!("✅ transfer_group_ownership to non-member test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: join_group and leave_group validate group_id format
+// =============================================================================
+// Covers: joins.rs L13, L44 - validate_group_id() must be called
+// This test would FAIL on pre-fix code where validation was missing
+#[tokio::test]
+async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()> {
+    println!("\n=== Test: join_group and leave_group validate group_id format ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // First create a valid group so alice is a member somewhere
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "valid_group", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+
+    // =========================================================================
+    // TEST 1: join_group with empty group_id should fail with validation error
+    // =========================================================================
+    println!("\n📦 TEST 1: join_group with empty group_id...");
+
+    let join_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!join_empty.is_success(), "join_group with empty group_id should fail");
+    let err = format!("{:?}", join_empty.failures());
+    // Must fail with validation error, NOT "Group not found"
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention group_id format validation, got: {}", err
+    );
+    println!("   ✓ join_group with empty group_id rejected with validation error");
+
+    // =========================================================================
+    // TEST 2: join_group with special characters should fail with validation error
+    // =========================================================================
+    println!("\n📦 TEST 2: join_group with special characters...");
+
+    let join_special = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "bad@group#id" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!join_special.is_success(), "join_group with special chars should fail");
+    let err = format!("{:?}", join_special.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("underscores") || err.contains("hyphens") || err.contains("Group ID"),
+        "Error should mention allowed characters, got: {}", err
+    );
+    println!("   ✓ join_group with special characters rejected with validation error");
+
+    // =========================================================================
+    // TEST 3: leave_group with empty group_id should fail with validation error
+    // =========================================================================
+    println!("\n📦 TEST 3: leave_group with empty group_id...");
+
+    let leave_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "" }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!leave_empty.is_success(), "leave_group with empty group_id should fail");
+    let err = format!("{:?}", leave_empty.failures());
+    // Must fail with validation error, NOT "Member not found"
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention group_id format validation (not 'Member not found'), got: {}", err
+    );
+    println!("   ✓ leave_group with empty group_id rejected with validation error");
+
+    // =========================================================================
+    // TEST 4: leave_group with special characters should fail with validation error
+    // =========================================================================
+    println!("\n📦 TEST 4: leave_group with special characters...");
+
+    let leave_special = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "../path/traversal" }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!leave_special.is_success(), "leave_group with special chars should fail");
+    let err = format!("{:?}", leave_special.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("underscores") || err.contains("hyphens") || err.contains("Group ID"),
+        "Error should mention allowed characters (not 'Member not found'), got: {}", err
+    );
+    println!("   ✓ leave_group with special characters rejected with validation error");
+
+    // =========================================================================
+    // TEST 5: join_group with oversized group_id should fail
+    // =========================================================================
+    println!("\n📦 TEST 5: join_group with group_id > 64 chars...");
+
+    let long_id = "a".repeat(65);
+    let join_long = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": long_id }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!join_long.is_success(), "join_group with oversized group_id should fail");
+    let err = format!("{:?}", join_long.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length validation, got: {}", err
+    );
+    println!("   ✓ join_group with oversized group_id rejected");
+
+    println!("\n✅ join_group and leave_group group_id validation test passed");
+    Ok(())
+}

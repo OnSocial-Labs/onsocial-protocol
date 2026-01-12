@@ -7,7 +7,6 @@ use crate::{invalid_input, SocialError};
 use crate::state::models::SocialPlatform;
 
 impl SocialPlatform {
-    /// Create a new group.
     pub fn create_group(
         &mut self,
         group_id: String,
@@ -23,7 +22,6 @@ impl SocialPlatform {
         crate::domain::groups::core::GroupStorage::create_group(self, &group_id, caller, config)
     }
 
-    /// Remove a member from a group.
     pub fn remove_group_member(
         &mut self,
         group_id: String,
@@ -62,7 +60,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Add a user to the group blacklist.
     pub fn blacklist_group_member(
         &mut self,
         group_id: String,
@@ -101,7 +98,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Remove a user from the group blacklist.
     pub fn unblacklist_group_member(
         &mut self,
         group_id: String,
@@ -140,7 +136,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Transfer group ownership.
     pub fn transfer_group_ownership(
         &mut self,
         group_id: String,
