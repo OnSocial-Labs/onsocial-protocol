@@ -15450,3 +15450,308 @@ async fn test_valid_operation_keys_work() -> anyhow::Result<()> {
     println!("✅ Valid operation keys work test passed");
     Ok(())
 }
+
+// =============================================================================
+// DISPATCH RETURN VALUE TESTS
+// =============================================================================
+
+/// Test: execute() returns the correct values per action type.
+/// 
+/// Validates the dispatch.rs return value semantics:
+/// - Void operations return null
+/// - CreateGroup returns the group_id string
+/// - CreateProposal returns the proposal_id string
+#[tokio::test]
+async fn test_dispatch_return_values() -> anyhow::Result<()> {
+    println!("\n=== Test: Dispatch Return Values ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // 1. CreateGroup should return group_id string
+    println!("\n📦 TEST: CreateGroup returns group_id...");
+    let create_group_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_group",
+                    "group_id": "return-test-group",
+                    "config": { "is_private": false }
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(create_group_result.is_success(), "CreateGroup should succeed");
+    let create_group_return: Value = create_group_result.json()?;
+    assert_eq!(
+        create_group_return,
+        json!("return-test-group"),
+        "CreateGroup must return the group_id string"
+    );
+    println!("   ✓ CreateGroup returned: {:?}", create_group_return);
+
+    // 2. JoinGroup (void) should return null
+    println!("\n📦 TEST: JoinGroup returns null...");
+    let join_result = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "return-test-group" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(join_result.is_success(), "JoinGroup should succeed");
+    let join_return: Value = join_result.json()?;
+    assert!(join_return.is_null(), "JoinGroup must return null, got: {:?}", join_return);
+    println!("   ✓ JoinGroup returned null");
+
+    // 3. SetPermission (void) should return null
+    println!("\n📦 TEST: SetPermission returns null...");
+    let perm_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "set_permission",
+                    "grantee": bob.id(),
+                    "path": "groups/return-test-group/content/",
+                    "level": 1,
+                    "expires_at": null
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(perm_result.is_success(), "SetPermission should succeed");
+    let perm_return: Value = perm_result.json()?;
+    assert!(perm_return.is_null(), "SetPermission must return null, got: {:?}", perm_return);
+    println!("   ✓ SetPermission returned null");
+
+    // 4. CreateProposal should return proposal_id string
+    println!("\n📦 TEST: CreateProposal returns proposal_id...");
+
+    // Create member-driven group for proposal test
+    let md_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_group",
+                    "group_id": "proposal-return-test",
+                    "config": { "member_driven": true, "is_private": true }
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(md_result.is_success(), "Member-driven group creation should succeed");
+
+    // CreateProposal - requires 0.1 NEAR minimum deposit
+    let proposal_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "proposal-return-test",
+                    "proposal_type": "custom_proposal",
+                    "changes": {
+                        "title": "Test Proposal",
+                        "description": "Testing return value"
+                    },
+                    "auto_vote": false
+                }
+            }
+        }))
+        .deposit(NearToken::from_millinear(200)) // 0.2 NEAR > 0.1 NEAR minimum
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(proposal_result.is_success(), "CreateProposal should succeed: {:?}", proposal_result.failures());
+    let proposal_return: Value = proposal_result.json()?;
+    assert!(
+        proposal_return.is_string(),
+        "CreateProposal must return a proposal_id string, got: {:?}",
+        proposal_return
+    );
+    let proposal_id = proposal_return.as_str().unwrap();
+    assert!(!proposal_id.is_empty(), "proposal_id should not be empty");
+    println!("   ✓ CreateProposal returned proposal_id: {}", proposal_id);
+
+    // 5. LeaveGroup (void) should return null
+    println!("\n📦 TEST: LeaveGroup returns null...");
+    let leave_result = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "leave_group", "group_id": "return-test-group" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(leave_result.is_success(), "LeaveGroup should succeed");
+    let leave_return: Value = leave_result.json()?;
+    assert!(leave_return.is_null(), "LeaveGroup must return null, got: {:?}", leave_return);
+    println!("   ✓ LeaveGroup returned null");
+
+    println!("\n✅ Dispatch return values test passed");
+    Ok(())
+}
+
+/// Test: Set action returns null (void operation).
+#[tokio::test]
+async fn test_dispatch_set_returns_null() -> anyhow::Result<()> {
+    println!("\n=== Test: Set Action Returns Null ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    let set_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "set",
+                    "data": { "profile/name": "Alice" }
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(set_result.is_success(), "Set should succeed");
+    let set_return: Value = set_result.json()?;
+    assert!(set_return.is_null(), "Set must return null, got: {:?}", set_return);
+    println!("   ✓ Set returned null");
+
+    println!("✅ Set returns null test passed");
+    Ok(())
+}
+
+/// Test: VoteOnProposal returns null (void operation).
+#[tokio::test]
+async fn test_dispatch_vote_returns_null() -> anyhow::Result<()> {
+    println!("\n=== Test: VoteOnProposal Returns Null ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_group",
+                    "group_id": "vote-return-test",
+                    "config": { "member_driven": true, "is_private": true }
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success());
+
+    // Add bob as member via governance proposal
+    let invite_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "vote-return-test",
+                    "proposal_type": "member_invite",
+                    "changes": { "target_user": bob.id() },
+                    "auto_vote": true
+                }
+            }
+        }))
+        .deposit(NearToken::from_millinear(200))
+        .gas(near_workspaces::types::Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(invite_result.is_success(), "Invite proposal should succeed: {:?}", invite_result.failures());
+
+    // Create a new proposal for bob to vote on
+    let proposal_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "vote-return-test",
+                    "proposal_type": "custom_proposal",
+                    "changes": {
+                        "title": "Vote Test",
+                        "description": "Testing vote return value"
+                    },
+                    "auto_vote": false
+                }
+            }
+        }))
+        .deposit(NearToken::from_millinear(200))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(proposal_result.is_success());
+    let proposal_id: String = proposal_result.json()?;
+
+    // Bob votes
+    let vote_result = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "vote_on_proposal",
+                    "group_id": "vote-return-test",
+                    "proposal_id": proposal_id,
+                    "approve": true
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(vote_result.is_success(), "Vote should succeed: {:?}", vote_result.failures());
+    let vote_return: Value = vote_result.json()?;
+    assert!(vote_return.is_null(), "VoteOnProposal must return null, got: {:?}", vote_return);
+    println!("   ✓ VoteOnProposal returned null");
+
+    println!("✅ VoteOnProposal returns null test passed");
+    Ok(())
+}

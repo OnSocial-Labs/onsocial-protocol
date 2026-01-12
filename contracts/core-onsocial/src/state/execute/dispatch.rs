@@ -20,17 +20,11 @@ impl SocialPlatform {
         ctx: &mut ExecuteContext,
     ) -> Result<Value, SocialError> {
         match action {
-            // ─────────────────────────────────────────────────────────
-            // KV Operations
-            // ─────────────────────────────────────────────────────────
             Action::Set { data } => {
                 self.execute_action_set(target_account, data.clone(), ctx)?;
                 Ok(Value::Null)
             }
 
-            // ─────────────────────────────────────────────────────────
-            // Group Lifecycle
-            // ─────────────────────────────────────────────────────────
             Action::CreateGroup { group_id, config } => {
                 self.execute_action_create_group(group_id, config.clone(), ctx)?;
                 Ok(json!(group_id))
@@ -46,9 +40,6 @@ impl SocialPlatform {
                 Ok(Value::Null)
             }
 
-            // ─────────────────────────────────────────────────────────
-            // Group Membership
-            // ─────────────────────────────────────────────────────────
             Action::AddGroupMember { group_id, member_id } => {
                 self.execute_action_add_member(group_id, member_id, ctx)?;
                 Ok(Value::Null)
@@ -84,9 +75,6 @@ impl SocialPlatform {
                 Ok(Value::Null)
             }
 
-            // ─────────────────────────────────────────────────────────
-            // Group Governance
-            // ─────────────────────────────────────────────────────────
             Action::TransferGroupOwnership { group_id, new_owner, remove_old_owner } => {
                 self.execute_action_transfer_ownership(group_id, new_owner, *remove_old_owner, ctx)?;
                 Ok(Value::Null)
@@ -114,9 +102,6 @@ impl SocialPlatform {
                 Ok(Value::Null)
             }
 
-            // ─────────────────────────────────────────────────────────
-            // Permission Operations
-            // ─────────────────────────────────────────────────────────
             Action::SetPermission { grantee, path, level, expires_at } => {
                 self.execute_action_set_permission(grantee, path, *level, *expires_at, ctx)?;
                 Ok(Value::Null)
