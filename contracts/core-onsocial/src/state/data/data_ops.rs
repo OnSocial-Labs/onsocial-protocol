@@ -35,7 +35,6 @@ impl SocialPlatform {
         data_ctx: &DataOperationContext,
         ctx: &mut OperationContext,
     ) -> Result<(), SocialError> {
-        // Group paths are handled by GroupContentManager.
         if crate::storage::utils::extract_group_id_from_path(data_ctx.full_path).is_some() {
             match crate::domain::groups::GroupContentManager::create_group_content(
                 self,
@@ -68,7 +67,6 @@ impl SocialPlatform {
         };
 
         if data_ctx.value.is_null() {
-            // Soft delete for storage release.
             let deleted = if let Some(entry) = self.get_entry(data_ctx.full_path) {
                 crate::storage::soft_delete_entry(self, data_ctx.full_path, entry)?
             } else {
@@ -91,7 +89,6 @@ impl SocialPlatform {
                 builder.emit(ctx.event_batch);
             }
         } else {
-            // Emit "set" event for non-null values.
             let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
             crate::events::insert_block_context(&mut extra);
             let mut builder = crate::events::EventBuilder::new(
@@ -195,8 +192,6 @@ impl SocialPlatform {
                 .with_field("previous_balance", previous_balance.to_string())
                 .with_field("new_balance", new_balance.to_string())
                 .emit(ctx.event_batch);
-            } else if !(already_sponsored || has_shared || has_personal_balance) {
-                // No-op: no pool sponsorship, no attached deposit, no existing coverage.
             }
 
             ctx.processed_accounts.insert(account_id.clone());

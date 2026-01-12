@@ -15871,3 +15871,375 @@ async fn test_non_group_double_delete_is_idempotent() -> anyhow::Result<()> {
     println!("✅ Non-group double delete is idempotent test passed");
     Ok(())
 }
+
+// =============================================================================
+// DATA_OPS VALIDATION EDGE CASES (data_ops.rs coverage)
+// =============================================================================
+
+/// Tests that JSON objects with empty string keys are rejected.
+/// Covers: validate_json_value_simple() in validation/json.rs
+#[tokio::test]
+async fn test_json_with_empty_object_key_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: JSON With Empty Object Key Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Attempt to set a value containing an object with an empty key
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/settings": { "": "value_with_empty_key" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_failure(),
+        "Setting JSON with empty object key should fail"
+    );
+
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("Invalid JSON") || failure_msg.contains("invalid"),
+        "Error should mention invalid JSON, got: {}",
+        failure_msg
+    );
+
+    println!("   ✓ JSON with empty object key correctly rejected");
+    println!("✅ JSON with empty object key rejected test passed");
+    Ok(())
+}
+
+/// Tests that data payloads exceeding max_value_bytes (10KB default) are rejected.
+/// Covers: serialize_json_with_max_len() in data_ops.rs
+#[tokio::test]
+async fn test_data_value_payload_too_large_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Data Value Payload Too Large Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create a value larger than 10KB (default max_value_bytes)
+    let large_value = "x".repeat(15 * 1024); // 15KB
+
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "posts/large": large_value
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_failure(),
+        "Setting value larger than max_value_bytes should fail"
+    );
+
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("too large") || failure_msg.contains("payload"),
+        "Error should mention payload too large, got: {}",
+        failure_msg
+    );
+
+    println!("   ✓ Payload exceeding 10KB correctly rejected");
+    println!("✅ Data value payload too large rejected test passed");
+    Ok(())
+}
+
+/// Tests that first write for an account with available platform pool triggers:
+/// 1. platform_sponsored = true on the account
+/// 2. platform_sponsor event emission
+/// Covers: handle_api_data_operation() sponsorship logic in data_ops.rs
+#[tokio::test]
+async fn test_first_write_emits_platform_sponsor_event() -> anyhow::Result<()> {
+    println!("\n=== Test: First Write Emits Platform Sponsor Event ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Fund the platform pool using execute API (manager = contract deployer account)
+    let fund_result = contract
+        .call("execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(5))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(fund_result.is_success(), "Platform pool funding should succeed: {:?}", fund_result.failures());
+    println!("   ✓ Platform pool funded with 5 NEAR");
+
+    // Create a fresh user with no prior storage
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Verify bob has no storage yet
+    let storage_before: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": bob.id().to_string() }))
+        .await?
+        .json()?;
+    assert!(
+        storage_before.is_null() || storage_before.get("platform_sponsored").and_then(|v| v.as_bool()) != Some(true),
+        "Bob should not be platform_sponsored before first write"
+    );
+
+    // First write (with 0 deposit to ensure platform sponsorship path is taken)
+    let set_result = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/name": "Bob"
+                } }
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(set_result.is_success(), "First write should succeed with platform sponsorship");
+
+    // Check for platform_sponsor event
+    let sponsor_events = find_events_by_operation(&set_result.logs(), "platform_sponsor");
+    assert_eq!(
+        sponsor_events.len(),
+        1,
+        "First write must emit exactly 1 platform_sponsor event, got {}",
+        sponsor_events.len()
+    );
+    println!("   ✓ platform_sponsor event emitted");
+
+    // Verify the event structure
+    let event = &sponsor_events[0];
+    assert!(verify_event_base(event, "onsocial", "1.0.0"), "Event should have correct standard/version");
+    assert!(verify_event_author(event, &bob.id().to_string()), "Event author should be bob");
+    println!("   ✓ Event author and metadata verified");
+
+    // Verify bob is now platform_sponsored
+    let storage_after: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": bob.id().to_string() }))
+        .await?
+        .json()?;
+    let is_sponsored = storage_after
+        .get("platform_sponsored")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    assert!(is_sponsored, "Bob should be platform_sponsored after first write");
+    println!("   ✓ platform_sponsored = true");
+
+    println!("✅ First write emits platform sponsor event test passed");
+    Ok(())
+}
+
+/// Tests that when platform pool is empty and user has no coverage,
+/// attached deposit is used and attached_deposit event is emitted.
+/// Covers: handle_api_data_operation() deposit fallback in data_ops.rs
+#[tokio::test]
+async fn test_attached_deposit_fallback_emits_event() -> anyhow::Result<()> {
+    println!("\n=== Test: Attached Deposit Fallback Emits Event ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Do NOT fund the platform pool - force deposit fallback
+
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Verify charlie has no storage coverage
+    let storage_before: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": charlie.id().to_string() }))
+        .await?
+        .json()?;
+    assert!(
+        storage_before.is_null(),
+        "Charlie should have no storage record before first write"
+    );
+
+    // First write with attached deposit
+    let set_result = charlie
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/name": "Charlie"
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(set_result.is_success(), "First write with deposit should succeed");
+
+    // Check for attached_deposit event
+    let deposit_events = find_events_by_operation(&set_result.logs(), "attached_deposit");
+    assert_eq!(
+        deposit_events.len(),
+        1,
+        "First write must emit exactly 1 attached_deposit event, got {}",
+        deposit_events.len()
+    );
+    println!("   ✓ attached_deposit event emitted");
+
+    // Verify the event structure
+    let event = &deposit_events[0];
+    assert!(verify_event_base(event, "onsocial", "1.0.0"), "Event should have correct standard/version");
+    assert!(verify_event_author(event, &charlie.id().to_string()), "Event author should be charlie");
+
+    // Verify amount field is present
+    let amount = get_extra_string(event, "amount");
+    assert!(amount.is_some(), "attached_deposit event should have amount field");
+    println!("   ✓ Event includes amount: {}", amount.unwrap());
+
+    // Verify charlie now has a storage record (balance may be partially consumed for the write)
+    let storage_after: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": charlie.id().to_string() }))
+        .await?
+        .json()?;
+    assert!(
+        !storage_after.is_null(),
+        "Charlie should have storage record after deposit"
+    );
+    println!("   ✓ Storage record created: {:?}", storage_after);
+
+    println!("✅ Attached deposit fallback emits event test passed");
+    Ok(())
+}
+
+/// Tests that subsequent writes by an already-sponsored user do NOT emit
+/// duplicate platform_sponsor events (processed_accounts deduplication).
+/// Covers: handle_api_data_operation() dedup logic in data_ops.rs (L142-145)
+#[tokio::test]
+async fn test_second_write_does_not_emit_sponsor_event() -> anyhow::Result<()> {
+    println!("\n=== Test: Second Write Does Not Emit Sponsor Event ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Fund the platform pool
+    let fund_result = contract
+        .call("execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": NearToken::from_near(5).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(5))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(fund_result.is_success(), "Platform pool funding should succeed");
+
+    let dave = create_user(&root, "dave", TEN_NEAR).await?;
+
+    // First write - should emit platform_sponsor
+    let first_result = dave
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/name": "Dave"
+                } }
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(first_result.is_success(), "First write should succeed");
+
+    let sponsor_events_1 = find_events_by_operation(&first_result.logs(), "platform_sponsor");
+    assert_eq!(sponsor_events_1.len(), 1, "First write should emit 1 platform_sponsor event");
+    println!("   ✓ First write emitted platform_sponsor event");
+
+    // Second write - should NOT emit platform_sponsor (already sponsored)
+    let second_result = dave
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/bio": "Hello world"
+                } }
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(second_result.is_success(), "Second write should succeed");
+
+    let sponsor_events_2 = find_events_by_operation(&second_result.logs(), "platform_sponsor");
+    assert_eq!(
+        sponsor_events_2.len(),
+        0,
+        "Second write must NOT emit platform_sponsor event (already sponsored), got {}",
+        sponsor_events_2.len()
+    );
+    println!("   ✓ Second write emitted 0 platform_sponsor events");
+
+    // Verify data was written correctly
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/name", dave.id()),
+                format!("{}/profile/bio", dave.id())
+            ]
+        }))
+        .await?
+        .json()?;
+
+    let name_key = format!("{}/profile/name", dave.id());
+    let bio_key = format!("{}/profile/bio", dave.id());
+    assert_eq!(entry_value_str(&get_result, &name_key), Some("Dave"));
+    assert_eq!(entry_value_str(&get_result, &bio_key), Some("Hello world"));
+    println!("   ✓ Both writes persisted correctly");
+
+    println!("✅ Second write does not emit sponsor event test passed");
+    Ok(())
+}

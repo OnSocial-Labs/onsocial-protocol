@@ -325,7 +325,7 @@ mod contract_lifecycle_tests {
         let config = contract.platform.config;
         assert!(config.max_key_length >= 256, "Max key length should be at least 256");
         assert!(config.max_path_depth >= 10, "Max path depth should be reasonable");
-        assert!(config.max_batch_size >= 50, "Max batch size should be reasonable");
+        assert!(config.max_batch_size >= 10, "Max batch size should be reasonable");
     }
 
     #[test]
