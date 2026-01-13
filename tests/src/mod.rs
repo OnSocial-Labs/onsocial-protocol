@@ -1,4 +1,6 @@
 #[cfg(test)]
+pub mod actions_group_tests;
+#[cfg(test)]
 pub mod core_onsocial_tests;
 #[cfg(test)]
 pub mod cross_contract_tests;
