@@ -102,7 +102,7 @@ test_integration() {
             ft-wrapper-onsocial|marketplace-onsocial|staking-onsocial|core-onsocial)
                 echo "Building $module in release mode for integration test..."
                 cd "$BASE_DIR/$module" || { echo -e "${ERROR}Directory $module not found${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
-                cargo build --release --target wasm32-unknown-unknown || { echo -e "${ERROR}Release build failed for $module${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                cargo near build non-reproducible-wasm || { echo -e "${ERROR}Release build failed for $module${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 ;;
             *)

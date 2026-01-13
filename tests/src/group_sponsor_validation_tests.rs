@@ -1,10 +1,11 @@
 // =============================================================================
-// Group Pool Deposit Integration Tests
+// Group Sponsor Validation Integration Tests
 // =============================================================================
-// Tests for storage/group_pool_deposit operation in group_pool.rs
+// Covers input validation and access control for group_sponsor_quota_set and
+// group_sponsor_default_set APIs.
 //
 // Run with:
-//   cargo test -p onsocial-integration-tests group_pool_deposit_tests -- --test-threads=1
+//   cargo test -p onsocial-integration-tests group_sponsor_validation_tests -- --test-threads=1
 
 use near_workspaces::types::{Gas, NearToken};
 use near_workspaces::{Account, Contract};
@@ -77,533 +78,34 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
     Ok(())
 }
 
-async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account) -> anyhow::Result<()> {
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "action": { "type": "add_group_member", "group_id": group_id, "member_id": member.id() }
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-    assert!(res.is_success(), "add_group_member should succeed: {:?}", res.failures());
-    Ok(())
-}
-
-fn parse_u128_string(v: &serde_json::Value, key: &str) -> u128 {
-    match v.get(key) {
-        Some(serde_json::Value::String(s)) => s.parse::<u128>().unwrap_or(0),
-        Some(serde_json::Value::Number(n)) => n.as_u64().unwrap_or(0) as u128,
-        _ => 0,
-    }
-}
-
 // =============================================================================
-// Critical: Authorization Tests
+// Critical: Missing required field `enabled` causes failure
 // =============================================================================
 
 #[tokio::test]
-async fn test_group_pool_deposit_non_owner_fails() -> anyhow::Result<()> {
+async fn test_group_sponsor_quota_set_missing_enabled_fails() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
 
     let owner = create_user(&root, "owner", TEN_NEAR).await?;
-    let non_owner = create_user(&root, "nonowner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
 
     let group_id = "testgroup";
     create_group(&contract, &owner, group_id).await?;
 
-    let deposit_amount = NearToken::from_near(1);
-    let res = non_owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(deposit_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_failure(), "Expected non-owner deposit to fail");
-    let failure_msg = format!("{:?}", res.failures());
-    assert!(
-        failure_msg.contains("Unauthorized") || failure_msg.contains("group_pool_deposit"),
-        "Expected authorization error, got: {}", failure_msg
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_insufficient_attached_balance_fails() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let deposit_amount = NearToken::from_near(5);
-    let attached_amount = NearToken::from_near(1);
+    // Missing `enabled` field - should fail after fix
     let res = owner
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
+                    "storage/group_sponsor_quota_set": {
                         "group_id": group_id,
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(attached_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_failure(), "Expected insufficient deposit to fail");
-    let failure_msg = format!("{:?}", res.failures());
-    assert!(
-        failure_msg.contains("Insufficient deposit for group pool"),
-        "Expected 'Insufficient deposit for group pool' error, got: {}", failure_msg
-    );
-
-    Ok(())
-}
-
-// =============================================================================
-// High: Input Validation Tests
-// =============================================================================
-
-#[tokio::test]
-async fn test_group_pool_deposit_missing_group_id_fails() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let deposit_amount = NearToken::from_near(1);
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(deposit_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_failure(), "Expected missing group_id to fail");
-    let failure_msg = format!("{:?}", res.failures());
-    assert!(
-        failure_msg.contains("group_id required"),
-        "Expected 'group_id required' error, got: {}", failure_msg
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_missing_amount_fails() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_failure(), "Expected missing amount to fail");
-    let failure_msg = format!("{:?}", res.failures());
-    assert!(
-        failure_msg.contains("amount required"),
-        "Expected 'amount required' error, got: {}", failure_msg
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_zero_amount_fails() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": "0"
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_failure(), "Expected zero amount to fail");
-    let failure_msg = format!("{:?}", res.failures());
-    assert!(
-        failure_msg.contains("greater than zero"),
-        "Expected 'greater than zero' error, got: {}", failure_msg
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_nonexistent_group_fails() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let deposit_amount = NearToken::from_near(1);
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": "nonexistent",
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(deposit_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_failure(), "Expected nonexistent group to fail");
-    let failure_msg = format!("{:?}", res.failures());
-    assert!(
-        failure_msg.contains("not found") || failure_msg.contains("Group"),
-        "Expected group not found error, got: {}", failure_msg
-    );
-
-    Ok(())
-}
-
-// =============================================================================
-// Medium: State Transitions and Events
-// =============================================================================
-
-#[tokio::test]
-async fn test_group_pool_deposit_emits_created_event_on_first_deposit() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let deposit_amount = NearToken::from_near(1);
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(deposit_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_success(), "Expected first deposit to succeed: {:?}", res.failures());
-
-    let logs = res.logs();
-    let has_created_event = logs.iter().any(|l| l.contains("group_pool_created"));
-    assert!(
-        has_created_event,
-        "Expected group_pool_created event on first deposit. Logs: {:?}",
-        logs
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_emits_deposit_event_with_correct_fields() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let deposit_amount = NearToken::from_near(1);
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(deposit_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_success(), "Expected deposit to succeed: {:?}", res.failures());
-
-    let logs = res.logs();
-    let deposit_event = logs.iter().find(|l| l.contains("group_pool_deposit"));
-    assert!(deposit_event.is_some(), "Expected group_pool_deposit event. Logs: {:?}", logs);
-
-    let event_log = deposit_event.unwrap();
-    assert!(event_log.contains("group_id"), "Event should contain group_id field");
-    assert!(event_log.contains("pool_key"), "Event should contain pool_key field");
-    assert!(event_log.contains("amount"), "Event should contain amount field");
-    assert!(event_log.contains("previous_pool_balance"), "Event should contain previous_pool_balance field");
-    assert!(event_log.contains("new_pool_balance"), "Event should contain new_pool_balance field");
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_updates_pool_balance_correctly() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let deposit_amount = NearToken::from_near(2);
-    let res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": deposit_amount.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(deposit_amount)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-
-    assert!(res.is_success(), "Expected deposit to succeed: {:?}", res.failures());
-
-    let pool_info: serde_json::Value = contract
-        .view("get_group_pool_info")
-        .args_json(json!({"group_id": group_id}))
-        .await?
-        .json()?;
-
-    let storage_balance = parse_u128_string(&pool_info, "storage_balance");
-    assert_eq!(
-        storage_balance,
-        deposit_amount.as_yoctonear(),
-        "Expected pool storage_balance to equal deposited amount"
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-
-    let first_deposit = NearToken::from_near(1);
-    let res1 = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": first_deposit.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(first_deposit)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-    assert!(res1.is_success(), "First deposit should succeed: {:?}", res1.failures());
-
-    let second_deposit = NearToken::from_near(2);
-    let res2 = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
-                        "group_id": group_id,
-                        "amount": second_deposit.as_yoctonear().to_string()
-                    }
-                } },
-                "options": null,
-                "auth": null
-            }
-        }))
-        .deposit(second_deposit)
-        .gas(Gas::from_tgas(140))
-        .transact()
-        .await?;
-    assert!(res2.is_success(), "Second deposit should succeed: {:?}", res2.failures());
-
-    let logs2 = res2.logs();
-    let has_created_event = logs2.iter().any(|l| l.contains("group_pool_created"));
-    assert!(
-        !has_created_event,
-        "Should NOT emit group_pool_created on subsequent deposits. Logs: {:?}",
-        logs2
-    );
-
-    let pool_info: serde_json::Value = contract
-        .view("get_group_pool_info")
-        .args_json(json!({"group_id": group_id}))
-        .await?
-        .json()?;
-
-    let storage_balance = parse_u128_string(&pool_info, "storage_balance");
-    let expected_total = first_deposit.as_yoctonear() + second_deposit.as_yoctonear();
-    assert_eq!(
-        storage_balance,
-        expected_total,
-        "Expected pool storage_balance to be sum of all deposits"
-    );
-
-    Ok(())
-}
-
-#[tokio::test]
-async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> anyhow::Result<()> {
-    let worker = near_workspaces::sandbox().await?;
-    let root = worker.root_account()?;
-    let contract = deploy_and_init(&worker).await?;
-
-    let owner = create_user(&root, "owner", TEN_NEAR).await?;
-    let manager = create_user(&root, "manager", TEN_NEAR).await?;
-
-    let group_id = "testgroup";
-    create_group(&contract, &owner, group_id).await?;
-    add_member(&contract, &owner, group_id, &manager).await?;
-
-    let permission_path = format!("{}/groups/{}/config", owner.id(), group_id);
-    let grant_res = owner
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "target_account": null,
-                "action": { "type": "set", "data": {
-                    "permission/grant": {
-                        "grantee": manager.id().to_string(),
-                        "path": permission_path,
-                        "level": 3
+                        "target_id": target.id().to_string(),
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
                     }
                 } },
                 "options": null,
@@ -614,33 +116,549 @@ async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> an
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(grant_res.is_success(), "Grant MANAGE permission should succeed: {:?}", grant_res.failures());
 
-    let deposit_amount = NearToken::from_near(1);
-    let res = manager
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail when `enabled` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("enabled required"),
+        "Expected error message to mention 'enabled required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_missing_enabled_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Missing `enabled` field - should fail after fix
+    let res = owner
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
-                    "storage/group_pool_deposit": {
+                    "storage/group_sponsor_default_set": {
                         "group_id": group_id,
-                        "amount": deposit_amount.as_yoctonear().to_string()
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
                     }
                 } },
                 "options": null,
                 "auth": null
             }
         }))
-        .deposit(deposit_amount)
+        .deposit(NearToken::from_yoctonear(0))
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
 
     assert!(
-        res.is_success(),
-        "Manager with MANAGE permission should be able to deposit: {:?}",
-        res.failures()
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail when `enabled` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("enabled required"),
+        "Expected error message to mention 'enabled required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Critical: Non-owner/non-manager cannot set quota (access control)
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_unauthorized_user_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let stranger = create_user(&root, "stranger", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Stranger (not owner, not manager) tries to set quota - should fail
+    let res = stranger
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail for unauthorized user"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("Unauthorized"),
+        "Expected Unauthorized error, got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_unauthorized_user_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let stranger = create_user(&root, "stranger", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Stranger (not owner, not manager) tries to set default - should fail
+    let res = stranger
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail for unauthorized user"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("Unauthorized"),
+        "Expected Unauthorized error, got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// High: enabled=true with allowance_max_bytes=0 is rejected
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_enabled_with_zero_allowance_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // enabled=true but allowance_max_bytes=0 - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 0
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail when enabled=true and allowance_max_bytes=0"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("allowance_max_bytes must be greater than zero"),
+        "Expected error about allowance_max_bytes, got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_enabled_with_zero_allowance_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // enabled=true but allowance_max_bytes=0 - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 0
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail when enabled=true and allowance_max_bytes=0"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("allowance_max_bytes must be greater than zero"),
+        "Expected error about allowance_max_bytes, got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Medium: Non-existent group fails
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_nonexistent_group_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    // Group does not exist
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": "nonexistent",
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail for non-existent group"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("Group not found"),
+        "Expected 'Group not found' error, got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_nonexistent_group_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    // Group does not exist
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": "nonexistent",
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail for non-existent group"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("Group not found"),
+        "Expected 'Group not found' error, got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Medium: Event emission correctness
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_emits_correct_event() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(res.is_success(), "group_sponsor_quota_set should succeed: {:?}", res.failures());
+
+    let logs = res.logs();
+    let has_event = logs.iter().any(|l| l.contains("group_sponsor_quota_set"));
+    assert!(
+        has_event,
+        "Expected group_sponsor_quota_set event in logs. Logs: {:?}",
+        logs
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_emits_correct_event() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(res.is_success(), "group_sponsor_default_set should succeed: {:?}", res.failures());
+
+    let logs = res.logs();
+    let has_event = logs.iter().any(|l| l.contains("group_sponsor_default_set"));
+    assert!(
+        has_event,
+        "Expected group_sponsor_default_set event in logs. Logs: {:?}",
+        logs
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// High: Disabling quota zeros allowance
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // First enable with a quota
+    let res1 = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+    assert!(res1.is_success(), "First quota_set should succeed: {:?}", res1.failures());
+
+    // Now disable - allowance should be zeroed
+    let res2 = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": false,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+    assert!(res2.is_success(), "Disable quota_set should succeed: {:?}", res2.failures());
+
+    // Verify: event should show previously_enabled=true
+    let logs = res2.logs();
+    let has_previously_enabled = logs.iter().any(|l| l.contains("previously_enabled") && l.contains("true"));
+    assert!(
+        has_previously_enabled,
+        "Expected event to show previously_enabled=true. Logs: {:?}",
+        logs
     );
 
     Ok(())

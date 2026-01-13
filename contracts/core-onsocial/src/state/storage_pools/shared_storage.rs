@@ -6,7 +6,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Handle share storage.
     pub(crate) fn handle_api_share_storage(
         &mut self,
         value: &Value,
@@ -40,7 +39,6 @@ impl SocialPlatform {
         self.handle_share_storage_atomic(account_id, &target_id, max_bytes, ctx.event_batch)
     }
 
-    /// Handle return shared storage.
     pub(crate) fn handle_api_return_shared_storage(
         &mut self,
         account_id: &AccountId,

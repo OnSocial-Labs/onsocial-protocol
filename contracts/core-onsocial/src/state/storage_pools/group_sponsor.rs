@@ -6,7 +6,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Handle group sponsor quota set.
     pub(crate) fn handle_api_group_sponsor_quota_set(
         &mut self,
         value: &Value,
@@ -29,7 +28,10 @@ impl SocialPlatform {
             crate::invalid_input!("Invalid target_id account ID"),
         )?;
 
-        let enabled: bool = value.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+        let enabled: bool = value
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .ok_or_else(|| crate::invalid_input!("enabled required for group_sponsor_quota_set"))?;
 
         let daily_refill_bytes: u64 = value
             .get("daily_refill_bytes")
@@ -97,7 +99,6 @@ impl SocialPlatform {
         Ok(())
     }
 
-    /// Handle group sponsor default set.
     pub(crate) fn handle_api_group_sponsor_default_set(
         &mut self,
         value: &Value,
@@ -112,7 +113,10 @@ impl SocialPlatform {
                 crate::invalid_input!("group_id required for group_sponsor_default_set")
             })?;
 
-        let enabled: bool = value.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
+        let enabled: bool = value
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .ok_or_else(|| crate::invalid_input!("enabled required for group_sponsor_default_set"))?;
 
         let daily_refill_bytes: u64 = value
             .get("daily_refill_bytes")

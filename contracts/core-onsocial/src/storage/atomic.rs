@@ -63,8 +63,7 @@ impl SocialPlatform {
         self.user_storage.insert(pool_owner.clone(), pool_storage);
 
         EventBuilder::new(crate::constants::EVENT_TYPE_STORAGE_UPDATE, "share_storage", pool_owner.clone())
-            .with_field("pool_id", pool_owner.to_string())
-            .with_field("target", target_id.to_string())
+            .with_field("target_id", target_id.to_string())
             .with_field("max_bytes", max_bytes.to_string())
             .emit(event_batch);
 

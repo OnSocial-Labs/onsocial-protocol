@@ -37,7 +37,6 @@ fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {
         "../target/near/core_onsocial/core_onsocial.wasm",
         "target/near/core_onsocial/core_onsocial.wasm",
         "/code/target/near/core_onsocial/core_onsocial.wasm",
-        "./target/near/core_onsocial/core_onsocial.wasm",
     ];
 
     for path in paths {

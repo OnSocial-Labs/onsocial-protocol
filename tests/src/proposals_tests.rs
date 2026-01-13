@@ -6242,6 +6242,237 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
 }
 
 // =============================================================================
+// TEST: Locked balance blocks storage/withdraw
+// =============================================================================
+// Issue #1 (Critical): Withdrawal must respect locked_balance
+// Verifies that storage/withdraw cannot touch funds reserved by locked_balance
+
+#[tokio::test]
+async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
+    println!("\n=== Test: Locked Balance Blocks Withdraw ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = worker.dev_create_account().await?;
+    let bob = worker.dev_create_account().await?;
+
+    // Setup: Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "withdraw-lock-test", "config": { "member_driven": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success());
+
+    // Add Bob
+    let add_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "withdraw-lock-test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success());
+    println!("   ✓ Setup complete");
+
+    // Get Alice's storage balance before
+    let alice_storage_before: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id() }))
+        .await?
+        .json()?;
+    
+    let balance_before: f64 = alice_storage_before.get("balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    
+    println!("   Alice balance before proposal: {:.4} NEAR", balance_before / 1e24);
+
+    // Create a proposal (locks 0.05 NEAR)
+    println!("\n📦 TEST 1: Create proposal to lock funds...");
+    let create_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "withdraw-lock-test", "proposal_type": "custom_proposal", "changes": {
+                    "title": "Withdraw lock test",
+                    "description": "Testing locked_balance blocks withdraw"
+                }, "auto_vote": true }
+            }
+        }))
+        .deposit(NearToken::from_millinear(100))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success());
+    println!("   ✓ Proposal created, funds locked");
+
+    // Get storage state after proposal
+    let alice_storage_after: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id() }))
+        .await?
+        .json()?;
+    
+    let balance_after: f64 = alice_storage_after.get("balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let locked: f64 = alice_storage_after.get("locked_balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    
+    println!("   Balance: {:.4} NEAR, Locked: {:.4} NEAR", balance_after / 1e24, locked / 1e24);
+    assert!(locked > 0.0, "Locked balance should be > 0");
+
+    // =========================================================================
+    // TEST 2: Try to withdraw MORE than available (should fail)
+    // Available = balance - locked - storage_needed
+    // =========================================================================
+    println!("\n📦 TEST 2: Attempt to withdraw all balance (including locked)...");
+    
+    let withdraw_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": (balance_after as u128).to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(withdraw_result.is_failure(), 
+        "Withdrawing locked funds should fail!");
+    
+    let failure_str = format!("{:?}", withdraw_result.failures());
+    assert!(
+        failure_str.contains("exceeds available") || failure_str.contains("Withdrawal"),
+        "Error should mention withdrawal exceeds available: {}", failure_str
+    );
+    println!("   ✓ Withdrawal correctly blocked (locked funds protected)");
+
+    // =========================================================================
+    // TEST 3: Withdraw available portion (excluding locked) should SUCCEED
+    // =========================================================================
+    println!("\n📦 TEST 3: Withdraw available portion (not locked)...");
+    
+    // Calculate what should be available: balance - locked - storage_needed
+    // We'll try to withdraw a small amount that should be available
+    let available_approx = balance_after - locked;
+    println!("   Approx available: {:.4} NEAR", available_approx / 1e24);
+    
+    // Withdraw a small amount (less than available)
+    let small_withdraw = NearToken::from_millinear(10).as_yoctonear(); // 0.01 NEAR
+    let partial_withdraw_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": small_withdraw.to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(partial_withdraw_result.is_success(), 
+        "Withdrawing available (non-locked) funds should succeed! Failures: {:?}", 
+        partial_withdraw_result.failures());
+    println!("   ✓ Partial withdrawal of 0.01 NEAR succeeded (locked funds still protected)");
+
+    // Verify locked balance is still intact
+    let alice_storage_after_partial: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id() }))
+        .await?
+        .json()?;
+    
+    let locked_after_partial: f64 = alice_storage_after_partial.get("locked_balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    assert!(locked_after_partial > 0.0, "Locked balance should still be intact after partial withdrawal");
+    println!("   ✓ Locked balance still protected: {:.4} NEAR", locked_after_partial / 1e24);
+
+    // =========================================================================
+    // TEST 4: After proposal execution, withdrawal should succeed
+    // =========================================================================
+    println!("\n📦 TEST 4: After execution, withdrawal succeeds...");
+    
+    // Bob votes to execute
+    let vote_result = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "withdraw-lock-test", "proposal_id": create_proposal.json::<String>()?, "approve": true }
+            }
+        }))
+        .deposit(NearToken::from_millinear(10))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(vote_result.is_success());
+    println!("   ✓ Proposal executed, lock released");
+
+    // Now try to withdraw - should succeed since locked_balance is 0
+    let alice_storage_unlocked: Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id() }))
+        .await?
+        .json()?;
+    
+    let locked_after: f64 = alice_storage_unlocked.get("locked_balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    assert_eq!(locked_after, 0.0, "Locked balance should be 0 after execution");
+    
+    // Try a small withdrawal
+    let withdraw_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": NearToken::from_millinear(10).as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(withdraw_result.is_success(), 
+        "Withdrawal should succeed after lock released: {:?}", withdraw_result.failures());
+    println!("   ✓ Withdrawal succeeded after lock released");
+
+    println!("✅ Locked balance blocks withdraw test passed");
+    Ok(())
+}
+
+// =============================================================================
 // TEST: Locked balance cannot be used for other activities
 // =============================================================================
 // Verifies that while a proposal is pending:

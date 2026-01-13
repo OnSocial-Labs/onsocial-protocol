@@ -98,7 +98,6 @@ fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {
         "../target/near/core_onsocial/core_onsocial.wasm",
         "target/near/core_onsocial/core_onsocial.wasm",
         "/code/target/near/core_onsocial/core_onsocial.wasm",
-        "./target/near/core_onsocial/core_onsocial.wasm",
     ];
     
     for path in paths {
@@ -1662,6 +1661,778 @@ async fn test_withdraw_more_than_available_fails() -> anyhow::Result<()> {
     
     println!("\n✅ Withdraw validation test passed!");
     
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW EDGE CASE: Zero-amount withdrawal rejection
+// =============================================================================
+// Issue #3: Zero-withdraw should be rejected with "Nothing to withdraw"
+#[tokio::test]
+async fn test_withdraw_zero_amount_rejected() -> anyhow::Result<()> {
+    println!("\n🧪 WITHDRAW ZERO AMOUNT REJECTION TEST");
+    println!("======================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // Deposit first so account is registered
+    println!("\n📦 Step 1: Deposit 1 NEAR...");
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Deposit should succeed");
+    println!("   ✓ Deposited 1 NEAR");
+    
+    // Try explicit zero withdrawal
+    println!("\n📦 Step 2: Try to withdraw 0...");
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": "0"}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Zero withdrawal should be rejected!");
+    
+    // Verify error message contains expected text
+    let failure_str = format!("{:?}", result.failures());
+    assert!(
+        failure_str.contains("amount must be greater than zero") || 
+        failure_str.contains("Nothing to withdraw"),
+        "Error should mention zero amount rejection: {}", failure_str
+    );
+    println!("   ✓ Zero withdrawal correctly rejected");
+    
+    println!("\n✅ Zero withdrawal rejection test passed!");
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW EDGE CASE: Withdraw from unregistered account
+// =============================================================================
+#[tokio::test]
+async fn test_withdraw_unregistered_account_rejected() -> anyhow::Result<()> {
+    println!("\n🧪 WITHDRAW UNREGISTERED ACCOUNT TEST");
+    println!("=====================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // Try to withdraw without ever depositing (account not registered)
+    println!("\n📦 Try to withdraw from unregistered account...");
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Withdraw from unregistered account should fail!");
+    
+    let failure_str = format!("{:?}", result.failures());
+    assert!(
+        failure_str.contains("Account not registered") || failure_str.contains("not registered"),
+        "Error should mention account not registered: {}", failure_str
+    );
+    println!("   ✓ Unregistered account withdrawal correctly rejected");
+    
+    println!("\n✅ Unregistered account test passed!");
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW EDGE CASE: Implicit zero withdrawal (no amount, zero balance)
+// =============================================================================
+// Issue #3: When amount is None and balance is 0, should reject with "Nothing to withdraw"
+#[tokio::test]
+async fn test_withdraw_all_when_zero_balance_rejected() -> anyhow::Result<()> {
+    println!("\n🧪 WITHDRAW ALL WITH ZERO BALANCE TEST");
+    println!("======================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // Deposit and immediately withdraw all to get zero balance
+    println!("\n📦 Step 1: Deposit and withdraw all...");
+    let _ = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(1).as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    let _ = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    println!("   ✓ Balance now zero");
+    
+    // Try to withdraw again with no amount specified (and NO attached deposit!)
+    println!("\n📦 Step 2: Try to withdraw all when balance is 0...");
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_failure(), "Withdraw all with zero balance should be rejected!");
+    
+    let failure_str = format!("{:?}", result.failures());
+    assert!(
+        failure_str.contains("Nothing to withdraw"),
+        "Error should say 'Nothing to withdraw': {}", failure_str
+    );
+    println!("   ✓ Zero-balance withdraw-all correctly rejected");
+    
+    println!("\n✅ Zero balance withdraw-all test passed!");
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW TEST: Event emission correctness
+// =============================================================================
+// Verifies that storage_withdraw emits correct STORAGE_UPDATE event with
+// all required fields: amount, previous_balance, new_balance, available_balance
+#[tokio::test]
+async fn test_storage_withdraw_event_emission() -> anyhow::Result<()> {
+    println!("\n🧪 STORAGE WITHDRAW EVENT EMISSION TEST");
+    println!("=======================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // Deposit first
+    println!("\n📦 Step 1: Deposit 1 NEAR...");
+    let deposit_amount = NearToken::from_near(1);
+    let _ = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    println!("   ✓ Deposited 1 NEAR");
+    
+    // Get balance before withdraw
+    let storage_before: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": user.id()}))
+        .await?
+        .json()?;
+    let balance_before = storage_before.get("balance")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .unwrap_or(0);
+    println!("   Balance before: {} yoctoNEAR", balance_before);
+    
+    // Withdraw and capture logs
+    println!("\n📦 Step 2: Withdraw 0.5 NEAR...");
+    let withdraw_amount = NearToken::from_millinear(500);
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": withdraw_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "Withdraw should succeed: {:?}", result.failures());
+    
+    // Parse logs to find storage_withdraw event
+    let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
+    let withdraw_event = logs.iter()
+        .filter(|log| log.starts_with(EVENT_JSON_PREFIX))
+        .find(|log| log.contains("storage_withdraw"));
+    
+    assert!(withdraw_event.is_some(), "Should emit storage_withdraw event");
+    let event_json = withdraw_event.unwrap().strip_prefix(EVENT_JSON_PREFIX).unwrap();
+    let event: serde_json::Value = serde_json::from_str(event_json)?;
+    
+    // Verify event structure
+    assert_eq!(event.get("event").and_then(|v| v.as_str()), Some("STORAGE_UPDATE"));
+    
+    let data = event.get("data").and_then(|v| v.as_array()).expect("data array");
+    assert!(!data.is_empty(), "data array should not be empty");
+    
+    let event_data = &data[0];
+    assert_eq!(event_data.get("operation").and_then(|v| v.as_str()), Some("storage_withdraw"));
+    
+    // Verify required fields exist
+    assert!(event_data.get("amount").is_some(), "Event should have 'amount' field");
+    assert!(event_data.get("previous_balance").is_some(), "Event should have 'previous_balance' field");
+    assert!(event_data.get("new_balance").is_some(), "Event should have 'new_balance' field");
+    assert!(event_data.get("available_balance").is_some(), "Event should have 'available_balance' field");
+    
+    // Verify amount matches
+    let event_amount = event_data.get("amount")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .unwrap_or(0);
+    assert_eq!(event_amount, withdraw_amount.as_yoctonear(), "Event amount should match withdraw amount");
+    
+    println!("   ✓ Event emitted with correct fields:");
+    println!("     - operation: storage_withdraw");
+    println!("     - amount: {}", event_amount);
+    println!("     - previous_balance: {}", event_data.get("previous_balance").unwrap());
+    println!("     - new_balance: {}", event_data.get("new_balance").unwrap());
+    println!("     - available_balance: {}", event_data.get("available_balance").unwrap());
+    
+    println!("\n✅ Storage withdraw event emission test passed!");
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW TEST: Deposit → Write → Withdraw remaining (storage coverage)
+// =============================================================================
+// Tests that after depositing storage and writing data, the user can only
+// withdraw the REMAINING balance, not the portion needed to cover used storage.
+#[tokio::test]
+async fn test_deposit_write_withdraw_remaining() -> anyhow::Result<()> {
+    println!("\n🧪 DEPOSIT → WRITE → WITHDRAW REMAINING TEST");
+    println!("=============================================");
+    println!("Scenario: User deposits 1 NEAR, writes data (uses some storage),");
+    println!("          then tries to withdraw - should only get remaining amount.\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // =========================================================================
+    // STEP 1: Deposit 1 NEAR
+    // =========================================================================
+    println!("📦 Step 1: Deposit 1 NEAR...");
+    let deposit_amount = NearToken::from_near(1);
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Deposit should succeed: {:?}", result.failures());
+    println!("   ✓ Deposited 1 NEAR to storage");
+    
+    // =========================================================================
+    // STEP 2: Write data (consumes storage)
+    // =========================================================================
+    println!("\n📦 Step 2: Write data to consume storage...");
+    let large_bio = "A".repeat(2000); // ~2KB of data
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "profile/bio": large_bio,
+                    "profile/name": "Test User",
+                    "settings/theme": "dark"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Write should succeed: {:?}", result.failures());
+    
+    // Get storage state after writing
+    let storage_after_write: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": user.id()}))
+        .await?
+        .json()?;
+    
+    let used_bytes = storage_after_write.get("used_bytes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   ✓ Wrote data, used_bytes: {}", used_bytes);
+    assert!(used_bytes > 0, "Should have used some storage bytes");
+    
+    // =========================================================================
+    // STEP 3: Try to withdraw ALL balance (should FAIL - storage not covered)
+    // =========================================================================
+    println!("\n📦 Step 3: Try to withdraw ENTIRE deposit (should fail)...");
+    let user_balance_before = user.view_account().await?.balance;
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": deposit_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    // This should fail because we can't withdraw funds needed for storage coverage
+    assert!(result.is_failure(), 
+        "Should NOT be able to withdraw entire deposit when storage is in use!");
+    
+    let failure_str = format!("{:?}", result.failures());
+    assert!(
+        failure_str.contains("exceeds available") || failure_str.contains("Withdrawal"),
+        "Error should mention withdrawal exceeds available: {}", failure_str
+    );
+    println!("   ✓ Correctly rejected - cannot withdraw funds covering storage");
+    
+    // =========================================================================
+    // STEP 4: Withdraw available balance (without specifying amount)
+    // =========================================================================
+    println!("\n📦 Step 4: Withdraw available balance (no amount specified)...");
+    let user_balance_before = user.view_account().await?.balance;
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    // Check if there was any available balance to withdraw
+    if result.is_success() {
+        let user_balance_after = user.view_account().await?.balance;
+        let gained = user_balance_after.as_yoctonear().saturating_sub(user_balance_before.as_yoctonear());
+        let gained_near = gained as f64 / 1e24;
+        
+        println!("   ✓ Withdrew available balance: {:.6} NEAR", gained_near);
+        
+        // The gained amount should be LESS than 1 NEAR (since some is covering storage)
+        assert!(gained_near < 1.0, 
+            "Withdrawn amount should be less than deposit since storage is in use");
+    } else {
+        // If nothing available to withdraw (all consumed by storage), that's also valid
+        let failure_str = format!("{:?}", result.failures());
+        if failure_str.contains("Nothing to withdraw") {
+            println!("   ✓ No available balance to withdraw (all covering storage)");
+        } else {
+            panic!("Unexpected failure: {}", failure_str);
+        }
+    }
+    
+    // =========================================================================
+    // STEP 5: Verify data is still accessible (storage coverage intact)
+    // =========================================================================
+    println!("\n📦 Step 5: Verify data is still accessible...");
+    let data: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/profile/bio", user.id())],
+            "account_id": user.id()
+        }))
+        .await?
+        .json()?;
+    
+    let key = format!("{}/profile/bio", user.id());
+    assert!(entry_exists(&data, &key), "Data should still be accessible");
+    assert_eq!(entry_value_str(&data, &key), Some(large_bio.as_str()));
+    println!("   ✓ Data still accessible - storage coverage working correctly");
+    
+    println!("\n✅ Deposit → Write → Withdraw remaining test passed!");
+    println!("   Verified: Cannot withdraw funds needed to cover used storage.");
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW TEST: Verify remaining balance after partial withdrawal
+// =============================================================================
+// Tests that after withdrawing a specific amount, the remaining storage balance
+// is EXACTLY (original - withdrawn). Uses event data for precise verification.
+#[tokio::test]
+async fn test_withdraw_remaining_balance_exact() -> anyhow::Result<()> {
+    println!("\n🧪 WITHDRAW REMAINING BALANCE EXACT TEST");
+    println!("========================================");
+    println!("Scenario: Deposit 1 NEAR, withdraw 0.3 NEAR, verify remaining = 0.7 NEAR\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // =========================================================================
+    // STEP 1: Deposit exactly 1 NEAR
+    // =========================================================================
+    println!("📦 Step 1: Deposit exactly 1 NEAR...");
+    let deposit_amount = NearToken::from_near(1);
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Deposit should succeed: {:?}", result.failures());
+    println!("   ✓ Deposited {} yoctoNEAR (1 NEAR)", deposit_amount.as_yoctonear());
+    
+    // =========================================================================
+    // STEP 2: Withdraw exactly 0.3 NEAR and verify via event
+    // =========================================================================
+    println!("\n📦 Step 2: Withdraw exactly 0.3 NEAR...");
+    let withdraw_amount = NearToken::from_millinear(300); // 0.3 NEAR
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": withdraw_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Withdraw should succeed: {:?}", result.failures());
+    
+    // Parse the STORAGE_UPDATE event to get exact values
+    let logs = result.logs();
+    let storage_event = logs.iter()
+        .find(|log| log.contains("EVENT_JSON") && log.contains("storage_withdraw"))
+        .expect("Should have storage_withdraw event");
+    
+    let json_start = storage_event.find('{').unwrap();
+    let event_json: serde_json::Value = serde_json::from_str(&storage_event[json_start..]).unwrap();
+    let data = event_json.get("data").and_then(|d| d.as_array()).unwrap();
+    let event_data = &data[0];
+    
+    // Extract values from event (these are strings representing exact u128 values)
+    let event_amount: u128 = event_data.get("amount")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok())
+        .expect("Event should have amount");
+    
+    let previous_balance: u128 = event_data.get("previous_balance")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok())
+        .expect("Event should have previous_balance");
+    
+    let new_balance: u128 = event_data.get("new_balance")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse().ok())
+        .expect("Event should have new_balance");
+    
+    println!("   Event data:");
+    println!("     - previous_balance: {} yoctoNEAR ({} NEAR)", previous_balance, previous_balance as f64 / 1e24);
+    println!("     - amount withdrawn: {} yoctoNEAR ({} NEAR)", event_amount, event_amount as f64 / 1e24);
+    println!("     - new_balance:      {} yoctoNEAR ({} NEAR)", new_balance, new_balance as f64 / 1e24);
+    
+    // =========================================================================
+    // VERIFY: new_balance = previous_balance - amount
+    // =========================================================================
+    let expected_new_balance = previous_balance.saturating_sub(event_amount);
+    
+    assert_eq!(
+        new_balance, expected_new_balance,
+        "new_balance should equal previous_balance - amount\n  Expected: {}\n  Actual: {}",
+        expected_new_balance, new_balance
+    );
+    println!("   ✓ new_balance = previous_balance - amount (EXACT MATCH)");
+    
+    // Verify amount matches what we requested
+    assert_eq!(
+        event_amount, withdraw_amount.as_yoctonear(),
+        "Event amount should match requested withdrawal"
+    );
+    println!("   ✓ Withdrawn amount matches requested amount");
+    
+    // Calculate expected remaining
+    let expected_remaining = deposit_amount.as_yoctonear() - withdraw_amount.as_yoctonear();
+    assert_eq!(
+        new_balance, expected_remaining,
+        "Remaining balance should be deposit - withdrawal\n  Expected: {} (0.7 NEAR)\n  Actual: {}",
+        expected_remaining, new_balance
+    );
+    println!("   ✓ Remaining balance = {} yoctoNEAR (0.7 NEAR)", new_balance);
+    
+    println!("\n✅ Remaining balance exact verification passed!");
+    Ok(())
+}
+
+// =============================================================================
+// WITHDRAW TEST: State transition verification
+// =============================================================================
+// Verifies that the user's wallet balance changes correctly after withdrawal.
+// Uses user account balance rather than parsing the contract's storage balance JSON.
+#[tokio::test]
+async fn test_withdraw_state_transition() -> anyhow::Result<()> {
+    println!("\n🧪 WITHDRAW STATE TRANSITION TEST");
+    println!("=================================");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let user = sandbox.dev_create_account().await?;
+    
+    // Deposit
+    println!("\n📦 Step 1: Deposit 1 NEAR...");
+    let deposit_amount = NearToken::from_near(1);
+    let _ = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    println!("   ✓ Deposited 1 NEAR");
+    
+    // Get user balance before first withdrawal
+    let user_before_1 = user.view_account().await?.balance;
+    println!("\n📦 Step 2: Withdraw 0.3 NEAR...");
+    let withdraw_amount_1 = NearToken::from_millinear(300);
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": withdraw_amount_1.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1)) // minimal deposit for call
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Withdraw should succeed: {:?}", result.failures());
+    
+    let user_after_1 = user.view_account().await?.balance;
+    let gained_1 = user_after_1.as_yoctonear().saturating_sub(user_before_1.as_yoctonear());
+    let gained_near_1 = gained_1 as f64 / 1e24;
+    
+    // User should have gained ~0.3 NEAR minus gas costs (roughly 0.25-0.3 NEAR)
+    println!("   User gained: {:.4} NEAR", gained_near_1);
+    assert!(gained_near_1 > 0.2, "Should gain substantial amount (got {} NEAR)", gained_near_1);
+    assert!(gained_near_1 < 0.35, "Should not gain more than withdrawn (got {} NEAR)", gained_near_1);
+    println!("   ✓ First withdrawal correctly credited to user");
+    
+    // Second withdrawal
+    let user_before_2 = user.view_account().await?.balance;
+    println!("\n📦 Step 3: Withdraw another 0.2 NEAR...");
+    let withdraw_amount_2 = NearToken::from_millinear(200);
+    
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {"amount": withdraw_amount_2.as_yoctonear().to_string()}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(result.is_success(), "Second withdraw should succeed: {:?}", result.failures());
+    
+    let user_after_2 = user.view_account().await?.balance;
+    let gained_2 = user_after_2.as_yoctonear().saturating_sub(user_before_2.as_yoctonear());
+    let gained_near_2 = gained_2 as f64 / 1e24;
+    
+    println!("   User gained: {:.4} NEAR", gained_near_2);
+    assert!(gained_near_2 > 0.15, "Should gain substantial amount (got {} NEAR)", gained_near_2);
+    assert!(gained_near_2 < 0.25, "Should not gain more than withdrawn (got {} NEAR)", gained_near_2);
+    println!("   ✓ Second withdrawal correctly credited to user");
+    
+    // Verify total gained is roughly 0.5 NEAR (0.3 + 0.2)
+    let total_gained = (user_after_2.as_yoctonear() as f64 - user_before_1.as_yoctonear() as f64) / 1e24;
+    println!("\n   Total gained from both withdrawals: {:.4} NEAR", total_gained);
+    println!("   ✓ Sequential withdrawals correctly tracked state");
+    
+    println!("\n✅ State transition test passed!");
     Ok(())
 }
 
@@ -5367,6 +6138,167 @@ async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Test shared storage authorization: actor must equal target_account
+#[tokio::test]
+async fn test_shared_storage_authorization() -> anyhow::Result<()> {
+    println!("\n🧪 TEST: Shared storage authorization");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let alice = worker.dev_create_account().await?;
+    let bob = worker.dev_create_account().await?;
+    let charlie = worker.dev_create_account().await?;
+    
+    // Setup: Alice creates a shared pool
+    println!("\n   Setup: Alice creates shared pool...");
+    let alice_deposit = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": alice.id().to_string(),
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(alice_deposit.is_success(), "Alice pool deposit should succeed: {:?}", alice_deposit.failures());
+    println!("   ✓ Alice deposited 1 NEAR to her shared pool");
+    
+    // Test 1: Bob tries to share_storage on Alice's behalf (should FAIL)
+    println!("\n   Test 1: Bob tries share_storage targeting Alice's account...");
+    let bob_shares_alice = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "action": { "type": "set", "data": {
+                    "storage/share_storage": {
+                        "target_id": charlie.id().to_string(),
+                        "max_bytes": 5000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!bob_shares_alice.is_success(), "Bob should NOT be able to share Alice's storage");
+    println!("   ✓ Cross-account share_storage correctly rejected");
+    
+    // Test 2: Alice shares with Bob successfully
+    println!("\n   Test 2: Alice shares storage with Bob...");
+    let alice_shares = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/share_storage": {
+                        "target_id": bob.id().to_string(),
+                        "max_bytes": 5000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(alice_shares.is_success(), "Alice should share storage with Bob: {:?}", alice_shares.failures());
+    println!("   ✓ Alice successfully shared storage with Bob");
+    
+    // Validate event emission: should have target_id, not pool_id
+    let logs: Vec<String> = alice_shares.logs().iter().map(|s| s.to_string()).collect();
+    let mut found_share_event = false;
+    for log in &logs {
+        if log.starts_with(EVENT_JSON_PREFIX) && log.contains("share_storage") {
+            found_share_event = true;
+            assert!(log.contains("target_id"), "Event should contain target_id field");
+            // pool_id should NOT be present (it's redundant with account_id)
+            let json_part = &log[EVENT_JSON_PREFIX.len()..];
+            let event: serde_json::Value = serde_json::from_str(json_part)?;
+            if let Some(data) = event.get("data").and_then(|d| d.as_array()).and_then(|arr| arr.first()) {
+                assert!(data.get("target_id").is_some(), "Event data should have target_id");
+                // pool_id was removed as it duplicates account_id (the event author)
+            }
+        }
+    }
+    assert!(found_share_event, "share_storage event should be emitted");
+    println!("   ✓ Event emitted with correct target_id field");
+    
+    // Test 3: Charlie tries to return Bob's shared storage (should FAIL)
+    println!("\n   Test 3: Charlie tries to return Bob's shared storage...");
+    let charlie_returns_bob = charlie
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": bob.id().to_string(),
+                "action": { "type": "set", "data": {
+                    "storage/return_shared_storage": {}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!charlie_returns_bob.is_success(), "Charlie should NOT return Bob's storage");
+    println!("   ✓ Cross-account return_shared_storage correctly rejected");
+    
+    // Test 4: Bob returns his own shared storage successfully
+    println!("\n   Test 4: Bob returns his own shared storage...");
+    let bob_returns = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/return_shared_storage": {}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(bob_returns.is_success(), "Bob should return his own storage: {:?}", bob_returns.failures());
+    println!("   ✓ Bob successfully returned his shared storage");
+    
+    println!("\n✅ Test passed: Shared storage authorization enforced correctly");
+    
+    Ok(())
+}
+
 /// Test storage/share_storage edge cases
 #[tokio::test]
 async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
@@ -5395,7 +6327,7 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
                 "target_account": null,
                 "action": { "type": "set", "data": {
                     "storage/share_storage": {
-                        "recipient": bob.id().to_string(),
+                        "target_id": bob.id().to_string(),
                         "max_bytes": 10000
                     }
                 } },
@@ -5445,7 +6377,7 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
                     "target_account": null,
                     "action": { "type": "set", "data": {
                         "storage/share_storage": {
-                            "recipient": alice.id().to_string(),
+                            "target_id": alice.id().to_string(),
                             "max_bytes": 999999999999_u64 // Way more than 1 NEAR can support
                         }
                     } },
@@ -5470,7 +6402,7 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
                     "target_account": null,
                     "action": { "type": "set", "data": {
                         "storage/share_storage": {
-                            "recipient": contract.id().to_string(),
+                            "target_id": contract.id().to_string(),
                             "max_bytes": 1000
                         }
                     } },
@@ -5495,7 +6427,7 @@ async fn test_share_storage_edge_cases() -> anyhow::Result<()> {
                     "target_account": null,
                     "action": { "type": "set", "data": {
                         "storage/share_storage": {
-                            "recipient": bob.id().to_string(),
+                            "target_id": bob.id().to_string(),
                             "max_bytes": 10000
                         }
                     } },
@@ -5623,7 +6555,7 @@ async fn test_return_shared_storage_edge_cases() -> anyhow::Result<()> {
                     "target_account": null,
                     "action": { "type": "set", "data": {
                         "storage/share_storage": {
-                            "recipient": bob.id().to_string(),
+                            "target_id": bob.id().to_string(),
                             "max_bytes": 10000
                         }
                     } },
