@@ -15,14 +15,12 @@ impl VoteTally {
     }
 
     pub fn record_vote(&mut self, approve: bool, previous_vote: Option<bool>) {
-        // Only allow voting if user hasn't voted before (no vote changes)
         if previous_vote.is_none() {
             if approve {
                 self.yes_votes += 1;
             }
             self.total_votes += 1;
         }
-        // If user has already voted, ignore the new vote (no changes allowed)
     }
 
     pub fn meets_thresholds(&self, participation_quorum_bps: u16, majority_threshold_bps: u16) -> bool {
@@ -44,8 +42,6 @@ impl VoteTally {
     }
 
     pub fn is_expired(&self, voting_period: u64) -> bool {
-        // Use saturating_add to prevent overflow
-        // If overflow would occur, saturating_add returns u64::MAX
         let expiration_time = self.created_at.0.saturating_add(voting_period);
         env::block_timestamp() >= expiration_time
     }
@@ -63,6 +59,7 @@ impl VoteTally {
         let votes_cast = self.total_votes as u128;
         let yes_votes = self.yes_votes as u128;
 
+        // Corrupt state: more votes than members
         if votes_cast > total_members {
             return false;
         }

@@ -4,7 +4,6 @@ use crate::domain::groups::config::GroupConfig;
 use crate::{invalid_input, SocialError};
 use crate::state::models::SocialPlatform;
 
-/// Common validation for group operations.
 pub fn validate_group_operation(
     platform: &SocialPlatform,
     group_id: &str,
@@ -15,14 +14,12 @@ pub fn validate_group_operation(
     Ok(config)
 }
 
-/// Check if a group is member-driven.
-pub fn is_group_member_driven(config: &Value) -> bool {
-    match GroupConfig::try_from_value(config) {
-        Ok(cfg) => cfg.member_driven,
-        Err(_) => false,
-    }
+pub fn is_group_member_driven(config: &Value) -> Result<bool, SocialError> {
+    let cfg = GroupConfig::try_from_value(config)?;
+    Ok(cfg.member_driven)
 }
 
+/// Routes to governance proposal flow or direct execution based on group's `member_driven` flag.
 pub fn route_group_operation<R>(
     platform: &mut SocialPlatform,
     group_id: &str,
@@ -30,7 +27,7 @@ pub fn route_group_operation<R>(
     traditional_action: impl FnOnce(&mut SocialPlatform) -> Result<R, SocialError>,
 ) -> Result<R, SocialError> {
     let config = validate_group_operation(platform, group_id)?;
-    let is_member_driven = is_group_member_driven(&config);
+    let is_member_driven = is_group_member_driven(&config)?;
 
     if is_member_driven {
         member_driven_action(platform)

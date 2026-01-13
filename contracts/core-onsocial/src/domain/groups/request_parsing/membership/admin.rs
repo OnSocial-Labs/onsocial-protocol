@@ -28,6 +28,7 @@ impl SocialPlatform {
         member_id: AccountId,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::routing::route_group_operation(
             self,
             &group_id,
@@ -66,6 +67,7 @@ impl SocialPlatform {
         member_id: AccountId,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::routing::route_group_operation(
             self,
             &group_id,
@@ -104,6 +106,7 @@ impl SocialPlatform {
         member_id: AccountId,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::routing::route_group_operation(
             self,
             &group_id,
@@ -143,6 +146,7 @@ impl SocialPlatform {
         remove_old_owner: Option<bool>,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::routing::route_group_operation(
             self,
             &group_id,

@@ -4309,6 +4309,162 @@ async fn test_transfer_ownership_to_non_member_fails() -> anyhow::Result<()> {
 }
 
 // =============================================================================
+// TEST: admin operations validate group_id format (Issue #2 fix)
+// =============================================================================
+// Covers: invites.rs L15, admin.rs L31, L71, L108, L146 - validate_group_id()
+// This test would FAIL on pre-fix code where validation was missing
+#[tokio::test]
+async fn test_admin_operations_validate_group_id_format() -> anyhow::Result<()> {
+    println!("\n=== Test: admin operations validate group_id format ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create a valid group first
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "valid_group", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+
+    // =========================================================================
+    // TEST 1: add_group_member with invalid group_id
+    // =========================================================================
+    println!("\n📦 TEST 1: add_group_member with invalid group_id...");
+
+    let add_invalid = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "bad@id", "member_id": bob.id() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!add_invalid.is_success(), "add_group_member with invalid group_id should fail");
+    let err = format!("{:?}", add_invalid.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("Group ID"),
+        "Error should mention validation, got: {}", err
+    );
+    println!("   ✓ add_group_member with invalid group_id rejected");
+
+    // =========================================================================
+    // TEST 2: remove_group_member with empty group_id
+    // =========================================================================
+    println!("\n📦 TEST 2: remove_group_member with empty group_id...");
+
+    let remove_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "remove_group_member", "group_id": "", "member_id": bob.id() }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!remove_empty.is_success(), "remove_group_member with empty group_id should fail");
+    let err = format!("{:?}", remove_empty.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention validation, got: {}", err
+    );
+    println!("   ✓ remove_group_member with empty group_id rejected");
+
+    // =========================================================================
+    // TEST 3: blacklist_group_member with special characters
+    // =========================================================================
+    println!("\n📦 TEST 3: blacklist_group_member with special characters...");
+
+    let blacklist_invalid = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "blacklist_group_member", "group_id": "../traversal", "member_id": bob.id() }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!blacklist_invalid.is_success(), "blacklist with invalid group_id should fail");
+    let err = format!("{:?}", blacklist_invalid.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("Group ID"),
+        "Error should mention validation, got: {}", err
+    );
+    println!("   ✓ blacklist_group_member with invalid group_id rejected");
+
+    // =========================================================================
+    // TEST 4: unblacklist_group_member with oversized group_id
+    // =========================================================================
+    println!("\n📦 TEST 4: unblacklist_group_member with oversized group_id...");
+
+    let long_id = "x".repeat(65);
+    let unblacklist_long = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "unblacklist_group_member", "group_id": long_id, "member_id": bob.id() }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!unblacklist_long.is_success(), "unblacklist with oversized group_id should fail");
+    let err = format!("{:?}", unblacklist_long.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length, got: {}", err
+    );
+    println!("   ✓ unblacklist_group_member with oversized group_id rejected");
+
+    // =========================================================================
+    // TEST 5: transfer_group_ownership with invalid group_id
+    // =========================================================================
+    println!("\n📦 TEST 5: transfer_group_ownership with invalid group_id...");
+
+    let transfer_invalid = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "transfer_group_ownership", "group_id": "bad#id!", "new_owner": bob.id() }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!transfer_invalid.is_success(), "transfer with invalid group_id should fail");
+    let err = format!("{:?}", transfer_invalid.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("Group ID"),
+        "Error should mention validation, got: {}", err
+    );
+    println!("   ✓ transfer_group_ownership with invalid group_id rejected");
+
+    println!("\n✅ admin operations group_id validation test passed");
+    Ok(())
+}
+
+// =============================================================================
 // TEST: join_group and leave_group validate group_id format
 // =============================================================================
 // Covers: joins.rs L13, L44 - validate_group_id() must be called
