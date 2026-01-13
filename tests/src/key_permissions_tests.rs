@@ -1006,3 +1006,95 @@ async fn test_account_permission_takes_precedence_over_key() -> anyhow::Result<(
 
     Ok(())
 }
+
+/// Tests that set_key_permission is scoped to caller's namespace.
+/// Key permissions granted by Alice only authorize writes to Alice's paths,
+/// not to other users' paths even if the path string references them.
+#[tokio::test]
+async fn test_key_permission_scoped_to_caller_namespace() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    let relayer_sk = SecretKey::from_random(KeyType::ED25519);
+    let relayer_pk = relayer_sk.public_key();
+
+    // Pre-deposit storage for both users
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": "1000000000000000000000000"}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success());
+
+    let res = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": "1000000000000000000000000"}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success());
+
+    // Alice grants key permission for her profile/ path
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Alice should be able to grant key permission for her path");
+
+    // Verify the key permission exists for Alice's namespace
+    let has_key_perm: bool = contract
+        .view("has_key_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "public_key": relayer_pk.clone(),
+            "path": format!("{}/profile/", alice.id()),
+            "required_level": 1
+        }))
+        .await?
+        .json()?;
+    assert!(has_key_perm, "Key permission should exist for Alice's namespace");
+
+    // Verify the key permission does NOT exist for Bob's namespace
+    let has_key_perm_bob: bool = contract
+        .view("has_key_permission")
+        .args_json(json!({
+            "owner": bob.id(),
+            "public_key": relayer_pk.clone(),
+            "path": format!("{}/profile/", bob.id()),
+            "required_level": 1
+        }))
+        .await?
+        .json()?;
+    assert!(!has_key_perm_bob, "Key permission should NOT exist for Bob's namespace");
+
+    Ok(())
+}

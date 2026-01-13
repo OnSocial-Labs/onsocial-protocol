@@ -1267,6 +1267,123 @@ async fn test_invalid_permission_level_rejected() -> anyhow::Result<()> {
         .await?;
     assert!(!res.is_success(), "level 4 should be rejected");
 
+    // Try FULL_ACCESS level (255/0xFF) - must be rejected (reserved for owner bypass).
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": format!("{}/test/", alice.id()), "level": 255, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "FULL_ACCESS level (255) should be rejected");
+    let failure = format!("{:?}", res.failures());
+    assert!(
+        failure.contains("Invalid permission level"),
+        "expected 'Invalid permission level' error for 255, got: {failure}"
+    );
+
+    Ok(())
+}
+
+/// Tests that set_permission paths are always canonicalized under caller's namespace.
+/// Path normalization ensures callers cannot reference arbitrary account paths directly.
+/// When Bob passes "alice.near/profile/", it becomes "bob.near/alice.near/profile/".
+#[tokio::test]
+async fn test_set_permission_path_canonicalization_prevents_cross_namespace() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let carol = create_user(&root, "carol", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+    deposit_storage(&contract, &bob, ONE_NEAR).await?;
+
+    // Bob tries to grant Carol permissions by passing alice.near/profile as path.
+    // The path gets canonicalized to bob.near/alice.near/profile/ (under bob's namespace).
+    let res = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": format!("{}/profile/", alice.id()), "level": WRITE, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    // This succeeds but grants permission under bob's namespace, not alice's
+    assert!(
+        res.is_success(),
+        "set_permission should succeed (path gets canonicalized under caller namespace)"
+    );
+
+    // Verify Carol has NO permissions on alice.near/profile/ (Alice's actual namespace)
+    let carol_on_alice: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": carol.id(),
+            "path": format!("{}/profile/", alice.id()),
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(
+        !carol_on_alice,
+        "Carol should NOT have permissions on Alice's actual namespace"
+    );
+
+    // Verify Carol HAS permissions on bob.near/alice.near/profile/ (Bob's nested path)
+    let carol_on_bob_nested: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": bob.id(),
+            "grantee": carol.id(),
+            "path": format!("{}/{}/profile/", bob.id(), alice.id()),
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(
+        carol_on_bob_nested,
+        "Carol should have permissions on Bob's nested path (bob.near/alice.near/profile/)"
+    );
+
+    // Verify Alice can still grant permissions on her own path
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_permission", "grantee": carol.id(), "path": "profile/", "level": WRITE, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(
+        res.is_success(),
+        "Owner should be able to set_permission on their own path: {:?}",
+        res.failures()
+    );
+
+    // Now Carol should have permissions on Alice's namespace
+    let carol_has_after: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "grantee": carol.id(),
+            "path": format!("{}/profile/", alice.id()),
+            "level": WRITE
+        }))
+        .await?
+        .json()?;
+    assert!(carol_has_after, "Carol should now have permissions on Alice's namespace after Alice grants");
+
     Ok(())
 }
 

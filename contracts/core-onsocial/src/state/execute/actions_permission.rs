@@ -6,7 +6,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Execute SetPermission action.
     pub(super) fn execute_action_set_permission(
         &mut self,
         grantee: &AccountId,
@@ -26,7 +25,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Execute SetKeyPermission action.
     pub(super) fn execute_action_set_key_permission(
         &mut self,
         public_key: &PublicKey,

@@ -11,6 +11,8 @@ pub mod ownership_tests;
 #[cfg(test)]
 pub mod group_content_tests;
 #[cfg(test)]
+pub mod group_pool_deposit_tests;
+#[cfg(test)]
 pub mod group_sponsorship_storage_tests;
 #[cfg(test)]
 pub mod key_permissions_tests;
