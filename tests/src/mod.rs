@@ -1,4 +1,6 @@
 #[cfg(test)]
+pub mod account_storage_tests;
+#[cfg(test)]
 pub mod actions_group_tests;
 #[cfg(test)]
 pub mod core_onsocial_tests;
@@ -24,6 +26,8 @@ pub mod lib_wrapper_regression_tests;
 pub mod permissions_tests;
 #[cfg(test)]
 pub mod proposals_tests;
+#[cfg(test)]
+pub mod shared_storage_atomic_tests;
 #[cfg(test)]
 pub mod signed_payload_integration_tests;
 #[cfg(test)]

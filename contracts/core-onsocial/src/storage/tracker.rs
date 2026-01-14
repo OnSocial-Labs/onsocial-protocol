@@ -14,6 +14,7 @@ impl Drop for StorageTracker {
                 false,
                 "Bug: storage tracker not reset (non-empty at drop)"
             );
+            #[cfg(debug_assertions)]
             env::log_str("WARN: Bug: storage tracker not reset (non-empty at drop)");
         }
     }
@@ -61,13 +62,11 @@ impl StorageTracker {
         self.bytes_released = 0;
     }
 
-    /// Returns true if tracker is zeroed and inactive.
     #[inline(always)]
     pub fn is_empty(&self) -> bool {
         self.bytes_added == 0 && self.bytes_released == 0 && self.initial_storage_usage.is_none()
     }
 
-    /// Run `f` while tracking storage usage; always stops+resets on return.
     #[inline(always)]
     pub fn track<T>(&mut self, f: impl FnOnce() -> T) -> (T, i128) {
         self.start_tracking();
@@ -78,7 +77,6 @@ impl StorageTracker {
         (out, delta)
     }
 
-    /// For `Result` flows; always stops+resets on return.
     #[inline(always)]
     pub fn track_result<T, E>(
         &mut self,

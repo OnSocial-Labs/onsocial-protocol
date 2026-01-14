@@ -963,16 +963,16 @@ mod test_advanced_functionalities {
 
         println!("NEAR cost for single post: {} yoctoNEAR ({:.8} NEAR)", post_cost_yoctonear, post_cost_near);
 
-        // Check if MIN_STORAGE_BYTES (2000 bytes) is sufficient
-        let min_storage_cost_yoctonear = (crate::constants::MIN_STORAGE_BYTES as u128).saturating_mul(byte_cost);
+        // Check if MIN_SHARED_STORAGE_BYTES (2000 bytes) is sufficient
+        let min_storage_cost_yoctonear = (crate::constants::MIN_SHARED_STORAGE_BYTES as u128).saturating_mul(byte_cost);
         let min_storage_cost_near = min_storage_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
 
-        println!("MIN_STORAGE_BYTES (2000 bytes) cost: {} yoctoNEAR ({:.8} NEAR)", min_storage_cost_yoctonear, min_storage_cost_near);
+        println!("MIN_SHARED_STORAGE_BYTES (2000 bytes) cost: {} yoctoNEAR ({:.8} NEAR)", min_storage_cost_yoctonear, min_storage_cost_near);
 
-        // Verify the post used less than MIN_STORAGE_BYTES
-        assert!(post_used_bytes <= crate::constants::MIN_STORAGE_BYTES,
-                "Single post should use <= MIN_STORAGE_BYTES ({}), but used {} bytes",
-                crate::constants::MIN_STORAGE_BYTES, post_used_bytes);
+        // Verify the post used less than MIN_SHARED_STORAGE_BYTES
+        assert!(post_used_bytes <= crate::constants::MIN_SHARED_STORAGE_BYTES,
+                "Single post should use <= MIN_SHARED_STORAGE_BYTES ({}), but used {} bytes",
+                crate::constants::MIN_SHARED_STORAGE_BYTES, post_used_bytes);
 
         // Verify the content was stored
         let post_key = format!("{}/posts/1", user.as_str());

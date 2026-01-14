@@ -61,10 +61,11 @@ impl SocialPlatform {
 
         self.user_storage.insert(account_id.clone(), storage);
 
-        // Promise without .detach() - transfer failure reverts entire transaction
+        // Transfer to actor (the caller) - detached since NEAR transfers to existing accounts always succeed
         if withdraw_amount > 0 {
             near_sdk::Promise::new(actor_id.clone())
-                .transfer(near_sdk::NearToken::from_yoctonear(withdraw_amount));
+                .transfer(near_sdk::NearToken::from_yoctonear(withdraw_amount))
+                .detach();
         }
 
         let new_balance = previous_balance.saturating_sub(withdraw_amount);

@@ -2,6 +2,16 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::AccountId;
 use near_sdk_macros::NearSchema;
 
+/// Account storage balance and usage tracking.
+///
+/// # Balance Model
+/// - `balance`: Total deposited NEAR for storage
+/// - `locked_balance`: Reserved for pending proposals (excluded from `available_balance()`)
+/// - `used_bytes`: Total bytes stored by this account
+/// - `*_pool_used_bytes`: Bytes covered by respective pools (not charged to personal balance)
+///
+/// # Invariant
+/// `available_balance() >= storage_balance_needed(used_bytes - covered_bytes())`
 #[derive(
     NearSchema,
     BorshDeserialize,
@@ -29,8 +39,7 @@ pub struct Storage {
     pub platform_allowance: u64,
     #[serde(default)]
     pub platform_last_refill_ns: u64,
-    /// Balance locked for pending proposal execution.
-    /// This prevents proposers from spending their deposit before execution.
+    /// Reserved for pending proposal execution.
     #[serde(default)]
     pub locked_balance: u128,
     #[serde(skip)]
@@ -51,20 +60,16 @@ impl Storage {
             .saturating_add(self.platform_pool_used_bytes)
     }
 
-    /// Available balance after subtracting locked amount.
     #[inline(always)]
     pub fn available_balance(&self) -> u128 {
         self.balance.saturating_sub(self.locked_balance)
     }
 
-    /// Verify balance covers effective usage (total minus shared-pool-covered bytes).
-    /// Locked balance is reserved and cannot be used for regular storage.
+    /// Returns error if available balance cannot cover effective storage usage.
     #[inline(always)]
     pub fn assert_storage_covered(&self) -> Result<(), crate::errors::SocialError> {
         let effective_bytes = crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
         let storage_balance_needed = crate::storage::calculate_storage_balance_needed(effective_bytes);
-
-        // Available balance = total - locked
         let available = self.available_balance();
         if storage_balance_needed > available {
             return Err(crate::errors::SocialError::InsufficientStorage(format!(
@@ -76,7 +81,6 @@ impl Storage {
     }
 
     /// Lock balance for proposal execution.
-    /// Returns error if insufficient unlocked balance.
     pub fn lock_balance(&mut self, amount: u128) -> Result<(), crate::errors::SocialError> {
         let available = self.available_balance();
         if amount > available {
@@ -89,7 +93,7 @@ impl Storage {
         Ok(())
     }
 
-    /// Unlock previously locked balance (on proposal completion).
+    /// Release locked balance.
     pub fn unlock_balance(&mut self, amount: u128) {
         self.locked_balance = self.locked_balance.saturating_sub(amount);
     }
@@ -113,13 +117,10 @@ impl Storage {
         }
 
         let elapsed_ns = now.saturating_sub(self.platform_last_refill_ns);
-
-        // Skip if less than 1 minute elapsed.
         if elapsed_ns < crate::constants::NANOS_PER_MINUTE {
             return;
         }
 
-        // Proportional refill: (elapsed_ns / day) * daily_refill.
         let refill_bytes_u128 = (elapsed_ns as u128)
             .saturating_mul(config.platform_daily_refill_bytes as u128)
             / crate::constants::NANOS_PER_DAY as u128;

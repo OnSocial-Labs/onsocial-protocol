@@ -1,6 +1,7 @@
 #[inline(always)]
 pub fn calculate_storage_balance_needed(bytes: u64) -> u128 {
     let byte_cost = near_sdk::env::storage_byte_cost().as_yoctonear();
+    debug_assert!(byte_cost > 0, "Storage byte cost cannot be zero");
     (bytes as u128).checked_mul(byte_cost).unwrap_or(u128::MAX)
 }
 
@@ -9,15 +10,13 @@ pub fn calculate_effective_bytes(used_bytes: u64, shared_allocation: u64) -> u64
     used_bytes.saturating_sub(shared_allocation)
 }
 
-/// Soft-deletes an entry by converting it to a tombstone.
-/// Returns `Ok(true)` if deletion occurred, `Ok(false)` if already deleted (idempotent).
+/// Converts an entry to a tombstone. Idempotent: returns `Ok(false)` if already deleted.
 #[inline(always)]
 pub fn soft_delete_entry(
     platform: &mut crate::state::SocialPlatform,
     key: &str,
     entry: crate::state::models::DataEntry,
 ) -> Result<bool, crate::errors::SocialError> {
-    // Idempotent: if already deleted, don't rewrite.
     if matches!(entry.value, crate::state::models::DataValue::Deleted(_)) {
         return Ok(false);
     }
@@ -25,9 +24,7 @@ pub fn soft_delete_entry(
     let mut updated_entry = entry;
     let deleted_at = near_sdk::env::block_height();
 
-    // Tombstone with the block height at which the deletion occurred.
     updated_entry.value = crate::state::models::DataValue::Deleted(deleted_at);
-    // Keep block_height consistent across all mutations (set/remove).
     updated_entry.block_height = deleted_at;
     platform.insert_entry(key, updated_entry)?;
     Ok(true)

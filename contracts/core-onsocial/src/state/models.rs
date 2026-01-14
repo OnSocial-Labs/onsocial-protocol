@@ -42,7 +42,8 @@ pub struct SharedStoragePool {
 
 impl SharedStoragePool {
     pub fn available_bytes(&self) -> u64 {
-        let total_capacity_bytes = (self.storage_balance / env::storage_byte_cost().as_yoctonear()) as u64;
+        let total_capacity_u128 = self.storage_balance / env::storage_byte_cost().as_yoctonear();
+        let total_capacity_bytes = u64::try_from(total_capacity_u128).unwrap_or(u64::MAX);
         total_capacity_bytes.saturating_sub(self.used_bytes)
     }
 
@@ -51,18 +52,20 @@ impl SharedStoragePool {
     }
 
     pub fn group_pool_key(group_id: &str) -> Result<AccountId, crate::errors::SocialError> {
-        format!("group-{}.pool", group_id)
+        if group_id.is_empty() {
+            return Err(crate::invalid_input!("group_id cannot be empty"));
+        }
+        format!("{}{}{}", crate::constants::GROUP_POOL_PREFIX, group_id, crate::constants::GROUP_POOL_SUFFIX)
             .parse()
             .map_err(|_| crate::invalid_input!(format!("Invalid group_id for pool key: {}", group_id)))
     }
 
     pub fn extract_group_id_from_pool_key(pool_id: &AccountId) -> Option<String> {
         let s = pool_id.as_str();
-        if s.starts_with("group-") && s.ends_with(".pool") {
-            Some(s.strip_prefix("group-")?.strip_suffix(".pool")?.to_string())
-        } else {
-            None
-        }
+        s.strip_prefix(crate::constants::GROUP_POOL_PREFIX)?
+            .strip_suffix(crate::constants::GROUP_POOL_SUFFIX)
+            .filter(|id| !id.is_empty())
+            .map(String::from)
     }
 
     pub fn extract_group_id_from_path(path: &str) -> Option<String> {

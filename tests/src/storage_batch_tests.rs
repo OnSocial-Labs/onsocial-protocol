@@ -2088,7 +2088,7 @@ async fn test_deposit_write_withdraw_remaining() -> anyhow::Result<()> {
     // STEP 3: Try to withdraw ALL balance (should FAIL - storage not covered)
     // =========================================================================
     println!("\n📦 Step 3: Try to withdraw ENTIRE deposit (should fail)...");
-    let user_balance_before = user.view_account().await?.balance;
+    let _user_balance_before = user.view_account().await?.balance;
     
     let result = user
         .call(contract.id(), "execute")
@@ -10432,5 +10432,210 @@ async fn test_writes_blocked_in_readonly_mode() -> anyhow::Result<()> {
     println!("   ✓ Write succeeded after resume_live");
 
     println!("\n✅ Test passed: Writes blocked in ReadOnly mode");
+    Ok(())
+}
+
+// =============================================================================
+// STORAGE TRACKER: Full Lifecycle Delta Correctness
+// =============================================================================
+// Validates that StorageTracker correctly computes positive and negative deltas
+// across a complete data lifecycle: create → update (grow) → update (shrink) → delete.
+// The final used_bytes should return to baseline (or near-zero for soft deletes).
+
+#[tokio::test]
+async fn test_storage_tracker_full_lifecycle_delta_correctness() -> anyhow::Result<()> {
+    println!("\n🧪 TEST: Storage tracker full lifecycle delta correctness");
+    println!("   (create → grow → shrink → delete → verify baseline)");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    contract.call("new").transact().await?.into_result()?;
+    contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let alice = sandbox.dev_create_account().await?;
+
+    // Step 0: Deposit storage balance
+    println!("\n   Step 0: Deposit storage for Alice...");
+    let deposit_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": NearToken::from_near(2).as_yoctonear().to_string()}
+                } }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success(), "Deposit should succeed");
+
+    // Get baseline used_bytes (should be 0 or minimal)
+    let storage_baseline: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let baseline_bytes = storage_baseline
+        .as_ref()
+        .and_then(|s| s.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    println!("   Baseline used_bytes: {}", baseline_bytes);
+
+    // Step 1: Create entry (positive delta)
+    println!("\n   Step 1: Create entry (100 bytes)...");
+    let create_value = "X".repeat(100);
+    let create_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "lifecycle/test": create_value
+                } }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(create_res.is_success(), "Create should succeed");
+
+    let storage_after_create: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let bytes_after_create = storage_after_create
+        .as_ref()
+        .and_then(|s| s.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let delta_create = bytes_after_create.saturating_sub(baseline_bytes);
+    println!("   used_bytes after create: {} (delta: +{})", bytes_after_create, delta_create);
+    assert!(delta_create > 0, "Create should add bytes");
+
+    // Step 2: Update to larger value (positive delta)
+    println!("\n   Step 2: Update to larger value (300 bytes)...");
+    let grow_value = "Y".repeat(300);
+    let grow_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "lifecycle/test": grow_value
+                } }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(grow_res.is_success(), "Grow should succeed");
+
+    let storage_after_grow: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let bytes_after_grow = storage_after_grow
+        .as_ref()
+        .and_then(|s| s.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let delta_grow = bytes_after_grow as i64 - bytes_after_create as i64;
+    println!("   used_bytes after grow: {} (delta: {:+})", bytes_after_grow, delta_grow);
+    assert!(delta_grow > 0, "Grow should increase bytes");
+
+    // Step 3: Update to smaller value (negative delta via bytes_released)
+    println!("\n   Step 3: Update to smaller value (50 bytes)...");
+    let shrink_value = "Z".repeat(50);
+    let shrink_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "lifecycle/test": shrink_value
+                } }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(shrink_res.is_success(), "Shrink should succeed");
+
+    let storage_after_shrink: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let bytes_after_shrink = storage_after_shrink
+        .as_ref()
+        .and_then(|s| s.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let delta_shrink = bytes_after_shrink as i64 - bytes_after_grow as i64;
+    println!("   used_bytes after shrink: {} (delta: {:+})", bytes_after_shrink, delta_shrink);
+    assert!(delta_shrink < 0, "Shrink should decrease bytes (bytes_released path)");
+
+    // Step 4: Delete entry (negative delta, soft delete)
+    println!("\n   Step 4: Delete entry (set to null)...");
+    let delete_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "lifecycle/test": serde_json::Value::Null
+                } }
+            }
+        }))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(delete_res.is_success(), "Delete should succeed");
+
+    let storage_after_delete: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({ "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let bytes_after_delete = storage_after_delete
+        .as_ref()
+        .and_then(|s| s.get("used_bytes"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let delta_delete = bytes_after_delete as i64 - bytes_after_shrink as i64;
+    println!("   used_bytes after delete: {} (delta: {:+})", bytes_after_delete, delta_delete);
+
+    // Soft delete may keep tombstone bytes, but should be less than shrink state
+    assert!(
+        delta_delete <= 0,
+        "Delete should not increase bytes"
+    );
+
+    // Final invariant: bytes after delete should be close to baseline
+    // (soft delete leaves a small tombstone, so allow some margin)
+    let final_overhead = bytes_after_delete.saturating_sub(baseline_bytes);
+    println!("\n   Final overhead above baseline: {} bytes", final_overhead);
+    
+    // The soft-delete tombstone should be minimal (< 100 bytes typically)
+    assert!(
+        final_overhead < 150,
+        "After full lifecycle, used_bytes should return close to baseline (got {} overhead)",
+        final_overhead
+    );
+
+    println!("\n✅ Test passed: Storage tracker correctly tracks full lifecycle deltas");
+    println!("   - Create: +{} bytes", delta_create);
+    println!("   - Grow:   {:+} bytes", delta_grow);
+    println!("   - Shrink: {:+} bytes", delta_shrink);
+    println!("   - Delete: {:+} bytes", delta_delete);
+
     Ok(())
 }

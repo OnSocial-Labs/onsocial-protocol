@@ -1203,6 +1203,7 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
 const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 
 #[derive(Debug, serde::Deserialize)]
+#[allow(dead_code)]
 struct Event {
     pub standard: String,
     pub version: String,

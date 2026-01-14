@@ -1,4 +1,5 @@
-pub const MIN_STORAGE_BYTES: u64 = 2000;
+/// Minimum bytes when sharing storage with another user.
+pub const MIN_SHARED_STORAGE_BYTES: u64 = 2000;
 pub const MAX_INTENT_BYTES: usize = 16 * 1024;
 pub const NUM_PARTITIONS: u16 = 4096;
 
@@ -35,4 +36,9 @@ pub const PROPOSAL_EXECUTION_LOCK: u128 = 50_000_000_000_000_000_000_000;
 
 pub const NANOS_PER_MINUTE: u64 = 60_000_000_000;
 pub const NANOS_PER_DAY: u64 = 86_400_000_000_000;
+
+/// Format prefix for group storage pool keys.
+pub const GROUP_POOL_PREFIX: &str = "group-";
+/// Format suffix for group storage pool keys.
+pub const GROUP_POOL_SUFFIX: &str = ".pool";
 
