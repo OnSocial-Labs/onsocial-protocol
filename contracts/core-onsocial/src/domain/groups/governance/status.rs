@@ -5,6 +5,8 @@ use crate::SocialError;
 pub(super) enum ProposalStatus {
     Active,
     Executed,
+    /// Vote passed but action could not be applied (e.g., user blacklisted after proposal created)
+    ExecutedSkipped,
     Rejected,
     Cancelled,
 }
@@ -14,6 +16,7 @@ impl ProposalStatus {
         match self {
             Self::Active => "active",
             Self::Executed => "executed",
+            Self::ExecutedSkipped => "executed_skipped",
             Self::Rejected => "rejected",
             Self::Cancelled => "cancelled",
         }
@@ -23,6 +26,7 @@ impl ProposalStatus {
         match s {
             "active" => Some(Self::Active),
             "executed" => Some(Self::Executed),
+            "executed_skipped" => Some(Self::ExecutedSkipped),
             "rejected" => Some(Self::Rejected),
             "cancelled" => Some(Self::Cancelled),
             _ => None,

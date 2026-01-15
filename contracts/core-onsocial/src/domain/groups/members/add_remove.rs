@@ -82,10 +82,6 @@ impl crate::domain::groups::core::GroupStorage {
         let member_data = Value::Object(serde_json::Map::from_iter([
             ("level".to_string(), Value::Number(NONE.into())),
             (
-                "granted_by".to_string(),
-                Value::String(granter_id.to_string()),
-            ),
-            (
                 "joined_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
             ),

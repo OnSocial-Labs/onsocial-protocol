@@ -265,9 +265,7 @@ mod blacklist_tests {
         // Add an existing member so proposals don't execute immediately
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": owner,
-            "joined_at": 0,
-            "is_creator": false
+            "joined_at": "0"
         });
         contract.platform.storage_set(&format!("groups/demo_group/members/{}", existing_member.as_str()), &member_data).unwrap();
         let stats = json!({

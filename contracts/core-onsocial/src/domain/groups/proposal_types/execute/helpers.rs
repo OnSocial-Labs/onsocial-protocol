@@ -5,7 +5,7 @@ use crate::state::models::SocialPlatform;
 pub(super) struct ExecutionContext<'a> {
     pub platform: &'a mut SocialPlatform,
     pub group_id: &'a str,
-    pub executor: &'a AccountId,
+    pub proposer: &'a AccountId,
 }
 
 pub(super) struct PathPermissionGrantData<'a> {

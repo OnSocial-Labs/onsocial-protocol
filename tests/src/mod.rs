@@ -7,7 +7,11 @@ pub mod core_onsocial_tests;
 #[cfg(test)]
 pub mod cross_contract_tests;
 #[cfg(test)]
+pub mod join_request_execution_fixes_tests;
+#[cfg(test)]
 pub mod member_add_remove_tests;
+#[cfg(test)]
+pub mod member_invite_execution_tests;
 #[cfg(test)]
 pub mod ownership_tests;
 #[cfg(test)]
@@ -24,6 +28,8 @@ pub mod key_permissions_tests;
 pub mod lib_wrapper_regression_tests;
 #[cfg(test)]
 pub mod permissions_tests;
+#[cfg(test)]
+pub mod proposal_validation_tests;
 #[cfg(test)]
 pub mod proposals_tests;
 #[cfg(test)]

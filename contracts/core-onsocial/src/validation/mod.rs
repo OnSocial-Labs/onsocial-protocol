@@ -18,4 +18,5 @@ pub use group_path::require_groups_path;
 pub use json::validate_json_value_simple;
 pub use limits::serialize_json_with_max_len;
 pub use path::Path;
+pub use path::is_safe_path;
 pub use view_key::resolve_view_key;

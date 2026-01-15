@@ -62,7 +62,7 @@ pub(crate) fn parse_permission_value(value: &str) -> Option<(PermissionLevel, u6
 }
 
 #[inline]
-pub(crate) fn normalize_group_path_owned(path: &str) -> Option<String> {
+pub fn normalize_group_path_owned(path: &str) -> Option<String> {
     let normalized = if path.starts_with("groups/") {
         path.to_string()
     } else if let Some(idx) = path.find("/groups/") {

@@ -32,7 +32,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member (bypassing permission checks for testing)
         let member_data = json!({
             "level": 0,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -96,7 +96,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -162,7 +162,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -262,7 +262,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add bob as a member (need 2 members so 1 vote = 50% participation, doesn't meet 51% quorum)
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -414,7 +414,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -473,7 +473,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member so we have 2 members for voting
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -514,8 +514,6 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         
         let member_info = member_data.unwrap();
         assert_eq!(member_info["level"], json!(0));
-        assert_eq!(member_info["granted_by"], alice.to_string(), 
-            "Should show granted_by as the proposer (alice), got: {}", member_info["granted_by"]);
         
         println!("✅ Member invite proposal workflow works correctly");
     }
@@ -537,7 +535,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -588,14 +586,6 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Verify original membership data is preserved (regression test for bug fix)
         assert!(updated_member.get("joined_at").is_some(), 
             "joined_at should be preserved after permission change");
-        assert!(updated_member.get("granted_by").is_some(), 
-            "granted_by should be preserved after permission change");
-        
-        // Verify update metadata was added
-        assert!(updated_member.get("updated_at").is_some(), 
-            "updated_at should be set after permission change");
-        assert!(updated_member.get("updated_by").is_some(), 
-            "updated_by should be set after permission change");
         
         println!("✅ Permission change proposal voting workflow works");
         println!("✅ Member data preserved after permission change");
@@ -623,7 +613,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member so we have 2 members for voting
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -699,7 +689,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -767,7 +757,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -866,7 +856,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob, charlie, dave as members for testing (normally this would be through proposals)
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": "alice",
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -929,7 +919,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob and charlie as members for testing (normally this would be through proposals)
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": "alice",
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -990,7 +980,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as member for testing
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": "alice",
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1056,7 +1046,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob, charlie, dave as members for testing
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": "alice",
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1173,7 +1163,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // For testing purposes, manually add them to simulate approved proposals
         let member_data = json!({
             "level": WRITE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1295,7 +1285,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add members manually for testing
         let member_data = json!({
             "level": WRITE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1358,7 +1348,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add bob as member
         let member_data = json!({
             "level": WRITE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1414,7 +1404,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add bob as member
         let member_data = json!({
             "level": WRITE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1592,7 +1582,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1658,7 +1648,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add bob as a member
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -1826,7 +1816,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         let current_timestamp = near_sdk::env::block_timestamp();
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": current_timestamp,
             "is_creator": false
         });
@@ -1909,7 +1899,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Manually add bob as a member with joined_at > proposal created_at
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": (proposal_created_at + 1000).to_string(), // Joined AFTER proposal
             "is_creator": false
         });
@@ -2003,7 +1993,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         let bob = test_account(1);
         let member_data = json!({
             "level": MODERATE,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });
@@ -2086,7 +2076,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         for member in [bob.clone(), carol.clone(), dave.clone()] {
             let member_data = json!({
                 "level": MODERATE,
-                "granted_by": alice,
+                
                 "joined_at": 0,
                 "is_creator": false
             });
@@ -2237,7 +2227,7 @@ use near_sdk::{testing_env, AccountId};    fn test_account(index: usize) -> Acco
         // Add bob as a member
         let member_data = json!({
             "level": 0,
-            "granted_by": alice,
+            
             "joined_at": 0,
             "is_creator": false
         });

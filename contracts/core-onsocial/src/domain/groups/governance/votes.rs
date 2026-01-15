@@ -127,7 +127,6 @@ impl GroupGovernance {
                 let proposal_type = serde_json::from_value::<ProposalType>(proposal_type_val.clone())
                     .map_err(|_| invalid_input!("Failed to parse proposal type"))?;
 
-                // Proposer pays for execution storage and is credited as initiator.
                 let proposer = proposal_data
                     .get("proposer")
                     .and_then(|v| v.as_str())
@@ -137,14 +136,31 @@ impl GroupGovernance {
                 platform.set_execution_payer(proposer.clone());
                 let exec_result = proposal_type.execute(platform, group_id, proposal_id, &proposer);
                 platform.clear_execution_payer();
-                exec_result?;
 
-                Self::update_proposal_status(
-                    platform,
-                    group_id,
-                    proposal_id,
-                    ProposalStatus::Executed,
-                )?;
+                // JoinRequest/MemberInvite can fail due to race conditions (user blacklisted
+                // or already member after proposal creation). Mark as executed_skipped.
+                match exec_result {
+                    Ok(()) => {
+                        Self::update_proposal_status(
+                            platform,
+                            group_id,
+                            proposal_id,
+                            ProposalStatus::Executed,
+                        )?;
+                    }
+                    Err(e) => {
+                        if proposal_type.has_recoverable_execution_errors() {
+                            Self::update_proposal_status(
+                                platform,
+                                group_id,
+                                proposal_id,
+                                ProposalStatus::ExecutedSkipped,
+                            )?;
+                        } else {
+                            return Err(e);
+                        }
+                    }
+                }
             }
         } else if should_reject {
             Self::update_proposal_status(

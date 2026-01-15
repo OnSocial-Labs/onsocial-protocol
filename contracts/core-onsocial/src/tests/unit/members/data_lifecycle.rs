@@ -28,11 +28,9 @@ mod member_data_lifecycle_tests {
         // Verify initial member data structure
         let initial_data = contract.get_member_data("data_test".to_string(), member.clone()).unwrap();
         assert!(initial_data.get("level").is_some(), "Should have level");
-        assert!(initial_data.get("granted_by").is_some(), "Should have granted_by");
         assert!(initial_data.get("joined_at").is_some(), "Should have joined_at timestamp");
         
        let initial_joined_at = initial_data["joined_at"].as_str().unwrap().to_string();
-        let initial_granted_by = initial_data["granted_by"].as_str().unwrap();
 
         // Perform various operations and verify data persists
         contract.execute(set_permission_request(member.clone(), "groups/data_test/posts".to_string(), MODERATE, None)).unwrap();
@@ -40,8 +38,6 @@ mod member_data_lifecycle_tests {
         let after_permission_data = contract.get_member_data("data_test".to_string(), member.clone()).unwrap();
        assert_eq!(after_permission_data["joined_at"], json!(initial_joined_at), 
                   "joined_at should persist after permission grant");
-        assert_eq!(after_permission_data["granted_by"].as_str().unwrap(), initial_granted_by, 
-                  "granted_by should persist after permission grant");
 
         // Update member permissions through proper channel and verify core data persists  
         contract.execute(set_permission_request(member.clone(), "groups/data_test/config".to_string(), MODERATE, None)).unwrap();
@@ -153,12 +149,10 @@ mod member_data_lifecycle_tests {
         
         // Check required metadata fields
         assert!(member_data.get("level").is_some(), "Should have level metadata");
-        assert!(member_data.get("granted_by").is_some(), "Should have granted_by metadata");
         assert!(member_data.get("joined_at").is_some(), "Should have joined_at metadata");
         
         // Verify metadata content
        assert_eq!(member_data["level"], json!(0), "Permission flags should match");
-        assert_eq!(member_data["granted_by"], json!(owner.to_string()), "Granted by should match owner");
         
        let joined_at = member_data["joined_at"].as_str().unwrap().to_string();
        println!("Member joined at timestamp: {}", joined_at);
@@ -170,7 +164,6 @@ mod member_data_lifecycle_tests {
         // Note: set_permission doesn't update member data level, it just grants path-specific permissions
        assert_eq!(updated_data["level"], json!(0), "Member data permission flags remain the same");
        assert_eq!(updated_data["joined_at"], json!(joined_at), "Original joined_at should be preserved");
-        assert_eq!(updated_data["granted_by"], json!(owner.to_string()), "Original granted_by should be preserved");
         
         // Verify the permission was actually granted
         assert!(contract.has_permission(owner.clone(), member.clone(), "groups/metadata_test/config".to_string(), MODERATE), 
@@ -221,9 +214,6 @@ mod member_data_lifecycle_tests {
         // Original member data should persist
         let updated_data = contract.get_member_data("versioning_test".to_string(), member.clone()).unwrap();
        assert_eq!(updated_data["joined_at"], json!(initial_timestamp), "Original join timestamp preserved");
-        
-        // The granted_by field should still reflect original granter since we used set_permission
-        assert_eq!(updated_data["granted_by"], json!(owner.to_string()), "Should preserve original granter");
 
         // Owner makes another permission update
         near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
@@ -238,7 +228,6 @@ mod member_data_lifecycle_tests {
         assert!(has_manage, "Member should have MANAGE permissions after final update");
         
         let final_data = contract.get_member_data("versioning_test".to_string(), member.clone()).unwrap();
-        assert_eq!(final_data["granted_by"], json!(owner.to_string()), "Should preserve original granter");
        assert_eq!(final_data["joined_at"], json!(initial_timestamp), "Original join timestamp still preserved");
 
         println!("✅ Member data updates and change tracking work correctly");
@@ -274,7 +263,6 @@ mod member_data_lifecycle_tests {
         // Verify fresh start for re-joined member
        assert_eq!(rejoin_data["level"], json!(0), "Members start member-only on rejoin");
         assert!(rejoin_time >= first_join_time, "Rejoin timestamp should be newer or equal");
-        assert_eq!(rejoin_data["granted_by"], json!(owner.to_string()), "Should track current granter");
 
         // Test blacklist and unblacklist cycle
         contract.execute(blacklist_group_member_request("integrity_test".to_string(), member.clone())).unwrap();

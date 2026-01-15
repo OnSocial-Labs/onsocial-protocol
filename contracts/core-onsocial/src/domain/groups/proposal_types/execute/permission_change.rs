@@ -23,7 +23,7 @@ impl ProposalType {
         target_user: &AccountId,
         level: u8,
         reason: Option<&str>,
-        executor: &AccountId,
+        proposer: &AccountId,
     ) -> Result<(), SocialError> {
         let member_key = GroupStorage::group_member_path(group_id, target_user.as_str());
 
@@ -34,7 +34,6 @@ impl ProposalType {
         if let Some(obj) = member_data.as_object_mut() {
             obj.insert("level".to_string(), json!(level));
             obj.insert("updated_at".to_string(), Value::String(env::block_timestamp().to_string()));
-            obj.insert("updated_by".to_string(), json!(executor.to_string()));
             if let Some(reason) = reason {
                 obj.insert("reason".to_string(), json!(reason));
             }
@@ -46,11 +45,11 @@ impl ProposalType {
 
         let group_root_path = format!("groups/{}", group_id);
         if level == 0 {
-            kv_permissions::revoke_permissions(platform, executor, target_user, &group_root_path, &mut event_batch)?;
+            kv_permissions::revoke_permissions(platform, proposer, target_user, &group_root_path, &mut event_batch)?;
         } else {
             kv_permissions::grant_permissions(
                 platform,
-                executor,
+                proposer,
                 target_user,
                 &group_root_path,
                 level,
@@ -61,7 +60,7 @@ impl ProposalType {
         }
 
 
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "permission_changed", executor.clone())
+        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "permission_changed", proposer.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(target_user)
@@ -98,7 +97,7 @@ impl ProposalType {
             None,
         )?;
 
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_granted", ctx.executor.clone())
+        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_granted", ctx.proposer.clone())
             .with_field("group_id", ctx.group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(data.target_user)
@@ -118,7 +117,7 @@ impl ProposalType {
         target_user: &AccountId,
         path: &str,
         reason: &str,
-        executor: &AccountId,
+        proposer: &AccountId,
     ) -> Result<(), SocialError> {
         // Revoker must be group owner for KV permission keys
         let config = GroupStorage::get_group_config(platform, group_id)
@@ -129,7 +128,7 @@ impl ProposalType {
 
         kv_permissions::revoke_permissions(platform, &group_owner, target_user, path, &mut event_batch)?;
 
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_revoked", executor.clone())
+        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_revoked", proposer.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(target_user)

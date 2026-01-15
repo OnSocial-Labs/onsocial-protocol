@@ -22,7 +22,7 @@ impl ProposalType {
         proposal_id: &str,
         update_type: &str,
         changes: &Value,
-        executor: &AccountId,
+        proposer: &AccountId,
     ) -> Result<(), SocialError> {
         let config_key = GroupStorage::group_config_path(group_id);
 
@@ -64,7 +64,7 @@ impl ProposalType {
                         platform,
                         group_id,
                         &target_account,
-                        executor,
+                        proposer,
                         true,
                     )?;
                 }
@@ -77,7 +77,7 @@ impl ProposalType {
                         platform,
                         group_id,
                         &target_account,
-                        executor,
+                        proposer,
                         true,
                     )?;
                 }
@@ -90,7 +90,7 @@ impl ProposalType {
                         platform,
                         group_id,
                         &target_account,
-                        executor,
+                        proposer,
                         true,
                     )?;
                 }
@@ -99,6 +99,14 @@ impl ProposalType {
                 if let Some(new_owner) = changes.get("new_owner").and_then(|v| v.as_str()) {
                     let new_owner_account =
                         crate::validation::parse_account_id_str(new_owner, invalid_input!("Invalid account ID"))?;
+
+                    if !GroupStorage::is_member(platform, group_id, &new_owner_account) {
+                        return Err(invalid_input!("New owner is no longer a member of the group"));
+                    }
+                    if GroupStorage::is_blacklisted(platform, group_id, &new_owner_account) {
+                        return Err(invalid_input!("New owner has been blacklisted"));
+                    }
+
                     let transfer_config = platform
                         .storage_get(&config_key)
                         .ok_or_else(|| invalid_input!("Group config not found"))?;
@@ -109,7 +117,7 @@ impl ProposalType {
                         platform,
                         group_id,
                         &new_owner_account,
-                        executor,
+                        proposer,
                         true,
                     )?;
 
@@ -123,7 +131,7 @@ impl ProposalType {
                             platform,
                             group_id,
                             &old_owner,
-                            executor,
+                            proposer,
                             true,
                         )?;
                     }
@@ -150,7 +158,7 @@ impl ProposalType {
         }
 
         let mut event_batch = EventBatch::new();
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "group_updated", executor.clone())
+        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "group_updated", proposer.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_field("update_type", update_type.as_str())
@@ -170,7 +178,7 @@ impl ProposalType {
         participation_quorum_bps: Option<u16>,
         majority_threshold_bps: Option<u16>,
         voting_period: Option<u64>,
-        executor: &AccountId,
+        proposer: &AccountId,
     ) -> Result<(), SocialError> {
         let config_key = GroupStorage::group_config_path(group_id);
 
@@ -201,13 +209,12 @@ impl ProposalType {
                 "voting_config_updated_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
             );
-            obj.insert("voting_config_updated_by".to_string(), json!(executor.to_string()));
         }
 
         platform.storage_set(&config_key, &config)?;
 
         let mut event_batch = EventBatch::new();
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "voting_config_changed", executor.clone())
+        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "voting_config_changed", proposer.clone())
             .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_field("participation_quorum_bps", participation_quorum_bps)
@@ -231,7 +238,7 @@ impl ProposalType {
         title: &str,
         description: &str,
         custom_data: &Value,
-        executor: &AccountId,
+        proposer: &AccountId,
     ) -> Result<(), SocialError> {
         let block_height = env::block_height();
         let timestamp = env::block_timestamp();
@@ -242,7 +249,6 @@ impl ProposalType {
             "title": title,
             "description": description,
             "custom_data": custom_data,
-            "executed_by": executor,
             "executed_at": timestamp.to_string(),
             "block_height": block_height.to_string()
         });
@@ -250,7 +256,7 @@ impl ProposalType {
         platform.storage_set(&execution_key, &execution_data)?;
 
         let mut event_batch = EventBatch::new();
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "custom_proposal_executed", executor.clone())
+        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "custom_proposal_executed", proposer.clone())
             .with_path(&execution_key)
             .with_value(execution_data.clone())
             .emit(&mut event_batch);

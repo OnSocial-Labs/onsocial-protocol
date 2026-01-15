@@ -41,6 +41,13 @@ impl ProposalType {
         }
     }
 
+    /// Returns true if this proposal type can have "recoverable" execution errors
+    /// (e.g., user already member, user blacklisted after proposal creation).
+    /// These errors mark proposal as ExecutedSkipped rather than propagating the error.
+    pub fn has_recoverable_execution_errors(&self) -> bool {
+        matches!(self, Self::JoinRequest { .. } | Self::MemberInvite { .. })
+    }
+
     pub fn target(&self, proposer: &AccountId) -> AccountId {
         match self {
             Self::GroupUpdate { .. } => proposer.clone(),

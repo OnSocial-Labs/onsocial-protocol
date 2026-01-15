@@ -47,7 +47,6 @@ mod core_member_operations {
 
         let data = member_data.unwrap();
         assert_eq!(data.get("level"), Some(&json!(0)), "Member should start member-only");
-        assert_eq!(data.get("granted_by"), Some(&json!(owner.to_string())), "Should show correct granter");
 
         println!("✅ Owner can successfully add members to traditional groups");
     }

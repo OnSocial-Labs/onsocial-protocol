@@ -8697,3 +8697,1069 @@ async fn test_voting_config_bps_clamping() -> anyhow::Result<()> {
     println!("✅ Voting config BPS clamping works correctly");
     Ok(())
 }
+
+// =============================================================================
+// JOINREQUEST EXECUTION - REQUESTER BLACKLISTED AFTER PROPOSAL CREATION
+// =============================================================================
+
+/// Tests Issue #2 fix: execute_join_request checks requester blacklist status at execution time,
+/// not just at proposal creation. If requester is blacklisted after creating proposal but before
+/// execution, the execution should fail.
+#[tokio::test]
+async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow::Result<()> {
+    println!("\n=== Test: JoinRequest Blocks Blacklisted Requester At Execution ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Alice creates member-driven private group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "blacklist-execution-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success());
+
+    // Add Bob as member (auto-executes with 1 member)
+    let invite_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "blacklist-execution-test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success());
+    println!("   ✓ Group has 2 members (Alice, Bob)");
+
+    // Charlie submits join request (NOT blacklisted at this point)
+    let join_request = charlie
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "join_group", "group_id": "blacklist-execution-test" }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(join_request.is_success(), "Join request should succeed when not blacklisted");
+
+    // Find proposal ID
+    let logs: Vec<String> = join_request.logs().iter().map(|s| s.to_string()).collect();
+    let events = find_events_by_operation(&logs, "proposal_created");
+    let proposal_id = events[0]
+        .data
+        .first()
+        .and_then(|d| d.extra.get("proposal_id"))
+        .and_then(|v| v.as_str())
+        .expect("proposal_id should exist");
+    println!("   ✓ JoinRequest proposal created: {}", proposal_id);
+
+    // Alice votes YES (1/2 votes - not enough to execute yet)
+    let alice_vote = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "blacklist-execution-test", "proposal_id": proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(alice_vote.is_success());
+    println!("   ✓ Alice voted YES (1/2)");
+
+    // Verify proposal is still active (not executed yet)
+    let proposal_key = format!("groups/blacklist-execution-test/proposals/{}", proposal_id);
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [proposal_key.clone()] }))
+        .await?
+        .json()?;
+    let proposal = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    assert_eq!(
+        proposal.get("status").and_then(|v| v.as_str()),
+        Some("active"),
+        "Proposal should still be active before second vote"
+    );
+
+    // NOW: Alice blacklists Charlie AFTER proposal creation but BEFORE execution
+    // Use create_proposal with GroupUpdate Ban instead of direct blacklist_group_member
+    // (member-driven groups require governance for blacklist operations)
+    let ban_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { 
+                    "type": "create_proposal", 
+                    "group_id": "blacklist-execution-test", 
+                    "proposal_type": "group_update", 
+                    "changes": {
+                        "update_type": "ban",
+                        "target_user": charlie.id().to_string()
+                    },
+                    "auto_vote": false
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(ban_proposal.is_success());
+    let ban_proposal_id: String = ban_proposal.json()?;
+
+    // Alice votes YES on ban proposal
+    let alice_ban_vote = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "blacklist-execution-test", "proposal_id": ban_proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(alice_ban_vote.is_success());
+
+    // Bob votes YES on ban proposal - this executes the ban
+    let bob_ban_vote = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "blacklist-execution-test", "proposal_id": ban_proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(bob_ban_vote.is_success());
+    println!("   ✓ Charlie blacklisted AFTER proposal created");
+
+    // Verify Charlie is blacklisted
+    let is_blacklisted: bool = contract
+        .view("is_blacklisted")
+        .args_json(json!({
+            "group_id": "blacklist-execution-test",
+            "user_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(is_blacklisted, "Charlie should be blacklisted");
+
+    // Bob votes YES - this should trigger execution which should FAIL due to blacklist check
+    let bob_vote = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "blacklist-execution-test", "proposal_id": proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    // Vote should succeed, but execution is skipped due to blacklisted requester
+    // (JoinRequest has recoverable execution errors)
+    assert!(bob_vote.is_success(), "Vote should succeed (execution failure is marked as skipped)");
+    println!("   ✓ Vote succeeded (execution was skipped)");
+
+    // Verify Charlie is NOT a member
+    let is_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "blacklist-execution-test",
+            "member_id": charlie.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert!(!is_member, "Charlie should NOT be a member after blocked execution");
+    println!("   ✓ Charlie is not a member (execution blocked)");
+
+    // Verify proposal is marked as executed_skipped (not active)
+    let get_result_final: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [proposal_key.clone()] }))
+        .await?
+        .json()?;
+    let proposal_final = entry_value(&get_result_final, &proposal_key).cloned().unwrap_or(Value::Null);
+    assert_eq!(
+        proposal_final.get("status").and_then(|v| v.as_str()),
+        Some("executed_skipped"),
+        "Proposal should be marked as executed_skipped when blacklisted requester blocks execution"
+    );
+
+    println!("✅ JoinRequest execution correctly blocks blacklisted requester");
+    Ok(())
+}
+
+// =============================================================================
+// VALIDATION.RS MODULE TESTS - SECURITY FIXES
+// =============================================================================
+
+/// Test Issue #4 fix: GroupUpdate with unknown update_type is rejected
+#[tokio::test]
+async fn test_group_update_unknown_update_type_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Unknown update_type Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "unknown-update-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Try creating GroupUpdate proposal with unknown update_type
+    let unknown_type = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "unknown-update-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "completely_unknown_type_xyz",
+                    "changes": { "description": "Test" }
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        unknown_type.is_failure(),
+        "GroupUpdate with unknown update_type should be rejected"
+    );
+    let failure_str = format!("{:?}", unknown_type.failures());
+    assert!(
+        failure_str.contains("Unknown update_type") || failure_str.contains("InvalidInput"),
+        "Error should mention unknown update_type: {}", failure_str
+    );
+    println!("   ✓ Unknown update_type correctly rejected at validation time");
+
+    println!("✅ GroupUpdate unknown update_type rejection verified (Issue #4 fix)");
+    Ok(())
+}
+
+/// Test Issue #5 fix: VotingConfigChange enforces minimum quorum and threshold
+#[tokio::test]
+async fn test_voting_config_change_enforces_minimums() -> anyhow::Result<()> {
+    println!("\n=== Test: VotingConfigChange Enforces Minimum Values ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "min-voting-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Test 1: Zero quorum should be rejected (MIN = 100 bps = 1%)
+    let zero_quorum = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "min-voting-test", "proposal_type": "voting_config_change", "changes": {
+                    "participation_quorum_bps": 0
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        zero_quorum.is_failure(),
+        "Zero quorum should be rejected"
+    );
+    let failure_str = format!("{:?}", zero_quorum.failures());
+    assert!(
+        failure_str.contains("Participation quorum bps must be between 100 and 10000") || failure_str.contains("InvalidInput"),
+        "Error should mention quorum minimum: {}", failure_str
+    );
+    println!("   ✓ Zero quorum correctly rejected (MIN_VOTING_PARTICIPATION_QUORUM_BPS = 100)");
+
+    // Test 2: Quorum below minimum (50 bps) should be rejected
+    let low_quorum = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "min-voting-test", "proposal_type": "voting_config_change", "changes": {
+                    "participation_quorum_bps": 50
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        low_quorum.is_failure(),
+        "Quorum below minimum should be rejected"
+    );
+    println!("   ✓ Below-minimum quorum correctly rejected");
+
+    // Test 3: Zero threshold should be rejected (MIN = 5001 bps = >50%)
+    let zero_threshold = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "min-voting-test", "proposal_type": "voting_config_change", "changes": {
+                    "majority_threshold_bps": 0
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        zero_threshold.is_failure(),
+        "Zero threshold should be rejected"
+    );
+    let failure_str = format!("{:?}", zero_threshold.failures());
+    assert!(
+        failure_str.contains("Majority threshold bps must be between 5001 and 10000") || failure_str.contains("InvalidInput"),
+        "Error should mention threshold minimum: {}", failure_str
+    );
+    println!("   ✓ Zero threshold correctly rejected (MIN_VOTING_MAJORITY_THRESHOLD_BPS = 5001)");
+
+    // Test 4: Threshold = 5000 (exactly 50%) should be rejected (must be >50%)
+    let fifty_percent = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "min-voting-test", "proposal_type": "voting_config_change", "changes": {
+                    "majority_threshold_bps": 5000
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        fifty_percent.is_failure(),
+        "Exactly 50% threshold should be rejected (must be >50%)"
+    );
+    println!("   ✓ Exactly 50% threshold correctly rejected (must be >50%)");
+
+    // Test 5: Valid minimum values should succeed (100 bps quorum, 5001 bps threshold)
+    let valid_min = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "min-voting-test", "proposal_type": "voting_config_change", "changes": {
+                    "participation_quorum_bps": 100,
+                    "majority_threshold_bps": 5001
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        valid_min.is_success(),
+        "Minimum valid values should be accepted"
+    );
+    println!("   ✓ Minimum valid values (100 bps quorum, 5001 bps threshold) accepted");
+
+    println!("✅ VotingConfigChange minimum enforcement verified (Issue #5 fix)");
+    Ok(())
+}
+
+/// Test Issue #6 fix: PermissionChange rejects no-op changes (target already has the level)
+#[tokio::test]
+async fn test_permission_change_no_op_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: PermissionChange No-Op Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "no-op-perm-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob as a member (default permission level = 0)
+    let add_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "no-op-perm-test", "member_id": bob.id().to_string() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed");
+
+    // Verify Bob has default permission level = 0
+    let member_key = format!("groups/no-op-perm-test/members/{}", bob.id());
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [member_key.clone()] }))
+        .await?
+        .json()?;
+    let member_data = entry_value(&get_result, &member_key).cloned().unwrap_or(Value::Null);
+    let current_level = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+    assert_eq!(current_level, 0, "Bob's default permission level should be 0");
+    println!("   ✓ Bob has default permission level = 0");
+
+    // Try creating PermissionChange proposal to set Bob to level 0 (no-op)
+    let no_op_change = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "no-op-perm-test", "proposal_type": "permission_change", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "level": 0,
+                    "reason": "Setting Bob to level 0 (same as current)"
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        no_op_change.is_failure(),
+        "No-op PermissionChange should be rejected"
+    );
+    let failure_str = format!("{:?}", no_op_change.failures());
+    assert!(
+        failure_str.contains("Target user already has this permission level") || failure_str.contains("InvalidInput"),
+        "Error should mention target already has this level: {}", failure_str
+    );
+    println!("   ✓ No-op PermissionChange correctly rejected");
+
+    // Verify a real change (0 -> 2) succeeds
+    let real_change = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "no-op-perm-test", "proposal_type": "permission_change", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "level": 2,
+                    "reason": "Promoting Bob to level 2"
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        real_change.is_success(),
+        "Real PermissionChange (0 -> 2) should succeed"
+    );
+    println!("   ✓ Real permission change (0 -> 2) accepted");
+
+    println!("✅ PermissionChange no-op rejection verified (Issue #6 fix)");
+    Ok(())
+}
+
+/// Test Issue #7 fix: PathPermissionGrant/Revoke reject invalid path formats
+#[tokio::test]
+async fn test_path_permission_invalid_format_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: PathPermissionGrant/Revoke Invalid Format Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "invalid-path-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob as a member
+    let add_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "invalid-path-test", "member_id": bob.id().to_string() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed");
+
+    // Test 1: PathPermissionGrant with invalid path format (contains ..)
+    let invalid_grant_dotdot = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "invalid-path-test", "proposal_type": "path_permission_grant", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "path": "groups/invalid-path-test/../other-group/data",
+                    "level": 2,
+                    "reason": "Invalid path with .."
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        invalid_grant_dotdot.is_failure(),
+        "PathPermissionGrant with .. should be rejected"
+    );
+    let failure_str = format!("{:?}", invalid_grant_dotdot.failures());
+    assert!(
+        failure_str.contains("Invalid group path format") || failure_str.contains("InvalidInput"),
+        "Error should mention invalid path format: {}", failure_str
+    );
+    println!("   ✓ PathPermissionGrant with '..' correctly rejected");
+
+    // Test 2: PathPermissionGrant with absolute path
+    let invalid_grant_absolute = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "invalid-path-test", "proposal_type": "path_permission_grant", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "path": "/absolute/path/to/data",
+                    "level": 2,
+                    "reason": "Invalid absolute path"
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        invalid_grant_absolute.is_failure(),
+        "PathPermissionGrant with absolute path should be rejected"
+    );
+    println!("   ✓ PathPermissionGrant with absolute path correctly rejected");
+
+    // Test 3: PathPermissionRevoke with invalid path format (contains ..)
+    let invalid_revoke_dotdot = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "invalid-path-test", "proposal_type": "path_permission_revoke", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "path": "groups/invalid-path-test/../other-group/data",
+                    "reason": "Invalid path with .."
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        invalid_revoke_dotdot.is_failure(),
+        "PathPermissionRevoke with .. should be rejected"
+    );
+    let failure_str = format!("{:?}", invalid_revoke_dotdot.failures());
+    assert!(
+        failure_str.contains("Invalid group path format") || failure_str.contains("InvalidInput"),
+        "Error should mention invalid path format: {}", failure_str
+    );
+    println!("   ✓ PathPermissionRevoke with '..' correctly rejected");
+
+    // Test 4: PathPermissionRevoke with empty path
+    let invalid_revoke_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "invalid-path-test", "proposal_type": "path_permission_revoke", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "path": "",
+                    "reason": "Empty path"
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        invalid_revoke_empty.is_failure(),
+        "PathPermissionRevoke with empty path should be rejected"
+    );
+    println!("   ✓ PathPermissionRevoke with empty path correctly rejected");
+
+    // Test 5: Valid path should succeed (normalized)
+    let valid_grant = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "invalid-path-test", "proposal_type": "path_permission_grant", "changes": {
+                    "target_user": bob.id().to_string(),
+                    "path": "groups/invalid-path-test/content/posts",
+                    "level": 2,
+                    "reason": "Valid path"
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        valid_grant.is_success(),
+        "PathPermissionGrant with valid path should succeed"
+    );
+    println!("   ✓ Valid path accepted (normalized correctly)");
+
+    println!("✅ PathPermission invalid format rejection verified (Issue #7 fix)");
+    Ok(())
+}
+
+// =============================================================================
+// DISPATCH.RS TOCTOU TEST: GROUP BECOMES NON-MEMBER-DRIVEN BEFORE EXECUTION
+// =============================================================================
+
+/// Tests TOCTOU scenario: proposal created in member-driven group, but group
+/// becomes non-member-driven (via another governance proposal) before execution.
+/// dispatch.rs lines 19-24 must catch this and return "Group is no longer member-driven".
+#[tokio::test]
+async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Result<()> {
+    println!("\n=== Test: TOCTOU - Group Becomes Non-Member-Driven Before Execution ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group (Alice is founder)
+    alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "toctou-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("   ✓ Member-driven group created");
+
+    // Add Bob as member (auto-executes)
+    alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "toctou-test", "proposal_type": "member_invite", "changes": { "target_user": bob.id().to_string() }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("   ✓ Bob added as member");
+
+    // Step 1: Create proposal to invite Charlie (don't execute yet - needs 2 votes)
+    let invite_charlie = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "toctou-test", "proposal_type": "member_invite", "changes": { "target_user": charlie.id().to_string() }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    let invite_proposal_id: String = invite_charlie.json()?;
+    println!("   ✓ Invite proposal created: {}", invite_proposal_id);
+
+    // Alice votes YES on invite (1/2 votes - not executed yet)
+    alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "toctou-test", "proposal_id": invite_proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("   ✓ Alice voted YES on invite (1/2)");
+
+    // Step 2: BEFORE Bob votes on invite, change group to non-member-driven via governance
+    // This requires a group_update proposal with update_type=metadata
+    let config_change = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { 
+                    "type": "create_proposal", 
+                    "group_id": "toctou-test", 
+                    "proposal_type": "group_update", 
+                    "changes": {
+                        "update_type": "metadata",
+                        "changes": {
+                            "member_driven": false
+                        }
+                    },
+                    "auto_vote": false
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    let config_proposal_id: String = config_change.json()?;
+    println!("   ✓ Config change proposal created: {}", config_proposal_id);
+
+    // Vote to execute the config change (Alice + Bob vote YES)
+    alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "toctou-test", "proposal_id": config_proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .into_result()?;
+
+    bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "toctou-test", "proposal_id": config_proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("   ✓ Config change proposal executed (member_driven=false)");
+
+    // Verify group is now non-member-driven
+    let config: Value = contract
+        .view("get_group_config")
+        .args_json(json!({ "group_id": "toctou-test" }))
+        .await?
+        .json()?;
+    assert_eq!(
+        config.get("member_driven").and_then(|v| v.as_bool()),
+        Some(false),
+        "Group should now be non-member-driven"
+    );
+    println!("   ✓ Verified: group is now non-member-driven");
+
+    // Step 3: Bob tries to vote on the ORIGINAL invite proposal → triggers execution
+    // dispatch.rs should catch this and fail with "Group is no longer member-driven"
+    let bob_vote = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "toctou-test", "proposal_id": invite_proposal_id, "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    // Vote should either fail OR succeed but execution should be skipped
+    // Let's check the outcome
+    if bob_vote.is_success() {
+        // Vote succeeded - check if proposal was marked as failed/rejected
+        let proposal_key = format!("groups/toctou-test/proposals/{}", invite_proposal_id);
+        let result: Vec<Value> = contract
+            .view("get")
+            .args_json(json!({ "keys": [proposal_key.clone()] }))
+            .await?
+            .json()?;
+        let proposal = entry_value(&result, &proposal_key).cloned().unwrap_or(Value::Null);
+        let status = proposal.get("status").and_then(|v| v.as_str()).unwrap_or("unknown");
+        
+        // Verify Charlie is NOT a member (execution was prevented)
+        let is_charlie_member: bool = contract
+            .view("is_group_member")
+            .args_json(json!({
+                "group_id": "toctou-test",
+                "member_id": charlie.id().to_string()
+            }))
+            .await?
+            .json()?;
+        
+        // The key invariant: Charlie should NOT be added because dispatch.rs rejected
+        assert!(
+            !is_charlie_member,
+            "Charlie should NOT be a member even if vote succeeded (execution prevented by dispatch.rs)"
+        );
+        println!("   ✓ Vote succeeded but Charlie NOT added - execution was blocked");
+        println!("   ✓ Proposal status: {}", status);
+        
+        // The proposal should be in a terminal failed state (not executed, not stuck in active)
+        assert!(
+            status != "executed",
+            "Proposal should NOT be 'executed' - dispatch.rs should have blocked it"
+        );
+        println!("   ✓ Proposal correctly not executed");
+    } else {
+        // Vote failed directly - that's also acceptable
+        let failure_str = format!("{:?}", bob_vote.failures());
+        assert!(
+            failure_str.contains("no longer member-driven") || failure_str.contains("member-driven"),
+            "Error should mention member-driven flag change: {}", failure_str
+        );
+        println!("   ✓ Execution correctly failed: group is no longer member-driven");
+        
+        // Verify Charlie is NOT a member
+        let is_charlie_member: bool = contract
+            .view("is_group_member")
+            .args_json(json!({
+                "group_id": "toctou-test",
+                "member_id": charlie.id().to_string()
+            }))
+            .await?
+            .json()?;
+        assert!(
+            !is_charlie_member,
+            "Charlie should NOT be a member (execution was prevented)"
+        );
+        println!("   ✓ Charlie correctly not added as member");
+    }
+
+    println!("✅ TOCTOU scenario handled: dispatch.rs lines 19-24 correctly reject execution");
+    Ok(())
+}
+
+// =============================================================================
+// DISPATCH.RS: CUSTOM PROPOSAL EXECUTION STORAGE VALIDATION
+// =============================================================================
+
+/// Tests that CustomProposal execution writes to groups/{group_id}/executions/{proposal_id}
+/// and emits custom_proposal_executed event with correct data.
+#[tokio::test]
+async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()> {
+    println!("\n=== Test: CustomProposal Execution Writes to Storage ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create single-member group (proposals auto-execute)
+    alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "custom-exec-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("   ✓ Single-member group created");
+
+    // Create CustomProposal (auto-executes with 1 member)
+    let custom_data = json!({
+        "action_type": "community_decision",
+        "priority": "high",
+        "metadata": { "key": "value" }
+    });
+    let create_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { 
+                    "type": "create_proposal", 
+                    "group_id": "custom-exec-test", 
+                    "proposal_type": "custom_proposal", 
+                    "changes": {
+                        "title": "Test Custom Proposal",
+                        "description": "This is a test custom proposal for execution verification",
+                        "custom_data": custom_data
+                    },
+                    "auto_vote": null 
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(create_proposal.is_success(), "CustomProposal should succeed");
+    
+    // Capture logs before consuming create_proposal with .json()
+    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let proposal_id: String = create_proposal.json()?;
+    println!("   ✓ CustomProposal created and auto-executed: {}", proposal_id);
+
+    // VERIFICATION 1: Check execution storage at groups/{group_id}/executions/{proposal_id}
+    let execution_key = format!("groups/custom-exec-test/executions/{}", proposal_id);
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [execution_key.clone()] }))
+        .await?
+        .json()?;
+    let execution_data = entry_value(&get_result, &execution_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    
+    assert!(
+        !execution_data.is_null(),
+        "Execution data should be written to storage at {}", execution_key
+    );
+    println!("   ✓ Execution data found at: {}", execution_key);
+
+    // VERIFICATION 2: Validate execution data structure
+    assert_eq!(
+        execution_data.get("proposal_id").and_then(|v| v.as_str()),
+        Some(proposal_id.as_str()),
+        "execution.proposal_id should match"
+    );
+    assert_eq!(
+        execution_data.get("title").and_then(|v| v.as_str()),
+        Some("Test Custom Proposal"),
+        "execution.title should match"
+    );
+    assert_eq!(
+        execution_data.get("description").and_then(|v| v.as_str()),
+        Some("This is a test custom proposal for execution verification"),
+        "execution.description should match"
+    );
+    assert!(
+        execution_data.get("executed_at").is_some(),
+        "execution.executed_at should exist"
+    );
+    assert!(
+        execution_data.get("block_height").is_some(),
+        "execution.block_height should exist"
+    );
+    
+    // Verify custom_data is preserved
+    let stored_custom_data = execution_data.get("custom_data");
+    assert!(
+        stored_custom_data.is_some(),
+        "execution.custom_data should exist"
+    );
+    assert_eq!(
+        stored_custom_data.unwrap().get("action_type").and_then(|v| v.as_str()),
+        Some("community_decision"),
+        "custom_data.action_type should be preserved"
+    );
+    println!("   ✓ Execution data structure validated");
+
+    // VERIFICATION 3: Check for custom_proposal_executed event (logs already captured above)
+    let events = find_events_by_operation(&logs, "custom_proposal_executed");
+    
+    assert!(
+        !events.is_empty(),
+        "custom_proposal_executed event should be emitted"
+    );
+    
+    let event_data = &events[0].data[0].extra;
+    assert_eq!(
+        event_data.get("path").and_then(|v| v.as_str()),
+        Some(execution_key.as_str()),
+        "Event path should match execution storage key"
+    );
+    println!("   ✓ custom_proposal_executed event emitted with correct path");
+
+    println!("✅ CustomProposal execution storage verified (dispatch.rs:85-93)");
+    Ok(())
+}

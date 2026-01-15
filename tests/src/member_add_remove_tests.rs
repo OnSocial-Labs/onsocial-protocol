@@ -1358,9 +1358,8 @@ async fn test_add_member_event_schema() -> anyhow::Result<()> {
     // Verify value contains member data
     let value = get_extra_json(event, "value").expect("Event should have value");
     assert!(value.get("level").is_some(), "Value should have level");
-    assert!(value.get("granted_by").is_some(), "Value should have granted_by");
     assert!(value.get("joined_at").is_some(), "Value should have joined_at");
-    println!("   ✓ Value contains member data (level, granted_by, joined_at)");
+    println!("   ✓ Value contains member data (level, joined_at)");
 
     println!("✅ add_member event schema test passed");
     Ok(())

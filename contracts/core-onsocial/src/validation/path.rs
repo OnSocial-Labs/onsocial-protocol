@@ -33,15 +33,11 @@ pub fn validate_and_normalize_path(
         return Err(invalid_input!("Invalid path length"));
     }
 
-    if path.as_bytes().first() == Some(&b'/') {
+    if !is_safe_path(path) {
         return Err(invalid_input!("Invalid path format"));
     }
 
     if path == "groups" || path == "groups/" {
-        return Err(invalid_input!("Invalid path format"));
-    }
-
-    if path.contains("..") || path.contains('\\') {
         return Err(invalid_input!("Invalid path format"));
     }
 
@@ -90,4 +86,11 @@ pub fn validate_and_normalize_path(
     }
 
     Ok(full_path)
+}
+
+/// Returns true if the path is safe (no traversal attacks).
+/// Rejects paths that are empty, start with `/`, or contain `..` or `\\`.
+#[inline]
+pub fn is_safe_path(path: &str) -> bool {
+    !path.is_empty() && !path.starts_with('/') && !path.contains("..") && !path.contains('\\')
 }

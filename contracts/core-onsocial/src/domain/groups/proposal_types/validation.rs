@@ -12,7 +12,6 @@ use super::types::ProposalType;
 
 impl ProposalType {
     pub fn validate(&self, platform: &SocialPlatform, group_id: &str, proposer: &AccountId) -> Result<(), SocialError> {
-        // Check if group is member-driven
         let config = GroupStorage::get_group_config(platform, group_id)
             .ok_or_else(|| invalid_input!("Group not found"))?;
 
@@ -22,10 +21,8 @@ impl ProposalType {
             return Err(invalid_input!("Group is not member-driven"));
         }
 
-        // Validate proposer permissions (with special case for join requests)
         match self {
             Self::JoinRequest { requester, .. } => {
-                // For join requests, the requester should be the proposer and should NOT be a member
                 if proposer != requester {
                     return Err(invalid_input!(
                         "Only the requester can create their own join request proposal"
@@ -39,7 +36,6 @@ impl ProposalType {
                 }
             }
             _ => {
-                // For all other proposal types, proposer must be a member
                 if !GroupStorage::is_member(platform, group_id, proposer) {
                     return Err(crate::permission_denied!(
                         "create_proposal",
@@ -55,52 +51,41 @@ impl ProposalType {
             }
         }
 
-        // Type-specific validation using typed enum fields directly (no JSON re-parsing)
         match self {
-            Self::GroupUpdate { changes, .. } => {
-                // Check if changes is null or empty
-                if changes.is_null() || changes.as_object().is_none_or(|obj| obj.is_empty()) {
-                    return Err(invalid_input!("Changes cannot be empty"));
-                }
-
-                // For metadata/permissions updates, also check the nested "changes" field.
-                // Keep behavior unchanged for unknown update types (no extra early rejection).
-                if let Some(update_type_str) = changes.get("update_type").and_then(|v| v.as_str()) {
-                    if let Some(update_type) = GroupUpdateType::parse(update_type_str) {
-                        match update_type {
-                            GroupUpdateType::Metadata | GroupUpdateType::Permissions => {
-                                let nested_changes = changes.get("changes");
-                                if nested_changes.is_none_or(|c| {
-                                    c.is_null() || c.as_object().is_none_or(|obj| obj.is_empty())
-                                }) {
-                                    return Err(invalid_input!("Changes cannot be empty"));
-                                }
-                            }
-                            GroupUpdateType::TransferOwnership => {
-                                let new_owner_str = changes.get("new_owner")
-                                    .and_then(|v| v.as_str())
-                                    .ok_or_else(|| invalid_input!("new_owner is required"))?;
-                                let new_owner_account = crate::validation::parse_account_id_str(
-                                    new_owner_str,
-                                    invalid_input!("Invalid new_owner account ID"),
-                                )?;
-                                if !GroupStorage::is_member(platform, group_id, &new_owner_account) {
-                                    return Err(invalid_input!("New owner must be a member of the group"));
-                                }
-                                if GroupStorage::is_blacklisted(platform, group_id, &new_owner_account) {
-                                    return Err(invalid_input!("Cannot transfer ownership to blacklisted member"));
-                                }
-                            }
-                            GroupUpdateType::RemoveMember | GroupUpdateType::Ban | GroupUpdateType::Unban => {
-                                let target_str = changes.get("target_user")
-                                    .and_then(|v| v.as_str())
-                                    .ok_or_else(|| invalid_input!("target_user is required"))?;
-                                crate::validation::parse_account_id_str(
-                                    target_str,
-                                    invalid_input!("Invalid target_user account ID"),
-                                )?;
-                            }
+            Self::GroupUpdate { update_type, changes, .. } => {
+                let parsed_update_type = GroupUpdateType::parse(update_type)
+                    .ok_or_else(|| invalid_input!("Unknown update_type"))?;
+                match parsed_update_type {
+                    GroupUpdateType::Metadata | GroupUpdateType::Permissions => {
+                        // Check the nested "changes" field for emptiness
+                        let nested_changes = changes.get("changes").unwrap_or(changes);
+                        if nested_changes.is_null() || nested_changes.as_object().is_none_or(|obj| obj.is_empty()) {
+                            return Err(invalid_input!("Changes cannot be empty"));
                         }
+                    }
+                    GroupUpdateType::TransferOwnership => {
+                        let new_owner_str = changes.get("new_owner")
+                            .and_then(|v| v.as_str())
+                            .ok_or_else(|| invalid_input!("new_owner is required"))?;
+                        let new_owner_account = crate::validation::parse_account_id_str(
+                            new_owner_str,
+                            invalid_input!("Invalid new_owner account ID"),
+                        )?;
+                        if !GroupStorage::is_member(platform, group_id, &new_owner_account) {
+                            return Err(invalid_input!("New owner must be a member of the group"));
+                        }
+                        if GroupStorage::is_blacklisted(platform, group_id, &new_owner_account) {
+                            return Err(invalid_input!("Cannot transfer ownership to blacklisted member"));
+                        }
+                    }
+                    GroupUpdateType::RemoveMember | GroupUpdateType::Ban | GroupUpdateType::Unban => {
+                        let target_str = changes.get("target_user")
+                            .and_then(|v| v.as_str())
+                            .ok_or_else(|| invalid_input!("target_user is required"))?;
+                        crate::validation::parse_account_id_str(
+                            target_str,
+                            invalid_input!("Invalid target_user account ID"),
+                        )?;
                     }
                 }
             }
@@ -111,9 +96,20 @@ impl ProposalType {
                 if !kv_permissions::types::is_valid_permission_level(*level, true) {
                     return Err(invalid_input!("Invalid permission level"));
                 }
+                if let Some(member_data) = GroupStorage::get_member_data(platform, group_id, target_user) {
+                    let current_level = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
+                    if current_level == *level {
+                        return Err(invalid_input!("Target user already has this permission level"));
+                    }
+                }
             }
             Self::PathPermissionGrant { path, level, .. } => {
-                if !path.starts_with(&format!("groups/{}", group_id)) {
+                if !crate::validation::is_safe_path(path) {
+                    return Err(invalid_input!("Invalid group path format"));
+                }
+                let normalized = kv_permissions::types::normalize_group_path_owned(path)
+                    .ok_or_else(|| invalid_input!("Invalid group path format"))?;
+                if !normalized.starts_with(&format!("groups/{}", group_id)) {
                     return Err(invalid_input!("Path must be within this group"));
                 }
                 if !kv_permissions::types::is_valid_permission_level(*level, false) {
@@ -121,7 +117,12 @@ impl ProposalType {
                 }
             }
             Self::PathPermissionRevoke { path, .. } => {
-                if !path.starts_with(&format!("groups/{}", group_id)) {
+                if !crate::validation::is_safe_path(path) {
+                    return Err(invalid_input!("Invalid group path format"));
+                }
+                let normalized = kv_permissions::types::normalize_group_path_owned(path)
+                    .ok_or_else(|| invalid_input!("Invalid group path format"))?;
+                if !normalized.starts_with(&format!("groups/{}", group_id)) {
                     return Err(invalid_input!("Path must be within this group"));
                 }
             }
@@ -129,11 +130,11 @@ impl ProposalType {
                 if GroupStorage::is_member(platform, group_id, target_user) {
                     return Err(invalid_input!("User is already a member"));
                 }
-                // No level validation needed - members always join with NONE
+                if GroupStorage::is_blacklisted(platform, group_id, target_user) {
+                    return Err(invalid_input!("Target user is blacklisted"));
+                }
             }
-            Self::JoinRequest { .. } => {
-                // No validation needed - members always join with NONE
-            }
+            Self::JoinRequest { .. } => {}
             Self::VotingConfigChange { participation_quorum_bps, majority_threshold_bps, voting_period } => {
                 if participation_quorum_bps.is_none()
                     && majority_threshold_bps.is_none()
@@ -145,22 +146,26 @@ impl ProposalType {
                 }
 
                 if let Some(quorum_bps) = participation_quorum_bps {
-                    if *quorum_bps > BPS_DENOMINATOR {
+                    if *quorum_bps < crate::constants::MIN_VOTING_PARTICIPATION_QUORUM_BPS
+                        || *quorum_bps > BPS_DENOMINATOR
+                    {
                         return Err(invalid_input!(
-                            "Participation quorum bps must be between 0 and 10000"
+                            "Participation quorum bps must be between 100 and 10000"
                         ));
                     }
                 }
 
                 if let Some(threshold_bps) = majority_threshold_bps {
-                    if *threshold_bps > BPS_DENOMINATOR {
+                    if *threshold_bps < crate::constants::MIN_VOTING_MAJORITY_THRESHOLD_BPS
+                        || *threshold_bps > BPS_DENOMINATOR
+                    {
                         return Err(invalid_input!(
-                            "Majority threshold bps must be between 0 and 10000"
+                            "Majority threshold bps must be between 5001 and 10000"
                         ));
                     }
                 }
 
-                // Validate voting_period is reasonable (at least 1 hour, max 365 days)
+
                 if let Some(period) = voting_period {
                     if !(MIN_VOTING_PERIOD..=MAX_VOTING_PERIOD).contains(period) {
                         return Err(invalid_input!(
