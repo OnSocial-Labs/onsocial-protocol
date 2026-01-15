@@ -1385,3 +1385,156 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
     Ok(())
 }
 
+/// Find `signed_payload_nonce_recorded` event in logs.
+fn find_nonce_recorded_event<S: AsRef<str>>(logs: &[S]) -> Option<serde_json::Value> {
+    for log in logs {
+        let log = log.as_ref();
+        if !log.starts_with(EVENT_JSON_PREFIX) {
+            continue;
+        }
+        let json_str = &log[EVENT_JSON_PREFIX.len()..];
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) else {
+            continue;
+        };
+
+        if v.get("event").and_then(|x| x.as_str()) != Some("CONTRACT_UPDATE") {
+            continue;
+        }
+
+        let data0 = v.get("data")?.get(0)?;
+        if data0.get("operation").and_then(|x| x.as_str()) == Some("signed_payload_nonce_recorded") {
+            return Some(data0.clone());
+        }
+    }
+    None
+}
+
+/// Verify `signed_payload_nonce_recorded` event is emitted with correct schema.
+#[tokio::test]
+async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission.
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Relayer submits signed payload with nonce=1.
+    let action = json!({ "type": "set", "data": { "profile/test_nonce": "value1" } });
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action.clone(),
+        delegate_action: None,
+    };
+    let signature = sign_payload(contract.id().as_str(), &payload, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": signature
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Signed payload should succeed: {:?}", res.failures());
+
+    // Verify `signed_payload_nonce_recorded` event is emitted.
+    let logs = res.logs();
+    let event = find_nonce_recorded_event(&logs)
+        .expect("Expected signed_payload_nonce_recorded event");
+
+    // Verify event schema fields.
+    assert_eq!(event.get("public_key").and_then(|v| v.as_str()), Some(pk_str.as_str()),
+        "Event should contain correct public_key");
+    assert_eq!(event.get("nonce").and_then(|v| v.as_str()), Some("1"),
+        "Event should contain correct nonce");
+    assert!(event.get("value").is_none(),
+        "Event should NOT contain redundant 'value' field");
+    let path = event.get("path").and_then(|v| v.as_str()).expect("Event should have path");
+    assert!(path.contains("signed_payload_nonces"), "Path should contain 'signed_payload_nonces'");
+    assert!(path.contains(alice.id().as_str()), "Path should contain owner account");
+
+    // Now verify monotonically increasing nonce (nonce=2) works.
+    let action2 = json!({ "type": "set", "data": { "profile/test_nonce2": "value2" } });
+    let payload2 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(2),
+        expires_at_ms: U64(0),
+        action: action2.clone(),
+        delegate_action: None,
+    };
+    let signature2 = sign_payload(contract.id().as_str(), &payload2, &sk)?;
+
+    let res2 = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action2,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "2",
+                    "expires_at_ms": "0",
+                    "signature": signature2
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res2.is_success(), "Nonce=2 after nonce=1 should succeed: {:?}", res2.failures());
+
+    // Verify second event has nonce=2.
+    let logs2 = res2.logs();
+    let event2 = find_nonce_recorded_event(&logs2)
+        .expect("Expected second signed_payload_nonce_recorded event");
+    assert_eq!(event2.get("nonce").and_then(|v| v.as_str()), Some("2"),
+        "Second event should have nonce=2");
+
+    Ok(())
+}

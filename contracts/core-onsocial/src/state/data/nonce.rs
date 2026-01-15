@@ -35,7 +35,6 @@ impl SocialPlatform {
         .with_field("public_key", String::from(public_key))
         .with_field("nonce", nonce.to_string())
         .with_path(&k)
-        .with_value(near_sdk::serde_json::Value::String(nonce.to_string()))
         .emit(event_batch);
         Ok(())
     }

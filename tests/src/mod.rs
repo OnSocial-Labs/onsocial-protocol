@@ -5,7 +5,11 @@ pub mod actions_group_tests;
 #[cfg(test)]
 pub mod core_onsocial_tests;
 #[cfg(test)]
+pub mod group_core_view_tests;
+#[cfg(test)]
 pub mod cross_contract_tests;
+#[cfg(test)]
+pub mod governance_request_parsing_tests;
 #[cfg(test)]
 pub mod join_request_execution_fixes_tests;
 #[cfg(test)]

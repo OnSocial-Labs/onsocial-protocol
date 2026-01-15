@@ -4622,3 +4622,115 @@ async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()>
     println!("\n✅ join_group and leave_group group_id validation test passed");
     Ok(())
 }
+
+// =============================================================================
+// TEST: add_group_member in multi-member member-driven group creates pending proposal
+// =============================================================================
+// Covers: invites.rs - route_group_operation routes to proposal (multi-member case)
+// Scenario: With 2+ members, add_group_member creates proposal that does NOT auto-execute.
+// Target user should NOT be immediately a member (pending vote).
+#[tokio::test]
+async fn test_add_group_member_multimember_creates_pending_proposal() -> anyhow::Result<()> {
+    println!("\n=== Test: add_group_member in multi-member member-driven group ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Alice creates a member-driven group
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "md_add_pending_test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create member-driven group should succeed");
+    println!("   ✓ Created member-driven group");
+
+    // Add Bob via proposal (single member = auto-execute)
+    let add_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "md_add_pending_test", "member_id": bob.id() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed (auto-executes with single member)");
+
+    // Verify Bob is a member (single member = auto-executed)
+    let is_bob_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "md_add_pending_test",
+            "member_id": bob.id()
+        }))
+        .await?
+        .json()?;
+    assert!(is_bob_member, "Bob should be member (auto-executed with single member)");
+    println!("   ✓ Bob added via auto-executed proposal (single member)");
+
+    // Now with 2 members (Alice + Bob), try to add Charlie via add_group_member
+    // This should create a proposal that does NOT auto-execute
+    let add_charlie = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "md_add_pending_test", "member_id": charlie.id() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(add_charlie.is_success(), "add_group_member should succeed (creates proposal)");
+    println!("   ✓ add_group_member call succeeded");
+
+    // CRITICAL: Verify Charlie is NOT immediately a member (proposal pending)
+    let is_charlie_member: bool = contract
+        .view("is_group_member")
+        .args_json(json!({
+            "group_id": "md_add_pending_test",
+            "member_id": charlie.id()
+        }))
+        .await?
+        .json()?;
+    assert!(
+        !is_charlie_member,
+        "Charlie should NOT be member immediately - proposal requires voting with 2+ members"
+    );
+    println!("   ✓ Charlie is NOT immediately a member (proposal pending)");
+
+    // Verify proposal_created event was emitted
+    let logs = add_charlie.logs();
+    let proposal_events = find_events_by_operation(&logs, "proposal_created");
+    assert!(
+        !proposal_events.is_empty(),
+        "Should emit proposal_created event for member invite"
+    );
+    println!("   ✓ proposal_created event emitted");
+
+    // Verify the proposal type is member_invite
+    let proposal_type = get_extra_string(&proposal_events[0], "proposal_type");
+    assert_eq!(
+        proposal_type.as_deref(),
+        Some("member_invite"),
+        "Proposal type should be member_invite"
+    );
+    println!("   ✓ Proposal type is member_invite");
+
+    println!("✅ add_group_member multi-member pending proposal test passed");
+    Ok(())
+}

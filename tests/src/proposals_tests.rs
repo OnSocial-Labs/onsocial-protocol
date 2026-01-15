@@ -9763,3 +9763,561 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
     println!("✅ CustomProposal execution storage verified (dispatch.rs:85-93)");
     Ok(())
 }
+
+// =============================================================================
+// GROUP UPDATE TYPE COVERAGE TESTS
+// =============================================================================
+// Tests for GroupUpdateType enum (group_update_type.rs) ensuring all variants
+// are properly handled through validation and execution paths.
+
+/// Test: GroupUpdate with update_type="permissions" - validation and execution
+/// Covers: GroupUpdateType::Permissions variant
+#[tokio::test]
+async fn test_group_update_permissions_type_e2e() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Permissions Type E2E ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "permissions-update-test", "config": { 
+                    "member_driven": true, 
+                    "is_private": true,
+                    "description": "Original description"
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob as member
+    let invite_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "permissions-update-test", "proposal_type": "member_invite", "changes": {
+                    "target_user": bob.id().to_string()
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Invite Bob should succeed");
+    println!("   ✓ Group created with Alice as owner, Bob as member");
+
+    // Create GroupUpdate proposal with update_type="permissions"
+    let permissions_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "permissions-update-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "permissions",
+                    "changes": {
+                        "allow_public_read": true
+                    }
+                }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(permissions_proposal.is_success(), "Permissions proposal should succeed");
+    
+    // Verify event contains correct update_type string
+    let logs: Vec<String> = permissions_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let proposal_id: String = permissions_proposal.json()?;
+    println!("   ✓ Permissions update proposal created: {}", proposal_id);
+
+    let proposal_events = find_events_by_operation(&logs, "proposal_created");
+    assert!(!proposal_events.is_empty(), "proposal_created event should be emitted");
+    
+    let event_proposal_type = proposal_events[0].data[0].extra
+        .get("proposal_type")
+        .and_then(|v| v.as_str());
+    assert_eq!(
+        event_proposal_type,
+        Some("group_update_permissions"),
+        "Event proposal_type should include 'permissions' from GroupUpdateType::as_str()"
+    );
+    println!("   ✓ Event proposal_type correctly uses GroupUpdateType::as_str() = 'permissions'");
+
+    // Both vote YES to execute
+    for (user, name) in [(&alice, "alice"), (&bob, "bob")] {
+        let vote = user
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "vote_on_proposal", "group_id": "permissions-update-test", "proposal_id": proposal_id.clone(), "approve": true }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success(), "{} vote should succeed", name);
+    }
+    println!("   ✓ Proposal passed with 2/2 votes");
+
+    // Verify config was updated (permissions type successfully executed)
+    let config_key = "groups/permissions-update-test/config";
+    let get_after: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [config_key] }))
+        .await?
+        .json()?;
+    let config_after = entry_value(&get_after, config_key).cloned().unwrap_or(Value::Null);
+    let allow_public_read = config_after.get("allow_public_read").and_then(|v| v.as_bool());
+    assert_eq!(allow_public_read, Some(true), "allow_public_read should be updated to true");
+    println!("   ✓ Config updated with allow_public_read=true after permissions proposal executed");
+
+    println!("✅ GroupUpdate permissions type E2E verified");
+    Ok(())
+}
+
+/// Test: GroupUpdate metadata/permissions with empty changes object should be rejected
+/// Covers: validation.rs lines 59-64 - empty changes validation
+#[tokio::test]
+async fn test_group_update_empty_changes_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Empty Changes Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "empty-changes-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Test 1: Metadata with empty changes object should FAIL
+    let empty_metadata = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "empty-changes-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "metadata",
+                    "changes": {}
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        empty_metadata.is_failure(),
+        "Metadata with empty changes should be rejected"
+    );
+    let failure_str = format!("{:?}", empty_metadata.failures());
+    assert!(
+        failure_str.contains("empty") || failure_str.contains("Changes"),
+        "Error should mention empty changes: {}", failure_str
+    );
+    println!("   ✓ Metadata proposal with empty changes correctly rejected");
+
+    // Test 2: Permissions with empty changes object should FAIL
+    let empty_permissions = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "empty-changes-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "permissions",
+                    "changes": {}
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        empty_permissions.is_failure(),
+        "Permissions with empty changes should be rejected"
+    );
+    println!("   ✓ Permissions proposal with empty changes correctly rejected");
+
+    // Test 3: Metadata with null changes should FAIL
+    let null_metadata = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "empty-changes-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "metadata",
+                    "changes": null
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(
+        null_metadata.is_failure(),
+        "Metadata with null changes should be rejected"
+    );
+    println!("   ✓ Metadata proposal with null changes correctly rejected");
+
+    // Test 4: Metadata WITHOUT nested changes field - fallback behavior test
+    // When "changes" key is missing, validation falls back to the outer changes object.
+    // The outer object contains {"update_type": "metadata"} which has 1 key (non-empty).
+    // However, execution filters out "update_type" key, so effectively no changes applied.
+    // This is a valid proposal (validation passes), but effectively a no-op at execution.
+    let no_nested_changes = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "empty-changes-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "metadata"
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    // Validation passes because outer object {"update_type":"metadata"} has 1 key (not empty).
+    // The execution will filter out "update_type" key, resulting in no actual changes.
+    // This is valid but results in a no-op proposal.
+    assert!(
+        no_nested_changes.is_success(),
+        "Metadata without nested changes field should pass validation (falls back to outer object)"
+    );
+    println!("   ✓ Metadata proposal without nested changes field passes validation (fallback behavior)");
+
+    println!("✅ GroupUpdate empty changes rejection verified");
+    Ok(())
+}
+
+/// Test: GroupUpdate event includes correct update_type string from GroupUpdateType::as_str()
+/// Covers: Bidirectional consistency of as_str/parse in events
+#[tokio::test]
+async fn test_group_update_event_update_type_field() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdate Event update_type Field ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "event-type-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob
+    let invite_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "event-type-test", "proposal_type": "member_invite", "changes": {
+                    "target_user": bob.id().to_string()
+                }, "auto_vote": null }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(invite_bob.is_success(), "Invite Bob should succeed");
+
+    // Create ban proposal and execute it
+    let ban_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "event-type-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "ban",
+                    "target_user": bob.id().to_string()
+                }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(ban_proposal.is_success(), "Ban proposal should succeed");
+    let proposal_id: String = ban_proposal.json()?;
+
+    // Both Alice and Bob vote to reach quorum (2/2 = 100% > 51% threshold)
+    // Alice votes first
+    let alice_vote = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "event-type-test", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(alice_vote.is_success(), "Alice vote should succeed");
+
+    // Bob's vote triggers execution (2/2 = 100% meets quorum and majority)
+    let bob_vote = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "event-type-test", "proposal_id": proposal_id.clone(), "approve": true }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(bob_vote.is_success(), "Bob vote should succeed");
+
+    // Check execution event includes update_type field (from Bob's vote which triggered execution)
+    let logs: Vec<String> = bob_vote.logs().iter().map(|s| s.to_string()).collect();
+    let update_events = find_events_by_operation(&logs, "group_updated");
+    
+    assert!(!update_events.is_empty(), "group_updated event should be emitted on execution");
+    
+    let event_update_type = update_events[0].data[0].extra
+        .get("update_type")
+        .and_then(|v| v.as_str());
+    assert_eq!(
+        event_update_type,
+        Some("ban"),
+        "Event update_type field should be 'ban' from GroupUpdateType::as_str()"
+    );
+    println!("   ✓ group_updated event includes update_type='ban' from GroupUpdateType::as_str()");
+
+    println!("✅ GroupUpdate event update_type field verified");
+    Ok(())
+}
+
+/// Test: All six GroupUpdateType variants have bidirectional parse/as_str consistency
+/// This is a unit-level verification through integration test execution paths
+#[tokio::test]
+async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> {
+    println!("\n=== Test: GroupUpdateType All Variants Round-Trip ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Alice needs more balance - this test creates many proposals
+    let alice = create_user(&root, "alice", NearToken::from_near(50)).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
+
+    // Create member-driven group
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "round-trip-test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob and Charlie
+    for (user, name) in [(&bob, "bob"), (&charlie, "charlie")] {
+        let invite = alice
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "create_proposal", "group_id": "round-trip-test", "proposal_type": "member_invite", "changes": {
+                        "target_user": user.id().to_string()
+                    }, "auto_vote": null }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(invite.is_success(), "Invite {} should succeed", name);
+    }
+    println!("   ✓ Group created with Alice, Bob, Charlie as members");
+
+    // Test each update_type variant can be parsed and round-trips correctly in proposal type name
+    let test_cases = [
+        ("metadata", json!({"update_type": "metadata", "changes": {"description": "Test"}}), "group_update_metadata"),
+        ("permissions", json!({"update_type": "permissions", "changes": {"allow_join": true}}), "group_update_permissions"),
+        ("ban", json!({"update_type": "ban", "target_user": charlie.id().to_string()}), "group_update_ban"),
+    ];
+
+    for (variant, changes, expected_type) in test_cases {
+        let proposal = alice
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "create_proposal", "group_id": "round-trip-test", "proposal_type": "group_update", "changes": changes, "auto_vote": false }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        
+        assert!(proposal.is_success(), "Proposal for {} should succeed", variant);
+        
+        // Verify event type includes the correct variant string
+        let logs: Vec<String> = proposal.logs().iter().map(|s| s.to_string()).collect();
+        let events = find_events_by_operation(&logs, "proposal_created");
+        assert!(!events.is_empty(), "proposal_created event should be emitted for {}", variant);
+        
+        let event_proposal_type = events[0].data[0].extra
+            .get("proposal_type")
+            .and_then(|v| v.as_str());
+        assert_eq!(
+            event_proposal_type,
+            Some(expected_type),
+            "Event proposal_type for {} should be {}",
+            variant, expected_type
+        );
+        println!("   ✓ {} → parse() → ProposalType::name() → '{}' ✓", variant, expected_type);
+    }
+
+    // Test remove_member, unban require previous state
+    // Ban charlie first, then test unban
+    let ban_charlie = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "round-trip-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "ban",
+                    "target_user": charlie.id().to_string()
+                }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(ban_charlie.is_success());
+    let ban_id: String = ban_charlie.json()?;
+    
+    // Vote to ban
+    for user in [&alice, &bob] {
+        let vote = user
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "vote_on_proposal", "group_id": "round-trip-test", "proposal_id": ban_id.clone(), "approve": true }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(near_workspaces::types::Gas::from_tgas(150))
+            .transact()
+            .await?;
+        assert!(vote.is_success());
+    }
+
+    // Test unban variant
+    let unban_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "round-trip-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "unban",
+                    "target_user": charlie.id().to_string()
+                }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(unban_proposal.is_success(), "Unban proposal should succeed");
+    
+    let logs: Vec<String> = unban_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let events = find_events_by_operation(&logs, "proposal_created");
+    let event_proposal_type = events[0].data[0].extra.get("proposal_type").and_then(|v| v.as_str());
+    assert_eq!(event_proposal_type, Some("group_update_unban"));
+    println!("   ✓ unban → parse() → ProposalType::name() → 'group_update_unban' ✓");
+
+    // Test remove_member (use Bob as target)
+    let remove_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "round-trip-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "remove_member",
+                    "target_user": bob.id().to_string()
+                }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(remove_proposal.is_success(), "RemoveMember proposal should succeed");
+    
+    let logs: Vec<String> = remove_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let events = find_events_by_operation(&logs, "proposal_created");
+    let event_proposal_type = events[0].data[0].extra.get("proposal_type").and_then(|v| v.as_str());
+    assert_eq!(event_proposal_type, Some("group_update_remove_member"));
+    println!("   ✓ remove_member → parse() → ProposalType::name() → 'group_update_remove_member' ✓");
+
+    // Test transfer_ownership (transfer to Bob)
+    let transfer_proposal = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "round-trip-test", "proposal_type": "group_update", "changes": {
+                    "update_type": "transfer_ownership",
+                    "new_owner": bob.id().to_string()
+                }, "auto_vote": false }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+    assert!(transfer_proposal.is_success(), "TransferOwnership proposal should succeed");
+    
+    let logs: Vec<String> = transfer_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let events = find_events_by_operation(&logs, "proposal_created");
+    let event_proposal_type = events[0].data[0].extra.get("proposal_type").and_then(|v| v.as_str());
+    assert_eq!(event_proposal_type, Some("group_update_transfer_ownership"));
+    println!("   ✓ transfer_ownership → parse() → ProposalType::name() → 'group_update_transfer_ownership' ✓");
+
+    println!("✅ All 6 GroupUpdateType variants verified for bidirectional consistency");
+    Ok(())
+}
