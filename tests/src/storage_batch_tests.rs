@@ -6010,6 +6010,242 @@ async fn test_refund_unused_deposit_false_saves_to_balance() -> anyhow::Result<(
     Ok(())
 }
 
+/// Test permission/grant and permission/revoke input validation via Set API
+#[tokio::test]
+async fn test_permission_api_input_validation() -> anyhow::Result<()> {
+    println!("\n🧪 TEST: Permission API input validation (permission/grant and permission/revoke)");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let alice = worker.dev_create_account().await?;
+    let bob = worker.dev_create_account().await?;
+    
+    // Test 1: permission/grant missing grantee field
+    println!("\n   Test 1: permission/grant missing grantee...");
+    let missing_grantee = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/grant": {
+                        "path": "test/path",
+                        "level": 1
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!missing_grantee.is_success(), "permission/grant without grantee should fail");
+    let err_str = format!("{:?}", missing_grantee.failures());
+    assert!(err_str.contains("grantee required"), "Error should mention grantee required: {}", err_str);
+    println!("   ✓ Correctly rejected: {}", err_str.chars().take(80).collect::<String>());
+    
+    // Test 2: permission/grant missing path field
+    println!("\n   Test 2: permission/grant missing path...");
+    let missing_path = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "level": 1
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!missing_path.is_success(), "permission/grant without path should fail");
+    let err_str = format!("{:?}", missing_path.failures());
+    assert!(err_str.contains("path required"), "Error should mention path required: {}", err_str);
+    println!("   ✓ Correctly rejected: {}", err_str.chars().take(80).collect::<String>());
+    
+    // Test 3: permission/grant with invalid grantee account ID
+    println!("\n   Test 3: permission/grant with invalid grantee account ID...");
+    let invalid_grantee = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/grant": {
+                        "grantee": "NOT A VALID ACCOUNT!!!",
+                        "path": "test/path",
+                        "level": 1
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!invalid_grantee.is_success(), "permission/grant with invalid grantee should fail");
+    let err_str = format!("{:?}", invalid_grantee.failures());
+    assert!(err_str.contains("Invalid grantee"), "Error should mention invalid grantee: {}", err_str);
+    println!("   ✓ Correctly rejected: {}", err_str.chars().take(80).collect::<String>());
+    
+    // Test 4: permission/revoke missing grantee field
+    println!("\n   Test 4: permission/revoke missing grantee...");
+    let revoke_missing_grantee = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/revoke": {
+                        "path": "test/path"
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!revoke_missing_grantee.is_success(), "permission/revoke without grantee should fail");
+    let err_str = format!("{:?}", revoke_missing_grantee.failures());
+    assert!(err_str.contains("grantee required"), "Error should mention grantee required: {}", err_str);
+    println!("   ✓ Correctly rejected: {}", err_str.chars().take(80).collect::<String>());
+    
+    // Test 5: permission/revoke missing path field
+    println!("\n   Test 5: permission/revoke missing path...");
+    let revoke_missing_path = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/revoke": {
+                        "grantee": bob.id().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!revoke_missing_path.is_success(), "permission/revoke without path should fail");
+    let err_str = format!("{:?}", revoke_missing_path.failures());
+    assert!(err_str.contains("path required"), "Error should mention path required: {}", err_str);
+    println!("   ✓ Correctly rejected: {}", err_str.chars().take(80).collect::<String>());
+    
+    // Test 6: permission/revoke with invalid grantee account ID
+    println!("\n   Test 6: permission/revoke with invalid grantee account ID...");
+    let revoke_invalid_grantee = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/revoke": {
+                        "grantee": "INVALID!!ACCOUNT",
+                        "path": "test/path"
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!revoke_invalid_grantee.is_success(), "permission/revoke with invalid grantee should fail");
+    let err_str = format!("{:?}", revoke_invalid_grantee.failures());
+    assert!(err_str.contains("Invalid grantee"), "Error should mention invalid grantee: {}", err_str);
+    println!("   ✓ Correctly rejected: {}", err_str.chars().take(80).collect::<String>());
+    
+    // Test 7: permission/grant defaults to WRITE level when level is omitted
+    println!("\n   Test 7: permission/grant defaults to WRITE (level=1) when omitted...");
+    let alice_id = alice.id().to_string();
+    let default_level = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/grant": {
+                        "grantee": bob.id().to_string(),
+                        "path": format!("{}/default_level_test/", alice_id)
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(default_level.is_success(), "permission/grant without level should succeed: {:?}", default_level.failures());
+    
+    // Verify Bob has WRITE permission (level=1)
+    let has_write: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id().to_string(),
+            "grantee": bob.id().to_string(),
+            "path": format!("{}/default_level_test/", alice_id),
+            "level": 1
+        }))
+        .await?
+        .json()?;
+    assert!(has_write, "Bob should have WRITE permission (default level)");
+    
+    // Verify Bob does NOT have MODERATE permission (level=2)
+    let has_moderate: bool = contract
+        .view("has_permission")
+        .args_json(json!({
+            "owner": alice.id().to_string(),
+            "grantee": bob.id().to_string(),
+            "path": format!("{}/default_level_test/", alice_id),
+            "level": 2
+        }))
+        .await?
+        .json()?;
+    assert!(!has_moderate, "Bob should NOT have MODERATE permission");
+    println!("   ✓ Default level correctly set to WRITE (1)");
+    
+    println!("\n✅ Test passed: Permission API input validation");
+    
+    Ok(())
+}
+
 /// Test permission/revoke edge cases
 #[tokio::test]
 async fn test_permission_revoke_edge_cases() -> anyhow::Result<()> {

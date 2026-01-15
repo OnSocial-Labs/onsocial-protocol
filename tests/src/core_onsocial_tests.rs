@@ -2208,7 +2208,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/delegated", alice.id()),
-                        "flags": 1  // WRITE permission
+                        "level": 1  // WRITE permission
                     }
                 } },
                 "options": null,
@@ -2459,7 +2459,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/public", carol.id()),
-                        "flags": 1  // WRITE permission
+                        "level": 1  // WRITE permission
                     }
                 } },
                 "options": null,
@@ -6090,7 +6090,7 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
                     "permission/grant": {
                         "grantee": bob.id().to_string(),
                         "path": format!("{}/relayed", alice.id()),
-                        "flags": 1  // WRITE permission = 1
+                        "level": 1  // WRITE permission = 1
                     }
                 } },
                 "options": null,

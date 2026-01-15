@@ -482,7 +482,7 @@ mod comprehensive_integration_tests {
                 "permission/grant": {
                     "grantee": test_account(2).to_string(),
                     "path": format!("{}/posts", alice),
-                    "flags": WRITE
+                    "level": WRITE
                 }
             })
         ));
@@ -862,7 +862,7 @@ mod comprehensive_integration_tests {
                     "permission/grant": {
                         "grantee": editor1.to_string(),
                         "path": format!("{}/projects/project1", owner),
-                        "flags": WRITE
+                        "level": WRITE
                     }
                 })
             ))
@@ -873,7 +873,7 @@ mod comprehensive_integration_tests {
                     "permission/grant": {
                         "grantee": editor2.to_string(),
                         "path": format!("{}/projects/project1", owner),
-                        "flags": WRITE
+                        "level": WRITE
                     }
                 })
             ))
@@ -934,7 +934,7 @@ mod comprehensive_integration_tests {
                     "permission/grant": {
                         "grantee": bob.to_string(),
                         "path": format!("{}/posts", alice),
-                        "flags": WRITE
+                        "level": WRITE
                     }
                 })
             ))

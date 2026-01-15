@@ -2574,3 +2574,83 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/// Test: Group-root permission change via direct API syncs member metadata.
+/// In non-member-driven groups, the owner can directly set group-root permissions.
+/// This should update the member record's `level`, `updated_at`, `updated_by` fields
+/// and emit a GROUP_UPDATE event with operation `permission_changed` and `via: "direct_api"`.
+#[tokio::test]
+async fn test_group_root_permission_syncs_member_metadata() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    deposit_storage(&contract, &alice, ONE_NEAR).await?;
+
+    create_group(&contract, &alice, "sync-test").await?;
+    add_member(&contract, &alice, "sync-test", &bob).await?;
+
+    // Verify Bob's initial member data has level=0
+    let member_path = format!("groups/sync-test/members/{}", bob.id());
+    let get_before: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [member_path.clone()] }))
+        .await?
+        .json()?;
+    let before_value = get_before.iter()
+        .find(|e| e.get("requested_key").and_then(|v| v.as_str()) == Some(&member_path))
+        .and_then(|e| e.get("value"))
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let level_before = before_value.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+    assert_eq!(level_before, 0, "Bob's initial level should be 0");
+
+    // Owner sets group-root permission to MANAGE for Bob
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_permission", "grantee": bob.id(), "path": "groups/sync-test", "level": MANAGE, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Group-root set_permission should succeed: {:?}", res.failures());
+
+    // Verify member metadata was synced: level should now be MANAGE (3)
+    let get_after: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({ "keys": [member_path.clone()] }))
+        .await?
+        .json()?;
+    let after_value = get_after.iter()
+        .find(|e| e.get("requested_key").and_then(|v| v.as_str()) == Some(&member_path))
+        .and_then(|e| e.get("value"))
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let level_after = after_value.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
+    assert_eq!(level_after, MANAGE as u64, "Bob's level should be MANAGE (3) after sync");
+
+    // Verify updated_by is set to alice
+    let updated_by = after_value.get("updated_by").and_then(|v| v.as_str()).unwrap_or("");
+    assert_eq!(updated_by, alice.id().as_str(), "updated_by should be alice");
+
+    // Verify updated_at is set (non-zero string)
+    let updated_at = after_value.get("updated_at").and_then(|v| v.as_str()).unwrap_or("0");
+    assert!(updated_at != "0" && !updated_at.is_empty(), "updated_at should be set");
+
+    // Verify GROUP_UPDATE event with operation=permission_changed and via=direct_api was emitted
+    let logs: Vec<String> = res.logs().iter().map(|s| s.to_string()).collect();
+    let has_event = logs.iter().any(|log| {
+        log.contains("GROUP_UPDATE")
+            && log.contains("permission_changed")
+            && log.contains("direct_api")
+    });
+    assert!(has_event, "Expected GROUP_UPDATE/permission_changed/direct_api event. Logs: {:?}", logs);
+
+    Ok(())
+}

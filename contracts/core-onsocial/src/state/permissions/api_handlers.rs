@@ -6,7 +6,6 @@ use crate::state::models::SocialPlatform;
 use crate::SocialError;
 
 impl SocialPlatform {
-    /// Handle permission grant.
     pub(crate) fn handle_api_permission_grant(
         &mut self,
         value: &Value,
@@ -29,20 +28,18 @@ impl SocialPlatform {
             .and_then(|v| v.as_str())
             .ok_or_else(|| crate::invalid_input!("path required for permission grant"))?;
 
-        // Backward compatibility: accept `level` or `flags`.
-        let flags: u8 = value
+        let level: u8 = value
             .get("level")
-            .or_else(|| value.get("flags"))
             .and_then(|v| v.as_u64())
             .map(|v| v as u8)
-            .unwrap_or(1); // Default to WRITE permission
+            .unwrap_or(1); // WRITE
 
         let expires_at: Option<u64> = value.get("expires_at").and_then(|v| v.as_u64());
 
         self.set_permission(
             grantee,
             path.to_string(),
-            flags,
+            level,
             expires_at,
             actor_id,
             Some(event_batch),
@@ -50,7 +47,6 @@ impl SocialPlatform {
         )
     }
 
-    /// Handle permission revoke.
     pub(crate) fn handle_api_permission_revoke(
         &mut self,
         value: &Value,

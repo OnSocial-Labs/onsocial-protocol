@@ -346,17 +346,6 @@ pub fn set_permission_request(grantee: AccountId, path: String, level: u8, expir
     }
 }
 
-#[cfg(test)]
-pub fn set_key_permission_request(public_key: near_sdk::PublicKey, path: String, level: u8, expires_at: Option<near_sdk::json_types::U64>) -> crate::protocol::Request {
-    use crate::protocol::{Action, Request};
-    Request {
-        target_account: None,
-        action: Action::SetKeyPermission { public_key, path, level, expires_at },
-        auth: None,
-        options: None,
-    }
-}
-
 /// Helper to add test members to member-driven groups bypassing proposals
 /// NOTE: This is a test-only helper that bypasses normal validation for setup purposes.
 /// In production, members should be added through proper proposal workflows.

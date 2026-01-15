@@ -184,7 +184,7 @@ mod test_advanced_functionalities {
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": base_path.clone(),
-                "flags": WRITE
+                "level": WRITE
             }
         });
         let result = contract.execute(set_request(grant_write));
@@ -205,7 +205,7 @@ mod test_advanced_functionalities {
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": specific_path.clone(),
-                "flags": MODERATE
+                "level": MODERATE
             }
         });
         let result = contract.execute(set_request(grant_moderate));
@@ -244,7 +244,7 @@ mod test_advanced_functionalities {
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": test_path.clone(),
-                "flags": WRITE,
+                "level": WRITE,
                 "expires_at": expires_at
             }
         });
@@ -305,7 +305,7 @@ mod test_advanced_functionalities {
             "permission/grant": {
                 "grantee": collaborator.to_string(),
                 "path": content_path.clone(),
-                "flags": WRITE
+                "level": WRITE
             }
         });
         let result = contract.execute(set_request(grant_collaborator));
@@ -316,7 +316,7 @@ mod test_advanced_functionalities {
             "permission/grant": {
                 "grantee": moderator.to_string(),
                 "path": content_path.clone(),
-                "flags": MODERATE
+                "level": MODERATE
             }
         });
         let result = contract.execute(set_request(grant_moderator));
@@ -372,7 +372,7 @@ mod test_advanced_functionalities {
             "permission/grant": {
                 "grantee": user.to_string(),
                 "path": root_path.clone(),
-                "flags": WRITE
+                "level": WRITE
             }
         });
         let result = contract.execute(set_request(grant_broad));

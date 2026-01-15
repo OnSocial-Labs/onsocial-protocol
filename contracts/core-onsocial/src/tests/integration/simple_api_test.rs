@@ -84,7 +84,7 @@ fn test_simple_permission_operations() {
         "permission/grant": {
             "grantee": bob.to_string(),
             "path": "alice.near/posts",
-            "flags": 1
+            "level": 1
         }
     });
 
@@ -146,7 +146,7 @@ fn test_mixed_operations() {
         "permission/grant": {
             "grantee": test_account(3).to_string(),
             "path": "charlie.near/friends",
-            "flags": 1
+            "level": 1
         }
     });
 

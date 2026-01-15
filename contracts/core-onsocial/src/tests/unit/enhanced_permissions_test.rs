@@ -72,7 +72,7 @@ mod test_enhanced_permissions {
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": test_path,
-                "flags": WRITE
+                "level": WRITE
             }
         });
         let result = contract.execute(set_request(grant_data));
@@ -126,7 +126,7 @@ mod test_enhanced_permissions {
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": test_path,
-                "flags": WRITE
+                "level": WRITE
             }
         });
         contract
@@ -143,7 +143,7 @@ mod test_enhanced_permissions {
             "permission/grant": {
                 "grantee": grantee.to_string(),
                 "path": test_path,
-                "flags": MANAGE
+                "level": MANAGE
             }
         });
         contract

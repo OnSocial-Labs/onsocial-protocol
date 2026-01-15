@@ -26,7 +26,6 @@ impl SocialPlatform {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 
-        // Canonicalize and validate.
         let path_obj = Path::new(caller, &path, self)?;
         let full_path = path_obj.full_path().to_string();
 
@@ -70,7 +69,7 @@ impl SocialPlatform {
             path_identifier == caller.as_str()
         };
 
-        // MANAGE can delegate downwards (cannot grant MANAGE itself).
+        // MANAGE holders can delegate lower-level permissions, but not MANAGE itself.
         let is_manage_delegation = group_id_from_path.is_some()
             && crate::domain::groups::permissions::kv::can_manage(
                 self,
@@ -87,7 +86,7 @@ impl SocialPlatform {
             ));
         }
 
-        // Member-driven groups: direct permission changes are restricted.
+        // Member-driven groups: owners cannot bypass governance; only MANAGE delegation with expiry is allowed.
         if group_id_from_path.is_some() && is_member_driven_group {
             if is_authorized {
                 return Err(crate::invalid_input!(
@@ -123,7 +122,6 @@ impl SocialPlatform {
                 ));
             }
 
-            // Delegated grants must expire.
             if level != 0 {
                 let now = env::block_timestamp();
                 let exp = expires_at.ok_or_else(|| {
@@ -166,7 +164,7 @@ impl SocialPlatform {
             )?;
         }
 
-        // Sync member metadata for group-root permissions.
+        // Keep member record in sync when group-root permission level changes.
         if let Some(group_id) = group_id_from_path.as_deref() {
             let is_group_root = group_path_info.as_ref().is_some_and(|info| {
                 info.kind == crate::domain::groups::permissions::kv::GroupPathKind::Root
@@ -193,7 +191,6 @@ impl SocialPlatform {
                     }
                     self.storage_set(&member_key, &member_data)?;
 
-                    // Emit a group-level event for the member metadata update.
                     EventBuilder::new(
                         crate::constants::EVENT_TYPE_GROUP_UPDATE,
                         "permission_changed",
@@ -210,7 +207,6 @@ impl SocialPlatform {
             }
         }
 
-        // Emit batch if we created it locally
         if should_emit {
             local_batch.emit()?;
         }
@@ -218,7 +214,7 @@ impl SocialPlatform {
         Ok(())
     }
 
-    /// Grant (`level > 0`) or revoke (`level == 0`) key permissions at a path.
+    /// Grant or revoke key-based permissions at a path.
     pub fn set_key_permission(
         &mut self,
         public_key: PublicKey,
@@ -229,7 +225,6 @@ impl SocialPlatform {
         external_batch: Option<&mut EventBatch>,
         attached_balance: Option<&mut u128>,
     ) -> Result<(), SocialError> {
-        // Track if we need to emit at the end (when no external batch provided)
         let should_emit = external_batch.is_none();
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
@@ -238,7 +233,6 @@ impl SocialPlatform {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 
-        // Empty path represents root.
         let full_path = if path.is_empty() {
             String::new()
         } else {
@@ -266,7 +260,6 @@ impl SocialPlatform {
             )?;
         }
 
-        // Emit batch if we created it locally
         if should_emit {
             local_batch.emit()?;
         }
