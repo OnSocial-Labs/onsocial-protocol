@@ -19,27 +19,23 @@ impl SocialPlatform {
         account_id: &AccountId,
         action: &'static str,
     ) -> Result<(), SocialError> {
-        // Authorization: group owner or MANAGE on the group config path.
         let group_config_path = format!("groups/{}/config", group_id);
         let group_entry = self
             .get_entry(&group_config_path)
             .ok_or_else(|| crate::invalid_input!("Group not found"))?;
 
-        let group_owner = match &group_entry.value {
-            crate::state::models::DataValue::Value(bytes) => {
-                let config: Value = serde_json::from_slice(bytes)
-                    .map_err(|_| crate::invalid_input!("Invalid group config"))?;
-
-                GroupConfig::try_from_value(&config)
-                    .map_err(|_| crate::invalid_input!("Group has no valid owner"))?
-                    .owner
-            }
-            crate::state::models::DataValue::Deleted(_) => {
-                return Err(crate::invalid_input!("Group has been deleted"));
-            }
+        // Group config entries cannot be deleted via public API
+        let crate::state::models::DataValue::Value(bytes) = &group_entry.value else {
+            return Err(crate::invalid_input!("Group config corrupted"));
         };
 
-        // Allow if caller is owner or has MANAGE.
+        let config: Value = serde_json::from_slice(bytes)
+            .map_err(|_| crate::invalid_input!("Invalid group config"))?;
+
+        let group_owner = GroupConfig::try_from_value(&config)
+            .map_err(|_| crate::invalid_input!("Group has no valid owner"))?
+            .owner;
+
         let permission_namespace = crate::domain::groups::permissions::kv::extract_path_owner(
             self,
             &group_config_path,

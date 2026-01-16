@@ -89,8 +89,15 @@ pub fn validate_and_normalize_path(
 }
 
 /// Returns true if the path is safe (no traversal attacks).
-/// Rejects paths that are empty, start with `/`, or contain `..` or `\\`.
+/// Rejects paths that are empty, start with `/`, contain `..`, `\\`, or single-dot segments.
 #[inline]
 pub fn is_safe_path(path: &str) -> bool {
-    !path.is_empty() && !path.starts_with('/') && !path.contains("..") && !path.contains('\\')
+    !path.is_empty()
+        && !path.starts_with('/')
+        && !path.contains("..")
+        && !path.contains('\\')
+        && path != "."
+        && !path.starts_with("./")
+        && !path.contains("/./")
+        && !path.ends_with("/.")
 }

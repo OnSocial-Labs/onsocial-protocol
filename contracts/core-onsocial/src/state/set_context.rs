@@ -8,7 +8,6 @@ pub(crate) struct OperationContext<'a> {
     pub event_batch: &'a mut EventBatch,
     pub success_paths: &'a mut Vec<String>,
     pub errors: &'a mut Vec<SocialError>,
-    /// Remaining attached balance for auto-deposit fallback.
     pub attached_balance: Option<&'a mut u128>,
 }
 

@@ -10,8 +10,6 @@ pub struct GovernanceConfig {
     pub max_key_length: u16,
     pub max_path_depth: u16,
     pub max_batch_size: u16,
-
-    #[serde(default = "default_max_value_bytes")]
     pub max_value_bytes: u32,
 
     #[serde(default = "default_platform_onboarding_bytes")]
@@ -28,7 +26,6 @@ pub struct GovernanceConfig {
 fn default_platform_onboarding_bytes() -> u64 { 10_000 }
 fn default_platform_daily_refill_bytes() -> u64 { 3_000 }
 fn default_platform_allowance_max_bytes() -> u64 { 6_000 }
-fn default_max_value_bytes() -> u32 { 10 * 1024 }
 
 impl Default for GovernanceConfig {
     fn default() -> Self {
@@ -36,7 +33,7 @@ impl Default for GovernanceConfig {
             max_key_length: 256,
             max_path_depth: 12,
             max_batch_size: 10,
-            max_value_bytes: default_max_value_bytes(),
+            max_value_bytes: 10 * 1024,
             platform_onboarding_bytes: default_platform_onboarding_bytes(),
             platform_daily_refill_bytes: default_platform_daily_refill_bytes(),
             platform_allowance_max_bytes: default_platform_allowance_max_bytes(),
@@ -45,35 +42,59 @@ impl Default for GovernanceConfig {
     }
 }
 
+pub fn validate_intents_executors(executors: &[AccountId]) -> Result<(), &'static str> {
+    if executors.len() > 50 {
+        return Err("Too many intents executors");
+    }
+    let mut copy = executors.to_vec();
+    copy.sort();
+    copy.dedup();
+    if copy.len() != executors.len() {
+        return Err("Duplicate intents executor entries");
+    }
+    Ok(())
+}
+
 impl GovernanceConfig {
-    pub fn validate_update(&self, current: &GovernanceConfig) -> Result<(), &'static str> {
-        if self.max_key_length == 0
-            || self.max_path_depth == 0
-            || self.max_batch_size == 0
-            || self.max_value_bytes == 0
-        {
+    pub fn validate_patch(
+        &self,
+        max_key_length: Option<u16>,
+        max_path_depth: Option<u16>,
+        max_batch_size: Option<u16>,
+        max_value_bytes: Option<u32>,
+        intents_executors: Option<&[AccountId]>,
+    ) -> Result<(), &'static str> {
+        let new_key = max_key_length.unwrap_or(self.max_key_length);
+        let new_path = max_path_depth.unwrap_or(self.max_path_depth);
+        let new_batch = max_batch_size.unwrap_or(self.max_batch_size);
+        let new_value = max_value_bytes.unwrap_or(self.max_value_bytes);
+
+        if new_key == 0 || new_path == 0 || new_batch == 0 || new_value == 0 {
             return Err("Safety limits must be non-zero");
         }
 
-        if self.max_key_length < current.max_key_length
-            || self.max_batch_size < current.max_batch_size
-            || self.max_path_depth < current.max_path_depth
-            || self.max_value_bytes < current.max_value_bytes
+        if new_key < self.max_key_length
+            || new_path < self.max_path_depth
+            || new_batch < self.max_batch_size
+            || new_value < self.max_value_bytes
         {
-            return Err("Configuration values can only be increased");
+            return Err("Safety limits can only be increased");
         }
 
-        // Keep the allowlist small and non-ambiguous.
-        if self.intents_executors.len() > 50 {
-            return Err("Too many intents executors");
-        }
-        let mut copy = self.intents_executors.clone();
-        copy.sort();
-        copy.dedup();
-        if copy.len() != self.intents_executors.len() {
-            return Err("Duplicate intents executor entries");
+        if let Some(executors) = intents_executors {
+            validate_intents_executors(executors)?;
         }
 
         Ok(())
+    }
+
+    pub fn validate_update(&self, current: &GovernanceConfig) -> Result<(), &'static str> {
+        current.validate_patch(
+            Some(self.max_key_length),
+            Some(self.max_path_depth),
+            Some(self.max_batch_size),
+            Some(self.max_value_bytes),
+            Some(&self.intents_executors),
+        )
     }
 }

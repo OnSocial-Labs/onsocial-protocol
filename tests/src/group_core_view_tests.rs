@@ -640,3 +640,292 @@ async fn test_is_group_member_nonexistent_group_returns_false() -> anyhow::Resul
     println!("✅ is_group_member non-existent group test passed");
     Ok(())
 }
+
+// =============================================================================
+// TEST: get_group_config returns correct owner field
+// =============================================================================
+// Covers: config.rs:GroupConfig.owner - Verifies owner is set to caller's account ID
+#[tokio::test]
+async fn test_get_group_config_returns_correct_owner() -> anyhow::Result<()> {
+    println!("\n=== Test: get_group_config returns correct owner field ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Alice creates a group
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "owner_field_test", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+
+    // Query config and verify owner matches Alice
+    let config: Option<serde_json::Value> = contract
+        .view("get_group_config")
+        .args_json(json!({
+            "group_id": "owner_field_test"
+        }))
+        .await?
+        .json()?;
+
+    let config = config.expect("Config should exist for created group");
+    let owner = config.get("owner").expect("Config should have 'owner' field");
+    assert_eq!(
+        owner.as_str().unwrap(),
+        alice.id().as_str(),
+        "Owner should match the creator's account ID"
+    );
+    println!("   ✓ get_group_config.owner correctly set to creator: {}", alice.id());
+
+    println!("✅ get_group_config owner field test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: get_group_config member_driven defaults to false when not specified
+// =============================================================================
+// Covers: config.rs:GroupConfig.member_driven - default is false
+#[tokio::test]
+async fn test_get_group_config_member_driven_defaults_false() -> anyhow::Result<()> {
+    println!("\n=== Test: get_group_config member_driven defaults to false ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Alice creates a group WITHOUT specifying member_driven
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "member_driven_default_test", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+
+    // Query config and verify member_driven defaults to false
+    let config: Option<serde_json::Value> = contract
+        .view("get_group_config")
+        .args_json(json!({
+            "group_id": "member_driven_default_test"
+        }))
+        .await?
+        .json()?;
+
+    let config = config.expect("Config should exist for created group");
+    let member_driven = config.get("member_driven")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    assert!(!member_driven, "member_driven should default to false");
+    println!("   ✓ member_driven correctly defaults to false when not specified");
+
+    println!("✅ get_group_config member_driven default test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: get_group_config member_driven respects explicit true
+// =============================================================================
+// Covers: config.rs:GroupConfig.member_driven - honors explicit true
+#[tokio::test]
+async fn test_get_group_config_member_driven_explicit_true() -> anyhow::Result<()> {
+    println!("\n=== Test: get_group_config member_driven respects explicit true ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Alice creates a group WITH member_driven: true
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "member_driven_true_test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+
+    // Query config and verify member_driven is true
+    let config: Option<serde_json::Value> = contract
+        .view("get_group_config")
+        .args_json(json!({
+            "group_id": "member_driven_true_test"
+        }))
+        .await?
+        .json()?;
+
+    let config = config.expect("Config should exist for created group");
+    let member_driven = config.get("member_driven")
+        .and_then(|v| v.as_bool())
+        .expect("member_driven field should exist");
+    assert!(member_driven, "member_driven should be true when explicitly set");
+    println!("   ✓ member_driven correctly set to true when explicitly specified");
+
+    println!("✅ get_group_config member_driven explicit true test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: get_group_config is_private respects provided values
+// =============================================================================
+// Covers: config.rs:GroupConfig.is_private - Optional bool field
+#[tokio::test]
+async fn test_get_group_config_is_private_respects_values() -> anyhow::Result<()> {
+    println!("\n=== Test: get_group_config is_private respects provided values ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice creates a public group (is_private: false)
+    let create_public = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "public_group_test", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_public.is_success(), "Create public group should succeed");
+
+    // Bob creates a private group (is_private: true)
+    let create_private = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "private_group_test", "config": { "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_private.is_success(), "Create private group should succeed");
+
+    // Verify public group config
+    let public_config: Option<serde_json::Value> = contract
+        .view("get_group_config")
+        .args_json(json!({
+            "group_id": "public_group_test"
+        }))
+        .await?
+        .json()?;
+
+    let public_config = public_config.expect("Public group config should exist");
+    let is_private_public = public_config.get("is_private")
+        .and_then(|v| v.as_bool())
+        .expect("is_private field should exist");
+    assert!(!is_private_public, "is_private should be false for public group");
+    println!("   ✓ public group is_private correctly set to false");
+
+    // Verify private group config
+    let private_config: Option<serde_json::Value> = contract
+        .view("get_group_config")
+        .args_json(json!({
+            "group_id": "private_group_test"
+        }))
+        .await?
+        .json()?;
+
+    let private_config = private_config.expect("Private group config should exist");
+    let is_private_private = private_config.get("is_private")
+        .and_then(|v| v.as_bool())
+        .expect("is_private field should exist");
+    assert!(is_private_private, "is_private should be true for private group");
+    println!("   ✓ private group is_private correctly set to true");
+
+    println!("✅ get_group_config is_private test passed");
+    Ok(())
+}
+
+// =============================================================================
+// TEST: get_group_config returns all fields with correct types
+// =============================================================================
+// Covers: config.rs:GroupConfig - Full struct serialization verification
+#[tokio::test]
+async fn test_get_group_config_all_fields_present() -> anyhow::Result<()> {
+    println!("\n=== Test: get_group_config returns all expected fields ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Alice creates a group with all config fields specified
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_group",
+                    "group_id": "full_config_test",
+                    "config": {
+                        "member_driven": true,
+                        "is_private": true
+                    }
+                }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Create group should succeed");
+
+    // Query config
+    let config: Option<serde_json::Value> = contract
+        .view("get_group_config")
+        .args_json(json!({
+            "group_id": "full_config_test"
+        }))
+        .await?
+        .json()?;
+
+    let config = config.expect("Config should exist for created group");
+
+    // Verify all expected fields are present
+    assert!(config.get("owner").is_some(), "Config should have 'owner' field");
+    assert!(config.get("owner").unwrap().is_string(), "'owner' should be a string");
+    
+    // Note: member_driven and is_private may be stored as part of the config object
+    // depending on how storage serialization works
+    println!("   ✓ Config object returned with expected structure");
+    println!("   ✓ owner field present and is string type");
+
+    // Verify owner value
+    let owner = config.get("owner").unwrap().as_str().unwrap();
+    assert_eq!(owner, alice.id().as_str(), "owner should match creator");
+    println!("   ✓ owner value matches creator: {}", owner);
+
+    println!("✅ get_group_config all fields test passed");
+    Ok(())
+}

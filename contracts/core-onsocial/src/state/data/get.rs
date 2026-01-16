@@ -23,6 +23,7 @@ impl SocialPlatform {
                 value: None,
                 block_height: None,
                 deleted: false,
+                corrupted: false,
             };
         };
 
@@ -33,21 +34,27 @@ impl SocialPlatform {
                 value: None,
                 block_height: None,
                 deleted: false,
+                corrupted: false,
             },
             Some(entry) => match entry.value {
-                crate::state::models::DataValue::Value(bytes) => EntryView {
-                    requested_key: requested_key,
-                    full_key,
-                    value: near_sdk::serde_json::from_slice(&bytes).ok(),
-                    block_height: Some(U64(entry.block_height)),
-                    deleted: false,
-                },
+                crate::state::models::DataValue::Value(bytes) => {
+                    let parsed = near_sdk::serde_json::from_slice(&bytes);
+                    EntryView {
+                        requested_key: requested_key,
+                        full_key,
+                        value: parsed.as_ref().ok().cloned(),
+                        block_height: Some(U64(entry.block_height)),
+                        deleted: false,
+                        corrupted: parsed.is_err(),
+                    }
+                }
                 crate::state::models::DataValue::Deleted(_) => EntryView {
                     requested_key: requested_key,
                     full_key,
                     value: None,
                     block_height: Some(U64(entry.block_height)),
                     deleted: true,
+                    corrupted: false,
                 },
             },
         }

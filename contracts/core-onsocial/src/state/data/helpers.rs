@@ -29,7 +29,6 @@ impl SocialPlatform {
     ) -> Result<(), SocialError> {
         let mut processed_accounts = std::collections::HashSet::new();
 
-        // Record the nonce after signature + permissions validation.
         if let Some((owner, public_key, nonce_u64)) = signed_nonce {
             self.signed_payload_record_nonce(
                 &owner,
@@ -70,7 +69,6 @@ impl SocialPlatform {
         Ok(())
     }
 
-    /// Process a single operation.
     pub(crate) fn process_api_operation(
         &mut self,
         key: &str,

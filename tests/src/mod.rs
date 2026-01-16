@@ -31,6 +31,8 @@ pub mod key_permissions_tests;
 #[cfg(test)]
 pub mod lib_wrapper_regression_tests;
 #[cfg(test)]
+pub mod path_validation_tests;
+#[cfg(test)]
 pub mod permissions_tests;
 #[cfg(test)]
 pub mod proposal_validation_tests;

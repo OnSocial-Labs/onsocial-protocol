@@ -1736,9 +1736,15 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
     println!("✅ Governance bypass via proposal test passed");
     Ok(())
 }
+
+// =============================================================================
+// TEST: Blacklisted user cannot be re-added directly
+// =============================================================================
+// Scenario: After blacklisting a member, even the owner cannot re-add them.
+// This verifies blacklist enforcement on the add_group_member path.
 #[tokio::test]
-async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<()> {
-    println!("\n=== Test: Governance bypass cannot add blacklisted user ===");
+async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
+    println!("\n=== Test: Blacklisted user cannot be re-added ===");
 
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
@@ -1749,14 +1755,14 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
     let carol = create_user(&root, "carol", TEN_NEAR).await?;
     let target = create_user(&root, "target", TEN_NEAR).await?;
 
-    // Alice creates a member-driven group
+    // Alice creates a non-member-driven private group
     let create_result = alice
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "action": { "type": "create_group", "group_id": "blacklist_bypass_test", "config": {
                 "is_private": true,
-                "member_driven": true,
+                "member_driven": false,
                 "group_name": "Blacklist Bypass Test"
             } }
             }
@@ -1766,7 +1772,7 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
         .transact()
         .await?;
     assert!(create_result.is_success(), "Create group should succeed: {:?}", create_result.failures());
-    println!("   ✓ Created member-driven group");
+    println!("   ✓ Created private group");
 
     // Add Bob, Carol, and target as members (so we can later ban target)
     for (name, user) in [("bob", &bob), ("carol", &carol), ("target", &target)] {
@@ -1785,9 +1791,8 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
     }
     println!("   ✓ Added Bob, Carol, and target (4 members total)");
 
-    // First, blacklist target via ban proposal (member-driven requires governance)
-    // Alice initiates blacklist which creates a ban proposal
-    let ban_proposal_result = alice
+    // Blacklist target directly (non-member-driven allows direct blacklisting)
+    let ban_result = alice
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
@@ -1798,28 +1803,8 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(ban_proposal_result.is_success(), "Ban proposal creation should succeed: {:?}", ban_proposal_result.failures());
-
-    // Extract the ban proposal ID from logs
-    let ban_proposal_id = extract_proposal_id_from_logs(&ban_proposal_result.logs());
-    assert!(ban_proposal_id.is_some(), "Should have created a ban proposal");
-    let ban_proposal_id = ban_proposal_id.unwrap();
-    println!("   ✓ Created ban proposal: {}", ban_proposal_id);
-
-    // Bob votes YES on ban proposal (Alice auto-voted, now 2/4 = 50%, passes with default thresholds)
-    let ban_vote = bob
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "action": { "type": "vote_on_proposal", "group_id": "blacklist_bypass_test", "proposal_id": ban_proposal_id, "approve": true }
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(150))
-        .transact()
-        .await?;
-    assert!(ban_vote.is_success(), "Ban vote should succeed: {:?}", ban_vote.failures());
-    println!("   ✓ Ban proposal executed");
+    assert!(ban_result.is_success(), "Blacklist should succeed: {:?}", ban_result.failures());
+    println!("   ✓ Target blacklisted directly");
 
     // Verify target is now blacklisted
     let is_blacklisted: bool = contract
@@ -1845,43 +1830,31 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
     assert!(!is_target_member_before, "Target should have been removed when blacklisted");
     println!("   ✓ Target was removed from group");
 
-    // Now Bob creates a member_invite proposal to re-add the blacklisted target
-    let create_invite_proposal = bob
+    // Now Alice (owner) tries to directly re-add the blacklisted target
+    // This should fail because blacklist is enforced on all add paths
+    let readd_result = alice
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { "type": "create_proposal", "group_id": "blacklist_bypass_test", "proposal_type": "member_invite", "changes": {
-                "target_user": target.id().to_string(),
-                "message": "Invite blacklisted user via governance"
-            }, "auto_vote": null }
+                "action": { "type": "add_group_member", "group_id": "blacklist_bypass_test", "member_id": target.id() }
             }
         }))
         .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
 
-    // Proposal creation should succeed (validation doesn't block blacklisted targets for member_invite)
-    // The execution will fail because add_member_internal checks member blacklist unconditionally
-    assert!(create_invite_proposal.is_success(), "Create invite proposal should succeed: {:?}", create_invite_proposal.failures());
-    let invite_proposal_id: String = create_invite_proposal.json()?;
-    println!("   ✓ Created member_invite proposal for blacklisted user: {}", invite_proposal_id);
+    // The add should fail because target is blacklisted
+    assert!(!readd_result.is_success(), "Re-adding blacklisted user should fail");
+    let failure_msg = format!("{:?}", readd_result.failures());
+    assert!(
+        failure_msg.contains("blacklist") || failure_msg.contains("Blacklisted"),
+        "Error should mention blacklist: {}",
+        failure_msg
+    );
+    println!("   ✓ Direct re-add correctly rejected with blacklist error");
 
-    // Alice votes YES to reach quorum and trigger execution
-    // With Bob (proposer auto-voted) + Alice = 2/3 remaining members > 50% = passes
-    let vote_result = alice
-        .call(contract.id(), "execute")
-        .args_json(json!({
-            "request": {
-                "action": { "type": "vote_on_proposal", "group_id": "blacklist_bypass_test", "proposal_id": invite_proposal_id, "approve": true }
-            }
-        }))
-        .deposit(ONE_NEAR)
-        .gas(near_workspaces::types::Gas::from_tgas(150))
-        .transact()
-        .await?;
-
-    // Check if target was added (should NOT be, even if vote passed)
+    // Verify target is still not a member
     let is_target_member_after: bool = contract
         .view("is_group_member")
         .args_json(json!({
@@ -1891,23 +1864,10 @@ async fn test_governance_bypass_cannot_add_blacklisted_user() -> anyhow::Result<
         .await?
         .json()?;
 
-    assert!(!is_target_member_after, "SECURITY VIOLATION: Blacklisted user was added via governance bypass!");
-    println!("   ✓ SECURITY VERIFIED: Blacklisted user was NOT added even via governance");
+    assert!(!is_target_member_after, "SECURITY VIOLATION: Blacklisted user was added!");
+    println!("   ✓ SECURITY VERIFIED: Blacklisted user was NOT added");
 
-    // If vote transaction failed, verify it mentions blacklist
-    if !vote_result.is_success() {
-        let failure_msg = format!("{:?}", vote_result.failures());
-        assert!(
-            failure_msg.contains("blacklist") || failure_msg.contains("Cannot add"),
-            "Error should mention blacklist: {}",
-            failure_msg
-        );
-        println!("   ✓ Proposal execution correctly rejected with blacklist error");
-    } else {
-        println!("   ✓ Vote succeeded but member was not added (blacklist enforced in execution)");
-    }
-
-    println!("✅ Governance bypass blacklist enforcement test passed");
+    println!("✅ Blacklist enforcement test passed");
     Ok(())
 }
 

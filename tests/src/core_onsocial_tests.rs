@@ -453,6 +453,17 @@ async fn test_set_and_get_profile_data() -> anyhow::Result<()> {
         Some("Hello from the sandbox!"),
         "Bio should match"
     );
+
+    // Verify corrupted field is false for valid data
+    let name_entry = get_result
+        .iter()
+        .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(name_key.as_str()))
+        .expect("Should have EntryView for name");
+    assert_eq!(
+        name_entry.get("corrupted").and_then(|v| v.as_bool()),
+        Some(false),
+        "corrupted must be false for valid data"
+    );
     
     println!("✅ Set and get profile data test passed");
     Ok(())
@@ -568,9 +579,273 @@ async fn test_get_one_rejects_malformed_groups_paths() -> anyhow::Result<()> {
             Some(false),
             "deleted must be false for invalid group paths"
         );
+        assert_eq!(
+            entry.get("corrupted").and_then(|v| v.as_bool()),
+            Some(false),
+            "corrupted must be false for invalid group paths"
+        );
     }
 
     println!("✅ Malformed groups paths rejected by get_one");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_nonexistent_key_returns_empty_entry_view() -> anyhow::Result<()> {
+    println!("\n=== Test: get Nonexistent Key Returns Empty EntryView ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Query a key that was never set
+    let nonexistent_key = format!("{}/profile/nonexistent", alice.id());
+    let result: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [nonexistent_key.clone()]
+        }))
+        .await?
+        .json()?;
+
+    assert_eq!(result.len(), 1, "Should return one EntryView");
+    let entry = &result[0];
+
+    assert_eq!(
+        entry.get("requested_key").and_then(|v| v.as_str()),
+        Some(nonexistent_key.as_str()),
+        "requested_key must match input"
+    );
+    assert_eq!(
+        entry.get("full_key").and_then(|v| v.as_str()),
+        Some(nonexistent_key.as_str()),
+        "full_key must match resolved path"
+    );
+    assert!(
+        entry.get("value").map(|v| v.is_null()).unwrap_or(true),
+        "value must be null for nonexistent key"
+    );
+    assert!(
+        entry.get("block_height").map(|v| v.is_null()).unwrap_or(true),
+        "block_height must be null for nonexistent key"
+    );
+    assert_eq!(
+        entry.get("deleted").and_then(|v| v.as_bool()),
+        Some(false),
+        "deleted must be false for nonexistent key"
+    );
+    assert_eq!(
+        entry.get("corrupted").and_then(|v| v.as_bool()),
+        Some(false),
+        "corrupted must be false for nonexistent key"
+    );
+
+    println!("✅ Nonexistent key returns proper empty EntryView");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_with_relative_key_resolution() -> anyhow::Result<()> {
+    println!("\n=== Test: get With Relative Key Resolution ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Set data under alice's account
+    let set_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/status": "active"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(set_result.is_success(), "Set should succeed");
+
+    // Query using relative key with account_id parameter
+    let result: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": ["profile/status"],
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+
+    assert_eq!(result.len(), 1, "Should return one EntryView");
+    let entry = &result[0];
+
+    assert_eq!(
+        entry.get("requested_key").and_then(|v| v.as_str()),
+        Some("profile/status"),
+        "requested_key must match input"
+    );
+    assert_eq!(
+        entry.get("full_key").and_then(|v| v.as_str()),
+        Some(format!("{}/profile/status", alice.id()).as_str()),
+        "full_key must be resolved with account_id prefix"
+    );
+    assert_eq!(
+        entry.get("value").and_then(|v| v.as_str()),
+        Some("active"),
+        "value must match set data"
+    );
+    assert_eq!(
+        entry.get("corrupted").and_then(|v| v.as_bool()),
+        Some(false),
+        "corrupted must be false"
+    );
+
+    println!("✅ Relative key resolution with account_id works correctly");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_one_handles_empty_and_whitespace_keys() -> anyhow::Result<()> {
+    println!("\n=== Test: get_one Handles Empty and Whitespace Keys ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let empty_keys = vec!["", "   ", "\t", "\n", "  \t\n  "];
+
+    for key in empty_keys {
+        let entry: Value = contract
+            .view("get_one")
+            .args_json(json!({
+                "key": key,
+                "account_id": null
+            }))
+            .await?
+            .json()?;
+
+        assert_eq!(
+            entry.get("requested_key").and_then(|v| v.as_str()),
+            Some(key),
+            "requested_key must match input for '{:?}'",
+            key
+        );
+        assert_eq!(
+            entry.get("full_key").and_then(|v| v.as_str()),
+            Some(""),
+            "full_key must be empty for whitespace-only key '{:?}'",
+            key
+        );
+        assert!(
+            entry.get("value").map(|v| v.is_null()).unwrap_or(true),
+            "value must be null for whitespace-only key"
+        );
+    }
+
+    println!("✅ Empty and whitespace-only keys correctly return empty full_key");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_one_normalizes_leading_slashes() -> anyhow::Result<()> {
+    println!("\n=== Test: get_one Normalizes Leading Slashes ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Set data
+    let set_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/test": "value123"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(set_result.is_success(), "Set should succeed");
+
+    // Query with leading slashes - should normalize and resolve
+    let key_with_slashes = format!("/{}/profile/test", alice.id());
+    let entry: Value = contract
+        .view("get_one")
+        .args_json(json!({
+            "key": key_with_slashes,
+            "account_id": null
+        }))
+        .await?
+        .json()?;
+
+    let expected_full_key = format!("{}/profile/test", alice.id());
+    assert_eq!(
+        entry.get("full_key").and_then(|v| v.as_str()),
+        Some(expected_full_key.as_str()),
+        "Leading slashes must be stripped and key resolved"
+    );
+    assert_eq!(
+        entry.get("value").and_then(|v| v.as_str()),
+        Some("value123"),
+        "Value must be retrieved after slash normalization"
+    );
+
+    println!("✅ Leading slashes correctly normalized");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_get_one_rejects_invalid_account_prefix() -> anyhow::Result<()> {
+    println!("\n=== Test: get_one Rejects Invalid Account Prefix ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    // Keys with invalid account prefixes (no account_id provided)
+    let invalid_keys = vec![
+        "notvalid..account/profile",
+        "has spaces/profile",
+        "-invalid/profile",
+        "UPPERCASE/profile",
+    ];
+
+    for key in invalid_keys {
+        let entry: Value = contract
+            .view("get_one")
+            .args_json(json!({
+                "key": key,
+                "account_id": null
+            }))
+            .await?
+            .json()?;
+
+        assert_eq!(
+            entry.get("full_key").and_then(|v| v.as_str()),
+            Some(""),
+            "full_key must be empty for invalid account prefix '{}'",
+            key
+        );
+        assert!(
+            entry.get("value").map(|v| v.is_null()).unwrap_or(true),
+            "value must be null for invalid account prefix"
+        );
+    }
+
+    println!("✅ Invalid account prefixes correctly rejected");
     Ok(())
 }
 
@@ -1002,6 +1277,16 @@ async fn test_event_partition_consistency_across_batch() -> anyhow::Result<()> {
     
     assert!(!partition_ids.is_empty(), "Events should have partition_ids");
     
+    // Verify all partition_ids are within valid range [0, 4095]
+    for (i, pid) in partition_ids.iter().enumerate() {
+        assert!(
+            *pid < NUM_PARTITIONS,
+            "Event {} partition_id {} must be < {} (NUM_PARTITIONS)",
+            i, pid, NUM_PARTITIONS
+        );
+    }
+    println!("   ✅ All {} partition_ids are within valid range [0, {})", partition_ids.len(), NUM_PARTITIONS);
+    
     // Calculate expected partition for alice's namespace
     let expected_partition = calculate_expected_partition(alice.id().as_str());
     
@@ -1063,6 +1348,13 @@ async fn test_event_partition_for_group_paths() -> anyhow::Result<()> {
     let create_partition = create_event.data.first()
         .and_then(|d| d.partition_id)
         .expect("group_create event should have partition_id");
+    
+    // Verify partition is within valid bounds
+    assert!(
+        create_partition < NUM_PARTITIONS,
+        "Group event partition_id {} must be < {} (NUM_PARTITIONS)",
+        create_partition, NUM_PARTITIONS
+    );
     
     // Partition should be based on group_id, not alice's account
     let expected_group_partition = calculate_expected_partition(group_id);
@@ -1897,6 +2189,11 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .find(|e| e.get("full_key").and_then(|v| v.as_str()) == Some(twitter_key.as_str()))
         .expect("Should have EntryView for twitter");
     assert_eq!(twitter_entry.get("deleted").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(
+        twitter_entry.get("corrupted").and_then(|v| v.as_bool()),
+        Some(false),
+        "corrupted must be false for deleted entry"
+    );
     println!("   ✓ Deletions verified, existing keys preserved");
     
     // ==========================================================================

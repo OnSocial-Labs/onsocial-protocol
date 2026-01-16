@@ -2259,3 +2259,230 @@ async fn test_share_storage_self_share_rejected() -> Result<()> {
     println!("\n✅ Test passed: Self-share correctly rejected");
     Ok(())
 }
+
+// =============================================================================
+// CRITICAL: Invalid account ID in share_storage target_id
+// =============================================================================
+
+#[tokio::test]
+async fn test_share_storage_rejects_invalid_target_id() -> Result<()> {
+    println!("\n🧪 TEST: share_storage rejects invalid target_id account ID format");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let alice = worker.dev_create_account().await?;
+    
+    // Step 1: Alice deposits to her shared pool
+    println!("\n   Step 1: Alice deposits 1 NEAR to her shared pool...");
+    let deposit_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": alice.id().to_string(),
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(deposit_result.is_success(), "Pool deposit should succeed");
+    println!("   ✓ Pool deposit succeeded");
+    
+    // Step 2: Try to share with invalid target_id
+    println!("\n   Step 2: Try share_storage with invalid target_id format...");
+    let share_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/share_storage": {
+                        "target_id": "INVALID!!ACCOUNT..ID",  // Invalid characters
+                        "max_bytes": 5000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    // Should fail
+    assert!(!share_result.is_success(), "share_storage with invalid target_id should fail");
+    println!("   ✓ Share with invalid target_id rejected");
+    
+    // Verify error message mentions invalid target
+    let failures: Vec<String> = share_result.failures().iter()
+        .map(|f| format!("{:?}", f))
+        .collect();
+    let error_text = failures.join(" ");
+    assert!(
+        error_text.contains("Invalid") && error_text.contains("target_id"),
+        "Error should mention invalid target_id: {}", error_text
+    );
+    println!("   ✓ Error message mentions invalid target_id");
+    
+    println!("\n✅ Test passed: Invalid target_id in share_storage correctly rejected");
+    Ok(())
+}
+
+// =============================================================================
+// CRITICAL: Invalid account ID in shared_pool_deposit pool_id
+// =============================================================================
+
+#[tokio::test]
+async fn test_shared_pool_deposit_rejects_invalid_pool_id() -> Result<()> {
+    println!("\n🧪 TEST: shared_pool_deposit rejects invalid pool_id account ID format");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let alice = worker.dev_create_account().await?;
+    
+    // Try to deposit to shared pool with invalid pool_id
+    println!("\n   Step 1: Try shared_pool_deposit with invalid pool_id format...");
+    let deposit_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/shared_pool_deposit": {
+                        "pool_id": "NOT A VALID ACCOUNT!!!",
+                        "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    // Should fail
+    assert!(!deposit_result.is_success(), "shared_pool_deposit with invalid pool_id should fail");
+    println!("   ✓ Deposit with invalid pool_id rejected");
+    
+    // Verify error message mentions invalid pool_id
+    let failures: Vec<String> = deposit_result.failures().iter()
+        .map(|f| format!("{:?}", f))
+        .collect();
+    let error_text = failures.join(" ");
+    assert!(
+        error_text.contains("Invalid") && error_text.contains("pool_id"),
+        "Error should mention invalid pool_id: {}", error_text
+    );
+    println!("   ✓ Error message mentions invalid pool_id");
+    
+    println!("\n✅ Test passed: Invalid pool_id in shared_pool_deposit correctly rejected");
+    Ok(())
+}
+
+// =============================================================================
+// HIGH: Invalid account ID in group_sponsor_quota_set target_id
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_rejects_invalid_target_id() -> Result<()> {
+    println!("\n🧪 TEST: group_sponsor_quota_set rejects invalid target_id account ID format");
+    
+    let worker = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = worker.dev_deploy(&wasm).await?;
+    
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    
+    let alice = worker.dev_create_account().await?;
+    
+    // Step 1: Create a group that Alice owns
+    println!("\n   Step 1: Alice creates a group...");
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "sponsor-test-group", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+    println!("   ✓ Group created");
+    
+    // Step 2: Try to set sponsor quota with invalid target_id
+    println!("\n   Step 2: Try group_sponsor_quota_set with invalid target_id...");
+    let quota_set = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": "sponsor-test-group",
+                        "target_id": "INVALID!!TARGET..ID",  // Invalid account format
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 5000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    // Should fail
+    assert!(!quota_set.is_success(), "group_sponsor_quota_set with invalid target_id should fail");
+    println!("   ✓ Quota set with invalid target_id rejected");
+    
+    // Verify error message mentions invalid target_id
+    let failures: Vec<String> = quota_set.failures().iter()
+        .map(|f| format!("{:?}", f))
+        .collect();
+    let error_text = failures.join(" ");
+    assert!(
+        error_text.contains("Invalid") && error_text.contains("target_id"),
+        "Error should mention invalid target_id: {}", error_text
+    );
+    println!("   ✓ Error message mentions invalid target_id");
+    
+    println!("\n✅ Test passed: Invalid target_id in group_sponsor_quota_set correctly rejected");
+    Ok(())
+}

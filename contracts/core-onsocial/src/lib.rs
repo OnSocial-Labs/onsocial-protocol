@@ -56,5 +56,6 @@ pub struct EntryView {
     pub value: Option<Value>,
     pub block_height: Option<U64>,
     pub deleted: bool,
+    pub corrupted: bool,
 }
 

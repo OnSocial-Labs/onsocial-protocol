@@ -1538,3 +1538,717 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
 
     Ok(())
 }
+
+// =============================================================================
+// Crypto Validation Tests (validation/crypto.rs)
+// =============================================================================
+
+/// SignedPayload with secp256k1 public key is rejected (only ED25519 supported).
+/// Tests: validation/crypto.rs:6-8 (ed25519_public_key_bytes curve type check)
+#[tokio::test]
+async fn test_signed_payload_secp256k1_key_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Create a secp256k1 public key string (64 bytes raw key = uncompressed format).
+    // secp256k1 keys are 64 bytes (uncompressed without prefix) in near-sdk format.
+    let fake_secp_key_bytes = [0x42u8; 64];
+    let secp_pk_str = format!("secp256k1:{}", bs58::encode(&fake_secp_key_bytes).into_string());
+
+    // Attempt to use secp256k1 key in signed payload auth.
+    // Note: We cannot actually grant permission to a secp256k1 key since set_key_permission
+    // also validates the key type. So we test that the signed payload auth itself rejects it.
+    let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
+
+    // Create a dummy signature (64 bytes).
+    let dummy_sig = BASE64_ENGINE.encode([0u8; 64]);
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": secp_pk_str,
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": dummy_sig
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Expected secp256k1 key to be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(
+        err.contains("ed25519") || err.contains("Only ed25519"),
+        "Expected ed25519-only error, got: {err}"
+    );
+
+    Ok(())
+}
+
+/// SignedPayload with truncated signature (< 64 bytes) is rejected.
+/// Tests: validation/crypto.rs:24-27 (ed25519_signature_bytes length check)
+#[tokio::test]
+async fn test_signed_payload_truncated_signature_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission.
+    let (_, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
+
+    // Create a truncated signature (63 bytes instead of 64).
+    let truncated_sig = BASE64_ENGINE.encode([0u8; 63]);
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": truncated_sig
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Expected truncated signature (63 bytes) to be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(
+        err.contains("signature") || err.contains("Invalid"),
+        "Expected signature validation error, got: {err}"
+    );
+
+    Ok(())
+}
+
+/// SignedPayload with oversized signature (> 64 bytes) is rejected.
+/// Tests: validation/crypto.rs:24-27 (ed25519_signature_bytes length check)
+#[tokio::test]
+async fn test_signed_payload_oversized_signature_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission.
+    let (_, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
+
+    // Create an oversized signature (65 bytes instead of 64).
+    let oversized_sig = BASE64_ENGINE.encode([0u8; 65]);
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": oversized_sig
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Expected oversized signature (65 bytes) to be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(
+        err.contains("signature") || err.contains("Invalid"),
+        "Expected signature validation error, got: {err}"
+    );
+
+    Ok(())
+}
+
+/// SignedPayload with empty signature is rejected.
+/// Tests: validation/crypto.rs:24-27 (ed25519_signature_bytes length check)
+#[tokio::test]
+async fn test_signed_payload_empty_signature_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission.
+    let (_, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
+
+    // Empty signature (0 bytes).
+    let empty_sig = BASE64_ENGINE.encode([0u8; 0]);
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": empty_sig
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Expected empty signature to be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(
+        err.contains("signature") || err.contains("Invalid"),
+        "Expected signature validation error, got: {err}"
+    );
+
+    Ok(())
+}
+
+/// Test that Auth::Direct correctly populates VerifiedContext fields in events.
+/// Verifies: auth_type="direct", actor_id=signer, payer_id=predecessor.
+#[tokio::test]
+async fn test_direct_auth_context_fields_in_event() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Alice writes directly with null auth (Auth::Direct).
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "profile/name": "Alice Direct" } },
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(res.is_success(), "Direct auth write should succeed: {:?}", res.failures());
+
+    // Find the meta_tx marker event.
+    let logs = res.logs();
+    let marker = find_meta_tx_marker(&logs).expect("Expected CONTRACT_UPDATE meta_tx marker event for direct auth");
+    let data0 = &marker["data"][0];
+
+    // Verify auth_type is "direct".
+    assert_eq!(
+        data0["auth_type"].as_str(),
+        Some("direct"),
+        "auth_type should be 'direct' for null auth, got: {:?}",
+        data0["auth_type"]
+    );
+
+    // Verify actor_id equals the signer (alice).
+    assert_eq!(
+        data0["actor_id"].as_str(),
+        Some(alice.id().as_str()),
+        "actor_id should be alice for direct auth"
+    );
+
+    // Verify payer_id equals the predecessor (alice, since she called directly).
+    assert_eq!(
+        data0["payer_id"].as_str(),
+        Some(alice.id().as_str()),
+        "payer_id should be alice for direct auth"
+    );
+
+    // Verify data was written.
+    let v: Value = contract
+        .view("get_one")
+        .args_json(json!({
+            "key": "profile/name",
+            "account_id": alice.id().to_string()
+        }))
+        .await?
+        .json()?;
+    assert_eq!(v.get("value"), Some(&json!("Alice Direct")));
+
+    Ok(())
+}
+
+// =============================================================================
+// Canonical JSON Serialization Tests
+// =============================================================================
+// These tests verify that canonicalize_json_value produces deterministic output
+// regardless of input key ordering, ensuring signature verification works correctly.
+
+/// Tests: protocol/canonical_json.rs (key ordering invariance)
+/// Verifies that a signed payload succeeds even when the submitted action JSON
+/// has keys in a different order than what the signer used.
+#[tokio::test]
+async fn test_signed_payload_json_key_order_invariance() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission.
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Sign with keys in one order: { "type": ..., "data": { "profile/bio": ..., "profile/name": ... } }
+    // The signer's payload will be canonicalized, so keys will be sorted: bio < name
+    let action_for_signing = json!({
+        "type": "set",
+        "data": {
+            "profile/bio": "Hello world",
+            "profile/name": "Alice"
+        }
+    });
+
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action_for_signing,
+        delegate_action: None,
+    };
+    let signature = sign_payload(contract.id().as_str(), &payload, &sk)?;
+
+    // Submit with keys in DIFFERENT order: { "data": { "profile/name": ..., "profile/bio": ... }, "type": ... }
+    // If canonicalization works, this should still verify correctly.
+    let action_different_order = json!({
+        "data": {
+            "profile/name": "Alice",
+            "profile/bio": "Hello world"
+        },
+        "type": "set"
+    });
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_different_order,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": signature
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_success(),
+        "Signature should verify despite different key ordering: {:?}",
+        res.failures()
+    );
+
+    // Verify both fields were written.
+    let name: Value = contract
+        .view("get_one")
+        .args_json(json!({ "key": "profile/name", "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    assert_eq!(name.get("value"), Some(&json!("Alice")));
+
+    let bio: Value = contract
+        .view("get_one")
+        .args_json(json!({ "key": "profile/bio", "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    assert_eq!(bio.get("value"), Some(&json!("Hello world")));
+
+    Ok(())
+}
+
+/// Tests: protocol/canonical_json.rs (nested object canonicalization)
+/// Verifies that deeply nested objects are properly canonicalized.
+#[tokio::test]
+async fn test_signed_payload_nested_object_canonicalization() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission for settings/.
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "settings/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Sign with nested object keys in one order.
+    let action_for_signing = json!({
+        "type": "set",
+        "data": {
+            "settings/preferences": {
+                "theme": "dark",
+                "language": "en",
+                "notifications": {
+                    "email": true,
+                    "push": false
+                }
+            }
+        }
+    });
+
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action_for_signing,
+        delegate_action: None,
+    };
+    let signature = sign_payload(contract.id().as_str(), &payload, &sk)?;
+
+    // Submit with nested keys in DIFFERENT order (reversed at each level).
+    let action_different_order = json!({
+        "data": {
+            "settings/preferences": {
+                "notifications": {
+                    "push": false,
+                    "email": true
+                },
+                "theme": "dark",
+                "language": "en"
+            }
+        },
+        "type": "set"
+    });
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_different_order,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": signature
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_success(),
+        "Signature should verify with nested objects in different order: {:?}",
+        res.failures()
+    );
+
+    // Verify the nested data was written.
+    let prefs: Value = contract
+        .view("get_one")
+        .args_json(json!({ "key": "settings/preferences", "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let value = prefs.get("value").expect("should have value");
+    assert_eq!(value.get("theme"), Some(&json!("dark")));
+    assert_eq!(value.get("language"), Some(&json!("en")));
+    assert_eq!(value.get("notifications").and_then(|n| n.get("email")), Some(&json!(true)));
+    assert_eq!(value.get("notifications").and_then(|n| n.get("push")), Some(&json!(false)));
+
+    Ok(())
+}
+
+/// Tests: protocol/canonical_json.rs (array with objects canonicalization)
+/// Verifies that arrays containing objects with different key orderings are handled correctly.
+#[tokio::test]
+async fn test_signed_payload_array_object_canonicalization() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Alice deposits storage.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    // Grant key permission for data/.
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "data/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Sign with array containing objects with keys in specific order.
+    let action_for_signing = json!({
+        "type": "set",
+        "data": {
+            "data/contacts": [
+                { "name": "Bob", "email": "bob@example.com" },
+                { "name": "Carol", "email": "carol@example.com" }
+            ]
+        }
+    });
+
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action_for_signing,
+        delegate_action: None,
+    };
+    let signature = sign_payload(contract.id().as_str(), &payload, &sk)?;
+
+    // Submit with array objects having keys in DIFFERENT order.
+    // Note: array ORDER matters (not canonicalized), but object keys within are.
+    let action_different_order = json!({
+        "data": {
+            "data/contacts": [
+                { "email": "bob@example.com", "name": "Bob" },
+                { "email": "carol@example.com", "name": "Carol" }
+            ]
+        },
+        "type": "set"
+    });
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_different_order,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": signature
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_success(),
+        "Signature should verify with array objects in different key order: {:?}",
+        res.failures()
+    );
+
+    // Verify array was written correctly.
+    let contacts: Value = contract
+        .view("get_one")
+        .args_json(json!({ "key": "data/contacts", "account_id": alice.id().to_string() }))
+        .await?
+        .json()?;
+    let arr = contacts.get("value").and_then(|v| v.as_array()).expect("should be array");
+    assert_eq!(arr.len(), 2);
+    assert_eq!(arr[0].get("name"), Some(&json!("Bob")));
+    assert_eq!(arr[1].get("name"), Some(&json!("Carol")));
+
+    Ok(())
+}

@@ -11,7 +11,7 @@
 // 3. Unused balance is correctly refunded to user (signer)
 // 4. Multiple storage operations share the same attached balance
 
-use near_workspaces::types::{Gas, NearToken};
+use near_workspaces::types::{Gas, NearToken, AccountId};
 use serde_json::json;
 use std::path::Path;
 
@@ -7948,6 +7948,7 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
     let current_max_key_length = current_config["max_key_length"].as_u64().unwrap_or(256);
     let current_max_batch_size = current_config["max_batch_size"].as_u64().unwrap_or(100);
     let current_max_path_depth = current_config["max_path_depth"].as_u64().unwrap_or(12);
+    let current_max_value_bytes = current_config["max_value_bytes"].as_u64().unwrap_or(10240);
     
     // Step 2: Non-manager (Alice) tries to update config - should FAIL
     println!("\n   Step 2: Non-manager (Alice) tries to update config (should FAIL)...");
@@ -7957,7 +7958,8 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": current_max_key_length + 10,
                 "max_batch_size": current_max_batch_size + 10,
-                "max_path_depth": current_max_path_depth + 1
+                "max_path_depth": current_max_path_depth + 1,
+                "max_value_bytes": current_max_value_bytes + 100
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -7976,7 +7978,8 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": current_max_key_length + 50,
                 "max_batch_size": current_max_batch_size + 25,
-                "max_path_depth": current_max_path_depth + 2
+                "max_path_depth": current_max_path_depth + 2,
+                "max_value_bytes": current_max_value_bytes + 500
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -8016,7 +8019,8 @@ async fn test_update_config_manager_only() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": current_max_key_length,  // Trying to decrease
                 "max_batch_size": current_max_batch_size + 25,
-                "max_path_depth": current_max_path_depth + 2
+                "max_path_depth": current_max_path_depth + 2,
+                "max_value_bytes": current_max_value_bytes + 500
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -8082,7 +8086,8 @@ async fn test_update_config_via_manager_contract() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": 300,
                 "max_batch_size": 150,
-                "max_path_depth": 13
+                "max_path_depth": 13,
+                "max_value_bytes": 20480
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -8099,7 +8104,8 @@ async fn test_update_config_via_manager_contract() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": 300,
                 "max_batch_size": 150,
-                "max_path_depth": 13
+                "max_path_depth": 13,
+                "max_value_bytes": 20480
             }
         }))
         .gas(Gas::from_tgas(120))
@@ -8220,6 +8226,7 @@ async fn test_update_manager_security() -> anyhow::Result<()> {
         .await?
         .json()?;
     let new_max_key = current_config["max_key_length"].as_u64().unwrap() + 10;
+    let new_max_value_bytes = current_config["max_value_bytes"].as_u64().unwrap() + 100;
 
     let alice_config_result = alice
         .call(contract.id(), "update_config")
@@ -8227,7 +8234,8 @@ async fn test_update_manager_security() -> anyhow::Result<()> {
             "config": {
                 "max_key_length": new_max_key,
                 "max_batch_size": current_config["max_batch_size"],
-                "max_path_depth": current_config["max_path_depth"]
+                "max_path_depth": current_config["max_path_depth"],
+                "max_value_bytes": new_max_value_bytes
             }
         }))
         .deposit(NearToken::from_yoctonear(1))
@@ -10873,5 +10881,1226 @@ async fn test_storage_tracker_full_lifecycle_delta_correctness() -> anyhow::Resu
     println!("   - Shrink: {:+} bytes", delta_shrink);
     println!("   - Delete: {:+} bytes", delta_delete);
 
+    Ok(())
+}
+
+// =============================================================================
+// BATCH SIZE LIMIT ENFORCEMENT (helpers.rs coverage)
+// =============================================================================
+
+/// Test: Batch size exceeding max_batch_size is rejected with "Batch size exceeded".
+///
+/// Covers: `require_batch_size_within_limit` in helpers.rs
+#[tokio::test]
+async fn test_batch_size_limit_enforcement_rejects_oversized_batch() -> anyhow::Result<()> {
+    println!("\n🧪 BATCH SIZE LIMIT ENFORCEMENT TEST");
+    println!("====================================");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    // Initialize and activate contract
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+
+    let user = sandbox.dev_create_account().await?;
+
+    // Get current max_batch_size (default is 10)
+    let config: serde_json::Value = contract.view("get_config").await?.json()?;
+    let max_batch_size = config["max_batch_size"].as_u64().unwrap_or(10) as usize;
+    println!("   Current max_batch_size: {}", max_batch_size);
+
+    // Create batch exceeding max_batch_size by 1
+    let mut oversized_batch = serde_json::Map::new();
+    for i in 0..=max_batch_size {
+        oversized_batch.insert(format!("test/key_{}", i), json!("value"));
+    }
+    println!("   Attempting batch with {} operations...", oversized_batch.len());
+
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": oversized_batch },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(300))
+        .transact()
+        .await?;
+
+    // ASSERTION 1: Batch must be rejected
+    assert!(
+        result.is_failure(),
+        "Batch with {} operations should be rejected (max: {})",
+        max_batch_size + 1,
+        max_batch_size
+    );
+
+    // ASSERTION 2: Error message must contain "Batch size exceeded"
+    let failure_str = format!("{:?}", result.failures());
+    assert!(
+        failure_str.contains("Batch size exceeded"),
+        "Error should mention 'Batch size exceeded', got: {}",
+        failure_str
+    );
+    println!("   ✓ Oversized batch correctly rejected with 'Batch size exceeded'");
+
+    // Verify batch at exact limit succeeds
+    println!("\n   Verifying batch at exact limit ({} operations)...", max_batch_size);
+    let mut exact_batch = serde_json::Map::new();
+    for i in 0..max_batch_size {
+        exact_batch.insert(format!("exact/key_{}", i), json!("value"));
+    }
+
+    let exact_result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": exact_batch },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(300))
+        .transact()
+        .await?;
+
+    // ASSERTION 3: Batch at exact limit must succeed
+    assert!(
+        exact_result.is_success(),
+        "Batch with exactly {} operations should succeed: {:?}",
+        max_batch_size,
+        exact_result.failures()
+    );
+    println!("   ✓ Batch at exact limit ({} operations) succeeded", max_batch_size);
+
+    println!("\n✅ Batch size limit enforcement test passed");
+    Ok(())
+}
+
+/// Test: Multiple distinct operation types in same batch execute correctly.
+///
+/// Covers: `process_api_operation` dispatch in helpers.rs
+#[tokio::test]
+async fn test_mixed_operation_types_in_single_batch() -> anyhow::Result<()> {
+    println!("\n🧪 MIXED OPERATION TYPES IN BATCH TEST");
+    println!("======================================");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+
+    let user = sandbox.dev_create_account().await?;
+
+    // Execute batch with storage/deposit + data paths (multiple operation types)
+    let deposit_amount = NearToken::from_millinear(200);
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": deposit_amount.as_yoctonear().to_string()},
+                    "profile/name": "MixedTest",
+                    "profile/bio": "Testing mixed operations"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    // ASSERTION 1: Mixed batch must succeed
+    assert!(
+        result.is_success(),
+        "Mixed operation batch should succeed: {:?}",
+        result.failures()
+    );
+    println!("   ✓ Mixed operation batch executed successfully");
+
+    // ASSERTION 2: Data should be written (confirms DataPath operations processed)
+    let data: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/name", user.id()),
+                format!("{}/profile/bio", user.id())
+            ],
+            "account_id": user.id()
+        }))
+        .await?
+        .json()?;
+
+    let name_key = format!("{}/profile/name", user.id());
+    let bio_key = format!("{}/profile/bio", user.id());
+    
+    assert!(entry_exists(&data, &name_key), "Profile name should be stored");
+    assert_eq!(
+        entry_value_str(&data, &name_key),
+        Some("MixedTest"),
+        "Profile name should match"
+    );
+    println!("   ✓ profile/name written correctly");
+
+    assert!(entry_exists(&data, &bio_key), "Profile bio should be stored");
+    assert_eq!(
+        entry_value_str(&data, &bio_key),
+        Some("Testing mixed operations"),
+        "Profile bio should match"
+    );
+    println!("   ✓ profile/bio written correctly");
+
+    // ASSERTION 3: Verify storage balance exists (confirms StorageDeposit operation processed)
+    let storage: Option<serde_json::Value> = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": user.id()}))
+        .await?
+        .json()?;
+    
+    assert!(
+        storage.is_some(),
+        "Storage record should exist after storage/deposit operation"
+    );
+    println!("   ✓ Storage record created (storage/deposit processed)");
+
+    println!("\n✅ Mixed operation types test passed");
+    Ok(())
+}
+
+/// Test: Operation failure in batch causes atomic rollback (no partial state).
+///
+/// Covers: Error propagation in `execute_set_operations_with_balance`
+#[tokio::test]
+async fn test_batch_operation_failure_is_atomic() -> anyhow::Result<()> {
+    println!("\n🧪 BATCH ATOMICITY TEST");
+    println!("=======================");
+
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+
+    let _ = contract.call("new").args_json(json!({})).transact().await?;
+    let _ = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+
+    let user = sandbox.dev_create_account().await?;
+
+    // First, write initial data to verify rollback
+    let setup = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "atomicity/before": "initial_value"
+                } }
+            }
+        }))
+        .deposit(NearToken::from_near(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(setup.is_success(), "Setup should succeed");
+
+    // Attempt batch where first operation succeeds but second fails
+    // (storage/deposit with more than attached)
+    let result = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "atomicity/should_not_exist": "new_value",
+                    "storage/deposit": {"amount": "999999999999999999999999999999"} // Way more than attached
+                } }
+            }
+        }))
+        .deposit(NearToken::from_millinear(10)) // Small deposit
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    // ASSERTION 1: Batch must fail
+    assert!(
+        result.is_failure(),
+        "Batch with insufficient deposit should fail"
+    );
+    println!("   ✓ Batch correctly failed due to insufficient deposit");
+
+    // ASSERTION 2: The "should_not_exist" key must not be written (atomicity)
+    let data: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/atomicity/should_not_exist", user.id())],
+            "account_id": user.id()
+        }))
+        .await?
+        .json()?;
+
+    let key = format!("{}/atomicity/should_not_exist", user.id());
+    // Entry should not exist OR should be null/empty
+    let exists = entry_exists(&data, &key) && entry_value_str(&data, &key).is_some();
+    assert!(
+        !exists,
+        "Failed batch should not write partial state"
+    );
+    println!("   ✓ No partial state written (atomic rollback verified)");
+
+    println!("\n✅ Batch atomicity test passed");
+    Ok(())
+}
+
+// =============================================================================
+// CONFIG.RS MODULE - INTEGRATION TESTS
+// =============================================================================
+// Tests for GovernanceConfig validation, patch_config, add/remove_intents_executor
+
+fn has_contract_update_patch_config_event<S: AsRef<str>>(logs: &[S]) -> bool {
+    #[derive(serde::Deserialize)]
+    struct RawEvent {
+        event: String,
+        data: Vec<serde_json::Map<String, serde_json::Value>>,
+    }
+
+    logs.iter().any(|log| {
+        let log = log.as_ref();
+        if !log.starts_with(EVENT_JSON_PREFIX) {
+            return false;
+        }
+        let json_str = &log[EVENT_JSON_PREFIX.len()..];
+        let Ok(raw) = serde_json::from_str::<RawEvent>(json_str) else {
+            return false;
+        };
+        if raw.event != "CONTRACT_UPDATE" {
+            return false;
+        }
+        raw.data.iter().any(|d| {
+            d.get("operation")
+                .and_then(|v| v.as_str())
+                .map(|s| s == "patch_config")
+                .unwrap_or(false)
+        })
+    })
+}
+
+fn has_contract_update_intents_executor_event<S: AsRef<str>>(logs: &[S], operation: &str) -> bool {
+    #[derive(serde::Deserialize)]
+    struct RawEvent {
+        event: String,
+        data: Vec<serde_json::Map<String, serde_json::Value>>,
+    }
+
+    logs.iter().any(|log| {
+        let log = log.as_ref();
+        if !log.starts_with(EVENT_JSON_PREFIX) {
+            return false;
+        }
+        let json_str = &log[EVENT_JSON_PREFIX.len()..];
+        let Ok(raw) = serde_json::from_str::<RawEvent>(json_str) else {
+            return false;
+        };
+        if raw.event != "CONTRACT_UPDATE" {
+            return false;
+        }
+        raw.data.iter().any(|d| {
+            d.get("operation")
+                .and_then(|v| v.as_str())
+                .map(|s| s == operation)
+                .unwrap_or(false)
+        })
+    })
+}
+
+/// Test: patch_config API - partial config updates
+/// 
+/// Validates:
+/// 1. Manager can patch individual config fields
+/// 2. Only-increase constraint enforced for safety limits
+/// 3. Platform allowance fields CAN be decreased
+/// 4. CONTRACT_UPDATE/patch_config event emitted
+#[tokio::test]
+async fn test_patch_config_partial_updates() -> anyhow::Result<()> {
+    println!("\n🔧 Test: patch_config partial updates...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // Get initial config
+    let initial_config: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    
+    let initial_max_key = initial_config["max_key_length"].as_u64().unwrap();
+    let initial_onboarding = initial_config["platform_onboarding_bytes"].as_u64().unwrap();
+    
+    // Step 1: Patch only max_key_length (increase)
+    println!("   Step 1: Patch only max_key_length (increase)...");
+    let result = contract
+        .call("patch_config")
+        .args_json(json!({
+            "max_key_length": initial_max_key + 100
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(result.is_success(), "patch_config should succeed: {:?}", result.failures());
+    
+    // Verify event
+    let logs = result.logs();
+    assert!(
+        has_contract_update_patch_config_event(&logs),
+        "Expected CONTRACT_UPDATE/patch_config event: {:?}", logs
+    );
+    println!("   ✓ patch_config succeeded with event");
+    
+    // Verify only max_key_length changed
+    let config_after: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    
+    assert_eq!(config_after["max_key_length"].as_u64().unwrap(), initial_max_key + 100);
+    assert_eq!(config_after["platform_onboarding_bytes"].as_u64().unwrap(), initial_onboarding);
+    println!("   ✓ Only patched field changed");
+    
+    // Step 2: Try to decrease max_key_length (should FAIL)
+    println!("\n   Step 2: Try to decrease max_key_length (should FAIL)...");
+    let decrease_result = contract
+        .call("patch_config")
+        .args_json(json!({
+            "max_key_length": initial_max_key
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!decrease_result.is_success(), "Decreasing safety limit should fail");
+    println!("   ✓ Decrease correctly rejected");
+    
+    // Step 3: Platform allowance fields CAN be decreased
+    println!("\n   Step 3: Platform allowance fields can be decreased...");
+    let decrease_allowance = contract
+        .call("patch_config")
+        .args_json(json!({
+            "platform_onboarding_bytes": initial_onboarding / 2
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(decrease_allowance.is_success(), "Decreasing platform_onboarding_bytes should succeed: {:?}", decrease_allowance.failures());
+    
+    let final_config: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    assert_eq!(final_config["platform_onboarding_bytes"].as_u64().unwrap(), initial_onboarding / 2);
+    println!("   ✓ Platform allowance decreased successfully");
+    
+    println!("\n✅ Test passed: patch_config partial updates");
+    Ok(())
+}
+
+/// Test: patch_config rejects zero safety limits
+#[tokio::test]
+async fn test_patch_config_rejects_zero_safety_limits() -> anyhow::Result<()> {
+    println!("\n🚫 Test: patch_config rejects zero safety limits...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // Try to set max_batch_size to 0
+    println!("   Attempt: Set max_batch_size to 0...");
+    let result = contract
+        .call("patch_config")
+        .args_json(json!({
+            "max_batch_size": 0
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!result.is_success(), "Zero max_batch_size should be rejected");
+    println!("   ✓ Zero value correctly rejected");
+    
+    println!("\n✅ Test passed: zero safety limits rejected");
+    Ok(())
+}
+
+/// Test: add_intents_executor and remove_intents_executor APIs
+/// 
+/// Validates:
+/// 1. Manager can add an executor
+/// 2. Duplicate executor rejected
+/// 3. Max 50 executors enforced
+/// 4. Remove executor works
+/// 5. Remove non-existent executor fails
+/// 6. Events emitted correctly
+#[tokio::test]
+async fn test_intents_executor_add_remove() -> anyhow::Result<()> {
+    println!("\n⚡ Test: add/remove intents_executor...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    let executor1 = sandbox.dev_create_account().await?;
+    let executor2 = sandbox.dev_create_account().await?;
+    let non_manager = sandbox.dev_create_account().await?;
+    
+    // Step 1: Add first executor
+    println!("   Step 1: Add executor1...");
+    let add_result = contract
+        .call("add_intents_executor")
+        .args_json(json!({
+            "executor": executor1.id()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(add_result.is_success(), "add_intents_executor should succeed: {:?}", add_result.failures());
+    
+    // Verify event
+    let logs = add_result.logs();
+    assert!(
+        has_contract_update_intents_executor_event(&logs, "add_intents_executor"),
+        "Expected add_intents_executor event: {:?}", logs
+    );
+    println!("   ✓ Executor1 added with event");
+    
+    // Verify in config
+    let config: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let executors = config["intents_executors"].as_array().unwrap();
+    assert_eq!(executors.len(), 1);
+    assert_eq!(executors[0].as_str().unwrap(), executor1.id().as_str());
+    
+    // Step 2: Try to add duplicate
+    println!("\n   Step 2: Try to add duplicate executor (should FAIL)...");
+    let dup_result = contract
+        .call("add_intents_executor")
+        .args_json(json!({
+            "executor": executor1.id()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!dup_result.is_success(), "Duplicate executor should be rejected");
+    println!("   ✓ Duplicate correctly rejected");
+    
+    // Step 3: Non-manager cannot add
+    println!("\n   Step 3: Non-manager cannot add executor...");
+    let non_manager_result = non_manager
+        .call(contract.id(), "add_intents_executor")
+        .args_json(json!({
+            "executor": executor2.id()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!non_manager_result.is_success(), "Non-manager should not be able to add executor");
+    println!("   ✓ Non-manager correctly rejected");
+    
+    // Step 4: Remove executor
+    println!("\n   Step 4: Remove executor1...");
+    let remove_result = contract
+        .call("remove_intents_executor")
+        .args_json(json!({
+            "executor": executor1.id()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(remove_result.is_success(), "remove_intents_executor should succeed: {:?}", remove_result.failures());
+    
+    // Verify event
+    let logs = remove_result.logs();
+    assert!(
+        has_contract_update_intents_executor_event(&logs, "remove_intents_executor"),
+        "Expected remove_intents_executor event: {:?}", logs
+    );
+    println!("   ✓ Executor1 removed with event");
+    
+    // Verify removed from config
+    let config_after: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let executors_after = config_after["intents_executors"].as_array().unwrap();
+    assert!(executors_after.is_empty());
+    
+    // Step 5: Remove non-existent executor fails
+    println!("\n   Step 5: Remove non-existent executor (should FAIL)...");
+    let remove_missing = contract
+        .call("remove_intents_executor")
+        .args_json(json!({
+            "executor": executor1.id()
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!remove_missing.is_success(), "Removing non-existent executor should fail");
+    println!("   ✓ Non-existent executor removal correctly rejected");
+    
+    println!("\n✅ Test passed: add/remove intents_executor");
+    Ok(())
+}
+
+/// Test: patch_config with duplicate intents_executors is rejected
+#[tokio::test]
+async fn test_patch_config_rejects_duplicate_intents_executors() -> anyhow::Result<()> {
+    println!("\n🚫 Test: patch_config rejects duplicate intents_executors...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    let executor = sandbox.dev_create_account().await?;
+    
+    // Try to patch with duplicate executors
+    println!("   Attempt: patch_config with duplicate intents_executors...");
+    let result = contract
+        .call("patch_config")
+        .args_json(json!({
+            "intents_executors": [executor.id(), executor.id()]
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!result.is_success(), "Duplicate intents_executors should be rejected");
+    println!("   ✓ Duplicate executors correctly rejected");
+    
+    println!("\n✅ Test passed: duplicate intents_executors rejected");
+    Ok(())
+}
+
+/// Test: update_config rejects zero safety limits
+#[tokio::test]
+async fn test_update_config_rejects_zero_safety_limits() -> anyhow::Result<()> {
+    println!("\n🚫 Test: update_config rejects zero safety limits...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // Try to set max_path_depth to 0
+    println!("   Attempt: update_config with max_path_depth=0...");
+    let result = contract
+        .call("update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": 256,
+                "max_path_depth": 0,
+                "max_batch_size": 10
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!result.is_success(), "Zero max_path_depth should be rejected");
+    println!("   ✓ Zero value correctly rejected");
+    
+    println!("\n✅ Test passed: update_config zero safety limits rejected");
+    Ok(())
+}
+
+/// Test: intents_executors max 50 limit enforcement
+#[tokio::test]
+async fn test_intents_executors_max_50_limit() -> anyhow::Result<()> {
+    println!("\n🔢 Test: intents_executors max 50 limit...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // Create 51 executor account IDs (just strings, not real accounts)
+    let mut executors: Vec<String> = Vec::new();
+    for i in 0..51 {
+        executors.push(format!("executor{}.testnet", i));
+    }
+    
+    // Try to set 51 executors via patch_config
+    println!("   Attempt: patch_config with 51 intents_executors...");
+    let result = contract
+        .call("patch_config")
+        .args_json(json!({
+            "intents_executors": executors
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(!result.is_success(), "More than 50 intents_executors should be rejected");
+    println!("   ✓ 51 executors correctly rejected");
+    
+    // Verify 50 executors is OK
+    println!("\n   Verify: 50 executors should be allowed...");
+    let valid_executors: Vec<String> = (0..50).map(|i| format!("executor{}.testnet", i)).collect();
+    let result_50 = contract
+        .call("patch_config")
+        .args_json(json!({
+            "intents_executors": valid_executors
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    
+    assert!(result_50.is_success(), "50 executors should be allowed: {:?}", result_50.failures());
+    println!("   ✓ 50 executors allowed");
+    
+    // Now try to add one more via add_intents_executor (should fail)
+    println!("\n   Attempt: add 51st executor via add_intents_executor...");
+    let add_51st = contract
+        .call("add_intents_executor")
+        .args_json(json!({
+            "executor": "executor50.testnet"
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!add_51st.is_success(), "Adding 51st executor should fail");
+    println!("   ✓ 51st executor via add correctly rejected");
+    
+    println!("\n✅ Test passed: max 50 intents_executors enforced");
+    Ok(())
+}
+
+// =============================================================================
+// ADMIN API IN READONLY MODE TESTS
+// =============================================================================
+// Validates that admin config operations are blocked in ReadOnly mode.
+
+/// Test: Admin config APIs fail when contract is in ReadOnly mode
+/// 
+/// Validates that all config-mutating admin operations are blocked in ReadOnly:
+/// 1. patch_config fails in ReadOnly mode
+/// 2. update_config fails in ReadOnly mode
+/// 3. add_intents_executor fails in ReadOnly mode
+/// 4. remove_intents_executor fails in ReadOnly mode
+/// 5. update_manager fails in ReadOnly mode
+/// 6. These operations succeed after resume_live
+#[tokio::test]
+async fn test_admin_config_apis_blocked_in_readonly_mode() -> anyhow::Result<()> {
+    println!("\n🔒 Test: Admin config APIs blocked in ReadOnly mode...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    // First add an executor so we can test removal later
+    let executor = sandbox.dev_create_account().await?;
+    let new_manager = sandbox.dev_create_account().await?;
+    
+    let add_result = contract
+        .call("add_intents_executor")
+        .args_json(json!({ "executor": executor.id() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(add_result.is_success(), "Setup: add_intents_executor should succeed");
+    
+    // Get current config for validation
+    let config_before: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let current_max_batch = config_before["max_batch_size"].as_u64().unwrap();
+    
+    // Enter ReadOnly mode
+    println!("   Entering ReadOnly mode...");
+    let enter_ro = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    assert!(enter_ro.is_success(), "enter_read_only should succeed");
+    println!("   ✓ Contract is now in ReadOnly mode\n");
+    
+    // =========================================================================
+    // TEST 1: patch_config fails in ReadOnly mode
+    // =========================================================================
+    println!("   Step 1: patch_config in ReadOnly mode (should FAIL)...");
+    let patch_result = contract
+        .call("patch_config")
+        .args_json(json!({ "max_batch_size": current_max_batch + 10 }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!patch_result.is_success(), "patch_config should fail in ReadOnly mode");
+    let failure_msg = format!("{:?}", patch_result.failures());
+    assert!(
+        failure_msg.contains("Live") || failure_msg.contains("ContractReadOnly") || failure_msg.contains("read"),
+        "Error should mention Live state requirement, got: {}", failure_msg
+    );
+    println!("   ✓ patch_config correctly rejected in ReadOnly mode");
+    
+    // =========================================================================
+    // TEST 2: update_config fails in ReadOnly mode
+    // =========================================================================
+    println!("\n   Step 2: update_config in ReadOnly mode (should FAIL)...");
+    let update_result = contract
+        .call("update_config")
+        .args_json(json!({
+            "config": {
+                "max_key_length": 300,
+                "max_path_depth": 15,
+                "max_batch_size": current_max_batch + 5,
+                "max_value_bytes": 15000
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!update_result.is_success(), "update_config should fail in ReadOnly mode");
+    println!("   ✓ update_config correctly rejected in ReadOnly mode");
+    
+    // =========================================================================
+    // TEST 3: add_intents_executor fails in ReadOnly mode
+    // =========================================================================
+    println!("\n   Step 3: add_intents_executor in ReadOnly mode (should FAIL)...");
+    let executor2: AccountId = "executor2.testnet".parse().unwrap();
+    let add_exec_result = contract
+        .call("add_intents_executor")
+        .args_json(json!({ "executor": executor2 }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!add_exec_result.is_success(), "add_intents_executor should fail in ReadOnly mode");
+    println!("   ✓ add_intents_executor correctly rejected in ReadOnly mode");
+    
+    // =========================================================================
+    // TEST 4: remove_intents_executor fails in ReadOnly mode
+    // =========================================================================
+    println!("\n   Step 4: remove_intents_executor in ReadOnly mode (should FAIL)...");
+    let remove_exec_result = contract
+        .call("remove_intents_executor")
+        .args_json(json!({ "executor": executor.id() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!remove_exec_result.is_success(), "remove_intents_executor should fail in ReadOnly mode");
+    println!("   ✓ remove_intents_executor correctly rejected in ReadOnly mode");
+    
+    // =========================================================================
+    // TEST 5: update_manager fails in ReadOnly mode
+    // =========================================================================
+    println!("\n   Step 5: update_manager in ReadOnly mode (should FAIL)...");
+    let update_mgr_result = contract
+        .call("update_manager")
+        .args_json(json!({ "new_manager": new_manager.id() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!update_mgr_result.is_success(), "update_manager should fail in ReadOnly mode");
+    println!("   ✓ update_manager correctly rejected in ReadOnly mode");
+    
+    // =========================================================================
+    // TEST 6: Verify config unchanged (state integrity)
+    // =========================================================================
+    println!("\n   Step 6: Verify config unchanged after all rejections...");
+    let config_after: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    
+    assert_eq!(
+        config_before["max_batch_size"], config_after["max_batch_size"],
+        "Config should be unchanged in ReadOnly mode"
+    );
+    // Executor should still be there
+    let executors = config_after["intents_executors"].as_array().unwrap();
+    assert!(
+        executors.iter().any(|e| e.as_str() == Some(executor.id().as_str())),
+        "Executor should still exist after rejected removal"
+    );
+    println!("   ✓ Config unchanged - state integrity verified");
+    
+    // =========================================================================
+    // TEST 7: Operations succeed after resume_live
+    // =========================================================================
+    println!("\n   Step 7: resume_live and verify operations work...");
+    let resume = contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    assert!(resume.is_success(), "resume_live should succeed");
+    
+    let patch_after_resume = contract
+        .call("patch_config")
+        .args_json(json!({ "max_batch_size": current_max_batch + 10 }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(patch_after_resume.is_success(), "patch_config should succeed after resume_live: {:?}", patch_after_resume.failures());
+    println!("   ✓ patch_config succeeds after resume_live");
+    
+    println!("\n✅ Test passed: Admin config APIs blocked in ReadOnly mode");
+    Ok(())
+}
+
+/// Test: patch_config and add/remove_intents_executor require manager authorization
+/// 
+/// Validates:
+/// 1. Non-manager cannot call patch_config
+/// 2. Non-manager cannot call remove_intents_executor
+#[tokio::test]
+async fn test_patch_config_and_intents_executor_require_manager() -> anyhow::Result<()> {
+    println!("\n🔐 Test: patch_config and intents_executor require manager...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    let alice = sandbox.dev_create_account().await?;
+    let executor = sandbox.dev_create_account().await?;
+    
+    // Manager adds an executor for later removal test
+    let add_result = contract
+        .call("add_intents_executor")
+        .args_json(json!({ "executor": executor.id() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(add_result.is_success(), "Manager should add executor");
+    
+    // =========================================================================
+    // TEST 1: Non-manager cannot call patch_config
+    // =========================================================================
+    println!("   Step 1: Non-manager (Alice) tries patch_config (should FAIL)...");
+    let alice_patch = alice
+        .call(contract.id(), "patch_config")
+        .args_json(json!({ "max_batch_size": 50 }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!alice_patch.is_success(), "Non-manager should NOT be able to patch_config");
+    println!("   ✓ Non-manager correctly rejected from patch_config");
+    
+    // =========================================================================
+    // TEST 2: Non-manager cannot call remove_intents_executor
+    // =========================================================================
+    println!("\n   Step 2: Non-manager (Alice) tries remove_intents_executor (should FAIL)...");
+    let alice_remove = alice
+        .call(contract.id(), "remove_intents_executor")
+        .args_json(json!({ "executor": executor.id() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!alice_remove.is_success(), "Non-manager should NOT be able to remove_intents_executor");
+    println!("   ✓ Non-manager correctly rejected from remove_intents_executor");
+    
+    // Verify executor still exists
+    let config: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    let executors = config["intents_executors"].as_array().unwrap();
+    assert!(
+        executors.iter().any(|e| e.as_str() == Some(executor.id().as_str())),
+        "Executor should still exist after unauthorized removal attempt"
+    );
+    println!("   ✓ Executor still exists - state integrity verified");
+    
+    println!("\n✅ Test passed: patch_config and intents_executor require manager");
+    Ok(())
+}
+
+/// Test: Contract status transition events are emitted with correct fields
+/// 
+/// Validates:
+/// 1. activate_contract emits CONTRACT_UPDATE event with "activate_contract" operation
+/// 2. enter_read_only emits CONTRACT_UPDATE event with "enter_read_only" operation
+/// 3. resume_live emits CONTRACT_UPDATE event with "resume_live" operation
+/// 4. Events contain previous and new status fields
+#[tokio::test]
+async fn test_status_transition_events_emitted() -> anyhow::Result<()> {
+    println!("\n📣 Test: Status transition events emitted...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    
+    // =========================================================================
+    // TEST 1: activate_contract event
+    // =========================================================================
+    println!("   Step 1: Check activate_contract event...");
+    let activate_result = contract
+        .call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(activate_result.is_success(), "activate_contract should succeed");
+    let logs = activate_result.logs();
+    let has_activate_event = logs.iter().any(|log| {
+        log.contains("CONTRACT_UPDATE") && log.contains("activate_contract")
+    });
+    assert!(has_activate_event, "Expected CONTRACT_UPDATE/activate_contract event: {:?}", logs);
+    
+    // Verify event contains previous and new status
+    let has_status_fields = logs.iter().any(|log| {
+        log.contains("Genesis") && log.contains("Live")
+    });
+    assert!(has_status_fields, "Event should contain previous (Genesis) and new (Live) status: {:?}", logs);
+    println!("   ✓ activate_contract event emitted with status fields");
+    
+    // =========================================================================
+    // TEST 2: enter_read_only event
+    // =========================================================================
+    println!("\n   Step 2: Check enter_read_only event...");
+    let enter_ro_result = contract
+        .call("enter_read_only")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(enter_ro_result.is_success(), "enter_read_only should succeed");
+    let logs = enter_ro_result.logs();
+    let has_enter_ro_event = logs.iter().any(|log| {
+        log.contains("CONTRACT_UPDATE") && log.contains("enter_read_only")
+    });
+    assert!(has_enter_ro_event, "Expected CONTRACT_UPDATE/enter_read_only event: {:?}", logs);
+    
+    let has_status_fields = logs.iter().any(|log| {
+        log.contains("Live") && log.contains("ReadOnly")
+    });
+    assert!(has_status_fields, "Event should contain previous (Live) and new (ReadOnly) status: {:?}", logs);
+    println!("   ✓ enter_read_only event emitted with status fields");
+    
+    // =========================================================================
+    // TEST 3: resume_live event
+    // =========================================================================
+    println!("\n   Step 3: Check resume_live event...");
+    let resume_result = contract
+        .call("resume_live")
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(resume_result.is_success(), "resume_live should succeed");
+    let logs = resume_result.logs();
+    let has_resume_event = logs.iter().any(|log| {
+        log.contains("CONTRACT_UPDATE") && log.contains("resume_live")
+    });
+    assert!(has_resume_event, "Expected CONTRACT_UPDATE/resume_live event: {:?}", logs);
+    
+    let has_status_fields = logs.iter().any(|log| {
+        log.contains("ReadOnly") && log.contains("Live")
+    });
+    assert!(has_status_fields, "Event should contain previous (ReadOnly) and new (Live) status: {:?}", logs);
+    println!("   ✓ resume_live event emitted with status fields");
+    
+    println!("\n✅ Test passed: Status transition events emitted correctly");
+    Ok(())
+}
+
+/// Test: update_manager event contains old and new manager fields
+/// 
+/// Validates:
+/// 1. update_manager event contains old_manager field
+/// 2. update_manager event contains new_manager field
+/// 3. New manager can use admin functions after transfer
+#[tokio::test]
+async fn test_update_manager_event_fields() -> anyhow::Result<()> {
+    println!("\n📣 Test: update_manager event fields...\n");
+    
+    let sandbox = near_workspaces::sandbox().await?;
+    let wasm = load_core_onsocial_wasm()?;
+    let contract = sandbox.dev_deploy(&wasm).await?;
+    
+    contract.call("new").transact().await?.into_result()?;
+    contract.call("activate_contract")
+        .deposit(NearToken::from_yoctonear(1))
+        .transact().await?.into_result()?;
+    
+    let new_manager = sandbox.dev_create_account().await?;
+    let old_manager_id = contract.id().to_string();
+    
+    // =========================================================================
+    // TEST 1: update_manager event contains old_manager and new_manager
+    // =========================================================================
+    println!("   Step 1: Update manager and check event fields...");
+    let update_result = contract
+        .call("update_manager")
+        .args_json(json!({ "new_manager": new_manager.id() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(update_result.is_success(), "update_manager should succeed");
+    let logs = update_result.logs();
+    
+    // Check for event type
+    let has_update_event = logs.iter().any(|log| {
+        log.contains("CONTRACT_UPDATE") && log.contains("update_manager")
+    });
+    assert!(has_update_event, "Expected CONTRACT_UPDATE/update_manager event: {:?}", logs);
+    
+    // Check for old_manager field
+    let has_old_manager = logs.iter().any(|log| {
+        log.contains("old_manager") && log.contains(&old_manager_id)
+    });
+    assert!(has_old_manager, "Event should contain old_manager field with contract ID: {:?}", logs);
+    
+    // Check for new_manager field
+    let has_new_manager = logs.iter().any(|log| {
+        log.contains("new_manager") && log.contains(new_manager.id().as_str())
+    });
+    assert!(has_new_manager, "Event should contain new_manager field: {:?}", logs);
+    println!("   ✓ update_manager event contains old_manager and new_manager fields");
+    
+    // =========================================================================
+    // TEST 2: New manager can use admin functions
+    // =========================================================================
+    println!("\n   Step 2: New manager can use admin functions...");
+    let new_mgr_patch = new_manager
+        .call(contract.id(), "patch_config")
+        .args_json(json!({ "max_batch_size": 20 }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(new_mgr_patch.is_success(), "New manager should be able to patch_config: {:?}", new_mgr_patch.failures());
+    println!("   ✓ New manager can successfully call patch_config");
+    
+    // =========================================================================
+    // TEST 3: Old manager can no longer use admin functions
+    // =========================================================================
+    println!("\n   Step 3: Old manager (contract) cannot use admin functions...");
+    let old_mgr_patch = contract
+        .call("patch_config")
+        .args_json(json!({ "max_batch_size": 30 }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(!old_mgr_patch.is_success(), "Old manager should NOT be able to patch_config after transfer");
+    println!("   ✓ Old manager correctly rejected from admin functions");
+    
+    println!("\n✅ Test passed: update_manager event fields validated");
     Ok(())
 }
