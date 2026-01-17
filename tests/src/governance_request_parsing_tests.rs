@@ -2,6 +2,7 @@
 //!
 //! Tests the parsing and delegation logic in create_group_proposal, vote_on_proposal, cancel_proposal.
 //! Focuses on edge cases in the proposal_type match arms and field parsing.
+//! Also covers validate_group_id enforcement in governance operations.
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
@@ -12,6 +13,239 @@ use crate::utils::entry_value;
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
+
+// =============================================================================
+// GOVERNANCE OPERATIONS VALIDATE GROUP_ID FORMAT (Issue #1 fix)
+// =============================================================================
+// Covers: governance.rs L18, L97, L111 - validate_group_id() calls
+// These tests would FAIL on pre-fix code where validation was missing
+
+/// Tests that create_proposal, vote_on_proposal, and cancel_proposal all validate group_id format.
+/// Invalid group_ids (special chars, empty, oversized) must be rejected with proper validation errors.
+#[tokio::test]
+async fn test_governance_operations_validate_group_id_format() -> anyhow::Result<()> {
+    println!("\n=== Test: Governance Operations Validate group_id Format ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Create a valid member-driven group for testing
+    let create_group = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "gov_validate_test", "config": { "member_driven": true, "is_private": true } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_group.is_success(), "Create group should succeed");
+
+    // Add Bob so we have 2 members for proposal tests
+    let add_bob = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": "gov_validate_test", "member_id": bob.id() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(add_bob.is_success(), "Adding Bob should succeed");
+    println!("   ✓ Created member-driven group with 2 members");
+
+    // =========================================================================
+    // TEST 1: create_proposal with invalid group_id (special characters)
+    // =========================================================================
+    println!("\n📦 TEST 1: create_proposal with special characters in group_id...");
+
+    let create_invalid = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "bad@group#id", "proposal_type": "custom_proposal", "changes": {
+                    "title": "Test",
+                    "description": "Test proposal"
+                }}
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!create_invalid.is_success(), "create_proposal with invalid group_id should fail");
+    let err = format!("{:?}", create_invalid.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("Group ID"),
+        "Error should mention group_id validation, got: {}", err
+    );
+    println!("   ✓ create_proposal with special characters rejected");
+
+    // =========================================================================
+    // TEST 2: create_proposal with empty group_id
+    // =========================================================================
+    println!("\n📦 TEST 2: create_proposal with empty group_id...");
+
+    let create_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": "", "proposal_type": "custom_proposal", "changes": {
+                    "title": "Test",
+                    "description": "Test proposal"
+                }}
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!create_empty.is_success(), "create_proposal with empty group_id should fail");
+    let err = format!("{:?}", create_empty.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length validation, got: {}", err
+    );
+    println!("   ✓ create_proposal with empty group_id rejected");
+
+    // =========================================================================
+    // TEST 3: create_proposal with oversized group_id (>64 chars)
+    // =========================================================================
+    println!("\n📦 TEST 3: create_proposal with oversized group_id...");
+
+    let long_id = "x".repeat(65);
+    let create_long = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_proposal", "group_id": long_id, "proposal_type": "custom_proposal", "changes": {
+                    "title": "Test",
+                    "description": "Test proposal"
+                }}
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!create_long.is_success(), "create_proposal with oversized group_id should fail");
+    let err = format!("{:?}", create_long.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length validation, got: {}", err
+    );
+    println!("   ✓ create_proposal with oversized group_id rejected");
+
+    // =========================================================================
+    // TEST 4: vote_on_proposal with invalid group_id (special characters)
+    // =========================================================================
+    println!("\n📦 TEST 4: vote_on_proposal with special characters in group_id...");
+
+    let vote_invalid = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "../traversal", "proposal_id": "fake_id", "approve": true }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!vote_invalid.is_success(), "vote_on_proposal with invalid group_id should fail");
+    let err = format!("{:?}", vote_invalid.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("Group ID"),
+        "Error should mention group_id validation, got: {}", err
+    );
+    println!("   ✓ vote_on_proposal with special characters rejected");
+
+    // =========================================================================
+    // TEST 5: vote_on_proposal with empty group_id
+    // =========================================================================
+    println!("\n📦 TEST 5: vote_on_proposal with empty group_id...");
+
+    let vote_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "vote_on_proposal", "group_id": "", "proposal_id": "fake_id", "approve": true }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!vote_empty.is_success(), "vote_on_proposal with empty group_id should fail");
+    let err = format!("{:?}", vote_empty.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length validation, got: {}", err
+    );
+    println!("   ✓ vote_on_proposal with empty group_id rejected");
+
+    // =========================================================================
+    // TEST 6: cancel_proposal with invalid group_id (special characters)
+    // =========================================================================
+    println!("\n📦 TEST 6: cancel_proposal with special characters in group_id...");
+
+    let cancel_invalid = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "bad!id@here", "proposal_id": "fake_id" }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!cancel_invalid.is_success(), "cancel_proposal with invalid group_id should fail");
+    let err = format!("{:?}", cancel_invalid.failures());
+    assert!(
+        err.contains("alphanumeric") || err.contains("Group ID"),
+        "Error should mention group_id validation, got: {}", err
+    );
+    println!("   ✓ cancel_proposal with special characters rejected");
+
+    // =========================================================================
+    // TEST 7: cancel_proposal with empty group_id
+    // =========================================================================
+    println!("\n📦 TEST 7: cancel_proposal with empty group_id...");
+
+    let cancel_empty = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "cancel_proposal", "group_id": "", "proposal_id": "fake_id" }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(150))
+        .transact()
+        .await?;
+
+    assert!(!cancel_empty.is_success(), "cancel_proposal with empty group_id should fail");
+    let err = format!("{:?}", cancel_empty.failures());
+    assert!(
+        err.contains("1-64 characters") || err.contains("Group ID"),
+        "Error should mention length validation, got: {}", err
+    );
+    println!("   ✓ cancel_proposal with empty group_id rejected");
+
+    println!("\n✅ Governance operations group_id validation test passed");
+    Ok(())
+}
 
 /// Helper to load the core-onsocial wasm
 fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {

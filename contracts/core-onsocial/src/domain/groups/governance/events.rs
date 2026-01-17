@@ -28,8 +28,6 @@ pub(super) fn emit_proposal_created(
 ) -> Result<(), crate::SocialError> {
     let expires_at = created_at.saturating_add(voting_period);
 
-    // `path` + `value` on the event represent the primary write (proposal itself).
-    // `writes` captures additional state mutations required for deterministic replay.
     let mut event_batch = EventBatch::new();
     let mut builder = EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "proposal_created", proposer.clone())
         .with_field("group_id", group_id)
@@ -52,7 +50,6 @@ pub(super) fn emit_proposal_created(
         .with_field("counter_path", counter_path)
         .with_write(counter_path, counter_value);
 
-    // Tally write deferred to subsequent vote_cast event when auto-vote enabled.
     if !auto_vote {
         builder = builder.with_write(tally_path, tally_value);
     }

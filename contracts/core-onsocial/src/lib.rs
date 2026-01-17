@@ -13,7 +13,6 @@ mod domain;
 
 pub use errors::SocialError;
 
-// Domain modules live under `domain/`.
 mod state;
 mod status;
 mod storage;

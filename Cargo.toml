@@ -1,19 +1,15 @@
 # OnSocial Protocol - Workspace Cargo.toml
 #
-# This file centralizes all dependency versions for the monorepo. Each contract
-# (marketplace-onsocial, staking-onsocial, core-onsocial) and the tests crate
-# reference only the dependencies they need using `workspace = true` in their
-# Cargo.toml.
+# CONTRACTS: Use explicit dependency versions in their own Cargo.toml files.
+# This ensures deployed contracts remain reproducible and can be upgraded
+# independently without accidental dependency drift.
 #
-# Dependency Usage:
-# - marketplace-onsocial: near-sdk, near-sdk-macros, borsh, serde
-# - staking-onsocial: near-sdk, near-sdk-macros, borsh, serde
-# - core-onsocial: near-sdk, near-sdk-macros, borsh, serde
-# - relayer: near-sdk, near-sdk-macros, borsh, serde, near-crypto, semver
-# - tests: near-sdk, near-workspaces, near-crypto, tokio, anyhow, serde_json
+# SHARED TOOLING: The workspace.dependencies below are for shared tooling only:
+# - tests: near-workspaces, tokio, anyhow, etc.
+# - relayer: near-crypto, semver, etc.
 #
-# When adding a new contract or updating tests, reference the required dependencies
-# in their Cargo.toml and update the documentation here to reflect usage.
+# When upgrading a contract's dependencies, update that contract's Cargo.toml
+# directly after testing thoroughly.
 
 [workspace]
 members = [

@@ -1337,8 +1337,30 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
     
     // Should fail - no content path after group_id
     assert!(!result.is_success(), "Path without content should be rejected");
+    println!("   groups/mygroup (no slash) rejected: ✓");
+
+    // Try: groups/mygroup/ (trailing slash, empty content path)
+    // This exercises require_groups_path filter: !rel.is_empty()
+    let result_trailing = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "groups/mygroup/": { "title": "Bad" }  } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
     
-    println!("✅ Path without content path rejected");
+    // Should fail - empty content path after trailing slash
+    assert!(!result_trailing.is_success(), "Path with trailing slash (empty content) should be rejected");
+    println!("   groups/mygroup/ (trailing slash) rejected: ✓");
+    
+    println!("✅ Paths without valid content path rejected");
     Ok(())
 }
 

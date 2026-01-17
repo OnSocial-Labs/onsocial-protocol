@@ -15,6 +15,7 @@ impl SocialPlatform {
         caller: &AccountId,
         auto_vote: Option<bool>,
     ) -> Result<String, SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         let proposal_type_enum = match proposal_type.as_str() {
             "group_update" => {
                 let update_type = changes
@@ -94,6 +95,7 @@ impl SocialPlatform {
         approve: bool,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::governance::GroupGovernance::vote_on_proposal(
             self,
             &group_id,
@@ -109,6 +111,7 @@ impl SocialPlatform {
         proposal_id: String,
         caller: &AccountId,
     ) -> Result<(), SocialError> {
+        crate::validation::validate_group_id(&group_id)?;
         crate::domain::groups::governance::GroupGovernance::cancel_proposal(
             self,
             &group_id,

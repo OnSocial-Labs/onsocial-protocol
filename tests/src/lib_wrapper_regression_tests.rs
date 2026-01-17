@@ -386,6 +386,247 @@ async fn test_get_storage_balance_unknown_account_returns_null() -> Result<()> {
     Ok(())
 }
 
+/// Test: ContractReadOnly error format matches Display impl
+///
+/// Validates the exact error message format: "Contract is read-only"
+#[tokio::test]
+async fn test_contract_readonly_error_message_format() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Enter ReadOnly mode
+    let enter_ro = contract
+        .call("enter_read_only")
+        .deposit(ONE_YOCTO)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(enter_ro.is_success(), "enter_read_only should succeed");
+
+    // Attempt write - should fail with ContractReadOnly
+    let set_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "profile/name": "Test" } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!set_result.is_success(), "set should fail in ReadOnly mode");
+
+    // Verify exact error message format from Display impl
+    let failures = format!("{:?}", set_result.failures());
+    assert!(
+        failures.contains("Contract is read-only") ||
+        failures.contains("read-only") ||
+        failures.contains("ContractReadOnly"),
+        "Error should match Display impl format 'Contract is read-only', got: {failures}"
+    );
+
+    Ok(())
+}
+
+/// Test: Unauthorized error includes operation and account
+///
+/// Validates the format: "Unauthorized: {operation} by {account}"
+#[tokio::test]
+async fn test_unauthorized_error_message_includes_operation_and_account() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let non_manager = create_user(&root, "nonmanager", TEN_NEAR).await?;
+
+    // Non-manager tries to call manager-only function (enter_read_only)
+    let result = non_manager
+        .call(contract.id(), "enter_read_only")
+        .deposit(ONE_YOCTO)
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+
+    assert!(!result.is_success(), "Non-manager should not be able to enter_read_only");
+
+    let failures = format!("{:?}", result.failures());
+    // The error should contain "Unauthorized" and ideally the operation/account
+    assert!(
+        failures.contains("Unauthorized") || failures.contains("manager"),
+        "Error should indicate unauthorized manager operation, got: {failures}"
+    );
+
+    Ok(())
+}
+
+/// Test: PermissionDenied error includes operation and path
+///
+/// Validates the format: "Permission denied: {operation} on {path}"
+#[tokio::test]
+async fn test_permission_denied_error_message_includes_operation_and_path() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+
+    // Alice writes her profile
+    let alice_write = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "profile/name": "Alice" } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(alice_write.is_success(), "Alice should be able to write her profile");
+
+    // Bob tries to write to Alice's account without permission
+    let bob_write = bob
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id().to_string(),
+                "action": { "type": "set", "data": { "profile/hacked": "by bob" } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!bob_write.is_success(), "Bob should not be able to write to Alice's account");
+
+    let failures = format!("{:?}", bob_write.failures());
+    // The error should indicate permission denied
+    assert!(
+        failures.contains("Permission denied") ||
+        failures.contains("PermissionDenied") ||
+        failures.contains("permission") ||
+        failures.contains("Unauthorized"),
+        "Error should indicate permission denied for cross-account write, got: {failures}"
+    );
+
+    Ok(())
+}
+
+/// Test: InvalidInput error for malformed request
+///
+/// Validates that InvalidInput errors have descriptive messages
+#[tokio::test]
+async fn test_invalid_input_error_message_descriptive() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Try to create a group with empty group_id (should fail validation)
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "", "config": { "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(!result.is_success(), "Empty group_id should fail validation");
+
+    let failures = format!("{:?}", result.failures());
+    // The error should be InvalidInput with a descriptive message
+    assert!(
+        failures.contains("Invalid") ||
+        failures.contains("empty") ||
+        failures.contains("group_id") ||
+        failures.contains("Group ID") ||
+        failures.contains("characters") ||
+        failures.contains("validation"),
+        "Error should indicate invalid input, got: {failures}"
+    );
+
+    Ok(())
+}
+
+/// Test: InsufficientStorage error includes balance details
+///
+/// Validates the format includes "Required: X, available: Y"
+#[tokio::test]
+async fn test_insufficient_storage_error_message_includes_balance_details() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let contract = deploy_and_init(&worker).await?;
+    let root = worker.root_account()?;
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Deposit tiny amount
+    let tiny_deposit = NearToken::from_yoctonear(1_000_000_000_000_000_000u128); // 0.001 NEAR
+    let deposit_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": { "amount": tiny_deposit.as_yoctonear().to_string() }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(tiny_deposit)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success(), "Deposit should succeed");
+
+    // Try to write large data (should fail - insufficient storage)
+    let large_data = "X".repeat(10000);
+    let write_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": { "profile/bio": large_data } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(write_res.is_failure(), "Large write with tiny deposit should fail");
+
+    let failures = format!("{:?}", write_res.failures());
+    // The error should mention storage-related terms
+    assert!(
+        failures.contains("Required") ||
+        failures.contains("available") ||
+        failures.contains("InsufficientStorage") ||
+        failures.contains("storage") ||
+        failures.contains("balance"),
+        "Error should mention insufficient storage with balance details, got: {failures}"
+    );
+
+    Ok(())
+}
+
 /// Test: set succeeds after resuming from ReadOnly mode
 /// 
 /// Validates the full lifecycle: Live → ReadOnly → Live

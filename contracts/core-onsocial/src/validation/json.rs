@@ -7,7 +7,6 @@ pub fn validate_json_value_simple(
 ) -> Result<(), SocialError> {
     match value {
         Value::Object(obj) => {
-            // Reject empty object keys.
             for key in obj.keys() {
                 if key.is_empty() {
                     return Err(invalid_input!("Invalid JSON format"));

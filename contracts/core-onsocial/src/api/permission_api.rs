@@ -4,15 +4,7 @@ use crate::{Contract, ContractExt};
 
 #[near]
 impl Contract {
-    // ─────────────────────────────────────────────────────────────────────────
-    // Permission Query API (View Methods)
-    // 
-    // All mutating permission operations are now handled via the unified execute()
-    // endpoint with full auth support (Direct, SignedPayload, DelegateAction, Intent).
-    // 
-    // Use: execute({ action: { type: "set_permission", ... }, auth: ... })
-    // Use: execute({ action: { type: "set_key_permission", ... }, auth: ... })
-    // ─────────────────────────────────────────────────────────────────────────
+    /// Permission view methods. Mutations go through `execute()`.
 
     pub fn has_permission(
         &self,

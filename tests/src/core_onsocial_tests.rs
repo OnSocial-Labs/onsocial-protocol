@@ -16204,6 +16204,131 @@ async fn test_json_with_empty_object_key_rejected() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Tests that JSON objects with empty keys are rejected via group content path.
+/// Covers: validate_json_value_simple() via create_group_content() call path
+#[tokio::test]
+async fn test_group_content_with_empty_object_key_rejected() -> anyhow::Result<()> {
+    println!("\n=== Test: Group Content With Empty Object Key Rejected ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create a group first
+    let create_result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "create_group", "group_id": "empty-key-test", "config": { "member_driven": false, "is_private": false } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(create_result.is_success(), "Group creation should succeed");
+
+    // Attempt to set group content with empty object key
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "groups/empty-key-test/posts/1": { "": "invalid_empty_key" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_failure(),
+        "Setting group content with empty object key should fail"
+    );
+
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("Invalid JSON") || failure_msg.contains("invalid"),
+        "Error should mention invalid JSON, got: {}",
+        failure_msg
+    );
+
+    println!("   ✓ Group content with empty object key correctly rejected");
+    println!("✅ Group content empty object key rejected test passed");
+    Ok(())
+}
+
+/// Tests that valid JSON value types pass validation successfully.
+/// Covers: validate_json_value_simple() allowing non-Object variants
+#[tokio::test]
+async fn test_valid_json_value_types_accepted() -> anyhow::Result<()> {
+    println!("\n=== Test: Valid JSON Value Types Accepted ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Test various valid JSON value types
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/string_val": "a string",
+                    "profile/number_val": 42,
+                    "profile/bool_val": true,
+                    "profile/array_val": [1, 2, 3],
+                    "profile/object_val": { "key": "value" }
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_success(),
+        "Setting valid JSON values should succeed: {:?}",
+        result.failures()
+    );
+
+    // Verify data was written
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/string_val", alice.id()),
+                format!("{}/profile/number_val", alice.id()),
+                format!("{}/profile/bool_val", alice.id()),
+                format!("{}/profile/array_val", alice.id()),
+                format!("{}/profile/object_val", alice.id())
+            ]
+        }))
+        .await?
+        .json()?;
+
+    assert_eq!(entry_value_str(&get_result, &format!("{}/profile/string_val", alice.id())), Some("a string"));
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/number_val", alice.id())), Some(json!(42)).as_ref());
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/bool_val", alice.id())), Some(json!(true)).as_ref());
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/array_val", alice.id())), Some(json!([1, 2, 3])).as_ref());
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/object_val", alice.id())), Some(json!({"key": "value"})).as_ref());
+
+    println!("   ✓ String value accepted and stored");
+    println!("   ✓ Number value accepted and stored");
+    println!("   ✓ Boolean value accepted and stored");
+    println!("   ✓ Array value accepted and stored");
+    println!("   ✓ Object value (with valid keys) accepted and stored");
+    println!("✅ Valid JSON value types accepted test passed");
+    Ok(())
+}
+
 /// Tests that data payloads exceeding max_value_bytes (10KB default) are rejected.
 /// Covers: serialize_json_with_max_len() in data_ops.rs
 #[tokio::test]
@@ -16247,6 +16372,207 @@ async fn test_data_value_payload_too_large_rejected() -> anyhow::Result<()> {
 
     println!("   ✓ Payload exceeding 10KB correctly rejected");
     println!("✅ Data value payload too large rejected test passed");
+    Ok(())
+}
+
+/// Tests serialize_json_with_max_len boundary: value at EXACTLY max_value_bytes (10240) passes.
+/// The check is `bytes.len() > max_bytes`, so exactly equal should succeed.
+/// Covers: serialize_json_with_max_len() boundary condition in validation/limits.rs
+#[tokio::test]
+async fn test_data_value_payload_exactly_at_limit_passes() -> anyhow::Result<()> {
+    println!("\n=== Test: Data Value Payload Exactly at Limit Passes ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Default max_value_bytes = 10240 (10KB)
+    // JSON serialization adds quotes around strings: "content" = content.len() + 2
+    // We need the final serialized JSON to be exactly 10240 bytes
+    // For a string value, serialized form is: "string_content"
+    // So we need content of length 10240 - 2 = 10238
+    let exact_limit_content = "x".repeat(10238);
+
+    // Verify our calculation is correct
+    let serialized_len = serde_json::to_vec(&json!(exact_limit_content)).unwrap().len();
+    assert_eq!(
+        serialized_len, 10240,
+        "Test setup error: expected serialized length 10240, got {}",
+        serialized_len
+    );
+    println!("   ℹ Serialized value length: {} bytes (exactly at limit)", serialized_len);
+
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "posts/exact_limit": exact_limit_content
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_success(),
+        "Value at exactly max_value_bytes (10240) should succeed: {:?}",
+        result.failures()
+    );
+
+    // Verify data was actually stored
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [format!("{}/posts/exact_limit", alice.id())]
+        }))
+        .await?
+        .json()?;
+
+    let stored_value = entry_value_str(&get_result, &format!("{}/posts/exact_limit", alice.id()));
+    assert_eq!(
+        stored_value,
+        Some(exact_limit_content.as_str()),
+        "Stored value should match input"
+    );
+
+    println!("   ✓ Value at exactly 10240 bytes accepted");
+    println!("   ✓ Value was stored correctly");
+    println!("✅ Data value payload exactly at limit passes test passed");
+    Ok(())
+}
+
+/// Tests serialize_json_with_max_len boundary: value at max_value_bytes + 1 (10241) fails.
+/// The check is `bytes.len() > max_bytes`, so 10241 > 10240 should fail.
+/// Covers: serialize_json_with_max_len() boundary condition in validation/limits.rs
+#[tokio::test]
+async fn test_data_value_payload_one_byte_over_limit_fails() -> anyhow::Result<()> {
+    println!("\n=== Test: Data Value Payload One Byte Over Limit Fails ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Create value that serializes to exactly 10241 bytes (one over limit)
+    // String serialization: "content" = content.len() + 2
+    // Need: 10241 - 2 = 10239 character string
+    let one_over_content = "x".repeat(10239);
+
+    // Verify our calculation is correct
+    let serialized_len = serde_json::to_vec(&json!(one_over_content)).unwrap().len();
+    assert_eq!(
+        serialized_len, 10241,
+        "Test setup error: expected serialized length 10241, got {}",
+        serialized_len
+    );
+    println!("   ℹ Serialized value length: {} bytes (one over limit)", serialized_len);
+
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "posts/over_limit": one_over_content
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_failure(),
+        "Value at max_value_bytes + 1 (10241) should fail"
+    );
+
+    let failure_msg = format!("{:?}", result.failures());
+    assert!(
+        failure_msg.contains("too large") || failure_msg.contains("payload"),
+        "Error should mention payload too large, got: {}",
+        failure_msg
+    );
+
+    println!("   ✓ Value at 10241 bytes correctly rejected");
+    println!("✅ Data value payload one byte over limit fails test passed");
+    Ok(())
+}
+
+/// Tests serialize_json_with_max_len with empty/minimal values (edge case).
+/// Empty string serializes to 2 bytes (""), which is well under limit.
+/// Covers: serialize_json_with_max_len() empty value edge case in validation/limits.rs
+#[tokio::test]
+async fn test_data_value_empty_and_minimal_values_pass() -> anyhow::Result<()> {
+    println!("\n=== Test: Data Value Empty and Minimal Values Pass ===");
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_core_onsocial(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Test empty string - serializes to "" (2 bytes)
+    let result = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/empty": "",
+                    "profile/single_char": "x",
+                    "profile/empty_object": {},
+                    "profile/empty_array": [],
+                    "profile/number_zero": 0,
+                    "profile/bool_false": false
+                } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_success(),
+        "Empty and minimal values should succeed: {:?}",
+        result.failures()
+    );
+
+    // Verify all values were stored
+    let get_result: Vec<Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": [
+                format!("{}/profile/empty", alice.id()),
+                format!("{}/profile/single_char", alice.id()),
+                format!("{}/profile/empty_object", alice.id()),
+                format!("{}/profile/empty_array", alice.id()),
+                format!("{}/profile/number_zero", alice.id()),
+                format!("{}/profile/bool_false", alice.id())
+            ]
+        }))
+        .await?
+        .json()?;
+
+    assert_eq!(entry_value_str(&get_result, &format!("{}/profile/empty", alice.id())), Some(""));
+    assert_eq!(entry_value_str(&get_result, &format!("{}/profile/single_char", alice.id())), Some("x"));
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/empty_object", alice.id())), Some(&json!({})));
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/empty_array", alice.id())), Some(&json!([])));
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/number_zero", alice.id())), Some(&json!(0)));
+    assert_eq!(entry_value(&get_result, &format!("{}/profile/bool_false", alice.id())), Some(&json!(false)));
+
+    println!("   ✓ Empty string accepted and stored");
+    println!("   ✓ Single character string accepted and stored");
+    println!("   ✓ Empty object accepted and stored");
+    println!("   ✓ Empty array accepted and stored");
+    println!("   ✓ Number zero accepted and stored");
+    println!("   ✓ Boolean false accepted and stored");
+    println!("✅ Data value empty and minimal values pass test passed");
     Ok(())
 }
 

@@ -3,6 +3,8 @@ pub mod account_storage_tests;
 #[cfg(test)]
 pub mod actions_group_tests;
 #[cfg(test)]
+pub mod contract_status_tests;
+#[cfg(test)]
 pub mod core_onsocial_tests;
 #[cfg(test)]
 pub mod group_core_view_tests;
@@ -34,6 +36,8 @@ pub mod lib_wrapper_regression_tests;
 pub mod path_validation_tests;
 #[cfg(test)]
 pub mod permissions_tests;
+#[cfg(test)]
+pub mod privacy_tests;
 #[cfg(test)]
 pub mod proposal_validation_tests;
 #[cfg(test)]

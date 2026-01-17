@@ -294,4 +294,13 @@ upgrade-deps-rs-incompatible: ensure-scripts-executable
 	@VERBOSE="$(VERBOSE)" INCOMPATIBLE=1 ./scripts/upgrade_deps.sh
 	@$(call log_success,Rust dependency upgrade with incompatible versions completed)
 
+# Per-contract dependency version check (read-only, shows available updates)
+.PHONY: check-deps-contract-%
+check-deps-contract-%: ensure-scripts-executable
+	@if ! echo "$(VALID_CONTRACTS)" | grep -wq "$*"; then \
+		echo "❌ Unknown contract: $*. Valid contracts: $(VALID_CONTRACTS)"; \
+		exit 1; \
+	fi
+	@./scripts/check_contract_deps.sh $*
+
 # =============================================================================

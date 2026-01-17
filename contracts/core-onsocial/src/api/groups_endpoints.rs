@@ -4,12 +4,7 @@ use crate::{Contract, ContractExt};
 
 #[near]
 impl Contract {
-    // ─────────────────────────────────────────────────────────────────────────
-    // Group Query API (View Methods)
-    // 
-    // All mutating group operations are now handled via the unified execute()
-    // endpoint with full auth support (Direct, SignedPayload, DelegateAction, Intent).
-    // ─────────────────────────────────────────────────────────────────────────
+    /// Group view methods. Mutations go through `execute()`.
 
     pub fn get_group_config(&self, group_id: String) -> Option<Value> {
         crate::domain::groups::core::GroupStorage::get_group_config(&self.platform, &group_id)
