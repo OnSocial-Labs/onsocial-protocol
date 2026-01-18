@@ -14,6 +14,17 @@ pub const NANOS_PER_DAY: u64 = 86_400_000_000_000;
 /// Minimum allocation when sharing storage with another user.
 pub const MIN_SHARED_STORAGE_BYTES: u64 = 2000;
 
+// ============================================================================
+// Platform Sponsorship
+// ============================================================================
+
+/// Minimum platform onboarding bytes (6 KB) - cannot be decreased below this.
+pub const MIN_PLATFORM_ONBOARDING_BYTES: u64 = 6_000;
+/// Minimum platform daily refill bytes (3 KB) - cannot be decreased below this.
+pub const MIN_PLATFORM_DAILY_REFILL_BYTES: u64 = 3_000;
+/// Minimum platform allowance max bytes (6 KB) - cannot be decreased below this.
+pub const MIN_PLATFORM_ALLOWANCE_MAX_BYTES: u64 = 6_000;
+
 /// Path suffix identifying shared storage entries. Format: `{account}/shared_storage`.
 pub const SHARED_STORAGE_PATH_SUFFIX: &str = "/shared_storage";
 

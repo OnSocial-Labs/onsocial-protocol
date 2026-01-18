@@ -1377,3 +1377,176 @@ async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()> {
+    println!("\n🧪 TEST: platform sponsorship reactivates when pool is refunded after running dry");
+    
+    let worker = near_workspaces::sandbox().await?;
+    
+    // Deploy with minimal platform config to make pool drain quickly
+    let onboarding_bytes = 500u64;  // Very small for testing
+    let daily_refill = 100u64;
+    let max_bytes = 500u64;
+    let contract = deploy_with_platform_config(&worker, onboarding_bytes, daily_refill, max_bytes).await?;
+    
+    let root = worker.root_account()?;
+    let user = create_user(&root, "reactivateuser", TEN_NEAR).await?;
+
+    // Step 1: Fund platform pool with minimal amount
+    let small_deposit = NearToken::from_millinear(50); // 0.05 NEAR = 5KB capacity
+    let deposit_res = contract
+        .as_account()
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": small_deposit.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(small_deposit)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success(), "Platform pool deposit should succeed");
+    println!("   ✓ Step 1: Platform pool funded with minimal amount");
+
+    // Step 2: User writes - becomes platform sponsored
+    let write_res = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "profile/name": "Test User"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(write_res.is_success(), "First write should succeed");
+    
+    let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
+    let is_sponsored = allowance_info.get("is_platform_sponsored")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    assert!(is_sponsored, "User should be platform_sponsored after first write");
+    println!("   ✓ Step 2: User is platform sponsored");
+
+    // Step 3: Exhaust the platform pool by writing lots of data
+    // User needs personal balance to continue when pool runs dry
+    let personal_deposit = NearToken::from_near(1);
+    let deposit_res = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {
+                        "amount": personal_deposit.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(personal_deposit)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success());
+
+    // Write large data to exhaust platform allowance and pool
+    let large_data = "X".repeat(3000); // 3KB per write
+    for i in 0..5 {
+        let write_res = user
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "target_account": null,
+                    "action": { "type": "set", "data": {
+                        format!("data/large{}", i): large_data
+                    } },
+                    "options": null,
+                    "auth": null
+                }
+            }))
+            .deposit(NearToken::from_yoctonear(1))
+            .gas(Gas::from_tgas(100))
+            .transact()
+            .await?;
+        assert!(write_res.is_success(), "Write {} should succeed (using personal balance as fallback)", i);
+    }
+
+    // Check that platform sponsorship is now disabled (pool exhausted)
+    let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
+    let is_sponsored_after_exhaust = allowance_info.get("is_platform_sponsored")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    println!("   ✓ Step 3: Platform pool exhausted, sponsored={}", is_sponsored_after_exhaust);
+
+    // Step 4: Refund the platform pool
+    let refund_amount = NearToken::from_near(1);
+    let refund_res = contract
+        .as_account()
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/platform_pool_deposit": {
+                        "amount": refund_amount.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(refund_amount)
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(refund_res.is_success(), "Platform pool refund should succeed");
+    println!("   ✓ Step 4: Platform pool refunded");
+
+    // Step 5: User writes again - should reactivate sponsorship
+    let reactivate_res = user
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "profile/status": "Reactivated!"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(reactivate_res.is_success(), "Write after refund should succeed");
+
+    let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
+    let is_sponsored_reactivated = allowance_info.get("is_platform_sponsored")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    
+    assert!(is_sponsored_reactivated, 
+        "User should be platform_sponsored again after pool is refunded");
+    println!("   ✓ Step 5: Platform sponsorship REACTIVATED after pool refund");
+
+    println!("   ✅ Platform sponsorship correctly reactivates when pool is refunded");
+    Ok(())
+}

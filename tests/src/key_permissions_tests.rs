@@ -252,6 +252,358 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
     Ok(())
 }
 
+// =============================================================================
+// Session Key (Function Call Access Key) - Full User Journey Tests
+// =============================================================================
+// These tests document the complete "Option A" flow for gasless UX:
+// 1. User connects wallet and creates a session key (one wallet confirmation)
+// 2. User deposits storage using full access key (one wallet confirmation)
+// 3. User performs all subsequent operations using session key (no wallet confirmations)
+
+#[tokio::test]
+async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> anyhow::Result<()> {
+    // This test demonstrates the complete "Option A" user journey for limited access keys.
+    //
+    // Flow:
+    // 1. User connects wallet → adds Function Call Access Key (session key)
+    // 2. User deposits storage → requires full access key (wallet confirmation)
+    // 3. User performs operations → uses session key (NO wallet confirmation)
+    //
+    // This is the recommended UX for dApps that want to minimize wallet popups.
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // =========================================================================
+    // STEP 1: User adds a session key (requires one wallet confirmation)
+    // =========================================================================
+    let session_sk = SecretKey::from_random(KeyType::ED25519);
+    let session_pk = session_sk.public_key();
+
+    let add_key_res = alice
+        .batch(alice.id())
+        .add_key(
+            session_pk.clone(),
+            AccessKey::function_call_access(contract.id(), &["execute"], Some(TEN_NEAR)),
+        )
+        .transact()
+        .await?;
+    assert!(add_key_res.is_success(), "Step 1: Expected add_key to succeed");
+
+    // =========================================================================
+    // STEP 2: User deposits storage (requires wallet confirmation - deposits need full key)
+    // =========================================================================
+    // NEAR protocol limitation: Function Call Access Keys cannot attach deposits.
+    // User must use their full access key to deposit storage.
+    let deposit_amount = ONE_NEAR;
+    let deposit_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": { "amount": deposit_amount.as_yoctonear().to_string() }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success(), "Step 2: Expected storage deposit to succeed");
+
+    // Verify storage balance was credited
+    let storage: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": alice.id()}))
+        .await?
+        .json()?;
+    // balance is u128 serialized as f64 number
+    let balance_f64: f64 = storage
+        .get("balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let deposit_f64 = deposit_amount.as_yoctonear() as f64;
+    assert!(balance_f64 >= deposit_f64, "Step 2: Storage balance should be credited (got {:.4} NEAR)", balance_f64 / 1e24);
+
+    // =========================================================================
+    // STEP 3: User operates using session key (NO wallet confirmation needed)
+    // =========================================================================
+    let mut alice_session = alice.clone();
+    alice_session.set_secret_key(session_sk.clone());
+
+    // 3a. Write profile data - NO WALLET POPUP
+    let res = alice_session
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "profile/name": "Alice",
+                    "profile/bio": "Hello from session key!"
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Step 3a: Expected profile set to succeed with session key");
+
+    // 3b. Create a group - NO WALLET POPUP
+    let res = alice_session
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "create_group",
+                    "group_id": "my-group",
+                    "config": { "name": "My Group", "is_private": false }
+                },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Step 3b: Expected create_group to succeed with session key");
+
+    // 3c. Write to group - NO WALLET POPUP
+    let res = alice_session
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "group/my-group/posts/1": { "title": "First post!", "content": "Via session key" }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Step 3c: Expected group post to succeed with session key");
+
+    // 3d. Grant key permission to session key for a specific path - NO WALLET POPUP
+    let res = alice_session
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": {
+                    "type": "set_key_permission",
+                    "public_key": session_pk.to_string(),
+                    "path": "apps/my-app/",
+                    "level": 1,
+                    "expires_at": null
+                }
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Step 3d: Expected set_key_permission to succeed with session key");
+
+    // =========================================================================
+    // VERIFICATION: Confirm all data was written correctly
+    // =========================================================================
+    let entries: Vec<serde_json::Value> = contract
+        .view("get")
+        .args_json(json!({
+            "keys": ["profile/name", "profile/bio", "group/my-group/posts/1"],
+            "account_id": alice.id()
+        }))
+        .await?
+        .json()?;
+
+    assert_eq!(entries.len(), 3, "Should have 3 entries");
+    assert_eq!(
+        entries[0].get("value").and_then(|v| v.as_str()),
+        Some("Alice"),
+        "Profile name should be Alice"
+    );
+    assert_eq!(
+        entries[1].get("value").and_then(|v| v.as_str()),
+        Some("Hello from session key!"),
+        "Profile bio should match"
+    );
+    let post_value = entries[2].get("value");
+    assert!(post_value.is_some(), "Group post should exist");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_session_key_cannot_deposit_storage_directly() -> anyhow::Result<()> {
+    // This test confirms the NEAR protocol limitation:
+    // Function Call Access Keys CANNOT attach deposits.
+    // Users must use their full access key to deposit storage.
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Add session key
+    let session_sk = SecretKey::from_random(KeyType::ED25519);
+    let session_pk = session_sk.public_key();
+
+    let add_key_res = alice
+        .batch(alice.id())
+        .add_key(
+            session_pk,
+            AccessKey::function_call_access(contract.id(), &["execute"], Some(TEN_NEAR)),
+        )
+        .transact()
+        .await?;
+    assert!(add_key_res.is_success(), "Expected add_key to succeed");
+
+    // Switch to session key
+    let mut alice_session = alice.clone();
+    alice_session.set_secret_key(session_sk);
+
+    // Attempt to deposit storage with session key - this SHOULD FAIL
+    let res = alice_session
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": { "amount": ONE_NEAR.as_yoctonear().to_string() }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR) // Attempting deposit with function call key
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await;
+
+    // NEAR protocol rejects deposits from function call access keys
+    assert!(
+        res.is_err() || !res.as_ref().expect("checked is_err").is_success(),
+        "Expected storage deposit to fail with session key (NEAR protocol limitation)"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_session_key_multiple_operations_consume_pre_deposited_storage() -> anyhow::Result<()> {
+    // This test verifies that multiple operations using a session key
+    // correctly consume from the user's pre-deposited storage balance.
+
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+
+    // Step 1: Deposit storage using full access key
+    let deposit_amount = ONE_NEAR;
+    let deposit_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": { "amount": deposit_amount.as_yoctonear().to_string() }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(deposit_amount)
+        .gas(near_workspaces::types::Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(deposit_res.is_success(), "Storage deposit should succeed");
+
+    // Get initial storage state
+    let initial_storage: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": alice.id()}))
+        .await?
+        .json()?;
+    let initial_used = initial_storage
+        .get("used_bytes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    // Step 2: Add session key
+    let session_sk = SecretKey::from_random(KeyType::ED25519);
+    let session_pk = session_sk.public_key();
+
+    let add_key_res = alice
+        .batch(alice.id())
+        .add_key(
+            session_pk,
+            AccessKey::function_call_access(contract.id(), &["execute"], Some(TEN_NEAR)),
+        )
+        .transact()
+        .await?;
+    assert!(add_key_res.is_success(), "Add key should succeed");
+
+    let mut alice_session = alice.clone();
+    alice_session.set_secret_key(session_sk);
+
+    // Step 3: Perform multiple writes using session key
+    for i in 1..=5 {
+        let res = alice_session
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set", "data": {
+                        format!("posts/{}", i): { "title": format!("Post {}", i), "content": "Lorem ipsum dolor sit amet" }
+                    } },
+                    "options": null,
+                    "auth": null
+                }
+            }))
+            .deposit(NearToken::from_yoctonear(0))
+            .gas(near_workspaces::types::Gas::from_tgas(120))
+            .transact()
+            .await?;
+        assert!(res.is_success(), "Post {} should succeed with session key", i);
+    }
+
+    // Step 4: Verify storage was consumed
+    let final_storage: serde_json::Value = contract
+        .view("get_storage_balance")
+        .args_json(json!({"account_id": alice.id()}))
+        .await?
+        .json()?;
+    let final_used = final_storage
+        .get("used_bytes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    assert!(
+        final_used > initial_used,
+        "Storage used_bytes should increase after writes: initial={}, final={}",
+        initial_used,
+        final_used
+    );
+
+    // Step 5: Verify balance is still positive (can continue operating)
+    let balance_f64: f64 = final_storage
+        .get("balance")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    assert!(balance_f64 > 0.0, "Storage balance should still be positive (got {:.4} NEAR)", balance_f64 / 1e24);
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_session_key_access_key_can_call_set_without_wallet() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;

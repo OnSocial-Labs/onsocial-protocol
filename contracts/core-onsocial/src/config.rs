@@ -3,6 +3,12 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
 use near_sdk::NearSchema;
 
+use crate::constants::{
+    MIN_PLATFORM_ALLOWANCE_MAX_BYTES,
+    MIN_PLATFORM_DAILY_REFILL_BYTES,
+    MIN_PLATFORM_ONBOARDING_BYTES,
+};
+
 #[derive(NearSchema, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[abi(borsh, json)]
 #[serde(crate = "near_sdk::serde")]
@@ -23,9 +29,9 @@ pub struct GovernanceConfig {
     pub intents_executors: Vec<AccountId>,
 }
 
-fn default_platform_onboarding_bytes() -> u64 { 10_000 }
-fn default_platform_daily_refill_bytes() -> u64 { 3_000 }
-fn default_platform_allowance_max_bytes() -> u64 { 6_000 }
+fn default_platform_onboarding_bytes() -> u64 { MIN_PLATFORM_ONBOARDING_BYTES }
+fn default_platform_daily_refill_bytes() -> u64 { MIN_PLATFORM_DAILY_REFILL_BYTES }
+fn default_platform_allowance_max_bytes() -> u64 { MIN_PLATFORM_ALLOWANCE_MAX_BYTES }
 
 impl Default for GovernanceConfig {
     fn default() -> Self {
@@ -34,9 +40,9 @@ impl Default for GovernanceConfig {
             max_path_depth: 12,
             max_batch_size: 10,
             max_value_bytes: 10 * 1024,
-            platform_onboarding_bytes: default_platform_onboarding_bytes(),
-            platform_daily_refill_bytes: default_platform_daily_refill_bytes(),
-            platform_allowance_max_bytes: default_platform_allowance_max_bytes(),
+            platform_onboarding_bytes: MIN_PLATFORM_ONBOARDING_BYTES,
+            platform_daily_refill_bytes: MIN_PLATFORM_DAILY_REFILL_BYTES,
+            platform_allowance_max_bytes: MIN_PLATFORM_ALLOWANCE_MAX_BYTES,
             intents_executors: Vec::new(),
         }
     }
@@ -62,6 +68,9 @@ impl GovernanceConfig {
         max_path_depth: Option<u16>,
         max_batch_size: Option<u16>,
         max_value_bytes: Option<u32>,
+        platform_onboarding_bytes: Option<u64>,
+        platform_daily_refill_bytes: Option<u64>,
+        platform_allowance_max_bytes: Option<u64>,
         intents_executors: Option<&[AccountId]>,
     ) -> Result<(), &'static str> {
         let new_key = max_key_length.unwrap_or(self.max_key_length);
@@ -81,6 +90,23 @@ impl GovernanceConfig {
             return Err("Safety limits can only be increased");
         }
 
+        // Validate platform sponsorship settings cannot go below minimums
+        if let Some(v) = platform_onboarding_bytes {
+            if v < MIN_PLATFORM_ONBOARDING_BYTES {
+                return Err("platform_onboarding_bytes cannot be below minimum");
+            }
+        }
+        if let Some(v) = platform_daily_refill_bytes {
+            if v < MIN_PLATFORM_DAILY_REFILL_BYTES {
+                return Err("platform_daily_refill_bytes cannot be below minimum");
+            }
+        }
+        if let Some(v) = platform_allowance_max_bytes {
+            if v < MIN_PLATFORM_ALLOWANCE_MAX_BYTES {
+                return Err("platform_allowance_max_bytes cannot be below minimum");
+            }
+        }
+
         if let Some(executors) = intents_executors {
             validate_intents_executors(executors)?;
         }
@@ -94,6 +120,9 @@ impl GovernanceConfig {
             Some(self.max_path_depth),
             Some(self.max_batch_size),
             Some(self.max_value_bytes),
+            Some(self.platform_onboarding_bytes),
+            Some(self.platform_daily_refill_bytes),
+            Some(self.platform_allowance_max_bytes),
             Some(&self.intents_executors),
         )
     }

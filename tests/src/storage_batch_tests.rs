@@ -11311,9 +11311,54 @@ async fn test_patch_config_partial_updates() -> anyhow::Result<()> {
     assert!(!decrease_result.is_success(), "Decreasing safety limit should fail");
     println!("   ✓ Decrease correctly rejected");
     
-    // Step 3: Platform allowance fields CAN be decreased
-    println!("\n   Step 3: Platform allowance fields can be decreased...");
+    // Step 3: Platform allowance fields CAN be increased and decreased (but not below minimum)
+    println!("\n   Step 3: Platform allowance fields can be increased...");
+    
+    // First increase it
+    let increase_allowance = contract
+        .call("patch_config")
+        .args_json(json!({
+            "platform_onboarding_bytes": initial_onboarding * 2
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(increase_allowance.is_success(), "Increasing platform_onboarding_bytes should succeed: {:?}", increase_allowance.failures());
+    
+    let config_after_increase: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    assert_eq!(config_after_increase["platform_onboarding_bytes"].as_u64().unwrap(), initial_onboarding * 2);
+    println!("   ✓ Platform allowance increased successfully");
+
+    // Then decrease back to original (which is at the minimum)
     let decrease_allowance = contract
+        .call("patch_config")
+        .args_json(json!({
+            "platform_onboarding_bytes": initial_onboarding
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    
+    assert!(decrease_allowance.is_success(), "Decreasing platform_onboarding_bytes back to minimum should succeed: {:?}", decrease_allowance.failures());
+    
+    let final_config: serde_json::Value = contract
+        .view("get_config")
+        .args_json(json!({}))
+        .await?
+        .json()?;
+    assert_eq!(final_config["platform_onboarding_bytes"].as_u64().unwrap(), initial_onboarding);
+    println!("   ✓ Platform allowance decreased back to minimum successfully");
+
+    // Step 4: Try to decrease BELOW minimum (should FAIL)
+    println!("\n   Step 4: Try to decrease below minimum (should FAIL)...");
+    let below_min = contract
         .call("patch_config")
         .args_json(json!({
             "platform_onboarding_bytes": initial_onboarding / 2
@@ -11323,15 +11368,8 @@ async fn test_patch_config_partial_updates() -> anyhow::Result<()> {
         .transact()
         .await?;
     
-    assert!(decrease_allowance.is_success(), "Decreasing platform_onboarding_bytes should succeed: {:?}", decrease_allowance.failures());
-    
-    let final_config: serde_json::Value = contract
-        .view("get_config")
-        .args_json(json!({}))
-        .await?
-        .json()?;
-    assert_eq!(final_config["platform_onboarding_bytes"].as_u64().unwrap(), initial_onboarding / 2);
-    println!("   ✓ Platform allowance decreased successfully");
+    assert!(!below_min.is_success(), "Decreasing platform_onboarding_bytes below minimum should fail");
+    println!("   ✓ Decrease below minimum correctly rejected");
     
     println!("\n✅ Test passed: patch_config partial updates");
     Ok(())

@@ -104,6 +104,9 @@ impl Contract {
             max_path_depth,
             max_batch_size,
             max_value_bytes,
+            platform_onboarding_bytes,
+            platform_daily_refill_bytes,
+            platform_allowance_max_bytes,
             intents_executors.as_deref(),
         ) {
             return Err(crate::invalid_input!(msg));
