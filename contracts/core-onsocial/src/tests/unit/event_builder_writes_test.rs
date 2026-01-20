@@ -360,4 +360,188 @@ mod event_builder_writes_tests {
             "field_c should be added from second call"
         );
     }
+
+    // ==========================================================================
+    // EventBatch::emit() ERROR PATH TESTS
+    // ==========================================================================
+
+    #[test]
+    fn emit_empty_batch_succeeds() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        let result = batch.emit();
+
+        assert!(result.is_ok(), "Empty batch emit should succeed");
+
+        let logs = get_logs();
+        let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
+        assert!(event_logs.is_empty(), "Empty batch should emit no events");
+    }
+
+    #[test]
+    fn emit_rejects_non_object_extra_data() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        // Directly call add() with non-object Value (bypassing EventBuilder)
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "test_op".to_string(),
+            alice,
+            json!("not an object"), // String instead of Object
+        );
+
+        let result = batch.emit();
+
+        assert!(result.is_err(), "emit() should reject non-object extra_data");
+        let err = result.unwrap_err();
+        let err_str = format!("{:?}", err);
+        assert!(
+            err_str.contains("Event extra_data must be a JSON object"),
+            "Error should mention 'Event extra_data must be a JSON object', got: {}",
+            err_str
+        );
+    }
+
+    #[test]
+    fn emit_rejects_array_extra_data() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "test_op".to_string(),
+            alice,
+            json!([1, 2, 3]), // Array instead of Object
+        );
+
+        let result = batch.emit();
+
+        assert!(result.is_err(), "emit() should reject array extra_data");
+    }
+
+    #[test]
+    fn emit_rejects_null_extra_data() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "test_op".to_string(),
+            alice,
+            Value::Null,
+        );
+
+        let result = batch.emit();
+
+        assert!(result.is_err(), "emit() should reject null extra_data");
+    }
+
+    #[test]
+    fn emit_error_restores_remaining_events() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+
+        // First event: valid (will be emitted successfully)
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "op1".to_string(),
+            alice.clone(),
+            json!({"path": "alice/valid1"}),
+        );
+
+        // Second event: INVALID (non-object) - will fail
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "op2".to_string(),
+            alice.clone(),
+            json!("invalid_not_object"),
+        );
+
+        // Third event: valid (should be preserved after error)
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "op3".to_string(),
+            alice.clone(),
+            json!({"path": "alice/valid2"}),
+        );
+
+        // First emit() should fail on the second event
+        let result = batch.emit();
+        assert!(result.is_err(), "emit() should fail on invalid event");
+
+        // The batch should still contain the failing event + remaining events
+        // (the first valid event was already emitted before the error)
+        // Access internal state to verify restoration
+        // Note: We verify behavior by checking logs - first event should have been emitted
+        let logs = get_logs();
+        let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
+        assert_eq!(event_logs.len(), 1, "First valid event should have been emitted before error");
+
+        // Decode the emitted event to verify it was op1
+        let event = decode_event(event_logs[0]).expect("Event should decode");
+        assert_eq!(
+            event.data.first().map(|d| d.operation.as_str()),
+            Some("op1"),
+            "First emitted event should be op1"
+        );
+    }
+
+    #[test]
+    fn emit_processes_all_valid_events_in_order() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "first".to_string(),
+            alice.clone(),
+            json!({"path": "alice/a", "order": 1}),
+        );
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "second".to_string(),
+            alice.clone(),
+            json!({"path": "alice/b", "order": 2}),
+        );
+        batch.add(
+            "TEST_EVENT".to_string(),
+            "third".to_string(),
+            alice.clone(),
+            json!({"path": "alice/c", "order": 3}),
+        );
+
+        let result = batch.emit();
+        assert!(result.is_ok(), "All valid events should emit successfully");
+
+        let logs = get_logs();
+        let event_logs: Vec<_> = logs
+            .iter()
+            .filter_map(|l| decode_event(l))
+            .collect();
+
+        assert_eq!(event_logs.len(), 3, "Should emit 3 events");
+
+        // Verify order
+        let operations: Vec<_> = event_logs
+            .iter()
+            .map(|e| e.data.first().map(|d| d.operation.as_str()).unwrap_or(""))
+            .collect();
+        assert_eq!(operations, vec!["first", "second", "third"], "Events should be emitted in order");
+    }
 }

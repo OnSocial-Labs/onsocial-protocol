@@ -307,8 +307,51 @@ async fn test_group_pool_deposit_zero_amount_fails() -> anyhow::Result<()> {
     assert!(res.is_failure(), "Expected zero amount to fail");
     let failure_msg = format!("{:?}", res.failures());
     assert!(
-        failure_msg.contains("greater than zero"),
-        "Expected 'greater than zero' error, got: {}", failure_msg
+        failure_msg.contains("Minimum pool deposit"),
+        "Expected 'Minimum pool deposit' error, got: {}", failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_pool_deposit_below_minimum_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Try to deposit 0.05 NEAR (below ~0.1 NEAR / 10KB minimum)
+    let below_min = NearToken::from_millinear(50);
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_pool_deposit": {
+                        "group_id": group_id,
+                        "amount": below_min.as_yoctonear().to_string()
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(below_min)
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(res.is_failure(), "Expected below-minimum deposit to fail");
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("Minimum pool deposit"),
+        "Expected 'Minimum pool deposit' error, got: {}", failure_msg
     );
 
     Ok(())

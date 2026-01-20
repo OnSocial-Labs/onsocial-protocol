@@ -25,7 +25,7 @@ impl SocialPlatform {
             .and_then(|s| s.parse::<u128>().ok())
             .ok_or_else(|| crate::invalid_input!("amount required for group_pool_deposit"))?;
 
-        Self::require_positive_amount(amount)?;
+        Self::require_minimum_pool_deposit(amount)?;
 
         if *ctx.attached_balance < amount {
             return Err(crate::invalid_input!("Insufficient deposit for group pool"));

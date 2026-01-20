@@ -991,8 +991,8 @@ async fn test_shared_pool_deposit_zero_amount() -> anyhow::Result<()> {
     assert!(result.is_failure(), "Zero amount shared pool deposit should fail");
     let failure_msg = format!("{:?}", result.failures());
     assert!(
-        failure_msg.contains("amount must be greater than zero"),
-        "Should contain 'amount must be greater than zero': {}", failure_msg
+        failure_msg.contains("Minimum pool deposit"),
+        "Should contain 'Minimum pool deposit': {}", failure_msg
     );
     println!("   ✓ Zero amount correctly rejected");
     
@@ -5107,7 +5107,7 @@ async fn test_platform_pool_deposit_zero_amount() -> anyhow::Result<()> {
     // Zero deposit should be rejected - prevents spam and wasted gas
     assert!(result.is_failure(), "Zero amount donation should fail: {:?}", result.outcomes());
     let failure_msg = format!("{:?}", result.failures());
-    assert!(failure_msg.contains("amount must be greater than zero"), "Should contain 'amount must be greater than zero': {}", failure_msg);
+    assert!(failure_msg.contains("Minimum pool deposit"), "Should contain 'Minimum pool deposit': {}", failure_msg);
     println!("   ✓ Zero amount correctly rejected");
     
     println!("\n✅ Zero amount edge case test passed!");

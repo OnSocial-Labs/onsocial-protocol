@@ -1750,8 +1750,9 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
     let bob = worker.dev_create_account().await?;
     let carol = worker.dev_create_account().await?;
     
-    // Step 1: Alice deposits a small amount to create tight capacity
-    println!("\n   Step 1: Alice deposits minimal amount (0.01 NEAR)...");
+    // Step 1: Alice deposits minimum valid amount (0.1 NEAR = ~10KB) to create tight capacity
+    // We use the minimum so capacity is tight enough to test rollback behavior
+    println!("\n   Step 1: Alice deposits minimum amount (0.1 NEAR / ~10KB)...");
     let deposit_result = alice
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -1760,19 +1761,19 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
                 "action": { "type": "set", "data": {
                     "storage/shared_pool_deposit": {
                         "pool_id": alice.id().to_string(),
-                        "amount": NearToken::from_millinear(10).as_yoctonear().to_string()
+                        "amount": NearToken::from_millinear(100).as_yoctonear().to_string()
                     }
                 } },
                 "options": null,
                 "auth": null
             }
         }))
-        .deposit(NearToken::from_millinear(10))
+        .deposit(NearToken::from_millinear(100))
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
     assert!(deposit_result.is_success(), "Deposit should succeed");
-    println!("   ✓ Alice deposited 0.01 NEAR");
+    println!("   ✓ Alice deposited 0.1 NEAR");
     
     // Step 2: Get pool capacity
     let pool_info = get_shared_pool(&contract, alice.id().as_str()).await?
@@ -1784,7 +1785,8 @@ async fn test_share_storage_rollback_on_overhead_capacity_failure() -> Result<()
     
     // Step 3: First share with Bob - use most of capacity
     // Leave just enough that a second share might pass initial check but fail on overhead
-    let first_share_bytes = available_bytes.saturating_sub(3000).max(2000);
+    // With 10KB capacity, we want to use ~9.5KB for Bob
+    let first_share_bytes = available_bytes.saturating_sub(500).max(2000);
     println!("\n   Step 2: Alice shares {} bytes with Bob...", first_share_bytes);
     
     let share_bob = alice

@@ -29,7 +29,7 @@ impl SocialPlatform {
             .and_then(|s| s.parse::<u128>().ok())
             .ok_or_else(|| crate::invalid_input!("amount required for shared_pool_deposit"))?;
 
-        Self::require_positive_amount(amount)?;
+        Self::require_minimum_pool_deposit(amount)?;
 
         if account_id != &pool_id {
             return Err(crate::unauthorized!("shared_pool_deposit", account_id.as_str()));

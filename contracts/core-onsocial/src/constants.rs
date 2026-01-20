@@ -1,47 +1,37 @@
 //! Contract-wide constants for OnSocial core.
 
-// ============================================================================
-// Time (nanoseconds)
-// ============================================================================
+// --- Time ---
 
 pub const NANOS_PER_MINUTE: u64 = 60_000_000_000;
 pub const NANOS_PER_DAY: u64 = 86_400_000_000_000;
 
-// ============================================================================
-// Storage
-// ============================================================================
+// --- Storage Limits ---
 
-/// Minimum allocation when sharing storage with another user.
-pub const MIN_SHARED_STORAGE_BYTES: u64 = 2000;
-
-// ============================================================================
-// Platform Sponsorship
-// ============================================================================
-
-/// Minimum platform onboarding bytes (6 KB) - cannot be decreased below this.
+/// Minimum allocation when sharing storage with another user (2 KB).
+pub const MIN_SHARED_STORAGE_BYTES: u64 = 2_000;
+/// Minimum deposit for any storage pool (group, shared, platform) (10 KB ≈ 0.01 NEAR).
+pub const MIN_POOL_DEPOSIT_BYTES: u64 = 10_000;
+/// Minimum platform onboarding bytes (6 KB).
 pub const MIN_PLATFORM_ONBOARDING_BYTES: u64 = 6_000;
-/// Minimum platform daily refill bytes (3 KB) - cannot be decreased below this.
+/// Minimum platform daily refill bytes (3 KB).
 pub const MIN_PLATFORM_DAILY_REFILL_BYTES: u64 = 3_000;
-/// Minimum platform allowance max bytes (6 KB) - cannot be decreased below this.
+/// Minimum platform allowance max bytes (6 KB).
 pub const MIN_PLATFORM_ALLOWANCE_MAX_BYTES: u64 = 6_000;
 
-/// Path suffix identifying shared storage entries. Format: `{account}/shared_storage`.
-pub const SHARED_STORAGE_PATH_SUFFIX: &str = "/shared_storage";
+// --- Key Formats ---
 
-/// Group pool key format: `group-{group_id}.pool`.
+/// Path suffix for shared storage entries: `{account}/shared_storage`.
+pub const SHARED_STORAGE_PATH_SUFFIX: &str = "/shared_storage";
+/// Group pool key prefix: `group-{group_id}.pool`.
 pub const GROUP_POOL_PREFIX: &str = "group-";
 pub const GROUP_POOL_SUFFIX: &str = ".pool";
 
-// ============================================================================
-// Partitioning
-// ============================================================================
+// --- Partitioning ---
 
 /// Number of hash partitions for data sharding. Must be power of 2.
 pub const NUM_PARTITIONS: u16 = 4096;
 
-// ============================================================================
-// Events (NEP-297)
-// ============================================================================
+// --- Events (NEP-297) ---
 
 pub const EVENT_STANDARD: &str = "onsocial";
 pub const EVENT_VERSION: &str = "1.0.0";
@@ -53,9 +43,7 @@ pub const EVENT_TYPE_PERMISSION_UPDATE: &str = "PERMISSION_UPDATE";
 pub const EVENT_TYPE_GROUP_UPDATE: &str = "GROUP_UPDATE";
 pub const EVENT_TYPE_CONTRACT_UPDATE: &str = "CONTRACT_UPDATE";
 
-// ============================================================================
-// Governance: Voting
-// ============================================================================
+// --- Governance: Voting ---
 
 /// Basis points denominator (10000 = 100%).
 pub const BPS_DENOMINATOR: u16 = 10_000;
@@ -69,9 +57,7 @@ pub const DEFAULT_VOTING_MAJORITY_THRESHOLD_BPS: u16 = 5_001; // 50.01%
 pub const MIN_VOTING_PARTICIPATION_QUORUM_BPS: u16 = 100; // 1%
 pub const MIN_VOTING_MAJORITY_THRESHOLD_BPS: u16 = 5_001; // >50%
 
-// ============================================================================
-// Governance: Proposals
-// ============================================================================
+// --- Governance: Proposals ---
 
 /// Minimum deposit to create a proposal (0.1 NEAR).
 /// Credited to proposer's storage balance; partially locked until completion.

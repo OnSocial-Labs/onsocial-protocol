@@ -17,9 +17,9 @@ pub mod unit {
     pub mod governance_status_test;  // Governance status tests
     pub mod group_sponsor_quota_test;
     pub mod group_test;
+    pub mod io_operations_test;  // IO operations tests (get_entry, insert_entry, path resolution)
     pub mod members;  // Group membership tests
     pub mod set_permission_signer_test;  // Security test: set_permission uses signer not predecessor
-    // pub mod signed_payload_test;  // DISABLED: References old SetRequest/set() API - needs full rewrite
     pub mod stats_test;  // Group stats counter tests (underflow protection, timestamps)
     pub mod storage_tracking_test;  // Storage tracking correctness tests (validates storage.rs fixes)
     pub mod storage_tracker_helpers_test;

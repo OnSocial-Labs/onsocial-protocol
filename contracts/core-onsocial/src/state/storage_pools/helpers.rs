@@ -13,6 +13,19 @@ impl SocialPlatform {
         Ok(())
     }
 
+    /// Minimum deposit: 10KB of storage (~0.1 NEAR). Implicitly requires positive amount.
+    pub(super) fn require_minimum_pool_deposit(amount: u128) -> Result<(), SocialError> {
+        let min_deposit = crate::storage::utils::calculate_storage_balance_needed(
+            crate::constants::MIN_POOL_DEPOSIT_BYTES,
+        );
+        if amount < min_deposit {
+            return Err(crate::invalid_input!(
+                "Minimum pool deposit is ~0.1 NEAR (10KB storage)"
+            ));
+        }
+        Ok(())
+    }
+
     pub(super) fn require_group_owner_or_manage(
         &self,
         group_id: &str,
@@ -24,7 +37,6 @@ impl SocialPlatform {
             .get_entry(&group_config_path)
             .ok_or_else(|| crate::invalid_input!("Group not found"))?;
 
-        // Group config entries cannot be deleted via public API
         let crate::state::models::DataValue::Value(bytes) = &group_entry.value else {
             return Err(crate::invalid_input!("Group config corrupted"));
         };

@@ -14,7 +14,6 @@ use serde_json::json;
 
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
-const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
 fn user_key(user: &Account, relative: &str) -> String {
     format!("{}/{}", user.id(), relative)
@@ -751,9 +750,9 @@ async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_atta
     create_group(&contract, &owner, group_id).await?;
     add_member(&contract, &owner, group_id, &member).await?;
 
-    // Fund group pool with an amount so small it should translate to ~0 usable bytes.
-    // Default quota allows, but pool should be unable to cover the write.
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, ONE_YOCTO, 100_000).await?;
+    // Fund group pool with minimum valid amount (0.1 NEAR) but set per-user quota to 1 byte.
+    // This effectively makes the quota exhausted for any meaningful write, forcing fallback.
+    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_millinear(100), 1).await?;
 
     // Pre-fund member personal balance so the group write can succeed with 0 attached deposit.
     deposit_personal_storage(&contract, &member, ONE_NEAR).await?;
@@ -781,12 +780,12 @@ async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_atta
         res.failures()
     );
 
-    // We expect no group_sponsor_spend because the group pool can't allocate.
+    // We expect no group_sponsor_spend because the quota gating blocks allocation.
     let logs = res.logs();
     let has_spend_event = logs.iter().any(|l| l.contains("group_sponsor_spend"));
     assert!(
         !has_spend_event,
-        "Did not expect group_sponsor_spend when group pool can't cover and personal balance pays. Logs: {:?}",
+        "Did not expect group_sponsor_spend when quota exhausted and personal balance pays. Logs: {:?}",
         logs
     );
 

@@ -663,3 +663,524 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
 
     Ok(())
 }
+
+// =============================================================================
+// Missing required field: group_id
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_missing_group_id_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    // Missing `group_id` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail when `group_id` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("group_id required"),
+        "Expected error message to mention 'group_id required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_missing_group_id_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    // Missing `group_id` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail when `group_id` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("group_id required"),
+        "Expected error message to mention 'group_id required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Missing required field: daily_refill_bytes
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_missing_daily_refill_bytes_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Missing `daily_refill_bytes` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail when `daily_refill_bytes` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("daily_refill_bytes required"),
+        "Expected error message to mention 'daily_refill_bytes required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_missing_daily_refill_bytes_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Missing `daily_refill_bytes` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail when `daily_refill_bytes` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("daily_refill_bytes required"),
+        "Expected error message to mention 'daily_refill_bytes required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Missing required field: allowance_max_bytes
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_missing_allowance_max_bytes_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Missing `allowance_max_bytes` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail when `allowance_max_bytes` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("allowance_max_bytes required"),
+        "Expected error message to mention 'allowance_max_bytes required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_missing_allowance_max_bytes_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Missing `allowance_max_bytes` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "daily_refill_bytes": 1000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_default_set to fail when `allowance_max_bytes` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("allowance_max_bytes required"),
+        "Expected error message to mention 'allowance_max_bytes required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Missing required field: target_id (quota_set only)
+// =============================================================================
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_missing_target_id_fails() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+
+    // Missing `target_id` field - should fail
+    let res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_failure(),
+        "Expected group_sponsor_quota_set to fail when `target_id` is missing"
+    );
+
+    let failure_msg = format!("{:?}", res.failures());
+    assert!(
+        failure_msg.contains("target_id required"),
+        "Expected error message to mention 'target_id required', got: {}",
+        failure_msg
+    );
+
+    Ok(())
+}
+
+// =============================================================================
+// Manager authorization path: manager can set quota/default
+// =============================================================================
+
+async fn grant_manage_permission_on_group(
+    contract: &Contract,
+    owner: &Account,
+    group_id: &str,
+    manager: &Account,
+) -> anyhow::Result<()> {
+    // First add as member
+    let add_member_res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "add_group_member", "group_id": group_id, "member_id": manager.id() }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+    assert!(
+        add_member_res.is_success(),
+        "add_group_member should succeed: {:?}",
+        add_member_res.failures()
+    );
+
+    // Grant MANAGE permission (level 3) on the group config path
+    let permission_path = format!("{}/groups/{}/config", owner.id(), group_id);
+    let grant_res = owner
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "permission/grant": {
+                        "grantee": manager.id().to_string(),
+                        "path": permission_path,
+                        "level": 3
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+    assert!(
+        grant_res.is_success(),
+        "Grant MANAGE permission should succeed: {:?}",
+        grant_res.failures()
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_quota_set_authorized_manager_succeeds() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let manager = create_user(&root, "manager", TEN_NEAR).await?;
+    let target = create_user(&root, "target", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+    grant_manage_permission_on_group(&contract, &owner, group_id, &manager).await?;
+
+    // Manager (not owner) sets quota - should succeed
+    let res = manager
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_quota_set": {
+                        "group_id": group_id,
+                        "target_id": target.id().to_string(),
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_success(),
+        "Expected group_sponsor_quota_set to succeed when called by authorized manager: {:?}",
+        res.failures()
+    );
+
+    // Verify event emitted
+    let logs = res.logs();
+    let has_event = logs.iter().any(|l| l.contains("group_sponsor_quota_set"));
+    assert!(
+        has_event,
+        "Expected group_sponsor_quota_set event in logs. Logs: {:?}",
+        logs
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_group_sponsor_default_set_authorized_manager_succeeds() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let owner = create_user(&root, "owner", TEN_NEAR).await?;
+    let manager = create_user(&root, "manager", TEN_NEAR).await?;
+
+    let group_id = "testgroup";
+    create_group(&contract, &owner, group_id).await?;
+    grant_manage_permission_on_group(&contract, &owner, group_id, &manager).await?;
+
+    // Manager (not owner) sets default - should succeed
+    let res = manager
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/group_sponsor_default_set": {
+                        "group_id": group_id,
+                        "enabled": true,
+                        "daily_refill_bytes": 1000,
+                        "allowance_max_bytes": 10000
+                    }
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(Gas::from_tgas(140))
+        .transact()
+        .await?;
+
+    assert!(
+        res.is_success(),
+        "Expected group_sponsor_default_set to succeed when called by authorized manager: {:?}",
+        res.failures()
+    );
+
+    // Verify event emitted
+    let logs = res.logs();
+    let has_event = logs.iter().any(|l| l.contains("group_sponsor_default_set"));
+    assert!(
+        has_event,
+        "Expected group_sponsor_default_set event in logs. Logs: {:?}",
+        logs
+    );
+
+    Ok(())
+}
