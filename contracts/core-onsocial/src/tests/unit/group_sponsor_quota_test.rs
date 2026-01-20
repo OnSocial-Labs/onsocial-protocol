@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod group_sponsor_quota_tests {
-    use crate::tests::test_utils::*;
     use crate::state::models::GroupSponsorAccount;
+    use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
-    use near_sdk::{testing_env, NearToken};
+    use near_sdk::{NearToken, testing_env};
 
     #[test]
     fn test_group_sponsor_quota_spends_on_group_write() {
@@ -56,14 +56,18 @@ mod group_sponsor_quota_tests {
         assert!(res.is_ok(), "group-sponsored write should succeed");
 
         // Quota should be consumed (allowance decreases).
-        let quota_key = crate::state::models::SocialPlatform::group_sponsor_quota_key(&target, group_id);
+        let quota_key =
+            crate::state::models::SocialPlatform::group_sponsor_quota_key(&target, group_id);
         let quota = contract
             .platform
             .group_sponsor_quotas
             .get(&quota_key)
             .expect("quota should exist");
 
-        assert!(quota.allowance_bytes < quota.allowance_max_bytes, "allowance should decrease after spend");
+        assert!(
+            quota.allowance_bytes < quota.allowance_max_bytes,
+            "allowance should decrease after spend"
+        );
     }
 
     #[test]
@@ -167,20 +171,36 @@ mod group_sponsor_quota_tests {
         let res = contract
             .platform
             .storage_write_string("groups/g1/test_key_default", "x", None);
-        assert!(res.is_ok(), "group-sponsored write should succeed via default policy");
+        assert!(
+            res.is_ok(),
+            "group-sponsored write should succeed via default policy"
+        );
 
         // A per-user quota record should be lazily created and consumed.
-        let quota_key = crate::state::models::SocialPlatform::group_sponsor_quota_key(&target, group_id);
+        let quota_key =
+            crate::state::models::SocialPlatform::group_sponsor_quota_key(&target, group_id);
         let quota = contract
             .platform
             .group_sponsor_quotas
             .get(&quota_key)
             .expect("quota should be created from default policy");
 
-        assert!(!quota.is_override, "default-derived quota must not be marked as override");
-        assert_eq!(quota.applied_default_version, 1, "default-derived quota must track the current default version");
-        assert!(quota.last_refill_ns > 0, "default-derived quota must initialize last_refill_ns");
-        assert!(quota.allowance_bytes < quota.allowance_max_bytes, "allowance should decrease after spend");
+        assert!(
+            !quota.is_override,
+            "default-derived quota must not be marked as override"
+        );
+        assert_eq!(
+            quota.applied_default_version, 1,
+            "default-derived quota must track the current default version"
+        );
+        assert!(
+            quota.last_refill_ns > 0,
+            "default-derived quota must initialize last_refill_ns"
+        );
+        assert!(
+            quota.allowance_bytes < quota.allowance_max_bytes,
+            "allowance should decrease after spend"
+        );
     }
 
     #[test]
@@ -231,7 +251,8 @@ mod group_sponsor_quota_tests {
             .storage_write_string("groups/g1/test_key_default_v1", "x", None)
             .expect("group-sponsored write should succeed");
 
-        let quota_key = crate::state::models::SocialPlatform::group_sponsor_quota_key(&target, group_id);
+        let quota_key =
+            crate::state::models::SocialPlatform::group_sponsor_quota_key(&target, group_id);
         let q_before = contract
             .platform
             .group_sponsor_quotas
@@ -270,8 +291,14 @@ mod group_sponsor_quota_tests {
             .expect("quota should still exist");
 
         assert!(!q_after.is_override);
-        assert_eq!(q_after.applied_default_version, 2, "quota should lazily sync to the new default version");
-        assert_eq!(q_after.allowance_max_bytes, 100, "quota max should sync to new default");
+        assert_eq!(
+            q_after.applied_default_version, 2,
+            "quota should lazily sync to the new default version"
+        );
+        assert_eq!(
+            q_after.allowance_max_bytes, 100,
+            "quota max should sync to new default"
+        );
         assert!(
             q_after.allowance_bytes > q_after.allowance_max_bytes,
             "allowance should not be clamped down when default max decreases"
@@ -320,11 +347,15 @@ mod group_sponsor_quota_tests {
 
         // Target attempts group write without personal balance; should fail due to default gating.
         testing_env!(get_context(target.clone()).build());
-        let res = contract
-            .platform
-            .storage_write_string("groups/g1/test_key_default_blocked", "x", None);
+        let res =
+            contract
+                .platform
+                .storage_write_string("groups/g1/test_key_default_blocked", "x", None);
 
-        assert!(res.is_err(), "write should fail when default quota is exhausted");
+        assert!(
+            res.is_err(),
+            "write should fail when default quota is exhausted"
+        );
     }
 
     #[test]
@@ -394,8 +425,14 @@ mod group_sponsor_quota_tests {
         let now = 86_400_000_000_000u64 + 1; // > 1 day later
         q.refill(now);
 
-        assert_eq!(q.allowance_bytes, 100, "refill must not clamp allowance down when over max");
-        assert_eq!(q.last_refill_ns, now, "timestamp should advance to avoid refill accumulation");
+        assert_eq!(
+            q.allowance_bytes, 100,
+            "refill must not clamp allowance down when over max"
+        );
+        assert_eq!(
+            q.last_refill_ns, now,
+            "timestamp should advance to avoid refill accumulation"
+        );
     }
 
     #[test]

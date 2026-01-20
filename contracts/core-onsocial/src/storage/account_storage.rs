@@ -68,8 +68,10 @@ impl Storage {
     /// Returns error if available balance cannot cover effective storage usage.
     #[inline(always)]
     pub fn assert_storage_covered(&self) -> Result<(), crate::errors::SocialError> {
-        let effective_bytes = crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
-        let storage_balance_needed = crate::storage::calculate_storage_balance_needed(effective_bytes);
+        let effective_bytes =
+            crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
+        let storage_balance_needed =
+            crate::storage::calculate_storage_balance_needed(effective_bytes);
         let available = self.available_balance();
         if storage_balance_needed > available {
             return Err(crate::errors::SocialError::InsufficientStorage(format!(
@@ -155,13 +157,7 @@ impl Storage {
 }
 
 #[derive(
-    NearSchema,
-    BorshDeserialize,
-    BorshSerialize,
-    serde::Serialize,
-    serde::Deserialize,
-    Clone,
-    Debug,
+    NearSchema, BorshDeserialize, BorshSerialize, serde::Serialize, serde::Deserialize, Clone, Debug,
 )]
 #[abi(json, borsh)]
 pub struct AccountSharedStorage {
@@ -180,7 +176,8 @@ impl AccountSharedStorage {
     pub fn is_valid_for_path(&self, path: &str) -> bool {
         use crate::state::models::SharedStoragePool;
 
-        if let Some(pool_group_id) = SharedStoragePool::extract_group_id_from_pool_key(&self.pool_id)
+        if let Some(pool_group_id) =
+            SharedStoragePool::extract_group_id_from_pool_key(&self.pool_id)
         {
             if let Some(path_group_id) = SharedStoragePool::extract_group_id_from_path(path) {
                 return pool_group_id == path_group_id;

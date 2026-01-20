@@ -1,18 +1,16 @@
 use near_sdk::{
-    env,
-    serde_json::{self, json, Value},
-    AccountId,
+    AccountId, env,
+    serde_json::{self, Value, json},
 };
 
 use crate::constants::{
-    DEFAULT_VOTING_MAJORITY_THRESHOLD_BPS,
-    DEFAULT_VOTING_PARTICIPATION_QUORUM_BPS,
+    DEFAULT_VOTING_MAJORITY_THRESHOLD_BPS, DEFAULT_VOTING_PARTICIPATION_QUORUM_BPS,
     DEFAULT_VOTING_PERIOD,
 };
-use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::config::GroupConfig;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 impl crate::domain::groups::core::GroupStorage {
     pub(crate) fn assert_member_driven_private_invariant(
@@ -31,7 +29,9 @@ impl crate::domain::groups::core::GroupStorage {
         }
     }
 
-    pub(super) fn enforce_member_driven_groups_private(config: &mut Value) -> Result<(), SocialError> {
+    pub(super) fn enforce_member_driven_groups_private(
+        config: &mut Value,
+    ) -> Result<(), SocialError> {
         let cfg = GroupConfig::try_from_value(config)?;
         let is_member_driven = cfg.member_driven;
         let is_private = cfg.is_private;
@@ -94,7 +94,10 @@ impl crate::domain::groups::core::GroupStorage {
         platform.storage_set(&nonce_path, &Value::Number(1u64.into()))?;
         let member_data = Value::Object(serde_json::Map::from_iter([
             ("level".to_string(), Value::Number(255.into())), // Full permissions
-            ("granted_by".to_string(), Value::String("system".to_string())),
+            (
+                "granted_by".to_string(),
+                Value::String("system".to_string()),
+            ),
             (
                 "joined_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
@@ -141,7 +144,11 @@ impl crate::domain::groups::core::GroupStorage {
             owner.clone(),
         )
         .with_target(owner)
-        .with_path(&format!("groups/{}/member_nonces/{}", group_id, owner.as_str()))
+        .with_path(&format!(
+            "groups/{}/member_nonces/{}",
+            group_id,
+            owner.as_str()
+        ))
         .with_value(Value::Number(1u64.into()))
         .emit(&mut event_batch);
 

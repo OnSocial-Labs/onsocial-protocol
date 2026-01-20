@@ -13,10 +13,10 @@
 
 #[cfg(test)]
 mod io_operations_tests {
-    use crate::tests::test_utils::*;
     use crate::state::models::{DataEntry, DataValue};
+    use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
-    use near_sdk::{testing_env, NearToken};
+    use near_sdk::{NearToken, testing_env};
 
     // ========================================================================
     // TEST 1: execution_payer affects group path storage accounting
@@ -28,36 +28,49 @@ mod io_operations_tests {
     #[test]
     fn test_execution_payer_affects_group_storage_accounting() {
         let mut contract = init_live_contract();
-        let alice = test_account(0);  // Will be predecessor
-        let bob = test_account(1);    // Will be execution_payer
+        let alice = test_account(0); // Will be predecessor
+        let bob = test_account(1); // Will be execution_payer
         let charlie = test_account(2); // Group owner
 
         // Create group owned by charlie
-        testing_env!(get_context_with_deposit(charlie.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(create_group_request(
-            "test-group".to_string(),
-            json!({"owner": charlie.to_string()})
-        )).unwrap();
+        testing_env!(
+            get_context_with_deposit(charlie.clone(), NearToken::from_near(1).as_yoctonear())
+                .build()
+        );
+        contract
+            .execute(create_group_request(
+                "test-group".to_string(),
+                json!({"owner": charlie.to_string()}),
+            ))
+            .unwrap();
 
         // Add alice and bob as members with WRITE permission
         test_add_member_bypass_proposals(&mut contract, "test-group", &alice, 2, &charlie);
         test_add_member_bypass_proposals(&mut contract, "test-group", &bob, 2, &charlie);
 
         // Alice deposits storage
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(2).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(2).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         // Bob deposits storage
-        testing_env!(get_context_with_deposit(bob.clone(), NearToken::from_near(2).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(2).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(bob.clone(), NearToken::from_near(2).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(2).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         // Get storage before group write
         let alice_storage_before = contract.get_storage_balance(alice.clone()).unwrap();
@@ -77,8 +90,10 @@ mod io_operations_tests {
         };
 
         // Insert directly (bypassing execute to test raw insert_entry behavior with execution_payer)
-        let result = contract.platform.insert_entry("groups/test-group/content/post1", entry);
-        
+        let result = contract
+            .platform
+            .insert_entry("groups/test-group/content/post1", entry);
+
         // Clear execution_payer
         contract.platform.execution_payer = None;
 
@@ -90,12 +105,17 @@ mod io_operations_tests {
         let bob_storage_after = contract.get_storage_balance(bob.clone()).unwrap();
 
         // Bob (execution_payer) should have increased used_bytes, not alice
-        let alice_delta = alice_storage_after.used_bytes as i64 - alice_storage_before.used_bytes as i64;
+        let alice_delta =
+            alice_storage_after.used_bytes as i64 - alice_storage_before.used_bytes as i64;
         let bob_delta = bob_storage_after.used_bytes as i64 - bob_storage_before.used_bytes as i64;
 
         // execution_payer (bob) should be charged
-        assert!(bob_delta > 0, "Bob (execution_payer) should have storage used. Delta: {}", bob_delta);
-        
+        assert!(
+            bob_delta > 0,
+            "Bob (execution_payer) should have storage used. Delta: {}",
+            bob_delta
+        );
+
         println!("✅ execution_payer correctly charged for group path storage");
         println!("   Alice delta: {} bytes", alice_delta);
         println!("   Bob delta: {} bytes", bob_delta);
@@ -108,20 +128,28 @@ mod io_operations_tests {
         let bob = test_account(1);
 
         // Alice deposits storage
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(2).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(2).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
-        // Bob deposits storage  
-        testing_env!(get_context_with_deposit(bob.clone(), NearToken::from_near(2).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(2).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        // Bob deposits storage
+        testing_env!(
+            get_context_with_deposit(bob.clone(), NearToken::from_near(2).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(2).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         let alice_storage_before = contract.get_storage_balance(alice.clone()).unwrap();
         let bob_storage_before = contract.get_storage_balance(bob.clone()).unwrap();
@@ -148,12 +176,19 @@ mod io_operations_tests {
         let alice_storage_after = contract.get_storage_balance(alice.clone()).unwrap();
         let bob_storage_after = contract.get_storage_balance(bob.clone()).unwrap();
 
-        let alice_delta = alice_storage_after.used_bytes as i64 - alice_storage_before.used_bytes as i64;
+        let alice_delta =
+            alice_storage_after.used_bytes as i64 - alice_storage_before.used_bytes as i64;
         let bob_delta = bob_storage_after.used_bytes as i64 - bob_storage_before.used_bytes as i64;
 
         // Alice (path owner) should be charged, NOT bob (execution_payer)
-        assert!(alice_delta > 0, "Alice (path owner) should have storage used");
-        assert_eq!(bob_delta, 0, "Bob (execution_payer) should NOT be charged for account paths");
+        assert!(
+            alice_delta > 0,
+            "Alice (path owner) should have storage used"
+        );
+        assert_eq!(
+            bob_delta, 0,
+            "Bob (execution_payer) should NOT be charged for account paths"
+        );
 
         println!("✅ execution_payer correctly ignored for account paths");
         println!("   Alice delta: {} bytes (charged)", alice_delta);
@@ -170,12 +205,16 @@ mod io_operations_tests {
         let alice = test_account(0);
 
         // Alice deposits storage
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         testing_env!(get_context(alice.clone()).build());
 
@@ -195,7 +234,8 @@ mod io_operations_tests {
                 let err_str = format!("{:?}", e);
                 assert!(
                     err_str.contains("Invalid") || err_str.contains("path"),
-                    "Error should mention invalid path: {}", err_str
+                    "Error should mention invalid path: {}",
+                    err_str
                 );
             }
             Ok(_) => panic!("Expected error for empty path"),
@@ -209,12 +249,16 @@ mod io_operations_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         testing_env!(get_context(alice.clone()).build());
 
@@ -235,12 +279,16 @@ mod io_operations_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         // Get storage state before
         let storage_before = contract.get_storage_balance(alice.clone()).unwrap();
@@ -258,8 +306,7 @@ mod io_operations_tests {
         // Verify no state change
         let storage_after = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(
-            storage_before.used_bytes,
-            storage_after.used_bytes,
+            storage_before.used_bytes, storage_after.used_bytes,
             "Failed insert should not change used_bytes"
         );
 
@@ -275,8 +322,14 @@ mod io_operations_tests {
         let contract = init_live_contract();
 
         // Invalid paths should return None (not panic)
-        assert!(contract.platform.get_entry("").is_none(), "Empty path should return None");
-        assert!(contract.platform.get_entry("noslash").is_none(), "No slash should return None");
+        assert!(
+            contract.platform.get_entry("").is_none(),
+            "Empty path should return None"
+        );
+        assert!(
+            contract.platform.get_entry("noslash").is_none(),
+            "No slash should return None"
+        );
 
         println!("✅ get_entry returns None for invalid paths");
     }
@@ -288,10 +341,18 @@ mod io_operations_tests {
 
         // Valid format but nonexistent
         let path = format!("{}/profile/nonexistent", alice);
-        assert!(contract.platform.get_entry(&path).is_none(), "Nonexistent should return None");
+        assert!(
+            contract.platform.get_entry(&path).is_none(),
+            "Nonexistent should return None"
+        );
 
         // Nonexistent group path
-        assert!(contract.platform.get_entry("groups/nonexistent/config").is_none());
+        assert!(
+            contract
+                .platform
+                .get_entry("groups/nonexistent/config")
+                .is_none()
+        );
 
         println!("✅ get_entry returns None for nonexistent paths");
     }
@@ -302,28 +363,39 @@ mod io_operations_tests {
         let alice = test_account(0);
 
         // Setup: deposit and write data
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         testing_env!(get_context(alice.clone()).build());
-        contract.execute(set_request(json!({
-            "profile/name": "Alice"
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/name": "Alice"
+            })))
+            .unwrap();
 
         // Soft delete
-        contract.execute(set_request(json!({
-            "profile/name": null
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/name": null
+            })))
+            .unwrap();
 
         // get_entry should return soft-deleted entries
         let path = format!("{}/profile/name", alice);
         let entry = contract.platform.get_entry(&path);
 
-        assert!(entry.is_some(), "get_entry should return soft-deleted entries");
+        assert!(
+            entry.is_some(),
+            "get_entry should return soft-deleted entries"
+        );
         assert!(
             matches!(entry.unwrap().value, DataValue::Deleted(_)),
             "Entry should be Deleted variant"
@@ -341,19 +413,25 @@ mod io_operations_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         let storage_before = contract.get_storage_balance(alice.clone()).unwrap();
 
         testing_env!(get_context(alice.clone()).build());
-        contract.execute(set_request(json!({
-            "profile/bio": "This is some bio text"
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/bio": "This is some bio text"
+            })))
+            .unwrap();
 
         let storage_after = contract.get_storage_balance(alice.clone()).unwrap();
 
@@ -370,26 +448,34 @@ mod io_operations_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         testing_env!(get_context(alice.clone()).build());
 
         // Write small data
-        contract.execute(set_request(json!({
-            "profile/bio": "Short"
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/bio": "Short"
+            })))
+            .unwrap();
 
         let storage_after_small = contract.get_storage_balance(alice.clone()).unwrap();
 
         // Update with larger data
-        contract.execute(set_request(json!({
-            "profile/bio": "This is a much longer bio that takes more storage space"
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/bio": "This is a much longer bio that takes more storage space"
+            })))
+            .unwrap();
 
         let storage_after_large = contract.get_storage_balance(alice.clone()).unwrap();
 
@@ -406,26 +492,34 @@ mod io_operations_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/deposit": {
-                "amount": NearToken::from_near(1).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(1).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": NearToken::from_near(1).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         testing_env!(get_context(alice.clone()).build());
 
         // Write large data
-        contract.execute(set_request(json!({
-            "profile/bio": "This is a much longer bio that takes more storage space"
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/bio": "This is a much longer bio that takes more storage space"
+            })))
+            .unwrap();
 
         let storage_after_large = contract.get_storage_balance(alice.clone()).unwrap();
 
         // Update with smaller data
-        contract.execute(set_request(json!({
-            "profile/bio": "Tiny"
-        }))).unwrap();
+        contract
+            .execute(set_request(json!({
+                "profile/bio": "Tiny"
+            })))
+            .unwrap();
 
         let storage_after_small = contract.get_storage_balance(alice.clone()).unwrap();
 
@@ -474,13 +568,17 @@ mod io_operations_tests {
         let bob = test_account(1);
 
         // Setup: alice creates shared pool
-        testing_env!(get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build());
-        contract.execute(set_request(json!({
-            "storage/shared_pool_deposit": {
-                "pool_id": alice.to_string(),
-                "amount": NearToken::from_near(2).as_yoctonear().to_string()
-            }
-        }))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), NearToken::from_near(2).as_yoctonear()).build()
+        );
+        contract
+            .execute(set_request(json!({
+                "storage/shared_pool_deposit": {
+                    "pool_id": alice.to_string(),
+                    "amount": NearToken::from_near(2).as_yoctonear().to_string()
+                }
+            })))
+            .unwrap();
 
         // Set execution_payer to bob (should be ignored for shared_storage paths)
         contract.platform.execution_payer = Some(bob.clone());

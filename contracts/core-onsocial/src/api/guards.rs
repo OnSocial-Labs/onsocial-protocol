@@ -1,4 +1,4 @@
-use crate::{state::models::SocialPlatform, SocialError};
+use crate::{SocialError, state::models::SocialPlatform};
 
 pub(crate) struct ContractGuards;
 

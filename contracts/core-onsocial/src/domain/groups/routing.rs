@@ -1,8 +1,8 @@
 use near_sdk::serde_json::Value;
 
 use crate::domain::groups::config::GroupConfig;
-use crate::{invalid_input, SocialError};
 use crate::state::models::SocialPlatform;
+use crate::{SocialError, invalid_input};
 
 pub fn validate_group_operation(
     platform: &SocialPlatform,

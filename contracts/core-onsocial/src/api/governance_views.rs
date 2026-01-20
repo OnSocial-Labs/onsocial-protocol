@@ -1,4 +1,4 @@
-use near_sdk::{near, serde_json::Value, AccountId};
+use near_sdk::{AccountId, near, serde_json::Value};
 
 use crate::{Contract, ContractExt};
 

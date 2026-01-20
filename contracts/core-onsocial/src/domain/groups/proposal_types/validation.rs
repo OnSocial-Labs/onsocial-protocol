@@ -1,17 +1,22 @@
 use near_sdk::AccountId;
 
 use crate::constants::{BPS_DENOMINATOR, MAX_VOTING_PERIOD, MIN_VOTING_PERIOD};
-use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::GroupStorage;
+use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::permissions::kv as kv_permissions;
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 use super::group_update_type::GroupUpdateType;
 use super::types::ProposalType;
 
 impl ProposalType {
-    pub fn validate(&self, platform: &SocialPlatform, group_id: &str, proposer: &AccountId) -> Result<(), SocialError> {
+    pub fn validate(
+        &self,
+        platform: &SocialPlatform,
+        group_id: &str,
+        proposer: &AccountId,
+    ) -> Result<(), SocialError> {
         let config = GroupStorage::get_group_config(platform, group_id)
             .ok_or_else(|| invalid_input!("Group not found"))?;
 
@@ -52,19 +57,26 @@ impl ProposalType {
         }
 
         match self {
-            Self::GroupUpdate { update_type, changes, .. } => {
+            Self::GroupUpdate {
+                update_type,
+                changes,
+                ..
+            } => {
                 let parsed_update_type = GroupUpdateType::parse(update_type)
                     .ok_or_else(|| invalid_input!("Unknown update_type"))?;
                 match parsed_update_type {
                     GroupUpdateType::Metadata | GroupUpdateType::Permissions => {
                         // Check the nested "changes" field for emptiness
                         let nested_changes = changes.get("changes").unwrap_or(changes);
-                        if nested_changes.is_null() || nested_changes.as_object().is_none_or(|obj| obj.is_empty()) {
+                        if nested_changes.is_null()
+                            || nested_changes.as_object().is_none_or(|obj| obj.is_empty())
+                        {
                             return Err(invalid_input!("Changes cannot be empty"));
                         }
                     }
                     GroupUpdateType::TransferOwnership => {
-                        let new_owner_str = changes.get("new_owner")
+                        let new_owner_str = changes
+                            .get("new_owner")
                             .and_then(|v| v.as_str())
                             .ok_or_else(|| invalid_input!("new_owner is required"))?;
                         let new_owner_account = crate::validation::parse_account_id_str(
@@ -75,11 +87,16 @@ impl ProposalType {
                             return Err(invalid_input!("New owner must be a member of the group"));
                         }
                         if GroupStorage::is_blacklisted(platform, group_id, &new_owner_account) {
-                            return Err(invalid_input!("Cannot transfer ownership to blacklisted member"));
+                            return Err(invalid_input!(
+                                "Cannot transfer ownership to blacklisted member"
+                            ));
                         }
                     }
-                    GroupUpdateType::RemoveMember | GroupUpdateType::Ban | GroupUpdateType::Unban => {
-                        let target_str = changes.get("target_user")
+                    GroupUpdateType::RemoveMember
+                    | GroupUpdateType::Ban
+                    | GroupUpdateType::Unban => {
+                        let target_str = changes
+                            .get("target_user")
                             .and_then(|v| v.as_str())
                             .ok_or_else(|| invalid_input!("target_user is required"))?;
                         crate::validation::parse_account_id_str(
@@ -89,17 +106,26 @@ impl ProposalType {
                     }
                 }
             }
-            Self::PermissionChange { target_user, level, .. } => {
+            Self::PermissionChange {
+                target_user, level, ..
+            } => {
                 if !GroupStorage::is_member(platform, group_id, target_user) {
                     return Err(invalid_input!("Target user must be a member"));
                 }
                 if !kv_permissions::types::is_valid_permission_level(*level, true) {
                     return Err(invalid_input!("Invalid permission level"));
                 }
-                if let Some(member_data) = GroupStorage::get_member_data(platform, group_id, target_user) {
-                    let current_level = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(0) as u8;
+                if let Some(member_data) =
+                    GroupStorage::get_member_data(platform, group_id, target_user)
+                {
+                    let current_level = member_data
+                        .get("level")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0) as u8;
                     if current_level == *level {
-                        return Err(invalid_input!("Target user already has this permission level"));
+                        return Err(invalid_input!(
+                            "Target user already has this permission level"
+                        ));
                     }
                 }
             }
@@ -135,7 +161,11 @@ impl ProposalType {
                 }
             }
             Self::JoinRequest { .. } => {}
-            Self::VotingConfigChange { participation_quorum_bps, majority_threshold_bps, voting_period } => {
+            Self::VotingConfigChange {
+                participation_quorum_bps,
+                majority_threshold_bps,
+                voting_period,
+            } => {
                 if participation_quorum_bps.is_none()
                     && majority_threshold_bps.is_none()
                     && voting_period.is_none()
@@ -165,7 +195,6 @@ impl ProposalType {
                     }
                 }
 
-
                 if let Some(period) = voting_period {
                     if !(MIN_VOTING_PERIOD..=MAX_VOTING_PERIOD).contains(period) {
                         return Err(invalid_input!(
@@ -174,7 +203,9 @@ impl ProposalType {
                     }
                 }
             }
-            Self::CustomProposal { title, description, .. } => {
+            Self::CustomProposal {
+                title, description, ..
+            } => {
                 if title.trim().is_empty() || description.trim().is_empty() {
                     return Err(invalid_input!("Title and description required"));
                 }

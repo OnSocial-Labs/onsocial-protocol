@@ -1,6 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::store::LookupMap;
-use near_sdk::{env, AccountId};
+use near_sdk::{AccountId, env};
 use near_sdk_macros::NearSchema;
 
 use crate::config::GovernanceConfig;
@@ -55,9 +55,14 @@ impl SharedStoragePool {
         if group_id.is_empty() {
             return Err(crate::invalid_input!("group_id cannot be empty"));
         }
-        format!("{}{}{}", crate::constants::GROUP_POOL_PREFIX, group_id, crate::constants::GROUP_POOL_SUFFIX)
-            .parse()
-            .map_err(|_| crate::invalid_input!(format!("Invalid group_id for pool key: {}", group_id)))
+        format!(
+            "{}{}{}",
+            crate::constants::GROUP_POOL_PREFIX,
+            group_id,
+            crate::constants::GROUP_POOL_SUFFIX
+        )
+        .parse()
+        .map_err(|_| crate::invalid_input!(format!("Invalid group_id for pool key: {}", group_id)))
     }
 
     pub fn extract_group_id_from_pool_key(pool_id: &AccountId) -> Option<String> {
@@ -154,8 +159,7 @@ impl GroupSponsorAccount {
             return;
         }
 
-        let refill_u128 = (elapsed_ns as u128)
-            .saturating_mul(self.daily_refill_bytes as u128)
+        let refill_u128 = (elapsed_ns as u128).saturating_mul(self.daily_refill_bytes as u128)
             / (crate::constants::NANOS_PER_DAY as u128);
 
         let refill_bytes = u64::try_from(refill_u128).unwrap_or(u64::MAX);

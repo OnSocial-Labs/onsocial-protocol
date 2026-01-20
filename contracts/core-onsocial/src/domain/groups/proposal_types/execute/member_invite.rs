@@ -1,12 +1,12 @@
 use near_sdk::AccountId;
 
-use crate::constants::EVENT_TYPE_GROUP_UPDATE;
-use crate::events::{EventBatch, EventBuilder};
-use crate::domain::groups::members::AddMemberAuth;
-use crate::domain::groups::GroupStorage;
-use crate::domain::groups::permissions::kv as kv_permissions;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::constants::EVENT_TYPE_GROUP_UPDATE;
+use crate::domain::groups::GroupStorage;
+use crate::domain::groups::members::AddMemberAuth;
+use crate::domain::groups::permissions::kv as kv_permissions;
+use crate::events::{EventBatch, EventBuilder};
+use crate::state::models::SocialPlatform;
 
 use super::super::types::ProposalType;
 
@@ -20,11 +20,17 @@ impl ProposalType {
         proposer: &AccountId,
     ) -> Result<(), SocialError> {
         if GroupStorage::is_blacklisted(platform, group_id, proposer) {
-            return Err(crate::permission_denied!("execute_member_invite", "Proposer was blacklisted"));
+            return Err(crate::permission_denied!(
+                "execute_member_invite",
+                "Proposer was blacklisted"
+            ));
         }
 
         if GroupStorage::is_blacklisted(platform, group_id, target_user) {
-            return Err(crate::permission_denied!("execute_member_invite", "Target user was blacklisted"));
+            return Err(crate::permission_denied!(
+                "execute_member_invite",
+                "Target user was blacklisted"
+            ));
         }
 
         GroupStorage::add_member_internal(
@@ -36,7 +42,8 @@ impl ProposalType {
         )?;
 
         let member_nonce_path = format!("groups/{}/member_nonces/{}", group_id, target_user);
-        let member_nonce = platform.storage_get(&member_nonce_path)
+        let member_nonce = platform
+            .storage_get(&member_nonce_path)
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
 

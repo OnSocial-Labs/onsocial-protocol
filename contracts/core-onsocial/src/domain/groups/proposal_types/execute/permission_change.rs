@@ -1,19 +1,18 @@
 use near_sdk::{
-    AccountId,
-    env,
-    serde_json::{json, Value},
+    AccountId, env,
+    serde_json::{Value, json},
 };
 
 use crate::constants::EVENT_TYPE_GROUP_UPDATE;
-use crate::events::{EventBatch, EventBuilder};
-use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::GroupStorage;
+use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::permissions::kv as kv_permissions;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
-use super::helpers::{ExecutionContext, PathPermissionGrantData};
 use super::super::types::ProposalType;
+use super::helpers::{ExecutionContext, PathPermissionGrantData};
 
 impl ProposalType {
     pub(super) fn execute_permission_change(
@@ -33,7 +32,10 @@ impl ProposalType {
 
         if let Some(obj) = member_data.as_object_mut() {
             obj.insert("level".to_string(), json!(level));
-            obj.insert("updated_at".to_string(), Value::String(env::block_timestamp().to_string()));
+            obj.insert(
+                "updated_at".to_string(),
+                Value::String(env::block_timestamp().to_string()),
+            );
             if let Some(reason) = reason {
                 obj.insert("reason".to_string(), json!(reason));
             }
@@ -45,7 +47,13 @@ impl ProposalType {
 
         let group_root_path = format!("groups/{}", group_id);
         if level == 0 {
-            kv_permissions::revoke_permissions(platform, proposer, target_user, &group_root_path, &mut event_batch)?;
+            kv_permissions::revoke_permissions(
+                platform,
+                proposer,
+                target_user,
+                &group_root_path,
+                &mut event_batch,
+            )?;
         } else {
             kv_permissions::grant_permissions(
                 platform,
@@ -59,16 +67,19 @@ impl ProposalType {
             )?;
         }
 
-
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "permission_changed", proposer.clone())
-            .with_field("group_id", group_id)
-            .with_field("proposal_id", proposal_id)
-            .with_target(target_user)
-            .with_field("level", level)
-            .with_field("reason", reason.unwrap_or(""))
-            .with_path(&member_key)
-            .with_value(member_data)
-            .emit(&mut event_batch);
+        EventBuilder::new(
+            EVENT_TYPE_GROUP_UPDATE,
+            "permission_changed",
+            proposer.clone(),
+        )
+        .with_field("group_id", group_id)
+        .with_field("proposal_id", proposal_id)
+        .with_target(target_user)
+        .with_field("level", level)
+        .with_field("reason", reason.unwrap_or(""))
+        .with_path(&member_key)
+        .with_value(member_data)
+        .emit(&mut event_batch);
         event_batch.emit()?;
 
         Ok(())
@@ -97,14 +108,18 @@ impl ProposalType {
             None,
         )?;
 
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_granted", ctx.proposer.clone())
-            .with_field("group_id", ctx.group_id)
-            .with_field("proposal_id", proposal_id)
-            .with_target(data.target_user)
-            .with_path(data.path)
-            .with_field("level", data.level)
-            .with_field("reason", data.reason)
-            .emit(&mut event_batch);
+        EventBuilder::new(
+            EVENT_TYPE_GROUP_UPDATE,
+            "path_permission_granted",
+            ctx.proposer.clone(),
+        )
+        .with_field("group_id", ctx.group_id)
+        .with_field("proposal_id", proposal_id)
+        .with_target(data.target_user)
+        .with_path(data.path)
+        .with_field("level", data.level)
+        .with_field("reason", data.reason)
+        .emit(&mut event_batch);
         event_batch.emit()?;
 
         Ok(())
@@ -126,15 +141,25 @@ impl ProposalType {
 
         let mut event_batch = EventBatch::new();
 
-        kv_permissions::revoke_permissions(platform, &group_owner, target_user, path, &mut event_batch)?;
+        kv_permissions::revoke_permissions(
+            platform,
+            &group_owner,
+            target_user,
+            path,
+            &mut event_batch,
+        )?;
 
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "path_permission_revoked", proposer.clone())
-            .with_field("group_id", group_id)
-            .with_field("proposal_id", proposal_id)
-            .with_target(target_user)
-            .with_path(path)
-            .with_field("reason", reason)
-            .emit(&mut event_batch);
+        EventBuilder::new(
+            EVENT_TYPE_GROUP_UPDATE,
+            "path_permission_revoked",
+            proposer.clone(),
+        )
+        .with_field("group_id", group_id)
+        .with_field("proposal_id", proposal_id)
+        .with_target(target_user)
+        .with_path(path)
+        .with_field("reason", reason)
+        .emit(&mut event_batch);
         event_batch.emit()?;
 
         Ok(())

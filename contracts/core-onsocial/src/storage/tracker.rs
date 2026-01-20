@@ -10,10 +10,7 @@ pub struct StorageTracker {
 impl Drop for StorageTracker {
     fn drop(&mut self) {
         if !self.is_empty() {
-            debug_assert!(
-                false,
-                "Bug: storage tracker not reset (non-empty at drop)"
-            );
+            debug_assert!(false, "Bug: storage tracker not reset (non-empty at drop)");
             #[cfg(debug_assertions)]
             env::log_str("WARN: Bug: storage tracker not reset (non-empty at drop)");
         }
@@ -78,10 +75,7 @@ impl StorageTracker {
     }
 
     #[inline(always)]
-    pub fn track_result<T, E>(
-        &mut self,
-        f: impl FnOnce() -> Result<T, E>,
-    ) -> Result<(T, i128), E> {
+    pub fn track_result<T, E>(&mut self, f: impl FnOnce() -> Result<T, E>) -> Result<(T, i128), E> {
         self.start_tracking();
         let res = f();
         self.stop_tracking();

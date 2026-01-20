@@ -1,11 +1,11 @@
-use near_sdk::{env, AccountId};
 use near_sdk::serde_json::Value;
+use near_sdk::{AccountId, env};
 
+use crate::SocialError;
 use crate::events::EventBatch;
 use crate::state::execute::ExecuteContext;
-use crate::state::set_context::VerifiedContext;
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
+use crate::state::set_context::VerifiedContext;
 
 impl SocialPlatform {
     pub(super) fn execute_action_set(
@@ -17,7 +17,8 @@ impl SocialPlatform {
         let options = ctx.options.clone();
 
         // Resolve actor's public key for key-based permission fallback.
-        let actor_pk = ctx.signed_nonce
+        let actor_pk = ctx
+            .signed_nonce
             .as_ref()
             .map(|(_, pk, _)| pk.clone())
             .or_else(|| {

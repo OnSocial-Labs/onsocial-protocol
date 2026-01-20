@@ -1,8 +1,8 @@
 use crate::{
+    SocialError,
     constants::EVENT_TYPE_CONTRACT_UPDATE,
     events::{EventBatch, EventBuilder},
     state::{ContractStatus, SocialPlatform},
-    SocialError,
 };
 
 pub fn emit_status_event(
@@ -15,11 +15,15 @@ pub fn emit_status_event(
     let contract_id = SocialPlatform::platform_pool_account();
     let path = format!("{}/contract/status", contract_id.as_str());
 
-    EventBuilder::new(EVENT_TYPE_CONTRACT_UPDATE, operation, SocialPlatform::current_caller())
-        .with_path(&path)
-        .with_field("previous", format!("{:?}", previous))
-        .with_field("new", format!("{:?}", new_status))
-        .emit(&mut batch);
+    EventBuilder::new(
+        EVENT_TYPE_CONTRACT_UPDATE,
+        operation,
+        SocialPlatform::current_caller(),
+    )
+    .with_path(&path)
+    .with_field("previous", format!("{:?}", previous))
+    .with_field("new", format!("{:?}", new_status))
+    .emit(&mut batch);
     batch.emit()
 }
 

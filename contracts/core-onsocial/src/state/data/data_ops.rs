@@ -1,11 +1,11 @@
 use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
-use crate::state::set_context::{ApiOperationContext, DataOperationContext, OperationContext};
-use crate::state::models::SocialPlatform;
-use crate::validation::validate_json_value_simple;
-use crate::validation::Path;
 use crate::SocialError;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::{ApiOperationContext, DataOperationContext, OperationContext};
+use crate::validation::Path;
+use crate::validation::validate_json_value_simple;
 
 impl SocialPlatform {
     pub(crate) fn process_operation(
@@ -72,7 +72,7 @@ impl SocialPlatform {
             } else {
                 false
             };
-            
+
             if deleted {
                 let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
                 crate::events::insert_block_context(&mut extra);
@@ -128,7 +128,8 @@ impl SocialPlatform {
                 .with_field("bytes", bytes.to_string());
 
                 if let Some(remaining_allowance) = remaining_allowance {
-                    builder = builder.with_field("remaining_allowance", remaining_allowance.to_string());
+                    builder =
+                        builder.with_field("remaining_allowance", remaining_allowance.to_string());
                 }
 
                 builder.emit(ctx.event_batch);
@@ -149,7 +150,11 @@ impl SocialPlatform {
     ) -> Result<(), SocialError> {
         // Ensure storage coverage is initialized once per account.
         if !ctx.processed_accounts.contains(account_id) {
-            let mut storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
+            let mut storage = self
+                .user_storage
+                .get(account_id)
+                .cloned()
+                .unwrap_or_default();
 
             let already_sponsored = storage.platform_sponsored;
             let has_shared = storage.shared_storage.is_some();
@@ -174,7 +179,9 @@ impl SocialPlatform {
                 )
                 .with_field("pool_account", platform_account.to_string())
                 .emit(ctx.event_batch);
-            } else if !(already_sponsored || has_shared || has_personal_balance) && *ctx.attached_balance > 0 {
+            } else if !(already_sponsored || has_shared || has_personal_balance)
+                && *ctx.attached_balance > 0
+            {
                 let deposit_amount = *ctx.attached_balance;
                 let previous_balance = storage.balance;
                 storage.balance = storage.balance.saturating_add(deposit_amount);

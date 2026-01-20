@@ -1,11 +1,11 @@
 // --- Test Utilities ---
+use crate::events::types::Event;
 #[cfg(test)]
 use crate::*;
 #[cfg(test)]
-use near_sdk::test_utils::{accounts, VMContextBuilder};
+use near_sdk::test_utils::{VMContextBuilder, accounts};
 #[cfg(test)]
 use near_sdk::{AccountId, NearToken, env};
-use crate::events::types::Event;
 #[cfg(test)]
 use std::collections::HashMap;
 
@@ -28,7 +28,7 @@ pub fn get_context_for_proposal(predecessor_account_id: AccountId) -> VMContextB
 /// Calculate realistic storage deposit for typical operations
 /// NEAR storage costs are ~1 NEAR per 100KB (10^19 yoctoNEAR per 100,000 bytes)
 /// At testnet rates: 1 byte ≈ 10^14 yoctoNEAR = 0.0001 NEAR
-/// 
+///
 /// Typical operation costs:
 /// - Group creation: ~500-1000 bytes = 0.05-0.1 NEAR
 /// - Member addition: ~200-400 bytes = 0.02-0.04 NEAR  
@@ -39,14 +39,14 @@ pub fn get_context_for_proposal(predecessor_account_id: AccountId) -> VMContextB
 #[cfg(test)]
 pub fn calculate_test_deposit_for_operations(num_operations: u32, avg_bytes_per_op: u64) -> u128 {
     use near_sdk::env;
-    
+
     // Get current storage byte cost (varies by network)
     let byte_cost = env::storage_byte_cost().as_yoctonear();
-    
+
     // Calculate total bytes needed with 50% safety margin
     let total_bytes = (num_operations as u64) * avg_bytes_per_op;
     let bytes_with_margin = (total_bytes * 3) / 2; // 1.5x safety margin
-    
+
     // Calculate cost in yoctoNEAR
     bytes_with_margin as u128 * byte_cost
 }
@@ -66,7 +66,10 @@ pub fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
 
 /// Get a test context with attached deposit for the given account
 #[cfg(test)]
-pub fn get_context_with_deposit(predecessor_account_id: AccountId, deposit: u128) -> VMContextBuilder {
+pub fn get_context_with_deposit(
+    predecessor_account_id: AccountId,
+    deposit: u128,
+) -> VMContextBuilder {
     let mut builder = VMContextBuilder::new();
     builder
         .current_account_id(accounts(0))
@@ -132,7 +135,10 @@ pub fn set_request(data: near_sdk::serde_json::Value) -> crate::protocol::Reques
 }
 
 #[cfg(test)]
-pub fn set_request_with_options(data: near_sdk::serde_json::Value, options: Option<crate::protocol::Options>) -> crate::protocol::Request {
+pub fn set_request_with_options(
+    data: near_sdk::serde_json::Value,
+    options: Option<crate::protocol::Options>,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
@@ -163,7 +169,10 @@ pub fn set_request_for(
 // --- KV Operations ---
 
 #[cfg(test)]
-pub fn create_group_request(group_id: String, config: near_sdk::serde_json::Value) -> crate::protocol::Request {
+pub fn create_group_request(
+    group_id: String,
+    config: near_sdk::serde_json::Value,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
@@ -200,22 +209,34 @@ pub fn leave_group_request(group_id: String) -> crate::protocol::Request {
 // --- Group Membership Management ---
 
 #[cfg(test)]
-pub fn add_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+pub fn add_group_member_request(
+    group_id: String,
+    member_id: AccountId,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::AddGroupMember { group_id, member_id },
+        action: Action::AddGroupMember {
+            group_id,
+            member_id,
+        },
         auth: None,
         options: None,
     }
 }
 
 #[cfg(test)]
-pub fn remove_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+pub fn remove_group_member_request(
+    group_id: String,
+    member_id: AccountId,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::RemoveGroupMember { group_id, member_id },
+        action: Action::RemoveGroupMember {
+            group_id,
+            member_id,
+        },
         auth: None,
         options: None,
     }
@@ -226,18 +247,29 @@ pub fn approve_join_request(group_id: String, requester_id: AccountId) -> crate:
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::ApproveJoinRequest { group_id, requester_id },
+        action: Action::ApproveJoinRequest {
+            group_id,
+            requester_id,
+        },
         auth: None,
         options: None,
     }
 }
 
 #[cfg(test)]
-pub fn reject_join_request(group_id: String, requester_id: AccountId, reason: Option<String>) -> crate::protocol::Request {
+pub fn reject_join_request(
+    group_id: String,
+    requester_id: AccountId,
+    reason: Option<String>,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::RejectJoinRequest { group_id, requester_id, reason },
+        action: Action::RejectJoinRequest {
+            group_id,
+            requester_id,
+            reason,
+        },
         auth: None,
         options: None,
     }
@@ -255,22 +287,34 @@ pub fn cancel_join_request(group_id: String) -> crate::protocol::Request {
 }
 
 #[cfg(test)]
-pub fn blacklist_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+pub fn blacklist_group_member_request(
+    group_id: String,
+    member_id: AccountId,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::BlacklistGroupMember { group_id, member_id },
+        action: Action::BlacklistGroupMember {
+            group_id,
+            member_id,
+        },
         auth: None,
         options: None,
     }
 }
 
 #[cfg(test)]
-pub fn unblacklist_group_member_request(group_id: String, member_id: AccountId) -> crate::protocol::Request {
+pub fn unblacklist_group_member_request(
+    group_id: String,
+    member_id: AccountId,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::UnblacklistGroupMember { group_id, member_id },
+        action: Action::UnblacklistGroupMember {
+            group_id,
+            member_id,
+        },
         auth: None,
         options: None,
     }
@@ -279,11 +323,19 @@ pub fn unblacklist_group_member_request(group_id: String, member_id: AccountId) 
 // --- Group Governance ---
 
 #[cfg(test)]
-pub fn transfer_group_ownership_request(group_id: String, new_owner: AccountId, remove_old_owner: Option<bool>) -> crate::protocol::Request {
+pub fn transfer_group_ownership_request(
+    group_id: String,
+    new_owner: AccountId,
+    remove_old_owner: Option<bool>,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::TransferGroupOwnership { group_id, new_owner, remove_old_owner },
+        action: Action::TransferGroupOwnership {
+            group_id,
+            new_owner,
+            remove_old_owner,
+        },
         auth: None,
         options: None,
     }
@@ -294,29 +346,50 @@ pub fn set_group_privacy_request(group_id: String, is_private: bool) -> crate::p
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::SetGroupPrivacy { group_id, is_private },
+        action: Action::SetGroupPrivacy {
+            group_id,
+            is_private,
+        },
         auth: None,
         options: None,
     }
 }
 
 #[cfg(test)]
-pub fn create_proposal_request(group_id: String, proposal_type: String, changes: near_sdk::serde_json::Value, auto_vote: Option<bool>) -> crate::protocol::Request {
+pub fn create_proposal_request(
+    group_id: String,
+    proposal_type: String,
+    changes: near_sdk::serde_json::Value,
+    auto_vote: Option<bool>,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::CreateProposal { group_id, proposal_type, changes, auto_vote },
+        action: Action::CreateProposal {
+            group_id,
+            proposal_type,
+            changes,
+            auto_vote,
+        },
         auth: None,
         options: None,
     }
 }
 
 #[cfg(test)]
-pub fn vote_proposal_request(group_id: String, proposal_id: String, approve: bool) -> crate::protocol::Request {
+pub fn vote_proposal_request(
+    group_id: String,
+    proposal_id: String,
+    approve: bool,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::VoteOnProposal { group_id, proposal_id, approve },
+        action: Action::VoteOnProposal {
+            group_id,
+            proposal_id,
+            approve,
+        },
         auth: None,
         options: None,
     }
@@ -327,7 +400,10 @@ pub fn cancel_proposal_request(group_id: String, proposal_id: String) -> crate::
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::CancelProposal { group_id, proposal_id },
+        action: Action::CancelProposal {
+            group_id,
+            proposal_id,
+        },
         auth: None,
         options: None,
     }
@@ -336,11 +412,21 @@ pub fn cancel_proposal_request(group_id: String, proposal_id: String) -> crate::
 // --- Permission Operations ---
 
 #[cfg(test)]
-pub fn set_permission_request(grantee: AccountId, path: String, level: u8, expires_at: Option<near_sdk::json_types::U64>) -> crate::protocol::Request {
+pub fn set_permission_request(
+    grantee: AccountId,
+    path: String,
+    level: u8,
+    expires_at: Option<near_sdk::json_types::U64>,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
-        action: Action::SetPermission { grantee, path, level, expires_at },
+        action: Action::SetPermission {
+            grantee,
+            path,
+            level,
+            expires_at,
+        },
         auth: None,
         options: None,
     }
@@ -358,7 +444,14 @@ pub fn test_add_member_bypass_proposals(
     _level: u8,
     added_by: &AccountId,
 ) {
-    test_add_member_bypass_proposals_with_timestamp(contract, group_id, member_id, _level, added_by, env::block_timestamp());
+    test_add_member_bypass_proposals_with_timestamp(
+        contract,
+        group_id,
+        member_id,
+        _level,
+        added_by,
+        env::block_timestamp(),
+    );
 }
 
 /// Helper to add test members with specific joined_at timestamp
@@ -376,13 +469,16 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
 
     // Mirror production behavior: every membership epoch has a dedicated nonce.
     let nonce_path = format!("groups/{}/member_nonces/{}", group_id, member_id.as_str());
-    let previous_nonce = contract.platform.storage_get(&nonce_path).and_then(|v| v.as_u64());
+    let previous_nonce = contract
+        .platform
+        .storage_get(&nonce_path)
+        .and_then(|v| v.as_u64());
     let new_nonce = previous_nonce.unwrap_or(0).saturating_add(1).max(1);
     contract
         .platform
         .storage_set(&nonce_path, &json!(new_nonce))
         .expect("Test setup: failed to set member nonce");
-    
+
     // Add member data directly (test-only bypass)
     let member_data = json!({
         "level": 0,
@@ -390,10 +486,13 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         "added_by": added_by.as_str(),
         "is_creator": false
     });
-    contract.platform.storage_set(
-        &format!("groups/{}/members/{}", group_id, member_id.as_str()), 
-        &member_data
-    ).expect("Test setup: failed to add member");
+    contract
+        .platform
+        .storage_set(
+            &format!("groups/{}/members/{}", group_id, member_id.as_str()),
+            &member_data,
+        )
+        .expect("Test setup: failed to add member");
 
     // Mirror production behavior: grant default /content WRITE for all members,
     // while keeping global role (group-root) optional.
@@ -406,9 +505,12 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         .get("owner")
         .and_then(|o| o.as_str())
         .unwrap_or_else(|| panic!("Test setup: group owner missing for {}", group_id));
-    let group_owner: AccountId = group_owner_str
-        .parse()
-        .unwrap_or_else(|_| panic!("Test setup: invalid group owner account ID for {}", group_id));
+    let group_owner: AccountId = group_owner_str.parse().unwrap_or_else(|_| {
+        panic!(
+            "Test setup: invalid group owner account ID for {}",
+            group_id
+        )
+    });
 
     let mut event_batch = crate::events::EventBatch::new();
     crate::domain::groups::permissions::kv::grant_permissions(
@@ -421,21 +523,35 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
         &mut event_batch,
         None,
     )
-    .unwrap_or_else(|e| panic!("Test setup: failed to grant default content permissions: {:?}", e));
+    .unwrap_or_else(|e| {
+        panic!(
+            "Test setup: failed to grant default content permissions: {:?}",
+            e
+        )
+    });
     // Don't emit in test setup - we're just setting up state
 
     // Update member count
     let stats_key = format!("groups/{}/stats", group_id);
-    let mut stats = contract.platform.storage_get(&stats_key)
-        .unwrap_or_else(|| json!({"total_members": 1, "created_at": env::block_timestamp().to_string()}));
-    
+    let mut stats = contract.platform.storage_get(&stats_key).unwrap_or_else(
+        || json!({"total_members": 1, "created_at": env::block_timestamp().to_string()}),
+    );
+
     if let Some(obj) = stats.as_object_mut() {
-        let current_count = obj.get("total_members").and_then(|v| v.as_u64()).unwrap_or(1);
+        let current_count = obj
+            .get("total_members")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1);
         obj.insert("total_members".to_string(), json!(current_count + 1));
-        obj.insert("last_updated".to_string(), json!(env::block_timestamp().to_string()));
+        obj.insert(
+            "last_updated".to_string(),
+            json!(env::block_timestamp().to_string()),
+        );
     }
-    
-    contract.platform.storage_set(&stats_key, &stats)
+
+    contract
+        .platform
+        .storage_set(&stats_key, &stats)
         .expect("Test setup: failed to update stats");
 }
 
@@ -450,7 +566,7 @@ pub fn test_remove_member_bypass_proposals(
 ) {
     use near_sdk::env;
     use near_sdk::serde_json::json;
-    
+
     // Get existing member entry and soft delete it
     let member_path = format!("groups/{}/members/{}", group_id, member_id.as_str());
     if let Some(entry) = contract.platform.get_entry(&member_path) {
@@ -462,10 +578,21 @@ pub fn test_remove_member_bypass_proposals(
     let stats_key = format!("groups/{}/stats", group_id);
     if let Some(mut stats) = contract.platform.storage_get(&stats_key) {
         if let Some(obj) = stats.as_object_mut() {
-            let current_count = obj.get("total_members").and_then(|v| v.as_u64()).unwrap_or(0);
-            obj.insert("total_members".to_string(), json!(current_count.saturating_sub(1)));
-            obj.insert("last_updated".to_string(), json!(env::block_timestamp().to_string()));
-            contract.platform.storage_set(&stats_key, &stats)
+            let current_count = obj
+                .get("total_members")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
+            obj.insert(
+                "total_members".to_string(),
+                json!(current_count.saturating_sub(1)),
+            );
+            obj.insert(
+                "last_updated".to_string(),
+                json!(env::block_timestamp().to_string()),
+            );
+            contract
+                .platform
+                .storage_set(&stats_key, &stats)
                 .expect("Test setup: failed to update stats");
         }
     }
@@ -473,11 +600,16 @@ pub fn test_remove_member_bypass_proposals(
 
 /// Decode and verify contract events from logs (NEP-297 JSON format)
 #[cfg(test)]
-pub fn verify_contract_event(log: &str, expected_operation: &str, expected_prev_status: &str, expected_new_status: &str) -> bool {
+pub fn verify_contract_event(
+    log: &str,
+    expected_operation: &str,
+    expected_prev_status: &str,
+    expected_new_status: &str,
+) -> bool {
     use near_sdk::serde_json;
-    
+
     const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
-    
+
     if !log.starts_with(EVENT_JSON_PREFIX) {
         return false;
     }
@@ -527,19 +659,19 @@ pub fn verify_contract_event(log: &str, expected_operation: &str, expected_prev_
 #[cfg(test)]
 pub mod test_deposits {
     use super::*;
-    
+
     /// Sufficient for adding 5-10 members (~300 bytes each)
     /// Plus proposal index and vote tracking storage (~500 bytes extra per proposal)
     pub fn member_operations() -> u128 {
         calculate_test_deposit_for_operations(15, 400)
     }
-    
+
     /// Minimum deposit required for creating proposals (0.1 NEAR)
     /// This is required by the spam prevention mechanism
     pub fn proposal_creation() -> u128 {
         crate::constants::MIN_PROPOSAL_DEPOSIT
     }
-    
+
     /// Legacy: 10 NEAR (kept for backward compatibility)
     /// Use specific functions above for more accurate deposits
     pub fn legacy_10_near() -> u128 {

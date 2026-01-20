@@ -26,6 +26,9 @@ mod storage_tracker_helpers_tests {
         let res: Result<((), i128), &'static str> = tracker.track_result(|| Err("boom"));
 
         assert!(res.is_err());
-        assert!(tracker.is_empty(), "tracker must be reset after track_result() Err");
+        assert!(
+            tracker.is_empty(),
+            "tracker must be reset after track_result() Err"
+        );
     }
 }

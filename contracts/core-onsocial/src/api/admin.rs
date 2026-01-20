@@ -1,11 +1,11 @@
 use crate::{
+    SocialError,
     config::GovernanceConfig,
     constants,
     events::{EventBatch, EventBuilder},
-    state::{models::SocialPlatform, ContractStatus},
-    SocialError,
+    state::{ContractStatus, models::SocialPlatform},
 };
-use near_sdk::{near, serde_json::Value, AccountId};
+use near_sdk::{AccountId, near, serde_json::Value};
 
 use crate::api::guards::ContractGuards;
 
@@ -61,7 +61,10 @@ impl Contract {
         self.platform.config = config.clone();
 
         let mut batch = EventBatch::new();
-        let path = format!("{}/contract/config", SocialPlatform::platform_pool_account().as_str());
+        let path = format!(
+            "{}/contract/config",
+            SocialPlatform::platform_pool_account().as_str()
+        );
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "update_config",
@@ -140,7 +143,10 @@ impl Contract {
         }
 
         let mut batch = EventBatch::new();
-        let path = format!("{}/contract/config", SocialPlatform::platform_pool_account().as_str());
+        let path = format!(
+            "{}/contract/config",
+            SocialPlatform::platform_pool_account().as_str()
+        );
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "patch_config",
@@ -175,10 +181,16 @@ impl Contract {
             return Err(crate::invalid_input!("Too many intents executors"));
         }
 
-        self.platform.config.intents_executors.push(executor.clone());
+        self.platform
+            .config
+            .intents_executors
+            .push(executor.clone());
 
         let mut batch = EventBatch::new();
-        let path = format!("{}/contract/intents_executors", SocialPlatform::platform_pool_account().as_str());
+        let path = format!(
+            "{}/contract/intents_executors",
+            SocialPlatform::platform_pool_account().as_str()
+        );
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "add_intents_executor",
@@ -199,7 +211,10 @@ impl Contract {
         ContractGuards::require_manager_one_yocto(&self.platform)?;
         let caller = SocialPlatform::current_caller();
 
-        let pos = self.platform.config.intents_executors
+        let pos = self
+            .platform
+            .config
+            .intents_executors
             .iter()
             .position(|e| e == &executor)
             .ok_or_else(|| crate::invalid_input!("Executor not found"))?;
@@ -207,7 +222,10 @@ impl Contract {
         self.platform.config.intents_executors.remove(pos);
 
         let mut batch = EventBatch::new();
-        let path = format!("{}/contract/intents_executors", SocialPlatform::platform_pool_account().as_str());
+        let path = format!(
+            "{}/contract/intents_executors",
+            SocialPlatform::platform_pool_account().as_str()
+        );
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "remove_intents_executor",
@@ -232,7 +250,10 @@ impl Contract {
         self.platform.manager = new_manager.clone();
 
         let mut batch = EventBatch::new();
-        let path = format!("{}/contract/manager", SocialPlatform::platform_pool_account().as_str());
+        let path = format!(
+            "{}/contract/manager",
+            SocialPlatform::platform_pool_account().as_str()
+        );
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "update_manager",

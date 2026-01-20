@@ -1,10 +1,10 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::events::EventBuilder;
-use crate::state::set_context::ApiOperationContext;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::events::EventBuilder;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::ApiOperationContext;
 
 impl SocialPlatform {
     /// Withdraw available storage balance to actor. Respects locked_balance and storage coverage.
@@ -78,7 +78,10 @@ impl SocialPlatform {
         .with_field("amount", withdraw_amount.to_string())
         .with_field("previous_balance", previous_balance.to_string())
         .with_field("new_balance", new_balance.to_string())
-        .with_field("available_balance", available.saturating_sub(withdraw_amount).to_string())
+        .with_field(
+            "available_balance",
+            available.saturating_sub(withdraw_amount).to_string(),
+        )
         .emit(ctx.event_batch);
 
         Ok(())

@@ -12,7 +12,7 @@
 mod storage_tracking_tests {
     use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
-    use near_sdk::{testing_env, NearToken};
+    use near_sdk::{NearToken, testing_env};
 
     // ========================================================================
     // TEST 1: Refund on Insufficient Deposit (CRITICAL FIX)
@@ -26,7 +26,7 @@ mod storage_tracking_tests {
         // Alice tries to deposit 1 NEAR but only attaches 0.5 NEAR
         let attached = NearToken::from_millinear(500).as_yoctonear();
         let requested = NearToken::from_near(1).as_yoctonear();
-        
+
         let context = get_context_with_deposit(alice.clone(), attached);
         testing_env!(context.build());
 
@@ -37,15 +37,20 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(deposit_data));
-        
+
         // CRITICAL: Should fail with error (not Ok with locked funds)
-        assert!(result.is_err(), "❌ Insufficient deposit should return error");
-        
+        assert!(
+            result.is_err(),
+            "❌ Insufficient deposit should return error"
+        );
+
         // Verify no storage was allocated
         let balance = contract.get_storage_balance(alice.clone());
-        assert!(balance.is_none() || balance.unwrap().balance == 0, 
-               "No storage should be allocated on validation failure");
-        
+        assert!(
+            balance.is_none() || balance.unwrap().balance == 0,
+            "No storage should be allocated on validation failure"
+        );
+
         println!("✅ Insufficient deposit properly refunded (no fund-locking)");
     }
 
@@ -57,7 +62,7 @@ mod storage_tracking_tests {
         // Owner tries to deposit to pool but insufficient amount
         let attached = NearToken::from_millinear(500).as_yoctonear();
         let requested = NearToken::from_near(1).as_yoctonear();
-        
+
         let context = get_context_with_deposit(owner.clone(), attached);
         testing_env!(context.build());
 
@@ -69,10 +74,13 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(pool_data));
-        
+
         // Should fail and refund
-        assert!(result.is_err(), "Insufficient pool deposit should return error");
-        
+        assert!(
+            result.is_err(),
+            "Insufficient pool deposit should return error"
+        );
+
         println!("✅ Insufficient pool deposit properly refunded");
     }
 
@@ -88,7 +96,7 @@ mod storage_tracking_tests {
         // Alice attaches 2 NEAR but only needs 1 NEAR
         let attached = NearToken::from_near(2).as_yoctonear();
         let requested = NearToken::from_near(1).as_yoctonear();
-        
+
         let context = get_context_with_deposit(alice.clone(), attached);
         testing_env!(context.build());
 
@@ -99,15 +107,19 @@ mod storage_tracking_tests {
         });
 
         // Use refund_unused_deposit: true to get old refund behavior
-        let options = Some(crate::Options { refund_unused_deposit: true });
+        let options = Some(crate::Options {
+            refund_unused_deposit: true,
+        });
         let result = contract.execute(set_request_with_options(deposit_data, options));
         assert!(result.is_ok(), "Deposit with excess should succeed");
-        
+
         // Verify only requested amount was stored
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(balance.balance, requested, 
-                  "Storage balance should be requested amount (excess refunded)");
-        
+        assert_eq!(
+            balance.balance, requested,
+            "Storage balance should be requested amount (excess refunded)"
+        );
+
         println!("✅ Excess deposit properly refunded after state update");
     }
 
@@ -126,12 +138,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Bob adds data that uses storage
@@ -139,12 +150,11 @@ mod storage_tracking_tests {
         testing_env!(data_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "profile/name": "Bob",
-                    "profile/bio": "A test user with some data",
-                    "posts/1": {"text": "Test post that uses storage", "timestamp": 1234567890}
-                })))
+            .execute(set_request(json!({
+                "profile/name": "Bob",
+                "profile/bio": "A test user with some data",
+                "posts/1": {"text": "Test post that uses storage", "timestamp": 1234567890}
+            })))
             .unwrap();
 
         // Try to withdraw full deposit (should fail - some bytes are used)
@@ -158,13 +168,15 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(withdraw_all));
-        assert!(result.is_err(), 
-               "❌ Should not be able to withdraw full deposit when storage is used");
-        
+        assert!(
+            result.is_err(),
+            "❌ Should not be able to withdraw full deposit when storage is used"
+        );
+
         // Verify used_bytes increased
         let balance = contract.get_storage_balance(bob.clone()).unwrap();
         assert!(balance.used_bytes > 0, "Storage usage should be tracked");
-        
+
         println!("✅ Withdrawal correctly respects used bytes");
     }
 
@@ -180,24 +192,22 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/shared_pool_deposit": {
-                        "pool_id": pool_owner.to_string(),
-                        "amount": pool_deposit.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/shared_pool_deposit": {
+                    "pool_id": pool_owner.to_string(),
+                    "amount": pool_deposit.to_string()
+                }
+            })))
             .unwrap();
 
         // Share storage with beneficiary
         contract
-            .execute(set_request(
-                json!({
-                    "storage/share_storage": {
-                        "target_id": beneficiary.to_string(),
-                        "max_bytes": 10000u64
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/share_storage": {
+                    "target_id": beneficiary.to_string(),
+                    "max_bytes": 10000u64
+                }
+            })))
             .unwrap();
 
         // Beneficiary adds data using shared storage
@@ -205,17 +215,19 @@ mod storage_tracking_tests {
         testing_env!(beneficiary_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "profile/name": "Beneficiary",
-                    "posts/1": {"text": "Using shared storage", "timestamp": 1234567890}
-                })))
+            .execute(set_request(json!({
+                "profile/name": "Beneficiary",
+                "posts/1": {"text": "Using shared storage", "timestamp": 1234567890}
+            })))
             .unwrap();
 
         // Beneficiary's personal balance should account for shared storage
         let balance = contract.get_storage_balance(beneficiary.clone()).unwrap();
-        assert!(balance.shared_storage.is_some(), "Should have shared storage");
-        
+        assert!(
+            balance.shared_storage.is_some(),
+            "Should have shared storage"
+        );
+
         println!("✅ Withdrawal correctly accounts for shared storage");
     }
 
@@ -234,20 +246,22 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Verify storage was allocated and tracker properly reset
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(balance.balance, deposit_amount);
         // used_bytes should be 0 after proper reset (no data stored yet)
-        assert_eq!(balance.used_bytes, 0, "Storage tracker should be properly reset to 0");
-        
+        assert_eq!(
+            balance.used_bytes, 0,
+            "Storage tracker should be properly reset to 0"
+        );
+
         println!("✅ Storage tracker sequence works correctly");
     }
 
@@ -266,12 +280,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Alice withdraws 0.5 NEAR
@@ -279,12 +292,11 @@ mod storage_tracking_tests {
         let withdraw_context = get_context(alice.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.execute(set_request(
-            json!({
-                "storage/withdraw": {
-                    "amount": withdraw_amount.to_string()
-                }
-            })));
+        let result = contract.execute(set_request(json!({
+            "storage/withdraw": {
+                "amount": withdraw_amount.to_string()
+            }
+        })));
 
         // Withdrawal should succeed
         assert!(result.is_ok(), "Withdrawal should succeed");
@@ -292,9 +304,12 @@ mod storage_tracking_tests {
         // CRITICAL: State should be updated even if Promise.transfer fails
         // (in real blockchain, if transfer fails, state is consistent and user can retry)
         let balance_after = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(balance_after.balance, deposit_amount - withdraw_amount,
-                  "✅ State updated BEFORE transfer (atomic pattern)");
-        
+        assert_eq!(
+            balance_after.balance,
+            deposit_amount - withdraw_amount,
+            "✅ State updated BEFORE transfer (atomic pattern)"
+        );
+
         println!("✅ Atomic state update before transfer works correctly");
     }
 
@@ -318,8 +333,11 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(withdraw_data));
-        assert!(result.is_err(), "Withdrawal from unregistered account should fail");
-        
+        assert!(
+            result.is_err(),
+            "Withdrawal from unregistered account should fail"
+        );
+
         println!("✅ Withdrawal correctly requires registered account");
     }
 
@@ -338,31 +356,31 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Withdraw without specifying amount (should withdraw all available)
         let withdraw_context = get_context(bob.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.execute(set_request(
-            json!({
-                "storage/withdraw": {}  // No amount specified
-            })));
+        let result = contract.execute(set_request(json!({
+            "storage/withdraw": {}  // No amount specified
+        })));
 
         // Note: In unit tests without used bytes, this might succeed or fail
         // depending on if there's any storage usage
         if result.is_ok() {
             let balance = contract.get_storage_balance(bob.clone()).unwrap();
-            assert!(balance.balance < deposit_amount, 
-                   "Some or all balance should be withdrawn");
+            assert!(
+                balance.balance < deposit_amount,
+                "Some or all balance should be withdrawn"
+            );
         }
-        
+
         println!("✅ Withdrawal without amount parameter handled correctly");
     }
 
@@ -392,7 +410,7 @@ mod storage_tracking_tests {
 
         let result = contract.execute(set_request(deposit_data));
         assert!(result.is_err(), "Depositor mismatch should fail");
-        
+
         println!("✅ Deposit authorizer validation works correctly");
     }
 
@@ -411,12 +429,11 @@ mod storage_tracking_tests {
         testing_env!(context1.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit1.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit1.to_string()
+                }
+            })))
             .unwrap();
 
         // Second deposit: 2 NEAR
@@ -425,19 +442,21 @@ mod storage_tracking_tests {
         testing_env!(context2.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit2.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit2.to_string()
+                }
+            })))
             .unwrap();
 
         // Verify total accumulation
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(balance.balance, deposit1 + deposit2, 
-                  "Multiple deposits should accumulate correctly");
-        
+        assert_eq!(
+            balance.balance,
+            deposit1 + deposit2,
+            "Multiple deposits should accumulate correctly"
+        );
+
         println!("✅ Multiple deposits accumulate correctly");
     }
 
@@ -463,7 +482,7 @@ mod storage_tracking_tests {
 
         // This might fail if the metadata storage itself exceeds the deposit
         let result = contract.execute(set_request(deposit_data));
-        
+
         // If it succeeds, the deposit was enough for metadata
         // If it fails, assert_storage_covered() properly caught it
         if result.is_err() {
@@ -489,13 +508,12 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/shared_pool_deposit": {
-                        "pool_id": pool_owner.to_string(),
-                        "amount": pool_deposit.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/shared_pool_deposit": {
+                    "pool_id": pool_owner.to_string(),
+                    "amount": pool_deposit.to_string()
+                }
+            })))
             .unwrap();
 
         // Share storage with beneficiary
@@ -503,24 +521,23 @@ mod storage_tracking_tests {
         let share_context = get_context(pool_owner.clone());
         testing_env!(share_context.build());
 
-        let result = contract.execute(set_request(
-            json!({
-                "storage/share_storage": {
-                    "target_id": beneficiary.to_string(),
-                    "max_bytes": max_bytes
-                }
-            })));
+        let result = contract.execute(set_request(json!({
+            "storage/share_storage": {
+                "target_id": beneficiary.to_string(),
+                "max_bytes": max_bytes
+            }
+        })));
 
         assert!(result.is_ok(), "Share storage should succeed");
 
         // Verify beneficiary has shared storage
         let balance = contract.get_storage_balance(beneficiary.clone());
         assert!(balance.is_some(), "Beneficiary should have storage record");
-        
+
         let shared = balance.unwrap().shared_storage;
         assert!(shared.is_some(), "Should have shared storage allocation");
         assert_eq!(shared.unwrap().max_bytes, max_bytes);
-        
+
         println!("✅ ShareStorage operation tracked correctly");
     }
 
@@ -540,42 +557,42 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/shared_pool_deposit": {
-                        "pool_id": pool_owner.to_string(),
-                        "amount": pool_deposit.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/shared_pool_deposit": {
+                    "pool_id": pool_owner.to_string(),
+                    "amount": pool_deposit.to_string()
+                }
+            })))
             .unwrap();
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/share_storage": {
-                        "target_id": beneficiary.to_string(),
-                        "max_bytes": 50000u64
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/share_storage": {
+                    "target_id": beneficiary.to_string(),
+                    "max_bytes": 50000u64
+                }
+            })))
             .unwrap();
 
         // Now return shared storage
         let return_context = get_context(beneficiary.clone());
         testing_env!(return_context.build());
 
-        let result = contract.execute(set_request(
-            json!({
-                "storage/return_shared_storage": {}
-            })));
+        let result = contract.execute(set_request(json!({
+            "storage/return_shared_storage": {}
+        })));
 
         assert!(result.is_ok(), "Return shared storage should succeed");
 
         // Verify shared storage is removed
         let balance = contract.get_storage_balance(beneficiary.clone());
         if let Some(bal) = balance {
-            assert!(bal.shared_storage.is_none(), "Shared storage should be removed");
+            assert!(
+                bal.shared_storage.is_none(),
+                "Shared storage should be removed"
+            );
         }
-        
+
         println!("✅ ReturnSharedStorage operation tracked correctly");
     }
 
@@ -603,16 +620,12 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(
-                set_request(
-                    json!({
-                        "storage/shared_pool_deposit": {
-                            "pool_id": pool_owner.to_string(),
-                            "amount": pool_deposit.to_string()
-                        }
-                    }),
-                ),
-            )
+            .execute(set_request(json!({
+                "storage/shared_pool_deposit": {
+                    "pool_id": pool_owner.to_string(),
+                    "amount": pool_deposit.to_string()
+                }
+            })))
             .unwrap();
 
         // Each beneficiary gets 5KB allocation (10KB total = pool capacity).
@@ -620,29 +633,21 @@ mod storage_tracking_tests {
         let share_context = get_context(pool_owner.clone());
         testing_env!(share_context.build());
         contract
-            .execute(
-                set_request(
-                    json!({
-                        "storage/share_storage": {
-                            "target_id": beneficiary1.to_string(),
-                            "max_bytes": max_bytes
-                        }
-                    }),
-                ),
-            )
+            .execute(set_request(json!({
+                "storage/share_storage": {
+                    "target_id": beneficiary1.to_string(),
+                    "max_bytes": max_bytes
+                }
+            })))
             .unwrap();
 
         contract
-            .execute(
-                set_request(
-                    json!({
-                        "storage/share_storage": {
-                            "target_id": beneficiary2.to_string(),
-                            "max_bytes": max_bytes
-                        }
-                    }),
-                ),
-            )
+            .execute(set_request(json!({
+                "storage/share_storage": {
+                    "target_id": beneficiary2.to_string(),
+                    "max_bytes": max_bytes
+                }
+            })))
             .unwrap();
 
         // Beneficiary2 makes two writes consuming ~4KB of pool capacity.
@@ -652,20 +657,16 @@ mod storage_tracking_tests {
 
         // First write - ~2KB payload
         contract
-            .execute(
-                set_request(json!({
-                        "profile/bio": "x".repeat(2_000)
-                    })),
-            )
+            .execute(set_request(json!({
+                "profile/bio": "x".repeat(2_000)
+            })))
             .unwrap();
 
         // Second write - ~2KB payload (total ~4KB consumed)
         contract
-            .execute(
-                set_request(json!({
-                        "profile/name": "y".repeat(2_000)
-                    })),
-            )
+            .execute(set_request(json!({
+                "profile/name": "y".repeat(2_000)
+            })))
             .unwrap();
 
         // Pool now has ~6KB remaining (10KB - ~4KB used by beneficiary2).
@@ -677,37 +678,36 @@ mod storage_tracking_tests {
 
         // First write - ~2KB
         contract
-            .execute(
-                set_request(json!({
-                        "profile/bio": "a".repeat(2_000)
-                    })),
-            )
+            .execute(set_request(json!({
+                "profile/bio": "a".repeat(2_000)
+            })))
             .unwrap();
 
         // Second write - ~2KB (total ~4KB consumed by beneficiary1)
         contract
-            .execute(
-                set_request(json!({
-                        "profile/name": "b".repeat(2_000)
-                    })),
-            )
+            .execute(set_request(json!({
+                "profile/name": "b".repeat(2_000)
+            })))
             .unwrap();
 
         // Pool has ~2KB remaining (10KB - 4KB beneficiary2 - 4KB beneficiary1).
         // Third write of ~2KB from beneficiary1 should fail due to pool capacity.
 
-        let result = contract.execute(set_request(
-            json!({
-                "profile/status": "c".repeat(2_000)
-            })));
+        let result = contract.execute(set_request(json!({
+            "profile/status": "c".repeat(2_000)
+        })));
 
-        assert!(result.is_err(), "Write should fail when sponsor pool lacks capacity");
+        assert!(
+            result.is_err(),
+            "Write should fail when sponsor pool lacks capacity"
+        );
 
         // Verify the error is specifically about storage
         let err = result.unwrap_err();
         assert!(
             matches!(err, crate::errors::SocialError::InsufficientStorage(_)),
-            "Expected InsufficientStorage error, got: {:?}", err
+            "Expected InsufficientStorage error, got: {:?}",
+            err
         );
 
         println!("✅ Sponsor pool capacity enforced on write");
@@ -722,19 +722,14 @@ mod storage_tracking_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-
         // Deposit personal balance for Alice.
         let deposit = NearToken::from_near(1).as_yoctonear();
         let context = get_context_with_deposit(alice.clone(), deposit);
         testing_env!(context.build());
         contract
-            .execute(
-                set_request(
-                    json!({
-                        "storage/deposit": { "amount": deposit.to_string() }
-                    }),
-                ),
-            )
+            .execute(set_request(json!({
+                "storage/deposit": { "amount": deposit.to_string() }
+            })))
             .unwrap();
 
         // Ensure there are no pools present/used.
@@ -748,20 +743,16 @@ mod storage_tracking_tests {
 
         // Write a reasonably sized value (paid by personal balance).
         contract
-            .execute(
-                set_request(json!({
-                        "profile/bio": "x".repeat(5_000)
-                    })),
-            )
+            .execute(set_request(json!({
+                "profile/bio": "x".repeat(5_000)
+            })))
             .unwrap();
 
         // Delete it.
         contract
-            .execute(
-                set_request(json!({
-                        "profile/bio": serde_json::Value::Null
-                    })),
-            )
+            .execute(set_request(json!({
+                "profile/bio": serde_json::Value::Null
+            })))
             .unwrap();
 
         // Platform pool used_bytes must be unchanged.
@@ -777,10 +768,17 @@ mod storage_tracking_tests {
         // (This is a simple sanity check: if any group pool exists, it would have a key like group-*.pool)
         // The contract doesn't expose iteration over LookupMap, so we rely on the per-user counters.
         let storage = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(storage.group_pool_used_bytes, 0, "Personal delete must not refund group pool");
-        assert_eq!(storage.platform_pool_used_bytes, 0, "Personal delete must not refund platform pool");
+        assert_eq!(
+            storage.group_pool_used_bytes, 0,
+            "Personal delete must not refund group pool"
+        );
+        assert_eq!(
+            storage.platform_pool_used_bytes, 0,
+            "Personal delete must not refund platform pool"
+        );
         assert!(
-            storage.shared_storage.is_none() || storage.shared_storage.as_ref().unwrap().used_bytes == 0,
+            storage.shared_storage.is_none()
+                || storage.shared_storage.as_ref().unwrap().used_bytes == 0,
             "Personal delete must not refund sponsor pool"
         );
 
@@ -806,7 +804,7 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(zero_deposit));
-        
+
         // Should either reject or accept based on implementation
         // Key is: no crash, predictable behavior
         if result.is_err() {
@@ -831,24 +829,22 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Try to withdraw zero
         let withdraw_context = get_context(bob.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.execute(set_request(
-            json!({
-                "storage/withdraw": {
-                    "amount": "0"
-                }
-            })));
+        let result = contract.execute(set_request(json!({
+            "storage/withdraw": {
+                "amount": "0"
+            }
+        })));
 
         // Should succeed (no-op) or reject gracefully
         if result.is_ok() {
@@ -882,21 +878,22 @@ mod storage_tracking_tests {
             let context = get_context_with_deposit(alice.clone(), *amount);
             testing_env!(context.build());
 
-            let result = contract.execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": amount.to_string()
-                    }
-                })));
+            let result = contract.execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": amount.to_string()
+                }
+            })));
 
             assert!(result.is_ok(), "Deposit {} should succeed", i + 1);
             total_deposited += amount;
         }
 
         let final_balance = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(final_balance.balance, total_deposited, 
-                  "All deposits should accumulate correctly");
-        
+        assert_eq!(
+            final_balance.balance, total_deposited,
+            "All deposits should accumulate correctly"
+        );
+
         println!("✅ Rapid sequential deposits tracked correctly");
     }
 
@@ -916,12 +913,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Try to withdraw with mismatched depositor
@@ -939,7 +935,7 @@ mod storage_tracking_tests {
 
         let result = contract.execute(set_request(withdraw_data));
         assert!(result.is_err(), "Mismatched depositor should fail");
-        
+
         println!("✅ Withdrawal authorizer validation works");
     }
 
@@ -958,12 +954,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Charlie adds data that locks storage
@@ -971,14 +966,13 @@ mod storage_tracking_tests {
         testing_env!(data_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "profile/name": "Charlie",
-                    "profile/bio": "This locks storage bytes",
-                    "posts/1": {"text": "Post 1", "timestamp": 1234567890},
-                    "posts/2": {"text": "Post 2", "timestamp": 1234567891},
-                    "posts/3": {"text": "Post 3", "timestamp": 1234567892}
-                })))
+            .execute(set_request(json!({
+                "profile/name": "Charlie",
+                "profile/bio": "This locks storage bytes",
+                "posts/1": {"text": "Post 1", "timestamp": 1234567890},
+                "posts/2": {"text": "Post 2", "timestamp": 1234567891},
+                "posts/3": {"text": "Post 3", "timestamp": 1234567892}
+            })))
             .unwrap();
 
         // Try to withdraw everything (should not be able to withdraw locked storage)
@@ -986,15 +980,14 @@ mod storage_tracking_tests {
         testing_env!(withdraw_context.build());
 
         // Withdrawal attempt (may succeed but won't free locked bytes)
-        let _ = contract.execute(set_request(
-            json!({
-                "storage/withdraw": {}  // Try to withdraw all
-            })));
+        let _ = contract.execute(set_request(json!({
+            "storage/withdraw": {}  // Try to withdraw all
+        })));
 
         // Verify storage is locked by data (bytes still in use)
         let balance = contract.get_storage_balance(charlie.clone()).unwrap();
         assert!(balance.used_bytes > 0, "Should have used storage");
-        
+
         println!("✅ Cannot withdraw storage locked by data");
     }
 
@@ -1013,12 +1006,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Charlie adds some data
@@ -1026,13 +1018,12 @@ mod storage_tracking_tests {
         testing_env!(data_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "profile/name": "Charlie",
-                    "profile/bio": "Test user with data",
-                    "posts/1": {"text": "First post", "timestamp": 1234567890},
-                    "posts/2": {"text": "Second post", "timestamp": 1234567891}
-                })))
+            .execute(set_request(json!({
+                "profile/name": "Charlie",
+                "profile/bio": "Test user with data",
+                "posts/1": {"text": "First post", "timestamp": 1234567890},
+                "posts/2": {"text": "Second post", "timestamp": 1234567891}
+            })))
             .unwrap();
 
         // Charlie withdraws partial amount (should succeed)
@@ -1040,20 +1031,22 @@ mod storage_tracking_tests {
         let withdraw_context = get_context(charlie.clone());
         testing_env!(withdraw_context.build());
 
-        let result = contract.execute(set_request(
-            json!({
-                "storage/withdraw": {
-                    "amount": withdraw_amount.to_string()
-                }
-            })));
+        let result = contract.execute(set_request(json!({
+            "storage/withdraw": {
+                "amount": withdraw_amount.to_string()
+            }
+        })));
 
         // Should succeed if enough available balance
         if result.is_ok() {
             let balance = contract.get_storage_balance(charlie.clone()).unwrap();
             assert!(balance.used_bytes > 0, "Should have used storage");
-            assert!(balance.balance < deposit_amount, "Balance should be reduced");
+            assert!(
+                balance.balance < deposit_amount,
+                "Balance should be reduced"
+            );
         }
-        
+
         println!("✅ Partial withdrawal after data usage works correctly");
     }
 
@@ -1072,12 +1065,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Alice creates data
@@ -1085,11 +1077,10 @@ mod storage_tracking_tests {
         testing_env!(data_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "profile/name": "Alice",
-                    "posts/1": {"text": "Test post", "timestamp": 1234567890}
-                })))
+            .execute(set_request(json!({
+                "profile/name": "Alice",
+                "posts/1": {"text": "Test post", "timestamp": 1234567890}
+            })))
             .unwrap();
 
         let storage_after_create = contract.get_storage_balance(alice.clone()).unwrap();
@@ -1102,20 +1093,25 @@ mod storage_tracking_tests {
 
         contract
             .execute(set_request(json!({
-                    "posts/1": null  // Soft delete
-                })))
+                "posts/1": null  // Soft delete
+            })))
             .unwrap();
 
         // Verify storage tracking after soft delete
         let storage_after_delete = contract.get_storage_balance(alice.clone()).unwrap();
-        
+
         // Deleted marker is smaller than original data
         // Storage should be released (used_bytes decreases)
-        assert!(storage_after_delete.used_bytes < used_bytes_after_create,
-               "Soft delete should release storage");
-        println!("✅ Soft delete tracked: {} bytes before, {} bytes after (released {} bytes)",
-                used_bytes_after_create, storage_after_delete.used_bytes,
-                used_bytes_after_create - storage_after_delete.used_bytes);
+        assert!(
+            storage_after_delete.used_bytes < used_bytes_after_create,
+            "Soft delete should release storage"
+        );
+        println!(
+            "✅ Soft delete tracked: {} bytes before, {} bytes after (released {} bytes)",
+            used_bytes_after_create,
+            storage_after_delete.used_bytes,
+            used_bytes_after_create - storage_after_delete.used_bytes
+        );
         println!("   Soft delete releases storage as expected");
     }
 
@@ -1130,12 +1126,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Bob creates data
@@ -1143,10 +1138,9 @@ mod storage_tracking_tests {
         testing_env!(data_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "posts/1": {"text": "Original post", "timestamp": 1234567890}
-                })))
+            .execute(set_request(json!({
+                "posts/1": {"text": "Original post", "timestamp": 1234567890}
+            })))
             .unwrap();
 
         let storage_after_create = contract.get_storage_balance(bob.clone()).unwrap();
@@ -1157,8 +1151,8 @@ mod storage_tracking_tests {
 
         contract
             .execute(set_request(json!({
-                    "posts/1": null
-                })))
+                "posts/1": null
+            })))
             .unwrap();
 
         let storage_after_delete = contract.get_storage_balance(bob.clone()).unwrap();
@@ -1168,25 +1162,31 @@ mod storage_tracking_tests {
         testing_env!(recreate_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "posts/1": {"text": "New post after delete", "timestamp": 1234567891}
-                })))
+            .execute(set_request(json!({
+                "posts/1": {"text": "New post after delete", "timestamp": 1234567891}
+            })))
             .unwrap();
 
         let storage_after_recreate = contract.get_storage_balance(bob.clone()).unwrap();
 
         // Verify storage tracking is consistent through delete/recreate cycle
         // Deletion releases storage, recreation consumes it again
-        assert!(storage_after_delete.used_bytes < storage_after_create.used_bytes,
-               "Deletion should release storage");
-        assert!(storage_after_recreate.used_bytes > storage_after_delete.used_bytes,
-               "Recreation should consume storage again");
+        assert!(
+            storage_after_delete.used_bytes < storage_after_create.used_bytes,
+            "Deletion should release storage"
+        );
+        assert!(
+            storage_after_recreate.used_bytes > storage_after_delete.used_bytes,
+            "Recreation should consume storage again"
+        );
 
         println!("✅ Delete-then-recreate storage tracking works correctly");
-        println!("   Created: {} → Deleted: {} → Recreated: {} bytes",
-                storage_after_create.used_bytes, storage_after_delete.used_bytes,
-                storage_after_recreate.used_bytes);
+        println!(
+            "   Created: {} → Deleted: {} → Recreated: {} bytes",
+            storage_after_create.used_bytes,
+            storage_after_delete.used_bytes,
+            storage_after_recreate.used_bytes
+        );
     }
 
     #[test]
@@ -1200,12 +1200,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Charlie creates multiple posts
@@ -1213,13 +1212,12 @@ mod storage_tracking_tests {
         testing_env!(create_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "posts/1": {"text": "Post 1", "timestamp": 1234567890},
-                    "posts/2": {"text": "Post 2", "timestamp": 1234567891},
-                    "posts/3": {"text": "Post 3", "timestamp": 1234567892},
-                    "posts/4": {"text": "Post 4", "timestamp": 1234567893}
-                })))
+            .execute(set_request(json!({
+                "posts/1": {"text": "Post 1", "timestamp": 1234567890},
+                "posts/2": {"text": "Post 2", "timestamp": 1234567891},
+                "posts/3": {"text": "Post 3", "timestamp": 1234567892},
+                "posts/4": {"text": "Post 4", "timestamp": 1234567893}
+            })))
             .unwrap();
 
         let storage_after_create = contract.get_storage_balance(charlie.clone()).unwrap();
@@ -1231,22 +1229,26 @@ mod storage_tracking_tests {
             testing_env!(delete_context.build());
 
             contract
-                .execute(set_request(
-                    json!({
-                        format!("posts/{}", i): null
-                    })))
+                .execute(set_request(json!({
+                    format!("posts/{}", i): null
+                })))
                 .unwrap();
         }
 
         let storage_after_deletes = contract.get_storage_balance(charlie.clone()).unwrap();
 
         // After all deletes, storage should be significantly released
-        assert!(storage_after_deletes.used_bytes < initial_used,
-               "Multiple deletes should release storage");
-        
-        println!("✅ Multiple soft deletes: {} bytes initially, {} bytes after all deletes (released {} bytes)",
-                initial_used, storage_after_deletes.used_bytes,
-                initial_used - storage_after_deletes.used_bytes);
+        assert!(
+            storage_after_deletes.used_bytes < initial_used,
+            "Multiple deletes should release storage"
+        );
+
+        println!(
+            "✅ Multiple soft deletes: {} bytes initially, {} bytes after all deletes (released {} bytes)",
+            initial_used,
+            storage_after_deletes.used_bytes,
+            initial_used - storage_after_deletes.used_bytes
+        );
         println!("   Deleted markers release storage as expected");
     }
 
@@ -1261,12 +1263,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Dave creates large data
@@ -1275,10 +1276,9 @@ mod storage_tracking_tests {
         testing_env!(create_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "posts/large": {"text": large_text, "timestamp": 1234567890}
-                })))
+            .execute(set_request(json!({
+                "posts/large": {"text": large_text, "timestamp": 1234567890}
+            })))
             .unwrap();
 
         let storage_before_delete = contract.get_storage_balance(dave.clone()).unwrap();
@@ -1289,19 +1289,23 @@ mod storage_tracking_tests {
 
         contract
             .execute(set_request(json!({
-                    "posts/large": null
-                })))
+                "posts/large": null
+            })))
             .unwrap();
 
         let storage_after_delete = contract.get_storage_balance(dave.clone()).unwrap();
 
         // Soft delete of large data should release most of the storage
         // The small Deleted marker replaces the large data
-        assert!(storage_after_delete.used_bytes < storage_before_delete.used_bytes,
-               "Large data deletion should release storage");
+        assert!(
+            storage_after_delete.used_bytes < storage_before_delete.used_bytes,
+            "Large data deletion should release storage"
+        );
         let bytes_released = storage_before_delete.used_bytes - storage_after_delete.used_bytes;
-        println!("✅ Large data soft delete: {} bytes before, {} bytes after (released {} bytes)",
-                storage_before_delete.used_bytes, storage_after_delete.used_bytes, bytes_released);
+        println!(
+            "✅ Large data soft delete: {} bytes before, {} bytes after (released {} bytes)",
+            storage_before_delete.used_bytes, storage_after_delete.used_bytes, bytes_released
+        );
         println!("   Deleted marker releases storage, allowing user to withdraw freed balance");
     }
 
@@ -1316,12 +1320,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Eve creates data
@@ -1329,11 +1332,10 @@ mod storage_tracking_tests {
         testing_env!(create_context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "posts/1": {"text": "Test post", "timestamp": 1234567890},
-                    "profile/bio": "A test bio with some content"
-                })))
+            .execute(set_request(json!({
+                "posts/1": {"text": "Test post", "timestamp": 1234567890},
+                "profile/bio": "A test bio with some content"
+            })))
             .unwrap();
 
         // Try to withdraw (should have limited availability due to used storage)
@@ -1341,12 +1343,11 @@ mod storage_tracking_tests {
         testing_env!(withdraw_context1.build());
 
         let withdraw_amount = NearToken::from_near(2).as_yoctonear();
-        let result1 = contract.execute(set_request(
-            json!({
-                "storage/withdraw": {
-                    "amount": withdraw_amount.to_string()
-                }
-            })));
+        let result1 = contract.execute(set_request(json!({
+            "storage/withdraw": {
+                "amount": withdraw_amount.to_string()
+            }
+        })));
 
         // Might succeed or fail depending on how much storage is used
         let can_withdraw_before_delete = result1.is_ok();
@@ -1357,18 +1358,22 @@ mod storage_tracking_tests {
 
         contract
             .execute(set_request(json!({
-                    "posts/1": null,
-                    "profile/bio": null
-                })))
+                "posts/1": null,
+                "profile/bio": null
+            })))
             .unwrap();
 
         // After deletion, storage is released, making more available for withdrawal
         let storage_after_delete = contract.get_storage_balance(eve.clone()).unwrap();
-        assert!(storage_after_delete.balance > 0,
-               "Should have storage balance");
-        
-        println!("✅ Soft delete impact on withdrawals: can_withdraw_before={}, used_bytes_after={}",
-                can_withdraw_before_delete, storage_after_delete.used_bytes);
+        assert!(
+            storage_after_delete.balance > 0,
+            "Should have storage balance"
+        );
+
+        println!(
+            "✅ Soft delete impact on withdrawals: can_withdraw_before={}, used_bytes_after={}",
+            can_withdraw_before_delete, storage_after_delete.used_bytes
+        );
         println!("   Deleted entries release storage balance for withdrawal");
     }
 
@@ -1383,12 +1388,11 @@ mod storage_tracking_tests {
         testing_env!(context.build());
 
         contract
-            .execute(set_request(
-                json!({
-                    "storage/deposit": {
-                        "amount": deposit_amount.to_string()
-                    }
-                })))
+            .execute(set_request(json!({
+                "storage/deposit": {
+                    "amount": deposit_amount.to_string()
+                }
+            })))
             .unwrap();
 
         // Frank creates nested data
@@ -1397,8 +1401,8 @@ mod storage_tracking_tests {
 
         contract
             .execute(set_request(json!({
-                    "data/level1/level2/item": "nested value"
-                })))
+                "data/level1/level2/item": "nested value"
+            })))
             .unwrap();
 
         let storage_before = contract.get_storage_balance(frank.clone()).unwrap();
@@ -1409,16 +1413,18 @@ mod storage_tracking_tests {
 
         contract
             .execute(set_request(json!({
-                    "data/level1/level2/item": null
-                })))
+                "data/level1/level2/item": null
+            })))
             .unwrap();
 
         let storage_after = contract.get_storage_balance(frank.clone()).unwrap();
 
         // Nested path deletion should release storage
-        assert!(storage_after.used_bytes < storage_before.used_bytes,
-               "Nested deletion should release storage");
-        
+        assert!(
+            storage_after.used_bytes < storage_before.used_bytes,
+            "Nested deletion should release storage"
+        );
+
         println!("✅ Nested path soft delete tracked correctly");
     }
 
@@ -1437,7 +1443,7 @@ mod storage_tracking_tests {
         // User attaches 1 NEAR total
         let total_attached = NearToken::from_near(1).as_yoctonear();
         let deposit_amount = NearToken::from_millinear(500).as_yoctonear(); // 0.5 NEAR for explicit deposit
-        
+
         let context = get_context_with_deposit(user.clone(), total_attached);
         testing_env!(context.build());
 
@@ -1449,17 +1455,24 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(batch_data));
-        assert!(result.is_ok(), "Batch operation should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Batch operation should succeed: {:?}",
+            result.err()
+        );
 
         // Verify storage balance was allocated correctly
         let storage = contract.get_storage_balance(user.clone()).unwrap();
-        
+
         // The explicit deposit of 0.5 NEAR + auto-deposit of remaining 0.5 NEAR for data
         // Total should be ~1 NEAR (minus any gas/overhead)
         assert!(storage.balance > 0, "Storage balance should be positive");
-        
+
         // Verify data was stored
-        let keys = vec![format!("{}/profile/name", user), format!("{}/profile/bio", user)];
+        let keys = vec![
+            format!("{}/profile/name", user),
+            format!("{}/profile/bio", user),
+        ];
         let retrieved = contract_get_values_map(&contract, keys, Some(user.clone()));
         assert!(!retrieved.is_empty(), "Data should be stored");
 
@@ -1473,7 +1486,7 @@ mod storage_tracking_tests {
 
         // User attaches exactly 0.5 NEAR
         let attached = NearToken::from_millinear(500).as_yoctonear();
-        
+
         let context = get_context_with_deposit(user.clone(), attached);
         testing_env!(context.build());
 
@@ -1487,7 +1500,10 @@ mod storage_tracking_tests {
 
         // Verify exactly the deposited amount is in storage
         let storage = contract.get_storage_balance(user.clone()).unwrap();
-        assert_eq!(storage.balance, attached, "Storage balance should equal deposited amount");
+        assert_eq!(
+            storage.balance, attached,
+            "Storage balance should equal deposited amount"
+        );
 
         println!("✅ Storage deposit correctly consumes from attached balance");
     }
@@ -1500,7 +1516,7 @@ mod storage_tracking_tests {
         // User attaches 0.3 NEAR
         let attached = NearToken::from_millinear(300).as_yoctonear();
         let requested = NearToken::from_millinear(500).as_yoctonear(); // Requesting more than attached
-        
+
         let context = get_context_with_deposit(user.clone(), attached);
         testing_env!(context.build());
 
@@ -1510,10 +1526,16 @@ mod storage_tracking_tests {
         });
 
         let result = contract.execute(set_request(deposit_data));
-        assert!(result.is_err(), "Should fail when requesting more than attached");
-        
+        assert!(
+            result.is_err(),
+            "Should fail when requesting more than attached"
+        );
+
         let error_msg = result.unwrap_err().to_string();
-        assert!(error_msg.contains("Insufficient"), "Error should mention insufficient deposit");
+        assert!(
+            error_msg.contains("Insufficient"),
+            "Error should mention insufficient deposit"
+        );
 
         println!("✅ Storage deposit correctly fails when insufficient balance in context");
     }
@@ -1526,10 +1548,10 @@ mod storage_tracking_tests {
         // This test verifies that if someone tries to do multiple storage/deposit
         // operations in one batch, they correctly share the attached balance
         // Note: JSON objects can't have duplicate keys, so this tests the accounting logic
-        
+
         let attached = NearToken::from_near(1).as_yoctonear();
         let deposit_amount = NearToken::from_millinear(600).as_yoctonear();
-        
+
         let context = get_context_with_deposit(user.clone(), attached);
         testing_env!(context.build());
 
@@ -1539,14 +1561,18 @@ mod storage_tracking_tests {
         });
 
         // Use refund_unused_deposit: true so excess 0.4 NEAR is refunded, not added to storage
-        let options = Some(crate::Options { refund_unused_deposit: true });
+        let options = Some(crate::Options {
+            refund_unused_deposit: true,
+        });
         let result = contract.execute(set_request_with_options(deposit_data, options));
         assert!(result.is_ok(), "First deposit should succeed");
 
         // Storage should have exactly 0.6 NEAR (not more due to double-counting)
         let storage = contract.get_storage_balance(user.clone()).unwrap();
-        assert_eq!(storage.balance, deposit_amount, 
-            "Storage should have exactly the deposited amount, not double-counted");
+        assert_eq!(
+            storage.balance, deposit_amount,
+            "Storage should have exactly the deposited amount, not double-counted"
+        );
 
         println!("✅ Storage deposit correctly prevents double-counting");
     }

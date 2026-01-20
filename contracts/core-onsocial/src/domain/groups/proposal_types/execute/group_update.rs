@@ -1,19 +1,18 @@
 use near_sdk::{
-    AccountId,
-    env,
-    serde_json::{self, json, Value},
+    AccountId, env,
+    serde_json::{self, Value, json},
 };
 
 use crate::constants::EVENT_TYPE_GROUP_UPDATE;
-use crate::events::{EventBatch, EventBuilder};
+use crate::domain::groups::GroupStorage;
 use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::governance::VotingConfig;
-use crate::domain::groups::GroupStorage;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
-use super::super::types::ProposalType;
 use super::super::group_update_type::GroupUpdateType;
+use super::super::types::ProposalType;
 
 impl ProposalType {
     pub(super) fn execute_group_update(
@@ -58,8 +57,10 @@ impl ProposalType {
             }
             GroupUpdateType::RemoveMember => {
                 if let Some(target) = changes.get("target_user").and_then(|v| v.as_str()) {
-                    let target_account =
-                        crate::validation::parse_account_id_str(target, invalid_input!("Invalid account ID"))?;
+                    let target_account = crate::validation::parse_account_id_str(
+                        target,
+                        invalid_input!("Invalid account ID"),
+                    )?;
                     GroupStorage::remove_member_internal(
                         platform,
                         group_id,
@@ -71,8 +72,10 @@ impl ProposalType {
             }
             GroupUpdateType::Ban => {
                 if let Some(target) = changes.get("target_user").and_then(|v| v.as_str()) {
-                    let target_account =
-                        crate::validation::parse_account_id_str(target, invalid_input!("Invalid account ID"))?;
+                    let target_account = crate::validation::parse_account_id_str(
+                        target,
+                        invalid_input!("Invalid account ID"),
+                    )?;
                     GroupStorage::add_to_blacklist_internal(
                         platform,
                         group_id,
@@ -84,8 +87,10 @@ impl ProposalType {
             }
             GroupUpdateType::Unban => {
                 if let Some(target) = changes.get("target_user").and_then(|v| v.as_str()) {
-                    let target_account =
-                        crate::validation::parse_account_id_str(target, invalid_input!("Invalid account ID"))?;
+                    let target_account = crate::validation::parse_account_id_str(
+                        target,
+                        invalid_input!("Invalid account ID"),
+                    )?;
                     GroupStorage::remove_from_blacklist_internal(
                         platform,
                         group_id,
@@ -97,11 +102,15 @@ impl ProposalType {
             }
             GroupUpdateType::TransferOwnership => {
                 if let Some(new_owner) = changes.get("new_owner").and_then(|v| v.as_str()) {
-                    let new_owner_account =
-                        crate::validation::parse_account_id_str(new_owner, invalid_input!("Invalid account ID"))?;
+                    let new_owner_account = crate::validation::parse_account_id_str(
+                        new_owner,
+                        invalid_input!("Invalid account ID"),
+                    )?;
 
                     if !GroupStorage::is_member(platform, group_id, &new_owner_account) {
-                        return Err(invalid_input!("New owner is no longer a member of the group"));
+                        return Err(invalid_input!(
+                            "New owner is no longer a member of the group"
+                        ));
                     }
                     if GroupStorage::is_blacklisted(platform, group_id, &new_owner_account) {
                         return Err(invalid_input!("New owner has been blacklisted"));
@@ -128,19 +137,13 @@ impl ProposalType {
 
                     if remove_old_owner && old_owner != new_owner_account {
                         GroupStorage::remove_member_internal(
-                            platform,
-                            group_id,
-                            &old_owner,
-                            proposer,
-                            true,
+                            platform, group_id, &old_owner, proposer, true,
                         )?;
                     }
 
-                    config = platform
-                        .storage_get(&config_key)
-                        .ok_or_else(|| invalid_input!(
-                            "Group config not found after ownership transfer"
-                        ))?;
+                    config = platform.storage_get(&config_key).ok_or_else(|| {
+                        invalid_input!("Group config not found after ownership transfer")
+                    })?;
                 }
             }
         }
@@ -214,18 +217,31 @@ impl ProposalType {
         platform.storage_set(&config_key, &config)?;
 
         let mut event_batch = EventBatch::new();
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "voting_config_changed", proposer.clone())
-            .with_field("group_id", group_id)
-            .with_field("proposal_id", proposal_id)
-            .with_field("participation_quorum_bps", participation_quorum_bps)
-            .with_field("majority_threshold_bps", majority_threshold_bps)
-            .with_field("voting_period", voting_period.map(|p| p.to_string()))
-            .with_field("effective_participation_quorum_bps", voting_config.participation_quorum_bps)
-            .with_field("effective_majority_threshold_bps", voting_config.majority_threshold_bps)
-            .with_field("effective_voting_period", voting_config.voting_period.0.to_string())
-            .with_path(&config_key)
-            .with_value(config)
-            .emit(&mut event_batch);
+        EventBuilder::new(
+            EVENT_TYPE_GROUP_UPDATE,
+            "voting_config_changed",
+            proposer.clone(),
+        )
+        .with_field("group_id", group_id)
+        .with_field("proposal_id", proposal_id)
+        .with_field("participation_quorum_bps", participation_quorum_bps)
+        .with_field("majority_threshold_bps", majority_threshold_bps)
+        .with_field("voting_period", voting_period.map(|p| p.to_string()))
+        .with_field(
+            "effective_participation_quorum_bps",
+            voting_config.participation_quorum_bps,
+        )
+        .with_field(
+            "effective_majority_threshold_bps",
+            voting_config.majority_threshold_bps,
+        )
+        .with_field(
+            "effective_voting_period",
+            voting_config.voting_period.0.to_string(),
+        )
+        .with_path(&config_key)
+        .with_value(config)
+        .emit(&mut event_batch);
         event_batch.emit()?;
 
         Ok(())
@@ -256,10 +272,14 @@ impl ProposalType {
         platform.storage_set(&execution_key, &execution_data)?;
 
         let mut event_batch = EventBatch::new();
-        EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "custom_proposal_executed", proposer.clone())
-            .with_path(&execution_key)
-            .with_value(execution_data.clone())
-            .emit(&mut event_batch);
+        EventBuilder::new(
+            EVENT_TYPE_GROUP_UPDATE,
+            "custom_proposal_executed",
+            proposer.clone(),
+        )
+        .with_path(&execution_key)
+        .with_value(execution_data.clone())
+        .emit(&mut event_batch);
         event_batch.emit()?;
 
         Ok(())

@@ -1,9 +1,9 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
+use crate::SocialError;
 use crate::domain::groups::config::GroupConfig;
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 impl SocialPlatform {
     pub(super) fn require_positive_amount(amount: u128) -> Result<(), SocialError> {
@@ -48,11 +48,9 @@ impl SocialPlatform {
             .map_err(|_| crate::invalid_input!("Group has no valid owner"))?
             .owner;
 
-        let permission_namespace = crate::domain::groups::permissions::kv::extract_path_owner(
-            self,
-            &group_config_path,
-        )
-        .ok_or_else(|| crate::invalid_input!("Group not found"))?;
+        let permission_namespace =
+            crate::domain::groups::permissions::kv::extract_path_owner(self, &group_config_path)
+                .ok_or_else(|| crate::invalid_input!("Group not found"))?;
 
         let can_manage = crate::domain::groups::permissions::kv::can_manage(
             self,

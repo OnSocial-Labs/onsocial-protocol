@@ -1,9 +1,9 @@
 use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
+use crate::SocialError;
 use crate::state::execute::ExecuteContext;
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 impl SocialPlatform {
     pub(super) fn execute_action_create_group(

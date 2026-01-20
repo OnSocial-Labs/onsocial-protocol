@@ -33,10 +33,7 @@ impl SocialPlatform {
             },
             |platform| {
                 crate::domain::groups::core::GroupStorage::add_member(
-                    platform,
-                    &group_id,
-                    &member_id,
-                    caller,
+                    platform, &group_id, &member_id, caller,
                 )
             },
         )

@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod partition_audit_tests {
-    use crate::storage::partitioning::{fast_hash, get_partition, make_key};
     use crate::constants::NUM_PARTITIONS;
+    use crate::storage::partitioning::{fast_hash, get_partition, make_key};
     use std::collections::HashMap;
-    
+
     // For contract integration tests
+    use crate::domain::groups::permissions::kv::types::{MANAGE, MODERATE};
     use crate::tests::test_utils::*;
-    use crate::domain::groups::permissions::kv::types::{MODERATE, MANAGE};
     use near_sdk::serde_json::json;
     use near_sdk::testing_env;
 
@@ -39,10 +39,15 @@ mod partition_audit_tests {
 
             // Check for key collisions
             let simple_key = make_key("accounts", account_id, path);
-            collision_check.entry(simple_key.clone()).or_default().push(format!("{}/{}", account_id, path));
+            collision_check
+                .entry(simple_key.clone())
+                .or_default()
+                .push(format!("{}/{}", account_id, path));
 
-            println!("Account: {}, Path: {} -> Partition: {}, Key: {}",
-                    account_id, path, partition, simple_key);
+            println!(
+                "Account: {}, Path: {} -> Partition: {}, Key: {}",
+                account_id, path, partition, simple_key
+            );
         }
 
         // Analyze distribution uniformity
@@ -65,15 +70,30 @@ mod partition_audit_tests {
             println!("\n=== NO COLLISIONS DETECTED ===");
         }
 
-        assert!(collisions.is_empty(), "Key collisions detected: {:?}", collisions);
+        assert!(
+            collisions.is_empty(),
+            "Key collisions detected: {:?}",
+            collisions
+        );
     }
 
     #[test]
     fn test_hash_function_properties() {
         // Test avalanche effect and distribution properties
         let inputs = vec![
-            "a", "b", "c", "aa", "ab", "ba", "test", "Test", "TEST",
-            "profile/name", "profile/bio", "posts/post1", "groups/group1"
+            "a",
+            "b",
+            "c",
+            "aa",
+            "ab",
+            "ba",
+            "test",
+            "Test",
+            "TEST",
+            "profile/name",
+            "profile/bio",
+            "posts/post1",
+            "groups/group1",
         ];
 
         println!("=== Hash Function Analysis ===");
@@ -87,7 +107,11 @@ mod partition_audit_tests {
 
         // Check for uniqueness
         let unique_hashes: std::collections::HashSet<_> = hashes.iter().collect();
-        assert_eq!(unique_hashes.len(), hashes.len(), "Hash function produced duplicates");
+        assert_eq!(
+            unique_hashes.len(),
+            hashes.len(),
+            "Hash function produced duplicates"
+        );
 
         // Check bit distribution (basic entropy test)
         let mut bit_counts = [0u32; 128];
@@ -101,15 +125,24 @@ mod partition_audit_tests {
 
         let total_bits = hashes.len() as f32;
         let expected_bits_set = total_bits / 2.0;
-        let bit_distribution_variance: f32 = bit_counts.iter()
+        let bit_distribution_variance: f32 = bit_counts
+            .iter()
             .map(|&count| (count as f32 - expected_bits_set).powi(2))
-            .sum::<f32>() / 128.0;
+            .sum::<f32>()
+            / 128.0;
 
-        println!("Bit distribution variance: {:.2}", bit_distribution_variance);
+        println!(
+            "Bit distribution variance: {:.2}",
+            bit_distribution_variance
+        );
         println!("Expected bits set per position: {:.1}", expected_bits_set);
 
         // Variance should be reasonable (this is a very basic test)
-        assert!(bit_distribution_variance < 10.0, "Bit distribution variance too high: {:.2}", bit_distribution_variance);
+        assert!(
+            bit_distribution_variance < 10.0,
+            "Bit distribution variance too high: {:.2}",
+            bit_distribution_variance
+        );
     }
 
     #[test]
@@ -119,7 +152,7 @@ mod partition_audit_tests {
             ("alice.near", "profile/name"),
             ("alice.near", "profile/name"), // Same input twice
             ("bob.near", "posts/post1"),
-            ("bob.near", "posts/post1"),   // Same input twice
+            ("bob.near", "posts/post1"), // Same input twice
         ];
 
         let mut results = Vec::new();
@@ -131,8 +164,14 @@ mod partition_audit_tests {
         }
 
         // Check determinism - first and second calls should be identical
-        assert_eq!(results[0], results[1], "Partition not deterministic for alice.near/profile/name");
-        assert_eq!(results[2], results[3], "Partition not deterministic for bob.near/posts/post1");
+        assert_eq!(
+            results[0], results[1],
+            "Partition not deterministic for alice.near/profile/name"
+        );
+        assert_eq!(
+            results[2], results[3],
+            "Partition not deterministic for bob.near/posts/post1"
+        );
 
         println!("=== Deterministic Behavior Test PASSED ===");
     }
@@ -151,7 +190,7 @@ mod partition_audit_tests {
         ];
 
         let partition = get_partition(account_id);
-        
+
         println!("=== Namespace-Based Partitioning Test ===");
         println!("Account: {} -> Partition: {}", account_id, partition);
 
@@ -160,11 +199,17 @@ mod partition_audit_tests {
         for path in &paths {
             let key = make_key("accounts", account_id, path);
             println!("  Path: {} -> Key: {}", path, key);
-            
+
             // Verify key format is simple (no shards/subshards)
             assert!(!key.contains("shards/"), "Key should not contain shards/");
-            assert!(!key.contains("subshards/"), "Key should not contain subshards/");
-            assert!(key.starts_with(account_id), "Key should start with account_id");
+            assert!(
+                !key.contains("subshards/"),
+                "Key should not contain subshards/"
+            );
+            assert!(
+                key.starts_with(account_id),
+                "Key should start with account_id"
+            );
         }
 
         println!("=== Namespace-Based Partitioning Test PASSED ===");
@@ -174,17 +219,29 @@ mod partition_audit_tests {
     fn test_simple_key_format() {
         // Test that keys are simple and human-readable
         let test_cases = vec![
-            (("accounts", "alice.near", "profile/name"), "alice.near/profile/name"),
-            (("accounts", "bob.near", "posts/post1"), "bob.near/posts/post1"),
+            (
+                ("accounts", "alice.near", "profile/name"),
+                "alice.near/profile/name",
+            ),
+            (
+                ("accounts", "bob.near", "posts/post1"),
+                "bob.near/posts/post1",
+            ),
             (("groups", "defi-dao", "config"), "groups/defi-dao/config"),
-            (("groups", "defi-dao", "members/bob.near"), "groups/defi-dao/members/bob.near"),
+            (
+                ("groups", "defi-dao", "members/bob.near"),
+                "groups/defi-dao/members/bob.near",
+            ),
         ];
 
         println!("=== Simple Key Format Test ===");
 
         for ((namespace, namespace_id, path), expected_key) in &test_cases {
             let key = make_key(namespace, namespace_id, path);
-            println!("make_key({}, {}, {}) -> {}", namespace, namespace_id, path, key);
+            println!(
+                "make_key({}, {}, {}) -> {}",
+                namespace, namespace_id, path, key
+            );
             assert_eq!(&key, expected_key, "Key format mismatch");
         }
 
@@ -213,8 +270,11 @@ mod partition_audit_tests {
         ]);
 
         println!("=== Large Scale Partition Distribution Analysis ===");
-        println!("Testing {} accounts across {} partitions",
-                test_accounts.len(), NUM_PARTITIONS);
+        println!(
+            "Testing {} accounts across {} partitions",
+            test_accounts.len(),
+            NUM_PARTITIONS
+        );
 
         for account_id in &test_accounts {
             let partition = get_partition(account_id);
@@ -228,40 +288,60 @@ mod partition_audit_tests {
         let partition_variance = calculate_variance(&partition_hits, expected_per_partition);
         let partition_std_dev = partition_variance.sqrt();
 
-        println!("Expected accounts per partition: {:.2}", expected_per_partition);
+        println!(
+            "Expected accounts per partition: {:.2}",
+            expected_per_partition
+        );
         println!("Partition distribution variance: {:.4}", partition_variance);
         println!("Partition standard deviation: {:.4}", partition_std_dev);
 
         // Check that we have good distribution
-        let empty_partitions = (0..NUM_PARTITIONS).filter(|p| !partition_hits.contains_key(p)).count();
+        let empty_partitions = (0..NUM_PARTITIONS)
+            .filter(|p| !partition_hits.contains_key(p))
+            .count();
         let used_partitions = NUM_PARTITIONS as usize - empty_partitions;
 
-        println!("Used partitions: {} out of {}", used_partitions, NUM_PARTITIONS);
-        println!("Empty partitions: {} out of {}", empty_partitions, NUM_PARTITIONS);
+        println!(
+            "Used partitions: {} out of {}",
+            used_partitions, NUM_PARTITIONS
+        );
+        println!(
+            "Empty partitions: {} out of {}",
+            empty_partitions, NUM_PARTITIONS
+        );
 
         // With 304 accounts across 4096 partitions, we check for uniform distribution:
         // 1. No single partition should have too many accounts (no clustering)
         // 2. Used partitions should be close to account count (good spread)
         let max_per_partition = partition_hits.values().max().copied().unwrap_or(0);
-        
+
         // With good hash distribution, max accounts per partition should be small
         // (birthday paradox: some collisions expected, but not excessive)
-        assert!(max_per_partition <= 5, 
-            "No partition should have more than 5 accounts with uniform distribution, found {}", max_per_partition);
-        
+        assert!(
+            max_per_partition <= 5,
+            "No partition should have more than 5 accounts with uniform distribution, found {}",
+            max_per_partition
+        );
+
         // Most accounts should land in unique partitions (expect ~95%+ unique with 304/4096)
         let min_expected_unique = (test_accounts.len() as f64 * 0.90) as usize;
-        assert!(used_partitions >= min_expected_unique, 
-            "Should have at least {}% unique partitions, got {} out of {} accounts", 
-            90, used_partitions, test_accounts.len());
+        assert!(
+            used_partitions >= min_expected_unique,
+            "Should have at least {}% unique partitions, got {} out of {} accounts",
+            90,
+            used_partitions,
+            test_accounts.len()
+        );
 
         println!("=== Large Scale Partition Distribution Analysis PASSED ===");
     }
 
     fn calculate_variance(distribution: &HashMap<u16, usize>, expected: f64) -> f64 {
-        let variance: f64 = distribution.values()
+        let variance: f64 = distribution
+            .values()
             .map(|&count| (count as f64 - expected).powi(2))
-            .sum::<f64>() / distribution.len() as f64;
+            .sum::<f64>()
+            / distribution.len() as f64;
         variance
     }
 
@@ -269,20 +349,31 @@ mod partition_audit_tests {
     fn test_permission_paths_partitioning() {
         // Test that permission paths use simple namespace-based partitioning
         // Permission paths format: groups/{group_id}/permissions/{grantee}/{subpath}
-        
+
         println!("=== Permission Paths Partitioning Test ===");
-        
+
         let test_cases = vec![
             // Group permission paths - all company_group permissions go to SAME partition
-            ("company_group", "groups/company_group/permissions/alice.near"),
+            (
+                "company_group",
+                "groups/company_group/permissions/alice.near",
+            ),
             ("company_group", "groups/company_group/permissions/bob.near"),
-            ("company_group", "groups/company_group/permissions/charlie.near/posts"),
-            ("company_group", "groups/company_group/permissions/dave.near/config"),
+            (
+                "company_group",
+                "groups/company_group/permissions/charlie.near/posts",
+            ),
+            (
+                "company_group",
+                "groups/company_group/permissions/dave.near/config",
+            ),
             ("dev_team", "groups/dev_team/permissions/eve.near"),
             ("dev_team", "groups/dev_team/permissions/frank.near/members"),
             ("marketing", "groups/marketing/permissions/grace.near"),
-            ("marketing", "groups/marketing/permissions/henry.near/content"),
-            
+            (
+                "marketing",
+                "groups/marketing/permissions/henry.near/content",
+            ),
             // Account permission paths
             ("alice.near", "alice.near/permissions/bob.near"),
             ("bob.near", "bob.near/permissions/charlie.near/private"),
@@ -294,10 +385,17 @@ mod partition_audit_tests {
         for (namespace_id, path) in &test_cases {
             let partition = get_partition(namespace_id);
             // For group paths, use "groups" namespace; for account paths, use "accounts"
-            let namespace = if path.starts_with("groups/") { "groups" } else { "accounts" };
+            let namespace = if path.starts_with("groups/") {
+                "groups"
+            } else {
+                "accounts"
+            };
             let storage_key = make_key(namespace, namespace_id, path);
 
-            partition_distribution.entry(partition).or_default().push(path.to_string());
+            partition_distribution
+                .entry(partition)
+                .or_default()
+                .push(path.to_string());
             storage_keys.insert(path.to_string(), storage_key.clone());
 
             println!("Path: {} -> Partition: {}", path, partition);
@@ -310,33 +408,47 @@ mod partition_audit_tests {
 
         // IMPORTANT: All permissions for same namespace go to SAME partition
         // This is optimal for social media queries - get all user's permissions in one lookup
-        
-        let company_perms: Vec<_> = test_cases.iter()
+
+        let company_perms: Vec<_> = test_cases
+            .iter()
             .filter(|(_, path)| path.starts_with("groups/company_group/permissions"))
             .collect();
 
-        let company_partitions: std::collections::HashSet<_> = company_perms.iter()
+        let company_partitions: std::collections::HashSet<_> = company_perms
+            .iter()
             .map(|(ns, _)| get_partition(ns))
             .collect();
-        
+
         println!("\nPermissions for 'company_group':");
         for (namespace_id, path) in &company_perms {
             let partition = get_partition(namespace_id);
             println!("  {} -> Partition {}", path, partition);
         }
-        
-        assert_eq!(company_partitions.len(), 1, 
-            "All company_group permissions should be in SAME partition");
+
+        assert_eq!(
+            company_partitions.len(),
+            1,
+            "All company_group permissions should be in SAME partition"
+        );
         println!("✓ All 'company_group' permissions in single partition (optimal for queries)");
 
         // Verify storage keys are simple and readable
         for (_, path) in &company_perms {
             let storage_key = storage_keys.get(*path).unwrap();
             // New format: groups/company_group/groups/company_group/permissions/...
-            assert!(storage_key.starts_with("groups/company_group/"),
-                "Storage key should use simple format: {}", storage_key);
-            assert!(!storage_key.contains("shards/"), "No shards prefix in simplified storage");
-            assert!(!storage_key.contains("subshards/"), "No subshards in simplified storage");
+            assert!(
+                storage_key.starts_with("groups/company_group/"),
+                "Storage key should use simple format: {}",
+                storage_key
+            );
+            assert!(
+                !storage_key.contains("shards/"),
+                "No shards prefix in simplified storage"
+            );
+            assert!(
+                !storage_key.contains("subshards/"),
+                "No subshards in simplified storage"
+            );
         }
         println!("✓ Storage keys use simple readable format");
 
@@ -348,9 +460,15 @@ mod partition_audit_tests {
 
         // Check that storage keys are unique
         let unique_keys: std::collections::HashSet<_> = storage_keys.values().collect();
-        assert_eq!(unique_keys.len(), test_cases.len(), 
-            "All permission paths should produce unique storage keys");
-        println!("✓ All {} permission paths produce unique storage keys", test_cases.len());
+        assert_eq!(
+            unique_keys.len(),
+            test_cases.len(),
+            "All permission paths should produce unique storage keys"
+        );
+        println!(
+            "✓ All {} permission paths produce unique storage keys",
+            test_cases.len()
+        );
 
         println!("\n=== Permission Path Partitioning Test PASSED ===");
     }
@@ -361,11 +479,31 @@ mod partition_audit_tests {
         println!("=== Permission Path Format Validation ===");
 
         let test_scenarios = vec![
-            ("Root group permission", "company", "groups/company/permissions/alice.near"),
-            ("Subpath group permission", "company", "groups/company/permissions/alice.near/posts"),
-            ("Deep subpath group permission", "company", "groups/company/permissions/alice.near/posts/announcements"),
-            ("Config permission", "dev_team", "groups/dev_team/permissions/bob.near/config"),
-            ("Members permission", "marketing", "groups/marketing/permissions/charlie.near/members"),
+            (
+                "Root group permission",
+                "company",
+                "groups/company/permissions/alice.near",
+            ),
+            (
+                "Subpath group permission",
+                "company",
+                "groups/company/permissions/alice.near/posts",
+            ),
+            (
+                "Deep subpath group permission",
+                "company",
+                "groups/company/permissions/alice.near/posts/announcements",
+            ),
+            (
+                "Config permission",
+                "dev_team",
+                "groups/dev_team/permissions/bob.near/config",
+            ),
+            (
+                "Members permission",
+                "marketing",
+                "groups/marketing/permissions/charlie.near/members",
+            ),
         ];
 
         for (description, namespace_id, perm_path) in &test_scenarios {
@@ -380,19 +518,28 @@ mod partition_audit_tests {
             println!("  Storage Key: {}", storage_key);
 
             // Verify the path structure
-            assert!(perm_path.starts_with(&format!("groups/{}/permissions/", namespace_id)),
-                "Permission path should start with 'groups/{}/permissions/'", namespace_id);
+            assert!(
+                perm_path.starts_with(&format!("groups/{}/permissions/", namespace_id)),
+                "Permission path should start with 'groups/{}/permissions/'",
+                namespace_id
+            );
 
             // Verify the storage key format is simple (groups/{namespace_id}/...)
-            assert!(storage_key.starts_with(&format!("groups/{}/", namespace_id)),
-                "Storage key should start with 'groups/{namespace_id}/': {}", storage_key);
-            
+            assert!(
+                storage_key.starts_with(&format!("groups/{}/", namespace_id)),
+                "Storage key should start with 'groups/{namespace_id}/': {}",
+                storage_key
+            );
+
             // Verify determinism
             let partition2 = get_partition(namespace_id);
             let storage_key2 = make_key("groups", namespace_id, perm_path);
 
             assert_eq!(partition, partition2, "Partition should be deterministic");
-            assert_eq!(storage_key, storage_key2, "Storage key should be deterministic");
+            assert_eq!(
+                storage_key, storage_key2,
+                "Storage key should be deterministic"
+            );
         }
 
         println!("\n✓ All permission paths follow expected format");
@@ -404,43 +551,50 @@ mod partition_audit_tests {
     fn test_ownership_transfer_key_stability() {
         // Critical test: Verify that storage keys are stable across ownership transfer
         // because they use namespace_id (group_id), not owner account_id
-        
+
         println!("=== Ownership Transfer Key Stability Test ===");
-        
+
         let group_id = "company";
         let original_owner = "alice.near";
         let new_owner = "bob.near";
         let permission_grantee = "charlie.near";
-        
+
         // Permission path format: groups/{group_id}/permissions/{grantee}/{subpath}
-        let perm_path = format!("groups/{}/permissions/{}/posts", group_id, permission_grantee);
-        
+        let perm_path = format!(
+            "groups/{}/permissions/{}/posts",
+            group_id, permission_grantee
+        );
+
         // Before ownership transfer
         println!("\nBEFORE ownership transfer (owner: {})", original_owner);
         let partition_before = get_partition(group_id);
         let key_before = make_key("accounts", group_id, &perm_path);
-        
+
         println!("  Permission path: {}", perm_path);
         println!("  Namespace (group_id): {}", group_id);
         println!("  Partition: {}", partition_before);
         println!("  Storage key: {}", key_before);
-        
+
         // After ownership transfer - key must be IDENTICAL
         println!("\nAFTER ownership transfer (owner: {})", new_owner);
         let partition_after = get_partition(group_id);
         let key_after = make_key("accounts", group_id, &perm_path);
-        
+
         println!("  Permission path: {}", perm_path);
         println!("  Namespace (group_id): {} (unchanged)", group_id);
         println!("  Partition: {}", partition_after);
         println!("  Storage key: {}", key_after);
-        
+
         // CRITICAL: Keys must be identical
-        assert_eq!(partition_before, partition_after, 
-            "Partition MUST NOT change after ownership transfer!");
-        assert_eq!(key_before, key_after,
-            "Storage key MUST NOT change after ownership transfer!");
-        
+        assert_eq!(
+            partition_before, partition_after,
+            "Partition MUST NOT change after ownership transfer!"
+        );
+        assert_eq!(
+            key_before, key_after,
+            "Storage key MUST NOT change after ownership transfer!"
+        );
+
         println!("\n✓ CRITICAL: Storage key unchanged after ownership transfer");
         println!("✓ Permissions survive ownership transfer because keys use group_id");
         println!("\n=== Ownership Transfer Key Stability Test PASSED ===");
@@ -461,26 +615,40 @@ mod partition_audit_tests {
         println!("\n=== Contract Permission Storage Integration Test ===");
 
         // Create a group
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
         let config = json!({"member_driven": false, "is_private": true});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
 
         // Add members
         contract
-            .execute(add_group_member_request("test_group".to_string(), bob.clone()))
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                bob.clone(),
+            ))
             .unwrap();
         contract
-            .execute(add_group_member_request("test_group".to_string(), charlie.clone()))
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                charlie.clone(),
+            ))
             .unwrap();
 
         // Grant permission to Charlie
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.execute(set_permission_request(
-            charlie.clone(),
-            "groups/test_group/config".to_string(),
-            MODERATE,
-            None
-        )).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
+        contract
+            .execute(set_permission_request(
+                charlie.clone(),
+                "groups/test_group/config".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
 
         println!("✓ Permission granted: charlie.near -> MODERATE on groups/test_group/config");
 
@@ -489,7 +657,7 @@ mod partition_audit_tests {
             alice.clone(),
             charlie.clone(),
             "groups/test_group/config".to_string(),
-            MODERATE
+            MODERATE,
         );
 
         assert!(has_permission, "Charlie should have MODERATE permission");
@@ -521,25 +689,41 @@ mod partition_audit_tests {
         println!("\n=== Contract Group Data Storage Integration Test ===");
 
         // Create group
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("data_test".to_string(), config.clone())).unwrap();
+        contract
+            .execute(create_group_request(
+                "data_test".to_string(),
+                config.clone(),
+            ))
+            .unwrap();
 
         println!("✓ Group created: data_test");
 
         // Add members
         contract
-            .execute(add_group_member_request("data_test".to_string(), bob.clone()))
+            .execute(add_group_member_request(
+                "data_test".to_string(),
+                bob.clone(),
+            ))
             .unwrap();
         contract
-            .execute(add_group_member_request("data_test".to_string(), charlie.clone()))
+            .execute(add_group_member_request(
+                "data_test".to_string(),
+                charlie.clone(),
+            ))
             .unwrap();
 
         println!("✓ Members added: bob.near, charlie.near");
 
         // Verify data is accessible
         let retrieved_config = contract.get_group_config("data_test".to_string()).unwrap();
-        assert_eq!(retrieved_config.get("owner").and_then(|v| v.as_str()), Some("alice.near"));
+        assert_eq!(
+            retrieved_config.get("owner").and_then(|v| v.as_str()),
+            Some("alice.near")
+        );
         println!("✓ Group config retrieved successfully");
 
         // Check membership
@@ -556,7 +740,10 @@ mod partition_audit_tests {
         ];
 
         let partition = get_partition("data_test");
-        println!("\nExpected storage for group data (all in partition {}):", partition);
+        println!(
+            "\nExpected storage for group data (all in partition {}):",
+            partition
+        );
         for path in &paths {
             let storage_key = make_key("groups", "data_test", path);
             println!("  {} -> {}", path, storage_key);
@@ -578,31 +765,52 @@ mod partition_audit_tests {
         println!("\n=== Contract Ownership Transfer Integration Test ===");
 
         // Create group
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
         let config = json!({"member_driven": false, "is_private": true});
-        contract.execute(create_group_request("transfer_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("transfer_test".to_string(), config))
+            .unwrap();
 
         // Add members
         contract
-            .execute(add_group_member_request("transfer_test".to_string(), bob.clone()))
+            .execute(add_group_member_request(
+                "transfer_test".to_string(),
+                bob.clone(),
+            ))
             .unwrap();
         contract
-            .execute(add_group_member_request("transfer_test".to_string(), charlie.clone()))
+            .execute(add_group_member_request(
+                "transfer_test".to_string(),
+                charlie.clone(),
+            ))
             .unwrap();
 
         // Grant Charlie MODERATE permission BEFORE transfer
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.execute(set_permission_request(
-            charlie.clone(),
-            "groups/transfer_test/config".to_string(),
-            MODERATE,
-            None
-        )).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
+        contract
+            .execute(set_permission_request(
+                charlie.clone(),
+                "groups/transfer_test/config".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
 
         println!("BEFORE transfer:");
         println!("  Owner: alice.near");
-        println!("  Charlie has MODERATE permission: {}", 
-            contract.has_permission(alice.clone(), charlie.clone(), "groups/transfer_test/config".to_string(), MODERATE));
+        println!(
+            "  Charlie has MODERATE permission: {}",
+            contract.has_permission(
+                alice.clone(),
+                charlie.clone(),
+                "groups/transfer_test/config".to_string(),
+                MODERATE
+            )
+        );
 
         // Show expected key (stable across ownership transfer)
         let perm_path = "groups/transfer_test/permissions/charlie.near/config";
@@ -610,8 +818,16 @@ mod partition_audit_tests {
         println!("  Storage key: {}", key);
 
         // Transfer ownership to Bob
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.execute(transfer_group_ownership_request("transfer_test".to_string(), bob.clone(), None)).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
+        contract
+            .execute(transfer_group_ownership_request(
+                "transfer_test".to_string(),
+                bob.clone(),
+                None,
+            ))
+            .unwrap();
 
         println!("\nAFTER transfer:");
         println!("  Owner: bob.near");
@@ -621,15 +837,24 @@ mod partition_audit_tests {
             bob.clone(), // New owner
             charlie.clone(),
             "groups/transfer_test/config".to_string(),
-            MODERATE
+            MODERATE,
         );
-        assert!(charlie_has_perm_after, "Charlie must still have MODERATE permission after ownership transfer");
-        println!("  Charlie has MODERATE permission: {}", charlie_has_perm_after);
+        assert!(
+            charlie_has_perm_after,
+            "Charlie must still have MODERATE permission after ownership transfer"
+        );
+        println!(
+            "  Charlie has MODERATE permission: {}",
+            charlie_has_perm_after
+        );
 
         // Key should be identical (unchanged by ownership transfer)
         let key_after = make_key("accounts", "transfer_test", perm_path);
         println!("  Storage key: {} (unchanged)", key_after);
-        assert_eq!(key, key_after, "Storage key must be stable across ownership transfer");
+        assert_eq!(
+            key, key_after,
+            "Storage key must be stable across ownership transfer"
+        );
 
         println!("\n✓ CRITICAL: Permission access preserved after ownership transfer");
         println!("✓ Storage keys are stable (use group_id, not owner)");
@@ -639,14 +864,10 @@ mod partition_audit_tests {
     #[test]
     fn test_contract_account_data_storage() {
         // Test that user account-level paths use simple keys
-        
+
         println!("\n=== Contract Account Data Storage Test ===");
 
-        let paths = vec![
-            "profile/name",
-            "profile/bio",
-            "posts/post1",
-        ];
+        let paths = vec!["profile/name", "profile/bio", "posts/post1"];
 
         let partition = get_partition("alice.near");
         println!("All alice.near data in partition: {}", partition);
@@ -654,11 +875,17 @@ mod partition_audit_tests {
         for path in &paths {
             let storage_key = make_key("accounts", "alice.near", path);
             println!("  alice.near/{} -> {}", path, storage_key);
-            
+
             // Verify simple format: {account_id}/{relative_path}
-            assert!(storage_key.starts_with("alice.near/"),
-                "Storage key must use simple format: {}", storage_key);
-            assert!(!storage_key.contains("shards/"), "No shards in simplified storage");
+            assert!(
+                storage_key.starts_with("alice.near/"),
+                "Storage key must use simple format: {}",
+                storage_key
+            );
+            assert!(
+                !storage_key.contains("shards/"),
+                "No shards in simplified storage"
+            );
         }
 
         println!("\n✓ Account paths use simple readable keys");
@@ -677,9 +904,21 @@ mod partition_audit_tests {
         println!("\n=== Contract Mixed Operations Partitioning Test ===");
 
         // 1. Create multiple groups
-        testing_env!(get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build());
-        contract.execute(create_group_request("group1".to_string(), json!({"is_private": false}))).unwrap();
-        contract.execute(create_group_request("group2".to_string(), json!({"is_private": true}))).unwrap();
+        testing_env!(
+            get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near()).build()
+        );
+        contract
+            .execute(create_group_request(
+                "group1".to_string(),
+                json!({"is_private": false}),
+            ))
+            .unwrap();
+        contract
+            .execute(create_group_request(
+                "group2".to_string(),
+                json!({"is_private": true}),
+            ))
+            .unwrap();
 
         println!("✓ Groups created: group1, group2");
 
@@ -688,25 +927,58 @@ mod partition_audit_tests {
             .execute(add_group_member_request("group1".to_string(), bob.clone()))
             .unwrap();
         contract
-            .execute(add_group_member_request("group2".to_string(), charlie.clone()))
+            .execute(add_group_member_request(
+                "group2".to_string(),
+                charlie.clone(),
+            ))
             .unwrap();
 
         println!("✓ Members added to groups");
 
         // 3. Grant permissions
-        contract.execute(set_permission_request(bob.clone(), "groups/group1/config".to_string(), MODERATE, None)).unwrap();
-        contract.execute(set_permission_request(charlie.clone(), "groups/group2/config".to_string(), MANAGE, None)).unwrap();
+        contract
+            .execute(set_permission_request(
+                bob.clone(),
+                "groups/group1/config".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
+        contract
+            .execute(set_permission_request(
+                charlie.clone(),
+                "groups/group2/config".to_string(),
+                MANAGE,
+                None,
+            ))
+            .unwrap();
 
         println!("✓ Permissions granted");
 
         // 4. Verify all data is accessible
         let group1_config = contract.get_group_config("group1".to_string());
         let group2_config = contract.get_group_config("group2".to_string());
-        assert!(group1_config.is_some(), "Group1 config should be accessible");
-        assert!(group2_config.is_some(), "Group2 config should be accessible");
+        assert!(
+            group1_config.is_some(),
+            "Group1 config should be accessible"
+        );
+        assert!(
+            group2_config.is_some(),
+            "Group2 config should be accessible"
+        );
 
-        let bob_has_perm = contract.has_permission(alice.clone(), bob.clone(), "groups/group1/config".to_string(), MODERATE);
-        let charlie_has_perm = contract.has_permission(alice.clone(), charlie.clone(), "groups/group2/config".to_string(), MANAGE);
+        let bob_has_perm = contract.has_permission(
+            alice.clone(),
+            bob.clone(),
+            "groups/group1/config".to_string(),
+            MODERATE,
+        );
+        let charlie_has_perm = contract.has_permission(
+            alice.clone(),
+            charlie.clone(),
+            "groups/group2/config".to_string(),
+            MANAGE,
+        );
         assert!(bob_has_perm, "Bob permission should be accessible");
         assert!(charlie_has_perm, "Charlie permission should be accessible");
 
@@ -725,13 +997,16 @@ mod partition_audit_tests {
         ];
 
         let mut partition_usage: HashMap<u16, usize> = HashMap::new();
-        
+
         println!("\nPartition distribution:");
         for (namespace_id, path) in &test_paths {
             let partition = get_partition(namespace_id);
             *partition_usage.entry(partition).or_insert(0) += 1;
             let storage_key = make_key("groups", namespace_id, path);
-            println!("  {} -> Partition {} (key: {})", path, partition, storage_key);
+            println!(
+                "  {} -> Partition {} (key: {})",
+                path, partition, storage_key
+            );
         }
 
         println!("\nPartition summary:");

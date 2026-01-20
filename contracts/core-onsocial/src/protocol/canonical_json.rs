@@ -18,9 +18,7 @@ pub(crate) fn canonicalize_json_value(value: &Value) -> Value {
             }
             Value::Object(out)
         }
-        Value::Array(arr) => {
-            Value::Array(arr.iter().map(canonicalize_json_value).collect())
-        }
+        Value::Array(arr) => Value::Array(arr.iter().map(canonicalize_json_value).collect()),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => value.clone(),
     }
 }

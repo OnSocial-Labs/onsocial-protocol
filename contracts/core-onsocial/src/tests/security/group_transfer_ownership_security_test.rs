@@ -17,11 +17,20 @@ mod group_transfer_ownership_security_test {
         let non_member = accounts(2);
 
         // Test self-transfer prevention
-        assert!(owner != new_owner, "Test setup: owner and new_owner should be different");
+        assert!(
+            owner != new_owner,
+            "Test setup: owner and new_owner should be different"
+        );
 
         // Test that different accounts are different
-        assert!(owner != non_member, "Test setup: owner and non_member should be different");
-        assert!(new_owner != non_member, "Test setup: new_owner and non_member should be different");
+        assert!(
+            owner != non_member,
+            "Test setup: owner and non_member should be different"
+        );
+        assert!(
+            new_owner != non_member,
+            "Test setup: new_owner and non_member should be different"
+        );
 
         // These are basic validation tests that don't require contract execution
         // The actual security tests would be integration tests with proper setup
@@ -41,8 +50,15 @@ mod group_transfer_ownership_security_test {
 
         // Test that the transfer_group_ownership method exists and can be called via execute()
         // (it will fail due to storage issues, but the method should exist)
-        let result = contract.execute(transfer_group_ownership_request("test".to_string(), accounts(1), None));
-        assert!(result.is_err(), "Method should exist but fail due to test setup");
+        let result = contract.execute(transfer_group_ownership_request(
+            "test".to_string(),
+            accounts(1),
+            None,
+        ));
+        assert!(
+            result.is_err(),
+            "Method should exist but fail due to test setup"
+        );
 
         // Check that the error is about storage, not about missing method
         let error_msg = format!("{:?}", result.unwrap_err());

@@ -1,10 +1,8 @@
 use near_sdk::serde_json::Value;
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
-pub fn validate_json_value_simple(
-    value: &Value,
-) -> Result<(), SocialError> {
+pub fn validate_json_value_simple(value: &Value) -> Result<(), SocialError> {
     match value {
         Value::Object(obj) => {
             for key in obj.keys() {

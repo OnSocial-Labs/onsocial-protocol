@@ -1,6 +1,6 @@
 use near_sdk::{CurveType, PublicKey};
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 pub fn ed25519_public_key_bytes(public_key: &PublicKey) -> Result<[u8; 32], SocialError> {
     if public_key.curve_type() != CurveType::ED25519 {

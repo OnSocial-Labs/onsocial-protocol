@@ -1,8 +1,10 @@
 use near_sdk::serde_json::Value;
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
-pub(super) fn parse_permission_change(changes: &Value) -> Result<crate::domain::groups::ProposalType, SocialError> {
+pub(super) fn parse_permission_change(
+    changes: &Value,
+) -> Result<crate::domain::groups::ProposalType, SocialError> {
     let target_user_str = changes
         .get("target_user")
         .and_then(|v| v.as_str())
@@ -25,7 +27,9 @@ pub(super) fn parse_permission_change(changes: &Value) -> Result<crate::domain::
     })
 }
 
-pub(super) fn parse_path_permission_grant(changes: &Value) -> Result<crate::domain::groups::ProposalType, SocialError> {
+pub(super) fn parse_path_permission_grant(
+    changes: &Value,
+) -> Result<crate::domain::groups::ProposalType, SocialError> {
     let target_user_str = changes
         .get("target_user")
         .and_then(|v| v.as_str())
@@ -56,7 +60,9 @@ pub(super) fn parse_path_permission_grant(changes: &Value) -> Result<crate::doma
     })
 }
 
-pub(super) fn parse_path_permission_revoke(changes: &Value) -> Result<crate::domain::groups::ProposalType, SocialError> {
+pub(super) fn parse_path_permission_revoke(
+    changes: &Value,
+) -> Result<crate::domain::groups::ProposalType, SocialError> {
     let target_user_str = changes
         .get("target_user")
         .and_then(|v| v.as_str())

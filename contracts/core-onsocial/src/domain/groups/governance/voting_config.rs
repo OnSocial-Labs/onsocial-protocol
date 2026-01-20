@@ -48,7 +48,10 @@ impl VotingConfig {
             majority_threshold_bps: self
                 .majority_threshold_bps
                 .clamp(MIN_VOTING_MAJORITY_THRESHOLD_BPS, BPS_DENOMINATOR),
-            voting_period: U64(self.voting_period.0.clamp(MIN_VOTING_PERIOD, MAX_VOTING_PERIOD)),
+            voting_period: U64(self
+                .voting_period
+                .0
+                .clamp(MIN_VOTING_PERIOD, MAX_VOTING_PERIOD)),
         }
     }
 }
@@ -58,7 +61,9 @@ impl GroupGovernance {
         let config_key = format!("groups/{}/config", group_id);
         if let Some(config) = platform.storage_get(&config_key) {
             if let Some(voting_config_val) = config.get("voting_config") {
-                if let Ok(voting_config) = serde_json::from_value::<VotingConfig>(voting_config_val.clone()) {
+                if let Ok(voting_config) =
+                    serde_json::from_value::<VotingConfig>(voting_config_val.clone())
+                {
                     return voting_config.sanitized();
                 }
             }

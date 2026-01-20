@@ -1,10 +1,10 @@
 use near_sdk::{
-    serde_json::{json, Value},
     AccountId,
+    serde_json::{Value, json},
 };
 
-use crate::{invalid_input, SocialError};
 use crate::state::models::SocialPlatform;
+use crate::{SocialError, invalid_input};
 
 impl SocialPlatform {
     pub fn create_group(
@@ -52,10 +52,7 @@ impl SocialPlatform {
             },
             |platform| {
                 crate::domain::groups::core::GroupStorage::remove_member(
-                    platform,
-                    &group_id,
-                    &member_id,
-                    caller,
+                    platform, &group_id, &member_id, caller,
                 )
             },
         )
@@ -91,10 +88,7 @@ impl SocialPlatform {
             },
             |platform| {
                 crate::domain::groups::core::GroupStorage::add_to_blacklist(
-                    platform,
-                    &group_id,
-                    &member_id,
-                    caller,
+                    platform, &group_id, &member_id, caller,
                 )
             },
         )
@@ -130,10 +124,7 @@ impl SocialPlatform {
             },
             |platform| {
                 crate::domain::groups::core::GroupStorage::remove_from_blacklist(
-                    platform,
-                    &group_id,
-                    &member_id,
-                    caller,
+                    platform, &group_id, &member_id, caller,
                 )
             },
         )

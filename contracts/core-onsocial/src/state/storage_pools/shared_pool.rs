@@ -1,10 +1,10 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::events::EventBuilder;
-use crate::state::set_context::ApiOperationContext;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::events::EventBuilder;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::ApiOperationContext;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_shared_pool_deposit(
@@ -32,12 +32,17 @@ impl SocialPlatform {
         Self::require_minimum_pool_deposit(amount)?;
 
         if account_id != &pool_id {
-            return Err(crate::unauthorized!("shared_pool_deposit", account_id.as_str()));
+            return Err(crate::unauthorized!(
+                "shared_pool_deposit",
+                account_id.as_str()
+            ));
         }
 
         // Use shared `attached_balance` for batch accounting.
         if *ctx.attached_balance < amount {
-            return Err(crate::invalid_input!("Insufficient deposit for shared pool"));
+            return Err(crate::invalid_input!(
+                "Insufficient deposit for shared pool"
+            ));
         }
 
         *ctx.attached_balance = ctx.attached_balance.saturating_sub(amount);
@@ -46,7 +51,11 @@ impl SocialPlatform {
 
         storage.storage_tracker.start_tracking();
 
-        let mut pool = self.shared_storage_pools.get(&pool_id).cloned().unwrap_or_default();
+        let mut pool = self
+            .shared_storage_pools
+            .get(&pool_id)
+            .cloned()
+            .unwrap_or_default();
         let previous_pool_balance = pool.storage_balance;
         pool.storage_balance = pool.storage_balance.saturating_add(amount);
         let new_pool_balance = pool.storage_balance;
@@ -56,13 +65,17 @@ impl SocialPlatform {
         let delta = storage.storage_tracker.delta();
         storage.storage_tracker.reset();
 
-        if delta > 0 {
-            storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
-            storage.assert_storage_covered()?;
-        } else if delta < 0 {
-            storage.used_bytes = storage
-                .used_bytes
-                .saturating_sub(delta.unsigned_abs() as u64);
+        match delta.cmp(&0) {
+            std::cmp::Ordering::Greater => {
+                storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
+                storage.assert_storage_covered()?;
+            }
+            std::cmp::Ordering::Less => {
+                storage.used_bytes = storage
+                    .used_bytes
+                    .saturating_sub(delta.unsigned_abs() as u64);
+            }
+            std::cmp::Ordering::Equal => {}
         }
 
         self.user_storage.insert(pool_id.clone(), storage);

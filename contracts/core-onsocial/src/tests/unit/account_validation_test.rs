@@ -29,19 +29,18 @@ mod tests {
     #[test]
     fn parse_account_id_value_accepts_string() {
         let v = Value::String("bob.near".to_string());
-        let id = crate::validation::parse_account_id_value(
-            &v,
-            crate::invalid_input!("owner invalid"),
-        )
-        .expect("must parse valid account id");
+        let id =
+            crate::validation::parse_account_id_value(&v, crate::invalid_input!("owner invalid"))
+                .expect("must parse valid account id");
         assert_eq!(id.as_str(), "bob.near");
     }
 
     #[test]
     fn parse_account_id_value_rejects_non_string() {
         let v = Value::Null;
-        let got = crate::validation::parse_account_id_value(&v, crate::invalid_input!("owner invalid"))
-            .expect_err("must fail");
+        let got =
+            crate::validation::parse_account_id_value(&v, crate::invalid_input!("owner invalid"))
+                .expect_err("must fail");
 
         match got {
             SocialError::InvalidInput(msg) => assert_eq!(msg, "owner invalid"),
@@ -56,8 +55,7 @@ mod tests {
 
     #[test]
     fn parse_account_id_str_opt_is_some_on_valid() {
-        let id = crate::validation::parse_account_id_str_opt("carol.near")
-            .expect("should parse");
+        let id = crate::validation::parse_account_id_str_opt("carol.near").expect("should parse");
         assert_eq!(id.as_str(), "carol.near");
     }
 }

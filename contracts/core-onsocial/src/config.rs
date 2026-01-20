@@ -1,15 +1,24 @@
-use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
 use near_sdk::NearSchema;
+use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
+use near_sdk::serde::{Deserialize, Serialize};
 
 use crate::constants::{
-    MIN_PLATFORM_ALLOWANCE_MAX_BYTES,
-    MIN_PLATFORM_DAILY_REFILL_BYTES,
+    MIN_PLATFORM_ALLOWANCE_MAX_BYTES, MIN_PLATFORM_DAILY_REFILL_BYTES,
     MIN_PLATFORM_ONBOARDING_BYTES,
 };
 
-#[derive(NearSchema, BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(
+    NearSchema,
+    BorshDeserialize,
+    BorshSerialize,
+    Serialize,
+    Deserialize,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+)]
 #[abi(borsh, json)]
 #[serde(crate = "near_sdk::serde")]
 pub struct GovernanceConfig {
@@ -29,9 +38,15 @@ pub struct GovernanceConfig {
     pub intents_executors: Vec<AccountId>,
 }
 
-fn default_platform_onboarding_bytes() -> u64 { MIN_PLATFORM_ONBOARDING_BYTES }
-fn default_platform_daily_refill_bytes() -> u64 { MIN_PLATFORM_DAILY_REFILL_BYTES }
-fn default_platform_allowance_max_bytes() -> u64 { MIN_PLATFORM_ALLOWANCE_MAX_BYTES }
+fn default_platform_onboarding_bytes() -> u64 {
+    MIN_PLATFORM_ONBOARDING_BYTES
+}
+fn default_platform_daily_refill_bytes() -> u64 {
+    MIN_PLATFORM_DAILY_REFILL_BYTES
+}
+fn default_platform_allowance_max_bytes() -> u64 {
+    MIN_PLATFORM_ALLOWANCE_MAX_BYTES
+}
 
 impl Default for GovernanceConfig {
     fn default() -> Self {

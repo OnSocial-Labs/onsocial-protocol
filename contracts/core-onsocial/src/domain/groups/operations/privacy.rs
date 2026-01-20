@@ -1,13 +1,9 @@
-use near_sdk::{
-    env,
-    serde_json::Value,
-    AccountId,
-};
+use near_sdk::{AccountId, env, serde_json::Value};
 
-use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::config::GroupConfig;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 impl crate::domain::groups::core::GroupStorage {
     pub fn set_group_privacy(
@@ -39,7 +35,8 @@ impl crate::domain::groups::core::GroupStorage {
         Self::assert_member_driven_private_invariant(cfg.member_driven, Some(is_private))?;
 
         let mut config_data = config_data;
-        let obj = config_data.as_object_mut()
+        let obj = config_data
+            .as_object_mut()
             .ok_or_else(|| invalid_input!("Group config must be a JSON object"))?;
         obj.insert("is_private".to_string(), Value::Bool(is_private));
         obj.insert(

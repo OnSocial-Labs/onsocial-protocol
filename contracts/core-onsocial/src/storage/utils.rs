@@ -75,5 +75,3 @@ pub fn extract_group_id_from_path(path: &str) -> Option<&str> {
     }
     Some(group_id)
 }
-
-

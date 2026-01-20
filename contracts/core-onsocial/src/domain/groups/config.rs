@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 #[derive(Clone, Debug)]
 pub(crate) struct GroupConfig {

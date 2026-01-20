@@ -1,10 +1,10 @@
-use near_sdk::{env, AccountId, PublicKey};
+use near_sdk::{AccountId, PublicKey, env};
 
-use crate::events::{EventBatch, EventBuilder};
+use crate::SocialError;
 use crate::domain::groups::config::GroupConfig;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
 use crate::validation::Path;
-use crate::SocialError;
 
 impl SocialPlatform {
     pub fn set_permission(
@@ -22,18 +22,23 @@ impl SocialPlatform {
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
 
-        if level != 0 && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(level, false) {
+        if level != 0
+            && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(
+                level, false,
+            )
+        {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 
         let path_obj = Path::new(caller, &path, self)?;
         let full_path = path_obj.full_path().to_string();
 
-        let group_path_info = crate::domain::groups::permissions::kv::classify_group_path(&full_path);
+        let group_path_info =
+            crate::domain::groups::permissions::kv::classify_group_path(&full_path);
         let group_id_from_path = group_path_info.as_ref().map(|info| info.group_id.as_str());
 
         let (path_identifier, group_owner, is_member_driven_group): (String, Option<String>, bool) =
-            if let Some(group_id) = group_id_from_path.as_deref() {
+            if let Some(group_id) = group_id_from_path {
                 let config_path = format!("groups/{}/config", group_id);
                 let config = self.storage_get(&config_path).ok_or_else(|| {
                     crate::unauthorized!(
@@ -136,7 +141,9 @@ impl SocialPlatform {
                 }
             }
 
-            if level != 0 && !crate::domain::groups::core::GroupStorage::is_member(self, group_id, &grantee) {
+            if level != 0
+                && !crate::domain::groups::core::GroupStorage::is_member(self, group_id, &grantee)
+            {
                 return Err(crate::invalid_input!(
                     "Delegated permission grants are only allowed to existing members"
                 ));
@@ -165,7 +172,7 @@ impl SocialPlatform {
         }
 
         // Keep member record in sync when group-root permission level changes.
-        if let Some(group_id) = group_id_from_path.as_deref() {
+        if let Some(group_id) = group_id_from_path {
             let is_group_root = group_path_info.as_ref().is_some_and(|info| {
                 info.kind == crate::domain::groups::permissions::kv::GroupPathKind::Root
             });
@@ -229,7 +236,11 @@ impl SocialPlatform {
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
 
-        if level != 0 && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(level, false) {
+        if level != 0
+            && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(
+                level, false,
+            )
+        {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 

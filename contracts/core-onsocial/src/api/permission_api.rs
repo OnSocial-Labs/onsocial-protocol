@@ -1,11 +1,10 @@
-use near_sdk::{near, AccountId, PublicKey};
+use near_sdk::{AccountId, PublicKey, near};
 
 use crate::{Contract, ContractExt};
 
 #[near]
 impl Contract {
     /// Permission view methods. Mutations go through `execute()`.
-
     pub fn has_permission(
         &self,
         owner: AccountId,
@@ -57,10 +56,18 @@ impl Contract {
     }
 
     pub fn has_group_admin_permission(&self, group_id: String, user_id: AccountId) -> bool {
-        crate::domain::groups::permissions::kv::has_group_admin_permission(&self.platform, &group_id, &user_id)
+        crate::domain::groups::permissions::kv::has_group_admin_permission(
+            &self.platform,
+            &group_id,
+            &user_id,
+        )
     }
 
     pub fn has_group_moderate_permission(&self, group_id: String, user_id: AccountId) -> bool {
-        crate::domain::groups::permissions::kv::has_group_moderate_permission(&self.platform, &group_id, &user_id)
+        crate::domain::groups::permissions::kv::has_group_moderate_permission(
+            &self.platform,
+            &group_id,
+            &user_id,
+        )
     }
 }

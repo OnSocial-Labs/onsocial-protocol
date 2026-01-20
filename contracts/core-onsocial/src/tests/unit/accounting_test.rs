@@ -11,11 +11,11 @@
 
 #[cfg(test)]
 mod accounting_tests {
-    use crate::tests::test_utils::*;
     use crate::state::models::DataEntry;
     use crate::state::models::DataValue;
+    use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
-    use near_sdk::{testing_env, NearToken};
+    use near_sdk::{NearToken, testing_env};
 
     // ========================================================================
     // TEST 1: Storage Already Covered - Early Return Path
@@ -67,7 +67,7 @@ mod accounting_tests {
         // Note: The current implementation always adds attached to storage regardless of need
         // This test documents actual behavior.
         let storage_after = contract.get_storage_balance(alice.clone()).unwrap();
-        
+
         println!("✅ Storage already covered path tested");
         println!("   Balance before: {}", storage_before.balance);
         println!("   Balance after: {}", storage_after.balance);
@@ -104,7 +104,11 @@ mod accounting_tests {
             Some(&mut remaining_balance),
         );
 
-        assert!(result.is_ok(), "Insert should succeed with attached deposit fallback: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Insert should succeed with attached deposit fallback: {:?}",
+            result.err()
+        );
 
         // CRITICAL: The attached balance should be zeroed after auto-deposit
         assert_eq!(
@@ -114,14 +118,20 @@ mod accounting_tests {
 
         // Verify storage balance was credited
         let storage = contract.get_storage_balance(alice.clone()).unwrap();
-        assert!(storage.balance > 0, "Storage balance should be credited from auto-deposit");
+        assert!(
+            storage.balance > 0,
+            "Storage balance should be credited from auto-deposit"
+        );
         assert_eq!(
             storage.balance, attached,
             "Storage balance should equal the attached deposit amount"
         );
 
         println!("✅ Auto-deposit fallback correctly consumed attached balance");
-        println!("   Attached deposit: {} -> Remaining: {}", attached, remaining_balance);
+        println!(
+            "   Attached deposit: {} -> Remaining: {}",
+            attached, remaining_balance
+        );
         println!("   Storage balance: {}", storage.balance);
     }
 
@@ -144,12 +154,14 @@ mod accounting_tests {
         };
 
         // Call insert_entry (which passes None for attached_balance)
-        let result = contract.platform.insert_entry(
-            &format!("{}/test/data", alice),
-            entry,
-        );
+        let result = contract
+            .platform
+            .insert_entry(&format!("{}/test/data", alice), entry);
 
-        assert!(result.is_err(), "Insert should fail without storage or attached deposit");
+        assert!(
+            result.is_err(),
+            "Insert should fail without storage or attached deposit"
+        );
 
         let err = result.err().unwrap();
         assert!(
@@ -186,7 +198,10 @@ mod accounting_tests {
             Some(&mut zero_balance),
         );
 
-        assert!(result.is_err(), "Insert should fail with zero attached balance");
+        assert!(
+            result.is_err(),
+            "Insert should fail with zero attached balance"
+        );
 
         let err = result.err().unwrap();
         assert!(
@@ -226,7 +241,10 @@ mod accounting_tests {
             Some(&mut remaining_balance),
         );
 
-        assert!(result.is_err(), "Insert should fail when auto-deposit is insufficient");
+        assert!(
+            result.is_err(),
+            "Insert should fail when auto-deposit is insufficient"
+        );
 
         let err = result.err().unwrap();
         assert!(
@@ -236,7 +254,10 @@ mod accounting_tests {
         );
 
         // The tiny balance was still consumed in the attempt
-        assert_eq!(remaining_balance, 0, "Attached balance should be consumed even when insufficient");
+        assert_eq!(
+            remaining_balance, 0,
+            "Attached balance should be consumed even when insufficient"
+        );
 
         println!("✅ InsufficientStorage error correctly returned when auto-deposit is too small");
     }
@@ -269,7 +290,10 @@ mod accounting_tests {
             Some(&mut remaining_balance),
         );
         assert!(result1.is_ok(), "First insert should succeed");
-        assert_eq!(remaining_balance, 0, "Balance should be consumed after first write");
+        assert_eq!(
+            remaining_balance, 0,
+            "Balance should be consumed after first write"
+        );
 
         // The balance is now zeroed - second write with same mutable reference should fail
         // if user didn't have enough pre-deposited balance for both writes
@@ -318,11 +342,14 @@ mod accounting_tests {
         };
 
         let mut remaining = attached;
-        contract.platform.insert_entry_with_fallback(
-            &format!("{}/test/data", alice),
-            entry,
-            Some(&mut remaining),
-        ).unwrap();
+        contract
+            .platform
+            .insert_entry_with_fallback(
+                &format!("{}/test/data", alice),
+                entry,
+                Some(&mut remaining),
+            )
+            .unwrap();
 
         // Verify storage balance is exactly the attached amount
         let storage_after = contract.get_storage_balance(alice.clone()).unwrap();

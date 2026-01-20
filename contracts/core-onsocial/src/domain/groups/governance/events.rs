@@ -1,9 +1,9 @@
-use near_sdk::{env, AccountId};
 use near_sdk::serde_json;
+use near_sdk::{AccountId, env};
 
 use crate::constants::*;
-use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::proposal_types::VoteTally;
+use crate::events::{EventBatch, EventBuilder};
 
 pub(super) fn emit_proposal_created(
     proposer: &AccountId,
@@ -29,26 +29,30 @@ pub(super) fn emit_proposal_created(
     let expires_at = created_at.saturating_add(voting_period);
 
     let mut event_batch = EventBatch::new();
-    let mut builder = EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "proposal_created", proposer.clone())
-        .with_field("group_id", group_id)
-        .with_field("proposal_id", proposal_id)
-        .with_field("sequence_number", sequence_number)
-        .with_field("proposal_type", proposal_type)
-        .with_field("proposer", proposer.as_str())
-        .with_field("target", target)
-        .with_field("auto_vote", auto_vote)
-        .with_field("created_at", created_at.to_string())
-        .with_field("expires_at", expires_at.to_string())
-        .with_field("locked_member_count", locked_member_count)
-        .with_field("participation_quorum_bps", participation_quorum_bps)
-        .with_field("majority_threshold_bps", majority_threshold_bps)
-        .with_field("voting_period", voting_period.to_string())
-        .with_field("locked_deposit", locked_deposit.to_string())
-        .with_path(proposal_path)
-        .with_value(proposal_data)
-        .with_field("tally_path", tally_path)
-        .with_field("counter_path", counter_path)
-        .with_write(counter_path, counter_value);
+    let mut builder = EventBuilder::new(
+        EVENT_TYPE_GROUP_UPDATE,
+        "proposal_created",
+        proposer.clone(),
+    )
+    .with_field("group_id", group_id)
+    .with_field("proposal_id", proposal_id)
+    .with_field("sequence_number", sequence_number)
+    .with_field("proposal_type", proposal_type)
+    .with_field("proposer", proposer.as_str())
+    .with_field("target", target)
+    .with_field("auto_vote", auto_vote)
+    .with_field("created_at", created_at.to_string())
+    .with_field("expires_at", expires_at.to_string())
+    .with_field("locked_member_count", locked_member_count)
+    .with_field("participation_quorum_bps", participation_quorum_bps)
+    .with_field("majority_threshold_bps", majority_threshold_bps)
+    .with_field("voting_period", voting_period.to_string())
+    .with_field("locked_deposit", locked_deposit.to_string())
+    .with_path(proposal_path)
+    .with_value(proposal_data)
+    .with_field("tally_path", tally_path)
+    .with_field("counter_path", counter_path)
+    .with_write(counter_path, counter_value);
 
     if !auto_vote {
         builder = builder.with_write(tally_path, tally_value);
@@ -99,7 +103,10 @@ pub(super) fn emit_vote_cast(
         .with_field("approve", approve)
         .with_field("total_votes", tally.total_votes)
         .with_field("yes_votes", tally.yes_votes)
-        .with_field("no_votes", tally.total_votes.saturating_sub(tally.yes_votes))
+        .with_field(
+            "no_votes",
+            tally.total_votes.saturating_sub(tally.yes_votes),
+        )
         .with_field("locked_member_count", tally.locked_member_count)
         .with_field("participation_bps", participation_bps)
         .with_field("approval_bps", approval_bps)

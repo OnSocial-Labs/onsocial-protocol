@@ -1,5 +1,5 @@
-use crate::invalid_input;
 use crate::SocialError;
+use crate::invalid_input;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ProposalStatus {

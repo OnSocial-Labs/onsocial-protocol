@@ -41,7 +41,11 @@ impl SocialPlatform {
             .map_err(|_| SocialError::InvalidInput("Serialization failed".to_string()))?;
 
         let account_id = self.resolve_payer_account(full_path)?;
-        let mut storage = self.user_storage.get(&account_id).cloned().unwrap_or_default();
+        let mut storage = self
+            .user_storage
+            .get(&account_id)
+            .cloned()
+            .unwrap_or_default();
 
         storage.storage_tracker.start_tracking();
         near_sdk::env::storage_write(key.as_bytes(), &serialized_entry);
@@ -50,24 +54,28 @@ impl SocialPlatform {
         let delta = storage.storage_tracker.delta();
 
         let mut sponsor_outcome: Option<super::SponsorOutcome> = None;
-        if delta > 0 {
-            storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
-            sponsor_outcome = self.allocate_storage_from_pools(
-                &mut storage,
-                full_path,
-                &account_id,
-                delta as u64,
-            );
-        } else if delta < 0 {
-            storage.used_bytes = storage
-                .used_bytes
-                .saturating_sub(delta.unsigned_abs() as u64);
-            self.deallocate_storage_to_pools(
-                &mut storage,
-                full_path,
-                &account_id,
-                delta.unsigned_abs() as u64,
-            );
+        match delta.cmp(&0) {
+            std::cmp::Ordering::Greater => {
+                storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
+                sponsor_outcome = self.allocate_storage_from_pools(
+                    &mut storage,
+                    full_path,
+                    &account_id,
+                    delta as u64,
+                );
+            }
+            std::cmp::Ordering::Less => {
+                storage.used_bytes = storage
+                    .used_bytes
+                    .saturating_sub(delta.unsigned_abs() as u64);
+                self.deallocate_storage_to_pools(
+                    &mut storage,
+                    full_path,
+                    &account_id,
+                    delta.unsigned_abs() as u64,
+                );
+            }
+            std::cmp::Ordering::Equal => {}
         }
 
         storage.storage_tracker.reset();

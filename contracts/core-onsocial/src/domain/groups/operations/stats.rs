@@ -1,12 +1,11 @@
 use near_sdk::{
-    AccountId,
-    env,
-    serde_json::{json, Value},
+    AccountId, env,
+    serde_json::{Value, json},
 };
 
+use crate::SocialError;
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 impl crate::domain::groups::core::GroupStorage {
     pub fn update_group_stats(

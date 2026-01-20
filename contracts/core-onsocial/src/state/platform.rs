@@ -1,14 +1,9 @@
-use near_sdk::{
-    env,
-    serde_json::Value,
-    store::LookupMap,
-    AccountId,
-    NearToken,
-    Promise,
-};
-use crate::state::models::{ContractStatus, SocialPlatform, DataEntry};
 use crate::events::{EventBatch, EventBuilder};
-use crate::{config::GovernanceConfig, errors::*, storage::StorageKey, unauthorized, invalid_input};
+use crate::state::models::{ContractStatus, DataEntry, SocialPlatform};
+use crate::{
+    config::GovernanceConfig, errors::*, invalid_input, storage::StorageKey, unauthorized,
+};
+use near_sdk::{AccountId, NearToken, Promise, env, serde_json::Value, store::LookupMap};
 
 pub struct UnusedDepositEventMeta<'a> {
     pub auth_type: &'a str,
@@ -33,8 +28,6 @@ impl SocialPlatform {
     pub fn platform_pool_account() -> AccountId {
         env::current_account_id()
     }
-
-
 
     #[inline(always)]
     pub fn new() -> Self {
@@ -67,13 +60,13 @@ impl SocialPlatform {
     }
 
     pub fn storage_set(&mut self, key: &str, value: &Value) -> Result<(), SocialError> {
-        let serialized = serde_json::to_vec(value)
-            .map_err(|_| invalid_input!("Serialization failed"))?;
+        let serialized =
+            serde_json::to_vec(value).map_err(|_| invalid_input!("Serialization failed"))?;
 
         if serialized.len() > self.config.max_value_bytes as usize {
             return Err(invalid_input!("Value payload too large"));
         }
-        
+
         let entry = DataEntry {
             value: crate::state::models::DataValue::Value(serialized),
             block_height: near_sdk::env::block_height(),
@@ -113,7 +106,10 @@ impl SocialPlatform {
 }
 
 impl SocialPlatform {
-    pub fn assert_storage_covered_with_platform(&self, storage: &crate::storage::Storage) -> Result<(), SocialError> {
+    pub fn assert_storage_covered_with_platform(
+        &self,
+        storage: &crate::storage::Storage,
+    ) -> Result<(), SocialError> {
         storage.assert_storage_covered()
     }
 
@@ -159,7 +155,8 @@ impl SocialPlatform {
     }
 
     pub fn get_account_storage(&self, account_id: &str) -> Option<crate::storage::Storage> {
-        let account_id_parsed: near_sdk::AccountId = crate::validation::parse_account_id_str_opt(account_id)?;
+        let account_id_parsed: near_sdk::AccountId =
+            crate::validation::parse_account_id_str_opt(account_id)?;
         self.user_storage.get(&account_id_parsed).cloned()
     }
 
@@ -167,7 +164,11 @@ impl SocialPlatform {
         if amount == 0 {
             return;
         }
-        let mut storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
+        let mut storage = self
+            .user_storage
+            .get(account_id)
+            .cloned()
+            .unwrap_or_default();
         storage.balance = storage.balance.saturating_add(amount);
         self.user_storage.insert(account_id.clone(), storage);
     }
@@ -178,7 +179,11 @@ impl SocialPlatform {
         account_id: &AccountId,
         amount: u128,
     ) -> Result<(), SocialError> {
-        let mut storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
+        let mut storage = self
+            .user_storage
+            .get(account_id)
+            .cloned()
+            .unwrap_or_default();
         storage.lock_balance(amount)?;
         self.user_storage.insert(account_id.clone(), storage);
         Ok(())

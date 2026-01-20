@@ -1,9 +1,9 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
+use crate::SocialError;
 use crate::events::EventBatch;
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_permission_grant(

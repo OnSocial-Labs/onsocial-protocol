@@ -2,11 +2,11 @@
 // Tests to ensure error messages are clear and actionable
 #[cfg(test)]
 mod error_message_tests {
-    use crate::tests::test_utils::*;
     use crate::Contract;
+    use crate::tests::test_utils::*;
     use near_sdk::serde_json::json;
     use near_sdk::test_utils::accounts;
-    use near_sdk::{testing_env, AccountId};
+    use near_sdk::{AccountId, testing_env};
     fn test_account(index: usize) -> AccountId {
         accounts(index)
     }
@@ -19,12 +19,21 @@ mod error_message_tests {
         let alice = test_account(0);
         let bob = test_account(1);
         // Alice creates group and adds herself to it
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         // Create a group where Alice is owner
-        contract.execute(create_group_request("perm_test".to_string(), json!({ "is_private": false }))).unwrap();
+        contract
+            .execute(create_group_request(
+                "perm_test".to_string(),
+                json!({ "is_private": false }),
+            ))
+            .unwrap();
         // Bob tries to write to Alice's group content without permission
-        testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        
+        testing_env!(
+            get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+
         let result = contract.execute(set_request_for(
             alice.clone(),
             json!({
@@ -39,11 +48,12 @@ mod error_message_tests {
                 println!("Error message: {}", msg);
                 // Verify the error message indicates a permission/authorization issue
                 assert!(
-                    msg.contains("Permission denied") || 
-                    msg.contains("Unauthorized") || 
-                    msg.contains("not allowed") ||
-                    msg.contains("permission"),
-                    "Error should mention permission/authorization issue: {}", msg
+                    msg.contains("Permission denied")
+                        || msg.contains("Unauthorized")
+                        || msg.contains("not allowed")
+                        || msg.contains("permission"),
+                    "Error should mention permission/authorization issue: {}",
+                    msg
                 );
             }
             Ok(_) => {
@@ -60,16 +70,25 @@ mod error_message_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
         let bob = test_account(1);
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         // Try to add member to non-existent group
-        let result = contract.execute(add_group_member_request("nonexistent_group".to_string(), bob.clone()));
+        let result = contract.execute(add_group_member_request(
+            "nonexistent_group".to_string(),
+            bob.clone(),
+        ));
         match result {
             Err(e) => {
                 let msg = e.to_string();
                 println!("Error message: {}", msg);
                 assert!(
-                    msg.contains("not found") || msg.contains("NotFound") || msg.contains("Group") || msg.contains("not exist"),
-                    "Error should mention group not found: {}", msg
+                    msg.contains("not found")
+                        || msg.contains("NotFound")
+                        || msg.contains("Group")
+                        || msg.contains("not exist"),
+                    "Error should mention group not found: {}",
+                    msg
                 );
             }
             Ok(_) => panic!("Should fail for non-existent group"),
@@ -81,23 +100,31 @@ mod error_message_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
         let bob = test_account(1);
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("not_member_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("not_member_test".to_string(), config))
+            .unwrap();
         // Try to remove bob who is not a member
-        let result = contract.execute(remove_group_member_request("not_member_test".to_string(), bob.clone()));
+        let result = contract.execute(remove_group_member_request(
+            "not_member_test".to_string(),
+            bob.clone(),
+        ));
         match result {
             Err(e) => {
                 let msg = e.to_string();
                 println!("Error message: {}", msg);
                 // Error should indicate the member wasn't found or doesn't exist
                 assert!(
-                    msg.contains("not found") || 
-                    msg.contains("NotFound") || 
-                    msg.contains("not a member") ||
-                    msg.contains("Member") ||
-                    msg.contains("member"),
-                    "Error should indicate member not found: {}", msg
+                    msg.contains("not found")
+                        || msg.contains("NotFound")
+                        || msg.contains("not a member")
+                        || msg.contains("Member")
+                        || msg.contains("member"),
+                    "Error should indicate member not found: {}",
+                    msg
                 );
             }
             Ok(_) => {
@@ -115,13 +142,24 @@ mod error_message_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
         let bob = test_account(1);
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("blacklist_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("blacklist_test".to_string(), config))
+            .unwrap();
         // Blacklist bob
-        contract.execute(blacklist_group_member_request("blacklist_test".to_string(), bob.clone())).unwrap();
+        contract
+            .execute(blacklist_group_member_request(
+                "blacklist_test".to_string(),
+                bob.clone(),
+            ))
+            .unwrap();
         // Bob tries to join with WRITE permission
-        testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         let result = contract.execute(join_group_request("blacklist_test".to_string()));
         match result {
             Err(e) => {
@@ -130,7 +168,8 @@ mod error_message_tests {
                 // The actual error is "You are blacklisted from this group" (InvalidInput)
                 assert!(
                     msg.contains("blacklisted") || msg.contains("Blacklisted"),
-                    "Error should mention 'blacklisted': {}", msg
+                    "Error should mention 'blacklisted': {}",
+                    msg
                 );
             }
             Ok(_) => panic!("Blacklisted user should not be able to join"),
@@ -144,18 +183,30 @@ mod error_message_tests {
     fn test_vote_on_nonexistent_proposal() {
         let mut contract = init_live_contract();
         let alice = test_account(0);
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         let config = json!({ "member_driven": true, "is_private": true });
-        contract.execute(create_group_request("vote_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("vote_test".to_string(), config))
+            .unwrap();
         // Try to vote on non-existent proposal (proposal_id is a String)
-        let result = contract.execute(vote_proposal_request("vote_test".to_string(), "999".to_string(), true));
+        let result = contract.execute(vote_proposal_request(
+            "vote_test".to_string(),
+            "999".to_string(),
+            true,
+        ));
         match result {
             Err(e) => {
                 let msg = e.to_string();
                 println!("Error message: {}", msg);
                 assert!(
-                    msg.contains("not found") || msg.contains("NotFound") || msg.contains("proposal") || msg.contains("not exist"),
-                    "Error should mention proposal not found: {}", msg
+                    msg.contains("not found")
+                        || msg.contains("NotFound")
+                        || msg.contains("proposal")
+                        || msg.contains("not exist"),
+                    "Error should mention proposal not found: {}",
+                    msg
                 );
             }
             Ok(_) => panic!("Voting on non-existent proposal should fail"),
@@ -171,23 +222,40 @@ mod error_message_tests {
         let alice = test_account(0);
         let bob = test_account(1);
         let charlie = test_account(2);
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("transfer_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("transfer_test".to_string(), config))
+            .unwrap();
         // Add bob
         contract
-            .execute(add_group_member_request("transfer_test".to_string(), bob.clone()))
+            .execute(add_group_member_request(
+                "transfer_test".to_string(),
+                bob.clone(),
+            ))
             .unwrap();
         // Bob (non-owner) tries to transfer ownership
-        testing_env!(get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build());
-        let result = contract.execute(transfer_group_ownership_request("transfer_test".to_string(), charlie.clone(), None));
+        testing_env!(
+            get_context_with_deposit(bob.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
+        let result = contract.execute(transfer_group_ownership_request(
+            "transfer_test".to_string(),
+            charlie.clone(),
+            None,
+        ));
         match result {
             Err(e) => {
                 let msg = e.to_string();
                 println!("Error message: {}", msg);
                 assert!(
-                    msg.contains("owner") || msg.contains("Unauthorized") || msg.contains("permission") || msg.contains("Owner"),
-                    "Error should mention owner requirement: {}", msg
+                    msg.contains("owner")
+                        || msg.contains("Unauthorized")
+                        || msg.contains("permission")
+                        || msg.contains("Owner"),
+                    "Error should mention owner requirement: {}",
+                    msg
                 );
             }
             Ok(_) => panic!("Non-owner should not be able to transfer ownership"),
@@ -201,7 +269,9 @@ mod error_message_tests {
     fn test_empty_group_id_error_message() {
         let mut contract = init_live_contract();
         let alice = test_account(0);
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
         // Try to create group with empty ID
         let config = json!({ "is_private": false });
         let result = contract.execute(create_group_request("".to_string(), config));
@@ -211,13 +281,14 @@ mod error_message_tests {
                 println!("Error message: {}", msg);
                 // Error should indicate invalid input or ID requirement
                 assert!(
-                    msg.contains("Group ID") || 
-                    msg.contains("invalid") || 
-                    msg.contains("Invalid") ||
-                    msg.contains("empty") ||
-                    msg.contains("required") ||
-                    msg.contains("characters"),
-                    "Error should mention invalid group ID: {}", msg
+                    msg.contains("Group ID")
+                        || msg.contains("invalid")
+                        || msg.contains("Invalid")
+                        || msg.contains("empty")
+                        || msg.contains("required")
+                        || msg.contains("characters"),
+                    "Error should mention invalid group ID: {}",
+                    msg
                 );
             }
             Ok(_) => panic!("Empty group ID should be rejected"),
@@ -251,6 +322,9 @@ mod error_message_tests {
         // Try to activate without 1 yoctoNEAR
         testing_env!(get_context_with_deposit(alice.clone(), 0).build());
         let err = contract.activate_contract().unwrap_err();
-        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
+        assert_eq!(
+            err.to_string(),
+            "Requires attached deposit of exactly 1 yoctoNEAR"
+        );
     }
 }

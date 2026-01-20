@@ -73,7 +73,8 @@ impl SocialPlatform {
                     // Quota exhausted; fall through.
                     self.group_sponsor_quotas.insert(quota_key, q.clone());
                 } else if self.try_allocate_from_group_pool(&group_id, bytes) {
-                    storage.group_pool_used_bytes = storage.group_pool_used_bytes.saturating_add(bytes);
+                    storage.group_pool_used_bytes =
+                        storage.group_pool_used_bytes.saturating_add(bytes);
 
                     // Track per-(payer,group) to bound refunds on delete.
                     let k = Self::group_usage_key(payer, &group_id);
@@ -138,12 +139,10 @@ impl SocialPlatform {
         // Refund platform pool, bounded by account usage.
         if remaining > 0 && storage.platform_pool_used_bytes > 0 {
             let refund = remaining.min(storage.platform_pool_used_bytes);
-            if refund > 0 {
-                if self.try_deallocate_from_platform_pool(refund) {
-                    storage.platform_pool_used_bytes =
-                        storage.platform_pool_used_bytes.saturating_sub(refund);
-                    remaining = remaining.saturating_sub(refund);
-                }
+            if refund > 0 && self.try_deallocate_from_platform_pool(refund) {
+                storage.platform_pool_used_bytes =
+                    storage.platform_pool_used_bytes.saturating_sub(refund);
+                remaining = remaining.saturating_sub(refund);
             }
         }
 

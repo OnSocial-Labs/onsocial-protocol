@@ -22,11 +22,13 @@ impl crate::domain::groups::core::GroupStorage {
         }
 
         let group_config_path = Self::group_config_path(group_id);
-        let group_owner =
-            match crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path) {
-                Some(owner) => owner,
-                None => return false,
-            };
+        let group_owner = match crate::domain::groups::permissions::kv::extract_path_owner(
+            platform,
+            &group_config_path,
+        ) {
+            Some(owner) => owner,
+            None => return false,
+        };
 
         if crate::domain::groups::permissions::kv::can_manage(
             platform,
@@ -37,15 +39,16 @@ impl crate::domain::groups::core::GroupStorage {
             return true;
         }
 
-        if level == crate::domain::groups::permissions::kv::types::NONE || level == crate::domain::groups::permissions::kv::types::WRITE {
-            if crate::domain::groups::permissions::kv::can_moderate(
+        if (level == crate::domain::groups::permissions::kv::types::NONE
+            || level == crate::domain::groups::permissions::kv::types::WRITE)
+            && crate::domain::groups::permissions::kv::can_moderate(
                 platform,
                 &group_owner,
                 granter_id.as_str(),
                 &group_config_path,
-            ) {
-                return true;
-            }
+            )
+        {
+            return true;
         }
 
         false

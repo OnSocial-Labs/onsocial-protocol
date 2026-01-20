@@ -1,9 +1,9 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::state::set_context::ApiOperationContext;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::ApiOperationContext;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_group_sponsor_quota_set(
@@ -16,12 +16,16 @@ impl SocialPlatform {
             .get("group_id")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
-            .ok_or_else(|| crate::invalid_input!("group_id required for group_sponsor_quota_set"))?;
+            .ok_or_else(|| {
+                crate::invalid_input!("group_id required for group_sponsor_quota_set")
+            })?;
 
         let target_id_str = value
             .get("target_id")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| crate::invalid_input!("target_id required for group_sponsor_quota_set"))?;
+            .ok_or_else(|| {
+                crate::invalid_input!("target_id required for group_sponsor_quota_set")
+            })?;
 
         let target_id: AccountId = crate::validation::parse_account_id_str(
             target_id_str,
@@ -56,10 +60,8 @@ impl SocialPlatform {
         self.require_group_owner_or_manage(&group_id, account_id, "group_sponsor_quota_set")?;
 
         let now = near_sdk::env::block_timestamp();
-        let quota_key = crate::state::models::SocialPlatform::group_sponsor_quota_key(
-            &target_id,
-            &group_id,
-        );
+        let quota_key =
+            crate::state::models::SocialPlatform::group_sponsor_quota_key(&target_id, &group_id);
 
         let mut quota = self
             .group_sponsor_quotas
@@ -116,7 +118,9 @@ impl SocialPlatform {
         let enabled: bool = value
             .get("enabled")
             .and_then(|v| v.as_bool())
-            .ok_or_else(|| crate::invalid_input!("enabled required for group_sponsor_default_set"))?;
+            .ok_or_else(|| {
+                crate::invalid_input!("enabled required for group_sponsor_default_set")
+            })?;
 
         let daily_refill_bytes: u64 = value
             .get("daily_refill_bytes")
@@ -129,9 +133,7 @@ impl SocialPlatform {
             .get("allowance_max_bytes")
             .and_then(|v| v.as_u64())
             .ok_or_else(|| {
-                crate::invalid_input!(
-                    "allowance_max_bytes required for group_sponsor_default_set"
-                )
+                crate::invalid_input!("allowance_max_bytes required for group_sponsor_default_set")
             })?;
 
         if enabled && allowance_max_bytes == 0 {

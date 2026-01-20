@@ -1,21 +1,47 @@
-use near_sdk::{json_types::U64, AccountId, serde_json::Value};
+use near_sdk::{AccountId, json_types::U64, serde_json::Value};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub enum ProposalType {
-    GroupUpdate { update_type: String, changes: Value },
-    PermissionChange { target_user: AccountId, level: u8, reason: Option<String> },
-    PathPermissionGrant { target_user: AccountId, path: String, level: u8, reason: String },
-    PathPermissionRevoke { target_user: AccountId, path: String, reason: String },
+    GroupUpdate {
+        update_type: String,
+        changes: Value,
+    },
+    PermissionChange {
+        target_user: AccountId,
+        level: u8,
+        reason: Option<String>,
+    },
+    PathPermissionGrant {
+        target_user: AccountId,
+        path: String,
+        level: u8,
+        reason: String,
+    },
+    PathPermissionRevoke {
+        target_user: AccountId,
+        path: String,
+        reason: String,
+    },
     /// Invite a new member. Members always join with level=NONE; elevated roles granted separately.
-    MemberInvite { target_user: AccountId, message: Option<String> },
+    MemberInvite {
+        target_user: AccountId,
+        message: Option<String>,
+    },
     /// Request to join. Members always join with level=NONE; elevated roles granted separately.
-    JoinRequest { requester: AccountId, message: Option<String> },
+    JoinRequest {
+        requester: AccountId,
+        message: Option<String>,
+    },
     VotingConfigChange {
         participation_quorum_bps: Option<u16>,
         majority_threshold_bps: Option<u16>,
         voting_period: Option<u64>,
     },
-    CustomProposal { title: String, description: String, custom_data: Value },
+    CustomProposal {
+        title: String,
+        description: String,
+        custom_data: Value,
+    },
 }
 
 /// Vote tally. `locked_member_count` is fixed at proposal creation for consistent quorum.

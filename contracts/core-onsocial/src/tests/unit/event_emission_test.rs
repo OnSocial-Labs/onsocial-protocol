@@ -3,19 +3,19 @@
 
 #[cfg(test)]
 mod event_emission_tests {
-    use crate::tests::test_utils::*;
-    use crate::events::types::Event;
     use crate::constants::*;
+    use crate::events::types::Event;
+    use crate::tests::test_utils::*;
     use near_sdk::serde_json::{self, json};
     use near_sdk::test_utils::{accounts, get_logs};
-    use near_sdk::{testing_env, AccountId};
+    use near_sdk::{AccountId, testing_env};
 
     const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 
     fn test_account(index: usize) -> AccountId {
         accounts(index)
     }
-    
+
     // Helper to decode NEP-297 JSON event
     fn decode_event(log: &str) -> Option<Event> {
         if !log.starts_with(EVENT_JSON_PREFIX) {
@@ -34,20 +34,33 @@ mod event_emission_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("event_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("event_test".to_string(), config))
+            .unwrap();
 
         let logs = get_logs();
         assert!(!logs.is_empty(), "Should emit at least one log");
-        
-        let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
-        assert!(!event_logs.is_empty(), "Should have events with EVENT_JSON: prefix");
-        
-        println!("✅ Event prefix test passed: {} events emitted", event_logs.len());
+
+        let event_logs: Vec<_> = logs
+            .iter()
+            .filter(|l| l.starts_with(EVENT_JSON_PREFIX))
+            .collect();
+        assert!(
+            !event_logs.is_empty(),
+            "Should have events with EVENT_JSON: prefix"
+        );
+
+        println!(
+            "✅ Event prefix test passed: {} events emitted",
+            event_logs.len()
+        );
     }
 
     #[test]
@@ -55,19 +68,26 @@ mod event_emission_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let _ = get_logs();
-        
+
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("json_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("json_test".to_string(), config))
+            .unwrap();
 
         let logs = get_logs();
-        
+
         let mut valid_events = 0;
         for log in logs {
             if let Some(event) = decode_event(&log) {
-                assert_eq!(event.standard, EVENT_STANDARD, "Standard should be 'onsocial'");
+                assert_eq!(
+                    event.standard, EVENT_STANDARD,
+                    "Standard should be 'onsocial'"
+                );
                 assert_eq!(event.version, EVENT_VERSION, "Version should be '1.0.0'");
                 assert!(!event.event.is_empty(), "Event type should not be empty");
                 assert!(!event.data.is_empty(), "Event data should not be empty");
@@ -78,7 +98,7 @@ mod event_emission_tests {
                 println!("✓ Valid event: type={}", event.event);
             }
         }
-        
+
         assert!(valid_events > 0, "Should have at least one valid event");
         println!("✅ NEP-297 JSON format test passed");
     }
@@ -88,33 +108,47 @@ mod event_emission_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let _ = get_logs();
-        
+
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("partition_meta_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request(
+                "partition_meta_test".to_string(),
+                config,
+            ))
+            .unwrap();
 
         let logs = get_logs();
 
         let mut found_partition_metadata = false;
-        
+
         for log in logs {
             if let Some(event) = decode_event(&log) {
                 if let Some(data) = event.data.first() {
                     if data.partition_id.is_some() {
                         found_partition_metadata = true;
                         let partition = data.partition_id.unwrap();
-                        
-                        assert!(partition < NUM_PARTITIONS as u16, "Partition ID should be < {}", NUM_PARTITIONS);
-                        
+
+                        assert!(
+                            partition < NUM_PARTITIONS as u16,
+                            "Partition ID should be < {}",
+                            NUM_PARTITIONS
+                        );
+
                         println!("✓ Partition metadata: partition_id={}", partition);
                     }
                 }
             }
         }
 
-        assert!(found_partition_metadata, "At least one event should have partition metadata");
+        assert!(
+            found_partition_metadata,
+            "At least one event should have partition metadata"
+        );
         println!("✅ Partition metadata test passed");
     }
 
@@ -128,20 +162,39 @@ mod event_emission_tests {
         let alice = test_account(0);
         let bob = test_account(1);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("multi_event".to_string(), config)).unwrap();
-        contract.execute(add_group_member_request("multi_event".to_string(), bob.clone())).unwrap();
+        contract
+            .execute(create_group_request("multi_event".to_string(), config))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "multi_event".to_string(),
+                bob.clone(),
+            ))
+            .unwrap();
 
         let logs = get_logs();
-        let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
-        
-        assert!(event_logs.len() >= 2, "Multiple operations should emit multiple events, got {}", event_logs.len());
-        
-        println!("✅ Multiple events test passed: {} events", event_logs.len());
+        let event_logs: Vec<_> = logs
+            .iter()
+            .filter(|l| l.starts_with(EVENT_JSON_PREFIX))
+            .collect();
+
+        assert!(
+            event_logs.len() >= 2,
+            "Multiple operations should emit multiple events, got {}",
+            event_logs.len()
+        );
+
+        println!(
+            "✅ Multiple events test passed: {} events",
+            event_logs.len()
+        );
     }
 
     // ==========================================================================
@@ -153,12 +206,16 @@ mod event_emission_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("author_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("author_test".to_string(), config))
+            .unwrap();
 
         let logs = get_logs();
 
@@ -183,15 +240,19 @@ mod event_emission_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let _ = get_logs();
 
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("type_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("type_test".to_string(), config))
+            .unwrap();
 
         let logs = get_logs();
-        
+
         let mut found_group_update = false;
         for log in logs {
             if let Some(event) = decode_event(&log) {
@@ -206,7 +267,10 @@ mod event_emission_tests {
             }
         }
 
-        assert!(found_group_update, "Should emit GROUP_UPDATE event for create_group");
+        assert!(
+            found_group_update,
+            "Should emit GROUP_UPDATE event for create_group"
+        );
         println!("✅ Event type verification test passed");
     }
 
@@ -216,17 +280,26 @@ mod event_emission_tests {
         let alice = test_account(0);
         let bob = test_account(1);
 
-        testing_env!(get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build());
+        testing_env!(
+            get_context_with_deposit(alice.clone(), 10_000_000_000_000_000_000_000_000).build()
+        );
 
         let config = json!({ "is_private": false });
-        contract.execute(create_group_request("member_evt_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("member_evt_test".to_string(), config))
+            .unwrap();
 
         let _ = get_logs();
 
-        contract.execute(add_group_member_request("member_evt_test".to_string(), bob.clone())).unwrap();
+        contract
+            .execute(add_group_member_request(
+                "member_evt_test".to_string(),
+                bob.clone(),
+            ))
+            .unwrap();
 
         let logs = get_logs();
-        
+
         let mut found_add_member = false;
         for log in logs {
             if let Some(event) = decode_event(&log) {

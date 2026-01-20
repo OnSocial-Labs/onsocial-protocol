@@ -3,12 +3,12 @@
 
 #[cfg(test)]
 mod event_builder_writes_tests {
-    use crate::events::{EventBatch, EventBuilder};
     use crate::events::types::Event;
+    use crate::events::{EventBatch, EventBuilder};
     use crate::tests::test_utils::*;
-    use near_sdk::serde_json::{self, json, Value};
+    use near_sdk::serde_json::{self, Value, json};
     use near_sdk::test_utils::{accounts, get_logs};
-    use near_sdk::{testing_env, AccountId};
+    use near_sdk::{AccountId, testing_env};
 
     const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 
@@ -57,7 +57,10 @@ mod event_builder_writes_tests {
             .expect("Expected at least one EVENT_JSON log");
 
         let event = decode_event(event_log).expect("Expected decodable NEP-297 event");
-        let data0 = event.data.first().expect("Event must have at least one data entry");
+        let data0 = event
+            .data
+            .first()
+            .expect("Event must have at least one data entry");
 
         let writes = data0
             .extra
@@ -114,7 +117,10 @@ mod event_builder_writes_tests {
             .expect("Expected at least one EVENT_JSON log");
 
         let event = decode_event(event_log).expect("Expected decodable NEP-297 event");
-        let data0 = event.data.first().expect("Event must have at least one data entry");
+        let data0 = event
+            .data
+            .first()
+            .expect("Event must have at least one data entry");
 
         let writes = data0
             .extra
@@ -377,7 +383,10 @@ mod event_builder_writes_tests {
         assert!(result.is_ok(), "Empty batch emit should succeed");
 
         let logs = get_logs();
-        let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
+        let event_logs: Vec<_> = logs
+            .iter()
+            .filter(|l| l.starts_with(EVENT_JSON_PREFIX))
+            .collect();
         assert!(event_logs.is_empty(), "Empty batch should emit no events");
     }
 
@@ -398,7 +407,10 @@ mod event_builder_writes_tests {
 
         let result = batch.emit();
 
-        assert!(result.is_err(), "emit() should reject non-object extra_data");
+        assert!(
+            result.is_err(),
+            "emit() should reject non-object extra_data"
+        );
         let err = result.unwrap_err();
         let err_str = format!("{:?}", err);
         assert!(
@@ -487,8 +499,15 @@ mod event_builder_writes_tests {
         // Access internal state to verify restoration
         // Note: We verify behavior by checking logs - first event should have been emitted
         let logs = get_logs();
-        let event_logs: Vec<_> = logs.iter().filter(|l| l.starts_with(EVENT_JSON_PREFIX)).collect();
-        assert_eq!(event_logs.len(), 1, "First valid event should have been emitted before error");
+        let event_logs: Vec<_> = logs
+            .iter()
+            .filter(|l| l.starts_with(EVENT_JSON_PREFIX))
+            .collect();
+        assert_eq!(
+            event_logs.len(),
+            1,
+            "First valid event should have been emitted before error"
+        );
 
         // Decode the emitted event to verify it was op1
         let event = decode_event(event_logs[0]).expect("Event should decode");
@@ -530,10 +549,7 @@ mod event_builder_writes_tests {
         assert!(result.is_ok(), "All valid events should emit successfully");
 
         let logs = get_logs();
-        let event_logs: Vec<_> = logs
-            .iter()
-            .filter_map(|l| decode_event(l))
-            .collect();
+        let event_logs: Vec<_> = logs.iter().filter_map(|l| decode_event(l)).collect();
 
         assert_eq!(event_logs.len(), 3, "Should emit 3 events");
 
@@ -542,6 +558,10 @@ mod event_builder_writes_tests {
             .iter()
             .map(|e| e.data.first().map(|d| d.operation.as_str()).unwrap_or(""))
             .collect();
-        assert_eq!(operations, vec!["first", "second", "third"], "Events should be emitted in order");
+        assert_eq!(
+            operations,
+            vec!["first", "second", "third"],
+            "Events should be emitted in order"
+        );
     }
 }

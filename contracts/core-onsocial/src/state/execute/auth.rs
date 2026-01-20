@@ -1,10 +1,10 @@
-use near_sdk::{env, AccountId};
-use near_sdk::serde_json::{json, Value};
+use near_sdk::serde_json::{Value, json};
+use near_sdk::{AccountId, env};
 
+use crate::SocialError;
 use crate::events::EventBatch;
 use crate::protocol::{Action, Auth, Options, Request};
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 /// Verified actor context after auth verification.
 pub struct ExecuteContext {
@@ -37,7 +37,8 @@ impl SocialPlatform {
         let auth = auth.unwrap_or_default();
         let options = options.unwrap_or_default();
 
-        let mut ctx = self.verify_execute_auth(&auth, target_account.as_ref(), &action, options.clone())?;
+        let mut ctx =
+            self.verify_execute_auth(&auth, target_account.as_ref(), &action, options.clone())?;
 
         // Resolve target account (defaults to actor for most actions).
         let target_account = target_account.unwrap_or_else(|| ctx.actor_id.clone());
@@ -146,7 +147,10 @@ impl SocialPlatform {
                 })
             }
 
-            Auth::Intent { actor_id, intent: _ } => {
+            Auth::Intent {
+                actor_id,
+                intent: _,
+            } => {
                 let payer = Self::current_caller();
 
                 if !self.config.intents_executors.contains(&payer) {
@@ -213,7 +217,8 @@ impl SocialPlatform {
         let domain = format!("{}:{}", domain_prefix, env::current_account_id());
         let action_json = near_sdk::serde_json::to_value(action)
             .map_err(|_| crate::invalid_input!("Failed to serialize action"))?;
-        let action_canonical = crate::protocol::canonical_json::canonicalize_json_value(&action_json);
+        let action_canonical =
+            crate::protocol::canonical_json::canonicalize_json_value(&action_json);
         let pk_str = String::from(public_key);
 
         let payload = json!({
@@ -234,7 +239,7 @@ impl SocialPlatform {
         message.extend_from_slice(&payload_bytes);
         let message_hash = env::sha256_array(&message);
 
-        if !env::ed25519_verify(&sig_bytes, &message_hash, &pk_bytes) {
+        if !env::ed25519_verify(&sig_bytes, message_hash, &pk_bytes) {
             return Err(crate::permission_denied!("invalid signature", "execute"));
         }
 
@@ -255,7 +260,8 @@ impl SocialPlatform {
             owner.as_str(),
             String::from(public_key)
         );
-        let last = self.storage_get_string(&k)
+        let last = self
+            .storage_get_string(&k)
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
         if nonce <= last {

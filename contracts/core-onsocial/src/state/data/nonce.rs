@@ -1,8 +1,8 @@
 use near_sdk::{AccountId, PublicKey};
 
+use crate::SocialError;
 use crate::events::EventBatch;
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 impl SocialPlatform {
     #[inline]

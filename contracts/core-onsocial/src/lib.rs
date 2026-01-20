@@ -1,15 +1,15 @@
 use crate::state::models::SocialPlatform;
-use near_sdk::{near, json_types::U64, serde_json::Value, PanicOnDefault};
+use near_sdk::{PanicOnDefault, json_types::U64, near, serde_json::Value};
 
 pub use near_sdk::PublicKey;
 
+mod api;
 mod config;
 pub mod constants;
+mod domain;
 mod errors;
 mod events;
-mod api;
 mod protocol;
-mod domain;
 
 pub use errors::SocialError;
 
@@ -22,10 +22,7 @@ pub use protocol::{Action, Auth, Options, Request};
 mod tests;
 
 #[derive(
-    near_sdk_macros::NearSchema,
-    near_sdk::serde::Serialize,
-    near_sdk::serde::Deserialize,
-    Clone,
+    near_sdk_macros::NearSchema, near_sdk::serde::Serialize, near_sdk::serde::Deserialize, Clone,
 )]
 #[serde(crate = "near_sdk::serde")]
 pub struct PlatformPoolInfo {
@@ -43,10 +40,7 @@ pub struct Contract {
 }
 
 #[derive(
-    near_sdk_macros::NearSchema,
-    near_sdk::serde::Serialize,
-    near_sdk::serde::Deserialize,
-    Clone,
+    near_sdk_macros::NearSchema, near_sdk::serde::Serialize, near_sdk::serde::Deserialize, Clone,
 )]
 #[serde(crate = "near_sdk::serde")]
 pub struct EntryView {
@@ -57,4 +51,3 @@ pub struct EntryView {
     pub deleted: bool,
     pub corrupted: bool,
 }
-

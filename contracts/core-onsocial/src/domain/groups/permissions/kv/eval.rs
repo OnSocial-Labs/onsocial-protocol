@@ -1,16 +1,8 @@
 use crate::state::models::SocialPlatform;
 
 use super::types::{
-    account_permission_level,
-    group_permission_level,
-    is_group_owner,
-    normalize_group_path_owned,
-    GroupPathInfo,
-    GroupPathKind,
-    FULL_ACCESS,
-    MANAGE,
-    MODERATE,
-    WRITE,
+    FULL_ACCESS, GroupPathInfo, GroupPathKind, MANAGE, MODERATE, WRITE, account_permission_level,
+    group_permission_level, is_group_owner, normalize_group_path_owned,
 };
 
 #[inline]
@@ -90,7 +82,12 @@ pub fn has_account_permissions(
         .is_some_and(|level| level.at_least(required_level))
 }
 
-pub fn get_user_permissions(platform: &SocialPlatform, owner: &str, grantee: &str, path: &str) -> u8 {
+pub fn get_user_permissions(
+    platform: &SocialPlatform,
+    owner: &str,
+    grantee: &str,
+    path: &str,
+) -> u8 {
     if let Some(group_id) = extract_group_id_from_path(path) {
         return get_group_user_permissions(platform, group_id, grantee, path);
     }

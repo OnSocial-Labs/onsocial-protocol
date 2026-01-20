@@ -1,9 +1,9 @@
 use near_sdk::json_types::U64;
 use near_sdk::{AccountId, PublicKey};
 
+use crate::SocialError;
 use crate::state::execute::ExecuteContext;
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
 
 impl SocialPlatform {
     pub(super) fn execute_action_set_permission(

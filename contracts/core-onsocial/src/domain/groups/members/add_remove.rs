@@ -1,10 +1,13 @@
-use near_sdk::{AccountId, env, serde_json::{self, Value}};
+use near_sdk::{
+    AccountId, env,
+    serde_json::{self, Value},
+};
 
-use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::config::GroupConfig;
 use crate::domain::groups::permissions::kv::types::NONE;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 use super::AddMemberAuth;
 
@@ -56,11 +59,16 @@ impl crate::domain::groups::core::GroupStorage {
             if is_self_join {
                 return Err(invalid_input!("You are blacklisted from this group"));
             }
-            return Err(permission_denied!("add_member", "You are blacklisted from this group"));
+            return Err(permission_denied!(
+                "add_member",
+                "You are blacklisted from this group"
+            ));
         }
 
         if Self::is_blacklisted(platform, group_id, member_id) {
-            return Err(invalid_input!("Cannot add blacklisted user. Remove from blacklist first using unblacklist_group_member."));
+            return Err(invalid_input!(
+                "Cannot add blacklisted user. Remove from blacklist first using unblacklist_group_member."
+            ));
         }
 
         let should_bypass =
@@ -137,12 +145,7 @@ impl crate::domain::groups::core::GroupStorage {
         if Self::is_private_group(platform, group_id) {
             Self::request_join(platform, group_id, caller)
         } else {
-            Self::add_member(
-                platform,
-                group_id,
-                caller,
-                caller,
-            )
+            Self::add_member(platform, group_id, caller, caller)
         }
     }
 
@@ -182,13 +185,14 @@ impl crate::domain::groups::core::GroupStorage {
             )?;
         }
 
-        let can_remove = if from_governance || member_id == remover_id {
-            true
-        } else if Self::is_owner(platform, group_id, remover_id) {
+        let can_remove = if from_governance || member_id == remover_id || Self::is_owner(platform, group_id, remover_id) {
             true
         } else {
-            let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
-                .ok_or_else(|| invalid_input!("Group owner not found"))?;
+            let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(
+                platform,
+                &group_config_path,
+            )
+            .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
             if crate::domain::groups::permissions::kv::can_manage(
                 platform,
@@ -210,7 +214,9 @@ impl crate::domain::groups::core::GroupStorage {
         }
 
         if Self::is_owner(platform, group_id, member_id) {
-            return Err(invalid_input!("Owner cannot leave group. Transfer ownership to another member first using transfer_ownership operation."));
+            return Err(invalid_input!(
+                "Owner cannot leave group. Transfer ownership to another member first using transfer_ownership operation."
+            ));
         }
 
         let _ = crate::storage::soft_delete_entry(platform, &member_path, member_entry)?;
@@ -229,14 +235,8 @@ impl crate::domain::groups::core::GroupStorage {
                 "removed_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
             ),
-            (
-                "is_self_removal".to_string(),
-                Value::Bool(is_self_removal),
-            ),
-            (
-                "from_governance".to_string(),
-                Value::Bool(from_governance),
-            ),
+            ("is_self_removal".to_string(), Value::Bool(is_self_removal)),
+            ("from_governance".to_string(), Value::Bool(from_governance)),
         ]));
         EventBuilder::new(
             crate::constants::EVENT_TYPE_GROUP_UPDATE,

@@ -1,12 +1,12 @@
 use near_sdk::AccountId;
 
-use crate::domain::groups::config::GroupConfig;
-use crate::domain::groups::GroupStorage;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::domain::groups::GroupStorage;
+use crate::domain::groups::config::GroupConfig;
+use crate::state::models::SocialPlatform;
 
-use super::helpers::{ExecutionContext, PathPermissionGrantData};
 use super::super::types::ProposalType;
+use super::helpers::{ExecutionContext, PathPermissionGrantData};
 
 impl ProposalType {
     pub fn execute(
@@ -24,7 +24,10 @@ impl ProposalType {
         }
 
         match self {
-            Self::GroupUpdate { update_type, changes } => Self::execute_group_update(
+            Self::GroupUpdate {
+                update_type,
+                changes,
+            } => Self::execute_group_update(
                 platform,
                 group_id,
                 proposal_id,
@@ -32,7 +35,11 @@ impl ProposalType {
                 changes,
                 proposer,
             ),
-            Self::PermissionChange { target_user, level, reason } => Self::execute_permission_change(
+            Self::PermissionChange {
+                target_user,
+                level,
+                reason,
+            } => Self::execute_permission_change(
                 platform,
                 group_id,
                 proposal_id,
@@ -41,12 +48,30 @@ impl ProposalType {
                 reason.as_deref(),
                 proposer,
             ),
-            Self::PathPermissionGrant { target_user, path, level, reason } => {
-                let ctx = ExecutionContext { platform, group_id, proposer };
-                let data = PathPermissionGrantData { target_user, path, level: *level, reason };
+            Self::PathPermissionGrant {
+                target_user,
+                path,
+                level,
+                reason,
+            } => {
+                let ctx = ExecutionContext {
+                    platform,
+                    group_id,
+                    proposer,
+                };
+                let data = PathPermissionGrantData {
+                    target_user,
+                    path,
+                    level: *level,
+                    reason,
+                };
                 Self::execute_path_permission_grant(ctx, proposal_id, data)
             }
-            Self::PathPermissionRevoke { target_user, path, reason } => Self::execute_path_permission_revoke(
+            Self::PathPermissionRevoke {
+                target_user,
+                path,
+                reason,
+            } => Self::execute_path_permission_revoke(
                 platform,
                 group_id,
                 proposal_id,
@@ -55,7 +80,11 @@ impl ProposalType {
                 reason,
                 proposer,
             ),
-            Self::MemberInvite { target_user, message, .. } => Self::execute_member_invite(
+            Self::MemberInvite {
+                target_user,
+                message,
+                ..
+            } => Self::execute_member_invite(
                 platform,
                 group_id,
                 proposal_id,
@@ -63,18 +92,22 @@ impl ProposalType {
                 message.as_deref(),
                 proposer,
             ),
-            Self::VotingConfigChange { participation_quorum_bps, majority_threshold_bps, voting_period } => {
-                Self::execute_voting_config_change(
-                    platform,
-                    group_id,
-                    proposal_id,
-                    *participation_quorum_bps,
-                    *majority_threshold_bps,
-                    *voting_period,
-                    proposer,
-                )
-            }
-            Self::JoinRequest { requester, message, .. } => Self::execute_join_request(
+            Self::VotingConfigChange {
+                participation_quorum_bps,
+                majority_threshold_bps,
+                voting_period,
+            } => Self::execute_voting_config_change(
+                platform,
+                group_id,
+                proposal_id,
+                *participation_quorum_bps,
+                *majority_threshold_bps,
+                *voting_period,
+                proposer,
+            ),
+            Self::JoinRequest {
+                requester, message, ..
+            } => Self::execute_join_request(
                 platform,
                 group_id,
                 proposal_id,
@@ -82,7 +115,11 @@ impl ProposalType {
                 message.as_deref(),
                 proposer,
             ),
-            Self::CustomProposal { title, description, custom_data } => Self::execute_custom_proposal(
+            Self::CustomProposal {
+                title,
+                description,
+                custom_data,
+            } => Self::execute_custom_proposal(
                 platform,
                 group_id,
                 proposal_id,

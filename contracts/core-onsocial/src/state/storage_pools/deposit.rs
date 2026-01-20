@@ -1,10 +1,10 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::events::EventBuilder;
-use crate::state::set_context::ApiOperationContext;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::events::EventBuilder;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::ApiOperationContext;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_storage_deposit(
@@ -28,7 +28,11 @@ impl SocialPlatform {
 
         *ctx.attached_balance = ctx.attached_balance.saturating_sub(amount);
 
-        let mut storage = self.user_storage.get(account_id).cloned().unwrap_or_default();
+        let mut storage = self
+            .user_storage
+            .get(account_id)
+            .cloned()
+            .unwrap_or_default();
 
         let previous_balance = storage.balance;
 
@@ -41,13 +45,17 @@ impl SocialPlatform {
         let delta = storage.storage_tracker.delta();
         storage.storage_tracker.reset();
 
-        if delta > 0 {
-            storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
-            storage.assert_storage_covered()?;
-        } else if delta < 0 {
-            storage.used_bytes = storage
-                .used_bytes
-                .saturating_sub(delta.unsigned_abs() as u64);
+        match delta.cmp(&0) {
+            std::cmp::Ordering::Greater => {
+                storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
+                storage.assert_storage_covered()?;
+            }
+            std::cmp::Ordering::Less => {
+                storage.used_bytes = storage
+                    .used_bytes
+                    .saturating_sub(delta.unsigned_abs() as u64);
+            }
+            std::cmp::Ordering::Equal => {}
         }
 
         self.user_storage.insert(account_id.clone(), storage);

@@ -1,9 +1,12 @@
-use near_sdk::{env, AccountId, serde_json::{self, json}};
+use near_sdk::{
+    AccountId, env,
+    serde_json::{self, json},
+};
 
 use crate::domain::groups::GroupStorage;
 use crate::domain::groups::proposal_types::{ProposalType, VoteTally};
 use crate::state::models::{DataValue, SocialPlatform};
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 use super::events;
 use super::proposals::GroupGovernance;
@@ -78,9 +81,8 @@ impl GroupGovernance {
             }
         }
 
-        let status = ProposalStatus::from_json_status(
-            proposal_data.get("status").and_then(|v| v.as_str()),
-        )?;
+        let status =
+            ProposalStatus::from_json_status(proposal_data.get("status").and_then(|v| v.as_str()))?;
 
         if status != ProposalStatus::Active {
             return Err(invalid_input!("Proposal is not active"));
@@ -117,15 +119,20 @@ impl GroupGovernance {
         let tally_value = json!(tally);
         platform.storage_set(&tally_path, &tally_value)?;
 
-        let should_execute =
-            tally.meets_thresholds(voting_config.participation_quorum_bps, voting_config.majority_threshold_bps);
-        let should_reject =
-            tally.is_defeat_inevitable(voting_config.participation_quorum_bps, voting_config.majority_threshold_bps);
+        let should_execute = tally.meets_thresholds(
+            voting_config.participation_quorum_bps,
+            voting_config.majority_threshold_bps,
+        );
+        let should_reject = tally.is_defeat_inevitable(
+            voting_config.participation_quorum_bps,
+            voting_config.majority_threshold_bps,
+        );
 
         if should_execute {
             if let Some(proposal_type_val) = proposal_data.get("data") {
-                let proposal_type = serde_json::from_value::<ProposalType>(proposal_type_val.clone())
-                    .map_err(|_| invalid_input!("Failed to parse proposal type"))?;
+                let proposal_type =
+                    serde_json::from_value::<ProposalType>(proposal_type_val.clone())
+                        .map_err(|_| invalid_input!("Failed to parse proposal type"))?;
 
                 let proposer = proposal_data
                     .get("proposer")

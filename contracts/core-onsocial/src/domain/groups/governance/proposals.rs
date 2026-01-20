@@ -1,9 +1,9 @@
-use near_sdk::{env, AccountId, serde_json::json};
+use near_sdk::{AccountId, env, serde_json::json};
 
 use crate::domain::groups::GroupStorage;
 use crate::domain::groups::proposal_types::{ProposalType, VoteTally};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 use super::events;
 use super::status::ProposalStatus;
@@ -28,7 +28,8 @@ impl GroupGovernance {
             || GroupStorage::is_owner(platform, group_id, proposer);
         let should_auto_vote = auto_vote.unwrap_or(true) && proposer_can_vote;
         let member_count = Self::get_member_count(platform, group_id)?;
-        let (sequence_number, counter_path) = Self::get_and_increment_proposal_counter(platform, group_id)?;
+        let (sequence_number, counter_path) =
+            Self::get_and_increment_proposal_counter(platform, group_id)?;
 
         let seed = env::random_seed();
         let nonce = u32::from_le_bytes([seed[0], seed[1], seed[2], seed[3]]);
@@ -81,8 +82,10 @@ impl GroupGovernance {
         let tally_value = json!(tally);
         platform.storage_set(&tally_path, &tally_value)?;
 
-        let should_execute =
-            tally.meets_thresholds(voting_config.participation_quorum_bps, voting_config.majority_threshold_bps);
+        let should_execute = tally.meets_thresholds(
+            voting_config.participation_quorum_bps,
+            voting_config.majority_threshold_bps,
+        );
 
         if should_execute {
             // Charge execution storage costs to proposer
@@ -172,9 +175,8 @@ impl GroupGovernance {
             ));
         }
 
-        let status = ProposalStatus::from_json_status(
-            proposal_data.get("status").and_then(|v| v.as_str()),
-        )?;
+        let status =
+            ProposalStatus::from_json_status(proposal_data.get("status").and_then(|v| v.as_str()))?;
 
         if status != ProposalStatus::Active {
             return Err(invalid_input!("Only active proposals can be cancelled"));
@@ -203,12 +205,7 @@ impl GroupGovernance {
             }
         }
 
-        Self::update_proposal_status(
-            platform,
-            group_id,
-            proposal_id,
-            ProposalStatus::Cancelled,
-        )?;
+        Self::update_proposal_status(platform, group_id, proposal_id, ProposalStatus::Cancelled)?;
 
         Ok(())
     }
@@ -255,7 +252,7 @@ impl GroupGovernance {
             .get("proposer")
             .and_then(|v| v.as_str())
             .and_then(|s| s.parse::<AccountId>().ok());
-        
+
         let locked_amount = proposal_data
             .get("locked_deposit")
             .and_then(|v| v.as_str())
@@ -281,7 +278,8 @@ impl GroupGovernance {
         }
         platform.storage_set(&proposal_path, &proposal_data)?;
 
-        let tally_data = platform.storage_get(&format!("groups/{}/votes/{}", group_id, proposal_id));
+        let tally_data =
+            platform.storage_get(&format!("groups/{}/votes/{}", group_id, proposal_id));
         let (total_votes, yes_votes, locked_member_count) = if let Some(tally_val) = tally_data {
             let total = tally_val
                 .get("total_votes")

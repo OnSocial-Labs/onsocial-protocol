@@ -1,6 +1,6 @@
-use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
 use crate::domain::groups::config::GroupConfig;
+use crate::state::models::SocialPlatform;
+use crate::{SocialError, invalid_input, permission_denied};
 
 impl crate::domain::groups::core::GroupStorage {
     #[inline]
@@ -18,7 +18,10 @@ impl crate::domain::groups::core::GroupStorage {
     }
 
     #[inline]
-    pub(in crate::domain::groups::members) fn is_private_group(platform: &SocialPlatform, group_id: &str) -> bool {
+    pub(in crate::domain::groups::members) fn is_private_group(
+        platform: &SocialPlatform,
+        group_id: &str,
+    ) -> bool {
         let Some(config) = Self::get_group_config(platform, group_id) else {
             return false;
         };
@@ -59,8 +62,10 @@ impl crate::domain::groups::core::GroupStorage {
         format!("groups/{}/join_requests", group_id)
     }
 
-    pub(in crate::domain::groups::members) fn group_member_nonce_path(group_id: &str, member_id: &str) -> String {
+    pub(in crate::domain::groups::members) fn group_member_nonce_path(
+        group_id: &str,
+        member_id: &str,
+    ) -> String {
         format!("groups/{}/member_nonces/{}", group_id, member_id)
     }
-
 }

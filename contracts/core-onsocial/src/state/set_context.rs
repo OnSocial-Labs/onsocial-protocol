@@ -1,8 +1,8 @@
 use near_sdk::AccountId;
 use near_sdk::serde_json::Value;
 
-use crate::events::EventBatch;
 use crate::SocialError;
+use crate::events::EventBatch;
 
 pub(crate) struct OperationContext<'a> {
     pub event_batch: &'a mut EventBatch,

@@ -7,9 +7,9 @@
 #[cfg(test)]
 mod governance_status_tests {
     use crate::tests::test_utils::*;
-    use near_sdk::serde_json::{json, Value};
+    use near_sdk::serde_json::{Value, json};
     use near_sdk::test_utils::accounts;
-    use near_sdk::{testing_env, AccountId};
+    use near_sdk::{AccountId, testing_env};
 
     fn test_account(index: usize) -> AccountId {
         accounts(index)
@@ -22,23 +22,34 @@ mod governance_status_tests {
         let bob = test_account(1);
 
         // Create member-driven group.
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build());
-        contract.execute(create_group_request(
+        testing_env!(
+            get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build()
+        );
+        contract
+            .execute(create_group_request(
                 "status_missing".to_string(),
                 json!({"member_driven": true, "is_private": true}),
-            )).unwrap();
+            ))
+            .unwrap();
 
         // Add a member so proposals remain active (1/2 = 50% < 51% quorum).
         test_add_member_bypass_proposals(&mut contract, "status_missing", &bob, 0, &owner);
 
         // Create a proposal (should be active).
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
-        let proposal_id = contract.execute(create_proposal_request(
+        testing_env!(
+            get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build()
+        );
+        let proposal_id = contract
+            .execute(create_proposal_request(
                 "status_missing".to_string(),
                 "custom_proposal".to_string(),
                 json!({"title": "t", "description": "d", "custom_data": {}}),
                 None,
-            )).unwrap().as_str().unwrap().to_string();
+            ))
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
 
         let proposal_key = format!("groups/status_missing/proposals/{}", proposal_id);
         let mut proposal = contract
@@ -47,7 +58,10 @@ mod governance_status_tests {
             .expect("proposal must exist");
 
         // Sanity: status written using ProposalStatus::Active.as_str().
-        assert_eq!(proposal.get("status").and_then(|v| v.as_str()), Some("active"));
+        assert_eq!(
+            proposal.get("status").and_then(|v| v.as_str()),
+            Some("active")
+        );
 
         // Corrupt storage: remove status field.
         if let Some(obj) = proposal.as_object_mut() {
@@ -61,7 +75,9 @@ mod governance_status_tests {
             .expect("test setup: failed to write corrupted proposal");
 
         // Voting should now fail at ProposalStatus::from_json_status(None).
-        testing_env!(get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build());
+        testing_env!(
+            get_context_with_deposit(bob.clone(), test_deposits::proposal_creation()).build()
+        );
         let res = contract.execute(vote_proposal_request(
             "status_missing".to_string(),
             proposal_id.clone(),
@@ -80,23 +96,34 @@ mod governance_status_tests {
         let bob = test_account(1);
 
         // Create member-driven group.
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build());
-        contract.execute(create_group_request(
+        testing_env!(
+            get_context_with_deposit(owner.clone(), test_deposits::legacy_10_near()).build()
+        );
+        contract
+            .execute(create_group_request(
                 "status_invalid".to_string(),
                 json!({"member_driven": true, "is_private": true}),
-            )).unwrap();
+            ))
+            .unwrap();
 
         // Add a member so proposals remain active.
         test_add_member_bypass_proposals(&mut contract, "status_invalid", &bob, 0, &owner);
 
         // Create a proposal (should be active).
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
-        let proposal_id = contract.execute(create_proposal_request(
+        testing_env!(
+            get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build()
+        );
+        let proposal_id = contract
+            .execute(create_proposal_request(
                 "status_invalid".to_string(),
                 "custom_proposal".to_string(),
                 json!({"title": "t", "description": "d", "custom_data": {}}),
                 None,
-            )).unwrap().as_str().unwrap().to_string();
+            ))
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string();
 
         let proposal_key = format!("groups/status_invalid/proposals/{}", proposal_id);
         let mut proposal = contract
@@ -116,8 +143,13 @@ mod governance_status_tests {
             .expect("test setup: failed to write corrupted proposal");
 
         // Cancel should fail at ProposalStatus::parse("bogus") -> None.
-        testing_env!(get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build());
-        let res = contract.execute(cancel_proposal_request("status_invalid".to_string(), proposal_id));
+        testing_env!(
+            get_context_with_deposit(owner.clone(), test_deposits::proposal_creation()).build()
+        );
+        let res = contract.execute(cancel_proposal_request(
+            "status_invalid".to_string(),
+            proposal_id,
+        ));
 
         let err = res.expect_err("cancel must fail when status is invalid");
         assert!(matches!(err, crate::SocialError::InvalidInput(_)));

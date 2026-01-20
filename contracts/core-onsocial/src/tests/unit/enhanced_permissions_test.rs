@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test_enhanced_permissions {
-    use crate::domain::groups::permissions::kv::types::{FULL_ACCESS, WRITE, MANAGE};
+    use crate::domain::groups::permissions::kv::types::{FULL_ACCESS, MANAGE, WRITE};
     use crate::tests::test_utils::*;
 
     #[test]
@@ -12,10 +12,18 @@ mod test_enhanced_permissions {
 
         // Test that the contract is in live mode
         let status = contract.get_contract_status();
-        assert_eq!(status, crate::state::models::ContractStatus::Live, "Contract should be in Live mode");
+        assert_eq!(
+            status,
+            crate::state::models::ContractStatus::Live,
+            "Contract should be in Live mode"
+        );
 
         // Simple test: check if we can read from a basic path
-        let read_result = contract_get_values_map(&contract, vec!["test/path".to_string()], Some(owner.clone()));
+        let read_result = contract_get_values_map(
+            &contract,
+            vec!["test/path".to_string()],
+            Some(owner.clone()),
+        );
         // Should succeed even if path doesn't exist
         assert!(read_result.is_empty() || read_result.contains_key("test/path"));
     }
@@ -33,15 +41,30 @@ mod test_enhanced_permissions {
         let test_path = format!("{}/test", owner.as_str());
 
         // Owner should have all permissions (FULL_ACCESS = 255)
-        assert!(contract.has_permission(owner.clone(), owner.clone(), test_path.clone(), FULL_ACCESS));
+        assert!(contract.has_permission(
+            owner.clone(),
+            owner.clone(),
+            test_path.clone(),
+            FULL_ACCESS
+        ));
 
         // Test specific permissions that owner should have (READ removed - everything readable by default)
         assert!(contract.has_permission(owner.clone(), owner.clone(), test_path.clone(), WRITE));
         assert!(contract.has_permission(owner.clone(), owner.clone(), test_path.clone(), MANAGE));
 
         // Other users should not have permissions without explicit grants
-        assert!(!contract.has_permission(owner.clone(), other_user.clone(), test_path.clone(), WRITE));
-        assert!(!contract.has_permission(owner.clone(), other_user.clone(), test_path.clone(), MANAGE));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            other_user.clone(),
+            test_path.clone(),
+            WRITE
+        ));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            other_user.clone(),
+            test_path.clone(),
+            MANAGE
+        ));
     }
 
     #[test]
@@ -58,9 +81,7 @@ mod test_enhanced_permissions {
                 "amount": "1000000000000000000000000"  // 1 NEAR
             }
         });
-        contract
-            .execute(set_request(deposit_data))
-            .unwrap();
+        contract.execute(set_request(deposit_data)).unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
 
@@ -81,7 +102,12 @@ mod test_enhanced_permissions {
         // Now grantee should have write permission
         assert!(contract.has_permission(owner.clone(), grantee.clone(), test_path.clone(), WRITE));
         // But not manage permission
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), test_path.clone(), MANAGE));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            test_path.clone(),
+            MANAGE
+        ));
 
         // Revoke permission (set to 0) using the new API format
         let revoke_data = serde_json::json!({
@@ -111,9 +137,7 @@ mod test_enhanced_permissions {
                 "amount": "1000000000000000000000000"  // 1 NEAR
             }
         });
-        contract
-            .execute(set_request(deposit_data))
-            .unwrap();
+        contract.execute(set_request(deposit_data)).unwrap();
 
         let test_path = format!("{}/test", owner.as_str());
 
@@ -129,9 +153,7 @@ mod test_enhanced_permissions {
                 "level": WRITE
             }
         });
-        contract
-            .execute(set_request(grant_data))
-            .unwrap();
+        contract.execute(set_request(grant_data)).unwrap();
 
         // get_permissions should return WRITE flag (1)
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
@@ -146,9 +168,7 @@ mod test_enhanced_permissions {
                 "level": MANAGE
             }
         });
-        contract
-            .execute(set_request(grant_manage))
-            .unwrap();
+        contract.execute(set_request(grant_manage)).unwrap();
 
         // get_permissions should return the stored flag value
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
@@ -162,9 +182,7 @@ mod test_enhanced_permissions {
                 "path": test_path
             }
         });
-        contract
-            .execute(set_request(revoke_data))
-            .unwrap();
+        contract.execute(set_request(revoke_data)).unwrap();
 
         // get_permissions should return 0 after revocation
         let flags = contract.get_permissions(owner.clone(), grantee.clone(), test_path.clone());
@@ -172,13 +190,17 @@ mod test_enhanced_permissions {
 
         // Owner should always have full permissions on their own paths
         let owner_flags = contract.get_permissions(owner.clone(), owner.clone(), test_path.clone());
-        assert_eq!(owner_flags, FULL_ACCESS, "Owner should have FULL_ACCESS (255)");
+        assert_eq!(
+            owner_flags, FULL_ACCESS,
+            "Owner should have FULL_ACCESS (255)"
+        );
     }
 
     #[test]
     #[should_panic(expected = "group permission nonce must be > 0")]
     fn test_build_group_permission_key_panics_on_zero_nonce() {
         use crate::domain::groups::permissions::kv::keys::build_group_permission_key;
-        let _ = build_group_permission_key("test-group", "grantee.near", "groups/test-group/data", 0);
+        let _ =
+            build_group_permission_key("test-group", "grantee.near", "groups/test-group/data", 0);
     }
 }

@@ -7,11 +7,7 @@ mod limits;
 mod path;
 mod view_key;
 
-pub use account::{
-	parse_account_id_str,
-	parse_account_id_value,
-	parse_account_id_str_opt,
-};
+pub use account::{parse_account_id_str, parse_account_id_str_opt, parse_account_id_value};
 pub use crypto::{ed25519_public_key_bytes, ed25519_signature_bytes};
 pub use group::validate_group_id;
 pub use group_path::require_groups_path;

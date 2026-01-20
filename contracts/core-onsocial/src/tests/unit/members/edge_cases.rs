@@ -1,12 +1,12 @@
 // === MEMBER EDGE CASES TESTS ===
 // Tests for unusual scenarios, error recovery, and boundary conditions
 
+use crate::domain::groups::permissions::kv::types::{MANAGE, MODERATE, WRITE};
 use crate::tests::test_utils::*;
-use crate::domain::groups::permissions::kv::types::{WRITE, MODERATE, MANAGE};
 
 use near_sdk::AccountId;
-use serde_json::json;
 use near_sdk::test_utils::accounts;
+use serde_json::json;
 
 #[cfg(test)]
 mod member_edge_cases {
@@ -26,25 +26,35 @@ mod member_edge_cases {
         near_sdk::testing_env!(context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
 
         // Try to add member with zero deposit - this should work because storage is covered by existing balance
         // but let's test that the operation at least accounts for storage properly
-        let zero_context = get_context_with_deposit(owner.clone(), 0); 
+        let zero_context = get_context_with_deposit(owner.clone(), 0);
         near_sdk::testing_env!(zero_context.build());
 
-        let add_result = contract.execute(add_group_member_request("test_group".to_string(), member.clone()));
-        
+        let add_result = contract.execute(add_group_member_request(
+            "test_group".to_string(),
+            member.clone(),
+        ));
+
         // This might succeed because the contract already has storage balance
         // Let's verify the operation completed successfully and the member was added
         if add_result.is_ok() {
-            assert!(contract.is_group_member("test_group".to_string(), member.clone()), 
-                   "Member should be added successfully");
+            assert!(
+                contract.is_group_member("test_group".to_string(), member.clone()),
+                "Member should be added successfully"
+            );
             println!("✅ Member addition succeeded with existing storage balance");
         } else {
             let error_msg = format!("{:?}", add_result.unwrap_err());
-            assert!(error_msg.contains("storage") || error_msg.contains("deposit"), 
-                   "Should be storage-related error: {}", error_msg);
+            assert!(
+                error_msg.contains("storage") || error_msg.contains("deposit"),
+                "Should be storage-related error: {}",
+                error_msg
+            );
             println!("✅ Member addition failed with insufficient storage as expected");
         }
     }
@@ -60,31 +70,48 @@ mod member_edge_cases {
 
         // Create group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
-        
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
+
         // Get storage before adding member
         let balance_before_add = contract.get_storage_balance(owner.clone()).unwrap();
         let used_before_add = balance_before_add.used_bytes;
 
         // Add member
-        contract.execute(add_group_member_request("test_group".to_string(), member.clone())).unwrap();
-        
+        contract
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
+
         // Get storage after adding member
         let balance_after_add = contract.get_storage_balance(owner.clone()).unwrap();
         let used_after_add = balance_after_add.used_bytes;
-        
-        assert!(used_after_add > used_before_add, "Storage should increase after adding member");
+
+        assert!(
+            used_after_add > used_before_add,
+            "Storage should increase after adding member"
+        );
 
         // Remove member by blacklisting (which removes them)
-        contract.execute(blacklist_group_member_request("test_group".to_string(), member.clone())).unwrap();
-        
+        contract
+            .execute(blacklist_group_member_request(
+                "test_group".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
+
         // Check if storage was properly adjusted
         let balance_after_remove = contract.get_storage_balance(owner.clone()).unwrap();
         let used_after_remove = balance_after_remove.used_bytes;
-        
+
         // Storage might decrease when member is removed (blacklist entry might be smaller than member data)
-        println!("Storage: before_add={}, after_add={}, after_remove={}", 
-                used_before_add, used_after_add, used_after_remove);
+        println!(
+            "Storage: before_add={}, after_add={}, after_remove={}",
+            used_before_add, used_after_add, used_after_remove
+        );
 
         println!("✅ Storage properly tracked through member lifecycle");
     }
@@ -102,12 +129,21 @@ mod member_edge_cases {
 
         // Create group and add member with WRITE permission
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
-        contract.execute(add_group_member_request("test_group".to_string(), member.clone())).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
 
         // Member tries to grant themselves higher permissions
-        near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        
+        near_sdk::testing_env!(
+            get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
+
         let self_escalation_result = contract.execute(set_permission_request(
             member.clone(),
             "groups/test_group/config".to_string(),
@@ -115,11 +151,19 @@ mod member_edge_cases {
             None,
         ));
 
-        assert!(self_escalation_result.is_err(), "Member should not be able to escalate own permissions");
-        
+        assert!(
+            self_escalation_result.is_err(),
+            "Member should not be able to escalate own permissions"
+        );
+
         let error_msg = format!("{:?}", self_escalation_result.unwrap_err());
-        assert!(error_msg.contains("Permission") || error_msg.contains("denied") || error_msg.contains("Unauthorized"), 
-               "Should be permission error: {}", error_msg);
+        assert!(
+            error_msg.contains("Permission")
+                || error_msg.contains("denied")
+                || error_msg.contains("Unauthorized"),
+            "Should be permission error: {}",
+            error_msg
+        );
 
         println!("✅ Members cannot escalate their own permissions");
     }
@@ -127,7 +171,7 @@ mod member_edge_cases {
     #[test]
     fn test_circular_permission_delegation() {
         let mut contract = init_live_contract();
-        let owner = accounts(0);  
+        let owner = accounts(0);
         let manager_a = accounts(1);
         let manager_b = accounts(2);
 
@@ -136,18 +180,39 @@ mod member_edge_cases {
 
         // Create group and add two managers
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
-        
-        contract.execute(add_group_member_request("test_group".to_string(), manager_a.clone())).unwrap();
-        contract.execute(add_group_member_request("test_group".to_string(), manager_b.clone())).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
+
+        contract
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                manager_a.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                manager_b.clone(),
+            ))
+            .unwrap();
 
         // Grant manager_a MANAGE permission on specific path
         let path_admin = "groups/test_group/admin".to_string();
-        contract.execute(set_permission_request(manager_a.clone(), path_admin.clone(), MANAGE, None)).unwrap();
+        contract
+            .execute(set_permission_request(
+                manager_a.clone(),
+                path_admin.clone(),
+                MANAGE,
+                None,
+            ))
+            .unwrap();
 
         // Manager_a tries to grant manager_b permission to grant back to manager_a
-        near_sdk::testing_env!(get_context_with_deposit(manager_a.clone(), 1_000_000_000_000_000_000_000_000).build());
-        
+        near_sdk::testing_env!(
+            get_context_with_deposit(manager_a.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
+
         let grant_to_b = contract.execute(set_permission_request(
             manager_b.clone(),
             path_admin.clone(),
@@ -157,15 +222,18 @@ mod member_edge_cases {
 
         if grant_to_b.is_ok() {
             // Now manager_b tries to grant higher permissions back to manager_a
-            near_sdk::testing_env!(get_context_with_deposit(manager_b.clone(), 1_000_000_000_000_000_000_000_000).build());
-            
+            near_sdk::testing_env!(
+                get_context_with_deposit(manager_b.clone(), 1_000_000_000_000_000_000_000_000)
+                    .build()
+            );
+
             let circular_grant = contract.execute(set_permission_request(
                 manager_a.clone(),
                 "groups/test_group/super_admin".to_string(),
                 MANAGE,
                 None,
             ));
-            
+
             // This should work as long as manager_b has the authority
             // The system should prevent true circular escalation through other means
             println!("Circular delegation result: {:?}", circular_grant);
@@ -187,14 +255,35 @@ mod member_edge_cases {
 
         // Create multiple groups
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("group_a".to_string(), config.clone())).unwrap();
-        contract.execute(create_group_request("group_b".to_string(), config.clone())).unwrap();
-        contract.execute(create_group_request("group_c".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("group_a".to_string(), config.clone()))
+            .unwrap();
+        contract
+            .execute(create_group_request("group_b".to_string(), config.clone()))
+            .unwrap();
+        contract
+            .execute(create_group_request("group_c".to_string(), config))
+            .unwrap();
 
         // Add same member to different groups with different permissions
-        contract.execute(add_group_member_request("group_a".to_string(), multi_member.clone())).unwrap();
-        contract.execute(add_group_member_request("group_b".to_string(), multi_member.clone())).unwrap();
-        contract.execute(add_group_member_request("group_c".to_string(), multi_member.clone())).unwrap();
+        contract
+            .execute(add_group_member_request(
+                "group_a".to_string(),
+                multi_member.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "group_b".to_string(),
+                multi_member.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "group_c".to_string(),
+                multi_member.clone(),
+            ))
+            .unwrap();
 
         // Verify member has different permissions in each group (via path permissions)
         assert!(contract.is_group_member("group_a".to_string(), multi_member.clone()));
@@ -210,7 +299,8 @@ mod member_edge_cases {
         ));
 
         // Group B: explicitly grant MODERATE on join_requests
-        contract.execute(set_permission_request(
+        contract
+            .execute(set_permission_request(
                 multi_member.clone(),
                 "groups/group_b/join_requests".to_string(),
                 MODERATE,
@@ -225,7 +315,8 @@ mod member_edge_cases {
         ));
 
         // Group C: explicitly grant MANAGE on config
-        contract.execute(set_permission_request(
+        contract
+            .execute(set_permission_request(
                 multi_member.clone(),
                 "groups/group_c/config".to_string(),
                 MANAGE,
@@ -253,12 +344,27 @@ mod member_edge_cases {
 
         // Create two groups and add member to both
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("group_alpha".to_string(), config.clone())).unwrap();
-        contract.execute(create_group_request("group_beta".to_string(), config)).unwrap();
-
-        contract.execute(add_group_member_request("group_alpha".to_string(), member.clone()))
+        contract
+            .execute(create_group_request(
+                "group_alpha".to_string(),
+                config.clone(),
+            ))
             .unwrap();
-        contract.execute(add_group_member_request("group_beta".to_string(), member.clone()))
+        contract
+            .execute(create_group_request("group_beta".to_string(), config))
+            .unwrap();
+
+        contract
+            .execute(add_group_member_request(
+                "group_alpha".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "group_beta".to_string(),
+                member.clone(),
+            ))
             .unwrap();
 
         // Verify member is in both groups
@@ -266,7 +372,12 @@ mod member_edge_cases {
         assert!(contract.is_group_member("group_beta".to_string(), member.clone()));
 
         // Blacklist member from group_alpha only
-        contract.execute(blacklist_group_member_request("group_alpha".to_string(), member.clone())).unwrap();
+        contract
+            .execute(blacklist_group_member_request(
+                "group_alpha".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
 
         // Verify member is blacklisted from group_alpha but not group_beta
         assert!(contract.is_blacklisted("group_alpha".to_string(), member.clone()));
@@ -292,27 +403,38 @@ mod member_edge_cases {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
 
         // Add member first
-        contract.execute(add_group_member_request("test_group".to_string(), member.clone()))
+        contract
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                member.clone(),
+            ))
             .unwrap();
 
         // Simulate concurrent operations (in reality these would be separate transactions)
         // Test: Try to remove and modify member permissions simultaneously
-        
+
         // Operation 1: Blacklist member (removes them)
-        let blacklist_result = contract.execute(blacklist_group_member_request("test_group".to_string(), member.clone()));
-        
+        let blacklist_result = contract.execute(blacklist_group_member_request(
+            "test_group".to_string(),
+            member.clone(),
+        ));
+
         // Operation 2: Try to get member data after blacklisting
         let member_data_after = contract.get_member_data("test_group".to_string(), member.clone());
-        
+
         // Verify consistent state
         if blacklist_result.is_ok() {
             assert!(contract.is_blacklisted("test_group".to_string(), member.clone()));
             assert!(!contract.is_group_member("test_group".to_string(), member.clone()));
             // Member data should be cleared
-            assert!(member_data_after.is_none() || member_data_after == Some(serde_json::Value::Null));
+            assert!(
+                member_data_after.is_none() || member_data_after == Some(serde_json::Value::Null)
+            );
         }
 
         println!("✅ Concurrent operations maintain consistent state");
@@ -329,23 +451,38 @@ mod member_edge_cases {
 
         // Create private group
         let config = json!({"member_driven": false, "is_private": true});
-        contract.execute(create_group_request("private_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("private_group".to_string(), config))
+            .unwrap();
 
         // Member submits join request
-        near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
+        near_sdk::testing_env!(
+            get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
         let join_result = contract.execute(join_group_request("private_group".to_string()));
         assert!(join_result.is_ok(), "Join request should succeed");
 
         // Owner blacklists member while join request is pending
-        near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let blacklist_result = contract.execute(blacklist_group_member_request("private_group".to_string(), member.clone()));
+        near_sdk::testing_env!(
+            get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
+        let blacklist_result = contract.execute(blacklist_group_member_request(
+            "private_group".to_string(),
+            member.clone(),
+        ));
         assert!(blacklist_result.is_ok(), "Blacklist should succeed");
 
         // Try to approve join request after blacklisting
-        let approve_result = contract.execute(approve_join_request("private_group".to_string(), member.clone()));
-        
+        let approve_result = contract.execute(approve_join_request(
+            "private_group".to_string(),
+            member.clone(),
+        ));
+
         // This should fail - cannot approve join request for blacklisted user
-        assert!(approve_result.is_err(), "Should not be able to approve join request for blacklisted user");
+        assert!(
+            approve_result.is_err(),
+            "Should not be able to approve join request for blacklisted user"
+        );
 
         // Verify member is blacklisted and not in group
         assert!(contract.is_blacklisted("private_group".to_string(), member.clone()));
@@ -367,8 +504,14 @@ mod member_edge_cases {
 
         // Create traditional group and add member
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
-        contract.execute(add_group_member_request("test_group".to_string(), member.clone()))
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "test_group".to_string(),
+                member.clone(),
+            ))
             .unwrap();
 
         // Verify member exists
@@ -376,14 +519,20 @@ mod member_edge_cases {
 
         // Change group to member-driven (this would typically be done through governance)
         // Note: This is testing the robustness of the system when config changes
-        
+
         // Try member operations after conceptual config change
         // Member should still exist and be manageable
         assert!(contract.is_group_member("test_group".to_string(), member.clone()));
-        
+
         // Blacklisting should still work
-        let blacklist_result = contract.execute(blacklist_group_member_request("test_group".to_string(), member.clone()));
-        assert!(blacklist_result.is_ok(), "Member operations should work after config changes");
+        let blacklist_result = contract.execute(blacklist_group_member_request(
+            "test_group".to_string(),
+            member.clone(),
+        ));
+        assert!(
+            blacklist_result.is_ok(),
+            "Member operations should work after config changes"
+        );
 
         println!("✅ Member operations robust to group configuration changes");
     }
@@ -392,7 +541,7 @@ mod member_edge_cases {
     fn test_extremely_long_member_ids() {
         let mut contract = init_live_contract();
         let owner = accounts(0);
-        
+
         // Create account ID close to NEAR's maximum length (64 characters)
         let long_account_str = "very.long.account.name.that.is.almost.at.the.maximum.limit.near";
         let long_member: AccountId = long_account_str.parse().unwrap();
@@ -402,28 +551,42 @@ mod member_edge_cases {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
 
         // Try to add member with very long account ID
-        let add_result = contract.execute(add_group_member_request("test_group".to_string(), long_member.clone()));
-        
+        let add_result = contract.execute(add_group_member_request(
+            "test_group".to_string(),
+            long_member.clone(),
+        ));
+
         // Should handle long account IDs gracefully
         if add_result.is_ok() {
             assert!(contract.is_group_member("test_group".to_string(), long_member.clone()));
-            
+
             // Test other operations with long account ID
-            let blacklist_result = contract.execute(blacklist_group_member_request("test_group".to_string(), long_member.clone()));
-            assert!(blacklist_result.is_ok(), "Blacklist should work with long account IDs");
-            
+            let blacklist_result = contract.execute(blacklist_group_member_request(
+                "test_group".to_string(),
+                long_member.clone(),
+            ));
+            assert!(
+                blacklist_result.is_ok(),
+                "Blacklist should work with long account IDs"
+            );
+
             println!("✅ Long account IDs handled correctly");
         } else {
-            println!("✅ Long account IDs rejected gracefully: {:?}", add_result.unwrap_err());
+            println!(
+                "✅ Long account IDs rejected gracefully: {:?}",
+                add_result.unwrap_err()
+            );
         }
     }
 
     // === PERFORMANCE & LIMITS ===
 
-    #[test] 
+    #[test]
     fn test_large_member_list_performance() {
         let mut contract = init_live_contract();
         let owner = accounts(0);
@@ -433,25 +596,34 @@ mod member_edge_cases {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("large_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("large_group".to_string(), config))
+            .unwrap();
 
         // Add multiple members with events ENABLED
         // NEAR has a 16KB log limit, so we test with realistic batch size
         // Production applications should batch operations at 3-4 members per transaction
         let member_count = 3; // Production-safe batch size with events enabled
-        
+
         for i in 0..member_count {
             let member_name = format!("member{}.testnet", i);
             let member_id: AccountId = member_name.parse().unwrap();
-            
+
             // Events enabled (None = use defaults)
-            let add_result = contract.execute(add_group_member_request("large_group".to_string(), member_id.clone()));
-            
+            let add_result = contract.execute(add_group_member_request(
+                "large_group".to_string(),
+                member_id.clone(),
+            ));
+
             if add_result.is_err() {
-                println!("Failed to add member {} due to: {:?}", i, add_result.unwrap_err());
+                println!(
+                    "Failed to add member {} due to: {:?}",
+                    i,
+                    add_result.unwrap_err()
+                );
                 break;
             }
-            
+
             // Verify member was added
             assert!(contract.is_group_member("large_group".to_string(), member_id));
         }
@@ -466,28 +638,41 @@ mod member_edge_cases {
         let member = accounts(1);
 
         // Start with very limited storage
-        let limited_context = get_context_with_deposit(owner.clone(), 100_000_000_000_000_000_000_000); // Minimal
+        let limited_context =
+            get_context_with_deposit(owner.clone(), 100_000_000_000_000_000_000_000); // Minimal
         near_sdk::testing_env!(limited_context.build());
 
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("test_group".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("test_group".to_string(), config))
+            .unwrap();
 
         // Try to add member - might fail due to storage limits
-        let add_result = contract.execute(add_group_member_request("test_group".to_string(), member.clone()));
-        
+        let add_result = contract.execute(add_group_member_request(
+            "test_group".to_string(),
+            member.clone(),
+        ));
+
         if add_result.is_err() {
             // Expected failure - now add more storage and retry
-            let more_storage_context = get_context_with_deposit(owner.clone(), 5_000_000_000_000_000_000_000_000);
+            let more_storage_context =
+                get_context_with_deposit(owner.clone(), 5_000_000_000_000_000_000_000_000);
             near_sdk::testing_env!(more_storage_context.build());
-            
+
             // Should now succeed with more storage
-            let retry_result = contract.execute(add_group_member_request("test_group".to_string(), member.clone()));
-            
+            let retry_result = contract.execute(add_group_member_request(
+                "test_group".to_string(),
+                member.clone(),
+            ));
+
             if retry_result.is_ok() {
                 assert!(contract.is_group_member("test_group".to_string(), member.clone()));
                 println!("✅ Storage exhaustion recovery successful");
             } else {
-                println!("✅ Storage limits properly enforced: {:?}", retry_result.unwrap_err());
+                println!(
+                    "✅ Storage limits properly enforced: {:?}",
+                    retry_result.unwrap_err()
+                );
             }
         } else {
             println!("✅ Member addition succeeded with limited storage");
@@ -507,30 +692,84 @@ mod member_edge_cases {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("consistency_test".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request("consistency_test".to_string(), config))
+            .unwrap();
 
         // Multi-step operation: Add member, grant permissions, update role, remove permissions
         // Step 1: Add member
-        contract.execute(add_group_member_request("consistency_test".to_string(), member.clone()))
+        contract
+            .execute(add_group_member_request(
+                "consistency_test".to_string(),
+                member.clone(),
+            ))
             .unwrap();
-        assert!(contract.is_group_member("consistency_test".to_string(), member.clone()), "Step 1: Member should be added");
+        assert!(
+            contract.is_group_member("consistency_test".to_string(), member.clone()),
+            "Step 1: Member should be added"
+        );
 
         // Step 2: Grant specific path permission
-        contract.execute(set_permission_request(member.clone(), "groups/consistency_test/posts".to_string(), MODERATE, None)).unwrap();
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/consistency_test/posts".to_string(), MODERATE), 
-               "Step 2: Should have path-specific permission");
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                "groups/consistency_test/posts".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/consistency_test/posts".to_string(),
+                MODERATE
+            ),
+            "Step 2: Should have path-specific permission"
+        );
 
         // Step 3: Update member permissions on config path
-        contract.execute(set_permission_request(member.clone(), "groups/consistency_test/config".to_string(), MODERATE, None)).unwrap();
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/consistency_test/config".to_string(), MODERATE), 
-               "Step 3: Should have config-level moderate permission");
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                "groups/consistency_test/config".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/consistency_test/config".to_string(),
+                MODERATE
+            ),
+            "Step 3: Should have config-level moderate permission"
+        );
 
         // Step 4: Verify overall state consistency
-        assert!(contract.is_group_member("consistency_test".to_string(), member.clone()), "Final: Should still be member");
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/consistency_test/config".to_string(), MODERATE), 
-               "Final: Should have config-level moderate permission");
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/consistency_test/posts".to_string(), MODERATE), 
-               "Final: Should retain path-specific permission");
+        assert!(
+            contract.is_group_member("consistency_test".to_string(), member.clone()),
+            "Final: Should still be member"
+        );
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/consistency_test/config".to_string(),
+                MODERATE
+            ),
+            "Final: Should have config-level moderate permission"
+        );
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/consistency_test/posts".to_string(),
+                MODERATE
+            ),
+            "Final: Should retain path-specific permission"
+        );
 
         println!("✅ Multi-step operation maintains consistent state throughout");
     }
@@ -546,34 +785,61 @@ mod member_edge_cases {
 
         // Create multiple groups
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("group_alpha".to_string(), config.clone())).unwrap();
-        contract.execute(create_group_request("group_beta".to_string(), config.clone())).unwrap();
-        contract.execute(create_group_request("group_gamma".to_string(), config)).unwrap();
+        contract
+            .execute(create_group_request(
+                "group_alpha".to_string(),
+                config.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(create_group_request(
+                "group_beta".to_string(),
+                config.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(create_group_request("group_gamma".to_string(), config))
+            .unwrap();
 
         // Add member to all groups (clean-add)
-        contract.execute(add_group_member_request("group_alpha".to_string(), member.clone()))
+        contract
+            .execute(add_group_member_request(
+                "group_alpha".to_string(),
+                member.clone(),
+            ))
             .unwrap();
-        contract.execute(add_group_member_request("group_beta".to_string(), member.clone()))
+        contract
+            .execute(add_group_member_request(
+                "group_beta".to_string(),
+                member.clone(),
+            ))
             .unwrap();
-        contract.execute(add_group_member_request("group_gamma".to_string(), member.clone()))
+        contract
+            .execute(add_group_member_request(
+                "group_gamma".to_string(),
+                member.clone(),
+            ))
             .unwrap();
 
         // Establish different path permissions per group for isolation testing.
-        contract.execute(set_permission_request(
+        contract
+            .execute(set_permission_request(
                 member.clone(),
                 "groups/group_alpha/config".to_string(),
                 WRITE,
                 None,
             ))
             .unwrap();
-        contract.execute(set_permission_request(
+        contract
+            .execute(set_permission_request(
                 member.clone(),
                 "groups/group_beta/config".to_string(),
                 MODERATE,
                 None,
             ))
             .unwrap();
-        contract.execute(set_permission_request(
+        contract
+            .execute(set_permission_request(
                 member.clone(),
                 "groups/group_gamma/config".to_string(),
                 MANAGE,
@@ -637,19 +903,47 @@ mod member_edge_cases {
         );
 
         // Test state isolation: Remove from one group shouldn't affect others
-        contract.execute(remove_group_member_request("group_beta".to_string(), member.clone())).unwrap();
+        contract
+            .execute(remove_group_member_request(
+                "group_beta".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
 
         // Verify other groups are unaffected
-        assert!(contract.is_group_member("group_alpha".to_string(), member.clone()), "Alpha membership should be unaffected");
-        assert!(!contract.is_group_member("group_beta".to_string(), member.clone()), "Beta membership should be removed");
-        assert!(contract.is_group_member("group_gamma".to_string(), member.clone()), "Gamma membership should be unaffected");
+        assert!(
+            contract.is_group_member("group_alpha".to_string(), member.clone()),
+            "Alpha membership should be unaffected"
+        );
+        assert!(
+            !contract.is_group_member("group_beta".to_string(), member.clone()),
+            "Beta membership should be removed"
+        );
+        assert!(
+            contract.is_group_member("group_gamma".to_string(), member.clone()),
+            "Gamma membership should be unaffected"
+        );
 
         // Test blacklist isolation: Blacklist in one group shouldn't affect others
-        contract.execute(blacklist_group_member_request("group_alpha".to_string(), member.clone())).unwrap();
-        
-        assert!(contract.is_blacklisted("group_alpha".to_string(), member.clone()), "Should be blacklisted in alpha");
-        assert!(!contract.is_blacklisted("group_gamma".to_string(), member.clone()), "Should not be blacklisted in gamma");
-        assert!(contract.is_group_member("group_gamma".to_string(), member.clone()), "Gamma membership should remain");
+        contract
+            .execute(blacklist_group_member_request(
+                "group_alpha".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
+
+        assert!(
+            contract.is_blacklisted("group_alpha".to_string(), member.clone()),
+            "Should be blacklisted in alpha"
+        );
+        assert!(
+            !contract.is_blacklisted("group_gamma".to_string(), member.clone()),
+            "Should not be blacklisted in gamma"
+        );
+        assert!(
+            contract.is_group_member("group_gamma".to_string(), member.clone()),
+            "Gamma membership should remain"
+        );
 
         println!("✅ Cross-group state isolation maintained correctly");
     }
@@ -665,40 +959,96 @@ mod member_edge_cases {
 
         // Create group and establish baseline state
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("recovery_test".to_string(), config)).unwrap();
-        contract.execute(add_group_member_request("recovery_test".to_string(), member.clone())).unwrap();
+        contract
+            .execute(create_group_request("recovery_test".to_string(), config))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "recovery_test".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
 
         // Capture baseline state
-        let baseline_member_data = contract.get_member_data("recovery_test".to_string(), member.clone()).unwrap();
-        let baseline_is_member = contract.is_group_member("recovery_test".to_string(), member.clone());
+        let baseline_member_data = contract
+            .get_member_data("recovery_test".to_string(), member.clone())
+            .unwrap();
+        let baseline_is_member =
+            contract.is_group_member("recovery_test".to_string(), member.clone());
 
         // Attempt operations that should fail
         // Test 1: Try to add member to non-existent group (should fail without affecting existing state)
-        let failed_add = contract.execute(add_group_member_request("nonexistent".to_string(), member.clone()));
-        assert!(failed_add.is_err(), "Should fail to add to non-existent group");
+        let failed_add = contract.execute(add_group_member_request(
+            "nonexistent".to_string(),
+            member.clone(),
+        ));
+        assert!(
+            failed_add.is_err(),
+            "Should fail to add to non-existent group"
+        );
 
         // Verify original state is unchanged
-        let after_failed_add_data = contract.get_member_data("recovery_test".to_string(), member.clone()).unwrap();
-        assert_eq!(after_failed_add_data, baseline_member_data, "Member data should be unchanged after failed operation");
-        assert_eq!(contract.is_group_member("recovery_test".to_string(), member.clone()), baseline_is_member, 
-                  "Membership status should be unchanged");
+        let after_failed_add_data = contract
+            .get_member_data("recovery_test".to_string(), member.clone())
+            .unwrap();
+        assert_eq!(
+            after_failed_add_data, baseline_member_data,
+            "Member data should be unchanged after failed operation"
+        );
+        assert_eq!(
+            contract.is_group_member("recovery_test".to_string(), member.clone()),
+            baseline_is_member,
+            "Membership status should be unchanged"
+        );
 
         // Test 2: Try to grant permission with insufficient privileges
-        near_sdk::testing_env!(get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let failed_permission = contract.execute(set_permission_request(member.clone(), "groups/recovery_test/admin".to_string(), MANAGE, None));
-        assert!(failed_permission.is_err(), "Should fail to grant permissions without sufficient privileges");
+        near_sdk::testing_env!(
+            get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
+        let failed_permission = contract.execute(set_permission_request(
+            member.clone(),
+            "groups/recovery_test/admin".to_string(),
+            MANAGE,
+            None,
+        ));
+        assert!(
+            failed_permission.is_err(),
+            "Should fail to grant permissions without sufficient privileges"
+        );
 
         // Switch back to owner context and verify state
-        near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
-        let after_failed_permission_data = contract.get_member_data("recovery_test".to_string(), member.clone()).unwrap();
-        assert_eq!(after_failed_permission_data, baseline_member_data, "Member data should remain consistent");
+        near_sdk::testing_env!(
+            get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
+        let after_failed_permission_data = contract
+            .get_member_data("recovery_test".to_string(), member.clone())
+            .unwrap();
+        assert_eq!(
+            after_failed_permission_data, baseline_member_data,
+            "Member data should remain consistent"
+        );
 
         // Test 3: Verify successful operations still work after failures
-        let successful_permission = contract.execute(set_permission_request(member.clone(), "groups/recovery_test/posts".to_string(), MODERATE, None));
-        assert!(successful_permission.is_ok(), "Valid operations should still work after previous failures");
+        let successful_permission = contract.execute(set_permission_request(
+            member.clone(),
+            "groups/recovery_test/posts".to_string(),
+            MODERATE,
+            None,
+        ));
+        assert!(
+            successful_permission.is_ok(),
+            "Valid operations should still work after previous failures"
+        );
 
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/recovery_test/posts".to_string(), MODERATE), 
-               "Successful permission grant should work");
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/recovery_test/posts".to_string(),
+                MODERATE
+            ),
+            "Successful permission grant should work"
+        );
 
         println!("✅ State recovery after operation failures works correctly");
     }
@@ -715,10 +1065,20 @@ mod member_edge_cases {
 
         // Setup: Create group with admin
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("concurrent_test".to_string(), config)).unwrap();
-        contract.execute(add_group_member_request("concurrent_test".to_string(), admin.clone()))
+        contract
+            .execute(create_group_request("concurrent_test".to_string(), config))
             .unwrap();
-        contract.execute(add_group_member_request("concurrent_test".to_string(), member.clone()))
+        contract
+            .execute(add_group_member_request(
+                "concurrent_test".to_string(),
+                admin.clone(),
+            ))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "concurrent_test".to_string(),
+                member.clone(),
+            ))
             .unwrap();
 
         // Simulate concurrent modifications (in real blockchain, these would be separate transactions)
@@ -729,32 +1089,76 @@ mod member_edge_cases {
         contract
             .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
-        contract.execute(set_permission_request(admin.clone(), "groups/concurrent_test/config".to_string(), MANAGE, None)).unwrap();
-        
+        contract
+            .execute(set_permission_request(
+                admin.clone(),
+                "groups/concurrent_test/config".to_string(),
+                MANAGE,
+                None,
+            ))
+            .unwrap();
+
         // Admin grants permission while owner also modifies member
-        near_sdk::testing_env!(get_context_with_deposit(admin.clone(), 1_000_000_000_000_000_000_000_000).build());
+        near_sdk::testing_env!(
+            get_context_with_deposit(admin.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
         // Ensure admin has storage for permission writes.
         contract
             .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
-        contract.execute(set_permission_request(member.clone(), "groups/concurrent_test/config".to_string(), MODERATE, None)).unwrap();
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                "groups/concurrent_test/config".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
 
-        near_sdk::testing_env!(get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build());
+        near_sdk::testing_env!(
+            get_context_with_deposit(owner.clone(), 1_000_000_000_000_000_000_000_000).build()
+        );
         // Ensure owner has storage for permission writes.
         contract
             .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
-        contract.execute(set_permission_request(member.clone(), "groups/concurrent_test/special".to_string(), MANAGE, None)).unwrap();
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                "groups/concurrent_test/special".to_string(),
+                MANAGE,
+                None,
+            ))
+            .unwrap();
 
         // Verify final state is consistent
-        let final_data = contract.get_member_data("concurrent_test".to_string(), member.clone()).unwrap();
-        assert!(final_data.get("level").is_some(), "Should have valid permission flags");
-        
+        let final_data = contract
+            .get_member_data("concurrent_test".to_string(), member.clone())
+            .unwrap();
+        assert!(
+            final_data.get("level").is_some(),
+            "Should have valid permission flags"
+        );
+
         // Member should have both permissions (check with appropriate granters)
-        assert!(contract.has_permission(admin.clone(), member.clone(), "groups/concurrent_test/config".to_string(), MODERATE), 
-               "Should have moderate config permission");
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/concurrent_test/special".to_string(), MANAGE), 
-               "Should have specific path permission");
+        assert!(
+            contract.has_permission(
+                admin.clone(),
+                member.clone(),
+                "groups/concurrent_test/config".to_string(),
+                MODERATE
+            ),
+            "Should have moderate config permission"
+        );
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/concurrent_test/special".to_string(),
+                MANAGE
+            ),
+            "Should have specific path permission"
+        );
 
         // Test rapid successive permission changes
         for i in 0..3 {
@@ -764,13 +1168,28 @@ mod member_edge_cases {
                 _ => MANAGE,
             };
             let path = format!("groups/concurrent_test/path_{}", i);
-            contract.execute(set_permission_request(member.clone(), path, permission_level, None)).unwrap();
+            contract
+                .execute(set_permission_request(
+                    member.clone(),
+                    path,
+                    permission_level,
+                    None,
+                ))
+                .unwrap();
         }
 
         // Verify state remains consistent after rapid changes
-        assert!(contract.is_group_member("concurrent_test".to_string(), member.clone()), "Should still be a member");
-        let rapid_change_data = contract.get_member_data("concurrent_test".to_string(), member.clone()).unwrap();
-        assert!(rapid_change_data.get("level").is_some(), "Should have valid permission flags after rapid changes");
+        assert!(
+            contract.is_group_member("concurrent_test".to_string(), member.clone()),
+            "Should still be a member"
+        );
+        let rapid_change_data = contract
+            .get_member_data("concurrent_test".to_string(), member.clone())
+            .unwrap();
+        assert!(
+            rapid_change_data.get("level").is_some(),
+            "Should have valid permission flags after rapid changes"
+        );
 
         println!("✅ State consistency maintained under concurrent modifications");
     }
@@ -786,54 +1205,147 @@ mod member_edge_cases {
 
         // Create group
         let config = json!({"member_driven": false, "is_private": false});
-        contract.execute(create_group_request("permission_consistency".to_string(), config)).unwrap();
-        contract.execute(add_group_member_request("permission_consistency".to_string(), member.clone()))
+        contract
+            .execute(create_group_request(
+                "permission_consistency".to_string(),
+                config,
+            ))
+            .unwrap();
+        contract
+            .execute(add_group_member_request(
+                "permission_consistency".to_string(),
+                member.clone(),
+            ))
             .unwrap();
 
         // Create complex permission structure
         let paths = [
             "groups/permission_consistency/posts",
-            "groups/permission_consistency/events", 
+            "groups/permission_consistency/events",
             "groups/permission_consistency/admin",
             "groups/permission_consistency/settings",
         ];
 
         // Grant various permissions on different paths
-        contract.execute(set_permission_request(member.clone(), paths[0].to_string(), MODERATE, None)).unwrap();
-        contract.execute(set_permission_request(member.clone(), paths[1].to_string(), WRITE, None)).unwrap();
-        contract.execute(set_permission_request(member.clone(), paths[2].to_string(), MANAGE, None)).unwrap();
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                paths[0].to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                paths[1].to_string(),
+                WRITE,
+                None,
+            ))
+            .unwrap();
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                paths[2].to_string(),
+                MANAGE,
+                None,
+            ))
+            .unwrap();
 
         // Verify initial permission state
-        assert!(contract.has_permission(owner.clone(), member.clone(), paths[0].to_string(), MODERATE), "Should have MODERATE on posts");
-        assert!(contract.has_permission(owner.clone(), member.clone(), paths[1].to_string(), WRITE), "Should have WRITE on events");
-        assert!(contract.has_permission(owner.clone(), member.clone(), paths[2].to_string(), MANAGE), "Should have MANAGE on admin");
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                paths[0].to_string(),
+                MODERATE
+            ),
+            "Should have MODERATE on posts"
+        );
+        assert!(
+            contract.has_permission(owner.clone(), member.clone(), paths[1].to_string(), WRITE),
+            "Should have WRITE on events"
+        );
+        assert!(
+            contract.has_permission(owner.clone(), member.clone(), paths[2].to_string(), MANAGE),
+            "Should have MANAGE on admin"
+        );
 
         // Grant additional config-level permission and verify consistency
-        contract.execute(set_permission_request(member.clone(), "groups/permission_consistency/config".to_string(), MODERATE, None)).unwrap();
+        contract
+            .execute(set_permission_request(
+                member.clone(),
+                "groups/permission_consistency/config".to_string(),
+                MODERATE,
+                None,
+            ))
+            .unwrap();
 
         // Check that all path-specific permissions are preserved
-        assert!(contract.has_permission(owner.clone(), member.clone(), paths[0].to_string(), MODERATE), 
-               "Path-specific MODERATE should be preserved");
-        assert!(contract.has_permission(owner.clone(), member.clone(), paths[2].to_string(), MANAGE), 
-               "Path-specific MANAGE should be preserved");
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                paths[0].to_string(),
+                MODERATE
+            ),
+            "Path-specific MODERATE should be preserved"
+        );
+        assert!(
+            contract.has_permission(owner.clone(), member.clone(), paths[2].to_string(), MANAGE),
+            "Path-specific MANAGE should be preserved"
+        );
 
         // Verify config-level permission added
-        assert!(contract.has_permission(owner.clone(), member.clone(), "groups/permission_consistency/config".to_string(), MODERATE), 
-               "Config-level permission should be granted");
+        assert!(
+            contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/permission_consistency/config".to_string(),
+                MODERATE
+            ),
+            "Config-level permission should be granted"
+        );
 
         // Test blacklist impact on permission consistency
-        contract.execute(blacklist_group_member_request("permission_consistency".to_string(), member.clone())).unwrap();
+        contract
+            .execute(blacklist_group_member_request(
+                "permission_consistency".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
 
         // All permissions should be revoked when blacklisted
-        assert!(!contract.has_permission(owner.clone(), member.clone(), paths[0].to_string(), MODERATE), 
-               "Path permissions should be revoked when blacklisted");
-        assert!(!contract.has_permission(owner.clone(), member.clone(), "groups/permission_consistency/config".to_string(), MODERATE), 
-               "Config permissions should be revoked when blacklisted");
+        assert!(
+            !contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                paths[0].to_string(),
+                MODERATE
+            ),
+            "Path permissions should be revoked when blacklisted"
+        );
+        assert!(
+            !contract.has_permission(
+                owner.clone(),
+                member.clone(),
+                "groups/permission_consistency/config".to_string(),
+                MODERATE
+            ),
+            "Config permissions should be revoked when blacklisted"
+        );
 
         // Unblacklist and verify clean state
-        contract.execute(unblacklist_group_member_request("permission_consistency".to_string(), member.clone())).unwrap();
-        assert!(!contract.is_group_member("permission_consistency".to_string(), member.clone()), 
-               "Should not automatically be member after unblacklist");
+        contract
+            .execute(unblacklist_group_member_request(
+                "permission_consistency".to_string(),
+                member.clone(),
+            ))
+            .unwrap();
+        assert!(
+            !contract.is_group_member("permission_consistency".to_string(), member.clone()),
+            "Should not automatically be member after unblacklist"
+        );
 
         println!("✅ Complex permission state consistency maintained correctly");
     }

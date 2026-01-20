@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 
-use crate::{invalid_input, SocialError};
 use crate::state::SocialPlatform;
+use crate::{SocialError, invalid_input};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Path {

@@ -1,6 +1,6 @@
 use near_sdk::serde_json::Value;
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 pub(crate) fn parse_member_invite_proposal(
     changes: &Value,

@@ -1,5 +1,5 @@
 use crate::state::models::SocialPlatform;
-use near_sdk::{serde_json::Value, AccountId};
+use near_sdk::{AccountId, serde_json::Value};
 
 pub struct GroupStorage;
 
@@ -21,7 +21,11 @@ impl GroupStorage {
 
     #[inline]
     fn group_join_request_path(group_id: &str, requester_id: &AccountId) -> String {
-        format!("groups/{}/join_requests/{}", group_id, requester_id.as_str())
+        format!(
+            "groups/{}/join_requests/{}",
+            group_id,
+            requester_id.as_str()
+        )
     }
 
     #[inline]

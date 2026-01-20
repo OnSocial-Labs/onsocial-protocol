@@ -1,7 +1,7 @@
-use near_sdk::{json_types::U64, AccountId};
+use near_sdk::{AccountId, json_types::U64};
 
-use crate::state::models::SocialPlatform;
 use crate::EntryView;
+use crate::state::models::SocialPlatform;
 
 impl SocialPlatform {
     pub fn get(&self, keys: Vec<String>, account_id: Option<AccountId>) -> Vec<EntryView> {
@@ -29,7 +29,7 @@ impl SocialPlatform {
 
         match self.get_entry(&full_key) {
             None => EntryView {
-                requested_key: requested_key,
+                requested_key,
                 full_key,
                 value: None,
                 block_height: None,
@@ -40,7 +40,7 @@ impl SocialPlatform {
                 crate::state::models::DataValue::Value(bytes) => {
                     let parsed = near_sdk::serde_json::from_slice(&bytes);
                     EntryView {
-                        requested_key: requested_key,
+                        requested_key,
                         full_key,
                         value: parsed.as_ref().ok().cloned(),
                         block_height: Some(U64(entry.block_height)),
@@ -49,7 +49,7 @@ impl SocialPlatform {
                     }
                 }
                 crate::state::models::DataValue::Deleted(_) => EntryView {
-                    requested_key: requested_key,
+                    requested_key,
                     full_key,
                     value: None,
                     block_height: Some(U64(entry.block_height)),

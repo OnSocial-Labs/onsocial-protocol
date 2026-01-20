@@ -2,7 +2,7 @@
 
 use near_sdk::serde_json::{Map, Value};
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ApiOperationKey<'a> {
@@ -49,9 +49,17 @@ pub(crate) fn classify_api_operation_key(key: &str) -> Result<ApiOperationKey<'_
         "manager" => return Err(invalid_input!("Use update_manager()")),
         "config" => return Err(invalid_input!("Use update_config()")),
 
-        "status/read_only" => return Err(invalid_input!("Status transitions must use enter_read_only()")),
+        "status/read_only" => {
+            return Err(invalid_input!(
+                "Status transitions must use enter_read_only()"
+            ));
+        }
         "status/live" => return Err(invalid_input!("Status transitions must use resume_live()")),
-        "status/activate" => return Err(invalid_input!("Status transitions must use activate_contract()")),
+        "status/activate" => {
+            return Err(invalid_input!(
+                "Status transitions must use activate_contract()"
+            ));
+        }
 
         "storage/deposit" => ApiOperationKey::StorageDeposit,
         "storage/withdraw" => ApiOperationKey::StorageWithdraw,
@@ -67,8 +75,12 @@ pub(crate) fn classify_api_operation_key(key: &str) -> Result<ApiOperationKey<'_
         "permission/revoke" => ApiOperationKey::PermissionRevoke,
 
         // Reject unknown keys under reserved namespaces.
-        path if path.starts_with("storage/") => return Err(invalid_input!("Invalid operation key")),
-        path if path.starts_with("permission/") => return Err(invalid_input!("Invalid operation key")),
+        path if path.starts_with("storage/") => {
+            return Err(invalid_input!("Invalid operation key"));
+        }
+        path if path.starts_with("permission/") => {
+            return Err(invalid_input!("Invalid operation key"));
+        }
         path if path.starts_with("status/") => return Err(invalid_input!("Invalid operation key")),
 
         path if path.contains('/') => ApiOperationKey::DataPath(path),

@@ -1,4 +1,4 @@
-use near_sdk::{near, BorshStorageKey};
+use near_sdk::{BorshStorageKey, near};
 
 #[near(serializers = [borsh])]
 #[derive(BorshStorageKey)]

@@ -1,8 +1,11 @@
-use near_sdk::{AccountId, env, serde_json::{self, Value}};
+use near_sdk::{
+    AccountId, env,
+    serde_json::{self, Value},
+};
 
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 use super::AddMemberAuth;
 
@@ -42,10 +45,7 @@ impl crate::domain::groups::core::GroupStorage {
         }
 
         let request_data = Value::Object(serde_json::Map::from_iter([
-            (
-                "status".to_string(),
-                Value::String("pending".to_string()),
-            ),
+            ("status".to_string(), Value::String("pending".to_string())),
             (
                 "requested_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
@@ -66,7 +66,10 @@ impl crate::domain::groups::core::GroupStorage {
             requester_id.clone(),
         )
         .with_target(requester_id)
-        .with_path(&format!("groups/{}/join_requests/{}", group_id, requester_id))
+        .with_path(&format!(
+            "groups/{}/join_requests/{}",
+            group_id, requester_id
+        ))
         .with_value(request_data.clone())
         .emit(&mut event_batch);
         event_batch.emit()?;
@@ -85,8 +88,11 @@ impl crate::domain::groups::core::GroupStorage {
 
         let group_config_path = Self::group_config_path(group_id);
         let group_join_requests_path = Self::group_join_requests_path(group_id);
-        let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
-            .ok_or_else(|| invalid_input!("Group owner not found"))?;
+        let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(
+            platform,
+            &group_config_path,
+        )
+        .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
         if !crate::domain::groups::permissions::kv::can_moderate(
             platform,
@@ -101,7 +107,9 @@ impl crate::domain::groups::core::GroupStorage {
         }
 
         if Self::is_blacklisted(platform, group_id, requester_id) {
-            return Err(invalid_input!("Cannot approve join request for blacklisted user"));
+            return Err(invalid_input!(
+                "Cannot approve join request for blacklisted user"
+            ));
         }
 
         let request_path = format!("groups/{}/join_requests/{}", group_id, requester_id);
@@ -129,10 +137,7 @@ impl crate::domain::groups::core::GroupStorage {
 
         let mut updated_request = request_data.clone();
         if let Some(obj) = updated_request.as_object_mut() {
-            obj.insert(
-                "status".to_string(),
-                Value::String("approved".to_string()),
-            );
+            obj.insert("status".to_string(), Value::String("approved".to_string()));
             obj.insert(
                 "approved_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
@@ -157,7 +162,10 @@ impl crate::domain::groups::core::GroupStorage {
             approver_id.clone(),
         )
         .with_target(requester_id)
-        .with_path(&format!("groups/{}/join_requests/{}", group_id, requester_id))
+        .with_path(&format!(
+            "groups/{}/join_requests/{}",
+            group_id, requester_id
+        ))
         .with_value(updated_request.clone())
         .emit(&mut event_batch);
         event_batch.emit()?;
@@ -176,8 +184,11 @@ impl crate::domain::groups::core::GroupStorage {
 
         let group_config_path = Self::group_config_path(group_id);
         let group_join_requests_path = Self::group_join_requests_path(group_id);
-        let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
-            .ok_or_else(|| invalid_input!("Group owner not found"))?;
+        let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(
+            platform,
+            &group_config_path,
+        )
+        .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
         if !crate::domain::groups::permissions::kv::can_moderate(
             platform,
@@ -208,10 +219,7 @@ impl crate::domain::groups::core::GroupStorage {
 
         let mut updated_request = request_data.clone();
         if let Some(obj) = updated_request.as_object_mut() {
-            obj.insert(
-                "status".to_string(),
-                Value::String("rejected".to_string()),
-            );
+            obj.insert("status".to_string(), Value::String("rejected".to_string()));
             obj.insert(
                 "rejected_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
@@ -235,7 +243,10 @@ impl crate::domain::groups::core::GroupStorage {
             rejector_id.clone(),
         )
         .with_target(requester_id)
-        .with_path(&format!("groups/{}/join_requests/{}", group_id, requester_id))
+        .with_path(&format!(
+            "groups/{}/join_requests/{}",
+            group_id, requester_id
+        ))
         .with_value(updated_request.clone())
         .emit(&mut event_batch);
         event_batch.emit()?;
@@ -287,7 +298,10 @@ impl crate::domain::groups::core::GroupStorage {
             requester_id.clone(),
         )
         .with_target(requester_id)
-        .with_path(&format!("groups/{}/join_requests/{}", group_id, requester_id))
+        .with_path(&format!(
+            "groups/{}/join_requests/{}",
+            group_id, requester_id
+        ))
         .with_value(Value::Null)
         .emit(&mut event_batch);
         event_batch.emit()?;

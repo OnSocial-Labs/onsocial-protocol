@@ -34,7 +34,8 @@ impl EventBuilder {
     }
 
     pub fn with_target(mut self, target_id: &AccountId) -> Self {
-        self.additional_fields.insert("target_id".into(), target_id.as_str().into());
+        self.additional_fields
+            .insert("target_id".into(), target_id.as_str().into());
         self
     }
 
@@ -76,20 +77,18 @@ impl EventBuilder {
 
         let mut merged: BTreeMap<String, Value> = BTreeMap::new();
 
-        if let Some(existing) = additional_fields.remove("writes") {
-            if let Value::Array(items) = existing {
-                for item in items {
-                    let Some(obj) = item.as_object() else {
-                        continue;
-                    };
-                    let Some(path) = obj.get("path").and_then(|v| v.as_str()) else {
-                        continue;
-                    };
-                    let Some(value) = obj.get("value") else {
-                        continue;
-                    };
-                    merged.insert(path.to_string(), value.clone());
-                }
+        if let Some(Value::Array(items)) = additional_fields.remove("writes") {
+            for item in items {
+                let Some(obj) = item.as_object() else {
+                    continue;
+                };
+                let Some(path) = obj.get("path").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                let Some(value) = obj.get("value") else {
+                    continue;
+                };
+                merged.insert(path.to_string(), value.clone());
             }
         }
 
@@ -121,6 +120,11 @@ impl EventBuilder {
 
         Self::merge_writes_field(&mut additional_fields, writes);
 
-        event_batch.add(event_type, operation, account_id, Value::Object(additional_fields));
+        event_batch.add(
+            event_type,
+            operation,
+            account_id,
+            Value::Object(additional_fields),
+        );
     }
 }

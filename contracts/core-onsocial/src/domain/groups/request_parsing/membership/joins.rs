@@ -27,9 +27,7 @@ impl SocialPlatform {
             },
             |platform| {
                 crate::domain::groups::core::GroupStorage::join_group_traditional(
-                    platform,
-                    &group_id,
-                    caller,
+                    platform, &group_id, caller,
                 )
             },
         )

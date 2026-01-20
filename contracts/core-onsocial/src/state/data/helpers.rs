@@ -1,11 +1,11 @@
-use near_sdk::{AccountId, PublicKey};
 use near_sdk::serde_json::Value;
+use near_sdk::{AccountId, PublicKey};
 
+use crate::SocialError;
 use crate::events::EventBatch;
 use crate::protocol::Options;
-use crate::state::set_context::{ApiOperationContext, VerifiedContext};
 use crate::state::models::SocialPlatform;
-use crate::SocialError;
+use crate::state::set_context::{ApiOperationContext, VerifiedContext};
 
 impl SocialPlatform {
     fn require_batch_size_within_limit(&self, batch_len: usize) -> Result<(), SocialError> {
@@ -77,10 +77,12 @@ impl SocialPlatform {
         verified: &VerifiedContext,
         ctx: &mut ApiOperationContext,
     ) -> Result<(), SocialError> {
-        use crate::protocol::operation::{classify_api_operation_key, ApiOperationKey};
+        use crate::protocol::operation::{ApiOperationKey, classify_api_operation_key};
 
         match classify_api_operation_key(key)? {
-            ApiOperationKey::StorageDeposit => self.handle_api_storage_deposit(value, account_id, ctx),
+            ApiOperationKey::StorageDeposit => {
+                self.handle_api_storage_deposit(value, account_id, ctx)
+            }
             ApiOperationKey::StorageWithdraw => {
                 self.handle_api_storage_withdraw(value, account_id, &verified.actor_id, ctx)
             }

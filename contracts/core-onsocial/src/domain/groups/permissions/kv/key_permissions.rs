@@ -4,11 +4,7 @@ use crate::errors::SocialError;
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
 
-use super::types::{
-    is_valid_permission_level,
-    key_permission_level,
-    NONE,
-};
+use super::types::{NONE, is_valid_permission_level, key_permission_level};
 
 pub(crate) fn build_key_permission_key(owner: &str, public_key: &PublicKey, path: &str) -> String {
     let key_str = String::from(public_key);

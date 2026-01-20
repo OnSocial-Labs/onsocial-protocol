@@ -3,9 +3,9 @@
 
 #[cfg(test)]
 mod contract_lifecycle_tests {
-    use crate::{Contract, config::GovernanceConfig};
-    use crate::tests::test_utils::*;
     use crate::state::models::ContractStatus;
+    use crate::tests::test_utils::*;
+    use crate::{Contract, config::GovernanceConfig};
     use near_sdk::test_utils::get_logs;
 
     #[test]
@@ -18,8 +18,11 @@ mod contract_lifecycle_tests {
         let contract = Contract::new();
 
         // Test contract status
-        assert_eq!(contract.platform.status, ContractStatus::Genesis,
-            "New contract should start in Genesis status");
+        assert_eq!(
+            contract.platform.status,
+            ContractStatus::Genesis,
+            "New contract should start in Genesis status"
+        );
 
         // Test default config values
         let config = contract.platform.config;
@@ -28,7 +31,10 @@ mod contract_lifecycle_tests {
         assert!(config.max_batch_size > 0, "Max batch size should be set");
 
         // Test manager is set (should be the contract account itself initially)
-        assert!(!contract.platform.manager.to_string().is_empty(), "Manager should be set");
+        assert!(
+            !contract.platform.manager.to_string().is_empty(),
+            "Manager should be set"
+        );
 
         // Test storage structures are initialized (empty state verified through other means)
     }
@@ -57,14 +63,19 @@ mod contract_lifecycle_tests {
         assert!(result, "Contract activation should succeed");
 
         // Contract should now be in Live status
-        assert_eq!(contract.platform.status, ContractStatus::Live,
-            "Contract should be in Live status after activation");
+        assert_eq!(
+            contract.platform.status,
+            ContractStatus::Live,
+            "Contract should be in Live status after activation"
+        );
 
         // Verify event was emitted
         let logs = get_logs();
         assert_eq!(logs.len(), 1, "Should emit exactly one event");
-        assert!(verify_contract_event(&logs[0], "activate_contract", "Genesis", "Live"),
-            "Event should contain correct contract activation data");
+        assert!(
+            verify_contract_event(&logs[0], "activate_contract", "Genesis", "Live"),
+            "Event should contain correct contract activation data"
+        );
     }
 
     #[test]
@@ -87,14 +98,23 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context1.build());
         let result = contract.enter_read_only().unwrap();
         assert!(result, "Entering read-only should succeed");
-        assert_eq!(contract.platform.status, ContractStatus::ReadOnly,
-            "Contract should be in ReadOnly status");
+        assert_eq!(
+            contract.platform.status,
+            ContractStatus::ReadOnly,
+            "Contract should be in ReadOnly status"
+        );
 
         // Verify read-only event was emitted
         let logs = get_logs();
-        assert_eq!(logs.len(), 1, "Should emit exactly one event for read-only transition");
-        assert!(verify_contract_event(&logs[0], "enter_read_only", "Live", "ReadOnly"),
-            "Event should contain correct read-only transition data");
+        assert_eq!(
+            logs.len(),
+            1,
+            "Should emit exactly one event for read-only transition"
+        );
+        assert!(
+            verify_contract_event(&logs[0], "enter_read_only", "Live", "ReadOnly"),
+            "Event should contain correct read-only transition data"
+        );
 
         // Clear logs for next transition
         let _ = get_logs();
@@ -104,14 +124,23 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context2.build());
         let result = contract.resume_live().unwrap();
         assert!(result, "Resuming live mode should succeed");
-        assert_eq!(contract.platform.status, ContractStatus::Live,
-            "Contract should be back in Live status");
+        assert_eq!(
+            contract.platform.status,
+            ContractStatus::Live,
+            "Contract should be back in Live status"
+        );
 
         // Verify live resume event was emitted
         let logs = get_logs();
-        assert_eq!(logs.len(), 1, "Should emit exactly one event for live resume transition");
-        assert!(verify_contract_event(&logs[0], "resume_live", "ReadOnly", "Live"),
-            "Event should contain correct live resume transition data");
+        assert_eq!(
+            logs.len(),
+            1,
+            "Should emit exactly one event for live resume transition"
+        );
+        assert!(
+            verify_contract_event(&logs[0], "resume_live", "ReadOnly", "Live"),
+            "Event should contain correct live resume transition data"
+        );
     }
 
     #[test]
@@ -120,11 +149,20 @@ mod contract_lifecycle_tests {
 
         // Test key limits
         assert_eq!(config.max_key_length, 256, "Max key length should be 256");
-        assert!(config.max_path_depth >= 10, "Max path depth should be reasonable");
+        assert!(
+            config.max_path_depth >= 10,
+            "Max path depth should be reasonable"
+        );
 
         // Test operation limits
-        assert!(config.max_batch_size > 0, "Should allow some operations per batch");
-        assert!(config.max_batch_size <= 200, "Batch size should be reasonable");
+        assert!(
+            config.max_batch_size > 0,
+            "Should allow some operations per batch"
+        );
+        assert!(
+            config.max_batch_size <= 200,
+            "Batch size should be reasonable"
+        );
     }
 
     #[test]
@@ -134,7 +172,10 @@ mod contract_lifecycle_tests {
 
         // Test that manager is a valid account ID
         assert!(!manager.to_string().is_empty(), "Manager should be set");
-        assert!(manager.to_string().contains('.'), "Manager should be a valid account ID format");
+        assert!(
+            manager.to_string().contains('.'),
+            "Manager should be a valid account ID format"
+        );
     }
 
     #[test]
@@ -192,7 +233,10 @@ mod contract_lifecycle_tests {
         let context = get_context_with_deposit(manager.clone(), 1);
         near_sdk::testing_env!(context.build());
         let result = contract.activate_contract().unwrap();
-        assert!(!result, "Activating already live contract should return false");
+        assert!(
+            !result,
+            "Activating already live contract should return false"
+        );
 
         // Enter ReadOnly, then try again - should return false
         let result = contract.enter_read_only().unwrap();
@@ -257,7 +301,10 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context.build());
 
         let err = contract.activate_contract().unwrap_err();
-        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
+        assert_eq!(
+            err.to_string(),
+            "Requires attached deposit of exactly 1 yoctoNEAR"
+        );
     }
 
     #[test]
@@ -269,7 +316,10 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context.build());
 
         let err = contract.enter_read_only().unwrap_err();
-        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
+        assert_eq!(
+            err.to_string(),
+            "Requires attached deposit of exactly 1 yoctoNEAR"
+        );
     }
 
     #[test]
@@ -287,7 +337,10 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context.build());
 
         let err = contract.resume_live().unwrap_err();
-        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
+        assert_eq!(
+            err.to_string(),
+            "Requires attached deposit of exactly 1 yoctoNEAR"
+        );
     }
 
     #[test]
@@ -298,14 +351,18 @@ mod contract_lifecycle_tests {
         let mut valid_update = current_config.clone();
         valid_update.max_key_length = 300; // Increase allowed
         valid_update.max_batch_size = 150; // Increase allowed
-        assert!(valid_update.validate_update(&current_config).is_ok(),
-            "Valid increases should be allowed");
+        assert!(
+            valid_update.validate_update(&current_config).is_ok(),
+            "Valid increases should be allowed"
+        );
 
         // Test invalid updates (decreases)
         let mut invalid_update = current_config.clone();
         invalid_update.max_key_length = 200; // Decrease not allowed
-        assert!(invalid_update.validate_update(&current_config).is_err(),
-            "Decreases should not be allowed");
+        assert!(
+            invalid_update.validate_update(&current_config).is_err(),
+            "Decreases should not be allowed"
+        );
     }
 
     #[test]
@@ -313,9 +370,15 @@ mod contract_lifecycle_tests {
         let contract = Contract::new();
 
         // Test version is set
-        assert!(!contract.platform.version.is_empty(), "Version should be set");
-        assert_eq!(contract.platform.version, env!("CARGO_PKG_VERSION"),
-            "Version should match Cargo package version");
+        assert!(
+            !contract.platform.version.is_empty(),
+            "Version should be set"
+        );
+        assert_eq!(
+            contract.platform.version,
+            env!("CARGO_PKG_VERSION"),
+            "Version should match Cargo package version"
+        );
 
         // Test storage maps are initialized (empty)
         // Note: We can't directly test emptiness of LookupMaps in unit tests
@@ -323,9 +386,18 @@ mod contract_lifecycle_tests {
 
         // Test all config values are reasonable
         let config = contract.platform.config;
-        assert!(config.max_key_length >= 256, "Max key length should be at least 256");
-        assert!(config.max_path_depth >= 10, "Max path depth should be reasonable");
-        assert!(config.max_batch_size >= 10, "Max batch size should be reasonable");
+        assert!(
+            config.max_key_length >= 256,
+            "Max key length should be at least 256"
+        );
+        assert!(
+            config.max_path_depth >= 10,
+            "Max path depth should be reasonable"
+        );
+        assert!(
+            config.max_batch_size >= 10,
+            "Max batch size should be reasonable"
+        );
     }
 
     #[test]
@@ -342,14 +414,25 @@ mod contract_lifecycle_tests {
         let result = contract.update_manager(new_manager.clone());
         assert!(result.is_ok(), "Manager should be able to update manager");
 
-        assert_eq!(contract.platform.manager, new_manager,
-            "Manager should be updated to new account");
+        assert_eq!(
+            contract.platform.manager, new_manager,
+            "Manager should be updated to new account"
+        );
 
         let logs = get_logs();
         assert_eq!(logs.len(), 1, "Should emit exactly one event");
-        assert!(logs[0].contains("update_manager"), "Event should contain update_manager operation");
-        assert!(logs[0].contains(&manager.to_string()), "Event should contain old manager");
-        assert!(logs[0].contains(&new_manager.to_string()), "Event should contain new manager");
+        assert!(
+            logs[0].contains("update_manager"),
+            "Event should contain update_manager operation"
+        );
+        assert!(
+            logs[0].contains(&manager.to_string()),
+            "Event should contain old manager"
+        );
+        assert!(
+            logs[0].contains(&new_manager.to_string()),
+            "Event should contain new manager"
+        );
     }
 
     #[test]
@@ -362,8 +445,10 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context.build());
 
         let err = contract.update_manager(new_manager).unwrap_err();
-        assert!(err.to_string().contains("manager_operation"),
-            "Non-manager should be rejected");
+        assert!(
+            err.to_string().contains("manager_operation"),
+            "Non-manager should be rejected"
+        );
     }
 
     #[test]
@@ -376,7 +461,10 @@ mod contract_lifecycle_tests {
         near_sdk::testing_env!(context.build());
 
         let err = contract.update_manager(new_manager).unwrap_err();
-        assert_eq!(err.to_string(), "Requires attached deposit of exactly 1 yoctoNEAR");
+        assert_eq!(
+            err.to_string(),
+            "Requires attached deposit of exactly 1 yoctoNEAR"
+        );
     }
 
     #[test]
@@ -395,15 +483,19 @@ mod contract_lifecycle_tests {
         let context = get_context_with_deposit(original_manager, 1);
         near_sdk::testing_env!(context.build());
         let err = contract.update_manager(third_manager.clone()).unwrap_err();
-        assert!(err.to_string().contains("manager_operation"),
-            "Old manager should be rejected");
+        assert!(
+            err.to_string().contains("manager_operation"),
+            "Old manager should be rejected"
+        );
 
         // Second manager can transfer to third
         let context = get_context_with_deposit(second_manager, 1);
         near_sdk::testing_env!(context.build());
         contract.update_manager(third_manager.clone()).unwrap();
 
-        assert_eq!(contract.platform.manager, third_manager,
-            "Manager should be third account");
+        assert_eq!(
+            contract.platform.manager, third_manager,
+            "Manager should be third account"
+        );
     }
 }

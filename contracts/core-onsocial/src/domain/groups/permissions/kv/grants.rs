@@ -4,10 +4,10 @@ use crate::errors::SocialError;
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
 
+use super::eval::extract_group_id_from_path;
 use super::keys::{build_group_permission_key, build_permission_key};
 use super::membership::{get_active_group_member_nonce, get_group_member_nonce, is_group_member};
-use super::types::{is_valid_permission_level, normalize_group_path_owned, NONE};
-use super::eval::extract_group_id_from_path;
+use super::types::{NONE, is_valid_permission_level, normalize_group_path_owned};
 
 pub fn grant_permissions(
     platform: &mut SocialPlatform,
@@ -28,7 +28,9 @@ pub fn grant_permissions(
     let key = if let Some(group_id) = extract_group_id_from_path(path) {
         // Group-scoped permissions are only meaningful for members.
         if !is_group_member(platform, group_id, grantee.as_str()) {
-            return Err(crate::invalid_input!("Cannot grant group permissions to non-member"));
+            return Err(crate::invalid_input!(
+                "Cannot grant group permissions to non-member"
+            ));
         }
 
         let nonce = get_group_member_nonce(platform, group_id, grantee.as_str())
@@ -87,7 +89,11 @@ pub fn revoke_permissions(
     } else {
         let path_identifier = super::eval::extract_path_owner(platform, path)
             .unwrap_or_else(|| revoker.as_str().to_string());
-        Some(build_permission_key(&path_identifier, grantee.as_str(), path))
+        Some(build_permission_key(
+            &path_identifier,
+            grantee.as_str(),
+            path,
+        ))
     };
 
     if let Some(key) = key_opt.as_deref() {

@@ -23,7 +23,11 @@ impl VoteTally {
         }
     }
 
-    pub fn meets_thresholds(&self, participation_quorum_bps: u16, majority_threshold_bps: u16) -> bool {
+    pub fn meets_thresholds(
+        &self,
+        participation_quorum_bps: u16,
+        majority_threshold_bps: u16,
+    ) -> bool {
         if self.total_votes == 0 || self.locked_member_count == 0 {
             return false;
         }
@@ -35,8 +39,10 @@ impl VoteTally {
         let quorum_bps = participation_quorum_bps.min(BPS_DENOMINATOR) as u128;
         let majority_bps = majority_threshold_bps.min(BPS_DENOMINATOR) as u128;
 
-        let meets_participation = total_votes.saturating_mul(denom) >= quorum_bps.saturating_mul(locked_member_count);
-        let meets_majority = yes_votes.saturating_mul(denom) >= majority_bps.saturating_mul(total_votes);
+        let meets_participation =
+            total_votes.saturating_mul(denom) >= quorum_bps.saturating_mul(locked_member_count);
+        let meets_majority =
+            yes_votes.saturating_mul(denom) >= majority_bps.saturating_mul(total_votes);
 
         meets_participation && meets_majority
     }
@@ -47,7 +53,11 @@ impl VoteTally {
     }
 
     /// Returns true if proposal defeat is mathematically inevitable.
-    pub fn is_defeat_inevitable(&self, participation_quorum_bps: u16, majority_threshold_bps: u16) -> bool {
+    pub fn is_defeat_inevitable(
+        &self,
+        participation_quorum_bps: u16,
+        majority_threshold_bps: u16,
+    ) -> bool {
         if self.locked_member_count == 0 {
             return false;
         }
@@ -70,8 +80,8 @@ impl VoteTally {
 
         let max_participation_possible =
             max_possible_total.saturating_mul(denom) >= quorum_bps.saturating_mul(total_members);
-        let can_reach_majority =
-            max_possible_yes.saturating_mul(denom) >= majority_bps.saturating_mul(max_possible_total);
+        let can_reach_majority = max_possible_yes.saturating_mul(denom)
+            >= majority_bps.saturating_mul(max_possible_total);
 
         max_participation_possible && !can_reach_majority
     }

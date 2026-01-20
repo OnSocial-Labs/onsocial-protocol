@@ -7,9 +7,7 @@ pub fn resolve_view_key(key: &str, account_id: Option<&AccountId>) -> Option<Str
     }
 
     if key.starts_with("groups/") {
-        let Some((group_id, rel)) = crate::storage::utils::parse_groups_path(key) else {
-            return None;
-        };
+        let (group_id, rel) = crate::storage::utils::parse_groups_path(key)?;
         if group_id.is_empty() || rel.is_empty() {
             return None;
         }

@@ -1,8 +1,11 @@
-use near_sdk::{AccountId, env, serde_json::{self, Value}};
+use near_sdk::{
+    AccountId, env,
+    serde_json::{self, Value},
+};
 
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 impl crate::domain::groups::core::GroupStorage {
     pub fn add_to_blacklist(
@@ -44,8 +47,11 @@ impl crate::domain::groups::core::GroupStorage {
 
             let group_config_path = Self::group_config_path(group_id);
             if !Self::is_owner(platform, group_id, adder_id) {
-                let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
-                    .ok_or_else(|| invalid_input!("Group owner not found"))?;
+                let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(
+                    platform,
+                    &group_config_path,
+                )
+                .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
                 if !crate::domain::groups::permissions::kv::can_manage(
                     platform,
@@ -66,29 +72,17 @@ impl crate::domain::groups::core::GroupStorage {
         platform.storage_set(&blacklist_path, &Value::Bool(true))?;
 
         if Self::is_member(platform, group_id, target_id) {
-            Self::remove_member_internal(
-                platform,
-                group_id,
-                target_id,
-                adder_id,
-                from_governance,
-            )?;
+            Self::remove_member_internal(platform, group_id, target_id, adder_id, from_governance)?;
         }
 
         let blacklist_event_data = Value::Object(serde_json::Map::from_iter([
             ("blacklisted".to_string(), Value::Bool(true)),
-            (
-                "added_by".to_string(),
-                Value::String(adder_id.to_string()),
-            ),
+            ("added_by".to_string(), Value::String(adder_id.to_string())),
             (
                 "added_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
             ),
-            (
-                "from_governance".to_string(),
-                Value::Bool(from_governance),
-            ),
+            ("from_governance".to_string(), Value::Bool(from_governance)),
         ]));
         let mut event_batch = EventBatch::new();
         EventBuilder::new(
@@ -133,8 +127,11 @@ impl crate::domain::groups::core::GroupStorage {
         if !from_governance {
             let group_config_path = Self::group_config_path(group_id);
             if !Self::is_owner(platform, group_id, remover_id) {
-                let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(platform, &group_config_path)
-                    .ok_or_else(|| invalid_input!("Group owner not found"))?;
+                let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(
+                    platform,
+                    &group_config_path,
+                )
+                .ok_or_else(|| invalid_input!("Group owner not found"))?;
 
                 if !crate::domain::groups::permissions::kv::can_manage(
                     platform,
@@ -174,10 +171,7 @@ impl crate::domain::groups::core::GroupStorage {
                 "removed_at".to_string(),
                 Value::String(env::block_timestamp().to_string()),
             ),
-            (
-                "from_governance".to_string(),
-                Value::Bool(from_governance),
-            ),
+            ("from_governance".to_string(), Value::Bool(from_governance)),
         ]));
         let mut event_batch = EventBatch::new();
         EventBuilder::new(
@@ -195,7 +189,11 @@ impl crate::domain::groups::core::GroupStorage {
         Ok(())
     }
 
-    pub fn is_blacklisted(platform: &SocialPlatform, group_id: &str, target_id: &AccountId) -> bool {
+    pub fn is_blacklisted(
+        platform: &SocialPlatform,
+        group_id: &str,
+        target_id: &AccountId,
+    ) -> bool {
         let blacklist_path = format!("groups/{}/blacklist/{}", group_id, target_id);
         if let Some(entry) = platform.get_entry(&blacklist_path) {
             matches!(entry.value, crate::state::models::DataValue::Value(_))

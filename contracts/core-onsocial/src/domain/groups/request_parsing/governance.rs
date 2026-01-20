@@ -1,8 +1,8 @@
-use near_sdk::serde_json::{json, Value};
 use near_sdk::AccountId;
+use near_sdk::serde_json::{Value, json};
 
-use crate::{invalid_input, SocialError};
 use crate::state::models::SocialPlatform;
+use crate::{SocialError, invalid_input};
 
 use super::{membership, permissions};
 
@@ -28,7 +28,9 @@ impl SocialPlatform {
                 }
             }
             "permission_change" => permissions::parse_permission_change(&changes)?,
-            "member_invite" => membership::proposal_parsing::parse_member_invite_proposal(&changes)?,
+            "member_invite" => {
+                membership::proposal_parsing::parse_member_invite_proposal(&changes)?
+            }
             "join_request" => membership::proposal_parsing::parse_join_request_proposal(&changes)?,
             "path_permission_grant" => permissions::parse_path_permission_grant(&changes)?,
             "path_permission_revoke" => permissions::parse_path_permission_revoke(&changes)?,
@@ -51,9 +53,10 @@ impl SocialPlatform {
 
                 let participation_quorum_bps = parse_optional_u16_any("participation_quorum_bps")?;
                 let majority_threshold_bps = parse_optional_u16_any("majority_threshold_bps")?;
-                let voting_period = changes
-                    .get("voting_period")
-                    .and_then(|v| v.as_u64().or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok())));
+                let voting_period = changes.get("voting_period").and_then(|v| {
+                    v.as_u64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse::<u64>().ok()))
+                });
                 crate::domain::groups::ProposalType::VotingConfigChange {
                     participation_quorum_bps,
                     majority_threshold_bps,

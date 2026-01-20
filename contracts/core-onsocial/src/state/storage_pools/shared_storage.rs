@@ -1,9 +1,9 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::state::set_context::ApiOperationContext;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::ApiOperationContext;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_share_storage(
@@ -46,7 +46,10 @@ impl SocialPlatform {
         ctx: &mut ApiOperationContext,
     ) -> Result<(), SocialError> {
         if actor_id != account_id {
-            return Err(crate::unauthorized!("return_shared_storage", actor_id.as_str()));
+            return Err(crate::unauthorized!(
+                "return_shared_storage",
+                actor_id.as_str()
+            ));
         }
         self.handle_return_shared_storage_atomic(account_id, ctx.event_batch)
     }

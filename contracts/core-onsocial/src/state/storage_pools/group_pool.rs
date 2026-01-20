@@ -1,10 +1,10 @@
 use near_sdk::AccountId;
 use serde_json::Value;
 
-use crate::events::EventBuilder;
-use crate::state::set_context::ApiOperationContext;
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::events::EventBuilder;
+use crate::state::models::SocialPlatform;
+use crate::state::set_context::ApiOperationContext;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_group_pool_deposit(
@@ -37,10 +37,18 @@ impl SocialPlatform {
 
         let pool_key = crate::state::models::SharedStoragePool::group_pool_key(&group_id)?;
 
-        let mut storage = self.user_storage.get(&pool_key).cloned().unwrap_or_default();
+        let mut storage = self
+            .user_storage
+            .get(&pool_key)
+            .cloned()
+            .unwrap_or_default();
         storage.storage_tracker.start_tracking();
 
-        let mut pool = self.shared_storage_pools.get(&pool_key).cloned().unwrap_or_default();
+        let mut pool = self
+            .shared_storage_pools
+            .get(&pool_key)
+            .cloned()
+            .unwrap_or_default();
         let is_new_pool = pool.storage_balance == 0;
         let previous_pool_balance = pool.storage_balance;
         pool.storage_balance = pool.storage_balance.saturating_add(amount);
@@ -51,12 +59,16 @@ impl SocialPlatform {
         let delta = storage.storage_tracker.delta();
         storage.storage_tracker.reset();
 
-        if delta > 0 {
-            storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
-        } else if delta < 0 {
-            storage.used_bytes = storage
-                .used_bytes
-                .saturating_sub(delta.unsigned_abs() as u64);
+        match delta.cmp(&0) {
+            std::cmp::Ordering::Greater => {
+                storage.used_bytes = storage.used_bytes.saturating_add(delta as u64);
+            }
+            std::cmp::Ordering::Less => {
+                storage.used_bytes = storage
+                    .used_bytes
+                    .saturating_sub(delta.unsigned_abs() as u64);
+            }
+            std::cmp::Ordering::Equal => {}
         }
         self.user_storage.insert(pool_key.clone(), storage);
 

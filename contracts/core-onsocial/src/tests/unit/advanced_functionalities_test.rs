@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test_advanced_functionalities {
-    use near_sdk::serde_json::json;
-    use crate::domain::groups::permissions::kv::types::{WRITE, MODERATE, MANAGE};
+    use crate::domain::groups::permissions::kv::types::{MANAGE, MODERATE, WRITE};
     use crate::tests::test_utils::*;
+    use near_sdk::serde_json::json;
 
     #[test]
     fn test_storage_deposit_and_balance_tracking() {
@@ -24,14 +24,23 @@ mod test_advanced_functionalities {
         });
 
         // Use refund_unused_deposit: true so only 2 NEAR is deposited (not 5)
-        let options = Some(crate::Options { refund_unused_deposit: true });
+        let options = Some(crate::Options {
+            refund_unused_deposit: true,
+        });
         let result = contract.execute(set_request_with_options(deposit_data, options));
         assert!(result.is_ok(), "Storage deposit should succeed");
 
         // Verify storage balance
         let balance = contract.get_storage_balance(alice.clone());
-        assert!(balance.is_some(), "Storage balance should exist after deposit");
-        assert_eq!(balance.unwrap().balance, deposit_amount, "Storage balance should match deposit amount");
+        assert!(
+            balance.is_some(),
+            "Storage balance should exist after deposit"
+        );
+        assert_eq!(
+            balance.unwrap().balance,
+            deposit_amount,
+            "Storage balance should match deposit amount"
+        );
 
         // Add some data to increase storage usage
         let data = json!({
@@ -50,8 +59,14 @@ mod test_advanced_functionalities {
         let updated_balance = contract.get_storage_balance(alice.clone());
         assert!(updated_balance.is_some());
         let storage_info = updated_balance.unwrap();
-        assert!(storage_info.used_bytes > 0, "Storage usage should be greater than 0 after adding data");
-        assert!(storage_info.balance >= deposit_amount, "Storage balance should still cover deposits");
+        assert!(
+            storage_info.used_bytes > 0,
+            "Storage usage should be greater than 0 after adding data"
+        );
+        assert!(
+            storage_info.balance >= deposit_amount,
+            "Storage balance should still cover deposits"
+        );
 
         println!("✓ Storage deposit and balance tracking test passed");
     }
@@ -71,7 +86,9 @@ mod test_advanced_functionalities {
             }
         });
         // Use refund_unused_deposit: true so only 2 NEAR is deposited (not 3)
-        let options = Some(crate::Options { refund_unused_deposit: true });
+        let options = Some(crate::Options {
+            refund_unused_deposit: true,
+        });
         let result = contract.execute(set_request_with_options(deposit_data, options));
         assert!(result.is_ok());
 
@@ -93,7 +110,10 @@ mod test_advanced_functionalities {
             }
         });
         let result = contract.execute(set_request(withdraw_too_much));
-        assert!(result.is_err(), "Withdrawal of more than balance should fail");
+        assert!(
+            result.is_err(),
+            "Withdrawal of more than balance should fail"
+        );
 
         // Withdraw partial amount (should succeed)
         let withdraw_amount = 500_000_000_000_000_000_000_000u128; // 0.5 NEAR
@@ -147,7 +167,10 @@ mod test_advanced_functionalities {
         let beneficiary_balance = contract.get_storage_balance(beneficiary.clone());
         assert!(beneficiary_balance.is_some());
         let shared_storage = beneficiary_balance.unwrap().shared_storage;
-        assert!(shared_storage.is_some(), "Beneficiary should have shared storage allocation");
+        assert!(
+            shared_storage.is_some(),
+            "Beneficiary should have shared storage allocation"
+        );
         let shared_info = shared_storage.unwrap();
         assert_eq!(shared_info.max_bytes, max_bytes);
         assert_eq!(shared_info.pool_id, owner);
@@ -167,17 +190,30 @@ mod test_advanced_functionalities {
 
         // Convert attached deposit into storage balance for `owner`.
         contract
-            .execute(
-                set_request(json!({"storage/deposit": {"amount": "1"}})),
-            )
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         let base_path = format!("{}/content", owner.as_str());
 
         // Initially, grantee has no permissions
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), format!("{}/articles", base_path), WRITE));
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), format!("{}/articles", base_path), MODERATE));
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), format!("{}/articles", base_path), MANAGE));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            format!("{}/articles", base_path),
+            WRITE
+        ));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            format!("{}/articles", base_path),
+            MODERATE
+        ));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            format!("{}/articles", base_path),
+            MANAGE
+        ));
 
         // Grant WRITE permission at base level
         let grant_write = json!({
@@ -192,12 +228,32 @@ mod test_advanced_functionalities {
 
         // Verify WRITE permission at base level and inherited paths
         assert!(contract.has_permission(owner.clone(), grantee.clone(), base_path.clone(), WRITE));
-        assert!(contract.has_permission(owner.clone(), grantee.clone(), format!("{}/articles", base_path), WRITE));
-        assert!(contract.has_permission(owner.clone(), grantee.clone(), format!("{}/articles/tech", base_path), WRITE));
+        assert!(contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            format!("{}/articles", base_path),
+            WRITE
+        ));
+        assert!(contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            format!("{}/articles/tech", base_path),
+            WRITE
+        ));
 
         // But not MODERATE or MANAGE
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), base_path.clone(), MODERATE));
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), base_path.clone(), MANAGE));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            base_path.clone(),
+            MODERATE
+        ));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            base_path.clone(),
+            MANAGE
+        ));
 
         // Grant additional MODERATE permission at specific subpath
         let specific_path = format!("{}/articles", base_path);
@@ -212,10 +268,25 @@ mod test_advanced_functionalities {
         assert!(result.is_ok());
 
         // Now grantee has both WRITE and MODERATE at the specific path
-        assert!(contract.has_permission(owner.clone(), grantee.clone(), specific_path.clone(), WRITE));
-        assert!(contract.has_permission(owner.clone(), grantee.clone(), specific_path.clone(), MODERATE));
+        assert!(contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            specific_path.clone(),
+            WRITE
+        ));
+        assert!(contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            specific_path.clone(),
+            MODERATE
+        ));
         // But MANAGE still not granted
-        assert!(!contract.has_permission(owner.clone(), grantee.clone(), specific_path.clone(), MANAGE));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            grantee.clone(),
+            specific_path.clone(),
+            MANAGE
+        ));
 
         println!("✓ Granular permissions with hierarchy test passed");
     }
@@ -231,9 +302,7 @@ mod test_advanced_functionalities {
 
         // Convert attached deposit into storage balance for `owner`.
         contract
-            .execute(
-                set_request(json!({"storage/deposit": {"amount": "1"}})),
-            )
+            .execute(set_request(json!({"storage/deposit": {"amount": "1"}})))
             .unwrap();
 
         let test_path = format!("{}/temp", owner.as_str());
@@ -270,7 +339,8 @@ mod test_advanced_functionalities {
         let content_creator = test_account(0);
         let collaborator = test_account(1);
         let moderator = test_account(2);
-        let context = get_context_with_deposit(content_creator.clone(), 8_000_000_000_000_000_000_000_000); // 8 NEAR
+        let context =
+            get_context_with_deposit(content_creator.clone(), 8_000_000_000_000_000_000_000_000); // 8 NEAR
         near_sdk::testing_env!(context.build());
         let mut contract = init_live_contract();
 
@@ -323,14 +393,35 @@ mod test_advanced_functionalities {
         assert!(result.is_ok());
 
         // Verify permissions are correctly set
-        assert!(contract.has_permission(content_creator.clone(), collaborator.clone(), content_path.clone(), WRITE));
-        assert!(!contract.has_permission(content_creator.clone(), collaborator.clone(), content_path.clone(), MODERATE));
+        assert!(contract.has_permission(
+            content_creator.clone(),
+            collaborator.clone(),
+            content_path.clone(),
+            WRITE
+        ));
+        assert!(!contract.has_permission(
+            content_creator.clone(),
+            collaborator.clone(),
+            content_path.clone(),
+            MODERATE
+        ));
 
-        assert!(contract.has_permission(content_creator.clone(), moderator.clone(), content_path.clone(), WRITE));
-        assert!(contract.has_permission(content_creator.clone(), moderator.clone(), content_path.clone(), MODERATE));
+        assert!(contract.has_permission(
+            content_creator.clone(),
+            moderator.clone(),
+            content_path.clone(),
+            WRITE
+        ));
+        assert!(contract.has_permission(
+            content_creator.clone(),
+            moderator.clone(),
+            content_path.clone(),
+            MODERATE
+        ));
 
         // Collaborator adds content (should succeed)
-        let collab_context = get_context_with_deposit(collaborator.clone(), 1_000_000_000_000_000_000_000_000); // 1 NEAR
+        let collab_context =
+            get_context_with_deposit(collaborator.clone(), 1_000_000_000_000_000_000_000_000); // 1 NEAR
         near_sdk::testing_env!(collab_context.build());
 
         let collab_content = json!({
@@ -342,7 +433,10 @@ mod test_advanced_functionalities {
             }
         });
         let result = contract.execute(set_request(collab_content));
-        assert!(result.is_ok(), "Collaborator should be able to edit content");
+        assert!(
+            result.is_ok(),
+            "Collaborator should be able to edit content"
+        );
 
         // Verify storage balance reflects usage
         let creator_balance = contract.get_storage_balance(content_creator.clone());
@@ -359,11 +453,19 @@ mod test_advanced_functionalities {
         let context = get_context(owner.clone());
         near_sdk::testing_env!(context.build());
         let mut contract = init_live_contract();
-        
+
         // Set up storage balance for permission operations (soft delete requires storage for Deleted markers)
-        let mut storage = contract.platform.user_storage.get(&owner).cloned().unwrap_or_default();
+        let mut storage = contract
+            .platform
+            .user_storage
+            .get(&owner)
+            .cloned()
+            .unwrap_or_default();
         storage.balance = 1_000_000_000_000_000_000_000_000u128; // 1 NEAR
-        contract.platform.user_storage.insert(owner.clone(), storage);
+        contract
+            .platform
+            .user_storage
+            .insert(owner.clone(), storage);
 
         let root_path = format!("{}/documents", owner.as_str());
 
@@ -380,8 +482,18 @@ mod test_advanced_functionalities {
 
         // Verify inheritance works
         assert!(contract.has_permission(owner.clone(), user.clone(), root_path.clone(), WRITE));
-        assert!(contract.has_permission(owner.clone(), user.clone(), format!("{}/public", root_path), WRITE));
-        assert!(contract.has_permission(owner.clone(), user.clone(), format!("{}/public/manual", root_path), WRITE));
+        assert!(contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            format!("{}/public", root_path),
+            WRITE
+        ));
+        assert!(contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            format!("{}/public/manual", root_path),
+            WRITE
+        ));
 
         // Override with more restrictive permissions at specific subpath
         let restricted_path = format!("{}/private", root_path);
@@ -396,12 +508,27 @@ mod test_advanced_functionalities {
 
         // User should still have WRITE at root and public paths (inheritance works)
         assert!(contract.has_permission(owner.clone(), user.clone(), root_path.clone(), WRITE));
-        assert!(contract.has_permission(owner.clone(), user.clone(), format!("{}/public", root_path), WRITE));
+        assert!(contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            format!("{}/public", root_path),
+            WRITE
+        ));
 
         // User should still have WRITE at the restricted private path through inheritance from root
         // (revoking at subpath doesn't override inherited permissions from parent)
-        assert!(contract.has_permission(owner.clone(), user.clone(), restricted_path.clone(), WRITE));
-        assert!(contract.has_permission(owner.clone(), user.clone(), format!("{}/secret", restricted_path), WRITE));
+        assert!(contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            restricted_path.clone(),
+            WRITE
+        ));
+        assert!(contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            format!("{}/secret", restricted_path),
+            WRITE
+        ));
 
         // Now revoke at the root level to completely remove permissions
         let revoke_root = json!({
@@ -415,9 +542,24 @@ mod test_advanced_functionalities {
 
         // Now user should have no permissions anywhere in the hierarchy
         assert!(!contract.has_permission(owner.clone(), user.clone(), root_path.clone(), WRITE));
-        assert!(!contract.has_permission(owner.clone(), user.clone(), format!("{}/public", root_path), WRITE));
-        assert!(!contract.has_permission(owner.clone(), user.clone(), restricted_path.clone(), WRITE));
-        assert!(!contract.has_permission(owner.clone(), user.clone(), format!("{}/secret", restricted_path), WRITE));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            format!("{}/public", root_path),
+            WRITE
+        ));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            restricted_path.clone(),
+            WRITE
+        ));
+        assert!(!contract.has_permission(
+            owner.clone(),
+            user.clone(),
+            format!("{}/secret", restricted_path),
+            WRITE
+        ));
 
         println!("✓ Permission inheritance and overrides test passed");
     }
@@ -427,7 +569,8 @@ mod test_advanced_functionalities {
         let pool_owner = test_account(0);
         let user1 = test_account(1);
         let user2 = test_account(2);
-        let context = get_context_with_deposit(pool_owner.clone(), 15_000_000_000_000_000_000_000_000); // 15 NEAR
+        let context =
+            get_context_with_deposit(pool_owner.clone(), 15_000_000_000_000_000_000_000_000); // 15 NEAR
         near_sdk::testing_env!(context.build());
         let mut contract = init_live_contract();
 
@@ -471,7 +614,10 @@ mod test_advanced_functionalities {
             "settings/preferences": {"theme": "light"}
         });
         let result = contract.execute(set_request(user1_data));
-        assert!(result.is_ok(), "User1 should be able to store data using shared pool");
+        assert!(
+            result.is_ok(),
+            "User1 should be able to store data using shared pool"
+        );
 
         let user2_context = get_context(user2.clone());
         near_sdk::testing_env!(user2_context.build());
@@ -482,7 +628,10 @@ mod test_advanced_functionalities {
             "projects/project1": {"name": "Test"}
         });
         let result = contract.execute(set_request(user2_data));
-        assert!(result.is_ok(), "User2 should be able to store data using shared pool");
+        assert!(
+            result.is_ok(),
+            "User2 should be able to store data using shared pool"
+        );
 
         // Verify shared storage usage is tracked
         let user1_balance = contract.get_storage_balance(user1.clone());
@@ -508,8 +657,10 @@ mod test_advanced_functionalities {
         let mut contract = init_live_contract();
 
         // Simulate a new user with no storage balance
-        assert!(contract.get_storage_balance(alice.clone()).is_none() ||
-                contract.get_storage_balance(alice.clone()).unwrap().balance == 0);
+        assert!(
+            contract.get_storage_balance(alice.clone()).is_none()
+                || contract.get_storage_balance(alice.clone()).unwrap().balance == 0
+        );
 
         // User creates a profile and posts content in one transaction
         let post_data = json!({
@@ -532,26 +683,41 @@ mod test_advanced_functionalities {
 
         // This should automatically handle storage deposits
         let result = contract.execute(set_request(post_data));
-        assert!(result.is_ok(), "New user posting should succeed with automatic storage handling");
+        assert!(
+            result.is_ok(),
+            "New user posting should succeed with automatic storage handling"
+        );
 
         // Verify storage was automatically allocated
         let storage_balance = contract.get_storage_balance(alice.clone());
-        assert!(storage_balance.is_some(), "Storage balance should exist after posting");
-        assert!(storage_balance.unwrap().used_bytes > 0, "Storage should be consumed for the data");
+        assert!(
+            storage_balance.is_some(),
+            "Storage balance should exist after posting"
+        );
+        assert!(
+            storage_balance.unwrap().used_bytes > 0,
+            "Storage should be consumed for the data"
+        );
 
         // Verify the content was stored correctly
         let profile_keys = vec![
             format!("{}/profile/name", alice.as_str()),
             format!("{}/profile/bio", alice.as_str()),
-            format!("{}/profile/avatar", alice.as_str())
+            format!("{}/profile/avatar", alice.as_str()),
         ];
         let profile_data = contract_get_values_map(&contract, profile_keys, Some(alice.clone()));
-        assert!(!profile_data.is_empty(), "Profile data should be retrievable");
-        assert_eq!(profile_data.get(&format!("{}/profile/name", alice.as_str())), Some(&json!("Alice Johnson")));
+        assert!(
+            !profile_data.is_empty(),
+            "Profile data should be retrievable"
+        );
+        assert_eq!(
+            profile_data.get(&format!("{}/profile/name", alice.as_str())),
+            Some(&json!("Alice Johnson"))
+        );
 
         let posts_keys = vec![
             format!("{}/posts/1", alice.as_str()),
-            format!("{}/posts/2", alice.as_str())
+            format!("{}/posts/2", alice.as_str()),
         ];
         let posts_data = contract_get_values_map(&contract, posts_keys, Some(alice.clone()));
         assert!(!posts_data.is_empty(), "Posts data should be retrievable");
@@ -603,18 +769,30 @@ mod test_advanced_functionalities {
         });
 
         let result = contract.execute(set_request(post_data));
-        assert!(result.is_ok(), "Existing user with storage should post without additional deposit");
+        assert!(
+            result.is_ok(),
+            "Existing user with storage should post without additional deposit"
+        );
 
         // Verify storage was consumed but user still has balance
         let final_storage = contract.get_storage_balance(bob.clone()).unwrap();
-        assert!(final_storage.used_bytes > initial_storage.used_bytes, "Storage should be consumed");
-        assert!(final_storage.balance == initial_storage.balance, "Storage balance should remain the same");
-        assert!(final_storage.balance > 0, "User should still have storage balance");
+        assert!(
+            final_storage.used_bytes > initial_storage.used_bytes,
+            "Storage should be consumed"
+        );
+        assert!(
+            final_storage.balance == initial_storage.balance,
+            "Storage balance should remain the same"
+        );
+        assert!(
+            final_storage.balance > 0,
+            "User should still have storage balance"
+        );
 
         // Verify posts were stored
         let posts_keys = vec![
             format!("{}/posts/3", bob.as_str()),
-            format!("{}/posts/4", bob.as_str())
+            format!("{}/posts/4", bob.as_str()),
         ];
         let posts_data = contract_get_values_map(&contract, posts_keys, Some(bob.clone()));
         assert!(!posts_data.is_empty());
@@ -650,11 +828,15 @@ mod test_advanced_functionalities {
 
         // Check that storage is nearly depleted
         let balance_before_post = contract.get_storage_balance(charlie.clone()).unwrap();
-        assert!(balance_before_post.used_bytes > 300, "Should have used significant storage");
+        assert!(
+            balance_before_post.used_bytes > 300,
+            "Should have used significant storage"
+        );
 
         // Now user tries to post with minimal remaining storage
         // This simulates a real scenario where user needs to attach deposit
-        let context_with_extra = get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000); // 1 NEAR extra
+        let context_with_extra =
+            get_context_with_deposit(charlie.clone(), 1_000_000_000_000_000_000_000_000); // 1 NEAR extra
         near_sdk::testing_env!(context_with_extra.build());
 
         let post_data = json!({
@@ -670,7 +852,7 @@ mod test_advanced_functionalities {
         // User must explicitly deposit via storage/deposit operation
         // In this case, the write will fail due to insufficient storage
         let result = contract.execute(set_request(post_data.clone()));
-        
+
         // The current design doesn't auto-deposit when user already has balance (even if insufficient)
         // User needs to explicitly deposit first, then write
         if result.is_err() {
@@ -680,18 +862,25 @@ mod test_advanced_functionalities {
             contract
                 .execute(set_request(deposit_op))
                 .expect("Deposit should succeed");
-            
+
             // Now retry the write
             contract
                 .execute(set_request(post_data))
                 .expect("Write should succeed after deposit");
         }
-        
+
         let balance_after_post = contract.get_storage_balance(charlie.clone()).unwrap();
         // Balance should be higher than initial (explicit deposit was made)
-        assert!(balance_after_post.balance >= balance_before_post.balance, "Storage should be available after explicit deposit");
+        assert!(
+            balance_after_post.balance >= balance_before_post.balance,
+            "Storage should be available after explicit deposit"
+        );
 
-        let posts_data = contract_get_values_map(&contract, vec![format!("{}/posts/5", charlie.as_str())], Some(charlie.clone()));
+        let posts_data = contract_get_values_map(
+            &contract,
+            vec![format!("{}/posts/5", charlie.as_str())],
+            Some(charlie.clone()),
+        );
         assert!(!posts_data.is_empty());
         assert!(!posts_data.is_empty());
 
@@ -702,7 +891,8 @@ mod test_advanced_functionalities {
     fn test_realistic_user_posting_flow_shared_storage_pool() {
         let pool_owner = test_account(0);
         let dave = test_account(3);
-        let context = get_context_with_deposit(pool_owner.clone(), 20_000_000_000_000_000_000_000_000); // 20 NEAR
+        let context =
+            get_context_with_deposit(pool_owner.clone(), 20_000_000_000_000_000_000_000_000); // 20 NEAR
         near_sdk::testing_env!(context.build());
         let mut contract = init_live_contract();
 
@@ -755,24 +945,33 @@ mod test_advanced_functionalities {
         });
 
         let result = contract.execute(set_request(post_data));
-        assert!(result.is_ok(), "User with shared storage should post without personal deposit");
+        assert!(
+            result.is_ok(),
+            "User with shared storage should post without personal deposit"
+        );
 
         // Verify shared storage usage
         let dave_balance_after = contract.get_storage_balance(dave.clone()).unwrap();
         let shared_after = dave_balance_after.shared_storage.unwrap();
-        assert!(shared_after.used_bytes > 0, "Shared storage should be consumed");
-        assert!(shared_after.used_bytes <= shared_after.max_bytes, "Should not exceed allocation");
+        assert!(
+            shared_after.used_bytes > 0,
+            "Shared storage should be consumed"
+        );
+        assert!(
+            shared_after.used_bytes <= shared_after.max_bytes,
+            "Should not exceed allocation"
+        );
 
         // Verify content was stored
         let profile_keys = vec![
             format!("{}/profile/name", dave.as_str()),
-            format!("{}/profile/bio", dave.as_str())
+            format!("{}/profile/bio", dave.as_str()),
         ];
         let profile_data = contract_get_values_map(&contract, profile_keys, Some(dave.clone()));
         assert!(!profile_data.is_empty());
         let posts_keys = vec![
             format!("{}/posts/1", dave.as_str()),
-            format!("{}/posts/2", dave.as_str())
+            format!("{}/posts/2", dave.as_str()),
         ];
         let posts_data = contract_get_values_map(&contract, posts_keys, Some(dave.clone()));
         assert!(!posts_data.is_empty());
@@ -814,13 +1013,18 @@ mod test_advanced_functionalities {
 
         // This should fail because the attached deposit is insufficient for the storage needed
         let result = contract.execute(set_request(comprehensive_post));
-        assert!(result.is_err(), "Posting with insufficient deposit should fail");
-        
+        assert!(
+            result.is_err(),
+            "Posting with insufficient deposit should fail"
+        );
+
         // Verify the error is about insufficient storage
         let err = result.unwrap_err();
         assert!(
-            format!("{:?}", err).contains("InsufficientStorage") || format!("{:?}", err).contains("storage"),
-            "Error should be about insufficient storage: {:?}", err
+            format!("{:?}", err).contains("InsufficientStorage")
+                || format!("{:?}", err).contains("storage"),
+            "Error should be about insufficient storage: {:?}",
+            err
         );
 
         // Note: In unit tests, state changes aren't rolled back on error like in real transactions.
@@ -898,28 +1102,29 @@ mod test_advanced_functionalities {
 
         // Verify Frank's storage usage reflects all his activity
         let final_balance = contract.get_storage_balance(frank.clone()).unwrap();
-        assert!(final_balance.used_bytes > 1000, "Should have used significant storage for comprehensive activity");
+        assert!(
+            final_balance.used_bytes > 1000,
+            "Should have used significant storage for comprehensive activity"
+        );
 
         // Verify all content is accessible
         let profile_keys = vec![
             format!("{}/profile/name", frank.as_str()),
             format!("{}/profile/bio", frank.as_str()),
             format!("{}/profile/skills", frank.as_str()),
-            format!("{}/profile/experience", frank.as_str())
+            format!("{}/profile/experience", frank.as_str()),
         ];
         let profile = contract_get_values_map(&contract, profile_keys, Some(frank.clone()));
         assert!(!profile.is_empty());
 
         let posts_keys = vec![
             format!("{}/posts/1", frank.as_str()),
-            format!("{}/posts/2", frank.as_str())
+            format!("{}/posts/2", frank.as_str()),
         ];
         let posts = contract_get_values_map(&contract, posts_keys, Some(frank.clone()));
         assert!(!posts.is_empty() && posts.len() >= 2);
 
-        let graph_keys = vec![
-            format!("{}/notifications/settings", frank.as_str())
-        ];
+        let graph_keys = vec![format!("{}/notifications/settings", frank.as_str())];
         let graph_data = contract_get_values_map(&contract, graph_keys, Some(frank.clone()));
         assert!(!graph_data.is_empty());
 
@@ -961,24 +1166,39 @@ mod test_advanced_functionalities {
         let post_cost_yoctonear = (post_used_bytes as u128).saturating_mul(byte_cost);
         let post_cost_near = post_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
 
-        println!("NEAR cost for single post: {} yoctoNEAR ({:.8} NEAR)", post_cost_yoctonear, post_cost_near);
+        println!(
+            "NEAR cost for single post: {} yoctoNEAR ({:.8} NEAR)",
+            post_cost_yoctonear, post_cost_near
+        );
 
         // Check if MIN_SHARED_STORAGE_BYTES (2000 bytes) is sufficient
-        let min_storage_cost_yoctonear = (crate::constants::MIN_SHARED_STORAGE_BYTES as u128).saturating_mul(byte_cost);
-        let min_storage_cost_near = min_storage_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
+        let min_storage_cost_yoctonear =
+            (crate::constants::MIN_SHARED_STORAGE_BYTES as u128).saturating_mul(byte_cost);
+        let min_storage_cost_near =
+            min_storage_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
 
-        println!("MIN_SHARED_STORAGE_BYTES (2000 bytes) cost: {} yoctoNEAR ({:.8} NEAR)", min_storage_cost_yoctonear, min_storage_cost_near);
+        println!(
+            "MIN_SHARED_STORAGE_BYTES (2000 bytes) cost: {} yoctoNEAR ({:.8} NEAR)",
+            min_storage_cost_yoctonear, min_storage_cost_near
+        );
 
         // Verify the post used less than MIN_SHARED_STORAGE_BYTES
-        assert!(post_used_bytes <= crate::constants::MIN_SHARED_STORAGE_BYTES,
-                "Single post should use <= MIN_SHARED_STORAGE_BYTES ({}), but used {} bytes",
-                crate::constants::MIN_SHARED_STORAGE_BYTES, post_used_bytes);
+        assert!(
+            post_used_bytes <= crate::constants::MIN_SHARED_STORAGE_BYTES,
+            "Single post should use <= MIN_SHARED_STORAGE_BYTES ({}), but used {} bytes",
+            crate::constants::MIN_SHARED_STORAGE_BYTES,
+            post_used_bytes
+        );
 
         // Verify the content was stored
         let post_key = format!("{}/posts/1", user.as_str());
-        let retrieved = contract_get_values_map(&contract, vec![post_key.clone()], Some(user.clone()));
+        let retrieved =
+            contract_get_values_map(&contract, vec![post_key.clone()], Some(user.clone()));
         assert!(!retrieved.is_empty(), "Post should be retrievable");
-        assert!(retrieved.contains_key(&post_key), "Post should exist at expected key");
+        assert!(
+            retrieved.contains_key(&post_key),
+            "Post should exist at expected key"
+        );
 
         println!("✓ Single post storage cost measurement test passed");
     }
@@ -1000,9 +1220,7 @@ mod test_advanced_functionalities {
             }
         });
 
-        let result = contract.execute(set_request(
-            post_data_no_events,
-        ));
+        let result = contract.execute(set_request(post_data_no_events));
         assert!(result.is_ok(), "Post without events should succeed");
 
         let storage_no_events = contract.get_storage_balance(user.clone()).unwrap();
@@ -1033,22 +1251,34 @@ mod test_advanced_functionalities {
         // Calculate the difference
         let event_storage_cost = used_bytes_with_events.saturating_sub(used_bytes_no_events);
 
-        println!("Storage used without events: {} bytes", used_bytes_no_events);
+        println!(
+            "Storage used without events: {} bytes",
+            used_bytes_no_events
+        );
         println!("Storage used with events: {} bytes", used_bytes_with_events);
-        println!("Additional storage cost of events: {} bytes", event_storage_cost);
+        println!(
+            "Additional storage cost of events: {} bytes",
+            event_storage_cost
+        );
 
         // Calculate NEAR cost for events
         let byte_cost = near_sdk::env::storage_byte_cost().as_yoctonear();
         let event_cost_yoctonear = (event_storage_cost as u128).saturating_mul(byte_cost);
         let event_cost_near = event_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
 
-        println!("NEAR cost for event emission: {} yoctoNEAR ({:.8} NEAR)", event_cost_yoctonear, event_cost_near);
+        println!(
+            "NEAR cost for event emission: {} yoctoNEAR ({:.8} NEAR)",
+            event_cost_yoctonear, event_cost_near
+        );
 
         // Total cost including events
         let total_cost_yoctonear = (used_bytes_with_events as u128).saturating_mul(byte_cost);
         let total_cost_near = total_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
 
-        println!("Total NEAR cost (data + events): {} yoctoNEAR ({:.8} NEAR)", total_cost_yoctonear, total_cost_near);
+        println!(
+            "Total NEAR cost (data + events): {} yoctoNEAR ({:.8} NEAR)",
+            total_cost_yoctonear, total_cost_near
+        );
 
         // Events are logged to blockchain but don't consume contract storage
         // They do consume gas, but storage balance only tracks contract data storage
@@ -1056,7 +1286,8 @@ mod test_advanced_functionalities {
 
         // Verify the post was stored
         let post_key = format!("{}/posts/1", user.as_str());
-        let retrieved = contract_get_values_map(&contract, vec![post_key.clone()], Some(user.clone()));
+        let retrieved =
+            contract_get_values_map(&contract, vec![post_key.clone()], Some(user.clone()));
         assert!(!retrieved.is_empty(), "Post should be retrievable");
 
         println!("✓ Event emission storage cost measurement test passed");
@@ -1102,15 +1333,27 @@ mod test_advanced_functionalities {
         let gas_used_with_events_tgas = gas_used_with_events as f64 / 1_000_000_000_000.0;
         let event_gas_cost_tgas = gas_used_with_events_tgas - gas_used_no_events_tgas;
 
-        println!("Gas used without events: {:.3} TGas", gas_used_no_events_tgas);
-        println!("Gas used with events: {:.3} TGas", gas_used_with_events_tgas);
-        println!("Additional gas cost of events: {:.3} TGas", event_gas_cost_tgas);
+        println!(
+            "Gas used without events: {:.3} TGas",
+            gas_used_no_events_tgas
+        );
+        println!(
+            "Gas used with events: {:.3} TGas",
+            gas_used_with_events_tgas
+        );
+        println!(
+            "Additional gas cost of events: {:.3} TGas",
+            event_gas_cost_tgas
+        );
 
         // NEAR gas price: ~0.0001 NEAR per TGas
         let event_cost_near = event_gas_cost_tgas * 0.0001;
         let event_cost_yoctonear = (event_cost_near * 1_000_000_000_000_000_000_000_000.0) as u128;
 
-        println!("Estimated NEAR cost for event gas: {} yoctoNEAR ({:.8} NEAR)", event_cost_yoctonear, event_cost_near);
+        println!(
+            "Estimated NEAR cost for event gas: {} yoctoNEAR ({:.8} NEAR)",
+            event_cost_yoctonear, event_cost_near
+        );
 
         // Storage cost from our exact measurement test (139 bytes of actual post data)
         let storage_cost_yoctonear: u128 = 139_000_000_000_000_000_000; // 0.00139 NEAR for 139 bytes
@@ -1120,15 +1363,31 @@ mod test_advanced_functionalities {
         let total_cost_yoctonear = storage_cost_yoctonear.saturating_add(event_cost_yoctonear);
         let total_cost_near = total_cost_yoctonear as f64 / 1_000_000_000_000_000_000_000_000.0;
 
-        println!("Storage cost: {} yoctoNEAR ({:.8} NEAR)", storage_cost_yoctonear, storage_cost_near);
-        println!("Event gas cost: {} yoctoNEAR ({:.8} NEAR)", event_cost_yoctonear, event_cost_near);
-        println!("Total cost (storage + gas): {} yoctoNEAR ({:.8} NEAR)", total_cost_yoctonear, total_cost_near);
+        println!(
+            "Storage cost: {} yoctoNEAR ({:.8} NEAR)",
+            storage_cost_yoctonear, storage_cost_near
+        );
+        println!(
+            "Event gas cost: {} yoctoNEAR ({:.8} NEAR)",
+            event_cost_yoctonear, event_cost_near
+        );
+        println!(
+            "Total cost (storage + gas): {} yoctoNEAR ({:.8} NEAR)",
+            total_cost_yoctonear, total_cost_near
+        );
 
         // Verify events consume significant gas
-        assert!(event_gas_cost > 100_000_000_000, "Events should consume significant gas (>100 TGas)");
+        assert!(
+            event_gas_cost > 100_000_000_000,
+            "Events should consume significant gas (>100 TGas)"
+        );
 
         // Verify total cost is reasonable (< 0.002 NEAR)
-        assert!(total_cost_near < 0.002, "Total cost should be reasonable (< 0.002 NEAR), got {:.6}", total_cost_near);
+        assert!(
+            total_cost_near < 0.002,
+            "Total cost should be reasonable (< 0.002 NEAR), got {:.6}",
+            total_cost_near
+        );
 
         println!("✓ Event emission gas cost analysis completed");
     }
@@ -1165,7 +1424,8 @@ mod test_advanced_functionalities {
 
         // Get the actual stored data
         let post_key = format!("{}/posts/1", user.as_str());
-        let retrieved = contract_get_values_map(&contract, vec![post_key.clone()], Some(user.clone()));
+        let retrieved =
+            contract_get_values_map(&contract, vec![post_key.clone()], Some(user.clone()));
 
         if let Some(data) = retrieved.get(&post_key) {
             let stored_json_string = data.to_string();
@@ -1181,7 +1441,10 @@ mod test_advanced_functionalities {
             // The difference between total storage and JSON size shows overhead
             let overhead = total_used_bytes.saturating_sub(stored_bytes as u64);
             println!("Storage overhead: {} bytes", overhead);
-            println!("Efficiency: {:.1}%", (stored_bytes as f64 / total_used_bytes as f64) * 100.0);
+            println!(
+                "Efficiency: {:.1}%",
+                (stored_bytes as f64 / total_used_bytes as f64) * 100.0
+            );
         }
 
         println!("✓ Exact post data size measurement completed");
@@ -1227,7 +1490,8 @@ mod test_advanced_functionalities {
         assert!(result.is_ok(), "Bob data storage should succeed");
 
         // Switch to Charlie's context
-        let charlie_context = get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000); // 10 NEAR
+        let charlie_context =
+            get_context_with_deposit(charlie.clone(), 10_000_000_000_000_000_000_000_000); // 10 NEAR
         near_sdk::testing_env!(charlie_context.build());
 
         let charlie_data = json!({
@@ -1246,10 +1510,13 @@ mod test_advanced_functionalities {
         let alice_keys = vec![
             format!("{}/profile/name", alice.as_str()),
             format!("{}/posts/1", alice.as_str()),
-            format!("{}/settings/theme", alice.as_str())
+            format!("{}/settings/theme", alice.as_str()),
         ];
         let alice_retrieved = contract_get_values_map(&contract, alice_keys, Some(alice.clone()));
-        assert!(!alice_retrieved.is_empty(), "Alice's data should be retrievable");
+        assert!(
+            !alice_retrieved.is_empty(),
+            "Alice's data should be retrievable"
+        );
         assert_eq!(alice_retrieved.len(), 3, "Should retrieve all 3 Alice keys");
 
         // Test Bob's data retrieval
@@ -1259,10 +1526,13 @@ mod test_advanced_functionalities {
         let bob_keys = vec![
             format!("{}/profile/name", bob.as_str()),
             format!("{}/posts/1", bob.as_str()),
-            format!("{}/projects/project1", bob.as_str())
+            format!("{}/projects/project1", bob.as_str()),
         ];
         let bob_retrieved = contract_get_values_map(&contract, bob_keys, Some(bob.clone()));
-        assert!(!bob_retrieved.is_empty(), "Bob's data should be retrievable");
+        assert!(
+            !bob_retrieved.is_empty(),
+            "Bob's data should be retrievable"
+        );
         assert_eq!(bob_retrieved.len(), 3, "Should retrieve all 3 Bob keys");
 
         // Test Charlie's data retrieval
@@ -1271,70 +1541,128 @@ mod test_advanced_functionalities {
 
         let charlie_keys = vec![
             format!("{}/profile/name", charlie.as_str()),
-            format!("{}/posts/1", charlie.as_str())
+            format!("{}/posts/1", charlie.as_str()),
         ];
-        let charlie_retrieved = contract_get_values_map(&contract, charlie_keys, Some(charlie.clone()));
-        assert!(!charlie_retrieved.is_empty(), "Charlie's data should be retrievable");
-        assert_eq!(charlie_retrieved.len(), 2, "Should retrieve all 2 Charlie keys");
+        let charlie_retrieved =
+            contract_get_values_map(&contract, charlie_keys, Some(charlie.clone()));
+        assert!(
+            !charlie_retrieved.is_empty(),
+            "Charlie's data should be retrievable"
+        );
+        assert_eq!(
+            charlie_retrieved.len(),
+            2,
+            "Should retrieve all 2 Charlie keys"
+        );
 
         // Verify partition distribution by checking that different accounts get partitions
-        use crate::storage::partitioning::{get_partition, make_key};
         use crate::constants::NUM_PARTITIONS;
+        use crate::storage::partitioning::{get_partition, make_key};
 
         let alice_partition = get_partition(alice.as_str());
         let bob_partition = get_partition(bob.as_str());
         let charlie_partition = get_partition(charlie.as_str());
 
         println!("Partition distribution:");
-        println!("  Alice ({}): partition {}", alice.as_str(), alice_partition);
+        println!(
+            "  Alice ({}): partition {}",
+            alice.as_str(),
+            alice_partition
+        );
         println!("  Bob ({}): partition {}", bob.as_str(), bob_partition);
-        println!("  Charlie ({}): partition {}", charlie.as_str(), charlie_partition);
+        println!(
+            "  Charlie ({}): partition {}",
+            charlie.as_str(),
+            charlie_partition
+        );
 
         // Verify that partitions are within valid range
-        assert!(alice_partition < NUM_PARTITIONS, "Partition should be within range");
-        assert!(bob_partition < NUM_PARTITIONS, "Partition should be within range");
-        assert!(charlie_partition < NUM_PARTITIONS, "Partition should be within range");
+        assert!(
+            alice_partition < NUM_PARTITIONS,
+            "Partition should be within range"
+        );
+        assert!(
+            bob_partition < NUM_PARTITIONS,
+            "Partition should be within range"
+        );
+        assert!(
+            charlie_partition < NUM_PARTITIONS,
+            "Partition should be within range"
+        );
 
         // Test cross-account data transparency - Alice CAN read Bob's public data (blockchain transparency)
         let alice_context = get_context(alice.clone());
         near_sdk::testing_env!(alice_context.build());
 
         let bob_key_from_alice = vec![format!("{}/profile/name", bob.as_str())];
-        let alice_reading_bob_data = contract_get_values_map(&contract, bob_key_from_alice, Some(bob.clone()));
-        assert!(!alice_reading_bob_data.is_empty(), "Alice should be able to read Bob's public data (blockchain transparency)");
-        
+        let alice_reading_bob_data =
+            contract_get_values_map(&contract, bob_key_from_alice, Some(bob.clone()));
+        assert!(
+            !alice_reading_bob_data.is_empty(),
+            "Alice should be able to read Bob's public data (blockchain transparency)"
+        );
+
         // Verify the data is correct
-        assert_eq!(alice_reading_bob_data.len(), 1, "Should retrieve Bob's profile name");
+        assert_eq!(
+            alice_reading_bob_data.len(),
+            1,
+            "Should retrieve Bob's profile name"
+        );
         let bob_data = &alice_reading_bob_data[&format!("{}/profile/name", bob.as_str())];
-        assert_eq!(bob_data.as_str().unwrap(), "Bob", "Should read Bob's name correctly");
+        assert_eq!(
+            bob_data.as_str().unwrap(),
+            "Bob",
+            "Should read Bob's name correctly"
+        );
 
         // Test that the key generation is deterministic
         let alice_key1 = make_key("accounts", alice.as_str(), "profile/name");
         let alice_key2 = make_key("accounts", alice.as_str(), "profile/name");
-        assert_eq!(alice_key1, alice_key2, "Key generation should be deterministic");
+        assert_eq!(
+            alice_key1, alice_key2,
+            "Key generation should be deterministic"
+        );
 
         // Test that different paths for same account get different keys
         let alice_profile_key = make_key("accounts", alice.as_str(), "profile/name");
         let alice_post_key = make_key("accounts", alice.as_str(), "posts/1");
-        assert_ne!(alice_profile_key, alice_post_key, "Different paths should generate different keys");
+        assert_ne!(
+            alice_profile_key, alice_post_key,
+            "Different paths should generate different keys"
+        );
 
         // Test that same path for different accounts get different keys
         let alice_profile_key = make_key("accounts", alice.as_str(), "profile/name");
         let bob_profile_key = make_key("accounts", bob.as_str(), "profile/name");
-        assert_ne!(alice_profile_key, bob_profile_key, "Same path for different accounts should generate different keys");
+        assert_ne!(
+            alice_profile_key, bob_profile_key,
+            "Same path for different accounts should generate different keys"
+        );
 
         // Test that the new simple key format is correct
         let test_key = make_key("accounts", "test.near", "profile/name");
-        assert_eq!(test_key, "test.near/profile/name", "Key should be simple path format");
-        assert!(!test_key.contains("shards/"), "Key should NOT contain old shards prefix");
-        
+        assert_eq!(
+            test_key, "test.near/profile/name",
+            "Key should be simple path format"
+        );
+        assert!(
+            !test_key.contains("shards/"),
+            "Key should NOT contain old shards prefix"
+        );
+
         println!("✅ Simple key format validated: {}", test_key);
-        
+
         // Test group namespace format as well
         let group_key = make_key("groups", "testgroup", "members/alice");
-        assert_eq!(group_key, "groups/testgroup/members/alice", "Group key should be simple path format");
-        assert!(!group_key.contains("shards/"), "Group key should NOT contain old shards prefix");
-        
+        assert_eq!(
+            group_key, "groups/testgroup/members/alice",
+            "Group key should be simple path format"
+        );
+        assert!(
+            !group_key.contains("shards/"),
+            "Group key should NOT contain old shards prefix"
+        );
+
         println!("✅ Group key format validated: {}", group_key);
         println!("✅ Simple key generation end-to-end test passed");
         println!("✅ Data correctly stored and retrievable through simple keys");

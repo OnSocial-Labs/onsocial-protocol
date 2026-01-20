@@ -11,7 +11,12 @@ pub(crate) fn build_permission_key(owner_or_group_id: &str, grantee: &str, path:
 }
 
 #[inline]
-pub(crate) fn build_group_permission_key(group_id: &str, grantee: &str, path: &str, nonce: u64) -> String {
+pub(crate) fn build_group_permission_key(
+    group_id: &str,
+    grantee: &str,
+    path: &str,
+    nonce: u64,
+) -> String {
     assert!(nonce > 0, "group permission nonce must be > 0");
 
     // Supports `groups/{id}/...` and `{user}/groups/{id}/...`.
@@ -24,6 +29,9 @@ pub(crate) fn build_group_permission_key(group_id: &str, grantee: &str, path: &s
     if subpath.is_empty() {
         format!("groups/{}/permissions/{}/n{}", group_id, grantee, nonce)
     } else {
-        format!("groups/{}/permissions/{}/n{}/{}", group_id, grantee, nonce, subpath)
+        format!(
+            "groups/{}/permissions/{}/n{}/{}",
+            group_id, grantee, nonce, subpath
+        )
     }
 }

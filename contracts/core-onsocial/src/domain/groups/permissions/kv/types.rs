@@ -1,5 +1,5 @@
-use super::membership::{get_active_group_member_nonce, is_group_member};
 use super::keys::{build_group_permission_key, build_permission_key};
+use super::membership::{get_active_group_member_nonce, is_group_member};
 
 use near_sdk::env;
 
@@ -174,7 +174,8 @@ pub(crate) fn account_permission_level(
         let key = build_permission_key(account_id, grantee, &current_path);
         consider_permission_key(platform, &key, now, &mut max_level);
 
-        let key_with_slash = build_permission_key(account_id, grantee, &format!("{}/", current_path));
+        let key_with_slash =
+            build_permission_key(account_id, grantee, &format!("{}/", current_path));
         consider_permission_key(platform, &key_with_slash, now, &mut max_level);
 
         if max_level == Some(PermissionLevel::FullAccess) {
@@ -223,11 +224,15 @@ pub(crate) fn key_permission_level(
     let mut max_level: Option<PermissionLevel> = None;
     let mut current_path = path.to_string();
     loop {
-        let key = super::key_permissions::build_key_permission_key(owner, public_key, &current_path);
+        let key =
+            super::key_permissions::build_key_permission_key(owner, public_key, &current_path);
         consider_permission_key(platform, &key, now, &mut max_level);
 
-        let key_with_slash =
-            super::key_permissions::build_key_permission_key(owner, public_key, &format!("{}/", current_path));
+        let key_with_slash = super::key_permissions::build_key_permission_key(
+            owner,
+            public_key,
+            &format!("{}/", current_path),
+        );
         consider_permission_key(platform, &key_with_slash, now, &mut max_level);
 
         if max_level == Some(PermissionLevel::FullAccess) {

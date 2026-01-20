@@ -1,11 +1,17 @@
+use super::types::*;
 use crate::{
     constants::EVENT_JSON_PREFIX,
     errors::*,
     invalid_input,
-    storage::{partitioning::get_partition, utils::{parse_path, parse_groups_path}},
+    storage::{
+        partitioning::get_partition,
+        utils::{parse_groups_path, parse_path},
+    },
 };
-use near_sdk::{env, serde_json::{self, Value}, AccountId};
-use super::types::*;
+use near_sdk::{
+    AccountId, env,
+    serde_json::{self, Value},
+};
 
 pub struct EventBatch {
     events: Vec<(String, String, AccountId, Value)>,
@@ -22,8 +28,15 @@ impl EventBatch {
         Self { events: Vec::new() }
     }
 
-    pub fn add(&mut self, event_type: String, operation: String, account_id: AccountId, extra_data: Value) {
-        self.events.push((event_type, operation, account_id, extra_data));
+    pub fn add(
+        &mut self,
+        event_type: String,
+        operation: String,
+        account_id: AccountId,
+        extra_data: Value,
+    ) {
+        self.events
+            .push((event_type, operation, account_id, extra_data));
     }
 
     pub fn emit(&mut self) -> Result<(), SocialError> {
@@ -35,7 +48,8 @@ impl EventBatch {
         let mut partition_cache: HashMap<String, u16> = HashMap::new();
 
         // Take ownership so failures won't silently drop remaining events.
-        let events: VecDeque<(String, String, AccountId, Value)> = std::mem::take(&mut self.events).into();
+        let events: VecDeque<(String, String, AccountId, Value)> =
+            std::mem::take(&mut self.events).into();
         let mut events = events;
 
         while let Some((event_type, operation, account_id, extra_data)) = events.pop_front() {
@@ -58,12 +72,15 @@ impl EventBatch {
                     .entry(namespace_id.clone())
                     .or_insert_with(|| get_partition(&namespace_id));
 
-                let event = Event::new(&event_type, vec![EventData {
-                    operation: operation.clone(),
-                    author: account_id.to_string(),
-                    partition_id: Some(partition_id),
-                    extra,
-                }]);
+                let event = Event::new(
+                    &event_type,
+                    vec![EventData {
+                        operation: operation.clone(),
+                        author: account_id.to_string(),
+                        partition_id: Some(partition_id),
+                        extra,
+                    }],
+                );
 
                 let json = serde_json::to_string(&event)
                     .map_err(|_| invalid_input!("Failed to serialize event"))?;

@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 
-use crate::state::models::SocialPlatform;
 use crate::SocialError;
+use crate::state::models::SocialPlatform;
 
 impl SocialPlatform {
     /// Set group privacy (private/public).
@@ -12,6 +12,8 @@ impl SocialPlatform {
         caller: &AccountId,
     ) -> Result<(), SocialError> {
         crate::validation::validate_group_id(&group_id)?;
-        crate::domain::groups::core::GroupStorage::set_group_privacy(self, &group_id, caller, is_private)
+        crate::domain::groups::core::GroupStorage::set_group_privacy(
+            self, &group_id, caller, is_private,
+        )
     }
 }

@@ -1,13 +1,9 @@
-use near_sdk::{
-    env,
-    serde_json::Value,
-    AccountId,
-};
+use near_sdk::{AccountId, env, serde_json::Value};
 
-use crate::events::{EventBatch, EventBuilder};
 use crate::domain::groups::config::GroupConfig;
+use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
-use crate::{invalid_input, permission_denied, SocialError};
+use crate::{SocialError, invalid_input, permission_denied};
 
 impl crate::domain::groups::core::GroupStorage {
     pub fn transfer_ownership_with_removal(
@@ -67,13 +63,16 @@ impl crate::domain::groups::core::GroupStorage {
         }
 
         if Self::is_blacklisted(platform, group_id, new_owner) {
-            return Err(invalid_input!("Cannot transfer ownership to blacklisted member"));
+            return Err(invalid_input!(
+                "Cannot transfer ownership to blacklisted member"
+            ));
         }
 
         let mut config_data = config_data;
         let transfer_timestamp = env::block_timestamp();
 
-        let obj = config_data.as_object_mut()
+        let obj = config_data
+            .as_object_mut()
             .ok_or_else(|| invalid_input!("Group config is not a valid JSON object"))?;
         obj.insert("owner".to_string(), Value::String(new_owner.to_string()));
         obj.insert(

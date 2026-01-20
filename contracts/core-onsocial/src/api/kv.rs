@@ -1,5 +1,5 @@
-use crate::{state::models::SocialPlatform, EntryView, PlatformPoolInfo};
-use near_sdk::{near, serde_json::Value, AccountId};
+use crate::{EntryView, PlatformPoolInfo, state::models::SocialPlatform};
+use near_sdk::{AccountId, near, serde_json::Value};
 
 use crate::{Contract, ContractExt};
 
@@ -19,18 +19,21 @@ impl Contract {
 
     pub fn get_platform_pool(&self) -> Option<PlatformPoolInfo> {
         let platform_account = SocialPlatform::platform_pool_account();
-        self.platform.shared_storage_pools.get(&platform_account).map(|pool| {
-            let total_capacity_u128 =
-                pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear();
-            let total_capacity_bytes = u64::try_from(total_capacity_u128).unwrap_or(u64::MAX);
-            PlatformPoolInfo {
-                storage_balance: pool.storage_balance,
-                total_bytes: total_capacity_bytes,
-                used_bytes: pool.used_bytes,
-                shared_bytes: pool.shared_bytes,
-                available_bytes: total_capacity_bytes.saturating_sub(pool.used_bytes),
-            }
-        })
+        self.platform
+            .shared_storage_pools
+            .get(&platform_account)
+            .map(|pool| {
+                let total_capacity_u128 =
+                    pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear();
+                let total_capacity_bytes = u64::try_from(total_capacity_u128).unwrap_or(u64::MAX);
+                PlatformPoolInfo {
+                    storage_balance: pool.storage_balance,
+                    total_bytes: total_capacity_bytes,
+                    used_bytes: pool.used_bytes,
+                    shared_bytes: pool.shared_bytes,
+                    available_bytes: total_capacity_bytes.saturating_sub(pool.used_bytes),
+                }
+            })
     }
 
     pub fn get_group_pool_info(&self, group_id: String) -> Option<Value> {

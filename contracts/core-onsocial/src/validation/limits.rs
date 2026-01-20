@@ -1,7 +1,7 @@
 use near_sdk::serde_json;
 use near_sdk::serde_json::Value;
 
-use crate::{invalid_input, SocialError};
+use crate::{SocialError, invalid_input};
 
 pub fn serialize_json_with_max_len(
     value: &Value,
