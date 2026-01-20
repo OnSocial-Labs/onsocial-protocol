@@ -5,6 +5,12 @@ use near_sdk::env;
 
 use crate::state::models::SocialPlatform;
 
+pub(crate) struct PermissionGrant<'a> {
+    pub path: &'a str,
+    pub level: u8,
+    pub expires_at: Option<u64>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub(crate) enum PermissionLevel {
@@ -99,7 +105,6 @@ pub(crate) enum GroupPathKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct GroupPathInfo {
     pub group_id: String,
-    /// Normalized group path starting at `groups/{group_id}`.
     pub normalized: String,
     pub kind: GroupPathKind,
 }

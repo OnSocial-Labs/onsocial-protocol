@@ -102,13 +102,16 @@ impl crate::domain::groups::core::GroupStorage {
         let mut event_batch = EventBatch::new();
 
         let default_content_path = format!("groups/{}/content", group_id);
+        let grant = crate::domain::groups::permissions::kv::PermissionGrant {
+            path: &default_content_path,
+            level: crate::domain::groups::permissions::kv::types::WRITE,
+            expires_at: None,
+        };
         crate::domain::groups::permissions::kv::grant_permissions(
             platform,
             &group_owner,
             member_id,
-            &default_content_path,
-            crate::domain::groups::permissions::kv::types::WRITE,
-            None,
+            &grant,
             &mut event_batch,
             None,
         )?;
@@ -185,7 +188,10 @@ impl crate::domain::groups::core::GroupStorage {
             )?;
         }
 
-        let can_remove = if from_governance || member_id == remover_id || Self::is_owner(platform, group_id, remover_id) {
+        let can_remove = if from_governance
+            || member_id == remover_id
+            || Self::is_owner(platform, group_id, remover_id)
+        {
             true
         } else {
             let group_owner = crate::domain::groups::permissions::kv::extract_path_owner(

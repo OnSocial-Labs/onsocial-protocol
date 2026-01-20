@@ -93,13 +93,16 @@ mod voting_proposal_types_tests {
 
         // Simulate a successful governance decision granting MANAGE to `manager` on a subtree.
         let mut event_batch = crate::events::EventBatch::new();
+        let grant = crate::domain::groups::permissions::kv::PermissionGrant {
+            path: "groups/md_delegation/content",
+            level: MANAGE,
+            expires_at: None,
+        };
         crate::domain::groups::permissions::kv::grant_permissions(
             &mut contract.platform,
             &alice,
             &manager,
-            "groups/md_delegation/content",
-            MANAGE,
-            None,
+            &grant,
             &mut event_batch,
             None,
         )
@@ -1729,9 +1732,9 @@ mod voting_proposal_types_tests {
         );
         // custom_data field should not exist or be empty
         assert!(
-            !minimal_executed["data"]["CustomProposal"]
+            minimal_executed["data"]["CustomProposal"]
                 .get("custom_data")
-                .is_some()
+                .is_none()
                 || minimal_executed["data"]["CustomProposal"]["custom_data"].is_null()
                 || minimal_executed["data"]["CustomProposal"]["custom_data"]
                     .as_object()
@@ -1944,7 +1947,7 @@ mod voting_proposal_types_tests {
                 "numbers": {
                     "max_safe_int": 9007199254740991_i64,
                     "min_safe_int": -9007199254740991_i64,
-                    "float_precision": 0.123456789012345678901234567890,
+                    "float_precision": 0.123_456_789_012_345_68,
                     "scientific": 1.23e-45
                 }
             }

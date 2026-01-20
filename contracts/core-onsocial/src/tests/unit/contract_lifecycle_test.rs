@@ -348,19 +348,23 @@ mod contract_lifecycle_tests {
         let current_config = GovernanceConfig::default();
 
         // Test valid updates (increases only)
-        let mut valid_update = current_config.clone();
-        valid_update.max_key_length = 300; // Increase allowed
-        valid_update.max_batch_size = 150; // Increase allowed
+        let valid_update = crate::config::ConfigUpdate {
+            max_key_length: Some(300), // Increase allowed
+            max_batch_size: Some(150), // Increase allowed
+            ..Default::default()
+        };
         assert!(
-            valid_update.validate_update(&current_config).is_ok(),
+            current_config.validate_patch(&valid_update).is_ok(),
             "Valid increases should be allowed"
         );
 
         // Test invalid updates (decreases)
-        let mut invalid_update = current_config.clone();
-        invalid_update.max_key_length = 200; // Decrease not allowed
+        let invalid_update = crate::config::ConfigUpdate {
+            max_key_length: Some(200), // Decrease not allowed
+            ..Default::default()
+        };
         assert!(
-            invalid_update.validate_update(&current_config).is_err(),
+            current_config.validate_patch(&invalid_update).is_err(),
             "Decreases should not be allowed"
         );
     }

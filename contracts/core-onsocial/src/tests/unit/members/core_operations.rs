@@ -708,9 +708,8 @@ mod core_member_operations {
             ))
             .unwrap();
 
-        // Since events are being emitted (visible in previous logs), just verify the operation succeeded
+        // Events are being emitted (visible in previous logs)
         // The real validation is that the operation completed without error
-        assert!(true, "Permission grant should succeed");
 
         // Test 3: Additional permission grant event validation
         contract
@@ -722,9 +721,6 @@ mod core_member_operations {
             ))
             .unwrap();
 
-        // Since events are being emitted, just verify the operation succeeded
-        assert!(true, "Additional permission grant should succeed");
-
         // Test 4: Member leave event validation
         near_sdk::testing_env!(
             get_context_with_deposit(member.clone(), 1_000_000_000_000_000_000_000_000).build()
@@ -732,9 +728,6 @@ mod core_member_operations {
         contract
             .execute(leave_group_request("event_test".to_string()))
             .unwrap();
-
-        // Since events are being emitted, just verify the operation succeeded
-        assert!(true, "Member leave should succeed");
 
         println!("✅ Comprehensive event emission validation completed");
     }

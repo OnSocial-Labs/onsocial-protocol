@@ -513,13 +513,17 @@ pub fn test_add_member_bypass_proposals_with_timestamp(
     });
 
     let mut event_batch = crate::events::EventBatch::new();
+    let default_content_path = format!("groups/{}/content", group_id);
+    let grant = crate::domain::groups::permissions::kv::PermissionGrant {
+        path: &default_content_path,
+        level: crate::domain::groups::permissions::kv::types::WRITE,
+        expires_at: None,
+    };
     crate::domain::groups::permissions::kv::grant_permissions(
         &mut contract.platform,
         &group_owner,
         member_id,
-        &format!("groups/{}/content", group_id),
-        crate::domain::groups::permissions::kv::types::WRITE,
-        None,
+        &grant,
         &mut event_batch,
         None,
     )

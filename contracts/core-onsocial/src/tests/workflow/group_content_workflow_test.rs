@@ -177,21 +177,15 @@ mod group_content_integration_tests {
         let retrieved = contract_get_values_map(&contract, keys, None);
 
         assert!(
-            retrieved
-                .get(&format!("{}/groups/blog_group/posts/post1", member))
-                .is_some(),
+            retrieved.contains_key(&format!("{}/groups/blog_group/posts/post1", member)),
             "Post 1 should exist"
         );
         assert!(
-            retrieved
-                .get(&format!("{}/groups/blog_group/posts/post2", member))
-                .is_some(),
+            retrieved.contains_key(&format!("{}/groups/blog_group/posts/post2", member)),
             "Post 2 should exist"
         );
         assert!(
-            retrieved
-                .get(&format!("{}/groups/blog_group/posts/post3", member))
-                .is_some(),
+            retrieved.contains_key(&format!("{}/groups/blog_group/posts/post3", member)),
             "Post 3 should exist"
         );
 
@@ -275,21 +269,9 @@ mod group_content_integration_tests {
         ];
         let retrieved = contract_get_values_map(&contract, keys, None);
 
-        assert!(
-            retrieved
-                .get(&format!("{}/groups/community/posts/blog1", member))
-                .is_some()
-        );
-        assert!(
-            retrieved
-                .get(&format!("{}/groups/community/comments/c1", member))
-                .is_some()
-        );
-        assert!(
-            retrieved
-                .get(&format!("{}/groups/community/media/photo1", member))
-                .is_some()
-        );
+        assert!(retrieved.contains_key(&format!("{}/groups/community/posts/blog1", member)));
+        assert!(retrieved.contains_key(&format!("{}/groups/community/comments/c1", member)));
+        assert!(retrieved.contains_key(&format!("{}/groups/community/media/photo1", member)));
 
         println!("✓ Different content types created successfully");
     }
@@ -695,18 +677,14 @@ mod group_content_integration_tests {
         let alice_keys = vec![format!("{}/groups/collab/posts/thread1", alice)];
         let alice_data = contract_get_values_map(&contract, alice_keys, None);
         assert!(
-            alice_data
-                .get(&format!("{}/groups/collab/posts/thread1", alice))
-                .is_some(),
+            alice_data.contains_key(&format!("{}/groups/collab/posts/thread1", alice)),
             "Alice's post should exist"
         );
 
         let bob_keys = vec![format!("{}/groups/collab/posts/reply1", bob)];
         let bob_data = contract_get_values_map(&contract, bob_keys, None);
         assert!(
-            bob_data
-                .get(&format!("{}/groups/collab/posts/reply1", bob))
-                .is_some(),
+            bob_data.contains_key(&format!("{}/groups/collab/posts/reply1", bob)),
             "Bob's reply should exist"
         );
 

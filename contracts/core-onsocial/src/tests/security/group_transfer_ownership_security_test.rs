@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod group_transfer_ownership_security_test {
+mod tests {
     use crate::tests::test_utils::*;
     use near_sdk::test_utils::accounts;
 
@@ -34,7 +34,6 @@ mod group_transfer_ownership_security_test {
 
         // These are basic validation tests that don't require contract execution
         // The actual security tests would be integration tests with proper setup
-        assert!(true, "Basic validation logic test passed");
     }
 
     // Test that demonstrates the security fixes are in place
@@ -64,6 +63,5 @@ mod group_transfer_ownership_security_test {
         let error_msg = format!("{:?}", result.unwrap_err());
         println!("Error message: {}", error_msg);
         // For now, just check that we get some error (method exists)
-        assert!(true, "Method exists and can be called");
     }
 }

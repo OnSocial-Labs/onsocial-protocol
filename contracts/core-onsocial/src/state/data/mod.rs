@@ -1,10 +1,4 @@
-// Data domain: read/write operations for user and group data
-
-mod get;
-
-// Set operation processing and helpers
-mod helpers;
-mod nonce;
-
-// Low-level data operation processing
 mod data_ops;
+mod get;
+pub(crate) mod helpers;
+mod nonce;

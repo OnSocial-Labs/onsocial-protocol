@@ -19,3 +19,4 @@ pub use key_permissions::{
 
 pub(crate) use eval::classify_group_path;
 pub(crate) use types::GroupPathKind;
+pub(crate) use types::PermissionGrant;

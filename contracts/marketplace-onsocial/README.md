@@ -510,7 +510,6 @@ The marketplace uses a custom **"onsocial" event standard** optimized for Substr
 
 This marketplace is part of the OnSocial Protocol ecosystem and can be used to trade NFTs from:
 - `core-onsocial` (social graph NFTs)
-- `ft-wrapper-onsocial` (wrapped token NFTs)
 - Any NEP-171 compatible NFT contract
 
 ## License

@@ -100,7 +100,6 @@ impl GroupGovernance {
             ));
         }
 
-        // Use voting config stored with the proposal (prevents retroactive config changes).
         let voting_config = Self::parse_proposal_voting_config(&proposal_data)?;
 
         if tally.is_expired(voting_config.voting_period.0) {
@@ -144,8 +143,6 @@ impl GroupGovernance {
                 let exec_result = proposal_type.execute(platform, group_id, proposal_id, &proposer);
                 platform.clear_execution_payer();
 
-                // JoinRequest/MemberInvite can fail due to race conditions (user blacklisted
-                // or already member after proposal creation). Mark as executed_skipped.
                 match exec_result {
                     Ok(()) => {
                         Self::update_proposal_status(
@@ -178,19 +175,20 @@ impl GroupGovernance {
             )?;
         }
 
-        events::emit_vote_cast(
+        events::VoteCast {
             voter,
             group_id,
             proposal_id,
             approve,
-            &tally,
+            tally: &tally,
             should_execute,
             should_reject,
-            &vote_path,
-            vote_data,
-            &tally_path,
+            vote_path: &vote_path,
+            vote_value: vote_data,
+            tally_path: &tally_path,
             tally_value,
-        )?;
+        }
+        .emit()?;
 
         Ok(())
     }

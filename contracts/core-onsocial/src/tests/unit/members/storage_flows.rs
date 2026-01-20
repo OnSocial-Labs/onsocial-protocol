@@ -107,7 +107,7 @@ mod storage_flow_tests {
 
         // Reasonable range check (member record + permission keys)
         assert!(
-            moderator_paid >= 200 && moderator_paid <= 600,
+            (200..=600).contains(&moderator_paid),
             "Storage cost should be reasonable: {} bytes",
             moderator_paid
         );
@@ -288,12 +288,12 @@ mod storage_flow_tests {
 
         // Verify cost distribution
         assert!(
-            request_cost >= 100 && request_cost <= 300,
+            (100..=300).contains(&request_cost),
             "Request storage should be reasonable: {} bytes",
             request_cost
         );
         assert!(
-            approval_cost >= 200 && approval_cost <= 600,
+            (200..=600).contains(&approval_cost),
             "Approval storage should be reasonable: {} bytes",
             approval_cost
         );
@@ -496,7 +496,7 @@ mod storage_flow_tests {
 
         // Member addition includes member record + permission keys
         assert!(
-            permission_cost >= 200 && permission_cost <= 600,
+            (200..=600).contains(&permission_cost),
             "Storage cost should be reasonable: {} bytes",
             permission_cost
         );
@@ -594,7 +594,7 @@ mod storage_flow_tests {
         println!("   Expected: ~300-400 bytes (member record + permissions)");
 
         assert!(
-            approval_cost >= 200 && approval_cost <= 600,
+            (200..=600).contains(&approval_cost),
             "Approval storage should be reasonable: {} bytes",
             approval_cost
         );
@@ -779,7 +779,7 @@ mod storage_flow_tests {
 
         // With simplified storage keys, blacklist records are more efficient
         assert!(
-            blacklist_cost >= 1 && blacklist_cost <= 150,
+            (1..=150).contains(&blacklist_cost),
             "Blacklist storage should be reasonable: {} bytes",
             blacklist_cost
         );
@@ -1000,7 +1000,7 @@ mod storage_flow_tests {
             println!("   Expected: ~200-500 bytes (content + metadata)");
 
             assert!(
-                content_cost >= 100 && content_cost <= 1000,
+                (100..=1000).contains(&content_cost),
                 "Content storage should be reasonable: {} bytes",
                 content_cost
             );

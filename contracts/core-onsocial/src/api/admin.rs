@@ -48,17 +48,20 @@ impl Contract {
 
     #[payable]
     #[handle_result]
-    pub fn update_config(&mut self, config: GovernanceConfig) -> Result<(), SocialError> {
+    pub fn update_config(
+        &mut self,
+        update: crate::config::ConfigUpdate,
+    ) -> Result<(), SocialError> {
         ContractGuards::require_live_state(&self.platform)?;
         ContractGuards::require_manager_one_yocto(&self.platform)?;
         let caller = SocialPlatform::current_caller();
 
-        if let Err(msg) = config.validate_update(&self.platform.config) {
+        if let Err(msg) = self.platform.config.validate_patch(&update) {
             return Err(crate::invalid_input!(msg));
         }
 
         let old_config = self.platform.config.clone();
-        self.platform.config = config.clone();
+        self.platform.config.apply_patch(&update);
 
         let mut batch = EventBatch::new();
         let path = format!(
@@ -68,88 +71,6 @@ impl Contract {
         EventBuilder::new(
             constants::EVENT_TYPE_CONTRACT_UPDATE,
             "update_config",
-            caller,
-        )
-        .with_path(&path)
-        .with_field(
-            "old_config",
-            near_sdk::serde_json::to_value(old_config).unwrap_or(Value::Null),
-        )
-        .with_field(
-            "new_config",
-            near_sdk::serde_json::to_value(config).unwrap_or(Value::Null),
-        )
-        .emit(&mut batch);
-        batch.emit()?;
-
-        Ok(())
-    }
-
-    #[payable]
-    #[handle_result]
-    pub fn patch_config(
-        &mut self,
-        max_key_length: Option<u16>,
-        max_path_depth: Option<u16>,
-        max_batch_size: Option<u16>,
-        max_value_bytes: Option<u32>,
-        platform_onboarding_bytes: Option<u64>,
-        platform_daily_refill_bytes: Option<u64>,
-        platform_allowance_max_bytes: Option<u64>,
-        intents_executors: Option<Vec<AccountId>>,
-    ) -> Result<(), SocialError> {
-        ContractGuards::require_live_state(&self.platform)?;
-        ContractGuards::require_manager_one_yocto(&self.platform)?;
-        let caller = SocialPlatform::current_caller();
-
-        if let Err(msg) = self.platform.config.validate_patch(
-            max_key_length,
-            max_path_depth,
-            max_batch_size,
-            max_value_bytes,
-            platform_onboarding_bytes,
-            platform_daily_refill_bytes,
-            platform_allowance_max_bytes,
-            intents_executors.as_deref(),
-        ) {
-            return Err(crate::invalid_input!(msg));
-        }
-
-        let old_config = self.platform.config.clone();
-
-        if let Some(v) = max_key_length {
-            self.platform.config.max_key_length = v;
-        }
-        if let Some(v) = max_path_depth {
-            self.platform.config.max_path_depth = v;
-        }
-        if let Some(v) = max_batch_size {
-            self.platform.config.max_batch_size = v;
-        }
-        if let Some(v) = max_value_bytes {
-            self.platform.config.max_value_bytes = v;
-        }
-        if let Some(v) = platform_onboarding_bytes {
-            self.platform.config.platform_onboarding_bytes = v;
-        }
-        if let Some(v) = platform_daily_refill_bytes {
-            self.platform.config.platform_daily_refill_bytes = v;
-        }
-        if let Some(v) = platform_allowance_max_bytes {
-            self.platform.config.platform_allowance_max_bytes = v;
-        }
-        if let Some(v) = intents_executors {
-            self.platform.config.intents_executors = v;
-        }
-
-        let mut batch = EventBatch::new();
-        let path = format!(
-            "{}/contract/config",
-            SocialPlatform::platform_pool_account().as_str()
-        );
-        EventBuilder::new(
-            constants::EVENT_TYPE_CONTRACT_UPDATE,
-            "patch_config",
             caller,
         )
         .with_path(&path)

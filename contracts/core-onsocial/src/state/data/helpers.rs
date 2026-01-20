@@ -7,6 +7,13 @@ use crate::protocol::Options;
 use crate::state::models::SocialPlatform;
 use crate::state::set_context::{ApiOperationContext, VerifiedContext};
 
+pub(crate) struct SetOperation<'a> {
+    pub target_account: &'a AccountId,
+    pub data: Value,
+    pub options: Options,
+    pub signed_nonce: Option<(AccountId, PublicKey, u64)>,
+}
+
 impl SocialPlatform {
     fn require_batch_size_within_limit(&self, batch_len: usize) -> Result<(), SocialError> {
         let limit = self.config.max_batch_size as usize;
@@ -16,20 +23,17 @@ impl SocialPlatform {
         Ok(())
     }
 
-    /// Execute set operations with an externally-managed balance.
+    /// Executes set operations, consuming storage costs from the provided balance.
     pub(crate) fn execute_set_operations_with_balance(
         &mut self,
         verified: &VerifiedContext,
         event_batch: &mut EventBatch,
-        target_account: &AccountId,
-        data: Value,
-        options: Options,
-        signed_nonce: Option<(AccountId, PublicKey, u64)>,
+        op: SetOperation,
         attached_balance: &mut u128,
     ) -> Result<(), SocialError> {
         let mut processed_accounts = std::collections::HashSet::new();
 
-        if let Some((owner, public_key, nonce_u64)) = signed_nonce {
+        if let Some((owner, public_key, nonce_u64)) = op.signed_nonce {
             self.signed_payload_record_nonce(
                 &owner,
                 &public_key,
@@ -39,7 +43,7 @@ impl SocialPlatform {
             )?;
         }
 
-        let data_obj = crate::protocol::operation::require_non_empty_object(&data)?;
+        let data_obj = crate::protocol::operation::require_non_empty_object(&op.data)?;
         self.require_batch_size_within_limit(data_obj.len())?;
 
         for (key, value) in data_obj {
@@ -48,20 +52,20 @@ impl SocialPlatform {
                 attached_balance,
                 processed_accounts: &mut processed_accounts,
             };
-            self.process_api_operation(key, value, target_account, verified, &mut ctx)?;
+            self.process_api_operation(key, value, op.target_account, verified, &mut ctx)?;
         }
 
         self.finalize_unused_attached_deposit(
             attached_balance,
             &verified.deposit_owner,
-            options.refund_unused_deposit,
+            op.options.refund_unused_deposit,
             "unused_deposit_saved",
             event_batch,
             Some(crate::state::platform::UnusedDepositEventMeta {
                 auth_type: verified.auth_type,
                 actor_id: &verified.actor_id,
                 payer_id: &verified.payer_id,
-                target_account,
+                target_account: op.target_account,
             }),
         )?;
 

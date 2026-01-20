@@ -448,14 +448,7 @@ async fn test_intent_auth_authorized_executor_succeeds() -> anyhow::Result<()> {
     let res = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
-                "max_key_length": 256,
-                "max_path_depth": 12,
-                "max_batch_size": 100,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
+            "update": {
                 "intents_executors": [solver.id()]
             }
         }))
@@ -658,14 +651,7 @@ async fn test_intent_auth_actor_differs_from_target() -> anyhow::Result<()> {
     let res = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
-                "max_key_length": 256,
-                "max_path_depth": 12,
-                "max_batch_size": 100,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
+            "update": {
                 "intents_executors": [solver.id()]
             }
         }))
@@ -1072,14 +1058,7 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
     let res = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
-                "max_key_length": 256,
-                "max_path_depth": 12,
-                "max_batch_size": 100,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
+            "update": {
                 "intents_executors": [solver.id()]
             }
         }))
@@ -1113,14 +1092,7 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
     let res = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
-                "max_key_length": 256,
-                "max_path_depth": 12,
-                "max_batch_size": 100,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
+            "update": {
                 "intents_executors": []
             }
         }))
@@ -1203,14 +1175,7 @@ async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::R
     let res = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
-                "max_key_length": 256,
-                "max_path_depth": 12,
-                "max_batch_size": 100,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
+            "update": {
                 "intents_executors": [solver.id()]
             }
         }))
@@ -1319,14 +1284,7 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
     let res = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
-                "max_key_length": 256,
-                "max_path_depth": 12,
-                "max_batch_size": 100,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
+            "update": {
                 "intents_executors": [solver.id()]
             }
         }))

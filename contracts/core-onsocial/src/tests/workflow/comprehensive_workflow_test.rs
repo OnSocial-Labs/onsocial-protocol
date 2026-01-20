@@ -667,9 +667,7 @@ mod comprehensive_integration_tests {
         let retrieved = contract_get_values_map(&contract, keys, None);
         assert!(
             retrieved.is_empty()
-                || retrieved
-                    .get(&format!("{}/posts/{}", alice, post_id))
-                    .is_none(),
+                || !retrieved.contains_key(&format!("{}/posts/{}", alice, post_id)),
             "Deleted post should not be retrievable"
         );
         println!("✓ Social media post lifecycle test passed");

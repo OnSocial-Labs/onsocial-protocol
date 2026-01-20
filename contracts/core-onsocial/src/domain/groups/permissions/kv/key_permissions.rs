@@ -4,7 +4,7 @@ use crate::errors::SocialError;
 use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
 
-use super::types::{NONE, is_valid_permission_level, key_permission_level};
+use super::types::{NONE, PermissionGrant, is_valid_permission_level, key_permission_level};
 
 pub(crate) fn build_key_permission_key(owner: &str, public_key: &PublicKey, path: &str) -> String {
     let key_str = String::from(public_key);
@@ -21,21 +21,19 @@ pub fn grant_permissions_to_key(
     platform: &mut SocialPlatform,
     owner: &AccountId,
     public_key: &PublicKey,
-    path: &str,
-    level: u8,
-    expires_at: Option<u64>,
+    grant: &PermissionGrant,
     event_batch: &mut EventBatch,
     attached_balance: Option<&mut u128>,
 ) -> Result<(), SocialError> {
-    if !is_valid_permission_level(level, false) {
+    if !is_valid_permission_level(grant.level, false) {
         return Err(crate::invalid_input!("Invalid permission level"));
     }
-    let key = build_key_permission_key(owner.as_str(), public_key, path);
-    let value = format!("{}:{}", level, expires_at.unwrap_or(0));
+    let key = build_key_permission_key(owner.as_str(), public_key, grant.path);
+    let value = format!("{}:{}", grant.level, grant.expires_at.unwrap_or(0));
     platform.storage_write_string(&key, &value, attached_balance)?;
 
     let key_str = String::from(public_key);
-    let expires_at_string = expires_at.unwrap_or(0).to_string();
+    let expires_at_string = grant.expires_at.unwrap_or(0).to_string();
 
     EventBuilder::new(
         crate::constants::EVENT_TYPE_PERMISSION_UPDATE,
@@ -43,8 +41,8 @@ pub fn grant_permissions_to_key(
         owner.clone(),
     )
     .with_field("public_key", key_str)
-    .with_path(path)
-    .with_field("level", level)
+    .with_path(grant.path)
+    .with_field("level", grant.level)
     .with_field("expires_at", expires_at_string)
     .emit(event_batch);
 

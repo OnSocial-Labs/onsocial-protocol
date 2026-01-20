@@ -14390,15 +14390,10 @@ async fn test_admin_event_paths_format() -> anyhow::Result<()> {
     let update_config = contract
         .call("update_config")
         .args_json(json!({
-            "config": {
+            "update": {
                 "max_key_length": 300,
                 "max_path_depth": 15,
-                "max_batch_size": 150,
-                "max_value_bytes": 10240,
-                "platform_onboarding_bytes": 10000,
-                "platform_daily_refill_bytes": 3000,
-                "platform_allowance_max_bytes": 6000,
-                "intents_executors": []
+                "max_batch_size": 150
             }
         }))
         .deposit(NearToken::from_yoctonear(1))

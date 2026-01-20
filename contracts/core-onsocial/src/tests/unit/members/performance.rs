@@ -362,7 +362,7 @@ mod member_performance_tests {
         println!("=== Permission Hierarchy Performance Test ===");
 
         // Test different path depths
-        let test_paths = vec![
+        let test_paths = [
             "groups/hierarchy_test",                                  // Depth 2
             "groups/hierarchy_test/content",                          // Depth 3
             "groups/hierarchy_test/content/posts",                    // Depth 4

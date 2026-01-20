@@ -6,31 +6,44 @@ use crate::events::{EventBatch, EventBuilder};
 use crate::state::models::SocialPlatform;
 use crate::validation::Path;
 
+/// Parameters for setting account-based permissions.
+pub struct SetPermission<'a> {
+    pub grantee: AccountId,
+    pub path: String,
+    pub level: u8,
+    pub expires_at: Option<u64>,
+    pub caller: &'a AccountId,
+}
+
+/// Parameters for setting key-based permissions.
+pub struct SetKeyPermission<'a> {
+    pub public_key: PublicKey,
+    pub path: String,
+    pub level: u8,
+    pub expires_at: Option<u64>,
+    pub caller: &'a AccountId,
+}
+
 impl SocialPlatform {
     pub fn set_permission(
         &mut self,
-        grantee: AccountId,
-        path: String,
-        level: u8,
-        expires_at: Option<u64>,
-        caller: &AccountId,
+        perm: SetPermission,
         external_batch: Option<&mut EventBatch>,
         attached_balance: Option<&mut u128>,
     ) -> Result<(), SocialError> {
-        // Track if we need to emit at the end (when no external batch provided)
         let should_emit = external_batch.is_none();
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
 
-        if level != 0
+        if perm.level != 0
             && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(
-                level, false,
+                perm.level, false,
             )
         {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 
-        let path_obj = Path::new(caller, &path, self)?;
+        let path_obj = Path::new(perm.caller, &perm.path, self)?;
         let full_path = path_obj.full_path().to_string();
 
         let group_path_info =
@@ -43,13 +56,21 @@ impl SocialPlatform {
                 let config = self.storage_get(&config_path).ok_or_else(|| {
                     crate::unauthorized!(
                         "set_permission",
-                        &format!("group_not_found={}, caller={}", group_id, caller.as_str())
+                        &format!(
+                            "group_not_found={}, caller={}",
+                            group_id,
+                            perm.caller.as_str()
+                        )
                     )
                 })?;
                 let cfg = GroupConfig::try_from_value(&config).map_err(|_| {
                     crate::unauthorized!(
                         "set_permission",
-                        &format!("group_not_found={}, caller={}", group_id, caller.as_str())
+                        &format!(
+                            "group_not_found={}, caller={}",
+                            group_id,
+                            perm.caller.as_str()
+                        )
                     )
                 })?;
                 (
@@ -60,7 +81,7 @@ impl SocialPlatform {
             } else {
                 (
                     crate::domain::groups::permissions::kv::extract_path_owner(self, &full_path)
-                        .unwrap_or_else(|| caller.as_str().to_string()),
+                        .unwrap_or_else(|| perm.caller.as_str().to_string()),
                     None,
                     false,
                 )
@@ -69,9 +90,9 @@ impl SocialPlatform {
         let is_authorized = if group_id_from_path.is_some() {
             group_owner
                 .as_deref()
-                .is_some_and(|owner| owner == caller.as_str())
+                .is_some_and(|owner| owner == perm.caller.as_str())
         } else {
-            path_identifier == caller.as_str()
+            path_identifier == perm.caller.as_str()
         };
 
         // MANAGE holders can delegate lower-level permissions, but not MANAGE itself.
@@ -79,19 +100,23 @@ impl SocialPlatform {
             && crate::domain::groups::permissions::kv::can_manage(
                 self,
                 &path_identifier,
-                caller.as_str(),
+                perm.caller.as_str(),
                 &full_path,
             )
-            && level != crate::domain::groups::permissions::kv::types::MANAGE;
+            && perm.level != crate::domain::groups::permissions::kv::types::MANAGE;
 
         if !is_authorized && !is_manage_delegation {
             return Err(crate::unauthorized!(
                 "set_permission",
-                &format!("path_owner={}, caller={}", path_identifier, caller.as_str())
+                &format!(
+                    "path_owner={}, caller={}",
+                    path_identifier,
+                    perm.caller.as_str()
+                )
             ));
         }
 
-        // Member-driven groups: owners cannot bypass governance; only MANAGE delegation with expiry is allowed.
+        // Member-driven groups: owners cannot bypass governance; only MANAGE delegation with expiry allowed.
         if group_id_from_path.is_some() && is_member_driven_group {
             if is_authorized {
                 return Err(crate::invalid_input!(
@@ -127,9 +152,9 @@ impl SocialPlatform {
                 ));
             }
 
-            if level != 0 {
+            if perm.level != 0 {
                 let now = env::block_timestamp();
-                let exp = expires_at.ok_or_else(|| {
+                let exp = perm.expires_at.ok_or_else(|| {
                     crate::invalid_input!(
                         "expires_at is required for delegated permission grants in member-driven groups"
                     )
@@ -141,8 +166,12 @@ impl SocialPlatform {
                 }
             }
 
-            if level != 0
-                && !crate::domain::groups::core::GroupStorage::is_member(self, group_id, &grantee)
+            if perm.level != 0
+                && !crate::domain::groups::core::GroupStorage::is_member(
+                    self,
+                    group_id,
+                    &perm.grantee,
+                )
             {
                 return Err(crate::invalid_input!(
                     "Delegated permission grants are only allowed to existing members"
@@ -150,28 +179,31 @@ impl SocialPlatform {
             }
         }
 
-        if level == 0 {
+        if perm.level == 0 {
             crate::domain::groups::permissions::kv::revoke_permissions(
                 self,
-                caller,
-                &grantee,
+                perm.caller,
+                &perm.grantee,
                 &full_path,
                 event_batch,
             )?;
         } else {
+            let grant = crate::domain::groups::permissions::kv::PermissionGrant {
+                path: &full_path,
+                level: perm.level,
+                expires_at: perm.expires_at,
+            };
             crate::domain::groups::permissions::kv::grant_permissions(
                 self,
-                caller,
-                &grantee,
-                &full_path,
-                level,
-                expires_at,
+                perm.caller,
+                &perm.grantee,
+                &grant,
                 event_batch,
                 attached_balance,
             )?;
         }
 
-        // Keep member record in sync when group-root permission level changes.
+        // Sync member record when group-root permission changes.
         if let Some(group_id) = group_id_from_path {
             let is_group_root = group_path_info.as_ref().is_some_and(|info| {
                 info.kind == crate::domain::groups::permissions::kv::GroupPathKind::Root
@@ -180,11 +212,11 @@ impl SocialPlatform {
             if is_group_root {
                 let member_key = crate::domain::groups::core::GroupStorage::group_member_path(
                     group_id,
-                    grantee.as_str(),
+                    perm.grantee.as_str(),
                 );
                 if let Some(mut member_data) = self.storage_get(&member_key) {
                     if let Some(obj) = member_data.as_object_mut() {
-                        obj.insert("level".to_string(), near_sdk::serde_json::json!(level));
+                        obj.insert("level".to_string(), near_sdk::serde_json::json!(perm.level));
                         obj.insert(
                             "updated_at".to_string(),
                             near_sdk::serde_json::Value::String(
@@ -193,7 +225,7 @@ impl SocialPlatform {
                         );
                         obj.insert(
                             "updated_by".to_string(),
-                            near_sdk::serde_json::json!(caller.to_string()),
+                            near_sdk::serde_json::json!(perm.caller.to_string()),
                         );
                     }
                     self.storage_set(&member_key, &member_data)?;
@@ -201,11 +233,11 @@ impl SocialPlatform {
                     EventBuilder::new(
                         crate::constants::EVENT_TYPE_GROUP_UPDATE,
                         "permission_changed",
-                        caller.clone(),
+                        perm.caller.clone(),
                     )
                     .with_field("group_id", group_id.to_string())
-                    .with_target(&grantee)
-                    .with_field("level", level)
+                    .with_target(&perm.grantee)
+                    .with_field("level", perm.level)
                     .with_field("via", "direct_api")
                     .with_path(&member_key)
                     .with_value(member_data)
@@ -224,11 +256,7 @@ impl SocialPlatform {
     /// Grant or revoke key-based permissions at a path.
     pub fn set_key_permission(
         &mut self,
-        public_key: PublicKey,
-        path: String,
-        level: u8,
-        expires_at: Option<u64>,
-        caller: &AccountId,
+        perm: SetKeyPermission,
         external_batch: Option<&mut EventBatch>,
         attached_balance: Option<&mut u128>,
     ) -> Result<(), SocialError> {
@@ -236,36 +264,41 @@ impl SocialPlatform {
         let mut local_batch = EventBatch::new();
         let event_batch: &mut EventBatch = external_batch.unwrap_or(&mut local_batch);
 
-        if level != 0
+        if perm.level != 0
             && !crate::domain::groups::permissions::kv::types::is_valid_permission_level(
-                level, false,
+                perm.level, false,
             )
         {
             return Err(crate::invalid_input!("Invalid permission level"));
         }
 
-        let full_path = if path.is_empty() {
+        let full_path = if perm.path.is_empty() {
             String::new()
         } else {
-            Path::new(caller, &path, self)?.full_path().to_string()
+            Path::new(perm.caller, &perm.path, self)?
+                .full_path()
+                .to_string()
         };
 
-        if level == 0 {
+        if perm.level == 0 {
             crate::domain::groups::permissions::kv::revoke_permissions_for_key(
                 self,
-                caller,
-                &public_key,
+                perm.caller,
+                &perm.public_key,
                 &full_path,
                 event_batch,
             )?;
         } else {
+            let grant = crate::domain::groups::permissions::kv::PermissionGrant {
+                path: &full_path,
+                level: perm.level,
+                expires_at: perm.expires_at,
+            };
             crate::domain::groups::permissions::kv::grant_permissions_to_key(
                 self,
-                caller,
-                &public_key,
-                &full_path,
-                level,
-                expires_at,
+                perm.caller,
+                &perm.public_key,
+                &grant,
                 event_batch,
                 attached_balance,
             )?;

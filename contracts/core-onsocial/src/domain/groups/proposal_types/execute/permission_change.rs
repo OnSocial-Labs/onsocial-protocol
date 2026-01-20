@@ -55,13 +55,16 @@ impl ProposalType {
                 &mut event_batch,
             )?;
         } else {
+            let grant = kv_permissions::PermissionGrant {
+                path: &group_root_path,
+                level,
+                expires_at: None,
+            };
             kv_permissions::grant_permissions(
                 platform,
                 proposer,
                 target_user,
-                &group_root_path,
-                level,
-                None,
+                &grant,
                 &mut event_batch,
                 None,
             )?;
@@ -97,13 +100,16 @@ impl ProposalType {
 
         let mut event_batch = EventBatch::new();
 
+        let grant = kv_permissions::PermissionGrant {
+            path: data.path,
+            level: data.level,
+            expires_at: None,
+        };
         kv_permissions::grant_permissions(
             ctx.platform,
             &group_owner,
             data.target_user,
-            data.path,
-            data.level,
-            None,
+            &grant,
             &mut event_batch,
             None,
         )?;

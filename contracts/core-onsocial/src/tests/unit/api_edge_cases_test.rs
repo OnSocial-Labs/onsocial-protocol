@@ -399,7 +399,7 @@ mod api_edge_cases_tests {
         // Result is HashMap<String, Value> - should be empty for non-existent keys
         // or contain a null value for the key
         let key = &keys[0];
-        let is_empty_or_null = result.is_empty() || result.get(key).map_or(true, |v| v.is_null());
+        let is_empty_or_null = result.is_empty() || result.get(key).is_none_or(|v| v.is_null());
 
         assert!(
             is_empty_or_null,

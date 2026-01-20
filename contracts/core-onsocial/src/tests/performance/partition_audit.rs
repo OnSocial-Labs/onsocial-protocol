@@ -116,9 +116,9 @@ mod partition_audit_tests {
         // Check bit distribution (basic entropy test)
         let mut bit_counts = [0u32; 128];
         for &hash in &hashes {
-            for i in 0..128 {
+            for (i, count) in bit_counts.iter_mut().enumerate() {
                 if (hash & (1u128 << i)) != 0 {
-                    bit_counts[i] += 1;
+                    *count += 1;
                 }
             }
         }

@@ -17,9 +17,9 @@ impl ManagerProxy {
     pub fn update_core_config(
         &self,
         core_account_id: AccountId,
-        config: near_sdk::serde_json::Value,
+        update: near_sdk::serde_json::Value,
     ) -> Promise {
-        let args = near_sdk::serde_json::json!({ "config": config });
+        let args = near_sdk::serde_json::json!({ "update": update });
         let Ok(args) = near_sdk::serde_json::to_vec(&args) else {
             env::panic_str("Failed to serialize update_config args");
         };

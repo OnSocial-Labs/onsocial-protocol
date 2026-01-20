@@ -865,7 +865,7 @@ mod storage_tracking_tests {
         let mut contract = init_live_contract();
         let alice = test_account(0);
 
-        let deposit_amounts = vec![
+        let deposit_amounts = [
             NearToken::from_millinear(500).as_yoctonear(),
             NearToken::from_millinear(300).as_yoctonear(),
             NearToken::from_millinear(700).as_yoctonear(),

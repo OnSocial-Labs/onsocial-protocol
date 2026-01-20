@@ -11,7 +11,6 @@ use super::status::ProposalStatus;
 pub struct GroupGovernance;
 
 impl GroupGovernance {
-    /// Creates a proposal; proposer auto-votes YES if eligible.
     pub fn create_proposal(
         platform: &mut SocialPlatform,
         group_id: &str,
@@ -88,7 +87,6 @@ impl GroupGovernance {
         );
 
         if should_execute {
-            // Charge execution storage costs to proposer
             platform.set_execution_payer(proposer.clone());
             let exec_result = proposal_type.execute(platform, group_id, &proposal_id, proposer);
             platform.clear_execution_payer();
@@ -108,48 +106,49 @@ impl GroupGovernance {
             .and_then(|s| s.parse::<u64>().ok())
             .unwrap_or(0);
 
-        events::emit_proposal_created(
+        events::ProposalCreated {
             proposer,
             group_id,
-            &proposal_id,
+            proposal_id: &proposal_id,
             sequence_number,
-            proposal_data["type"].as_str().unwrap_or(""),
-            proposal_data["target"].as_str().unwrap_or(""),
-            should_auto_vote,
+            proposal_type: proposal_data["type"].as_str().unwrap_or(""),
+            target: proposal_data["target"].as_str().unwrap_or(""),
+            auto_vote: should_auto_vote,
             created_at,
-            voting_config.voting_period.0,
-            member_count,
-            voting_config.participation_quorum_bps,
-            voting_config.majority_threshold_bps,
-            locked_amount,
-            proposal_data.clone(),
-            &proposal_path,
-            &tally_path,
-            tally_value.clone(),
-            &counter_path,
-            sequence_number,
-        )?;
+            voting_period: voting_config.voting_period.0,
+            locked_member_count: member_count,
+            participation_quorum_bps: voting_config.participation_quorum_bps,
+            majority_threshold_bps: voting_config.majority_threshold_bps,
+            locked_deposit: locked_amount,
+            proposal_data: proposal_data.clone(),
+            proposal_path: &proposal_path,
+            tally_path: &tally_path,
+            tally_value: tally_value.clone(),
+            counter_path: &counter_path,
+            counter_value: sequence_number,
+        }
+        .emit()?;
 
         if let Some((vote_path, vote_value)) = auto_vote_data {
-            events::emit_vote_cast(
-                proposer,
+            events::VoteCast {
+                voter: proposer,
                 group_id,
-                &proposal_id,
-                true,
-                &tally,
+                proposal_id: &proposal_id,
+                approve: true,
+                tally: &tally,
                 should_execute,
-                false,
-                &vote_path,
+                should_reject: false,
+                vote_path: &vote_path,
                 vote_value,
-                &tally_path,
+                tally_path: &tally_path,
                 tally_value,
-            )?;
+            }
+            .emit()?;
         }
 
         Ok(proposal_id)
     }
 
-    /// Cancels a proposal. Only the proposer can cancel if no other votes exist.
     pub fn cancel_proposal(
         platform: &mut SocialPlatform,
         group_id: &str,
@@ -182,7 +181,6 @@ impl GroupGovernance {
             return Err(invalid_input!("Only active proposals can be cancelled"));
         }
 
-        // Cancel allowed only if no votes besides proposer's auto-vote
         let tally_data = platform.storage_get(&tally_path);
         if let Some(tally_val) = tally_data {
             let total_votes = tally_val
@@ -259,7 +257,6 @@ impl GroupGovernance {
             .and_then(|s| s.parse::<u128>().ok())
             .unwrap_or(crate::constants::PROPOSAL_EXECUTION_LOCK);
 
-        // Unlock deposit on terminal state
         let unlocked_deposit = if status != ProposalStatus::Active {
             if let Some(ref proposer_id) = proposer {
                 platform.unlock_storage_balance(proposer_id, locked_amount);
@@ -300,18 +297,19 @@ impl GroupGovernance {
 
         let event_initiator = proposer.unwrap_or_else(env::predecessor_account_id);
 
-        events::emit_proposal_status_updated(
+        events::ProposalStatusUpdated {
             group_id,
             proposal_id,
-            &event_initiator,
-            status.as_str(),
-            total_votes,
-            yes_votes,
+            proposer: &event_initiator,
+            status: status.as_str(),
+            final_total_votes: total_votes,
+            final_yes_votes: yes_votes,
             locked_member_count,
             unlocked_deposit,
-            &proposal_path,
-            proposal_data.clone(),
-        )?;
+            proposal_path: &proposal_path,
+            proposal_value: proposal_data.clone(),
+        }
+        .emit()?;
 
         Ok(())
     }

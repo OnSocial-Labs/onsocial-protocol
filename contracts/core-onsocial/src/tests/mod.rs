@@ -31,12 +31,12 @@ pub mod unit {
     pub mod voting_proposal_types; // Voting proposal type tests
 }
 
-// --- Integration Tests ---
-pub mod integration {
-    pub mod comprehensive_integration_test;
-    pub mod group_content_integration_test; // NEW: Group content creation integration tests (CRITICAL)
+// --- Workflow Tests (mocked environment, end-to-end flows) ---
+pub mod workflow {
+    pub mod comprehensive_workflow_test;
+    pub mod group_content_workflow_test;
     pub mod simple_api_test;
-    pub mod ultra_simple_api_test; // Ultra simple API tests
+    pub mod ultra_simple_api_test;
 }
 
 // --- Security Tests ---

@@ -3,6 +3,7 @@ use near_sdk::{AccountId, env};
 
 use crate::SocialError;
 use crate::events::EventBatch;
+use crate::state::data::helpers::SetOperation;
 use crate::state::execute::ExecuteContext;
 use crate::state::models::SocialPlatform;
 use crate::state::set_context::VerifiedContext;
@@ -59,13 +60,16 @@ impl SocialPlatform {
         .with_field("payer_id", ctx.payer_id.to_string())
         .emit(&mut event_batch);
 
-        self.execute_set_operations_with_balance(
-            &verified,
-            &mut event_batch,
+        let op = SetOperation {
             target_account,
             data,
             options,
-            None, // Nonce already validated in execute auth
+            signed_nonce: None, // Nonce already validated in execute auth
+        };
+        self.execute_set_operations_with_balance(
+            &verified,
+            &mut event_batch,
+            op,
             &mut ctx.attached_balance,
         )
     }

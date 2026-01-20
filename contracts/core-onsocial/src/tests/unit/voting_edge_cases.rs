@@ -3964,9 +3964,8 @@ mod voting_edge_cases_tests {
             bob.as_str(),
             "Bob should be the voter"
         );
-        assert_eq!(
+        assert!(
             bob_vote.get("approve").and_then(|v| v.as_bool()).unwrap(),
-            true,
             "Bob's vote should be YES"
         );
 
@@ -4481,12 +4480,11 @@ mod voting_edge_cases_tests {
             .platform
             .storage_get("groups/gas_limit_test/config")
             .unwrap();
-        assert_eq!(
+        assert!(
             group_config
                 .get("moderation_enabled")
                 .and_then(|v| v.as_bool())
                 .unwrap(),
-            true,
             "Moderation should be enabled"
         );
 
@@ -5368,9 +5366,8 @@ mod voting_edge_cases_tests {
             "bob.near",
             "Bob should be recorded as voter"
         );
-        assert_eq!(
+        assert!(
             bob_vote.get("approve").and_then(|v| v.as_bool()).unwrap(),
-            true,
             "Bob's vote should be YES"
         );
 

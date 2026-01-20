@@ -134,7 +134,7 @@ mod event_emission_tests {
                         let partition = data.partition_id.unwrap();
 
                         assert!(
-                            partition < NUM_PARTITIONS as u16,
+                            partition < NUM_PARTITIONS,
                             "Partition ID should be < {}",
                             NUM_PARTITIONS
                         );

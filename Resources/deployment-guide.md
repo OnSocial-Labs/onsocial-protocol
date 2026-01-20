@@ -32,12 +32,11 @@ Set `NETWORK` to `sandbox`, `testnet`, or `mainnet` in your commands.
 ### 4. Deploy Contract
 
 ```bash
-make deploy-contract-ft-wrapper-onsocial NETWORK=sandbox
+make deploy-contract-core-onsocial NETWORK=sandbox
 ```
 
 **Available contracts:**
-- `ft-wrapper-onsocial` — Token transfers and cross-chain bridging
-- `social-onsocial` — Social media interactions  
+- `core-onsocial` — Core social graph and storage
 - `marketplace-onsocial` — Marketplace for digital assets
 - `staking-onsocial` — Staking and rewards
 
@@ -62,7 +61,7 @@ make deploy-contract-<name> NETWORK=testnet DRY_RUN=1
 ### 5. Initialize Contract (Optional)
 
 ```bash
-make init-contract-ft-wrapper-onsocial NETWORK=sandbox
+make init-contract-core-onsocial NETWORK=sandbox
 ```
 
 Note: Most contracts auto-initialize when deployed with `INIT=1` flag.
@@ -70,7 +69,7 @@ Note: Most contracts auto-initialize when deployed with `INIT=1` flag.
 ### 6. Verify Deployment
 
 ```bash
-make verify-contract-ft-wrapper-onsocial NETWORK=sandbox
+make verify-contract-core-onsocial NETWORK=sandbox
 ```
 
 Or check the contract state manually via NEAR CLI.
@@ -79,8 +78,7 @@ Or check the contract state manually via NEAR CLI.
 
 Contracts are deployed to these subaccounts:
 
-- `ft-wrapper.$NETWORK` — ft-wrapper-onsocial
-- `social.$NETWORK` — social-onsocial  
+- `core.$NETWORK` — core-onsocial
 - `marketplace.$NETWORK` — marketplace-onsocial
 - `staking.$NETWORK` — staking-onsocial
 

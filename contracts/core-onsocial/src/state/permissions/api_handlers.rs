@@ -4,6 +4,7 @@ use serde_json::Value;
 use crate::SocialError;
 use crate::events::EventBatch;
 use crate::state::models::SocialPlatform;
+use crate::state::permissions::set::SetPermission;
 
 impl SocialPlatform {
     pub(crate) fn handle_api_permission_grant(
@@ -36,15 +37,14 @@ impl SocialPlatform {
 
         let expires_at: Option<u64> = value.get("expires_at").and_then(|v| v.as_u64());
 
-        self.set_permission(
+        let perm = SetPermission {
             grantee,
-            path.to_string(),
+            path: path.to_string(),
             level,
             expires_at,
-            actor_id,
-            Some(event_batch),
-            Some(attached_balance),
-        )
+            caller: actor_id,
+        };
+        self.set_permission(perm, Some(event_batch), Some(attached_balance))
     }
 
     pub(crate) fn handle_api_permission_revoke(
@@ -68,14 +68,13 @@ impl SocialPlatform {
             .and_then(|v| v.as_str())
             .ok_or_else(|| crate::invalid_input!("path required for permission revoke"))?;
 
-        self.set_permission(
+        let perm = SetPermission {
             grantee,
-            path.to_string(),
-            0,
-            None,
-            actor_id,
-            Some(event_batch),
-            None,
-        )
+            path: path.to_string(),
+            level: 0,
+            expires_at: None,
+            caller: actor_id,
+        };
+        self.set_permission(perm, Some(event_batch), None)
     }
 }
