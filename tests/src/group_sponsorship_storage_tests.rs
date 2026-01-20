@@ -550,17 +550,19 @@ async fn test_group_pool_insufficient_blocks_even_when_quota_allows() -> anyhow:
     create_group(&contract, &owner, group_id).await?;
     add_member(&contract, &owner, group_id, &member).await?;
 
-    // Default quota allows, but pool deposit is intentionally tiny so the pool has insufficient
-    // bytes to cover the write. With 0 attached deposit, the operation should fail.
+    // Fund pool with minimum valid amount (0.1 NEAR = ~10KB), but quota allows more.
+    // Then attempt a write that exceeds the pool's capacity to trigger failure.
     fund_group_pool_and_set_default_quota(
         &contract,
         &owner,
         group_id,
-        NearToken::from_millinear(1), // 0.001 NEAR
-        50_000,
+        NearToken::from_millinear(100), // 0.1 NEAR (minimum valid deposit = ~10KB)
+        50_000, // quota allows 50KB but pool only has ~10KB
     )
     .await?;
 
+    // Write data larger than pool capacity (~10KB) to exhaust it
+    let large_data = "X".repeat(15_000); // 15KB - exceeds 10KB pool
     let key = author_group_key(&member, group_id, "content/posts/pool_insufficient");
     let res = member
         .call(contract.id(), "execute")
@@ -568,7 +570,7 @@ async fn test_group_pool_insufficient_blocks_even_when_quota_allows() -> anyhow:
             "request": {
                 "target_account": null,
                 "action": { "type": "set", "data": {
-                    key: {"text": "hello"}
+                    key: {"text": large_data}
                 } },
                 "options": null,
                 "auth": null

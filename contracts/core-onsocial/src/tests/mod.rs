@@ -4,6 +4,7 @@ pub mod test_utils;
 // --- Unit Tests ---
 pub mod unit {
     pub mod account_validation_test;
+    pub mod accounting_test;  // NEW: Storage accounting ensure_storage_covered tests
     pub mod advanced_functionalities_test;
     pub mod api_edge_cases_test;  // NEW: API edge cases (get_config, has_group_admin_permission, path validation)
     pub mod contract_lifecycle_test;

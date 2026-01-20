@@ -1393,8 +1393,8 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
     let root = worker.root_account()?;
     let user = create_user(&root, "reactivateuser", TEN_NEAR).await?;
 
-    // Step 1: Fund platform pool with minimal amount
-    let small_deposit = NearToken::from_millinear(50); // 0.05 NEAR = 5KB capacity
+    // Step 1: Fund platform pool with minimum valid amount (10KB ≈ 0.1 NEAR)
+    let small_deposit = NearToken::from_millinear(100); // 0.1 NEAR = 10KB capacity (minimum)
     let deposit_res = contract
         .as_account()
         .call(contract.id(), "execute")
