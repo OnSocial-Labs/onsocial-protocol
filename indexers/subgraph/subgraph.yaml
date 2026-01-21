@@ -1,0 +1,26 @@
+specVersion: 1.3.0
+description: OnSocial - Decentralized Social Protocol on NEAR
+repository: https://github.com/OnSocial-Labs/onsocial-protocol
+
+schema:
+  file: ./schema.graphql
+
+dataSources:
+  - kind: near
+    name: OnSocial
+    network: near-testnet
+    source:
+      account: core.onsocial.testnet
+      startBlock: 233089000
+    mapping:
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/mapping.ts
+      entities:
+        - DataUpdate
+        - StorageUpdate
+        - GroupUpdate
+        - ContractUpdate
+        - Account
+      receiptHandlers:
+        - handler: handleReceipt

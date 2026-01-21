@@ -1,0 +1,14 @@
+{
+  "near-testnet": {
+    "OnSocial": {
+      "account": "core.onsocial.testnet",
+      "startBlock": 233089000
+    }
+  },
+  "near-mainnet": {
+    "OnSocial": {
+      "account": "core.onsocial.near",
+      "startBlock": 1
+    }
+  }
+}

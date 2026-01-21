@@ -1,14 +1,10 @@
-<!-- [![Build Status](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions) -->
+[![Core OnSocial](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
+[![Marketplace OnSocial](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml)
+[![OnSocial JS](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-js-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-js-ci.yml)
 [![Relayer Deploy](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml)
-[![OnSocial Auth](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/auth-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/auth-ci.yml)
-<!-- [![OnSocial JS](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/js-ci.yml)
-[![OnSocial Backend](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/backend-ci.yml)
-[![OnSocial App](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/app-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/app-ci.yml) -->
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Docker](https://img.shields.io/badge/docker-ready-blue)](docker/Dockerfile.contracts)
-[![NEAR Protocol](https://img.shields.io/badge/NEAR%20Protocol-Mainnet-blueviolet)](https://near.org)
-[![Linux](https://img.shields.io/badge/OS-Linux-green)](https://www.kernel.org/)
-[![Last Updated](https://img.shields.io/badge/Last%20Updated-June%2026,%202025-blue)](README.md)
+[![NEAR Protocol](https://img.shields.io/badge/NEAR-Protocol-blueviolet)](https://near.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 # OnSocial Protocol
 

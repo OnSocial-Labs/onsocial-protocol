@@ -222,23 +222,27 @@ deploy_contract() {
     return 0
   fi
 
-  # Determine WASM path
-  local wasm_path="target/wasm32-unknown-unknown/release/${contract//-/_}.wasm"
-  [ ! -f "$wasm_path" ] && handle_error "WASM file not found: $wasm_path. Build the contract first."
+  # Determine WASM path (cargo-near builds to target/near/<contract_name>/)
+  local contract_underscore="${contract//-/_}"
+  local wasm_path="target/near/${contract_underscore}/${contract_underscore}.wasm"
+  [ ! -f "$wasm_path" ] && handle_error "WASM file not found: $wasm_path. Build the contract first with 'make build-contract-$contract'."
 
   # Set NEAR_ENV
   export NEAR_ENV="$NETWORK"
   [ "$VERBOSE" = "1" ] && echo "Set NEAR_ENV=$NEAR_ENV"
 
-  # Deploy
+  # Deploy (near-cli syntax: near deploy <account-id> <wasm-file>)
   echo "Deploying $contract to $contract_id on $NETWORK..."
-  [ "$VERBOSE" = "1" ] && echo "Running: near deploy --wasmFile $wasm_path --accountId $contract_id ..."
+  [ "$VERBOSE" = "1" ] && echo "Running: near deploy $contract_id $wasm_path --networkId $NETWORK ..."
   
+  local deploy_result=0
   if [ "$VERBOSE" = "1" ]; then
-    near deploy --wasmFile "$wasm_path" --accountId "$contract_id" ${NEAR_NODE_URL:+--nodeUrl "$NEAR_NODE_URL"}
+    near deploy "$contract_id" "$wasm_path" --networkId "$NETWORK" || deploy_result=$?
   else
-    near deploy --wasmFile "$wasm_path" --accountId "$contract_id" ${NEAR_NODE_URL:+--nodeUrl "$NEAR_NODE_URL"} >/dev/null
+    near deploy "$contract_id" "$wasm_path" --networkId "$NETWORK" 2>&1 || deploy_result=$?
   fi
+  
+  [ "$deploy_result" -ne 0 ] && handle_error "Deploy failed with exit code $deploy_result"
   
   echo -e "${SUCCESS}$contract deployed successfully to $contract_id${RESET}"
 

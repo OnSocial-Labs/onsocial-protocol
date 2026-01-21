@@ -1,72 +1,64 @@
 // tests/utils.test.ts
 import { describe, it, expect } from 'vitest';
-import {
-  encodeBase58,
-  decodeBase58,
-  encodeBase64,
-  decodeBase64,
-  encodeHex,
-  decodeHex,
-  sha256Hash,
-  utf8ToBytes,
-  bytesToUtf8,
-  isValidBase58,
-  isValidBase64,
-  isValidHex,
-  isValidNearAccountId,
-  randomBytes,
-} from '../src/utils';
+import { isValidAccountId, parsePath, buildPath } from '../src';
 
-const sample = 'hello world';
-const sampleBytes = utf8ToBytes(sample);
-
-describe('utils', () => {
-  it('base58 encode/decode', () => {
-    const encoded = encodeBase58(sampleBytes);
-    const decoded = decodeBase58(encoded);
-    expect(decoded).toEqual(sampleBytes);
-    expect(isValidBase58(encoded)).toBe(true);
+describe('isValidAccountId', () => {
+  it('accepts valid account IDs', () => {
+    expect(isValidAccountId('alice.near')).toBe(true);
+    expect(isValidAccountId('bob.testnet')).toBe(true);
+    expect(isValidAccountId('core.onsocial.testnet')).toBe(true);
+    expect(isValidAccountId('user-123.near')).toBe(true);
+    expect(isValidAccountId('app_v2.near')).toBe(true);
   });
 
-  it('base64 encode/decode', () => {
-    const encoded = encodeBase64(sampleBytes);
-    const decoded = decodeBase64(encoded);
-    expect(decoded).toEqual(sampleBytes);
-    expect(isValidBase64(encoded)).toBe(true);
+  it('rejects too short', () => {
+    expect(isValidAccountId('a')).toBe(false);
+    expect(isValidAccountId('')).toBe(false);
   });
 
-  it('hex encode/decode', () => {
-    const encoded = encodeHex(sampleBytes);
-    const decoded = decodeHex(encoded);
-    expect(decoded).toEqual(sampleBytes);
-    expect(isValidHex(encoded)).toBe(true);
+  it('rejects uppercase', () => {
+    expect(isValidAccountId('Alice.near')).toBe(false);
+    expect(isValidAccountId('UPPERCASE')).toBe(false);
   });
 
-  it('sha256Hash', () => {
-    const hash = sha256Hash(sampleBytes);
-    expect(hash).toBeInstanceOf(Uint8Array);
-    expect(hash.length).toBe(32);
+  it('rejects consecutive separators', () => {
+    expect(isValidAccountId('double..dot')).toBe(false);
+    expect(isValidAccountId('double--dash')).toBe(false);
+    expect(isValidAccountId('double__underscore')).toBe(false);
   });
 
-  it('utf8 conversions', () => {
-    const bytes = utf8ToBytes(sample);
-    const str = bytesToUtf8(bytes);
-    expect(str).toBe(sample);
+  it('rejects starting/ending with separator', () => {
+    expect(isValidAccountId('.startdot')).toBe(false);
+    expect(isValidAccountId('enddot.')).toBe(false);
+    expect(isValidAccountId('-startdash')).toBe(false);
+    expect(isValidAccountId('enddash-')).toBe(false);
+  });
+});
+
+describe('parsePath', () => {
+  it('parses type only', () => {
+    expect(parsePath('profile')).toEqual({ type: 'profile', id: undefined, field: undefined });
   });
 
-  it('randomBytes', () => {
-    const arr = randomBytes(16);
-    expect(arr).toBeInstanceOf(Uint8Array);
-    expect(arr.length).toBe(16);
-    expect(arr).not.toEqual(randomBytes(16)); // Should be random
+  it('parses type and id', () => {
+    expect(parsePath('profile/name')).toEqual({ type: 'profile', id: 'name', field: undefined });
   });
 
-  it('isValidNearAccountId', () => {
-    expect(isValidNearAccountId('alice.near')).toBe(true);
-    expect(isValidNearAccountId('a')).toBe(false);
-    expect(isValidNearAccountId('UPPERCASE.near')).toBe(false);
-    expect(isValidNearAccountId('double..dot.near')).toBe(false);
-    expect(isValidNearAccountId('.startdot')).toBe(false);
-    expect(isValidNearAccountId('enddot.')).toBe(false);
+  it('parses type, id, and field', () => {
+    expect(parsePath('post/123/content')).toEqual({ type: 'post', id: '123', field: 'content' });
+  });
+});
+
+describe('buildPath', () => {
+  it('builds type only', () => {
+    expect(buildPath('profile')).toBe('profile');
+  });
+
+  it('builds type and id', () => {
+    expect(buildPath('profile', 'name')).toBe('profile/name');
+  });
+
+  it('builds type, id, and field', () => {
+    expect(buildPath('post', '123', 'content')).toBe('post/123/content');
   });
 });

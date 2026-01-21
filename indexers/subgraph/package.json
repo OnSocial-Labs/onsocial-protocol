@@ -1,0 +1,25 @@
+{
+  "name": "onsocial-subgraph",
+  "version": "0.1.0",
+  "description": "OnSocial NEAR Subgraph - Decentralized Social Protocol Indexer",
+  "repository": "https://github.com/OnSocial-Labs/onsocial-protocol",
+  "license": "MIT",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "build:testnet": "graph build --network near-testnet",
+    "build:mainnet": "graph build --network near-mainnet",
+    "deploy:testnet": "graph build --network near-testnet && graph deploy onsocial-testnet",
+    "deploy:mainnet": "graph build --network near-mainnet && graph deploy onsocial-mainnet",
+    "create:local": "graph create --node http://localhost:8020/ onsocial",
+    "deploy:local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 onsocial",
+    "test": "graph test"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-ts": "^0.38.2"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.98.1",
+    "matchstick-as": "^0.6.0"
+  }
+}

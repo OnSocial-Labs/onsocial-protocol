@@ -1,0 +1,97 @@
+"""
+Data updates (profiles, posts, settings, etc.)
+"""
+type DataUpdate @entity(immutable: true) {
+  id: ID!
+  blockHeight: BigInt!
+  blockTimestamp: BigInt!
+  receiptId: String!
+
+  operation: String!
+  author: String!
+  partitionId: Int
+
+  path: String!
+  value: String
+
+  # Derived from path
+  accountId: String!
+  dataType: String
+  dataId: String
+
+  account: Account!
+}
+
+"""
+Storage updates (deposits, withdrawals, charges)
+"""
+type StorageUpdate @entity(immutable: true) {
+  id: ID!
+  blockHeight: BigInt!
+  blockTimestamp: BigInt!
+  receiptId: String!
+
+  operation: String!
+  author: String!
+  partitionId: Int
+
+  amount: BigInt
+  previousBalance: BigInt
+  newBalance: BigInt
+
+  account: Account!
+}
+
+"""
+Group updates (membership, governance)
+"""
+type GroupUpdate @entity(immutable: true) {
+  id: ID!
+  blockHeight: BigInt!
+  blockTimestamp: BigInt!
+  receiptId: String!
+
+  operation: String!
+  author: String!
+  partitionId: Int
+
+  groupId: String
+  memberId: String
+  role: String
+}
+
+"""
+Contract updates (admin, status changes)
+"""
+type ContractUpdate @entity(immutable: true) {
+  id: ID!
+  blockHeight: BigInt!
+  blockTimestamp: BigInt!
+  receiptId: String!
+
+  operation: String!
+  author: String!
+  partitionId: Int
+
+  field: String
+  oldValue: String
+  newValue: String
+}
+
+"""
+Account aggregate (mutable - tracks running balances and counts)
+"""
+type Account @entity(immutable: false) {
+  id: ID!
+
+  storageBalance: BigInt!
+
+  dataUpdates: [DataUpdate!]! @derivedFrom(field: "account")
+  storageUpdates: [StorageUpdate!]! @derivedFrom(field: "account")
+
+  firstSeenAt: BigInt!
+  lastActiveAt: BigInt!
+
+  dataUpdateCount: Int!
+  storageUpdateCount: Int!
+}

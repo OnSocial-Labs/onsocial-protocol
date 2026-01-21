@@ -1,25 +1,25 @@
 [
     {
         "name": "marketplace-onsocial",
-        "id": "marketplace.$NETWORK",
+        "id": "marketplace.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
     },
     {
         "name": "staking-onsocial",
-        "id": "staking.$NETWORK",
+        "id": "staking.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
     },
     {
         "name": "core-onsocial",
-        "id": "social.$NETWORK",
+        "id": "core.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
     },
     {
         "name": "manager-proxy-onsocial",
-        "id": "manager-proxy.$NETWORK",
+        "id": "manager-proxy.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
     }

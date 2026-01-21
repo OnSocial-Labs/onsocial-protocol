@@ -1,64 +1,35 @@
 // src/index.ts
-// Main entry point for onsocial-js
-import fetch from 'cross-fetch';
+// onsocial-js - Protocol-level SDK for OnSocial
+//
+// Modules:
+// - core: Network configuration and types
+// - graph: Query data from The Graph subgraph
+// - storage: IPFS/Filecoin storage via Lighthouse
+// - utils: Helper utilities
 
-export * from './transaction';
-export * from './utils';
-export * from './keystore';
-export * from './accounts';
-export * from './types';
+// Core exports
+export { NETWORKS } from './core';
+export type { Network, NetworkConfig } from './core';
 
-// Explicitly re-export AccountKeyPair from types to avoid ambiguity
+// Graph exports
+export { GraphClient, QUERIES } from './graph';
 export type {
-  AccountKeyPair,
-  Network,
-  NearRpcResult,
-  NearTransaction,
-} from './types';
+  GraphClientConfig,
+  DataUpdate,
+  Account,
+  StorageUpdate,
+  QueryOptions,
+} from './graph';
 
-export interface OnSocialSDKOptions {
-  network: 'mainnet' | 'testnet';
-}
+// Storage exports
+export { StorageClient } from './storage';
+export type {
+  StorageClientConfig,
+  UploadResponse,
+  FileInfo,
+  StorageBalance,
+  CID,
+} from './storage';
 
-export class OnSocialSDK {
-  rpcUrl: string;
-  constructor(options: OnSocialSDKOptions) {
-    this.rpcUrl =
-      options.network === 'mainnet'
-        ? 'https://rpc.mainnet.near.org'
-        : 'https://test.rpc.fastnear.com';
-  }
-
-  async fastGet(method: string, params: any) {
-    const body = {
-      jsonrpc: '2.0',
-      id: 'dontcare',
-      method: 'query',
-      params: {
-        request_type: method,
-        ...params,
-      },
-    };
-    const res = await fetch(this.rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-    if (data.result && data.result.result) {
-      // NEAR RPC returns result as Uint8Array (array of numbers)
-      const buf = Buffer.from(data.result.result);
-      try {
-        return JSON.parse(buf.toString());
-      } catch {
-        return buf;
-      }
-    }
-    return data.result || data;
-  }
-
-  async loginWithBiometrics(pin: string) {
-    // Stub: simulate login
-    return { publicKey: 'mockPublicKey' };
-  }
-}
+// Utils exports
+export { isValidAccountId, parsePath, buildPath } from './utils';

@@ -215,15 +215,7 @@ rebuild-all-contracts: rebuild-docker-contracts
 
 .PHONY: deploy-contract-%
 deploy-contract-%: build-docker-contracts ensure-scripts-executable
-	@if [ "$(INIT)" = "1" ]; then \
-		$(call deploy_contract_unified,Deploying and initializing,$*,Contract $* deployed and initialized successfully); \
-	elif [ "$(REPRODUCIBLE)" = "1" ]; then \
-		$(call deploy_contract_unified,Deploying $* with reproducible WASM,$*,Contract $* deployed with reproducible WASM successfully); \
-	elif [ "$(DRY_RUN)" = "1" ]; then \
-		$(call deploy_contract_unified,Simulating deployment of,$*,Dry-run deployment simulation for $* completed successfully); \
-	else \
-		$(call deploy_contract_unified,Deploying,$*,Contract $* deployed successfully); \
-	fi
+	$(call deploy_contract_unified,Deploying,$*,Contract $* deployed successfully)
 
 .PHONY: init-contract-%
 init-contract-%: build-docker-contracts ensure-scripts-executable
@@ -241,18 +233,30 @@ verify-contract-%: build-docker-contracts ensure-scripts-executable
 # =============================================================================
 
 # Unified deployment function for contracts
+# Note: Cannot nest $(call ...) inside shell if/else - each expands to separate recipe lines
 define deploy_contract_unified
 	$(call log_start,$(1) $(2))
-	@if [ -n "$(KEY_FILE)" ] && [ -f "$(KEY_FILE)" ]; then \
-		$(call log_info,Using deployment key file: $(KEY_FILE)); \
-		CONTRACT_NAME=$(2) $(call docker_run_contracts_network,./scripts/deploy.sh,/tmp/private_key.json,$(KEY_FILE)); \
-	elif [ -f "$(KEYS_DIR)/deployer.$(NETWORK).json" ]; then \
-		$(call log_info,Using auto-detected deployment key for $(NETWORK)); \
-		CONTRACT_NAME=$(2) $(call docker_run_contracts_network,./scripts/deploy.sh,/tmp/private_key.json,$(KEYS_DIR)/deployer.$(NETWORK).json); \
-	else \
-		$(call log_warning,No key file found - using NEAR CLI credentials); \
-		CONTRACT_NAME=$(2) $(call docker_run_contracts_network,./scripts/deploy.sh); \
-	fi
+	$(call log_info,Deploying contract $(2) to $(NETWORK))
+	@CONTRACT_NAME=$(2) docker run --rm $(DOCKER_TTY) \
+		-v $(CODE_DIR):/code \
+		-v $(HOME)/.near-credentials:/root/.near-credentials:ro \
+		--tmpfs /tmp:exec,size=2G \
+		--network host \
+		-e FORCE_COLOR=1 \
+		-e CARGO_TERM_COLOR=always \
+		-e TERM=xterm-256color \
+		-e NETWORK=$(NETWORK) \
+		-e AUTH_ACCOUNT=$(AUTH_ACCOUNT) \
+		-e FT_ACCOUNT=$(FT_ACCOUNT) \
+		-e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) \
+		-e NEAR_NODE_URL=$(NEAR_NODE_URL) \
+		-e CONTRACT_NAME=$(2) \
+		-e INIT=$(INIT) \
+		-e REPRODUCIBLE=$(REPRODUCIBLE) \
+		-e DRY_RUN=$(DRY_RUN) \
+		-e VERBOSE=$(VERBOSE) \
+		$(CONTRACTS_DOCKER_IMAGE) \
+		bash -c "./scripts/deploy.sh"
 	$(call log_complete,$(3))
 endef
 
