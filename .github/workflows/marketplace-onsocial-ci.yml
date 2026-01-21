@@ -16,35 +16,34 @@ on:
   workflow_dispatch:
 
 jobs:
-  check:
-    name: Check & Lint
+  ci:
+    name: Check, Build & Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - run: make check-contract-marketplace-onsocial
-      - run: make lint-contract-marketplace-onsocial
-      - run: make format-contract-marketplace-onsocial
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - run: make build-contract-marketplace-onsocial
-      - uses: actions/upload-artifact@v4
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check
+        run: make check-contract-marketplace-onsocial
+
+      - name: Lint
+        run: make lint-contract-marketplace-onsocial
+
+      - name: Format
+        run: make format-contract-marketplace-onsocial
+
+      - name: Build
+        run: make build-contract-marketplace-onsocial
+
+      - name: Test
+        run: make test-unit-contract-marketplace-onsocial
+
+      - name: Upload WASM
+        uses: actions/upload-artifact@v4
         with:
           name: marketplace-onsocial.wasm
           path: target/near/marketplace_onsocial/marketplace_onsocial.wasm
           retention-days: 7
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    needs: check
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - run: make test-unit-contract-marketplace-onsocial

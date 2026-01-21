@@ -44,7 +44,7 @@ jobs:
       - name: Test Graph client
         run: |
           npx tsx -e "
-          import { GraphClient, NETWORKS } from './src/index.js';
+          import { GraphClient, NETWORKS } from './src/index.ts';
           (async () => {
             const graph = new GraphClient({ network: 'testnet' });
             console.log('Subgraph URL:', NETWORKS.testnet.graphUrl);
@@ -59,7 +59,7 @@ jobs:
           LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
         run: |
           npx tsx -e "
-          import { StorageClient } from './src/index.js';
+          import { StorageClient } from './src/index.ts';
           (async () => {
             const storage = new StorageClient({ apiKey: process.env.LIGHTHOUSE_API_KEY });
             
