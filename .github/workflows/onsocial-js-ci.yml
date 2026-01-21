@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'packages/onsocial-js/**'
+      - '.github/workflows/onsocial-js-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'packages/onsocial-js/**'
+      - '.github/workflows/onsocial-js-ci.yml'
   workflow_dispatch: # Allow manual trigger
 
 jobs:

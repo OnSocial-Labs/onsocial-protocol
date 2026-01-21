@@ -7,12 +7,14 @@ on:
       - 'contracts/marketplace-onsocial/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - '.github/workflows/marketplace-onsocial-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'contracts/marketplace-onsocial/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - '.github/workflows/marketplace-onsocial-ci.yml'
   workflow_dispatch:
 
 jobs:
