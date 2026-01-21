@@ -21,6 +21,7 @@ dataSources:
         - StorageUpdate
         - GroupUpdate
         - ContractUpdate
+        - PermissionUpdate
         - Account
       receiptHandlers:
         - handler: handleReceipt

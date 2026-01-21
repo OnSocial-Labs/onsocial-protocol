@@ -3,20 +3,20 @@ Data updates (profiles, posts, settings, etc.)
 """
 type DataUpdate @entity(immutable: true) {
   id: ID!
-  blockHeight: BigInt!
-  blockTimestamp: BigInt!
-  receiptId: String!
+  blockHeight: BigInt! @index
+  blockTimestamp: BigInt! @index
+  receiptId: String! @index
 
-  operation: String!
-  author: String!
-  partitionId: Int
+  operation: String! @index
+  author: String! @index
+  partitionId: Int @index
 
-  path: String!
+  path: String! @index
   value: String
 
   # Derived from path
-  accountId: String!
-  dataType: String
+  accountId: String! @index
+  dataType: String @index
   dataId: String
 
   account: Account!
@@ -27,13 +27,13 @@ Storage updates (deposits, withdrawals, charges)
 """
 type StorageUpdate @entity(immutable: true) {
   id: ID!
-  blockHeight: BigInt!
-  blockTimestamp: BigInt!
-  receiptId: String!
+  blockHeight: BigInt! @index
+  blockTimestamp: BigInt! @index
+  receiptId: String! @index
 
-  operation: String!
-  author: String!
-  partitionId: Int
+  operation: String! @index
+  author: String! @index
+  partitionId: Int @index
 
   amount: BigInt
   previousBalance: BigInt
@@ -47,17 +47,19 @@ Group updates (membership, governance)
 """
 type GroupUpdate @entity(immutable: true) {
   id: ID!
-  blockHeight: BigInt!
-  blockTimestamp: BigInt!
-  receiptId: String!
+  blockHeight: BigInt! @index
+  blockTimestamp: BigInt! @index
+  receiptId: String! @index
 
-  operation: String!
-  author: String!
-  partitionId: Int
+  operation: String! @index
+  author: String! @index
+  partitionId: Int @index
 
-  groupId: String
-  memberId: String
+  groupId: String @index
+  memberId: String @index
   role: String
+
+  group: Group
 }
 
 """
@@ -65,17 +67,35 @@ Contract updates (admin, status changes)
 """
 type ContractUpdate @entity(immutable: true) {
   id: ID!
-  blockHeight: BigInt!
-  blockTimestamp: BigInt!
-  receiptId: String!
+  blockHeight: BigInt! @index
+  blockTimestamp: BigInt! @index
+  receiptId: String! @index
 
-  operation: String!
-  author: String!
-  partitionId: Int
+  operation: String! @index
+  author: String! @index
+  partitionId: Int @index
 
   field: String
   oldValue: String
   newValue: String
+}
+
+"""
+Permission updates (grants, revokes)
+"""
+type PermissionUpdate @entity(immutable: true) {
+  id: ID!
+  blockHeight: BigInt! @index
+  blockTimestamp: BigInt! @index
+  receiptId: String! @index
+
+  operation: String! @index
+  author: String! @index
+  partitionId: Int @index
+
+  grantee: String @index
+  path: String @index
+  permission: String
 }
 
 """
@@ -90,8 +110,24 @@ type Account @entity(immutable: false) {
   storageUpdates: [StorageUpdate!]! @derivedFrom(field: "account")
 
   firstSeenAt: BigInt!
-  lastActiveAt: BigInt!
+  lastActiveAt: BigInt! @index
 
   dataUpdateCount: Int!
   storageUpdateCount: Int!
+}
+
+"""
+Group aggregate (mutable - tracks group stats)
+"""
+type Group @entity(immutable: false) {
+  id: ID!
+
+  owner: String @index
+  createdAt: BigInt!
+  lastActivityAt: BigInt! @index
+
+  memberCount: Int!
+  updateCount: Int!
+
+  updates: [GroupUpdate!]! @derivedFrom(field: "group")
 }
