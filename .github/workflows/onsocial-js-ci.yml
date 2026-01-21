@@ -45,11 +45,13 @@ jobs:
         run: |
           npx tsx -e "
           import { GraphClient, NETWORKS } from './src/index.js';
-          const graph = new GraphClient({ network: 'testnet' });
-          console.log('Subgraph URL:', NETWORKS.testnet.graphUrl);
-          const activity = await graph.getRecentActivity(5);
-          console.log('Recent activity count:', activity.length);
-          console.log('✅ GraphClient working');
+          (async () => {
+            const graph = new GraphClient({ network: 'testnet' });
+            console.log('Subgraph URL:', NETWORKS.testnet.graphUrl);
+            const activity = await graph.getRecentActivity(5);
+            console.log('Recent activity count:', activity.length);
+            console.log('✅ GraphClient working');
+          })();
           "
 
       - name: Test Storage client
@@ -58,20 +60,22 @@ jobs:
         run: |
           npx tsx -e "
           import { StorageClient } from './src/index.js';
-          const storage = new StorageClient({ apiKey: process.env.LIGHTHOUSE_API_KEY });
-          
-          // Test balance
-          const balance = await storage.getBalance();
-          console.log('Balance:', balance.dataUsed, '/', balance.dataLimit);
-          
-          // Test upload
-          const result = await storage.uploadJSON({ test: true, ci: true, ts: Date.now() });
-          console.log('Uploaded CID:', result.cid);
-          console.log('URL:', storage.getUrl(result.cid));
-          
-          // Test download
-          const downloaded = await storage.downloadJSON(result.cid);
-          console.log('Downloaded:', downloaded);
-          
-          console.log('✅ StorageClient working');
+          (async () => {
+            const storage = new StorageClient({ apiKey: process.env.LIGHTHOUSE_API_KEY });
+            
+            // Test balance
+            const balance = await storage.getBalance();
+            console.log('Balance:', balance.dataUsed, '/', balance.dataLimit);
+            
+            // Test upload
+            const result = await storage.uploadJSON({ test: true, ci: true, ts: Date.now() });
+            console.log('Uploaded CID:', result.cid);
+            console.log('URL:', storage.getUrl(result.cid));
+            
+            // Test download
+            const downloaded = await storage.downloadJSON(result.cid);
+            console.log('Downloaded:', downloaded);
+            
+            console.log('✅ StorageClient working');
+          })();
           "
