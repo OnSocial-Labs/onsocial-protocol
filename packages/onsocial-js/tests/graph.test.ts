@@ -1,18 +1,20 @@
 // tests/graph.test.ts
 // Tests for the GraphClient
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GraphClient, NETWORKS, QUERIES } from '../src';
 
-// Mock cross-fetch module
-const mockFetch = vi.fn();
-vi.mock('cross-fetch', () => ({
-  default: (...args: unknown[]) => mockFetch(...args),
-}));
-
 describe('GraphClient', () => {
+  const mockFetch = vi.fn();
+  const originalFetch = global.fetch;
+
   beforeEach(() => {
     mockFetch.mockReset();
+    global.fetch = mockFetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
   it('should use testnet URL by default', () => {

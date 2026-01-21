@@ -1,16 +1,12 @@
 // src/storage/index.ts
-// Storage module exports
-
 export { StorageClient } from './client';
 export type {
   CID,
   UploadResponse,
-  UploadOptions,
-  UploadTextOptions,
   StorageClientConfig,
   FileInfo,
   StorageBalance,
+  EncryptionAuth,
+  AccessCondition,
 } from './types';
-
-// Re-export gateway URL for convenience
-export { LIGHTHOUSE_GATEWAY } from './lighthouse';
+export const LIGHTHOUSE_GATEWAY = 'https://gateway.lighthouse.storage';

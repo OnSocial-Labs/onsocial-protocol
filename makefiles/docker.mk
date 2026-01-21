@@ -57,6 +57,7 @@ define docker_run_contracts
 		echo "$(INFO)> [contracts] $(1)$(RESET)"; \
 	fi
 	@docker run --rm $(DOCKER_TTY) \
+		-u $(shell id -u):$(shell id -g) \
 		-v $(CODE_DIR):/code \
 		--tmpfs /tmp:exec,size=2G \
 		-e FORCE_COLOR=1 \
@@ -73,6 +74,7 @@ define docker_run_contracts_network
 		echo "$(INFO)> [contracts:network] $(1)$(RESET)"; \
 	fi
 	@docker run --rm $(DOCKER_TTY) \
+		-u $(shell id -u):$(shell id -g) \
 		-v $(CODE_DIR):/code \
 		$(if $(2),-v $(3):$(2)) \
 		--tmpfs /tmp:exec,size=2G \

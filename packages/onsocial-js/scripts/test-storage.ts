@@ -18,7 +18,7 @@ async function test() {
     // Test 1: Check balance
     console.log('1. Checking storage balance...');
     const balance = await storage.getBalance();
-    console.log(`   ✅ Balance: ${balance.dataUsed} / ${balance.dataLimit} bytes used`);
+    console.log(`   ✅ Balance: ${balance.used} / ${balance.limit} bytes used`);
 
     // Test 2: Upload text
     console.log('\n2. Uploading test text...');

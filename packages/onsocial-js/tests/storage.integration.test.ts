@@ -18,15 +18,15 @@ describeIf('StorageClient Integration', () => {
 
   it('should get balance', async () => {
     const balance = await storage.getBalance();
-    expect(balance.dataLimit).toBeGreaterThan(0);
+    expect(balance.limit).toBeGreaterThan(0);
     expect(balance.remaining).toBeGreaterThanOrEqual(0);
   }, 30000);
 
   it('should upload and download text', async () => {
     const testContent = `Test from OnSocial at ${new Date().toISOString()}`;
 
-    const { cid, size } = await storage.uploadText(testContent, { name: 'test.txt' });
-    expect(cid).toMatch(/^bafy/); // CIDv1 starts with bafy
+    const { cid, size } = await storage.uploadText(testContent, 'test.txt');
+    expect(cid).toMatch(/^baf/); // CIDv1 starts with baf (bafy, bafk, bafkrei, etc.)
     expect(size).toBeGreaterThan(0);
 
     // Wait a moment for propagation
@@ -39,8 +39,8 @@ describeIf('StorageClient Integration', () => {
   it('should upload and download JSON', async () => {
     const testData = { test: true, timestamp: Date.now() };
 
-    const { cid } = await storage.uploadJSON(testData, { name: 'test.json' });
-    expect(cid).toMatch(/^bafy/);
+    const { cid } = await storage.uploadJSON(testData, 'test.json');
+    expect(cid).toMatch(/^baf/); // CIDv1 starts with baf
 
     await new Promise((r) => setTimeout(r, 2000));
 

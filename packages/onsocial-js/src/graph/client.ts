@@ -1,7 +1,5 @@
 // src/graph/client.ts
 // GraphQL client for The Graph subgraph
-
-import fetch from 'cross-fetch';
 import { NETWORKS, Network } from '../core/types';
 import { QUERIES } from './queries';
 import type {

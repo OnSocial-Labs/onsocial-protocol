@@ -12,7 +12,7 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  test-sdk:
+  ci:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,11 +65,11 @@ jobs:
             
             // Test balance
             const balance = await storage.getBalance();
-            console.log('Balance:', balance.dataUsed, '/', balance.dataLimit);
+            console.log('Balance:', balance.used, '/', balance.limit);
             
             // Test upload
             const timestamp = Date.now();
-            const result = await storage.uploadText('CI test ' + timestamp, { name: 'ci-test.txt' });
+            const result = await storage.uploadText('CI test ' + timestamp, 'ci-test.txt');
             console.log('Uploaded:', result.cid);
             
             // Test download
