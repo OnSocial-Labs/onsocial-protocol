@@ -12,7 +12,8 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  Build & Test:
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
     defaults:
       run:
