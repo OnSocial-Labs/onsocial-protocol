@@ -1,10 +1,20 @@
 // src/storage/lighthouse.ts
 // Lighthouse-specific implementation details
+// Endpoints from official @lighthouse-web3/sdk:
+// - API: https://api.lighthouse.storage (balance, auth, metadata)
+// - Upload: https://upload.lighthouse.storage (file uploads)
+// - Gateway: https://gateway.lighthouse.storage (file downloads)
 
-import fetch from 'cross-fetch';
+// Use native fetch when available (Node.js 18+, browsers)
+// Fall back to cross-fetch for older environments
+const fetchFn: typeof globalThis.fetch =
+  typeof globalThis.fetch !== 'undefined'
+    ? globalThis.fetch
+    : // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('cross-fetch').default;
 
 export const LIGHTHOUSE_API = 'https://api.lighthouse.storage';
-export const LIGHTHOUSE_NODE = 'https://node.lighthouse.storage';
+export const LIGHTHOUSE_UPLOAD = 'https://upload.lighthouse.storage';
 export const LIGHTHOUSE_GATEWAY = 'https://gateway.lighthouse.storage';
 
 /**
@@ -17,7 +27,7 @@ export async function uploadBuffer(
   onProgress?: (progress: number) => void
 ): Promise<{ Name: string; Hash: string; Size: string }> {
   const token = 'Bearer ' + apiKey;
-  const endpoint = LIGHTHOUSE_NODE + '/api/v0/add?cid-version=1';
+  const endpoint = LIGHTHOUSE_UPLOAD + '/api/v0/add';
 
   // Ensure we have a proper ArrayBuffer for Blob
   const arrayBuffer =
@@ -29,7 +39,7 @@ export async function uploadBuffer(
   const formData = new FormData();
   formData.set('file', blob, name || 'file');
 
-  const response = await fetch(endpoint, {
+  const response = await fetchFn(endpoint, {
     method: 'POST',
     body: formData,
     headers: {
@@ -59,13 +69,13 @@ export async function uploadText(
   name: string = 'text'
 ): Promise<{ Name: string; Hash: string; Size: string }> {
   const token = 'Bearer ' + apiKey;
-  const endpoint = LIGHTHOUSE_NODE + '/api/v0/add?cid-version=1';
+  const endpoint = LIGHTHOUSE_UPLOAD + '/api/v0/add';
 
   const blob = new Blob([text], { type: 'text/plain' });
   const formData = new FormData();
   formData.append('file', blob, name);
 
-  const response = await fetch(endpoint, {
+  const response = await fetchFn(endpoint, {
     method: 'POST',
     body: formData,
     headers: {
@@ -90,7 +100,7 @@ export async function downloadFromGateway(
 ): Promise<ArrayBuffer> {
   const url = `${gatewayUrl}/ipfs/${cid}`;
 
-  const response = await fetch(url);
+  const response = await fetchFn(url);
 
   if (!response.ok) {
     throw new Error(`Download failed with status ${response.status}`);
@@ -113,7 +123,7 @@ export async function getFileInfo(
   mimeType: string;
   txHash: string;
 }> {
-  const response = await fetch(`${LIGHTHOUSE_API}/api/lighthouse/file_info?cid=${cid}`, {
+  const response = await fetchFn(`${LIGHTHOUSE_API}/api/lighthouse/file_info?cid=${cid}`, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },
@@ -152,7 +162,7 @@ export async function getUploads(
   }>;
   totalFiles: number;
 }> {
-  const response = await fetch(
+  const response = await fetchFn(
     `${LIGHTHOUSE_API}/api/user/files_uploaded?lastKey=${lastKey || ''}`,
     {
       headers: {
@@ -187,7 +197,7 @@ export async function deleteFile(
   apiKey: string,
   fileId: string
 ): Promise<{ message: string }> {
-  const response = await fetch(`${LIGHTHOUSE_API}/api/user/delete_file?id=${fileId}`, {
+  const response = await fetchFn(`${LIGHTHOUSE_API}/api/user/delete_file?id=${fileId}`, {
     method: 'DELETE',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -210,7 +220,7 @@ export async function getBalance(
   dataLimit: number;
   dataUsed: number;
 }> {
-  const response = await fetch(`${LIGHTHOUSE_API}/api/user/user_data_usage`, {
+  const response = await fetchFn(`${LIGHTHOUSE_API}/api/user/user_data_usage`, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
     },

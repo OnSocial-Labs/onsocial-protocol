@@ -63,9 +63,23 @@ jobs:
           (async () => {
             const storage = new StorageClient({ apiKey: process.env.LIGHTHOUSE_API_KEY });
             
-            // Test balance (upload endpoint has connectivity issues)
+            // Test balance
             const balance = await storage.getBalance();
             console.log('Balance:', balance.dataUsed, '/', balance.dataLimit);
-            console.log('✅ StorageClient API key verified');
+            
+            // Test upload
+            const timestamp = Date.now();
+            const result = await storage.uploadText('CI test ' + timestamp, { name: 'ci-test.txt' });
+            console.log('Uploaded:', result.cid);
+            
+            // Test download
+            const downloaded = await storage.downloadText(result.cid);
+            console.log('Downloaded:', downloaded);
+            
+            if (!downloaded.includes(String(timestamp))) {
+              throw new Error('Download content mismatch');
+            }
+            
+            console.log('✅ StorageClient working');
           })();
           "
