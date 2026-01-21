@@ -1,5 +1,3 @@
-//! Protocol types for the OnSocial contract.
-
 pub(crate) mod canonical_json;
 pub(crate) mod operation;
 pub(crate) mod types;

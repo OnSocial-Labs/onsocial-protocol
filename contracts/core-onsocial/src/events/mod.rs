@@ -3,6 +3,6 @@ pub(crate) mod emitter;
 pub(crate) mod fields;
 pub(crate) mod types;
 
-pub use builder::*;
-pub use emitter::*;
-pub(crate) use fields::*;
+pub(crate) use builder::EventBuilder;
+pub(crate) use emitter::EventBatch;
+pub(crate) use fields::{derived_fields_from_path, insert_block_context};

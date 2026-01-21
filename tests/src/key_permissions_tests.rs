@@ -1450,3 +1450,197 @@ async fn test_key_permission_scoped_to_caller_namespace() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+// =============================================================================
+// Event Emission Tests for Key Permissions
+// =============================================================================
+
+/// Tests that grant_key and revoke_key operations emit proper PERMISSION_UPDATE events.
+/// Covers: Event emission in grant_permissions_to_key() and revoke_permissions_for_key()
+#[tokio::test]
+async fn test_key_permission_events_emit_correctly() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer_sk = SecretKey::from_random(KeyType::ED25519);
+    let relayer_pk = relayer_sk.public_key();
+
+    // Pre-deposit storage for Alice
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": "1000000000000000000000000"}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Storage deposit should succeed");
+
+    // Grant key permission and check for grant_key event
+    let grant_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(grant_res.is_success(), "Grant key permission should succeed");
+
+    // Verify PERMISSION_UPDATE grant_key event was emitted
+    let grant_logs: Vec<String> = grant_res.logs().iter().map(|s| s.to_string()).collect();
+    let grant_event = grant_logs
+        .iter()
+        .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"grant_key\""));
+    assert!(
+        grant_event.is_some(),
+        "Should emit PERMISSION_UPDATE grant_key event. Logs: {:?}",
+        grant_logs
+    );
+
+    // Verify event contains expected fields
+    let grant_event_str = grant_event.unwrap();
+    assert!(
+        grant_event_str.contains("\"public_key\""),
+        "grant_key event should contain public_key field"
+    );
+    assert!(
+        grant_event_str.contains("\"level\":\"1\"") || grant_event_str.contains("\"level\":1"),
+        "grant_key event should contain level field"
+    );
+    assert!(
+        grant_event_str.contains("\"path\""),
+        "grant_key event should contain path field"
+    );
+
+    // Revoke key permission (level=0) and check for revoke_key event
+    let revoke_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk.clone(), "path": "profile/", "level": 0, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(revoke_res.is_success(), "Revoke key permission should succeed");
+
+    // Verify PERMISSION_UPDATE revoke_key event was emitted
+    let revoke_logs: Vec<String> = revoke_res.logs().iter().map(|s| s.to_string()).collect();
+    let revoke_event = revoke_logs
+        .iter()
+        .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke_key\""));
+    assert!(
+        revoke_event.is_some(),
+        "Should emit PERMISSION_UPDATE revoke_key event. Logs: {:?}",
+        revoke_logs
+    );
+
+    // Verify revoke event contains expected fields
+    let revoke_event_str = revoke_event.unwrap();
+    assert!(
+        revoke_event_str.contains("\"public_key\""),
+        "revoke_key event should contain public_key field"
+    );
+    assert!(
+        revoke_event_str.contains("\"deleted\""),
+        "revoke_key event should contain deleted field"
+    );
+    // Since we granted first, deleted should be true
+    assert!(
+        revoke_event_str.contains("\"deleted\":true") || revoke_event_str.contains("\"deleted\":\"true\""),
+        "revoke_key event should have deleted=true when entry existed"
+    );
+
+    Ok(())
+}
+
+/// Tests that revoking a non-existent key permission emits event with deleted=false.
+/// Covers: revoke_permissions_for_key() branch when no entry exists
+#[tokio::test]
+async fn test_revoke_nonexistent_key_permission_emits_deleted_false() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer_sk = SecretKey::from_random(KeyType::ED25519);
+    let relayer_pk = relayer_sk.public_key();
+
+    // Pre-deposit storage for Alice
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": "1000000000000000000000000"}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Storage deposit should succeed");
+
+    // Revoke key permission that was NEVER granted (no entry exists)
+    let revoke_res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": relayer_pk.clone(), "path": "profile/", "level": 0, "expires_at": null }
+            }
+        }))
+        .gas(near_workspaces::types::Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(revoke_res.is_success(), "Revoke non-existent key permission should succeed");
+
+    // Verify PERMISSION_UPDATE revoke_key event was emitted with deleted=false
+    let revoke_logs: Vec<String> = revoke_res.logs().iter().map(|s| s.to_string()).collect();
+    let revoke_event = revoke_logs
+        .iter()
+        .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke_key\""));
+    assert!(
+        revoke_event.is_some(),
+        "Should emit PERMISSION_UPDATE revoke_key event even for non-existent permission. Logs: {:?}",
+        revoke_logs
+    );
+
+    // Verify deleted=false since no entry existed to delete
+    let revoke_event_str = revoke_event.unwrap();
+    assert!(
+        revoke_event_str.contains("\"deleted\":false") || revoke_event_str.contains("\"deleted\":\"false\""),
+        "revoke_key event should have deleted=false when no entry existed. Event: {}",
+        revoke_event_str
+    );
+
+    // Verify key permission still doesn't exist (idempotent behavior)
+    let has_perm: bool = contract
+        .view("has_key_permission")
+        .args_json(json!({
+            "owner": alice.id(),
+            "public_key": relayer_pk,
+            "path": "profile/",
+            "required_level": 1
+        }))
+        .await?
+        .json()?;
+    assert!(!has_perm, "Key permission should still not exist after revoking non-existent");
+
+    Ok(())
+}

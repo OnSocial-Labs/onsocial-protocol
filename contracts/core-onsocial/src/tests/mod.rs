@@ -16,10 +16,12 @@ pub mod unit {
     pub mod get_api_test; // Comprehensive get() API tests
     pub mod governance_status_test; // Governance status tests
     pub mod governance_test; // Governance tests
+    pub mod grants_test; // Unit tests for domain/groups/permissions/kv/grants.rs
     pub mod group_sponsor_quota_test;
     pub mod group_test;
     pub mod io_operations_test; // IO operations tests (get_entry, insert_entry, path resolution)
     pub mod members; // Group membership tests
+    pub mod membership_test; // Unit tests for domain/groups/permissions/kv/membership.rs
     pub mod set_permission_signer_test; // Security test: set_permission uses signer not predecessor
     pub mod stats_test; // Group stats counter tests (underflow protection, timestamps)
     pub mod storage_tracker_helpers_test;

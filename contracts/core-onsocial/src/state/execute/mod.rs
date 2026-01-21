@@ -4,4 +4,4 @@ mod actions_set;
 mod auth;
 mod dispatch;
 
-pub use auth::ExecuteContext;
+pub(crate) use auth::ExecuteContext;

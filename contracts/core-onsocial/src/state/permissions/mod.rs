@@ -1,4 +1,4 @@
 mod api_handlers;
 mod set;
 
-pub use set::{SetKeyPermission, SetPermission};
+pub(crate) use set::{SetKeyPermission, SetPermission};

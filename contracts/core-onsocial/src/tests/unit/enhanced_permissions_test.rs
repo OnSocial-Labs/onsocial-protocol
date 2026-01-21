@@ -203,4 +203,144 @@ mod test_enhanced_permissions {
         let _ =
             build_group_permission_key("test-group", "grantee.near", "groups/test-group/data", 0);
     }
+
+    // =========================================================================
+    // Unit tests for build_permission_key
+    // =========================================================================
+
+    mod build_permission_key_tests {
+        use crate::domain::groups::permissions::kv::keys::build_permission_key;
+
+        #[test]
+        fn test_path_with_slash_prefix_matches_strips_prefix() {
+            // Path contains '/' and starts with owner_or_group_id → strip prefix
+            let key =
+                build_permission_key("alice.near", "bob.near", "alice.near/documents/file.txt");
+            assert_eq!(key, "alice.near/permissions/bob.near/documents/file.txt");
+        }
+
+        #[test]
+        fn test_path_with_slash_prefix_mismatch_uses_original_path() {
+            // Path contains '/' but does NOT start with owner_or_group_id → use original path
+            let key =
+                build_permission_key("alice.near", "bob.near", "other.near/documents/file.txt");
+            assert_eq!(
+                key,
+                "alice.near/permissions/bob.near/other.near/documents/file.txt"
+            );
+        }
+
+        #[test]
+        fn test_path_without_slash_no_subpath() {
+            // Path does NOT contain '/' → key without subpath component
+            let key = build_permission_key("alice.near", "bob.near", "profile");
+            assert_eq!(key, "alice.near/permissions/bob.near");
+        }
+
+        #[test]
+        fn test_path_with_trailing_slash_only() {
+            // Path is just "{owner}/" → strip prefix results in empty, but still has slash
+            let key = build_permission_key("alice.near", "bob.near", "alice.near/");
+            assert_eq!(key, "alice.near/permissions/bob.near/");
+        }
+
+        #[test]
+        fn test_path_with_deep_nesting() {
+            // Deep nested path with matching prefix
+            let key = build_permission_key("alice.near", "bob.near", "alice.near/a/b/c/d/e");
+            assert_eq!(key, "alice.near/permissions/bob.near/a/b/c/d/e");
+        }
+
+        #[test]
+        fn test_empty_owner_id() {
+            // Edge case: empty owner_or_group_id
+            let key = build_permission_key("", "bob.near", "documents/file.txt");
+            assert_eq!(key, "/permissions/bob.near/documents/file.txt");
+        }
+    }
+
+    // =========================================================================
+    // Unit tests for build_group_permission_key
+    // =========================================================================
+
+    mod build_group_permission_key_tests {
+        use crate::domain::groups::permissions::kv::keys::build_group_permission_key;
+
+        #[test]
+        fn test_path_contains_groups_prefix_extracts_subpath() {
+            // Path contains "groups/{id}/" → extract subpath
+            let key = build_group_permission_key(
+                "mygroup",
+                "bob.near",
+                "groups/mygroup/private/data",
+                42,
+            );
+            assert_eq!(key, "groups/mygroup/permissions/bob.near/n42/private/data");
+        }
+
+        #[test]
+        fn test_path_with_owner_prefix_extracts_subpath() {
+            // Path like "alice.near/groups/{id}/..." → extract subpath after needle
+            let key = build_group_permission_key(
+                "mygroup",
+                "bob.near",
+                "alice.near/groups/mygroup/docs/file.txt",
+                7,
+            );
+            assert_eq!(key, "groups/mygroup/permissions/bob.near/n7/docs/file.txt");
+        }
+
+        #[test]
+        fn test_path_without_groups_prefix_empty_subpath() {
+            // Path does NOT contain "groups/{id}/" → empty subpath
+            let key = build_group_permission_key("mygroup", "bob.near", "some/other/path", 10);
+            assert_eq!(key, "groups/mygroup/permissions/bob.near/n10");
+        }
+
+        #[test]
+        fn test_path_exactly_groups_prefix_empty_subpath() {
+            // Path is exactly "groups/{id}/" → subpath is empty
+            let key = build_group_permission_key("mygroup", "bob.near", "groups/mygroup/", 5);
+            assert_eq!(key, "groups/mygroup/permissions/bob.near/n5");
+        }
+
+        #[test]
+        fn test_path_groups_prefix_no_trailing_content() {
+            // Path is "groups/{id}" without trailing slash → needle not found, empty subpath
+            let key = build_group_permission_key("mygroup", "bob.near", "groups/mygroup", 3);
+            assert_eq!(key, "groups/mygroup/permissions/bob.near/n3");
+        }
+
+        #[test]
+        fn test_deep_nested_subpath() {
+            // Deep nested subpath after groups prefix
+            let key = build_group_permission_key("g1", "bob.near", "groups/g1/a/b/c/d/e", 99);
+            assert_eq!(key, "groups/g1/permissions/bob.near/n99/a/b/c/d/e");
+        }
+
+        #[test]
+        fn test_nonce_value_1() {
+            // Minimum valid nonce = 1
+            let key = build_group_permission_key("grp", "bob.near", "groups/grp/data", 1);
+            assert_eq!(key, "groups/grp/permissions/bob.near/n1/data");
+        }
+
+        #[test]
+        fn test_nonce_large_value() {
+            // Large nonce value
+            let key = build_group_permission_key("grp", "bob.near", "groups/grp/x", u64::MAX);
+            assert_eq!(
+                key,
+                format!("groups/grp/permissions/bob.near/n{}/x", u64::MAX)
+            );
+        }
+
+        #[test]
+        fn test_mismatched_group_id_in_path() {
+            // Path contains different group id → needle not found, empty subpath
+            let key =
+                build_group_permission_key("mygroup", "bob.near", "groups/othergroup/data", 2);
+            assert_eq!(key, "groups/mygroup/permissions/bob.near/n2");
+        }
+    }
 }

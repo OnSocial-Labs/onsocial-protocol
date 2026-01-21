@@ -4,4 +4,4 @@ mod tally;
 mod types;
 mod validation;
 
-pub use types::{ProposalType, VoteTally};
+pub(crate) use types::{ProposalType, VoteTally};
