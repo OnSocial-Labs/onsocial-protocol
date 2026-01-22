@@ -58,28 +58,25 @@ jobs:
           "
 
       - name: Test Storage client
-        env:
-          LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
         run: |
           npx tsx -e "
           import { StorageClient } from '@onsocial/client';
           (async () => {
-            const storage = new StorageClient({ apiKey: process.env.LIGHTHOUSE_API_KEY });
+            const storage = new StorageClient();
             
-            // Test balance
-            const balance = await storage.getBalance();
-            console.log('Balance:', balance.used, '/', balance.limit);
-            
-            // Test upload
+            // Test upload JSON via backend
             const timestamp = Date.now();
-            const result = await storage.uploadText('CI test ' + timestamp, 'ci-test.txt');
+            const result = await storage.uploadJSON({ test: 'CI test', timestamp });
             console.log('Uploaded:', result.cid);
             
+            // Wait for propagation
+            await new Promise(r => setTimeout(r, 2000));
+            
             // Test download
-            const downloaded = await storage.downloadText(result.cid);
+            const downloaded = await storage.downloadJSON(result.cid);
             console.log('Downloaded:', downloaded);
             
-            if (!downloaded.includes(String(timestamp))) {
+            if (downloaded.timestamp !== timestamp) {
               throw new Error('Download content mismatch');
             }
             

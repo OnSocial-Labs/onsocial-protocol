@@ -1,49 +1,40 @@
 import { StorageClient } from '../src/index.js';
 
-// Load API key from environment
-const apiKey = process.env.LIGHTHOUSE_API_KEY;
+console.log('Testing StorageClient via onsocial-backend...\n');
 
-if (!apiKey) {
-  console.error('❌ LIGHTHOUSE_API_KEY not set in environment');
-  console.log('   Set it in .env or export LIGHTHOUSE_API_KEY=xxx');
-  process.exit(1);
-}
-
-console.log('Testing StorageClient against Lighthouse...\n');
-
-const storage = new StorageClient({ apiKey });
+const storage = new StorageClient();
 
 async function test() {
   try {
-    // Test 1: Check balance
-    console.log('1. Checking storage balance...');
-    const balance = await storage.getBalance();
-    console.log(`   ✅ Balance: ${balance.used} / ${balance.limit} bytes used`);
-
-    // Test 2: Upload text
-    console.log('\n2. Uploading test text...');
-    const testData = JSON.stringify({
-      test: true,
-      timestamp: Date.now(),
-      message: 'Hello from OnSocial SDK!',
-    });
-    const uploadResult = await storage.uploadJSON({ test: true, timestamp: Date.now() });
+    // Test 1: Upload JSON
+    console.log('1. Uploading test JSON...');
+    const testData = { test: true, timestamp: Date.now(), message: 'Hello from OnSocial SDK!' };
+    const uploadResult = await storage.uploadJSON(testData);
     console.log(`   ✅ Uploaded! CID: ${uploadResult.cid}`);
     console.log(`   URL: ${storage.getUrl(uploadResult.cid)}`);
 
-    // Test 3: Download it back
+    // Wait for IPFS propagation
+    console.log('\n2. Waiting for IPFS propagation...');
+    await new Promise(r => setTimeout(r, 2000));
+    console.log('   ✅ Done');
+
+    // Test 2: Download it back
     console.log('\n3. Downloading content back...');
-    const downloaded = await storage.downloadJSON(uploadResult.cid);
+    const downloaded = await storage.downloadJSON<typeof testData>(uploadResult.cid);
     console.log(`   ✅ Downloaded:`, downloaded);
 
-    // Test 4: Get file info
-    console.log('\n4. Getting file info...');
-    const info = await storage.getFileInfo(uploadResult.cid);
-    console.log(`   ✅ File info:`, info);
+    // Test 3: Verify content
+    console.log('\n4. Verifying content...');
+    if (downloaded.timestamp === testData.timestamp) {
+      console.log('   ✅ Content matches!');
+    } else {
+      throw new Error('Content mismatch');
+    }
 
-    console.log('\n✅ StorageClient is working with Lighthouse!');
+    console.log('\n✅ StorageClient is working via onsocial-backend!');
   } catch (err) {
     console.error('\n❌ Error:', err);
+    process.exit(1);
   }
 }
 
