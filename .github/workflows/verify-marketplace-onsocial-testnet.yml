@@ -1,4 +1,4 @@
-name: Marketplace Testnet
+name: Marketplace Testnet Deploy
 
 on:
   push:

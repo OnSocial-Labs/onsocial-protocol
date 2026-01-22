@@ -1,4 +1,4 @@
-name: Marketplace OnSocial
+name: Marketplace CI
 
 on:
   push:

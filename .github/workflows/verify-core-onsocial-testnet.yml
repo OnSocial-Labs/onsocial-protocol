@@ -1,4 +1,4 @@
-name: Core OnSocial Testnet
+name: Core Testnet Deploy
 
 on:
   push:

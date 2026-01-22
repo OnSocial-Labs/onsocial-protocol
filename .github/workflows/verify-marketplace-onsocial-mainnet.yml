@@ -1,4 +1,4 @@
-name: Marketplace Mainnet
+name: Marketplace Mainnet Deploy
 
 on:
   push:

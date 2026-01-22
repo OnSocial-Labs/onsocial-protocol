@@ -1,4 +1,4 @@
-name: Core OnSocial
+name: Core OnSocial CI
 
 on:
   push:
