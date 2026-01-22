@@ -75,7 +75,6 @@ impl ProposalType {
             "permission_changed",
             proposer.clone(),
         )
-        .with_field("group_id", group_id)
         .with_field("proposal_id", proposal_id)
         .with_target(target_user)
         .with_field("level", level)
@@ -93,7 +92,6 @@ impl ProposalType {
         proposal_id: &str,
         data: PathPermissionGrantData,
     ) -> Result<(), SocialError> {
-        // Granter must be group owner for KV permission keys
         let config = GroupStorage::get_group_config(ctx.platform, ctx.group_id)
             .ok_or_else(|| invalid_input!("Group not found"))?;
         let group_owner: AccountId = GroupConfig::try_from_value(&config)?.owner;
@@ -119,7 +117,6 @@ impl ProposalType {
             "path_permission_granted",
             ctx.proposer.clone(),
         )
-        .with_field("group_id", ctx.group_id)
         .with_field("proposal_id", proposal_id)
         .with_target(data.target_user)
         .with_path(data.path)
@@ -140,7 +137,6 @@ impl ProposalType {
         reason: &str,
         proposer: &AccountId,
     ) -> Result<(), SocialError> {
-        // Revoker must be group owner for KV permission keys
         let config = GroupStorage::get_group_config(platform, group_id)
             .ok_or_else(|| invalid_input!("Group not found"))?;
         let group_owner: AccountId = GroupConfig::try_from_value(&config)?.owner;
@@ -160,7 +156,6 @@ impl ProposalType {
             "path_permission_revoked",
             proposer.clone(),
         )
-        .with_field("group_id", group_id)
         .with_field("proposal_id", proposal_id)
         .with_target(target_user)
         .with_path(path)

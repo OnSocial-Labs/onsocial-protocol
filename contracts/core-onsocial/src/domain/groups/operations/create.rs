@@ -121,7 +121,6 @@ impl crate::domain::groups::core::GroupStorage {
             "create_group",
             owner.clone(),
         )
-        .with_field("group_id", group_id)
         .with_path(&config_path)
         .with_value(config)
         .emit(&mut event_batch);
@@ -157,7 +156,6 @@ impl crate::domain::groups::core::GroupStorage {
             "stats_updated",
             owner.clone(),
         )
-        .with_field("group_id", group_id)
         .with_path(&stats_path)
         .with_value(initial_stats)
         .emit(&mut event_batch);

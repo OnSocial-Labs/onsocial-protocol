@@ -57,7 +57,6 @@ impl crate::domain::groups::core::GroupStorage {
             caller_id.clone(),
         )
         .with_path(&config_path)
-        .with_field("group_id", group_id)
         .with_field("is_private", is_private)
         .with_field("changed_at", env::block_timestamp().to_string())
         .emit(&mut event_batch);

@@ -1,5 +1,15 @@
+# =============================================================================
+# OnSocial Core Contract Subgraph Schema
+# Complete mapping for all NEP-297 events emitted by core-onsocial contract
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# IMMUTABLE EVENT ENTITIES - One record per event emission
+# -----------------------------------------------------------------------------
+
 """
-Data updates (profiles, posts, settings, etc.)
+Data updates (profiles, posts, settings, group content, etc.)
+Operations: set, remove
 """
 type DataUpdate @entity(immutable: true) {
   id: ID!
@@ -7,23 +17,42 @@ type DataUpdate @entity(immutable: true) {
   blockTimestamp: BigInt! @index
   receiptId: String! @index
 
-  operation: String! @index
+  # Core event fields
+  operation: String! @index        # "set" | "remove"
   author: String! @index
   partitionId: Int @index
 
+  # Data location
   path: String! @index
-  value: String
+  value: String                    # JSON string of the value (null for removes)
 
-  # Derived from path
-  accountId: String! @index
-  dataType: String @index
-  dataId: String
+  # Derived from path for querying
+  accountId: String! @index        # First segment of path
+  dataType: String @index          # Second segment (profile, post, settings, etc.)
+  dataId: String                   # Third segment if present
 
+  # Group content fields (when path contains groups/)
+  groupId: String @index
+  groupPath: String                # Path within group (content/..., etc.)
+  isGroupContent: Boolean!
+
+  # Derived fields from contract
+  derivedId: String                # ID derived from path by contract
+  derivedType: String              # Type derived from path by contract
+
+  # Batch writes (for multi-key updates)
+  writes: String                   # JSON array of {path, value} objects
+
+  # Relations
   account: Account!
+  group: Group
 }
 
 """
-Storage updates (deposits, withdrawals, charges)
+Storage updates (deposits, withdrawals, pool operations, sponsorship)
+Operations: storage_deposit, storage_withdraw, pool_deposit, platform_pool_deposit,
+            group_sponsor_spend, platform_sponsor, refund_unused_deposit, auto_deposit,
+            shared_pool_deposit, return_shared_storage, attached_deposit
 """
 type StorageUpdate @entity(immutable: true) {
   id: ID!
@@ -31,19 +60,61 @@ type StorageUpdate @entity(immutable: true) {
   blockTimestamp: BigInt! @index
   receiptId: String! @index
 
+  # Core event fields
   operation: String! @index
   author: String! @index
   partitionId: Int @index
 
+  # Amount fields (all as strings to handle large numbers)
   amount: BigInt
   previousBalance: BigInt
   newBalance: BigInt
 
+  # Pool-specific fields
+  poolId: String @index            # For shared/group pool operations
+  poolKey: String                  # Group pool key (group-{id}.pool)
+  previousPoolBalance: BigInt
+  newPoolBalance: BigInt
+
+  # Group sponsor fields
+  groupId: String @index
+  bytes: BigInt                    # Storage bytes consumed
+  remainingAllowance: BigInt
+
+  # Platform sponsor fields
+  poolAccount: String
+
+  # Refund/auto-deposit metadata
+  reason: String
+  authType: String
+  actorId: String
+  payerId: String
+  targetId: String
+
+  # Withdrawal specific
+  availableBalance: BigInt
+
+  # Donor for platform deposits
+  donor: String
+
+  # Payer for group sponsor spend
+  payer: String
+
+  # Shared storage fields
+  maxBytes: BigInt
+  newSharedBytes: BigInt
+  newUsedBytes: BigInt
+  poolAvailableBytes: BigInt
+  usedBytes: BigInt
+
+  # Relations
   account: Account!
+  storagePool: StoragePool
 }
 
 """
-Group updates (membership, governance)
+Group updates (membership, governance, proposals, voting, content, permissions)
+30+ operations covering all group functionality
 """
 type GroupUpdate @entity(immutable: true) {
   id: ID!
@@ -51,19 +122,136 @@ type GroupUpdate @entity(immutable: true) {
   blockTimestamp: BigInt! @index
   receiptId: String! @index
 
+  # Core event fields
   operation: String! @index
   author: String! @index
   partitionId: Int @index
 
+  # Group identification
   groupId: String @index
-  memberId: String @index
-  role: String
 
+  # Member fields
+  memberId: String @index          # target_id from contract
+  memberNonce: BigInt
+  memberNoncePath: String
+  role: String
+  level: Int                       # Permission level
+
+  # Path and value (for content/config operations)
+  path: String
+  value: String                    # JSON string
+
+  # Pool fields
+  poolKey: String
+  amount: BigInt
+  previousPoolBalance: BigInt
+  newPoolBalance: BigInt
+
+  # Sponsor quota fields
+  quotaBytes: BigInt
+  quotaUsed: BigInt
+  dailyLimit: BigInt
+  previouslyEnabled: Boolean
+
+  # Proposal fields
+  proposalId: String @index
+  proposalType: String
+  status: String @index
+  sequenceNumber: BigInt
+  description: String
+  autoVote: Boolean
+  createdAt: BigInt
+  lockedMemberCount: Int
+  lockedDeposit: BigInt
+  expiresAt: BigInt
+  tallyPath: String
+  counterPath: String
+
+  # Voting fields
+  voter: String
+  approve: Boolean
+  totalVotes: Int
+  yesVotes: Int
+  noVotes: Int
+  shouldExecute: Boolean
+  shouldReject: Boolean
+  votedAt: BigInt
+
+  # Voting config fields
+  votingPeriod: BigInt
+  participationQuorum: Int
+  majorityThreshold: Int
+  effectiveVotingPeriod: BigInt
+  effectiveParticipationQuorum: Int
+  effectiveMajorityThreshold: Int
+
+  # Ownership transfer
+  previousOwner: String
+  newOwner: String
+  transferredAt: BigInt
+  triggeredBy: String
+
+  # Join request fields
+  requestData: String              # JSON of join request
+
+  # Permission change fields (governance)
+  permissionPath: String
+  permissionLevel: Int
+  via: String                      # "direct_api" | "governance"
+
+  # Privacy fields
+  isPrivate: Boolean
+  changedAt: BigInt
+
+  # Blacklist fields
+  blacklistData: String            # JSON of blacklist entry
+
+  # Structured data (for complex nested data)
+  structuredData: String           # JSON blob for additional fields
+
+  # Custom proposal
+  customData: String               # JSON for custom proposal data
+
+  # Governance context
+  fromGovernance: Boolean
+  proposalTarget: String           # target field in proposal
+
+  # Sponsor config fields
+  sponsorEnabled: Boolean
+  dailyRefillBytes: BigInt
+  allowanceMaxBytes: BigInt
+
+  # Group update fields
+  updateType: String
+  changes: String                  # JSON of changes
+  message: String
+
+  # Participation/approval bps
+  participationBps: Int
+  approvalBps: Int
+
+  # Final status fields
+  finalTotalVotes: Int
+  finalYesVotes: Int
+  finalNoVotes: Int
+  unlockedDeposit: BigInt
+  updatedAt: BigInt
+  executedAt: BigInt
+
+  # Batch writes
+  writes: String                   # JSON array of {path, value}
+
+  # Default permissions granted on member add
+  defaultPermissions: String       # JSON array
+
+  # Relations
   group: Group
+  proposal: Proposal
 }
 
 """
-Contract updates (admin, status changes)
+Contract-level updates (admin, configuration, nonce tracking)
+Operations: set, signed_payload_nonce_recorded, config_update, admin_add, admin_remove, status_change
 """
 type ContractUpdate @entity(immutable: true) {
   id: ID!
@@ -71,17 +259,46 @@ type ContractUpdate @entity(immutable: true) {
   blockTimestamp: BigInt! @index
   receiptId: String! @index
 
+  # Core event fields
   operation: String! @index
   author: String! @index
   partitionId: Int @index
 
+  # Generic field/value (for config changes)
   field: String
   oldValue: String
   newValue: String
+
+  # Path-based operations
+  path: String
+  targetId: String
+
+  # Auth context
+  authType: String
+  actorId: String
+  payerId: String
+
+  # Nonce tracking
+  publicKey: String
+  nonce: BigInt
+
+  # Config update
+  newConfig: String                # JSON of new config
+  oldConfig: String                # JSON of old config
+
+  # Manager changes
+  oldManager: String
+  newManager: String
+  executor: String
+
+  # Status change
+  previousStatus: String
+  newStatus: String
 }
 
 """
-Permission updates (grants, revokes)
+Permission updates (grants, revokes for accounts and keys)
+Operations: grant, revoke, grant_key, revoke_key, set_permission
 """
 type PermissionUpdate @entity(immutable: true) {
   id: ID!
@@ -89,45 +306,233 @@ type PermissionUpdate @entity(immutable: true) {
   blockTimestamp: BigInt! @index
   receiptId: String! @index
 
+  # Core event fields
   operation: String! @index
   author: String! @index
   partitionId: Int @index
 
-  grantee: String @index
+  # Permission target
+  grantee: String @index           # target_id - account receiving permission
+  publicKey: String @index         # For key-based permissions
+
+  # Permission scope
   path: String @index
-  permission: String
+  level: Int                       # Permission level (0=none, 1=read, 2=write, etc.)
+  permission: String               # String representation of level
+
+  # Expiration
+  expiresAt: BigInt
+
+  # Group context
+  groupId: String @index
+  permissionNonce: BigInt          # Scoped to group membership
+
+  # Revocation info
+  deleted: Boolean
 }
 
+# -----------------------------------------------------------------------------
+# MUTABLE AGGREGATE ENTITIES - Track running state
+# -----------------------------------------------------------------------------
+
 """
-Account aggregate (mutable - tracks running balances and counts)
+Account aggregate - tracks user balances and activity counts
 """
 type Account @entity(immutable: false) {
   id: ID!
 
+  # Storage balance (from direct deposits)
   storageBalance: BigInt!
 
-  dataUpdates: [DataUpdate!]! @derivedFrom(field: "account")
-  storageUpdates: [StorageUpdate!]! @derivedFrom(field: "account")
-
+  # Activity tracking
   firstSeenAt: BigInt!
   lastActiveAt: BigInt! @index
 
+  # Counts
   dataUpdateCount: Int!
   storageUpdateCount: Int!
+  permissionUpdateCount: Int!
+
+  # Derived relations
+  dataUpdates: [DataUpdate!]! @derivedFrom(field: "account")
+  storageUpdates: [StorageUpdate!]! @derivedFrom(field: "account")
 }
 
 """
-Group aggregate (mutable - tracks group stats)
+Group aggregate - tracks group state and membership
 """
 type Group @entity(immutable: false) {
   id: ID!
 
+  # Ownership
   owner: String @index
+  previousOwners: [String!]
+
+  # Timestamps
   createdAt: BigInt!
   lastActivityAt: BigInt! @index
 
+  # Counts
   memberCount: Int!
   updateCount: Int!
+  proposalCount: Int!
+  activeProposalCount: Int!
+  pendingJoinRequestCount: Int!
 
+  # Privacy
+  isPrivate: Boolean!
+
+  # Storage pool
+  poolBalance: BigInt!
+
+  # Voting configuration (from voting_config_changed)
+  votingPeriod: BigInt
+  participationQuorumBps: Int
+  majorityThresholdBps: Int
+  votingConfigUpdatedAt: BigInt
+
+  # Derived relations
   updates: [GroupUpdate!]! @derivedFrom(field: "group")
+  proposals: [Proposal!]! @derivedFrom(field: "group")
+  dataUpdates: [DataUpdate!]! @derivedFrom(field: "group")
+}
+
+"""
+Storage pool aggregate - tracks shared/group pool balances
+"""
+type StoragePool @entity(immutable: false) {
+  id: ID!                          # Pool key or account ID
+
+  poolType: String!                # "user" | "shared" | "group" | "platform"
+  balance: BigInt!
+
+  # For group pools
+  groupId: String @index
+
+  # Shared pool tracking
+  sharedBytes: BigInt
+  usedBytes: BigInt
+
+  # Timestamps
+  createdAt: BigInt!
+  lastUpdatedAt: BigInt! @index
+
+  # Derived relations
+  updates: [StorageUpdate!]! @derivedFrom(field: "storagePool")
+}
+
+"""
+Shared storage allocation - tracks individual allocations from shared pools
+"""
+type SharedStorageAllocation @entity(immutable: false) {
+  id: ID!                          # {poolId}-{targetId}
+
+  poolId: String! @index
+  targetId: String! @index
+  
+  maxBytes: BigInt!
+  usedBytes: BigInt!
+  
+  isActive: Boolean!
+  allocatedAt: BigInt!
+  returnedAt: BigInt
+}
+
+"""
+Proposal aggregate - tracks governance proposal state
+"""
+type Proposal @entity(immutable: false) {
+  id: ID!                          # {groupId}-{proposalId}
+
+  groupId: String! @index
+  proposalId: String! @index
+  sequenceNumber: BigInt
+
+  # Proposal details
+  proposalType: String!
+  description: String
+  proposer: String! @index
+
+  # Status
+  status: String! @index           # "active" | "executed" | "rejected" | "expired"
+
+  # Voting
+  yesVotes: Int!
+  noVotes: Int!
+  totalVotes: Int!
+  lockedMemberCount: Int!
+
+  # Config at creation time
+  votingPeriod: BigInt
+  participationQuorum: Int
+  majorityThreshold: Int
+
+  # Financials
+  lockedDeposit: BigInt
+
+  # Timestamps
+  createdAt: BigInt!
+  expiresAt: BigInt
+  executedAt: BigInt
+  updatedAt: BigInt! @index
+
+  # Custom data
+  customData: String               # JSON for custom proposals
+
+  # Relations
+  group: Group!
+  updates: [GroupUpdate!]! @derivedFrom(field: "proposal")
+}
+
+"""
+Active permission - tracks current permission grants
+"""
+type Permission @entity(immutable: false) {
+  id: ID!                          # {granter}-{grantee}-{path} or key-based variant
+
+  granter: String! @index
+  grantee: String @index           # Account ID or null for key-based
+  publicKey: String @index         # For key-based permissions
+
+  path: String! @index
+  level: Int!
+  
+  # Group context
+  groupId: String @index
+  permissionNonce: BigInt
+
+  # Expiration
+  expiresAt: BigInt
+  isExpired: Boolean!
+
+  # Timestamps
+  grantedAt: BigInt!
+  revokedAt: BigInt
+  isActive: Boolean!
+}
+
+"""
+Group member - tracks membership state
+"""
+type GroupMember @entity(immutable: false) {
+  id: ID!                          # {groupId}-{memberId}
+
+  groupId: String! @index
+  memberId: String! @index
+
+  # Membership details
+  level: Int!                      # Permission level
+  nonce: BigInt!                   # Membership nonce for permission scoping
+
+  # Status
+  isActive: Boolean!
+  isBlacklisted: Boolean!
+
+  # Timestamps
+  joinedAt: BigInt!
+  leftAt: BigInt
+  lastActiveAt: BigInt! @index
+
+  # Relations
+  group: Group!
 }

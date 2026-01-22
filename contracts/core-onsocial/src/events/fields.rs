@@ -1,6 +1,6 @@
-use near_sdk::serde_json::{Map, Number, Value};
+use near_sdk::serde_json::{Map, Value};
 
-/// Extracts indexer-friendly fields (`id`, `type`, `group_id`, `group_path`, `is_group_content`) from a storage path.
+/// Extracts indexer fields from a storage path. Block context is injected separately by `emit()`.
 pub fn derived_fields_from_path(path: &str) -> Map<String, Value> {
     let mut out = Map::new();
 
@@ -10,7 +10,7 @@ pub fn derived_fields_from_path(path: &str) -> Map<String, Value> {
         out.insert("id".into(), Value::String((*id).to_string()));
     }
 
-    // Type index varies: parts[1] for `{account}/{type}`, parts[2] for `groups/{id}/{type}`, parts[3] for `{account}/groups/{id}/{type}`.
+    // Type position: parts[1] for `{account}/{type}`, parts[2] for `groups/{id}/{type}`, parts[3] for `{account}/groups/{id}/{type}`.
     let ty = if parts.first().copied() == Some("groups") {
         parts.get(2).copied()
     } else if parts.get(1).copied() == Some("groups") {
@@ -22,7 +22,7 @@ pub fn derived_fields_from_path(path: &str) -> Map<String, Value> {
     .unwrap_or("data");
     out.insert("type".into(), Value::String(ty.to_string()));
 
-    // Direct group path: groups/{group_id}/...
+    // Group paths: `groups/{gid}/...` or `{account}/groups/{gid}/...`
     if parts.len() >= 2 && parts[0] == "groups" {
         out.insert("group_id".into(), Value::String(parts[1].to_string()));
         if parts.len() > 2 {
@@ -38,15 +38,4 @@ pub fn derived_fields_from_path(path: &str) -> Map<String, Value> {
     }
 
     out
-}
-
-pub fn insert_block_context(fields: &mut Map<String, Value>) {
-    fields.insert(
-        "block_height".into(),
-        Value::Number(Number::from(near_sdk::env::block_height())),
-    );
-    fields.insert(
-        "block_timestamp".into(),
-        Value::Number(Number::from(near_sdk::env::block_timestamp())),
-    );
 }

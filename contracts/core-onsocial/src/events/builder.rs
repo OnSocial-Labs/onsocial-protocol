@@ -41,6 +41,10 @@ impl EventBuilder {
 
     pub fn with_path(mut self, path: &str) -> Self {
         self.additional_fields.insert("path".into(), path.into());
+        let derived = crate::events::derived_fields_from_path(path);
+        for (key, value) in derived {
+            self.additional_fields.entry(key).or_insert(value);
+        }
         self
     }
 
@@ -49,7 +53,7 @@ impl EventBuilder {
         self
     }
 
-    /// Flattens JSON object fields into the event. Existing fields take precedence.
+    /// Flattens object fields into the event. Existing builder fields take precedence (anti-spoofing).
     pub fn with_structured_data(mut self, data: Value) -> Self {
         let map = match data {
             Value::Object(map) => map,
@@ -60,7 +64,6 @@ impl EventBuilder {
                 return self;
             }
         };
-        // Builder fields take precedence to prevent user-controlled data from spoofing core fields.
         for (key, value) in map {
             self.additional_fields.entry(key).or_insert(value);
         }
@@ -119,6 +122,13 @@ impl EventBuilder {
         } = self;
 
         Self::merge_writes_field(&mut additional_fields, writes);
+
+        additional_fields
+            .entry("block_height".to_string())
+            .or_insert_with(|| Value::Number(near_sdk::env::block_height().into()));
+        additional_fields
+            .entry("block_timestamp".to_string())
+            .or_insert_with(|| Value::Number(near_sdk::env::block_timestamp().into()));
 
         event_batch.add(
             event_type,

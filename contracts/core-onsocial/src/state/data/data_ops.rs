@@ -74,34 +74,24 @@ impl SocialPlatform {
             };
 
             if deleted {
-                let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
-                crate::events::insert_block_context(&mut extra);
-                let mut builder = crate::events::EventBuilder::new(
+                crate::events::EventBuilder::new(
                     crate::constants::EVENT_TYPE_DATA_UPDATE,
                     "remove",
                     data_ctx.account_id.clone(),
                 )
                 .with_path(data_ctx.full_path)
-                .with_value(data_ctx.value.clone());
-                for (k, v) in extra {
-                    builder = builder.with_field(k, v);
-                }
-                builder.emit(ctx.event_batch);
+                .with_value(data_ctx.value.clone())
+                .emit(ctx.event_batch);
             }
         } else {
-            let mut extra = crate::events::derived_fields_from_path(data_ctx.full_path);
-            crate::events::insert_block_context(&mut extra);
-            let mut builder = crate::events::EventBuilder::new(
+            crate::events::EventBuilder::new(
                 crate::constants::EVENT_TYPE_DATA_UPDATE,
                 "set",
                 data_ctx.account_id.clone(),
             )
             .with_path(data_ctx.full_path)
-            .with_value(data_ctx.value.clone());
-            for (k, v) in extra {
-                builder = builder.with_field(k, v);
-            }
-            builder.emit(ctx.event_batch);
+            .with_value(data_ctx.value.clone())
+            .emit(ctx.event_batch);
 
             let sponsor_outcome = self
                 .insert_entry_with_fallback(

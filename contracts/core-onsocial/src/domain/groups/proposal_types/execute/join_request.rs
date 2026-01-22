@@ -46,7 +46,6 @@ impl ProposalType {
             "join_request_approved",
             proposer.clone(),
         )
-        .with_field("group_id", group_id)
         .with_field("proposal_id", proposal_id)
         .with_target(requester)
         .with_path(&format!("groups/{}/members/{}", group_id, requester))

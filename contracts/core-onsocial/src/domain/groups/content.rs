@@ -47,7 +47,6 @@ impl GroupContentManager {
             return Err(crate::permission_denied!("write", normalized_path));
         }
 
-        // Storage under author's namespace prevents cross-user data collision.
         let user_storage_path = format!("{}/groups/{}/{}", author, group_id, content_path);
 
         if content.is_null() {
@@ -56,22 +55,16 @@ impl GroupContentManager {
                     crate::storage::soft_delete_entry(platform, &user_storage_path, entry)?;
 
                 if deleted {
-                    let mut extra = crate::events::derived_fields_from_path(&user_storage_path);
-                    crate::events::insert_block_context(&mut extra);
-                    let mut builder = EventBuilder::new(
+                    EventBuilder::new(
                         crate::constants::EVENT_TYPE_GROUP_UPDATE,
                         "delete",
                         author.clone(),
                     )
                     .with_path(&user_storage_path)
-                    .with_value(Value::Null);
-                    for (k, v) in extra {
-                        builder = builder.with_field(k, v);
-                    }
-                    builder.emit(event_batch);
+                    .with_value(Value::Null)
+                    .emit(event_batch);
                 }
             }
-            // Idempotent: missing entry is not an error.
             return Ok(user_storage_path);
         }
 
@@ -91,7 +84,6 @@ impl GroupContentManager {
             block_height: near_sdk::env::block_height(),
         };
 
-        // Uses standard storage pipeline for consistent pool/deposit accounting.
         let sponsor_outcome = platform
             .insert_entry_with_fallback(&user_storage_path, data_entry, attached_balance)?
             .1;
@@ -121,19 +113,14 @@ impl GroupContentManager {
         }
 
         let operation = if is_update { "update" } else { "create" };
-        let mut extra = crate::events::derived_fields_from_path(&user_storage_path);
-        crate::events::insert_block_context(&mut extra);
-        let mut builder = EventBuilder::new(
+        EventBuilder::new(
             crate::constants::EVENT_TYPE_GROUP_UPDATE,
             operation,
             author.clone(),
         )
         .with_path(&user_storage_path)
-        .with_value(content.clone());
-        for (k, v) in extra {
-            builder = builder.with_field(k, v);
-        }
-        builder.emit(event_batch);
+        .with_value(content.clone())
+        .emit(event_batch);
 
         Ok(user_storage_path)
     }

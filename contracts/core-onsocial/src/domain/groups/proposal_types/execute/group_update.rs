@@ -121,7 +121,6 @@ impl ProposalType {
                         .ok_or_else(|| invalid_input!("Group config not found"))?;
                     let old_owner = GroupConfig::try_from_value(&transfer_config)?.owner;
 
-                    // Saves config internally; from_governance=true bypasses member-driven restriction
                     GroupStorage::transfer_ownership_internal(
                         platform,
                         group_id,
@@ -162,7 +161,6 @@ impl ProposalType {
 
         let mut event_batch = EventBatch::new();
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "group_updated", proposer.clone())
-            .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_field("update_type", update_type.as_str())
             .with_field("changes", changes.clone())

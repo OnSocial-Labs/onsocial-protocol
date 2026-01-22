@@ -564,4 +564,524 @@ mod event_builder_writes_tests {
             "Events should be emitted in order"
         );
     }
+
+    // ==========================================================================
+    // BLOCK CONTEXT AUTO-INJECTION TESTS
+    // ==========================================================================
+
+    #[test]
+    fn emit_auto_injects_block_height_and_timestamp() {
+        let alice = test_account(0);
+        testing_env!(
+            get_context(alice.clone())
+                .block_height(12345)
+                .block_timestamp(1_700_000_000_000_000_000)
+                .build()
+        );
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}/test", alice))
+            .with_value(json!("test_value"))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("block_height").and_then(|v| v.as_u64()),
+            Some(12345),
+            "block_height should be auto-injected"
+        );
+        assert_eq!(
+            data.extra.get("block_timestamp").and_then(|v| v.as_u64()),
+            Some(1_700_000_000_000_000_000),
+            "block_timestamp should be auto-injected"
+        );
+    }
+
+    #[test]
+    fn explicit_block_context_overrides_auto_injection() {
+        let alice = test_account(0);
+        testing_env!(
+            get_context(alice.clone())
+                .block_height(99999)
+                .block_timestamp(9_999_999_999_000_000_000)
+                .build()
+        );
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}/test", alice))
+            .with_field("block_height", 42u64)
+            .with_field("block_timestamp", 123456789u64)
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        // Explicit values should take precedence over env values
+        assert_eq!(
+            data.extra.get("block_height").and_then(|v| v.as_u64()),
+            Some(42),
+            "explicit block_height should override auto-injection"
+        );
+        assert_eq!(
+            data.extra.get("block_timestamp").and_then(|v| v.as_u64()),
+            Some(123456789),
+            "explicit block_timestamp should override auto-injection"
+        );
+    }
+
+    #[test]
+    fn events_without_path_still_get_block_context() {
+        let alice = test_account(0);
+        testing_env!(
+            get_context(alice.clone())
+                .block_height(55555)
+                .block_timestamp(1_800_000_000_000_000_000)
+                .build()
+        );
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        // Event without with_path() call
+        EventBuilder::new("STORAGE_UPDATE", "deposit", alice.clone())
+            .with_target(&alice)
+            .with_value(json!({"amount": "1000000000000000000000000"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("block_height").and_then(|v| v.as_u64()),
+            Some(55555),
+            "block_height should be injected even without path"
+        );
+        assert_eq!(
+            data.extra.get("block_timestamp").and_then(|v| v.as_u64()),
+            Some(1_800_000_000_000_000_000),
+            "block_timestamp should be injected even without path"
+        );
+    }
+
+    // ==========================================================================
+    // PATH-DERIVED FIELDS AUTO-EXTRACTION TESTS
+    // ==========================================================================
+
+    #[test]
+    fn with_path_extracts_group_id_for_group_paths() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}/groups/my_group/posts/1", alice))
+            .with_value(json!({"content": "Hello"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("my_group"),
+            "group_id should be auto-extracted from path"
+        );
+        assert_eq!(
+            data.extra.get("is_group_content").and_then(|v| v.as_bool()),
+            Some(true),
+            "is_group_content should be true for group paths"
+        );
+        assert!(
+            data.extra.get("group_path").is_some(),
+            "group_path should be extracted"
+        );
+    }
+
+    #[test]
+    fn with_path_extracts_type_and_id() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}/posts/abc123", alice))
+            .with_value(json!({"content": "Test post"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("type").and_then(|v| v.as_str()),
+            Some("posts"),
+            "type should be extracted from path"
+        );
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some("abc123"),
+            "id should be extracted from path"
+        );
+    }
+
+    #[test]
+    fn non_group_path_omits_group_fields() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}/profile/name", alice))
+            .with_value(json!("Alice"))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        // Non-group paths don't include group-related fields at all (more efficient)
+        assert!(
+            data.extra.get("is_group_content").is_none(),
+            "is_group_content should be omitted for non-group paths"
+        );
+        assert!(
+            data.extra.get("group_id").is_none(),
+            "group_id should not exist for non-group paths"
+        );
+        assert!(
+            data.extra.get("group_path").is_none(),
+            "group_path should not exist for non-group paths"
+        );
+    }
+
+    #[test]
+    fn explicit_group_id_overrides_path_extraction() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}/groups/extracted_group/posts/1", alice))
+            .with_field("group_id", "explicit_group")
+            .with_value(json!({"content": "Test"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        // Explicit group_id should be preserved (set before with_path extraction)
+        // Note: with_path uses entry().or_insert_with(), so first-set wins
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("explicit_group"),
+            "explicit group_id should override path extraction"
+        );
+    }
+
+    // ==========================================================================
+    // ADDITIONAL PATH EXTRACTION EDGE CASES
+    // ==========================================================================
+
+    #[test]
+    fn direct_group_path_without_account_prefix() {
+        // Path format: groups/{group_id}/... (no account prefix)
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("GROUP_UPDATE", "create", alice.clone())
+            .with_path("groups/my_group/posts/post1")
+            .with_value(json!({"title": "Test"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("my_group"),
+            "group_id should be extracted from direct group path"
+        );
+        assert_eq!(
+            data.extra.get("group_path").and_then(|v| v.as_str()),
+            Some("posts/post1"),
+            "group_path should be the relative path within group"
+        );
+        assert_eq!(
+            data.extra.get("is_group_content").and_then(|v| v.as_bool()),
+            Some(true),
+            "is_group_content should be true"
+        );
+        assert_eq!(
+            data.extra.get("type").and_then(|v| v.as_str()),
+            Some("posts"),
+            "type should be extracted correctly for direct group path"
+        );
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some("post1"),
+            "id should be last segment"
+        );
+    }
+
+    #[test]
+    fn deep_nested_group_path_extracts_correct_group_path() {
+        // Path: {account}/groups/{gid}/a/b/c/d/e
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!(
+                "{}/groups/deep_group/content/posts/2024/01/15/article",
+                alice
+            ))
+            .with_value(json!({"title": "Deep nested"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("deep_group"),
+            "group_id should be extracted from deeply nested path"
+        );
+        assert_eq!(
+            data.extra.get("group_path").and_then(|v| v.as_str()),
+            Some("content/posts/2024/01/15/article"),
+            "group_path should include all segments after group_id"
+        );
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some("article"),
+            "id should be last segment"
+        );
+    }
+
+    #[test]
+    fn group_config_path_extracts_fields() {
+        // Path: {account}/groups/{gid}/config
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("GROUP_UPDATE", "update", alice.clone())
+            .with_path(&format!("{}/groups/config_group/config", alice))
+            .with_value(json!({"is_private": true}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("config_group"),
+            "group_id should be extracted for config path"
+        );
+        assert_eq!(
+            data.extra.get("group_path").and_then(|v| v.as_str()),
+            Some("config"),
+            "group_path should be 'config'"
+        );
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some("config"),
+            "id should be 'config' (last segment)"
+        );
+        assert_eq!(
+            data.extra.get("type").and_then(|v| v.as_str()),
+            Some("config"),
+            "type should be 'config' for this path pattern"
+        );
+    }
+
+    #[test]
+    fn group_members_path_extracts_fields() {
+        // Path: {account}/groups/{gid}/members/{member_id}
+        let alice = test_account(0);
+        let bob = test_account(1);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("GROUP_UPDATE", "member_add", alice.clone())
+            .with_path(&format!("{}/groups/team/members/{}", alice, bob))
+            .with_value(json!({"nonce": 1}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("team"),
+            "group_id should be extracted for members path"
+        );
+        assert_eq!(
+            data.extra.get("group_path").and_then(|v| v.as_str()),
+            Some(format!("members/{}", bob).as_str()),
+            "group_path should include members/member_id"
+        );
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some(bob.as_str()),
+            "id should be the member account id"
+        );
+        assert_eq!(
+            data.extra.get("type").and_then(|v| v.as_str()),
+            Some("members"),
+            "type should be 'members'"
+        );
+    }
+
+    #[test]
+    fn minimal_path_single_segment() {
+        // Edge case: path with only one segment
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path("singleton")
+            .with_value(json!("value"))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some("singleton"),
+            "id should be the single segment"
+        );
+        assert_eq!(
+            data.extra.get("type").and_then(|v| v.as_str()),
+            Some("data"),
+            "type defaults to 'data' when no second segment"
+        );
+        // Not a group path
+        assert!(
+            data.extra.get("group_id").is_none(),
+            "group_id should not exist for single segment path"
+        );
+    }
+
+    #[test]
+    fn path_with_empty_segments_ignored() {
+        // Edge case: path with empty segments (e.g., double slashes)
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let _ = get_logs();
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new("DATA_UPDATE", "set", alice.clone())
+            .with_path(&format!("{}//groups//test_group//posts//1", alice))
+            .with_value(json!({"content": "test"}))
+            .emit(&mut batch);
+
+        batch.emit().unwrap();
+
+        let logs = get_logs();
+        let event = logs
+            .iter()
+            .find_map(|l| decode_event(l))
+            .expect("Should have event");
+        let data = event.data.first().expect("Should have data");
+
+        // Empty segments should be filtered out, resulting in correct extraction
+        assert_eq!(
+            data.extra.get("group_id").and_then(|v| v.as_str()),
+            Some("test_group"),
+            "group_id should be extracted correctly ignoring empty segments"
+        );
+        assert_eq!(
+            data.extra.get("id").and_then(|v| v.as_str()),
+            Some("1"),
+            "id should be last non-empty segment"
+        );
+    }
 }

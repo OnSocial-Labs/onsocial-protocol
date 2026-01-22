@@ -17,11 +17,19 @@ dataSources:
       language: wasm/assemblyscript
       file: ./src/mapping.ts
       entities:
+        # Immutable event entities
         - DataUpdate
         - StorageUpdate
         - GroupUpdate
         - ContractUpdate
         - PermissionUpdate
+        # Mutable aggregate entities
         - Account
+        - Group
+        - StoragePool
+        - Proposal
+        - Permission
+        - GroupMember
+        - SharedStorageAllocation
       receiptHandlers:
         - handler: handleReceipt

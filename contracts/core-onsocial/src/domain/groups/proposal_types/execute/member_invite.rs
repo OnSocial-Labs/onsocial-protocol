@@ -49,7 +49,6 @@ impl ProposalType {
 
         let mut event_batch = EventBatch::new();
         EventBuilder::new(EVENT_TYPE_GROUP_UPDATE, "member_invited", proposer.clone())
-            .with_field("group_id", group_id)
             .with_field("proposal_id", proposal_id)
             .with_target(target_user)
             .with_path(&format!("groups/{}/members/{}", group_id, target_user))

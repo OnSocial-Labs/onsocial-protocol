@@ -45,7 +45,6 @@ impl crate::domain::groups::core::GroupStorage {
             "stats_updated",
             actor.clone(),
         )
-        .with_field("group_id", group_id)
         .with_path(&stats_path)
         .with_value(updated_stats.clone())
         .emit(event_batch);
