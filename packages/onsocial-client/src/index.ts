@@ -42,13 +42,7 @@ export type {
 
 // Storage exports
 export { StorageClient } from './storage';
-export type {
-  StorageClientConfig,
-  UploadResponse,
-  FileInfo,
-  StorageBalance,
-  CID,
-} from './storage';
+export type { StorageClientConfig, UploadResponse, CID } from './storage';
 
 // Utils exports
 export { isValidAccountId, parsePath, buildPath } from './utils';

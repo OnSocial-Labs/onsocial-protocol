@@ -1,29 +1,27 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth';
-import relayRoutes from './routes/relay';
 
-// Load environment variables
+import { storageRouter } from './services/storage/index.js';
+
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(helmet());
-app.use(cors());
+app.use(cors()); // Open CORS - rate limiting provides protection
 app.use(express.json());
-app.use(morgan('dev'));
+
+// Trust proxy (Fly.io, etc.)
+app.set('trust proxy', 1);
 
 app.get('/health', (_req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.json({ status: 'ok' });
 });
+app.use('/storage', storageRouter);
 
-app.use('/auth', authRoutes);
-app.use('/relay', relayRoutes);
+app.listen(PORT, () => console.log(`onsocial-backend :${PORT}`));
 
-app.listen(PORT, () => {
-  console.log(`OnSocial backend listening on port ${PORT}`);
-});
+export default app;

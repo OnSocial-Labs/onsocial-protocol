@@ -1,49 +1,32 @@
 {
   "name": "onsocial-backend",
   "version": "0.1.0",
-  "description": "Backend service for OnSocial relayer architecture.",
+  "description": "OnSocial backend services",
   "author": "OnSocial Labs",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "keywords": [
-    "onsocial",
-    "backend",
-    "relayer"
-  ],
   "scripts": {
-    "dev": "ts-node-dev --respawn src/index.ts",
-    "build": "pnpm exec tsc",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
     "start": "node dist/index.js",
-    "clean": "rm -rf dist",
-    "lint": "eslint ./src --ext .ts,.tsx,.js,.jsx",
-    "test": "vitest run",
-    "format": "prettier --write .",
-    "tsc": "pnpm exec tsc"
+    "lint": "eslint src",
+    "format": "prettier --write ."
   },
   "dependencies": {
+    "@lighthouse-web3/sdk": "^0.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.0.1",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
-    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
     "rate-limiter-flexible": "^7.1.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
+    "@types/multer": "^1.4.12",
     "@types/node": "^24.0.10",
-    "@typescript-eslint/eslint-plugin": "^8.35.1",
-    "@typescript-eslint/parser": "^8.35.1",
-    "eslint": "^9.30.1",
-    "eslint-plugin-vitest": "^0.5.4",
-    "prettier": "^3.6.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
-    "@eslint/js": "^9.30.1"
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.3"
   }
 }

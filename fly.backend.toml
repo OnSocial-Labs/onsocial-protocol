@@ -1,0 +1,35 @@
+# fly.backend.toml - Fly.io config for onsocial-backend
+app = "onsocial-backend"
+primary_region = "iad"
+
+[build]
+  dockerfile = "docker/Dockerfile.backend"
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+  MAX_FILE_SIZE = "1073741824"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
