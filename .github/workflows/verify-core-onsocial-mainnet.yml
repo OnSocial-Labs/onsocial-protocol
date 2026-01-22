@@ -1,6 +1,9 @@
 name: Core OnSocial Mainnet
 
 on:
+  push:
+    paths:
+      - '.github/workflows/verify-core-onsocial-mainnet.yml'
   schedule:
     - cron: '0 */6 * * *' # Every 6 hours
   workflow_dispatch:
