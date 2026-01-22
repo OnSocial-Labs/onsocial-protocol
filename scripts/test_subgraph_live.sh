@@ -127,26 +127,28 @@ test_data_delete() {
 }
 
 test_storage_deposit() {
-    log_info "TEST: STORAGE_UPDATE (deposit)"
+    log_info "TEST: STORAGE_UPDATE (auto_deposit)"
     
-    near call "$CONTRACT" storage_deposit \
-        '{}' \
+    # Trigger an auto_deposit by doing a data write with attached deposit
+    near call "$CONTRACT" execute \
+        '{"request": {"action": {"type": "set", "data": {"profile/storage-test": "test"}}}}' \
         --accountId "$SIGNER" \
-        --deposit 0.1 \
+        --deposit 0.01 \
         --gas 30000000000000
     
     wait_for_indexing
     check_indexing_errors || return 1
     
-    local result=$(query_subgraph '{ storageUpdates(first: 1, orderBy: blockTimestamp, orderDirection: desc, where: {operation: "deposit"}) { id operation accountId attachedDeposit } }')
-    local found=$(echo "$result" | jq -r '.data.storageUpdates | length')
+    local result=$(query_subgraph '{ storageUpdates(first: 1, orderBy: blockTimestamp, orderDirection: desc) { id operation author amount reason } }')
+    local op=$(echo "$result" | jq -r '.data.storageUpdates[0].operation // ""')
     
-    if [ "$found" -gt 0 ]; then
-        log_info "✅ STORAGE_UPDATE (deposit) indexed successfully"
+    if [[ "$op" == "auto_deposit" ]]; then
+        log_info "✅ STORAGE_UPDATE (auto_deposit) indexed successfully"
         echo "$result" | jq '.data.storageUpdates[0]'
         return 0
     else
-        log_error "❌ STORAGE_UPDATE (deposit) not found in subgraph"
+        log_error "❌ STORAGE_UPDATE not found in subgraph"
+        echo "Got operation: $op"
         return 1
     fi
 }
@@ -228,7 +230,7 @@ test_permission_grant() {
     wait_for_indexing
     check_indexing_errors || return 1
     
-    local result=$(query_subgraph '{ permissionUpdates(first: 1, orderBy: blockTimestamp, orderDirection: desc) { id operation granterId granteeId path level } }')
+    local result=$(query_subgraph '{ permissionUpdates(first: 1, orderBy: blockTimestamp, orderDirection: desc) { id operation author grantee path level } }')
     local op=$(echo "$result" | jq -r '.data.permissionUpdates[0].operation // ""')
     
     if [[ "$op" == "grant" ]]; then
@@ -328,10 +330,20 @@ test_permission_revoke() {
 }
 
 test_group_privacy() {
-    local group_id="test-group-1769031904"
+    local group_id="test-group-$(date +%s)"
     
-    log_info "TEST: GROUP_UPDATE (set_group_privacy) - Toggle privacy on $group_id"
+    log_info "TEST: GROUP_UPDATE (privacy) - Create group then toggle privacy"
     
+    # Create a new group (default is_private=false)
+    near call "$CONTRACT" execute \
+        "{\"request\": {\"action\": {\"type\": \"create_group\", \"group_id\": \"$group_id\", \"config\": {}}}}" \
+        --accountId "$SIGNER" \
+        --deposit 0.1 \
+        --gas 100000000000000
+    
+    log_info "Group created, now setting to private..."
+    
+    # Toggle to private
     near call "$CONTRACT" execute \
         "{\"request\": {\"action\": {\"type\": \"set_group_privacy\", \"group_id\": \"$group_id\", \"is_private\": true}}}" \
         --accountId "$SIGNER" \
@@ -340,19 +352,17 @@ test_group_privacy() {
     wait_for_indexing
     check_indexing_errors || return 1
     
-    local result=$(query_subgraph '{ groupUpdates(first: 3, orderBy: blockTimestamp, orderDirection: desc) { id operation groupId } groups(where: {id: "test-group-1769031904"}) { id isPrivate } }')
+    local result=$(query_subgraph '{ groupUpdates(first: 5, orderBy: blockTimestamp, orderDirection: desc) { id operation groupId isPrivate } }')
     local op=$(echo "$result" | jq -r '.data.groupUpdates[0].operation // ""')
     
-    if [[ "$op" == "privacy_changed" ]] || [[ "$op" == "config_updated" ]]; then
-        log_info "✅ GROUP_UPDATE (privacy) indexed successfully"
+    if [[ "$op" == "privacy_changed" ]]; then
+        log_info "✅ GROUP_UPDATE (privacy_changed) indexed successfully"
         echo "$result" | jq '.data.groupUpdates[0]'
-        echo "Group privacy:"
-        echo "$result" | jq '.data.groups[0]'
         return 0
     else
-        log_error "❌ GROUP_UPDATE (privacy) not found"
+        log_error "❌ GROUP_UPDATE (privacy_changed) not found"
         echo "Latest group ops:"
-        echo "$result" | jq '.data.groupUpdates'
+        echo "$result" | jq '.data.groupUpdates[:3]'
         return 1
     fi
 }
