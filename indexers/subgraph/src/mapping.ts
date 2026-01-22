@@ -80,6 +80,7 @@ export function handleReceipt(receipt: near.ReceiptWithOutcome): void {
     const jsonResult = json.try_fromString(jsonStr);
 
     if (!jsonResult.isOk) {
+      log.warning("[OnSocial] Failed to parse EVENT_JSON: {}", [jsonStr.substring(0, 100)]);
       continue;
     }
 
@@ -150,36 +151,24 @@ function handleDataUpdate(
   entity.partitionId = getInt(obj, "partition_id");
 
   entity.path = path;
-  entity.value = getStringOrNull(obj, "value");
 
-  // Parse path
+  // Serialize value field properly (handles objects, arrays, primitives)
+  const valueField = obj.get("value");
+  if (valueField && !valueField.isNull()) {
+    entity.value = jsonToString(valueField);
+  }
+
+  // Use contract's auto-injected fields (from EventBuilder.with_path())
+  // These are authoritative - contract already parsed the path
+  const groupId = getStringOrNull(obj, "group_id");
+  const groupPath = getStringOrNull(obj, "group_path");
+  const isGroupContent = getBool(obj, "is_group_content");
+
+  // Derive accountId from path (first segment)
   const pathParts = path.split("/");
   let accountId = pathParts[0];
-  let groupId: string | null = null;
-  let groupPath: string | null = null;
-  let isGroupContent = false;
-
   if (pathParts.length >= 2 && pathParts[0] == "groups") {
-    groupId = pathParts[1];
-    isGroupContent = true;
-    accountId = "groups";
-    if (pathParts.length > 2) {
-      let gp: string[] = [];
-      for (let j = 2; j < pathParts.length; j++) {
-        gp.push(pathParts[j]);
-      }
-      groupPath = gp.join("/");
-    }
-  } else if (pathParts.length >= 3 && pathParts[1] == "groups") {
-    groupId = pathParts[2];
-    isGroupContent = true;
-    if (pathParts.length > 3) {
-      let gp: string[] = [];
-      for (let j = 3; j < pathParts.length; j++) {
-        gp.push(pathParts[j]);
-      }
-      groupPath = gp.join("/");
-    }
+    accountId = "groups";  // Special case for direct group paths
   }
 
   entity.accountId = accountId;
@@ -187,6 +176,11 @@ function handleDataUpdate(
   entity.groupPath = groupPath;
   entity.isGroupContent = isGroupContent;
 
+  // Use contract's derived fields for type/id (from EventBuilder.with_path())
+  entity.derivedId = getStringOrNull(obj, "id");
+  entity.derivedType = getStringOrNull(obj, "type");
+
+  // Also derive dataType/dataId from path for querying (fallback)
   if (!isGroupContent && pathParts.length > 1) {
     entity.dataType = pathParts[1];
     if (pathParts.length > 2) {
@@ -201,9 +195,6 @@ function handleDataUpdate(
       }
     }
   }
-
-  entity.derivedId = getStringOrNull(obj, "id");
-  entity.derivedType = getStringOrNull(obj, "type");
 
   const writesField = obj.get("writes");
   if (writesField && !writesField.isNull()) {
