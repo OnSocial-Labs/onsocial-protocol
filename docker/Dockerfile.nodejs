@@ -36,11 +36,10 @@ FROM base AS deps
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.json ./
 
 # Create package directories first
-RUN mkdir -p packages/onsocial-js packages/onsocial-auth packages/onsocial-backend packages/onsocial-app
+RUN mkdir -p packages/onsocial-client packages/onsocial-backend packages/onsocial-app
 
 # Copy package.json files with optimal layer caching
-COPY packages/onsocial-js/package.json ./packages/onsocial-js/
-COPY packages/onsocial-auth/package.json ./packages/onsocial-auth/
+COPY packages/onsocial-client/package.json ./packages/onsocial-client/
 COPY packages/onsocial-backend/package.json ./packages/onsocial-backend/
 COPY packages/onsocial-app/package.json ./packages/onsocial-app/
 
@@ -64,8 +63,7 @@ FROM deps AS builder
 COPY tsconfig.json ./
 
 # Copy source code
-COPY packages/onsocial-js ./packages/onsocial-js
-COPY packages/onsocial-auth ./packages/onsocial-auth  
+COPY packages/onsocial-client ./packages/onsocial-client
 COPY packages/onsocial-backend ./packages/onsocial-backend
 COPY packages/onsocial-app ./packages/onsocial-app
 

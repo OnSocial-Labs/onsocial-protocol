@@ -30,7 +30,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useAuth } from 'onsocial-auth';
+// TODO: Implement auth - onsocial-auth was removed
+// import { useAuth } from 'onsocial-auth';
+const useAuth = () => ({ jwt: null, loading: false }); // Stub
 import { BuyWithAnyToken } from '../components/BuyWithAnyToken';
 
 // Example NFT data (replace with your own data fetching logic)

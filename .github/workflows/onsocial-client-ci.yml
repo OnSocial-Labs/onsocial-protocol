@@ -1,16 +1,16 @@
-name: OnSocial JS
+name: OnSocial Client
 
 on:
   push:
     branches: [main]
     paths:
-      - 'packages/onsocial-js/**'
-      - '.github/workflows/onsocial-js-ci.yml'
+      - 'packages/onsocial-client/**'
+      - '.github/workflows/onsocial-client-ci.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'packages/onsocial-js/**'
-      - '.github/workflows/onsocial-js-ci.yml'
+      - 'packages/onsocial-client/**'
+      - '.github/workflows/onsocial-client-ci.yml'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/onsocial-js
+        working-directory: packages/onsocial-client
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
       - name: Test Graph client
         run: |
           npx tsx -e "
-          import { GraphClient, NETWORKS } from './src/index.ts';
+          import { GraphClient, NETWORKS } from '@onsocial/client';
           (async () => {
             const graph = new GraphClient({ network: 'testnet' });
             console.log('Subgraph URL:', NETWORKS.testnet.graphUrl);
@@ -62,7 +62,7 @@ jobs:
           LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
         run: |
           npx tsx -e "
-          import { StorageClient } from './src/index.ts';
+          import { StorageClient } from '@onsocial/client';
           (async () => {
             const storage = new StorageClient({ apiKey: process.env.LIGHTHOUSE_API_KEY });
             

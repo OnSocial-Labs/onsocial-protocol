@@ -1,6 +1,6 @@
 [![Core OnSocial](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
 [![Marketplace OnSocial](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml)
-[![OnSocial JS](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-js-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-js-ci.yml)
+[![OnSocial Client](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml)
 [![Relayer Deploy](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR-Protocol-blueviolet)](https://near.org)
@@ -59,8 +59,7 @@ For full setup and deployment, see the [Deployment Guide](Resources/deployment-g
 - [Staking-OnSocial](contracts/staking-onsocial/README.md): Staking and rewards.
 
 ### Packages
-- [OnSocial-Auth](packages/onsocial-auth/README.md): Expo-compatible wallet authentication SDK.
-- [OnSocial-JS](packages/onsocial-js/README.md): JavaScript utilities for interacting with OnSocial.
+- [@onsocial/client](packages/onsocial-client/README.md): Client library for interacting with OnSocial protocol.
 - [OnSocial-Backend](packages/onsocial-backend/README.md): Backend services and APIs.
 - [OnSocial-App](packages/onsocial-app/README.md): Frontend application components.
 - [Relayer](packages/relayer/README.md): Rust-based transaction relayer service.

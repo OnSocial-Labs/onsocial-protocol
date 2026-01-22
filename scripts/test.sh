@@ -23,7 +23,7 @@ RESET="\033[0m"
 CONTRACT_LIST=("marketplace-onsocial" "staking-onsocial" "core-onsocial" "cross-contract")
 
 # List of JS/TS/RS packages to test and report on
-PACKAGES_LIST=("onsocial-js" "app" "relayer")
+PACKAGES_LIST=("onsocial-client" "app" "relayer")
 
 # Arrays to store test results
 declare -A UNIT_RESULTS

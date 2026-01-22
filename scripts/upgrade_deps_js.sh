@@ -89,7 +89,7 @@ pnpm install --no-frozen-lockfile --store-dir="$PNPM_STORE_DIR" || { echo -e "${
 echo -e "${SUCCESS} Final lockfile regenerated successfully${RESET}"
 
 # Validate workspace packages (now with --no-frozen-lockfile since we just updated)
-for pkg in packages/onsocial-js packages/onsocial-app packages/onsocial-auth packages/onsocial-backend; do
+for pkg in packages/onsocial-client packages/onsocial-app packages/onsocial-backend; do
   if [ -d "$pkg" ]; then
     echo "Validating $pkg..."
     pnpm --dir $pkg install --no-frozen-lockfile --store-dir="$PNPM_STORE_DIR" || { echo -e "${ERROR}Failed to validate $pkg${RESET}"; exit 1; }

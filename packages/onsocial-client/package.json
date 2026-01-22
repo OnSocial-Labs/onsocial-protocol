@@ -1,7 +1,7 @@
 {
-  "name": "onsocial-auth",
-  "version": "0.1.12",
-  "description": "Expo-compatible SDK for OnSocial wallet authentication using HERE Wallet and JWT.",
+  "name": "@onsocial/client",
+  "version": "0.1.0",
+  "description": "OnSocial client library - GraphQL queries, IPFS storage, and protocol types",
   "author": "OnSocial Labs",
   "license": "MIT",
   "type": "module",
@@ -11,35 +11,35 @@
     "dist"
   ],
   "keywords": [
+    "near",
     "onsocial",
-    "wallet",
-    "here-wallet",
-    "jwt",
-    "expo",
-    "auth"
+    "protocol",
+    "thegraph",
+    "ipfs",
+    "filecoin",
+    "lighthouse",
+    "blockchain"
   ],
   "scripts": {
-    "build": "pnpm exec tsc",
+    "build": "pnpm exec tsc --build",
     "clean": "rm -rf dist",
     "lint": "eslint ./src --ext .ts,.tsx,.js,.jsx",
     "test": "vitest run",
     "format": "prettier --write .",
-    "tsc": "pnpm exec tsc --noEmit"
+    "tsc": "pnpm exec tsc"
   },
   "dependencies": {
-    "@here-wallet/core": "^3.4.0",
-    "axios": "^1.10.0",
-    "expo-secure-store": "^14.2.3",
-    "react": "^19.1.0",
-    "react-native": "^0.80.1"
+    "@lighthouse-web3/sdk": "^0.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.30.1",
     "@typescript-eslint/eslint-plugin": "^8.35.1",
     "@typescript-eslint/parser": "^8.35.1",
     "eslint": "^9.30.1",
+    "eslint-plugin-prettier": "^5.5.1",
+    "eslint-plugin-vitest": "^0.5.4",
     "prettier": "^3.6.2",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4",
-    "@eslint/js": "^9.30.1"
+    "vitest": "^3.2.4"
   }
 }

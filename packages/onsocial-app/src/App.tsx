@@ -1,6 +1,8 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { useAuth } from 'onsocial-auth';
+// TODO: Implement auth - onsocial-auth was removed
+// import { useAuth } from 'onsocial-auth';
+const useAuth = () => ({ jwt: null, loading: false }); // Stub
 
 const MainWalletScreen = () => (
   <>

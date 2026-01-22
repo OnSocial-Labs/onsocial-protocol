@@ -1,5 +1,8 @@
 // src/index.ts
-// onsocial-js - Protocol-level SDK for OnSocial
+// @onsocial/client - OnSocial client library
+//
+// This is the low-level protocol SDK. For social-specific schemas
+// (Profile, Post, Comment, etc.), use onsocial-sdk.
 //
 // Modules:
 // - core: Network configuration and types
@@ -14,11 +17,27 @@ export type { Network, NetworkConfig } from './core';
 // Graph exports
 export { GraphClient, QUERIES } from './graph';
 export type {
+  // Config & Options
   GraphClientConfig,
-  DataUpdate,
-  Account,
-  StorageUpdate,
   QueryOptions,
+  DataQueryOptions,
+  GroupQueryOptions,
+  PermissionQueryOptions,
+  // Event Entities (immutable)
+  DataUpdate,
+  StorageUpdate,
+  GroupUpdate,
+  ContractUpdate,
+  PermissionUpdate,
+  // Aggregate Entities (mutable)
+  Account,
+  Group,
+  GroupMember,
+  Proposal,
+  Permission,
+  StoragePool,
+  // Utility Types
+  ParseResult,
 } from './graph';
 
 // Storage exports

@@ -48,42 +48,18 @@ services:
       - backend
       - relayer
 
-  onsocial-js:
+  onsocial-client:
     build:
       context: .
       dockerfile: docker/Dockerfile.nodejs
       target: runtime-alpine
-    container_name: onsocial-js
-    working_dir: /app/packages/onsocial-js
+    container_name: onsocial-client
+    working_dir: /app/packages/onsocial-client
     volumes:
-      - ./packages/onsocial-js:/app/packages/onsocial-js:cached
+      - ./packages/onsocial-client:/app/packages/onsocial-client:cached
     environment:
       - NODE_ENV=development
     command: ["pnpm", "test"]
-
-  onsocial-auth:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-auth
-    working_dir: /app/packages/onsocial-auth
-    volumes:
-      - ./packages/onsocial-auth:/app/packages/onsocial-auth:cached
-    environment:
-      - NODE_ENV=development
-    command: ["pnpm", "run", "test"]
-
-  onsocial-auth-lint:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-auth-lint
-    working_dir: /app/packages/onsocial-auth
-    command: ["pnpm", "run", "lint"]
-    environment:
-      - NODE_ENV=development
 
   onsocial-app-lint:
     build:
@@ -107,13 +83,13 @@ services:
     environment:
       - NODE_ENV=development
 
-  onsocial-js-lint:
+  onsocial-client-lint:
     build:
       context: .
       dockerfile: docker/Dockerfile.nodejs
       target: runtime-alpine
-    container_name: onsocial-js-lint
-    working_dir: /app/packages/onsocial-js
+    container_name: onsocial-client-lint
+    working_dir: /app/packages/onsocial-client
     command: ["pnpm", "run", "lint"]
     environment:
       - NODE_ENV=development

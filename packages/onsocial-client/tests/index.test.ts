@@ -1,7 +1,7 @@
 // tests/index.test.ts
 import { describe, it, expect } from 'vitest';
 
-describe('onsocial-js exports', () => {
+describe('@onsocial/client exports', () => {
   it('should export core modules', async () => {
     const { NETWORKS, GraphClient, StorageClient } = await import('../src');
 
