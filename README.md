@@ -1,7 +1,12 @@
-| Contract | Build | Testnet | Mainnet |
-|----------|-------|---------|---------|
-| **Core OnSocial** | [![Build](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml) | [![Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml) | [![Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-mainnet.yml) |
-| **Marketplace** | [![Build](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml) | [![Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml) | [![Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml) |
+**Core OnSocial**
+[![CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
+[![Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml)
+[![Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-mainnet.yml)
+
+**Marketplace**
+[![CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml)
+[![Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml)
+[![Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml)
 
 [![OnSocial Client](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml)
 [![Relayer Deploy](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml)
