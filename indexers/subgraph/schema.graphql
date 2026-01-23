@@ -36,6 +36,9 @@ type DataUpdate @entity(immutable: true) {
   groupPath: String                # Path within group (content/..., etc.)
   isGroupContent: Boolean!
 
+  # Social graph fields (for follow/block queries)
+  targetAccount: String @index     # Target account for graph/follow, graph/block paths
+
   # Derived fields from contract
   derivedId: String                # ID derived from path by contract
   derivedType: String              # Type derived from path by contract

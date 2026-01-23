@@ -94,6 +94,15 @@ export function handleDataUpdate(
     }
   }
 
+  // Extract targetAccount for social graph paths (follow, block)
+  // Path format: {accountId}/graph/follow/{targetAccount} or {accountId}/graph/block/{targetAccount}
+  if (!isGroupContent && pathParts.length >= 4 && pathParts[1] == "graph") {
+    const graphType = pathParts[2]; // "follow" or "block"
+    if (graphType == "follow" || graphType == "block") {
+      entity.targetAccount = pathParts[3];
+    }
+  }
+
   const writesField = obj.get("writes");
   if (writesField && !writesField.isNull()) {
     entity.writes = jsonToString(writesField);
