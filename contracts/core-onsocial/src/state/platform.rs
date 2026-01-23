@@ -232,7 +232,17 @@ impl SocialPlatform {
 
             builder.emit(event_batch);
         } else {
-            self.credit_storage_balance(deposit_owner, amount);
+            let mut storage = self
+                .user_storage
+                .get(deposit_owner)
+                .cloned()
+                .unwrap_or_default();
+
+            let previous_balance = storage.balance;
+            storage.balance = storage.balance.saturating_add(amount);
+            let new_balance = storage.balance;
+
+            self.user_storage.insert(deposit_owner.clone(), storage);
 
             let mut builder = EventBuilder::new(
                 crate::constants::EVENT_TYPE_STORAGE_UPDATE,
@@ -240,6 +250,8 @@ impl SocialPlatform {
                 deposit_owner.clone(),
             )
             .with_field("amount", amount.to_string())
+            .with_field("previous_balance", previous_balance.to_string())
+            .with_field("new_balance", new_balance.to_string())
             .with_field("reason", reason);
 
             if let Some(meta) = meta {

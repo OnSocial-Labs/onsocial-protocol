@@ -67,7 +67,7 @@ export function handleStorageUpdate(
   account.lastActiveAt = BigInt.fromU64(timestamp);
   account.storageUpdateCount = account.storageUpdateCount + 1;
 
-  if (operation == "storage_deposit" || operation == "storage_withdraw") {
+  if (operation == "storage_deposit" || operation == "storage_withdraw" || operation == "attached_deposit" || operation == "auto_deposit") {
     const newBal = entity.newBalance;
     if (newBal) {
       account.storageBalance = newBal;
@@ -86,9 +86,9 @@ export function handleStorageUpdate(
     if (poolKey.startsWith("group-")) {
       pool.poolType = "group";
       pool.groupId = entity.groupId;
-    } else if (poolKey == "platform.pool") {
+    } else if (operation == "platform_pool_deposit" || operation == "platform_sponsor") {
       pool.poolType = "platform";
-    } else if (operation.indexOf("shared") >= 0) {
+    } else if (operation == "pool_deposit" || operation == "share_storage" || operation == "return_storage") {
       pool.poolType = "shared";
     }
 
@@ -138,6 +138,10 @@ export function handleStorageUpdate(
       const allocationId = poolId + "-" + targetId;
       const allocation = SharedStorageAllocation.load(allocationId);
       if (allocation) {
+        const usedBytes = entity.usedBytes;
+        if (usedBytes) {
+          allocation.usedBytes = usedBytes;
+        }
         allocation.isActive = false;
         allocation.returnedAt = BigInt.fromU64(timestamp);
         allocation.save();
