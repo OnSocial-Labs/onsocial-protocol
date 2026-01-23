@@ -25,6 +25,8 @@ export function ensureGroup(groupId: string, owner: string, timestamp: u64): Gro
     group.pendingJoinRequestCount = 0;
     group.isPrivate = false;
     group.poolBalance = ZERO_BI;
+    group.hasPool = false;
+    group.hasSponsorConfig = false;
     // Voting config fields left as default (null) until voting_config_changed event
     group.save();
   }

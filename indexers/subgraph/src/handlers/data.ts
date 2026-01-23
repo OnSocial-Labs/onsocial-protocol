@@ -5,7 +5,7 @@
 
 import { near, JSONValue, BigInt, TypedMap } from "@graphprotocol/graph-ts";
 import { DataUpdate } from "../../generated/schema";
-import { jsonToString, getString, getStringOrNull, getInt, getBool } from "../utils";
+import { jsonToString, getStringOrNull, getInt, getBool } from "../utils";
 import { ensureAccount, ensureGroup } from "../entities";
 
 export function handleDataUpdate(
@@ -22,6 +22,21 @@ export function handleDataUpdate(
   }
   const path = pathField.toString();
 
+  const operationField = obj.get("operation");
+  if (!operationField || operationField.isNull()) {
+    return;
+  }
+  const operation = operationField.toString();
+
+  const authorField = obj.get("author");
+  if (!authorField || authorField.isNull()) {
+    return;
+  }
+  const author = authorField.toString();
+  if (author.length == 0) {
+    return;
+  }
+
   const id = receiptId + "-" + logIndex.toString() + "-data";
   const entity = new DataUpdate(id);
 
@@ -29,8 +44,8 @@ export function handleDataUpdate(
   entity.blockTimestamp = BigInt.fromU64(timestamp);
   entity.receiptId = receiptId;
 
-  entity.operation = getString(obj, "operation", "unknown");
-  entity.author = getString(obj, "author", "");
+  entity.operation = operation;
+  entity.author = author;
   entity.partitionId = getInt(obj, "partition_id");
 
   entity.path = path;
@@ -51,7 +66,7 @@ export function handleDataUpdate(
   const pathParts = path.split("/");
   let accountId = pathParts[0];
   if (pathParts.length >= 2 && pathParts[0] == "groups") {
-    accountId = "groups";  // Special case for direct group paths
+    accountId = author;  // For direct group paths, use author as account
   }
 
   entity.accountId = accountId;

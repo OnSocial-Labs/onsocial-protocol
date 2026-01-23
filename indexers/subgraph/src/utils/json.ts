@@ -1,141 +1,108 @@
 /**
  * JSON Helper Functions for OnSocial Subgraph
- * Safe extraction of values from TypedMap<string, JSONValue>
  */
 
 import { JSONValue, JSONValueKind, BigInt, TypedMap } from "@graphprotocol/graph-ts";
 
 // =============================================================================
-// JSON TO STRING CONVERSION
+// JSON SERIALIZATION
 // =============================================================================
 
+function escapeString(str: string): string {
+  let result = "";
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charAt(i);
+    if (c == '"') result += '\\"';
+    else if (c == "\\") result += "\\\\";
+    else if (c == "\n") result += "\\n";
+    else if (c == "\r") result += "\\r";
+    else if (c == "\t") result += "\\t";
+    else result += c;
+  }
+  return result;
+}
+
 /**
- * Safely convert any JSONValue to a string representation
- * Handles all JSON types: string, number, bool, null, array, object
+ * Convert any JSONValue to a valid JSON string
  */
 export function jsonToString(value: JSONValue): string {
-  if (value.kind == JSONValueKind.STRING) {
-    return value.toString();
-  } else if (value.kind == JSONValueKind.NUMBER) {
-    return value.toBigInt().toString();
-  } else if (value.kind == JSONValueKind.BOOL) {
-    return value.toBool() ? "true" : "false";
-  } else if (value.kind == JSONValueKind.NULL) {
-    return "null";
-  } else if (value.kind == JSONValueKind.ARRAY) {
-    let arr = value.toArray();
-    let parts: string[] = [];
-    for (let i = 0; i < arr.length; i++) {
-      parts.push(jsonToString(arr[i]));
+  switch (value.kind) {
+    case JSONValueKind.STRING:
+      return '"' + escapeString(value.toString()) + '"';
+    case JSONValueKind.NUMBER:
+      return value.toBigInt().toString();
+    case JSONValueKind.BOOL:
+      return value.toBool() ? "true" : "false";
+    case JSONValueKind.NULL:
+      return "null";
+    case JSONValueKind.ARRAY: {
+      const arr = value.toArray();
+      const parts: string[] = [];
+      for (let i = 0; i < arr.length; i++) parts.push(jsonToString(arr[i]));
+      return "[" + parts.join(",") + "]";
     }
-    return "[" + parts.join(",") + "]";
-  } else if (value.kind == JSONValueKind.OBJECT) {
-    let obj = value.toObject();
-    let entries = obj.entries;
-    let parts: string[] = [];
-    for (let i = 0; i < entries.length; i++) {
-      let key = entries[i].key;
-      let val = jsonToString(entries[i].value);
-      parts.push('"' + key + '":' + val);
+    case JSONValueKind.OBJECT: {
+      const entries = value.toObject().entries;
+      const parts: string[] = [];
+      for (let i = 0; i < entries.length; i++) {
+        parts.push('"' + escapeString(entries[i].key) + '":' + jsonToString(entries[i].value));
+      }
+      return "{" + parts.join(",") + "}";
     }
-    return "{" + parts.join(",") + "}";
+    default:
+      return "null";
   }
-  return "";
 }
 
 // =============================================================================
 // VALUE EXTRACTORS
 // =============================================================================
 
-/**
- * Get string value with default fallback
- */
-export function getString(
-  obj: TypedMap<string, JSONValue>,
-  key: string,
-  defaultValue: string
-): string {
-  const field = obj.get(key);
-  if (field && !field.isNull()) {
-    return jsonToString(field);
-  }
-  return defaultValue;
+export function getString(obj: TypedMap<string, JSONValue>, key: string, defaultValue: string): string {
+  const f = obj.get(key);
+  return f && !f.isNull() ? f.toString() : defaultValue;
 }
 
-/**
- * Get string value or null
- */
-export function getStringOrNull(
-  obj: TypedMap<string, JSONValue>,
-  key: string
-): string | null {
-  const field = obj.get(key);
-  if (field && !field.isNull()) {
-    return jsonToString(field);
-  }
-  return null;
+export function getStringOrNull(obj: TypedMap<string, JSONValue>, key: string): string | null {
+  const f = obj.get(key);
+  return f && !f.isNull() ? f.toString() : null;
 }
 
-/**
- * Get i32 value with 0 default
- */
 export function getInt(obj: TypedMap<string, JSONValue>, key: string): i32 {
-  const field = obj.get(key);
-  if (field && !field.isNull() && field.kind == JSONValueKind.NUMBER) {
-    return field.toI64() as i32;
-  }
-  return 0;
+  const f = obj.get(key);
+  return f && !f.isNull() && f.kind == JSONValueKind.NUMBER ? (f.toI64() as i32) : 0;
 }
 
-/**
- * Get BigInt value or null
- * Handles both NUMBER and STRING JSON types
- */
-export function getBigInt(
-  obj: TypedMap<string, JSONValue>,
-  key: string
-): BigInt | null {
-  const field = obj.get(key);
-  if (field && !field.isNull()) {
-    if (field.kind == JSONValueKind.NUMBER) {
-      return BigInt.fromString(field.toBigInt().toString());
-    } else if (field.kind == JSONValueKind.STRING) {
-      const str = field.toString();
-      if (str.length > 0) {
-        return BigInt.fromString(str);
-      }
-    }
-  }
+export function getBigInt(obj: TypedMap<string, JSONValue>, key: string): BigInt | null {
+  const f = obj.get(key);
+  if (!f || f.isNull()) return null;
+  if (f.kind == JSONValueKind.NUMBER) return f.toBigInt();
+  if (f.kind == JSONValueKind.STRING && f.toString().length > 0) return BigInt.fromString(f.toString());
   return null;
 }
 
-/**
- * Get boolean value with false default
- */
 export function getBool(obj: TypedMap<string, JSONValue>, key: string): boolean {
-  const field = obj.get(key);
-  if (field && !field.isNull() && field.kind == JSONValueKind.BOOL) {
-    return field.toBool();
-  }
-  return false;
+  const f = obj.get(key);
+  return f && !f.isNull() && f.kind == JSONValueKind.BOOL ? f.toBool() : false;
+}
+
+export function getArray(obj: TypedMap<string, JSONValue>, key: string): JSONValue[] | null {
+  const f = obj.get(key);
+  return f && !f.isNull() && f.kind == JSONValueKind.ARRAY ? f.toArray() : null;
+}
+
+export function getObject(obj: TypedMap<string, JSONValue>, key: string): TypedMap<string, JSONValue> | null {
+  const f = obj.get(key);
+  return f && !f.isNull() && f.kind == JSONValueKind.OBJECT ? f.toObject() : null;
 }
 
 // =============================================================================
 // PATH UTILITIES
 // =============================================================================
 
-/**
- * Extract group ID from a path like "groups/{id}/..." or "{account}/groups/{id}/..."
- */
 export function extractGroupIdFromPath(path: string): string | null {
   const parts = path.split("/");
-  // Format: groups/{groupId}/...
-  if (parts.length >= 2 && parts[0] == "groups") {
-    return parts[1];
-  }
-  // Format: {account}/groups/{groupId}/...
-  if (parts.length >= 3 && parts[1] == "groups") {
-    return parts[2];
-  }
+  if (parts.length >= 2 && parts[0] == "groups") return parts[1];
+  if (parts.length >= 3 && parts[1] == "groups") return parts[2];
   return null;
 }

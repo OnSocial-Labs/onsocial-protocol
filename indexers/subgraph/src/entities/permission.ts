@@ -26,9 +26,9 @@ export function updatePermissionAggregate(
   // Build permission ID
   let permId = "";
   if (publicKey) {
-    permId = granter + "-key-" + publicKey + "-" + path;
+    permId = "key-" + granter + "-" + publicKey + "-" + path;
   } else if (grantee) {
-    permId = granter + "-" + grantee + "-" + path;
+    permId = "acct-" + granter + "-" + grantee + "-" + path;
   }
 
   if (permId == "") {

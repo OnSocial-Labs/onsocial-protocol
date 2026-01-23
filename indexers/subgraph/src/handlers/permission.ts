@@ -44,7 +44,10 @@ export function handlePermissionUpdate(
 
   entity.expiresAt = getBigInt(obj, "expires_at");
 
-  if (path) {
+  const groupIdFromEvent = getStringOrNull(obj, "group_id");
+  if (groupIdFromEvent) {
+    entity.groupId = groupIdFromEvent;
+  } else if (path) {
     entity.groupId = extractGroupIdFromPath(path);
   }
   entity.permissionNonce = getBigInt(obj, "permission_nonce");

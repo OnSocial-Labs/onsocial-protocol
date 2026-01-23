@@ -13,5 +13,7 @@ export {
   getInt,
   getBigInt,
   getBool,
+  getArray,
+  getObject,
   extractGroupIdFromPath,
 } from "./json";

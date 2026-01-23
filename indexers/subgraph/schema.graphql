@@ -384,6 +384,10 @@ type Group @entity(immutable: false) {
 
   # Storage pool
   poolBalance: BigInt!
+  hasPool: Boolean!
+
+  # Sponsorship
+  hasSponsorConfig: Boolean!
 
   # Voting configuration (from voting_config_changed)
   votingPeriod: BigInt

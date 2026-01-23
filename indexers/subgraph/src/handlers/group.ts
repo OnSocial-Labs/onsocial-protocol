@@ -85,11 +85,11 @@ export function handleGroupUpdate(
   entity.votedAt = getBigInt(obj, "voted_at");
 
   entity.votingPeriod = getBigInt(obj, "voting_period");
-  entity.participationQuorum = getInt(obj, "participation_quorum");
-  entity.majorityThreshold = getInt(obj, "majority_threshold");
+  entity.participationQuorum = getInt(obj, "participation_quorum_bps");
+  entity.majorityThreshold = getInt(obj, "majority_threshold_bps");
   entity.effectiveVotingPeriod = getBigInt(obj, "effective_voting_period");
-  entity.effectiveParticipationQuorum = getInt(obj, "effective_participation_quorum");
-  entity.effectiveMajorityThreshold = getInt(obj, "effective_majority_threshold");
+  entity.effectiveParticipationQuorum = getInt(obj, "effective_participation_quorum_bps");
+  entity.effectiveMajorityThreshold = getInt(obj, "effective_majority_threshold_bps");
 
   entity.previousOwner = getStringOrNull(obj, "previous_owner");
   entity.newOwner = getStringOrNull(obj, "new_owner");
@@ -169,7 +169,7 @@ export function handleGroupUpdate(
     group.lastActivityAt = BigInt.fromU64(timestamp);
     group.updateCount = group.updateCount + 1;
 
-    if (operation == "add_member" || operation == "member_invited" || operation == "join_request_approved") {
+    if (operation == "add_member" || operation == "join_request_approved") {
       group.memberCount = group.memberCount + 1;
       const mid = entity.memberId;
       if (mid) {
@@ -294,7 +294,59 @@ export function handleGroupUpdate(
         group.majorityThresholdBps = effectiveMajorityThreshold;
       }
       group.votingConfigUpdatedAt = BigInt.fromU64(timestamp);
+    } else if (operation == "member_invited") {
+      // Member invited via governance proposal - increment count and create member
+      group.memberCount = group.memberCount + 1;
+      const mid = entity.memberId;
+      if (mid) {
+        const member = ensureGroupMember(groupId, mid, timestamp);
+        member.isActive = true;
+        member.isBlacklisted = false;
+        member.lastActiveAt = BigInt.fromU64(timestamp);
+        const mn = entity.memberNonce;
+        if (mn) {
+          member.nonce = mn;
+        }
+        const lvl = entity.level;
+        if (lvl != 0) {
+          member.level = lvl;
+        }
+        member.save();
+      }
+    } else if (operation == "group_updated") {
+      // Governance-executed group config update - isPrivate may change
+      const isPrivateField = obj.get("is_private");
+      if (isPrivateField && !isPrivateField.isNull()) {
+        group.isPrivate = isPrivateField.toBool();
+      }
+    } else if (operation == "permission_changed") {
+      // Member permission level changed via governance
+      const mid = entity.memberId;
+      if (mid) {
+        const memberId = groupId + "-" + mid;
+        const member = GroupMember.load(memberId);
+        if (member) {
+          const lvl = entity.level;
+          if (lvl != 0) {
+            member.level = lvl;
+          }
+          member.lastActiveAt = BigInt.fromU64(timestamp);
+          member.save();
+        }
+      }
+    } else if (operation == "group_pool_created") {
+      // Pool created - balance tracking handled by group_pool_deposit
+      group.hasPool = true;
+    } else if (operation == "group_sponsor_quota_set" || operation == "group_sponsor_default_set") {
+      // Sponsor config changed - track that group has sponsorship configured
+      const enabled = getBool(obj, "enabled");
+      if (enabled) {
+        group.hasSponsorConfig = true;
+      }
     }
+    // Note: stats_updated, member_nonce_updated, path_permission_granted,
+    // path_permission_revoked, custom_proposal_executed are tracked in the
+    // immutable GroupUpdate entity but don't require aggregate updates
 
     group.save();
   }
@@ -353,14 +405,13 @@ export function handleGroupUpdate(
         const s = entity.status;
         if (s) {
           proposal.status = s;
+          if (s == "executed") {
+            proposal.executedAt = entity.updatedAt ? entity.updatedAt : BigInt.fromU64(timestamp);
+          }
         }
         proposal.yesVotes = entity.finalYesVotes;
         proposal.noVotes = entity.finalNoVotes;
         proposal.totalVotes = entity.finalTotalVotes;
-        const ea = entity.executedAt;
-        if (ea) {
-          proposal.executedAt = ea;
-        }
         proposal.updatedAt = BigInt.fromU64(timestamp);
         proposal.save();
       }
