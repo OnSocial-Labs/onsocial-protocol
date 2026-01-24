@@ -1,11 +1,13 @@
 specVersion: v0.1.0
 package:
   name: onsocial_events
-  version: v0.3.0
+  version: v0.6.0
+  url: https://github.com/onsocial-protocol/indexers/substreams
+  description: High-performance substreams indexer for OnSocial protocol events
   doc: |
     OnSocial NEAR Contract Event Indexer
     Decodes NEP-297 JSON events from core-onsocial contract logs
-    Outputs typed protobuf for subgraph consumption
+    Outputs to PostgreSQL via substreams-sink-sql
 
 network: near
 
@@ -17,12 +19,13 @@ binaries:
 protobuf:
   files:
     - onsocial.proto
-    - sf/substreams/sink/entity/v1/entity.proto
+    - sf/substreams/sink/database/v1/database.proto
+    - sf/substreams/sink/sql/v1/service.proto
   importPaths:
     - ./proto
 
 modules:
-  # Primary module - typed output for subgraph
+  # Primary module - typed output
   - name: map_onsocial_output
     kind: map
     inputs:
@@ -40,29 +43,22 @@ modules:
       - contract_updates: Meta transactions
       - permission_updates: Access control changes
 
-  # Graph entity changes output - for substreams-powered subgraph
-  - name: graph_out
+  # Database changes output - for substreams-sink-sql (PostgreSQL)
+  - name: db_out
     kind: map
     inputs:
       - map: map_onsocial_output
     output:
-      type: proto:sf.substreams.sink.entity.v1.EntityChanges
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
     doc: |
-      Converts typed Output to EntityChanges for subgraph consumption.
-      Use this module for substreams-powered subgraphs.
-
-  # Legacy module - generic event output
-  - name: map_onsocial_events
-    kind: map
-    inputs:
-      - params: string
-      - source: sf.near.type.v1.Block
-    output:
-      type: proto:onsocial.v1.Events
-    doc: |
-      Legacy module - outputs generic events with ExtraField map.
-      Use graph_out for new subgraphs.
+      Converts typed Output to DatabaseChanges for SQL sink.
+      Use this module with substreams-sink-sql for PostgreSQL indexing.
 
 params:
   map_onsocial_output: "contract_id=core.onsocial.testnet"
-  map_onsocial_events: "contract_id=core.onsocial.testnet"
+
+sink:
+  module: db_out
+  type: sf.substreams.sink.sql.v1.Service
+  config:
+    schema: "./schema.sql"

@@ -1,0 +1,7 @@
+# Environment files with secrets
+.env
+.env.local
+
+# Test outputs
+*.log
+test-results/

@@ -1,23 +1,19 @@
 [package]
 name = "onsocial-substreams"
-version = "0.3.0"
-edition = "2021"
-rust-version = "1.75"
-description = "Substreams module for indexing OnSocial NEAR contract events (NEP-297 JSON format)"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.93"
+description = "Substreams indexer for OnSocial protocol"
 
 [lib]
 crate-type = ["cdylib"]
-name = "onsocial_substreams"
 
 [dependencies]
-# Substreams
-substreams = "0.6"
-substreams-near = "0.10"
-substreams-entity-change = "2.0"
+substreams = "0.7.3"
+substreams-near = "0.10.2"
+substreams-database-change = "3.0.0"
 prost = "0.13"
-
-# JSON parsing (no more Borsh!)
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
 bs58 = "0.5.1"
 
