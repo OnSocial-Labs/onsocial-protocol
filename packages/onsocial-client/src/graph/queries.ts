@@ -21,6 +21,11 @@ const DATA_UPDATE_FIELDS = `
   groupId
   groupPath
   isGroupContent
+  targetAccount
+  parentPath
+  parentAuthor
+  refPath
+  refAuthor
   derivedId
   derivedType
 `;
@@ -242,6 +247,25 @@ export const QUERIES = {
         orderBy: blockTimestamp
         orderDirection: desc
         first: $first
+      ) {
+        ${DATA_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Flexible data query with dynamic where clause
+   * Supports all indexed fields: accountId, dataType, groupId, isGroupContent,
+   * targetAccount, replyToPath, replyToAuthor, quotedPath, quotedAuthor
+   */
+  QUERY_DATA_UPDATES: `
+    query QueryDataUpdates($where: DataUpdate_filter!, $first: Int, $skip: Int, $orderBy: DataUpdate_orderBy, $orderDirection: OrderDirection) {
+      dataUpdates(
+        where: $where
+        orderBy: $orderBy
+        orderDirection: $orderDirection
+        first: $first
+        skip: $skip
       ) {
         ${DATA_UPDATE_FIELDS}
       }

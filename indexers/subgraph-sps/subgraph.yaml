@@ -1,0 +1,20 @@
+specVersion: 1.0.0
+description: OnSocial - Decentralized Social Protocol on NEAR (Substreams-powered)
+repository: https://github.com/OnSocial-Labs/onsocial-protocol
+
+schema:
+  file: ../subgraph/schema.graphql
+
+dataSources:
+  - kind: substreams
+    name: OnSocial
+    network: near-testnet
+    source:
+      package:
+        moduleName: graph_out
+        file: ./onsocial-v0.3.0.spkg
+      startBlock: 233089000
+    mapping:
+      apiVersion: 0.0.7
+      kind: substreams/graph-entities
+

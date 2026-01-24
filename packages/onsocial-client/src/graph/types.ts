@@ -24,6 +24,14 @@ export interface DataUpdate {
   groupId: string | null;
   groupPath: string | null;
   isGroupContent: boolean;
+  // Social graph
+  targetAccount: string | null;
+  // Reference fields
+  parentPath: string | null;
+  parentAuthor: string | null;
+  refPath: string | null;
+  refAuthor: string | null;
+  // Contract derived
   derivedId: string | null;
   derivedType: string | null;
   writes: string | null;
@@ -278,10 +286,18 @@ export interface QueryOptions {
  * Filter options for data queries
  */
 export interface DataQueryOptions extends QueryOptions {
+  accountId?: string;
   operation?: 'set' | 'remove';
   dataType?: string;
   groupId?: string;
   isGroupContent?: boolean;
+  // Social graph filters
+  targetAccount?: string;
+  // Reference filters
+  parentPath?: string;
+  parentAuthor?: string;
+  refPath?: string;
+  refAuthor?: string;
 }
 
 /**

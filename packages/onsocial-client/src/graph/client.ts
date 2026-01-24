@@ -177,6 +177,50 @@ export class GraphClient {
     return result.dataUpdates;
   }
 
+  /**
+   * Query data updates with flexible filters
+   * Protocol-agnostic - use indexed fields for efficient queries
+   * 
+   * @example
+   * ```ts
+   * // By target account (who follows/blocks this account)
+   * graph.queryDataUpdates({ targetAccount: 'bob.near', dataType: 'graph' })
+   * 
+   * // By reply path (replies to a specific post)
+   * graph.queryDataUpdates({ replyToPath: 'alice/posts/123' })
+   * 
+   * // By reply author (all replies to posts by this author)
+   * graph.queryDataUpdates({ replyToAuthor: 'alice.near' })
+   * 
+   * // By quoted path (quotes of a specific post)
+   * graph.queryDataUpdates({ quotedPath: 'alice/posts/123' })
+   * ```
+   */
+  async queryDataUpdates(
+    filters: DataQueryOptions
+  ): Promise<DataUpdate[]> {
+    const { first = 100, skip = 0, orderBy = 'blockTimestamp', orderDirection = 'desc' } = filters;
+    
+    // Build where clause from filters
+    const where: Record<string, unknown> = {};
+    if (filters.accountId) where.accountId = filters.accountId;
+    if (filters.operation) where.operation = filters.operation;
+    if (filters.dataType) where.dataType = filters.dataType;
+    if (filters.groupId) where.groupId = filters.groupId;
+    if (filters.isGroupContent !== undefined) where.isGroupContent = filters.isGroupContent;
+    if (filters.targetAccount) where.targetAccount = filters.targetAccount;
+    if (filters.parentPath) where.parentPath = filters.parentPath;
+    if (filters.parentAuthor) where.parentAuthor = filters.parentAuthor;
+    if (filters.refPath) where.refPath = filters.refPath;
+    if (filters.refAuthor) where.refAuthor = filters.refAuthor;
+    
+    const result = await this.query<{ dataUpdates: DataUpdate[] }>(
+      QUERIES.QUERY_DATA_UPDATES,
+      { where, first, skip, orderBy, orderDirection }
+    );
+    return result.dataUpdates;
+  }
+
   // ===========================================================================
   // ACCOUNT QUERIES
   // ===========================================================================

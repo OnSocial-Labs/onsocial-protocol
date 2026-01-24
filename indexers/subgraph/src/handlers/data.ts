@@ -3,7 +3,7 @@
  * Processes data writes to user and group storage paths
  */
 
-import { near, JSONValue, BigInt, TypedMap } from "@graphprotocol/graph-ts";
+import { near, JSONValue, JSONValueKind, BigInt, TypedMap } from "@graphprotocol/graph-ts";
 import { DataUpdate } from "../../generated/schema";
 import { jsonToString, getStringOrNull, getInt, getBool } from "../utils";
 import { ensureAccount, ensureGroup } from "../entities";
@@ -94,12 +94,75 @@ export function handleDataUpdate(
     }
   }
 
-  // Extract targetAccount for social graph paths (follow, block)
-  // Path format: {accountId}/graph/follow/{targetAccount} or {accountId}/graph/block/{targetAccount}
+  // Extract targetAccount from graph/* paths
+  // Path format: {accountId}/graph/{type}/{targetAccount}
+  // SDK interprets what different graph types mean (follow, block, mute, etc.)
   if (!isGroupContent && pathParts.length >= 4 && pathParts[1] == "graph") {
-    const graphType = pathParts[2]; // "follow" or "block"
-    if (graphType == "follow" || graphType == "block") {
-      entity.targetAccount = pathParts[3];
+    entity.targetAccount = pathParts[3];
+  }
+
+  // Extract reference fields from value JSON (if present)
+  // Protocol-level conventions: value.parent (hierarchy), value.ref (lateral), value.refs (multiple)
+  if (valueField && !valueField.isNull() && valueField.kind == JSONValueKind.OBJECT) {
+    const valueObj = valueField.toObject();
+    
+    // Extract parent reference (hierarchical: reply, subtask, comment)
+    const parentField = valueObj.get("parent");
+    if (parentField && !parentField.isNull() && parentField.kind == JSONValueKind.STRING) {
+      const parent = parentField.toString();
+      entity.parentPath = parent;
+      const parentParts = parent.split("/");
+      if (parentParts.length > 0) {
+        entity.parentAuthor = parentParts[0];
+      }
+    }
+    
+    // Extract parentType (relationship kind: "reply", "subtask", "comment", etc.)
+    const parentTypeField = valueObj.get("parentType");
+    if (parentTypeField && !parentTypeField.isNull() && parentTypeField.kind == JSONValueKind.STRING) {
+      entity.parentType = parentTypeField.toString();
+    }
+    
+    // Extract ref reference (lateral: quote, cite, embed)
+    const refField = valueObj.get("ref");
+    if (refField && !refField.isNull() && refField.kind == JSONValueKind.STRING) {
+      const ref = refField.toString();
+      entity.refPath = ref;
+      const refParts = ref.split("/");
+      if (refParts.length > 0) {
+        entity.refAuthor = refParts[0];
+      }
+    }
+    
+    // Extract refType (relationship kind: "quote", "cite", "embed", etc.)
+    const refTypeField = valueObj.get("refType");
+    if (refTypeField && !refTypeField.isNull() && refTypeField.kind == JSONValueKind.STRING) {
+      entity.refType = refTypeField.toString();
+    }
+    
+    // Extract refs array (multiple lateral references)
+    const refsField = valueObj.get("refs");
+    if (refsField && !refsField.isNull() && refsField.kind == JSONValueKind.ARRAY) {
+      const refsArray = refsField.toArray();
+      const refPaths: string[] = [];
+      const refAuthors: string[] = [];
+      
+      for (let i = 0; i < refsArray.length; i++) {
+        const refItem = refsArray[i];
+        if (refItem && !refItem.isNull() && refItem.kind == JSONValueKind.STRING) {
+          const refPath = refItem.toString();
+          refPaths.push(refPath);
+          const parts = refPath.split("/");
+          if (parts.length > 0) {
+            refAuthors.push(parts[0]);
+          }
+        }
+      }
+      
+      if (refPaths.length > 0) {
+        entity.refs = refPaths;
+        entity.refAuthors = refAuthors;
+      }
     }
   }
 

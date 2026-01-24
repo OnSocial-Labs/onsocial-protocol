@@ -2,7 +2,262 @@ syntax = "proto3";
 
 package onsocial.v1;
 
-// Top-level output containing all decoded events from a block
+// =============================================================================
+// TOP-LEVEL OUTPUT - Contains typed events for subgraph consumption
+// =============================================================================
+
+message Output {
+  repeated DataUpdate data_updates = 1;
+  repeated StorageUpdate storage_updates = 2;
+  repeated GroupUpdate group_updates = 3;
+  repeated ContractUpdate contract_updates = 4;
+  repeated PermissionUpdate permission_updates = 5;
+  uint64 block_height = 6;
+  uint64 block_timestamp = 7;
+  string block_hash = 8;
+}
+
+// =============================================================================
+// DATA_UPDATE - Posts, profiles, settings, group content
+// =============================================================================
+
+message DataUpdate {
+  // Entity ID (receipt_id + log_index + data_index)
+  string id = 1;
+  
+  // Block context
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  
+  // Core fields
+  string operation = 5;           // "set" | "remove"
+  string author = 6;
+  uint32 partition_id = 7;
+  
+  // Data location
+  string path = 8;
+  string value = 9;               // JSON string
+  
+  // Derived from path
+  string account_id = 10;
+  string data_type = 11;          // profile, post, settings, etc.
+  string data_id = 12;
+  
+  // Group content
+  string group_id = 13;
+  string group_path = 14;
+  bool is_group_content = 15;
+  
+  // Social graph (for graph/follow, graph/block)
+  string target_account = 16;
+  
+  // Reference fields (extracted from value JSON)
+  string parent_path = 17;        // Hierarchical parent
+  string parent_author = 18;
+  string parent_type = 19;        // "reply", "subtask", "comment"
+  
+  string ref_path = 20;           // Lateral reference
+  string ref_author = 21;
+  string ref_type = 22;           // "quote", "cite", "embed"
+  
+  repeated string refs = 23;      // Multiple references
+  repeated string ref_authors = 24;
+  
+  // Contract-derived fields
+  string derived_id = 25;
+  string derived_type = 26;
+  
+  // Batch writes
+  string writes = 27;             // JSON array
+}
+
+// =============================================================================
+// STORAGE_UPDATE - Deposits, withdrawals, pool operations
+// =============================================================================
+
+message StorageUpdate {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  
+  string operation = 5;
+  string author = 6;
+  uint32 partition_id = 7;
+  
+  // Amount fields (as strings for large numbers)
+  string amount = 8;
+  string previous_balance = 9;
+  string new_balance = 10;
+  
+  // Pool fields
+  string pool_id = 11;
+  string pool_key = 12;
+  string previous_pool_balance = 13;
+  string new_pool_balance = 14;
+  
+  // Group sponsor
+  string group_id = 15;
+  string bytes = 16;
+  string remaining_allowance = 17;
+  
+  // Platform sponsor
+  string pool_account = 18;
+  
+  // Refund/auto-deposit
+  string reason = 19;
+  string auth_type = 20;
+  string actor_id = 21;
+  string payer_id = 22;
+  string target_id = 23;
+  
+  // Withdrawal
+  string available_balance = 24;
+  
+  // Donor
+  string donor = 25;
+  string payer = 26;
+  
+  // Shared storage
+  string max_bytes = 27;
+  string new_shared_bytes = 28;
+  string new_used_bytes = 29;
+  string pool_available_bytes = 30;
+  string used_bytes = 31;
+}
+
+// =============================================================================
+// GROUP_UPDATE - Membership, governance, proposals, voting
+// =============================================================================
+
+message GroupUpdate {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  
+  string operation = 5;
+  string author = 6;
+  uint32 partition_id = 7;
+  
+  // Group identification
+  string group_id = 8;
+  
+  // Member fields
+  string member_id = 9;
+  uint64 member_nonce = 10;
+  string member_nonce_path = 11;
+  string role = 12;
+  int32 level = 13;
+  
+  // Path and value
+  string path = 14;
+  string value = 15;
+  
+  // Pool fields
+  string pool_key = 16;
+  string amount = 17;
+  string previous_pool_balance = 18;
+  string new_pool_balance = 19;
+  
+  // Sponsor quota
+  string quota_bytes = 20;
+  string quota_used = 21;
+  string daily_limit = 22;
+  bool previously_enabled = 23;
+  
+  // Proposal fields
+  string proposal_id = 24;
+  string proposal_type = 25;
+  string status = 26;
+  uint64 sequence_number = 27;
+  string description = 28;
+  bool auto_vote = 29;
+  uint64 created_at = 30;
+  int32 locked_member_count = 31;
+  string locked_deposit = 32;
+  uint64 expires_at = 33;
+  string tally_path = 34;
+  string counter_path = 35;
+  
+  // Voting fields
+  string voter = 36;
+  bool approve = 37;
+  int32 total_votes = 38;
+  int32 yes_votes = 39;
+  int32 no_votes = 40;
+  bool should_execute = 41;
+  bool should_reject = 42;
+  uint64 voted_at = 43;
+  
+  // Voting config
+  uint64 voting_period = 44;
+  int32 participation_quorum = 45;
+  int32 approval_threshold = 46;
+  
+  // Permission fields
+  string permission_key = 47;
+  string permission_value = 48;
+  string permission_target = 49;
+  
+  // Create group fields
+  string name = 50;
+  bool is_public = 51;
+  string creator_role = 52;
+  string storage_allocation = 53;
+}
+
+// =============================================================================
+// CONTRACT_UPDATE - Meta transactions, execution contexts
+// =============================================================================
+
+message ContractUpdate {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  
+  string operation = 5;
+  string author = 6;
+  uint32 partition_id = 7;
+  
+  string path = 8;
+  string derived_id = 9;
+  string derived_type = 10;
+  string target_id = 11;
+  string auth_type = 12;
+  string actor_id = 13;
+  string payer_id = 14;
+}
+
+// =============================================================================
+// PERMISSION_UPDATE - Access control changes
+// =============================================================================
+
+message PermissionUpdate {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  
+  string operation = 5;
+  string author = 6;
+  uint32 partition_id = 7;
+  
+  string path = 8;
+  string account_id = 9;
+  string permission_type = 10;
+  string target_path = 11;
+  string permission_key = 12;
+  bool granted = 13;
+  string value = 14;
+}
+
+// =============================================================================
+// LEGACY GENERIC OUTPUT - For backwards compatibility
+// =============================================================================
+
 message Events {
   repeated Event events = 1;
   uint64 block_height = 2;
@@ -10,47 +265,32 @@ message Events {
   string block_hash = 4;
 }
 
-// Decoded OnSocial NEP-297 event from contract logs
 message Event {
-  // NEP-297 standard fields
-  string standard = 1;        // "onsocial"
-  string version = 2;         // "1.0.0"
-  string event = 3;           // Category: "GROUP_UPDATE", "DATA_UPDATE", etc.
-  
-  // Event data array (NEP-297 requires array)
+  string standard = 1;
+  string version = 2;
+  string event = 3;
   repeated EventData data = 4;
-  
-  // NEAR receipt info for tracing
   string receipt_id = 5;
   string predecessor_id = 6;
   string receiver_id = 7;
-  
-  // Block context (provided by Substreams, not contract)
   uint64 block_height = 8;
   uint64 block_timestamp = 9;
   uint32 log_index = 10;
 }
 
-// Event data payload (matches EventData in contract)
 message EventData {
-  string operation = 1;       // "add_member", "set", "delete", etc.
-  string author = 2;          // Who performed the action
-  
-  // Partition ID for indexer routing (0 if not set)
+  string operation = 1;
+  string author = 2;
   uint32 partition_id = 3;
   bool has_partition_id = 4;
-  
-  // Flattened extra fields from JSON
   repeated ExtraField extra = 5;
 }
 
-// Extra field from event data
 message ExtraField {
   string key = 1;
   ExtraValue value = 2;
 }
 
-// Value types for extra fields
 message ExtraValue {
   oneof value {
     string string_value = 1;

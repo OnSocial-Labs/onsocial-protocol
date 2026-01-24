@@ -79,6 +79,10 @@ export function handleStorageUpdate(
   if (!poolKey) {
     poolKey = entity.poolId;
   }
+  // For share_storage: pool owner is the author (no separate pool_id field emitted)
+  if (!poolKey && operation == "share_storage") {
+    poolKey = author;
+  }
   if (poolKey) {
     const pool = ensureStoragePool(poolKey, timestamp);
     entity.storagePool = pool.id;
@@ -114,7 +118,8 @@ export function handleStorageUpdate(
   // Handle share_storage and return_storage for SharedStorageAllocation tracking
   if (operation == "share_storage") {
     const targetId = entity.targetId;
-    const poolId = entity.poolId;
+    // For share_storage: pool owner is the author (not a separate pool_id field)
+    const poolId = author;
     const maxBytes = entity.maxBytes;
     if (targetId && poolId && maxBytes) {
       const allocationId = poolId + "-" + targetId;

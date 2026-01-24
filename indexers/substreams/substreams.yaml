@@ -1,10 +1,11 @@
 specVersion: v0.1.0
 package:
   name: onsocial_events
-  version: v0.2.0
+  version: v0.3.0
   doc: |
     OnSocial NEAR Contract Event Indexer
     Decodes NEP-297 JSON events from core-onsocial contract logs
+    Outputs typed protobuf for subgraph consumption
 
 network: near
 
@@ -16,10 +17,41 @@ binaries:
 protobuf:
   files:
     - onsocial.proto
+    - sf/substreams/sink/entity/v1/entity.proto
   importPaths:
     - ./proto
 
 modules:
+  # Primary module - typed output for subgraph
+  - name: map_onsocial_output
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:onsocial.v1.Output
+    doc: |
+      Extracts OnSocial events and outputs typed protobuf messages.
+      
+      Output contains:
+      - data_updates: Posts, profiles, settings, group content
+      - storage_updates: Deposits, withdrawals, pool operations
+      - group_updates: Membership, governance, proposals
+      - contract_updates: Meta transactions
+      - permission_updates: Access control changes
+
+  # Graph entity changes output - for substreams-powered subgraph
+  - name: graph_out
+    kind: map
+    inputs:
+      - map: map_onsocial_output
+    output:
+      type: proto:sf.substreams.sink.entity.v1.EntityChanges
+    doc: |
+      Converts typed Output to EntityChanges for subgraph consumption.
+      Use this module for substreams-powered subgraphs.
+
+  # Legacy module - generic event output
   - name: map_onsocial_events
     kind: map
     inputs:
@@ -28,8 +60,9 @@ modules:
     output:
       type: proto:onsocial.v1.Events
     doc: |
-      Extracts and decodes OnSocial NEP-297 events from NEAR contract logs.
-      Filters for logs with "EVENT_JSON:" prefix and parses JSON payload.
+      Legacy module - outputs generic events with ExtraField map.
+      Use graph_out for new subgraphs.
 
 params:
-  map_onsocial_events: "contract_id=onsocial.near"
+  map_onsocial_output: "contract_id=core.onsocial.testnet"
+  map_onsocial_events: "contract_id=core.onsocial.testnet"

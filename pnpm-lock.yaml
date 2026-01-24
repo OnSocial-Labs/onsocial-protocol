@@ -103,6 +103,12 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0
 
+  indexers/subgraph-sps:
+    devDependencies:
+      '@graphprotocol/graph-cli':
+        specifier: ^0.98.1
+        version: 0.98.1(@types/node@24.0.10)(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.71)
+
   packages/onsocial-app:
     dependencies:
       expo:

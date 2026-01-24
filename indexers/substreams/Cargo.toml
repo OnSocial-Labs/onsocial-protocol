@@ -1,6 +1,6 @@
 [package]
 name = "onsocial-substreams"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.75"
 description = "Substreams module for indexing OnSocial NEAR contract events (NEP-297 JSON format)"
@@ -13,6 +13,7 @@ name = "onsocial_substreams"
 # Substreams
 substreams = "0.6"
 substreams-near = "0.10"
+substreams-entity-change = "2.0"
 prost = "0.13"
 
 # JSON parsing (no more Borsh!)
