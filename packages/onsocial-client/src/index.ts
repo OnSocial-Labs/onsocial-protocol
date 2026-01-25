@@ -2,13 +2,16 @@
 // @onsocial/client - OnSocial client library
 //
 // This is the low-level protocol SDK. For social-specific schemas
-// (Profile, Post, Comment, etc.), use onsocial-sdk.
+// (Profile, Post, Comment, etc.), use @onsocial/sdk.
 //
 // Modules:
 // - core: Network configuration and types
-// - graph: Query data from The Graph subgraph
+// - graph: Query data from Hasura (Substreams indexer)
 // - storage: IPFS/Filecoin storage via Lighthouse
 // - utils: Helper utilities
+//
+// IMPORTANT: Hasura must be configured with graphql-default naming convention
+// See: https://hasura.io/docs/latest/schema/postgres/naming-convention/
 
 // Core exports
 export { NETWORKS } from './core';
@@ -29,13 +32,8 @@ export type {
   GroupUpdate,
   ContractUpdate,
   PermissionUpdate,
-  // Aggregate Entities (mutable)
-  Account,
-  Group,
-  GroupMember,
-  Proposal,
-  Permission,
-  StoragePool,
+  // Indexer Status
+  IndexerStatus,
   // Utility Types
   ParseResult,
 } from './graph';

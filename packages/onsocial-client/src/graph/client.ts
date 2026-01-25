@@ -1,72 +1,96 @@
 // src/graph/client.ts
-// GraphQL client for The Graph subgraph - Generic protocol layer
+// Hasura GraphQL client for OnSocial Substreams indexer
+//
+// This client queries data from the Substreams → PostgreSQL → Hasura stack.
+// Requires Hasura to be configured with graphql-default naming convention.
+
 import { NETWORKS } from '../core/types';
 import { QUERIES } from './queries';
 import type {
   GraphClientConfig,
   DataUpdate,
-  Account,
   StorageUpdate,
-  QueryOptions,
-  Group,
   GroupUpdate,
-  GroupMember,
-  Proposal,
-  Permission,
+  ContractUpdate,
   PermissionUpdate,
+  QueryOptions,
   DataQueryOptions,
   GroupQueryOptions,
   ParseResult,
+  IndexerStatus,
 } from './types';
 
 /**
- * GraphClient - Query OnSocial data from The Graph
+ * GraphClient - Query OnSocial data from Hasura (Substreams indexer)
  *
- * This is the protocol-level client. It returns raw data from the subgraph.
- * For social-specific schemas (Profile, Post, etc.), use onsocial-sdk.
+ * This is the protocol-level client. It returns indexed event data.
+ * For social-specific schemas (Profile, Post, etc.), use @onsocial/sdk.
  *
  * @example
  * ```ts
- * const graph = new GraphClient({ network: 'testnet' });
+ * const client = new GraphClient({ network: 'testnet' });
  *
- * // Get raw data updates
- * const updates = await graph.getDataByType('alice.near', 'profile');
- * const profileData = graph.parseValue<MyProfileType>(updates[0]);
+ * // Get data updates for an account
+ * const updates = await client.getDataUpdates('alice.near');
  *
- * // Get group and members
- * const group = await graph.getGroup('my-group');
- * const members = await graph.getGroupMembers('my-group');
+ * // Get specific data type
+ * const posts = await client.getDataByType('alice.near', 'posts');
  *
- * // Get permissions
- * const perms = await graph.getPermissionsGrantedBy('alice.near');
+ * // Get replies to a post
+ * const replies = await client.getReplies('alice.near/posts/123');
+ *
+ * // Check indexer status
+ * const status = await client.getIndexerStatus();
  * ```
  */
 export class GraphClient {
-  private graphUrl: string;
+  private hasuraUrl: string;
+  private headers: Record<string, string>;
 
   constructor(config: GraphClientConfig = {}) {
     const network = config.network || 'testnet';
-    this.graphUrl = config.graphUrl || NETWORKS[network].graphUrl;
+    this.hasuraUrl = config.hasuraUrl || NETWORKS[network].hasuraUrl;
+
+    // Build headers
+    this.headers = {
+      'Content-Type': 'application/json',
+    };
+
+    // Add admin secret if provided
+    if (config.hasuraAdminSecret) {
+      this.headers['X-Hasura-Admin-Secret'] = config.hasuraAdminSecret;
+    }
   }
 
+  // ===========================================================================
+  // CORE QUERY METHOD
+  // ===========================================================================
+
   /**
-   * Execute a GraphQL query
+   * Execute a GraphQL query against Hasura
    */
-  private async query<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-    const response = await fetch(this.graphUrl, {
+  private async query<T>(
+    query: string,
+    variables: Record<string, unknown> = {}
+  ): Promise<T> {
+    const response = await fetch(this.hasuraUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: this.headers,
       body: JSON.stringify({ query, variables }),
     });
 
     if (!response.ok) {
-      throw new Error(`GraphQL request failed: ${response.status}`);
+      throw new Error(`Hasura request failed: ${response.status} ${response.statusText}`);
     }
 
-    const json = (await response.json()) as { data?: T; errors?: Array<{ message: string }> };
+    const json = (await response.json()) as {
+      data?: T;
+      errors?: Array<{ message: string; extensions?: unknown }>;
+    };
 
     if (json.errors?.length) {
-      throw new Error(`GraphQL error: ${json.errors[0].message}`);
+      const errorMsg = json.errors.map((e) => e.message).join(', ');
+      throw new Error(`GraphQL error: ${errorMsg}`);
     }
 
     return json.data as T;
@@ -88,10 +112,10 @@ export class GraphClient {
       const data = JSON.parse(update.value) as T;
       return { success: true, data };
     } catch (e) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: e instanceof Error ? e.message : 'JSON parse error',
-        raw: update.value 
+        raw: update.value,
       };
     }
   }
@@ -105,7 +129,7 @@ export class GraphClient {
   }
 
   // ===========================================================================
-  // DATA QUERIES
+  // DATA UPDATE QUERIES
   // ===========================================================================
 
   /**
@@ -113,28 +137,28 @@ export class GraphClient {
    */
   async getDataUpdates(
     accountId: string,
-    options: DataQueryOptions = {}
+    options: QueryOptions = {}
   ): Promise<DataUpdate[]> {
-    const { first = 100, skip = 0 } = options;
+    const { limit = 100, offset = 0 } = options;
     const result = await this.query<{ dataUpdates: DataUpdate[] }>(
       QUERIES.GET_DATA_UPDATES,
-      { accountId, first, skip }
+      { accountId, limit, offset }
     );
     return result.dataUpdates;
   }
 
   /**
-   * Get data updates filtered by type (profile, post, settings, etc.)
+   * Get data updates by type (e.g., "profile", "posts")
    */
   async getDataByType(
     accountId: string,
     dataType: string,
     options: QueryOptions = {}
   ): Promise<DataUpdate[]> {
-    const { first = 100, skip = 0 } = options;
+    const { limit = 100, offset = 0 } = options;
     const result = await this.query<{ dataUpdates: DataUpdate[] }>(
       QUERIES.GET_DATA_BY_TYPE,
-      { accountId, dataType, first, skip }
+      { accountId, dataType, limit, offset }
     );
     return result.dataUpdates;
   }
@@ -156,7 +180,7 @@ export class GraphClient {
   async getRecentActivity(limit: number = 50): Promise<DataUpdate[]> {
     const result = await this.query<{ dataUpdates: DataUpdate[] }>(
       QUERIES.GET_RECENT_ACTIVITY,
-      { first: limit }
+      { limit }
     );
     return result.dataUpdates;
   }
@@ -169,333 +193,199 @@ export class GraphClient {
     dataType?: string,
     options: QueryOptions = {}
   ): Promise<DataUpdate[]> {
-    const { first = 50, skip = 0 } = options;
+    const { limit = 50, offset = 0 } = options;
     const result = await this.query<{ dataUpdates: DataUpdate[] }>(
       QUERIES.GET_GROUP_CONTENT,
-      { groupId, dataType, first, skip }
+      { groupId, dataType, limit, offset }
     );
     return result.dataUpdates;
   }
 
   /**
-   * Query data updates with flexible filters
-   * Protocol-agnostic - use indexed fields for efficient queries
-   * 
-   * @example
-   * ```ts
-   * // By target account (who follows/blocks this account)
-   * graph.queryDataUpdates({ targetAccount: 'bob.near', dataType: 'graph' })
-   * 
-   * // By reply path (replies to a specific post)
-   * graph.queryDataUpdates({ replyToPath: 'alice/posts/123' })
-   * 
-   * // By reply author (all replies to posts by this author)
-   * graph.queryDataUpdates({ replyToAuthor: 'alice.near' })
-   * 
-   * // By quoted path (quotes of a specific post)
-   * graph.queryDataUpdates({ quotedPath: 'alice/posts/123' })
-   * ```
+   * Get data by target account (social graph queries)
+   * Use for finding followers, blocks, etc.
    */
-  async queryDataUpdates(
-    filters: DataQueryOptions
+  async getDataByTarget(
+    targetAccount: string,
+    dataType?: string,
+    options: QueryOptions = {}
   ): Promise<DataUpdate[]> {
-    const { first = 100, skip = 0, orderBy = 'blockTimestamp', orderDirection = 'desc' } = filters;
-    
-    // Build where clause from filters
-    const where: Record<string, unknown> = {};
-    if (filters.accountId) where.accountId = filters.accountId;
-    if (filters.operation) where.operation = filters.operation;
-    if (filters.dataType) where.dataType = filters.dataType;
-    if (filters.groupId) where.groupId = filters.groupId;
-    if (filters.isGroupContent !== undefined) where.isGroupContent = filters.isGroupContent;
-    if (filters.targetAccount) where.targetAccount = filters.targetAccount;
-    if (filters.parentPath) where.parentPath = filters.parentPath;
-    if (filters.parentAuthor) where.parentAuthor = filters.parentAuthor;
-    if (filters.refPath) where.refPath = filters.refPath;
-    if (filters.refAuthor) where.refAuthor = filters.refAuthor;
-    
+    const { limit = 100, offset = 0 } = options;
     const result = await this.query<{ dataUpdates: DataUpdate[] }>(
-      QUERIES.QUERY_DATA_UPDATES,
-      { where, first, skip, orderBy, orderDirection }
+      QUERIES.GET_DATA_BY_TARGET,
+      { targetAccount, dataType, limit, offset }
+    );
+    return result.dataUpdates;
+  }
+
+  /**
+   * Get replies to a specific path
+   */
+  async getReplies(
+    parentPath: string,
+    options: QueryOptions = {}
+  ): Promise<DataUpdate[]> {
+    const { limit = 50, offset = 0 } = options;
+    const result = await this.query<{ dataUpdates: DataUpdate[] }>(
+      QUERIES.GET_REPLIES,
+      { parentPath, limit, offset }
+    );
+    return result.dataUpdates;
+  }
+
+  /**
+   * Get quotes/references to a specific path
+   */
+  async getReferences(
+    refPath: string,
+    options: QueryOptions = {}
+  ): Promise<DataUpdate[]> {
+    const { limit = 50, offset = 0 } = options;
+    const result = await this.query<{ dataUpdates: DataUpdate[] }>(
+      QUERIES.GET_REFERENCES,
+      { refPath, limit, offset }
     );
     return result.dataUpdates;
   }
 
   // ===========================================================================
-  // ACCOUNT QUERIES
+  // STORAGE UPDATE QUERIES
   // ===========================================================================
 
   /**
-   * Get account information
-   */
-  async getAccount(accountId: string): Promise<Account | null> {
-    const result = await this.query<{ account: Account | null }>(
-      QUERIES.GET_ACCOUNT,
-      { id: accountId }
-    );
-    return result.account;
-  }
-
-  /**
-   * Get multiple accounts
-   */
-  async getAccounts(accountIds: string[]): Promise<Account[]> {
-    const result = await this.query<{ accounts: Account[] }>(
-      QUERIES.GET_ACCOUNTS,
-      { ids: accountIds }
-    );
-    return result.accounts;
-  }
-
-  // ===========================================================================
-  // STORAGE QUERIES
-  // ===========================================================================
-
-  /**
-   * Get storage updates for an account
+   * Get storage updates by author
    */
   async getStorageUpdates(
-    accountId: string,
-    limit: number = 20
+    author: string,
+    limit: number = 50
   ): Promise<StorageUpdate[]> {
     const result = await this.query<{ storageUpdates: StorageUpdate[] }>(
       QUERIES.GET_STORAGE_UPDATES,
-      { accountId, first: limit }
+      { author, limit }
     );
     return result.storageUpdates;
   }
 
   /**
-   * Get storage balance history
+   * Get storage history for a target account
    */
   async getStorageHistory(
-    accountId: string,
+    targetId: string,
     limit: number = 50
   ): Promise<StorageUpdate[]> {
     const result = await this.query<{ storageUpdates: StorageUpdate[] }>(
       QUERIES.GET_STORAGE_HISTORY,
-      { accountId, first: limit }
+      { targetId, limit }
+    );
+    return result.storageUpdates;
+  }
+
+  /**
+   * Get storage updates by operation type
+   */
+  async getStorageByOperation(
+    operation: string,
+    limit: number = 50
+  ): Promise<StorageUpdate[]> {
+    const result = await this.query<{ storageUpdates: StorageUpdate[] }>(
+      QUERIES.GET_STORAGE_BY_OPERATION,
+      { operation, limit }
     );
     return result.storageUpdates;
   }
 
   // ===========================================================================
-  // GROUP QUERIES
+  // GROUP UPDATE QUERIES
   // ===========================================================================
 
   /**
-   * Get group by ID
-   */
-  async getGroup(groupId: string): Promise<Group | null> {
-    const result = await this.query<{ group: Group | null }>(
-      QUERIES.GET_GROUP,
-      { id: groupId }
-    );
-    return result.group;
-  }
-
-  /**
-   * Get groups owned by an account
-   */
-  async getGroupsByOwner(
-    owner: string,
-    options: QueryOptions = {}
-  ): Promise<Group[]> {
-    const { first = 50, skip = 0 } = options;
-    const result = await this.query<{ groups: Group[] }>(
-      QUERIES.GET_GROUPS_BY_OWNER,
-      { owner, first, skip }
-    );
-    return result.groups;
-  }
-
-  /**
-   * Get group updates/events
+   * Get group updates
    */
   async getGroupUpdates(
     groupId: string,
     options: GroupQueryOptions = {}
   ): Promise<GroupUpdate[]> {
-    const { first = 100, skip = 0, operation } = options;
+    const { limit = 100, offset = 0, operation } = options;
+
     if (operation) {
       const result = await this.query<{ groupUpdates: GroupUpdate[] }>(
         QUERIES.GET_GROUP_UPDATES_BY_OP,
-        { groupId, operation, first }
+        { groupId, operation, limit }
       );
       return result.groupUpdates;
     }
+
     const result = await this.query<{ groupUpdates: GroupUpdate[] }>(
       QUERIES.GET_GROUP_UPDATES,
-      { groupId, first, skip }
+      { groupId, limit, offset }
+    );
+    return result.groupUpdates;
+  }
+
+  /**
+   * Get member updates for a group
+   */
+  async getMemberUpdates(
+    groupId: string,
+    memberId?: string,
+    limit: number = 50
+  ): Promise<GroupUpdate[]> {
+    const result = await this.query<{ groupUpdates: GroupUpdate[] }>(
+      QUERIES.GET_MEMBER_UPDATES,
+      { groupId, memberId, limit }
+    );
+    return result.groupUpdates;
+  }
+
+  /**
+   * Get proposal updates
+   */
+  async getProposalUpdates(
+    groupId: string,
+    proposalId?: string,
+    limit: number = 50
+  ): Promise<GroupUpdate[]> {
+    const result = await this.query<{ groupUpdates: GroupUpdate[] }>(
+      QUERIES.GET_PROPOSAL_UPDATES,
+      { groupId, proposalId, limit }
+    );
+    return result.groupUpdates;
+  }
+
+  /**
+   * Get groups created by an author
+   */
+  async getGroupsByAuthor(
+    author: string,
+    limit: number = 50
+  ): Promise<GroupUpdate[]> {
+    const result = await this.query<{ groupUpdates: GroupUpdate[] }>(
+      QUERIES.GET_GROUPS_BY_AUTHOR,
+      { author, limit }
+    );
+    return result.groupUpdates;
+  }
+
+  /**
+   * Get groups a user is a member of
+   */
+  async getUserMemberships(
+    memberId: string,
+    limit: number = 50
+  ): Promise<GroupUpdate[]> {
+    const result = await this.query<{ groupUpdates: GroupUpdate[] }>(
+      QUERIES.GET_USER_MEMBERSHIPS,
+      { memberId, limit }
     );
     return result.groupUpdates;
   }
 
   // ===========================================================================
-  // MEMBER QUERIES
+  // PERMISSION UPDATE QUERIES
   // ===========================================================================
 
   /**
-   * Get group members
-   */
-  async getGroupMembers(
-    groupId: string,
-    options: QueryOptions = {}
-  ): Promise<GroupMember[]> {
-    const { first = 100, skip = 0 } = options;
-    const result = await this.query<{ groupMembers: GroupMember[] }>(
-      QUERIES.GET_GROUP_MEMBERS,
-      { groupId, first, skip }
-    );
-    return result.groupMembers;
-  }
-
-  /**
-   * Get specific member in a group
-   */
-  async getGroupMember(
-    groupId: string,
-    memberId: string
-  ): Promise<GroupMember | null> {
-    const result = await this.query<{ groupMembers: GroupMember[] }>(
-      QUERIES.GET_GROUP_MEMBER,
-      { groupId, memberId }
-    );
-    return result.groupMembers[0] || null;
-  }
-
-  /**
-   * Check if user is member of group
-   */
-  async isMember(groupId: string, memberId: string): Promise<boolean> {
-    const member = await this.getGroupMember(groupId, memberId);
-    return member?.isActive ?? false;
-  }
-
-  /**
-   * Get all groups a user is a member of
-   */
-  async getUserMemberships(
-    memberId: string,
-    options: QueryOptions = {}
-  ): Promise<GroupMember[]> {
-    const { first = 50, skip = 0 } = options;
-    const result = await this.query<{ groupMembers: GroupMember[] }>(
-      QUERIES.GET_USER_MEMBERSHIPS,
-      { memberId, first, skip }
-    );
-    return result.groupMembers;
-  }
-
-  // ===========================================================================
-  // PROPOSAL QUERIES
-  // ===========================================================================
-
-  /**
-   * Get proposals for a group
-   */
-  async getProposals(
-    groupId: string,
-    status?: string,
-    options: QueryOptions = {}
-  ): Promise<Proposal[]> {
-    const { first = 50, skip = 0 } = options;
-    const result = await this.query<{ proposals: Proposal[] }>(
-      QUERIES.GET_PROPOSALS,
-      { groupId, status, first, skip }
-    );
-    return result.proposals;
-  }
-
-  /**
-   * Get active proposals for a group
-   */
-  async getActiveProposals(
-    groupId: string,
-    limit: number = 20
-  ): Promise<Proposal[]> {
-    const result = await this.query<{ proposals: Proposal[] }>(
-      QUERIES.GET_ACTIVE_PROPOSALS,
-      { groupId, first: limit }
-    );
-    return result.proposals;
-  }
-
-  /**
-   * Get proposal by ID
-   */
-  async getProposal(proposalId: string): Promise<Proposal | null> {
-    const result = await this.query<{ proposal: Proposal | null }>(
-      QUERIES.GET_PROPOSAL,
-      { id: proposalId }
-    );
-    return result.proposal;
-  }
-
-  // ===========================================================================
-  // PERMISSION QUERIES
-  // ===========================================================================
-
-  /**
-   * Get permissions granted by an account
-   */
-  async getPermissionsGrantedBy(
-    granter: string,
-    options: QueryOptions = {}
-  ): Promise<Permission[]> {
-    const { first = 100, skip = 0 } = options;
-    const result = await this.query<{ permissions: Permission[] }>(
-      QUERIES.GET_PERMISSIONS_BY_GRANTER,
-      { granter, first, skip }
-    );
-    return result.permissions;
-  }
-
-  /**
-   * Get permissions granted to an account
-   */
-  async getPermissionsGrantedTo(
-    grantee: string,
-    options: QueryOptions = {}
-  ): Promise<Permission[]> {
-    const { first = 100, skip = 0 } = options;
-    const result = await this.query<{ permissions: Permission[] }>(
-      QUERIES.GET_PERMISSIONS_BY_GRANTEE,
-      { grantee, first, skip }
-    );
-    return result.permissions;
-  }
-
-  /**
-   * Check permission for specific path
-   */
-  async getPermission(
-    granter: string,
-    grantee: string,
-    path: string
-  ): Promise<Permission | null> {
-    const result = await this.query<{ permissions: Permission[] }>(
-      QUERIES.GET_PERMISSION_FOR_PATH,
-      { granter, grantee, path }
-    );
-    return result.permissions[0] || null;
-  }
-
-  /**
-   * Check if grantee has permission level on path
-   */
-  async hasPermission(
-    granter: string,
-    grantee: string,
-    path: string,
-    requiredLevel: number = 1
-  ): Promise<boolean> {
-    const perm = await this.getPermission(granter, grantee, path);
-    return perm !== null && perm.isActive && perm.level >= requiredLevel;
-  }
-
-  /**
-   * Get permission update events
+   * Get permission updates by author
    */
   async getPermissionUpdates(
     author: string,
@@ -503,9 +393,89 @@ export class GraphClient {
   ): Promise<PermissionUpdate[]> {
     const result = await this.query<{ permissionUpdates: PermissionUpdate[] }>(
       QUERIES.GET_PERMISSION_UPDATES,
-      { author, first: limit }
+      { author, limit }
     );
     return result.permissionUpdates;
+  }
+
+  /**
+   * Get permissions for an account
+   */
+  async getPermissionsForAccount(
+    accountId: string,
+    limit: number = 100
+  ): Promise<PermissionUpdate[]> {
+    const result = await this.query<{ permissionUpdates: PermissionUpdate[] }>(
+      QUERIES.GET_PERMISSIONS_FOR_ACCOUNT,
+      { accountId, limit }
+    );
+    return result.permissionUpdates;
+  }
+
+  /**
+   * Get permission for a specific path
+   */
+  async getPermissionByPath(
+    author: string,
+    targetPath: string
+  ): Promise<PermissionUpdate | null> {
+    const result = await this.query<{ permissionUpdates: PermissionUpdate[] }>(
+      QUERIES.GET_PERMISSION_BY_PATH,
+      { author, targetPath }
+    );
+    return result.permissionUpdates[0] || null;
+  }
+
+  // ===========================================================================
+  // CONTRACT UPDATE QUERIES
+  // ===========================================================================
+
+  /**
+   * Get contract updates (meta transactions, admin ops)
+   */
+  async getContractUpdates(limit: number = 50): Promise<ContractUpdate[]> {
+    const result = await this.query<{ contractUpdates: ContractUpdate[] }>(
+      QUERIES.GET_CONTRACT_UPDATES,
+      { limit }
+    );
+    return result.contractUpdates;
+  }
+
+  /**
+   * Get contract updates by operation type
+   */
+  async getContractUpdatesByOp(
+    operation: string,
+    limit: number = 50
+  ): Promise<ContractUpdate[]> {
+    const result = await this.query<{ contractUpdates: ContractUpdate[] }>(
+      QUERIES.GET_CONTRACT_UPDATES_BY_OP,
+      { operation, limit }
+    );
+    return result.contractUpdates;
+  }
+
+  // ===========================================================================
+  // INDEXER STATUS
+  // ===========================================================================
+
+  /**
+   * Get current indexer sync status
+   */
+  async getIndexerStatus(): Promise<IndexerStatus | null> {
+    const result = await this.query<{
+      cursors: Array<{ id: string; cursor: string; blockNum: string }>;
+    }>(QUERIES.GET_CURSOR);
+
+    if (!result.cursors[0]) {
+      return null;
+    }
+
+    return {
+      id: result.cursors[0].id,
+      cursor: result.cursors[0].cursor,
+      blockNum: result.cursors[0].blockNum,
+    };
   }
 
   // ===========================================================================
@@ -515,7 +485,10 @@ export class GraphClient {
   /**
    * Execute a custom GraphQL query
    */
-  async customQuery<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  async customQuery<T>(
+    query: string,
+    variables?: Record<string, unknown>
+  ): Promise<T> {
     return this.query<T>(query, variables);
   }
 }

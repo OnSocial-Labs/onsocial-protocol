@@ -8,6 +8,7 @@ describe('@onsocial/client exports', () => {
     expect(NETWORKS).toBeDefined();
     expect(NETWORKS.testnet).toBeDefined();
     expect(NETWORKS.mainnet).toBeDefined();
+    expect(NETWORKS.testnet.hasuraUrl).toBeDefined();
     expect(GraphClient).toBeDefined();
     expect(StorageClient).toBeDefined();
   });
@@ -25,6 +26,8 @@ describe('@onsocial/client exports', () => {
 
     expect(QUERIES).toBeDefined();
     expect(QUERIES.GET_DATA_UPDATES).toBeDefined();
-    expect(QUERIES.GET_ACCOUNT).toBeDefined();
+    expect(QUERIES.GET_GROUP_UPDATES).toBeDefined();
+    expect(QUERIES.GET_STORAGE_UPDATES).toBeDefined();
+    expect(QUERIES.GET_CURSOR).toBeDefined();
   });
 });

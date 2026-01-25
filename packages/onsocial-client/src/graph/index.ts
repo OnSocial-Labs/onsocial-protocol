@@ -1,5 +1,5 @@
 // src/graph/index.ts
-// Graph module exports - Generic protocol layer
+// Graph module exports - Hasura client for Substreams indexer
 
 export { GraphClient } from './client';
 export { QUERIES } from './queries';
@@ -16,13 +16,8 @@ export type {
   GroupUpdate,
   ContractUpdate,
   PermissionUpdate,
-  // Aggregate Entities (mutable)
-  Account,
-  Group,
-  GroupMember,
-  Proposal,
-  Permission,
-  StoragePool,
+  // Indexer Status
+  IndexerStatus,
   // Utility Types
   ParseResult,
 } from './types';

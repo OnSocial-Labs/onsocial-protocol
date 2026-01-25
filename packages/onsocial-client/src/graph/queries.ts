@@ -1,8 +1,14 @@
 // src/graph/queries.ts
-// Comprehensive GraphQL queries for OnSocial subgraph
+// Hasura-native GraphQL queries for OnSocial Substreams indexer
+//
+// IMPORTANT: These queries require Hasura to be configured with:
+//   HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+//   HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
+//
+// This enables camelCase field names (blockHeight vs block_height)
 
 // =============================================================================
-// FRAGMENT DEFINITIONS - Reusable field selections
+// FIELD FRAGMENTS - Match PostgreSQL schema with camelCase naming convention
 // =============================================================================
 
 const DATA_UPDATE_FIELDS = `
@@ -24,10 +30,15 @@ const DATA_UPDATE_FIELDS = `
   targetAccount
   parentPath
   parentAuthor
+  parentType
   refPath
   refAuthor
+  refType
+  refs
+  refAuthors
   derivedId
   derivedType
+  writes
 `;
 
 const STORAGE_UPDATE_FIELDS = `
@@ -37,13 +48,20 @@ const STORAGE_UPDATE_FIELDS = `
   receiptId
   operation
   author
+  partitionId
   amount
   previousBalance
   newBalance
   poolId
+  poolKey
   groupId
   reason
+  authType
+  actorId
+  payerId
   targetId
+  donor
+  payer
 `;
 
 const GROUP_UPDATE_FIELDS = `
@@ -53,8 +71,10 @@ const GROUP_UPDATE_FIELDS = `
   receiptId
   operation
   author
+  partitionId
   groupId
   memberId
+  role
   level
   path
   value
@@ -62,11 +82,11 @@ const GROUP_UPDATE_FIELDS = `
   proposalType
   status
   description
+  voter
+  approve
+  totalVotes
   yesVotes
   noVotes
-  totalVotes
-  isPrivate
-  fromGovernance
 `;
 
 const PERMISSION_UPDATE_FIELDS = `
@@ -76,111 +96,53 @@ const PERMISSION_UPDATE_FIELDS = `
   receiptId
   operation
   author
-  grantee
-  publicKey
+  partitionId
   path
-  level
-  expiresAt
-  groupId
-  deleted
+  accountId
+  permissionType
+  targetPath
+  permissionKey
+  granted
+  value
 `;
 
-const ACCOUNT_FIELDS = `
+const CONTRACT_UPDATE_FIELDS = `
   id
-  storageBalance
-  firstSeenAt
-  lastActiveAt
-  dataUpdateCount
-  storageUpdateCount
-  permissionUpdateCount
-`;
-
-const GROUP_FIELDS = `
-  id
-  owner
-  isPrivate
-  memberDriven
-  memberCount
-  proposalCount
-  createdAt
-  lastActivityAt
-  votingPeriod
-  participationQuorum
-  majorityThreshold
-  poolBalance
-`;
-
-const GROUP_MEMBER_FIELDS = `
-  id
-  groupId
-  memberId
-  level
-  nonce
-  isActive
-  isBlacklisted
-  joinedAt
-  leftAt
-  lastActiveAt
-`;
-
-const PROPOSAL_FIELDS = `
-  id
-  groupId
-  proposalId
-  sequenceNumber
-  proposalType
-  description
-  proposer
-  status
-  yesVotes
-  noVotes
-  totalVotes
-  lockedMemberCount
-  votingPeriod
-  participationQuorum
-  majorityThreshold
-  createdAt
-  expiresAt
-  executedAt
-  updatedAt
-  customData
-`;
-
-const PERMISSION_FIELDS = `
-  id
-  granter
-  grantee
-  publicKey
+  blockHeight
+  blockTimestamp
+  receiptId
+  operation
+  author
+  partitionId
   path
-  level
-  groupId
-  expiresAt
-  isExpired
-  grantedAt
-  revokedAt
-  isActive
+  derivedId
+  derivedType
+  targetId
+  authType
+  actorId
+  payerId
 `;
 
 // =============================================================================
-// DATA QUERIES
+// HASURA-NATIVE QUERIES
+// Uses Hasura syntax: where: { field: { _eq: value } }, orderBy: { field: desc }
 // =============================================================================
 
 export const QUERIES = {
   // ---------------------------------------------------------------------------
-  // Data Updates
+  // Data Updates (posts, profiles, settings, group content)
   // ---------------------------------------------------------------------------
 
   /**
    * Get data updates for an account
    */
   GET_DATA_UPDATES: `
-    query GetDataUpdates($accountId: String!, $first: Int, $skip: Int) {
+    query GetDataUpdates($accountId: String!, $limit: Int = 100, $offset: Int = 0) {
       dataUpdates(
-        where: { accountId: $accountId }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
-        skip: $skip
+        where: { accountId: { _eq: $accountId } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
       ) {
         ${DATA_UPDATE_FIELDS}
       }
@@ -188,16 +150,19 @@ export const QUERIES = {
   `,
 
   /**
-   * Get data updates by type (e.g., "profile", "post")
+   * Get data updates by type (e.g., "profile", "posts")
    */
   GET_DATA_BY_TYPE: `
-    query GetDataByType($accountId: String!, $dataType: String!, $first: Int, $skip: Int) {
+    query GetDataByType($accountId: String!, $dataType: String!, $limit: Int = 100, $offset: Int = 0) {
       dataUpdates(
-        where: { accountId: $accountId, dataType: $dataType, operation: "set" }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
-        skip: $skip
+        where: {
+          accountId: { _eq: $accountId }
+          dataType: { _eq: $dataType }
+          operation: { _eq: "set" }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
       ) {
         ${DATA_UPDATE_FIELDS}
       }
@@ -210,10 +175,9 @@ export const QUERIES = {
   GET_DATA_BY_PATH: `
     query GetDataByPath($path: String!) {
       dataUpdates(
-        where: { path: $path }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: 1
+        where: { path: { _eq: $path } }
+        orderBy: { blockTimestamp: DESC }
+        limit: 1
       ) {
         ${DATA_UPDATE_FIELDS}
       }
@@ -221,16 +185,20 @@ export const QUERIES = {
   `,
 
   /**
-   * Get group content
+   * Get group content (data stored under groups/{groupId}/...)
    */
   GET_GROUP_CONTENT: `
-    query GetGroupContent($groupId: String!, $dataType: String, $first: Int, $skip: Int) {
+    query GetGroupContent($groupId: String!, $dataType: String, $limit: Int = 50, $offset: Int = 0) {
       dataUpdates(
-        where: { groupId: $groupId, isGroupContent: true, dataType: $dataType, operation: "set" }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
-        skip: $skip
+        where: {
+          groupId: { _eq: $groupId }
+          isGroupContent: { _eq: true }
+          dataType: { _eq: $dataType }
+          operation: { _eq: "set" }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
       ) {
         ${DATA_UPDATE_FIELDS}
       }
@@ -241,12 +209,11 @@ export const QUERIES = {
    * Get recent global activity
    */
   GET_RECENT_ACTIVITY: `
-    query GetRecentActivity($first: Int) {
+    query GetRecentActivity($limit: Int = 50) {
       dataUpdates(
-        where: { operation: "set" }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
+        where: { operation: { _eq: "set" } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
       ) {
         ${DATA_UPDATE_FIELDS}
       }
@@ -254,18 +221,57 @@ export const QUERIES = {
   `,
 
   /**
-   * Flexible data query with dynamic where clause
-   * Supports all indexed fields: accountId, dataType, groupId, isGroupContent,
-   * targetAccount, replyToPath, replyToAuthor, quotedPath, quotedAuthor
+   * Get data by target account (social graph queries)
    */
-  QUERY_DATA_UPDATES: `
-    query QueryDataUpdates($where: DataUpdate_filter!, $first: Int, $skip: Int, $orderBy: DataUpdate_orderBy, $orderDirection: OrderDirection) {
+  GET_DATA_BY_TARGET: `
+    query GetDataByTarget($targetAccount: String!, $dataType: String, $limit: Int = 100, $offset: Int = 0) {
       dataUpdates(
-        where: $where
-        orderBy: $orderBy
-        orderDirection: $orderDirection
-        first: $first
-        skip: $skip
+        where: {
+          targetAccount: { _eq: $targetAccount }
+          dataType: { _eq: $dataType }
+          operation: { _eq: "set" }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
+      ) {
+        ${DATA_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get replies to a specific path
+   */
+  GET_REPLIES: `
+    query GetReplies($parentPath: String!, $limit: Int = 50, $offset: Int = 0) {
+      dataUpdates(
+        where: {
+          parentPath: { _eq: $parentPath }
+          operation: { _eq: "set" }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
+      ) {
+        ${DATA_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get quotes/references to a specific path
+   */
+  GET_REFERENCES: `
+    query GetReferences($refPath: String!, $limit: Int = 50, $offset: Int = 0) {
+      dataUpdates(
+        where: {
+          refPath: { _eq: $refPath }
+          operation: { _eq: "set" }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
       ) {
         ${DATA_UPDATE_FIELDS}
       }
@@ -273,45 +279,18 @@ export const QUERIES = {
   `,
 
   // ---------------------------------------------------------------------------
-  // Account Queries
+  // Storage Updates (deposits, withdrawals, pools)
   // ---------------------------------------------------------------------------
 
   /**
-   * Get account info
-   */
-  GET_ACCOUNT: `
-    query GetAccount($id: ID!) {
-      account(id: $id) {
-        ${ACCOUNT_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get multiple accounts
-   */
-  GET_ACCOUNTS: `
-    query GetAccounts($ids: [ID!]!) {
-      accounts(where: { id_in: $ids }) {
-        ${ACCOUNT_FIELDS}
-      }
-    }
-  `,
-
-  // ---------------------------------------------------------------------------
-  // Storage Queries
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Get storage updates for an account
+   * Get storage updates by author
    */
   GET_STORAGE_UPDATES: `
-    query GetStorageUpdates($accountId: String!, $first: Int) {
+    query GetStorageUpdates($author: String!, $limit: Int = 50) {
       storageUpdates(
-        where: { author: $accountId }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
+        where: { author: { _eq: $author } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
       ) {
         ${STORAGE_UPDATE_FIELDS}
       }
@@ -319,15 +298,29 @@ export const QUERIES = {
   `,
 
   /**
-   * Get storage balance history
+   * Get storage history for target
    */
   GET_STORAGE_HISTORY: `
-    query GetStorageHistory($accountId: String!, $first: Int) {
+    query GetStorageHistory($targetId: String!, $limit: Int = 50) {
       storageUpdates(
-        where: { targetId: $accountId }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
+        where: { targetId: { _eq: $targetId } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${STORAGE_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get storage updates by operation
+   */
+  GET_STORAGE_BY_OPERATION: `
+    query GetStorageByOperation($operation: String!, $limit: Int = 50) {
+      storageUpdates(
+        where: { operation: { _eq: $operation } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
       ) {
         ${STORAGE_UPDATE_FIELDS}
       }
@@ -335,48 +328,19 @@ export const QUERIES = {
   `,
 
   // ---------------------------------------------------------------------------
-  // Group Queries
+  // Group Updates (membership, governance, proposals)
   // ---------------------------------------------------------------------------
-
-  /**
-   * Get group by ID
-   */
-  GET_GROUP: `
-    query GetGroup($id: ID!) {
-      group(id: $id) {
-        ${GROUP_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get groups owned by account
-   */
-  GET_GROUPS_BY_OWNER: `
-    query GetGroupsByOwner($owner: String!, $first: Int, $skip: Int) {
-      groups(
-        where: { owner: $owner }
-        orderBy: createdAt
-        orderDirection: desc
-        first: $first
-        skip: $skip
-      ) {
-        ${GROUP_FIELDS}
-      }
-    }
-  `,
 
   /**
    * Get group updates
    */
   GET_GROUP_UPDATES: `
-    query GetGroupUpdates($groupId: String!, $first: Int, $skip: Int) {
+    query GetGroupUpdates($groupId: String!, $limit: Int = 100, $offset: Int = 0) {
       groupUpdates(
-        where: { groupId: $groupId }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
-        skip: $skip
+        where: { groupId: { _eq: $groupId } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+        offset: $offset
       ) {
         ${GROUP_UPDATE_FIELDS}
       }
@@ -384,15 +348,89 @@ export const QUERIES = {
   `,
 
   /**
-   * Get group updates by operation
+   * Get group updates by operation type
    */
   GET_GROUP_UPDATES_BY_OP: `
-    query GetGroupUpdatesByOp($groupId: String!, $operation: String!, $first: Int) {
+    query GetGroupUpdatesByOp($groupId: String!, $operation: String!, $limit: Int = 50) {
       groupUpdates(
-        where: { groupId: $groupId, operation: $operation }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
+        where: {
+          groupId: { _eq: $groupId }
+          operation: { _eq: $operation }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${GROUP_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get member updates for a group
+   */
+  GET_MEMBER_UPDATES: `
+    query GetMemberUpdates($groupId: String!, $memberId: String, $limit: Int = 50) {
+      groupUpdates(
+        where: {
+          groupId: { _eq: $groupId }
+          memberId: { _eq: $memberId }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${GROUP_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get proposal updates
+   */
+  GET_PROPOSAL_UPDATES: `
+    query GetProposalUpdates($groupId: String!, $proposalId: String, $limit: Int = 50) {
+      groupUpdates(
+        where: {
+          groupId: { _eq: $groupId }
+          proposalId: { _eq: $proposalId }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${GROUP_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get groups by author (created by)
+   */
+  GET_GROUPS_BY_AUTHOR: `
+    query GetGroupsByAuthor($author: String!, $limit: Int = 50) {
+      groupUpdates(
+        where: {
+          author: { _eq: $author }
+          operation: { _eq: "group_created" }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${GROUP_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get user memberships
+   */
+  GET_USER_MEMBERSHIPS: `
+    query GetUserMemberships($memberId: String!, $limit: Int = 50) {
+      groupUpdates(
+        where: {
+          memberId: { _eq: $memberId }
+          operation: { _in: ["member_added", "member_joined"] }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
       ) {
         ${GROUP_UPDATE_FIELDS}
       }
@@ -400,172 +438,103 @@ export const QUERIES = {
   `,
 
   // ---------------------------------------------------------------------------
-  // Member Queries
+  // Permission Updates (grants, revokes, keys)
   // ---------------------------------------------------------------------------
 
   /**
-   * Get group members
-   */
-  GET_GROUP_MEMBERS: `
-    query GetGroupMembers($groupId: String!, $first: Int, $skip: Int) {
-      groupMembers(
-        where: { groupId: $groupId, isActive: true }
-        orderBy: joinedAt
-        orderDirection: desc
-        first: $first
-        skip: $skip
-      ) {
-        ${GROUP_MEMBER_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get member by ID
-   */
-  GET_GROUP_MEMBER: `
-    query GetGroupMember($groupId: String!, $memberId: String!) {
-      groupMembers(
-        where: { groupId: $groupId, memberId: $memberId }
-        first: 1
-      ) {
-        ${GROUP_MEMBER_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get groups a user is member of
-   */
-  GET_USER_MEMBERSHIPS: `
-    query GetUserMemberships($memberId: String!, $first: Int, $skip: Int) {
-      groupMembers(
-        where: { memberId: $memberId, isActive: true }
-        orderBy: joinedAt
-        orderDirection: desc
-        first: $first
-        skip: $skip
-      ) {
-        ${GROUP_MEMBER_FIELDS}
-        group {
-          ${GROUP_FIELDS}
-        }
-      }
-    }
-  `,
-
-  // ---------------------------------------------------------------------------
-  // Proposal Queries
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Get proposals for a group
-   */
-  GET_PROPOSALS: `
-    query GetProposals($groupId: String!, $status: String, $first: Int, $skip: Int) {
-      proposals(
-        where: { groupId: $groupId, status: $status }
-        orderBy: createdAt
-        orderDirection: desc
-        first: $first
-        skip: $skip
-      ) {
-        ${PROPOSAL_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get active proposals
-   */
-  GET_ACTIVE_PROPOSALS: `
-    query GetActiveProposals($groupId: String!, $first: Int) {
-      proposals(
-        where: { groupId: $groupId, status: "active" }
-        orderBy: expiresAt
-        orderDirection: asc
-        first: $first
-      ) {
-        ${PROPOSAL_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get proposal by ID
-   */
-  GET_PROPOSAL: `
-    query GetProposal($id: ID!) {
-      proposal(id: $id) {
-        ${PROPOSAL_FIELDS}
-      }
-    }
-  `,
-
-  // ---------------------------------------------------------------------------
-  // Permission Queries
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Get permissions granted by an account
-   */
-  GET_PERMISSIONS_BY_GRANTER: `
-    query GetPermissionsByGranter($granter: String!, $first: Int, $skip: Int) {
-      permissions(
-        where: { granter: $granter, isActive: true }
-        orderBy: grantedAt
-        orderDirection: desc
-        first: $first
-        skip: $skip
-      ) {
-        ${PERMISSION_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get permissions granted to an account
-   */
-  GET_PERMISSIONS_BY_GRANTEE: `
-    query GetPermissionsByGrantee($grantee: String!, $first: Int, $skip: Int) {
-      permissions(
-        where: { grantee: $grantee, isActive: true }
-        orderBy: grantedAt
-        orderDirection: desc
-        first: $first
-        skip: $skip
-      ) {
-        ${PERMISSION_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get permission for specific path
-   */
-  GET_PERMISSION_FOR_PATH: `
-    query GetPermissionForPath($granter: String!, $grantee: String!, $path: String!) {
-      permissions(
-        where: { granter: $granter, grantee: $grantee, path: $path, isActive: true }
-        first: 1
-      ) {
-        ${PERMISSION_FIELDS}
-      }
-    }
-  `,
-
-  /**
-   * Get permission updates
+   * Get permission updates by author
    */
   GET_PERMISSION_UPDATES: `
-    query GetPermissionUpdates($author: String!, $first: Int) {
+    query GetPermissionUpdates($author: String!, $limit: Int = 50) {
       permissionUpdates(
-        where: { author: $author }
-        orderBy: blockTimestamp
-        orderDirection: desc
-        first: $first
+        where: { author: { _eq: $author } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
       ) {
         ${PERMISSION_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get permissions for account
+   */
+  GET_PERMISSIONS_FOR_ACCOUNT: `
+    query GetPermissionsForAccount($accountId: String!, $limit: Int = 100) {
+      permissionUpdates(
+        where: { accountId: { _eq: $accountId } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${PERMISSION_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get permission by path
+   */
+  GET_PERMISSION_BY_PATH: `
+    query GetPermissionByPath($author: String!, $targetPath: String!) {
+      permissionUpdates(
+        where: {
+          author: { _eq: $author }
+          targetPath: { _eq: $targetPath }
+        }
+        orderBy: { blockTimestamp: DESC }
+        limit: 1
+      ) {
+        ${PERMISSION_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  // ---------------------------------------------------------------------------
+  // Contract Updates (meta transactions, admin operations)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get contract updates
+   */
+  GET_CONTRACT_UPDATES: `
+    query GetContractUpdates($limit: Int = 50) {
+      contractUpdates(
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${CONTRACT_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  /**
+   * Get contract updates by operation
+   */
+  GET_CONTRACT_UPDATES_BY_OP: `
+    query GetContractUpdatesByOp($operation: String!, $limit: Int = 50) {
+      contractUpdates(
+        where: { operation: { _eq: $operation } }
+        orderBy: { blockTimestamp: DESC }
+        limit: $limit
+      ) {
+        ${CONTRACT_UPDATE_FIELDS}
+      }
+    }
+  `,
+
+  // ---------------------------------------------------------------------------
+  // Cursor / Indexer Status
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get indexer cursor (current sync status)
+   */
+  GET_CURSOR: `
+    query GetCursor {
+      cursors(limit: 1) {
+        id
+        cursor
+        blockNum
       }
     }
   `,

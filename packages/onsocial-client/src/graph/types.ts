@@ -1,12 +1,16 @@
 // src/graph/types.ts
-// Types for The Graph client - mirrors subgraph schema exactly
+// Types for Hasura GraphQL client - matches Substreams PostgreSQL schema
+//
+// These types use camelCase to match Hasura's graphql-default naming convention.
+// The underlying PostgreSQL tables use snake_case, but Hasura auto-converts.
 
 // =============================================================================
-// IMMUTABLE EVENT ENTITIES
+// EVENT ENTITIES (Immutable - one per blockchain event)
 // =============================================================================
 
 /**
  * Data update event (profiles, posts, settings, group content)
+ * Table: data_updates
  */
 export interface DataUpdate {
   id: string;
@@ -18,6 +22,7 @@ export interface DataUpdate {
   partitionId: number | null;
   path: string;
   value: string | null;
+  // Derived fields
   accountId: string;
   dataType: string | null;
   dataId: string | null;
@@ -26,11 +31,17 @@ export interface DataUpdate {
   isGroupContent: boolean;
   // Social graph
   targetAccount: string | null;
-  // Reference fields
+  // Hierarchical reference (replies, comments)
   parentPath: string | null;
   parentAuthor: string | null;
+  parentType: string | null;
+  // Primary lateral reference (quotes, citations)
   refPath: string | null;
   refAuthor: string | null;
+  refType: string | null;
+  // Multiple references (multi-quote)
+  refs: string | null;
+  refAuthors: string | null;
   // Contract derived
   derivedId: string | null;
   derivedType: string | null;
@@ -39,6 +50,7 @@ export interface DataUpdate {
 
 /**
  * Storage update event (deposits, withdrawals, pools)
+ * Table: storage_updates
  */
 export interface StorageUpdate {
   id: string;
@@ -53,24 +65,19 @@ export interface StorageUpdate {
   newBalance: string | null;
   poolId: string | null;
   poolKey: string | null;
-  previousPoolBalance: string | null;
-  newPoolBalance: string | null;
   groupId: string | null;
-  bytes: string | null;
-  remainingAllowance: string | null;
-  poolAccount: string | null;
   reason: string | null;
   authType: string | null;
   actorId: string | null;
   payerId: string | null;
   targetId: string | null;
-  availableBalance: string | null;
   donor: string | null;
   payer: string | null;
 }
 
 /**
  * Group update event (membership, governance, proposals)
+ * Table: group_updates
  */
 export interface GroupUpdate {
   id: string;
@@ -82,39 +89,45 @@ export interface GroupUpdate {
   partitionId: number | null;
   groupId: string | null;
   memberId: string | null;
-  memberNonce: string | null;
-  memberNoncePath: string | null;
   role: string | null;
   level: number | null;
   path: string | null;
   value: string | null;
-  poolKey: string | null;
-  amount: string | null;
-  previousPoolBalance: string | null;
-  newPoolBalance: string | null;
   proposalId: string | null;
   proposalType: string | null;
   status: string | null;
-  sequenceNumber: string | null;
   description: string | null;
-  autoVote: boolean | null;
-  createdAt: string | null;
-  expiresAt: string | null;
   voter: string | null;
   approve: boolean | null;
   totalVotes: number | null;
   yesVotes: number | null;
   noVotes: number | null;
-  shouldExecute: boolean | null;
-  shouldReject: boolean | null;
-  votedAt: string | null;
-  isPrivate: boolean | null;
-  changedAt: string | null;
-  fromGovernance: boolean | null;
 }
 
 /**
- * Contract update event (admin, config)
+ * Permission update event (grants, revokes, keys)
+ * Table: permission_updates
+ */
+export interface PermissionUpdate {
+  id: string;
+  blockHeight: string;
+  blockTimestamp: string;
+  receiptId: string;
+  operation: string;
+  author: string;
+  partitionId: number | null;
+  path: string | null;
+  accountId: string | null;
+  permissionType: string | null;
+  targetPath: string | null;
+  permissionKey: string | null;
+  granted: boolean | null;
+  value: string | null;
+}
+
+/**
+ * Contract update event (meta transactions, admin operations)
+ * Table: contract_updates
  */
 export interface ContractUpdate {
   id: string;
@@ -124,148 +137,27 @@ export interface ContractUpdate {
   operation: string;
   author: string;
   partitionId: number | null;
-  field: string | null;
-  oldValue: string | null;
-  newValue: string | null;
   path: string | null;
+  derivedId: string | null;
+  derivedType: string | null;
   targetId: string | null;
   authType: string | null;
   actorId: string | null;
   payerId: string | null;
-  publicKey: string | null;
-  nonce: string | null;
-}
-
-/**
- * Permission update event (grants, revokes)
- */
-export interface PermissionUpdate {
-  id: string;
-  blockHeight: string;
-  blockTimestamp: string;
-  receiptId: string;
-  operation: 'grant' | 'revoke';
-  author: string;
-  partitionId: number | null;
-  grantee: string | null;
-  publicKey: string | null;
-  path: string;
-  level: number;
-  expiresAt: string | null;
-  permissionNonce: string | null;
-  groupId: string | null;
-  deleted: boolean | null;
 }
 
 // =============================================================================
-// MUTABLE AGGREGATE ENTITIES
+// INDEXER STATUS
 // =============================================================================
 
 /**
- * Account aggregate - current state
+ * Indexer cursor - tracks sync progress
+ * Table: cursors
  */
-export interface Account {
+export interface IndexerStatus {
   id: string;
-  storageBalance: string;
-  firstSeenAt: string;
-  lastActiveAt: string;
-  dataUpdateCount: number;
-  storageUpdateCount: number;
-  permissionUpdateCount: number;
-}
-
-/**
- * Group aggregate - current state
- */
-export interface Group {
-  id: string;
-  owner: string;
-  isPrivate: boolean;
-  memberDriven: boolean;
-  memberCount: number;
-  proposalCount: number;
-  createdAt: string;
-  lastActivityAt: string;
-  votingPeriod: string | null;
-  participationQuorum: number | null;
-  majorityThreshold: number | null;
-  poolBalance: string | null;
-}
-
-/**
- * Group member aggregate - current membership
- */
-export interface GroupMember {
-  id: string;
-  groupId: string;
-  memberId: string;
-  level: number;
-  nonce: string;
-  isActive: boolean;
-  isBlacklisted: boolean;
-  joinedAt: string;
-  leftAt: string | null;
-  lastActiveAt: string;
-}
-
-/**
- * Proposal aggregate - governance proposal state
- */
-export interface Proposal {
-  id: string;
-  groupId: string;
-  proposalId: string;
-  sequenceNumber: string | null;
-  proposalType: string;
-  description: string | null;
-  proposer: string;
-  status: 'active' | 'executed' | 'rejected' | 'expired';
-  yesVotes: number;
-  noVotes: number;
-  totalVotes: number;
-  lockedMemberCount: number;
-  votingPeriod: string | null;
-  participationQuorum: number | null;
-  majorityThreshold: number | null;
-  lockedDeposit: string | null;
-  createdAt: string;
-  expiresAt: string | null;
-  executedAt: string | null;
-  updatedAt: string;
-  customData: string | null;
-}
-
-/**
- * Permission aggregate - active permission
- */
-export interface Permission {
-  id: string;
-  granter: string;
-  grantee: string | null;
-  publicKey: string | null;
-  path: string;
-  level: number;
-  groupId: string | null;
-  permissionNonce: string | null;
-  expiresAt: string | null;
-  isExpired: boolean;
-  grantedAt: string;
-  revokedAt: string | null;
-  isActive: boolean;
-}
-
-/**
- * Storage pool aggregate
- */
-export interface StoragePool {
-  id: string;
-  poolType: 'user' | 'shared' | 'group' | 'platform';
-  balance: string;
-  groupId: string | null;
-  sharedBytes: string | null;
-  usedBytes: string | null;
-  createdAt: string;
-  lastUpdatedAt: string;
+  cursor: string;
+  blockNum: string;
 }
 
 // =============================================================================
@@ -273,13 +165,13 @@ export interface StoragePool {
 // =============================================================================
 
 /**
- * Pagination options
+ * Pagination options (Hasura style)
  */
 export interface QueryOptions {
-  first?: number;
-  skip?: number;
-  orderBy?: string;
-  orderDirection?: 'asc' | 'desc';
+  /** Maximum results to return (default: 100) */
+  limit?: number;
+  /** Number of results to skip (default: 0) */
+  offset?: number;
 }
 
 /**
@@ -291,9 +183,7 @@ export interface DataQueryOptions extends QueryOptions {
   dataType?: string;
   groupId?: string;
   isGroupContent?: boolean;
-  // Social graph filters
   targetAccount?: string;
-  // Reference filters
   parentPath?: string;
   parentAuthor?: string;
   refPath?: string;
@@ -313,9 +203,8 @@ export interface GroupQueryOptions extends QueryOptions {
  * Filter options for permission queries
  */
 export interface PermissionQueryOptions extends QueryOptions {
-  grantee?: string;
-  path?: string;
-  isActive?: boolean;
+  accountId?: string;
+  targetPath?: string;
 }
 
 /**
@@ -324,8 +213,10 @@ export interface PermissionQueryOptions extends QueryOptions {
 export interface GraphClientConfig {
   /** Network to connect to */
   network?: 'mainnet' | 'testnet';
-  /** Custom graph URL (overrides network default) */
-  graphUrl?: string;
+  /** Custom Hasura URL (overrides network default) */
+  hasuraUrl?: string;
+  /** Hasura admin secret for authenticated queries */
+  hasuraAdminSecret?: string;
 }
 
 // =============================================================================
@@ -335,7 +226,6 @@ export interface GraphClientConfig {
 /**
  * Result of parsing a value field
  */
-export type ParseResult<T> = 
+export type ParseResult<T> =
   | { success: true; data: T }
   | { success: false; error: string; raw: string | null };
-

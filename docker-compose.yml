@@ -1,4 +1,58 @@
 services:
+  # ===========================================
+  # INDEXER SERVICES (Substreams → PostgreSQL → Hasura)
+  # ===========================================
+  
+  hasura:
+    image: hasura/graphql-engine:v2.40.0
+    container_name: hasura
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      # Database connection (Substreams sink PostgreSQL)
+      HASURA_GRAPHQL_DATABASE_URL: ${HASURA_GRAPHQL_DATABASE_URL:-postgres://onsocial:onsocial@postgres:5432/onsocial}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      # Naming convention: snake_case tables → camelCase GraphQL
+      HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+      HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
+      # Performance settings
+      HASURA_GRAPHQL_PG_CONNECTIONS: 50
+      HASURA_GRAPHQL_CORS_DOMAIN: "*"
+      HASURA_GRAPHQL_LOG_LEVEL: "info"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-onsocial}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-onsocial}
+      POSTGRES_DB: ${POSTGRES_DB:-onsocial}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onsocial"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # APPLICATION SERVICES
+  # ===========================================
+
   relayer:
     build:
       context: .
@@ -93,3 +147,5 @@ services:
     command: ["pnpm", "run", "lint"]
     environment:
       - NODE_ENV=development
+volumes:
+  postgres_data:
