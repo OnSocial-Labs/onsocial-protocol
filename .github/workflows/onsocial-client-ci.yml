@@ -45,15 +45,26 @@ jobs:
         run: pnpm test
 
       - name: Test Graph client
+        env:
+          HASURA_ADMIN_SECRET: ${{ secrets.HASURA_ADMIN_SECRET }}
         run: |
           npx tsx -e "
           import { GraphClient, NETWORKS } from '@onsocial/client';
           (async () => {
-            const graph = new GraphClient({ network: 'testnet' });
-            console.log('Subgraph URL:', NETWORKS.testnet.graphUrl);
-            const activity = await graph.getRecentActivity(5);
+            const client = new GraphClient({ 
+              network: 'testnet',
+              hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET 
+            });
+            console.log('Hasura URL:', NETWORKS.testnet.hasuraUrl);
+            
+            // Test indexer status
+            const status = await client.getIndexerStatus();
+            console.log('Indexer block:', status?.blockNum || 'not synced');
+            
+            // Test recent activity
+            const activity = await client.getRecentActivity(5);
             console.log('Recent activity count:', activity.length);
-            console.log('✅ GraphClient working');
+            console.log('✅ GraphClient working with Hasura');
           })();
           "
 
