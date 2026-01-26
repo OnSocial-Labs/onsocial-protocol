@@ -66,6 +66,29 @@ services:
     environment:
       - RUST_LOG=info
 
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gateway
+    container_name: gateway
+    ports:
+      - "4000:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - HASURA_URL=http://hasura:8080/v1/graphql
+      - HASURA_ADMIN_SECRET=${HASURA_ADMIN_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-onsocial_jwt_secret_2026}
+      - LIGHTHOUSE_API_KEY=${LIGHTHOUSE_API_KEY}
+    depends_on:
+      hasura:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   backend:
     build:
       context: .
@@ -73,15 +96,17 @@ services:
       target: runtime-alpine
     container_name: backend
     ports:
-      - "4000:4000"
+      - "4001:4001"
     working_dir: /app/packages/onsocial-backend
     volumes:
       - ./packages/onsocial-backend/.env:/app/packages/onsocial-backend/.env
     environment:
       - NODE_ENV=development
+      - PORT=4001
     command: ["pnpm", "start"]
     depends_on:
       - relayer
+      - gateway
 
   onsocial-app:
     build:

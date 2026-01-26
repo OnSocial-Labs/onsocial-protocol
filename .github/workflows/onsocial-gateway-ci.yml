@@ -1,0 +1,63 @@
+name: OnSocial Gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/onsocial-gateway/**'
+      - '.github/workflows/onsocial-gateway-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/onsocial-gateway/**'
+      - '.github/workflows/onsocial-gateway-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/onsocial-gateway
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Start gateway
+        run: |
+          node dist/index.js &
+          sleep 3
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret
+          LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
+          HASURA_URL: http://135.181.110.183:8080
+          HASURA_ADMIN_SECRET: ${{ secrets.HASURA_ADMIN_SECRET }}
+
+      - name: Run tests
+        run: pnpm test
+        env:
+          GATEWAY_URL: http://localhost:4000
+          LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
+          HASURA_ADMIN_SECRET: ${{ secrets.HASURA_ADMIN_SECRET }}
+
+      - name: Health check
+        run: curl -s http://localhost:4000/health | jq

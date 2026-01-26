@@ -6,6 +6,7 @@
 [![Marketplace Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml)
 [![Marketplace Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml)
 
+[![OnSocial Gateway](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
 [![OnSocial Client](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml)
 [![Relayer Deploy](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
@@ -66,6 +67,7 @@ For full setup and deployment, see the [Deployment Guide](Resources/deployment-g
 
 ### Packages
 - [@onsocial/client](packages/onsocial-client/README.md): Client library for interacting with OnSocial protocol.
+- [OnSocial-Gateway](packages/onsocial-gateway/README.md): Unified API gateway for graph, storage, and relay services.
 - [OnSocial-Backend](packages/onsocial-backend/README.md): Backend services and APIs.
 - [OnSocial-App](packages/onsocial-app/README.md): Frontend application components.
 - [Relayer](packages/relayer/README.md): Rust-based transaction relayer service.

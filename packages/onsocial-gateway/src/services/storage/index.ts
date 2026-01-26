@@ -71,4 +71,65 @@ router.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+const GATEWAY_URL = 'https://gateway.lighthouse.storage/ipfs';
+
+// GET /storage/url/:cid - Get gateway URL for a CID
+router.get('/url/:cid', (req: Request, res: Response) => {
+  const { cid } = req.params;
+  if (!cid) {
+    res.status(400).json({ error: 'CID required' });
+    return;
+  }
+  res.json({ url: `${GATEWAY_URL}/${cid}` });
+});
+
+// GET /storage/:cid - Download raw file (proxied through gateway)
+router.get('/:cid', async (req: Request, res: Response) => {
+  const { cid } = req.params;
+  if (!cid) {
+    res.status(400).json({ error: 'CID required' });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${GATEWAY_URL}/${cid}`);
+    if (!response.ok) {
+      res.status(response.status).json({ error: 'File not found' });
+      return;
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Download error:', error);
+    res.status(500).json({ error: 'Download failed' });
+  }
+});
+
+// GET /storage/:cid/json - Download and parse as JSON
+router.get('/:cid/json', async (req: Request, res: Response) => {
+  const { cid } = req.params;
+  if (!cid) {
+    res.status(400).json({ error: 'CID required' });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${GATEWAY_URL}/${cid}`);
+    if (!response.ok) {
+      res.status(response.status).json({ error: 'File not found' });
+      return;
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Download JSON error:', error);
+    res.status(500).json({ error: 'Download or parse failed' });
+  }
+});
+
 export { router as storageRouter };
