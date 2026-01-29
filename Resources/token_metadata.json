@@ -1,0 +1,12 @@
+{
+  "description": "SOCIAL is the utility token of the OnSocial Protocol - a decentralized social data layer on NEAR",
+  "website": "https://github.com/OnSocial-Labs",
+  "socials": {
+    "github": "https://github.com/OnSocial-Labs/onsocial-protocol"
+  },
+  "tags": [
+    "social",
+    "infrastructure",
+    "near"
+  ]
+}
