@@ -33,6 +33,6 @@
         "name": "token-onsocial",
         "id": "token.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
-        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"icon\": null}'"
+        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"name\": \"OnSocial Token\", \"symbol\": \"SOCIAL\", \"total_supply\": \"1000000000000000000000000000\", \"icon\": \"data:image/svg+xml,...\"}'"
     }
 ]
