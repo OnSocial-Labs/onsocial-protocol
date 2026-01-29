@@ -1871,26 +1871,6 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Helper to extract proposal ID from logs
-fn extract_proposal_id_from_logs<S: AsRef<str>>(logs: &[S]) -> Option<String> {
-    for log in logs {
-        if let Some(json_str) = log.as_ref().strip_prefix("EVENT_JSON:") {
-            if let Ok(event) = serde_json::from_str::<serde_json::Value>(json_str) {
-                if let Some(data) = event.get("data").and_then(|d| d.as_array()) {
-                    for item in data {
-                        if item.get("operation").and_then(|o| o.as_str()) == Some("proposal_created") {
-                            if let Some(proposal_id) = item.get("proposal_id").and_then(|p| p.as_str()) {
-                                return Some(proposal_id.to_string());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
 // =============================================================================
 // TEST: AddMemberAuth::AlreadyAuthorized still enforces member blacklist check
 // =============================================================================

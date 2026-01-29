@@ -22,5 +22,17 @@
         "id": "manager-proxy.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
+    },
+    {
+        "name": "mock-ft",
+        "id": "mock-ft.${AUTH_ACCOUNT}",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{}'"
+    },
+    {
+        "name": "token-onsocial",
+        "id": "token.${AUTH_ACCOUNT}",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"icon\": null}'"
     }
 ]

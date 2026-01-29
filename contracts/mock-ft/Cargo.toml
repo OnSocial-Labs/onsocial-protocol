@@ -1,0 +1,11 @@
+[package]
+name = "mock-ft"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal NEP-141 mock FT for integration testing"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "5.24"

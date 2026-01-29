@@ -9,7 +9,7 @@
 
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::path::Path;
 
 use crate::core_onsocial_tests::find_events_by_operation;

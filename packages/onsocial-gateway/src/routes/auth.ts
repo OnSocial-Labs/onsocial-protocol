@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateToken } from '../auth/index.js';
+import { generateToken, verifyNearSignature } from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
 import type { Request, Response } from 'express';
 
@@ -11,9 +11,9 @@ export const authRouter = Router();
  *
  * Body: {
  *   accountId: string,
- *   message: string,      // "OnSocial Auth: <timestamp>"
- *   signature: string,    // base64 encoded
- *   publicKey: string     // ed25519:<base64>
+ *   message: string,      // "OnSocial Auth: <timestamp>" (ISO-8601 recommended, or unix sec/ms)
+ *   signature: string,    // base64 encoded ed25519 signature
+ *   publicKey: string     // ed25519:<base64 or base58>
  * }
  *
  * Response: {
@@ -34,8 +34,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  // TODO: Verify NEAR signature in production
-  // For now, we skip verification in development
+  // Verify NEAR signature
+  const verification = await verifyNearSignature(accountId, message, signature, publicKey);
+  if (!verification.valid) {
+    res.status(401).json({
+      error: 'Authentication failed',
+      details: verification.error,
+    });
+    return;
+  }
 
   try {
     const token = await generateToken(accountId);

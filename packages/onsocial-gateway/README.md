@@ -74,6 +74,8 @@ pnpm dev
 4. Include `Authorization: Bearer <token>` in requests
 5. Refresh token before expiry via `/auth/refresh`
 
+`<timestamp>` can be an ISO-8601 string (recommended) or a unix timestamp (seconds or milliseconds).
+
 ## Environment Variables
 
 See `.env.example` for all options.
