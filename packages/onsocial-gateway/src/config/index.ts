@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import type { Tier } from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,8 @@ export const config = {
   nearRpcUrl: process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org',
   socialTokenContract:
     process.env.SOCIAL_TOKEN_CONTRACT || 'social.testnet',
+  stakingContract:
+    process.env.STAKING_CONTRACT || 'staking.onsocial.testnet',
 
   // Hasura
   hasuraUrl: (() => {
@@ -42,9 +45,11 @@ export const config = {
   // Rate limits (requests per minute)
   rateLimits: {
     free: 60,
+    starter: 120,
     staker: 600,
     builder: 6000,
-  },
+    pro: 1000000,  // Effectively unlimited
+  } as Record<Tier, number>,
 
   // Tier thresholds (in SOCIAL tokens, 24 decimals)
   // Phase 1: Simple balance check. Phase 2 will add USD oracle + lock contracts

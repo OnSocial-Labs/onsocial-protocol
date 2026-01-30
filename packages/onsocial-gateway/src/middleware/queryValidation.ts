@@ -3,15 +3,28 @@ import type { Request, Response, NextFunction } from 'express';
 import type { Tier } from '../types/index.js';
 import { config } from '../config/index.js';
 
+interface TierLimits {
+  maxDepth: number;
+  maxComplexity: number;
+  maxRowLimit: number;
+  allowAggregations: boolean;
+}
+
 /**
  * Query limits per tier
  * Production-ready defense against expensive queries
  */
-export const QUERY_LIMITS = {
+export const QUERY_LIMITS: Record<Tier, TierLimits> = {
   free: {
     maxDepth: 3,           // Shallow queries only
     maxComplexity: 50,     // Simple queries
     maxRowLimit: 100,      // Small result sets
+    allowAggregations: false,
+  },
+  starter: {
+    maxDepth: 4,           // Slightly deeper
+    maxComplexity: 100,    // Moderate queries
+    maxRowLimit: 500,      // Small-medium result sets
     allowAggregations: false,
   },
   staker: {
@@ -26,7 +39,13 @@ export const QUERY_LIMITS = {
     maxRowLimit: 10000,    // Large result sets
     allowAggregations: true,
   },
-} as const;
+  pro: {
+    maxDepth: 10,          // Very deep nesting
+    maxComplexity: 2000,   // Very complex queries
+    maxRowLimit: 50000,    // Very large result sets
+    allowAggregations: true,
+  },
+};
 
 /**
  * Calculate query complexity based on:
