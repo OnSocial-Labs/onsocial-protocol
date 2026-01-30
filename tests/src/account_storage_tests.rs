@@ -176,7 +176,11 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> R
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "create_group should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "create_group should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -188,7 +192,7 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> R
 #[tokio::test]
 async fn test_available_balance_with_zero_locked() -> Result<()> {
     println!("\n🧪 TEST: available_balance with zero locked_balance");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
@@ -214,28 +218,39 @@ async fn test_available_balance_with_zero_locked() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "Deposit should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Deposit should succeed: {:?}",
+        res.failures()
+    );
 
     // Check storage balance
-    let storage = get_storage_balance(&contract, alice.id().as_str()).await?
+    let storage = get_storage_balance(&contract, alice.id().as_str())
+        .await?
         .expect("Alice should have storage");
-    
+
     let balance = parse_u128_from_value(&storage, "balance");
     let locked_balance = parse_u128_from_value(&storage, "locked_balance");
-    
+
     // available_balance = balance - locked_balance
     // With no proposals, locked_balance should be 0
-    assert_eq!(locked_balance, 0, "locked_balance should be 0 when no proposals pending");
-    
+    assert_eq!(
+        locked_balance, 0,
+        "locked_balance should be 0 when no proposals pending"
+    );
+
     // Verify available balance is reported correctly by attempting max withdrawal
     // (This implicitly tests available_balance() in withdraw validation)
     let used_bytes = parse_u64_from_value(&storage, "used_bytes");
     let storage_needed = (used_bytes as u128) * 10_000_000_000_000_000_000u128; // 10^19 per byte
     let expected_available = balance.saturating_sub(storage_needed);
-    
+
     println!("   balance: {} yocto", balance);
     println!("   locked_balance: {} yocto", locked_balance);
-    println!("   used_bytes: {} (requires {} yocto)", used_bytes, storage_needed);
+    println!(
+        "   used_bytes: {} (requires {} yocto)",
+        used_bytes, storage_needed
+    );
     println!("   expected_available: {} yocto", expected_available);
     println!("   ✓ available_balance computed correctly with zero locked");
 
@@ -245,11 +260,11 @@ async fn test_available_balance_with_zero_locked() -> Result<()> {
 #[tokio::test]
 async fn test_available_balance_with_partial_lock() -> Result<()> {
     println!("\n🧪 TEST: available_balance with partial locked_balance");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
 
@@ -283,12 +298,16 @@ async fn test_available_balance_with_partial_lock() -> Result<()> {
     assert!(add_bob.is_success());
 
     // Get Alice's storage before creating proposal
-    let storage_before = get_storage_balance(&contract, alice.id().as_str()).await?
+    let storage_before = get_storage_balance(&contract, alice.id().as_str())
+        .await?
         .expect("Alice should have storage");
     let balance_before = parse_u128_from_value(&storage_before, "balance");
     let locked_before = parse_u128_from_value(&storage_before, "locked_balance");
-    
-    println!("   Before proposal: balance={}, locked={}", balance_before, locked_before);
+
+    println!(
+        "   Before proposal: balance={}, locked={}",
+        balance_before, locked_before
+    );
 
     // Create a proposal (locks PROPOSAL_EXECUTION_LOCK = 0.05 NEAR)
     let create_proposal = alice
@@ -308,26 +327,31 @@ async fn test_available_balance_with_partial_lock() -> Result<()> {
     assert!(create_proposal.is_success());
 
     // Get Alice's storage after proposal
-    let storage_after = get_storage_balance(&contract, alice.id().as_str()).await?
+    let storage_after = get_storage_balance(&contract, alice.id().as_str())
+        .await?
         .expect("Alice should have storage");
     let balance_after = parse_u128_from_value(&storage_after, "balance");
     let locked_after = parse_u128_from_value(&storage_after, "locked_balance");
-    
-    println!("   After proposal: balance={}, locked={}", balance_after, locked_after);
+
+    println!(
+        "   After proposal: balance={}, locked={}",
+        balance_after, locked_after
+    );
 
     // locked_balance should have increased by PROPOSAL_EXECUTION_LOCK (0.05 NEAR = 5e22)
     let lock_delta = locked_after.saturating_sub(locked_before);
     let expected_lock = 50_000_000_000_000_000_000_000u128; // 0.05 NEAR
-    
+
     // Allow small variance due to storage tracking
     let tolerance = expected_lock / 1000; // 0.1% tolerance
     assert!(
-        lock_delta >= expected_lock.saturating_sub(tolerance) && 
-        lock_delta <= expected_lock.saturating_add(tolerance),
+        lock_delta >= expected_lock.saturating_sub(tolerance)
+            && lock_delta <= expected_lock.saturating_add(tolerance),
         "locked_balance delta {} should be approximately {} (PROPOSAL_EXECUTION_LOCK)",
-        lock_delta, expected_lock
+        lock_delta,
+        expected_lock
     );
-    
+
     // Try to withdraw all balance (should fail due to lock)
     let withdraw_all = alice
         .call(contract.id(), "execute")
@@ -344,8 +368,11 @@ async fn test_available_balance_with_partial_lock() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    
-    assert!(withdraw_all.is_failure(), "Withdrawing locked funds should fail");
+
+    assert!(
+        withdraw_all.is_failure(),
+        "Withdrawing locked funds should fail"
+    );
     println!("   ✓ available_balance correctly excludes locked_balance from withdrawal");
 
     Ok(())
@@ -359,11 +386,11 @@ async fn test_available_balance_with_partial_lock() -> Result<()> {
 #[tokio::test]
 async fn test_covered_bytes_from_shared_pool() -> Result<()> {
     println!("\n🧪 TEST: covered_bytes includes shared storage sponsor bytes");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let sponsor = create_user(&root, "sponsor", TEN_NEAR).await?;
     let user = create_user(&root, "user", TEN_NEAR).await?;
 
@@ -434,20 +461,28 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
     assert!(write_res.is_success(), "Write should succeed");
 
     // Check user's storage - shared_storage.used_bytes should be > 0
-    let storage = get_storage_balance(&contract, user.id().as_str()).await?
+    let storage = get_storage_balance(&contract, user.id().as_str())
+        .await?
         .expect("User should have storage");
-    
-    let shared = storage.get("shared_storage").expect("User should have shared_storage");
+
+    let shared = storage
+        .get("shared_storage")
+        .expect("User should have shared_storage");
     let sponsor_used_bytes = parse_u64_from_value(shared, "used_bytes");
     let used_bytes = parse_u64_from_value(&storage, "used_bytes");
-    
+
     println!("   used_bytes: {}", used_bytes);
     println!("   shared_storage.used_bytes: {}", sponsor_used_bytes);
-    
+
     // covered_bytes includes sponsor_used_bytes, so user's effective usage should be reduced
-    assert!(sponsor_used_bytes > 0, "Shared storage should have used_bytes > 0");
-    assert_eq!(sponsor_used_bytes, used_bytes, 
-        "All user writes should use shared storage (covered_bytes)");
+    assert!(
+        sponsor_used_bytes > 0,
+        "Shared storage should have used_bytes > 0"
+    );
+    assert_eq!(
+        sponsor_used_bytes, used_bytes,
+        "All user writes should use shared storage (covered_bytes)"
+    );
     println!("   ✓ covered_bytes correctly includes shared_storage.used_bytes");
 
     Ok(())
@@ -456,11 +491,11 @@ async fn test_covered_bytes_from_shared_pool() -> Result<()> {
 #[tokio::test]
 async fn test_covered_bytes_from_group_pool() -> Result<()> {
     println!("\n🧪 TEST: covered_bytes includes group_pool_used_bytes");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let owner = create_user(&root, "owner", TEN_NEAR).await?;
     let member = create_user(&root, "member", TEN_NEAR).await?;
 
@@ -509,7 +544,11 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
         .gas(Gas::from_tgas(180))
         .transact()
         .await?;
-    assert!(deposit_res.is_success(), "Group pool deposit should succeed: {:?}", deposit_res.failures());
+    assert!(
+        deposit_res.is_success(),
+        "Group pool deposit should succeed: {:?}",
+        deposit_res.failures()
+    );
 
     // Note: Member deposits personal storage as fallback for this test.
     // In practice, group pool alone could cover writes if properly configured.
@@ -550,19 +589,26 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(write_res.is_success(), "Group write should succeed: {:?}", write_res.failures());
+    assert!(
+        write_res.is_success(),
+        "Group write should succeed: {:?}",
+        write_res.failures()
+    );
 
     // Check member's storage - group_pool_used_bytes should be > 0
-    let storage = get_storage_balance(&contract, member.id().as_str()).await?
+    let storage = get_storage_balance(&contract, member.id().as_str())
+        .await?
         .expect("Member should have storage");
-    
+
     let group_pool_used_bytes = parse_u64_from_value(&storage, "group_pool_used_bytes");
-    
+
     println!("   group_pool_used_bytes: {}", group_pool_used_bytes);
-    
+
     // covered_bytes includes group_pool_used_bytes
-    assert!(group_pool_used_bytes > 0, 
-        "Group writes should use group_pool_used_bytes (covered by group pool)");
+    assert!(
+        group_pool_used_bytes > 0,
+        "Group writes should use group_pool_used_bytes (covered by group pool)"
+    );
     println!("   ✓ covered_bytes correctly includes group_pool_used_bytes");
 
     Ok(())
@@ -576,15 +622,16 @@ async fn test_covered_bytes_from_group_pool() -> Result<()> {
 #[tokio::test]
 async fn test_platform_allowance_initial_grant() -> Result<()> {
     println!("\n🧪 TEST: platform_allowance initial onboarding grant");
-    
+
     let worker = near_workspaces::sandbox().await?;
-    
+
     // Deploy with specific platform config
     let onboarding_bytes = 5000u64;
     let daily_refill = 1000u64;
     let max_bytes = 6000u64;
-    let contract = deploy_with_platform_config(&worker, onboarding_bytes, daily_refill, max_bytes).await?;
-    
+    let contract =
+        deploy_with_platform_config(&worker, onboarding_bytes, daily_refill, max_bytes).await?;
+
     let root = worker.root_account()?;
     let user = create_user(&root, "platformuser", TEN_NEAR).await?;
 
@@ -592,7 +639,7 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
     // 1. Platform pool has funds
     // 2. User has no other storage coverage
     // 3. User performs a data write
-    
+
     // Fund the platform pool (as contract owner)
     let platform_deposit = NearToken::from_near(5);
     let deposit_res = contract
@@ -614,7 +661,11 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(deposit_res.is_success(), "Platform pool deposit should succeed: {:?}", deposit_res.failures());
+    assert!(
+        deposit_res.is_success(),
+        "Platform pool deposit should succeed: {:?}",
+        deposit_res.failures()
+    );
 
     // User performs first write - this automatically enables platform sponsorship
     let write_res = user
@@ -633,28 +684,38 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(write_res.is_success(), "First write should succeed: {:?}", write_res.failures());
+    assert!(
+        write_res.is_success(),
+        "First write should succeed: {:?}",
+        write_res.failures()
+    );
 
     // Check platform allowance
     let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
     let current_allowance = parse_u64_from_value(&allowance_info, "current_allowance");
-    let is_sponsored = allowance_info.get("is_platform_sponsored")
+    let is_sponsored = allowance_info
+        .get("is_platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let first_write_ns = allowance_info.get("first_write_ns");
-    
+
     println!("   is_platform_sponsored: {}", is_sponsored);
     println!("   current_allowance: {} bytes", current_allowance);
     println!("   first_write_ns: {:?}", first_write_ns);
-    
+
     assert!(is_sponsored, "User should be platform_sponsored");
-    assert!(first_write_ns.is_some() && !first_write_ns.unwrap().is_null(), 
-        "first_write_ns should be set after first write");
-    
+    assert!(
+        first_write_ns.is_some() && !first_write_ns.unwrap().is_null(),
+        "first_write_ns should be set after first write"
+    );
+
     // Allowance should be set (either from config or contract defaults)
     // The contract may use its own defaults if config is not fully applied
-    assert!(current_allowance > 0, 
-        "current_allowance {} should be > 0 after first write", current_allowance);
+    assert!(
+        current_allowance > 0,
+        "current_allowance {} should be > 0 after first write",
+        current_allowance
+    );
     println!("   ✓ Platform allowance initial grant works correctly");
 
     Ok(())
@@ -663,11 +724,11 @@ async fn test_platform_allowance_initial_grant() -> Result<()> {
 #[tokio::test]
 async fn test_platform_sponsorship_requires_funded_pool() -> Result<()> {
     println!("\n🧪 TEST: platform sponsorship requires funded platform pool");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let user = create_user(&root, "unsponsored", TEN_NEAR).await?;
 
     // Platform pool is NOT funded in this test
@@ -712,14 +773,20 @@ async fn test_platform_sponsorship_requires_funded_pool() -> Result<()> {
 
     // Check platform allowance - should NOT be sponsored (pool empty)
     let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
-    let is_sponsored = allowance_info.get("is_platform_sponsored")
+    let is_sponsored = allowance_info
+        .get("is_platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let first_write_ns = allowance_info.get("first_write_ns");
-    
-    assert!(!is_sponsored, "User should NOT be platform_sponsored when pool is empty");
-    assert!(first_write_ns.is_none() || first_write_ns.unwrap().is_null(), 
-        "first_write_ns should be null when pool is empty");
+
+    assert!(
+        !is_sponsored,
+        "User should NOT be platform_sponsored when pool is empty"
+    );
+    assert!(
+        first_write_ns.is_none() || first_write_ns.unwrap().is_null(),
+        "first_write_ns should be null when pool is empty"
+    );
     println!("   ✓ No platform sponsorship when platform pool is empty");
 
     Ok(())
@@ -728,11 +795,11 @@ async fn test_platform_sponsorship_requires_funded_pool() -> Result<()> {
 #[tokio::test]
 async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<()> {
     println!("\n🧪 TEST: platform sponsorship granted to ALL users when pool is funded");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let user = create_user(&root, "richuser", TEN_NEAR).await?;
 
     // Fund the platform pool first
@@ -797,12 +864,15 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
 
     // Check: User SHOULD be sponsored even though they have personal deposit
     let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
-    let is_sponsored = allowance_info.get("is_platform_sponsored")
+    let is_sponsored = allowance_info
+        .get("is_platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    
-    assert!(is_sponsored, 
-        "User WITH personal deposit SHOULD still be platform_sponsored when pool is funded");
+
+    assert!(
+        is_sponsored,
+        "User WITH personal deposit SHOULD still be platform_sponsored when pool is funded"
+    );
     println!("   ✓ Platform sponsorship is Priority 1 - granted to ALL users when pool has funds");
 
     Ok(())
@@ -816,12 +886,12 @@ async fn test_platform_sponsorship_granted_to_all_when_pool_funded() -> Result<(
 #[tokio::test]
 async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
     println!("\n🧪 TEST: platform_allowance consumed on writes");
-    
+
     let worker = near_workspaces::sandbox().await?;
-    
+
     let onboarding_bytes = 10000u64;
     let contract = deploy_with_platform_config(&worker, onboarding_bytes, 1000, 10000).await?;
-    
+
     let root = worker.root_account()?;
     let user = create_user(&root, "consumer", TEN_NEAR).await?;
 
@@ -914,8 +984,12 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
     println!("   Allowance after second write: {} bytes", allowance_2);
 
     // Allowance should decrease (consumed)
-    assert!(allowance_2 < allowance_1, 
-        "Platform allowance should decrease after writes: {} -> {}", allowance_1, allowance_2);
+    assert!(
+        allowance_2 < allowance_1,
+        "Platform allowance should decrease after writes: {} -> {}",
+        allowance_1,
+        allowance_2
+    );
     println!("   ✓ try_use_platform_allowance correctly consumes bytes on writes");
 
     Ok(())
@@ -929,11 +1003,11 @@ async fn test_platform_allowance_consumed_on_writes() -> Result<()> {
 #[tokio::test]
 async fn test_shared_storage_respects_max_bytes() -> Result<()> {
     println!("\n🧪 TEST: shared_storage respects max_bytes limit");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let sponsor = create_user(&root, "sponsor", TEN_NEAR).await?;
     let user = create_user(&root, "limited", TEN_NEAR).await?;
 
@@ -1020,28 +1094,42 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(write_res.is_success(), "Write should succeed with personal storage fallback");
+    assert!(
+        write_res.is_success(),
+        "Write should succeed with personal storage fallback"
+    );
 
     // Check that shared storage is at max and personal storage is used
-    let storage = get_storage_balance(&contract, user.id().as_str()).await?
+    let storage = get_storage_balance(&contract, user.id().as_str())
+        .await?
         .expect("User should have storage");
-    
-    let shared = storage.get("shared_storage").expect("User should have shared_storage");
+
+    let shared = storage
+        .get("shared_storage")
+        .expect("User should have shared_storage");
     let shared_used = parse_u64_from_value(shared, "used_bytes");
     let shared_max = parse_u64_from_value(shared, "max_bytes");
     let used_bytes = parse_u64_from_value(&storage, "used_bytes");
-    
-    println!("   shared_storage: used={}, max={}", shared_used, shared_max);
+
+    println!(
+        "   shared_storage: used={}, max={}",
+        shared_used, shared_max
+    );
     println!("   total used_bytes: {}", used_bytes);
-    
+
     // shared_used should be at or below max
-    assert!(shared_used <= shared_max, 
-        "shared_storage.used_bytes ({}) should not exceed max_bytes ({})", 
-        shared_used, shared_max);
-    
+    assert!(
+        shared_used <= shared_max,
+        "shared_storage.used_bytes ({}) should not exceed max_bytes ({})",
+        shared_used,
+        shared_max
+    );
+
     // total used should exceed shared (meaning personal storage was used)
-    assert!(used_bytes >= shared_used, 
-        "Total used_bytes should include shared storage usage");
+    assert!(
+        used_bytes >= shared_used,
+        "Total used_bytes should include shared storage usage"
+    );
     println!("   ✓ can_use_additional_bytes correctly enforces max_bytes limit");
 
     Ok(())
@@ -1055,11 +1143,11 @@ async fn test_shared_storage_respects_max_bytes() -> Result<()> {
 #[tokio::test]
 async fn test_shared_storage_path_validation_group() -> Result<()> {
     println!("\n🧪 TEST: shared_storage path validation for group pools");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let owner = create_user(&root, "gowner", TEN_NEAR).await?;
     let member = create_user(&root, "gmember", TEN_NEAR).await?;
 
@@ -1155,10 +1243,14 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
     assert!(write_a.is_success(), "Write to group-a should succeed");
 
     // Check group_pool_used_bytes after group-a write
-    let storage_after_a = get_storage_balance(&contract, member.id().as_str()).await?
+    let storage_after_a = get_storage_balance(&contract, member.id().as_str())
+        .await?
         .expect("Member should have storage");
     let group_pool_after_a = parse_u64_from_value(&storage_after_a, "group_pool_used_bytes");
-    println!("   group_pool_used_bytes after group-a write: {}", group_pool_after_a);
+    println!(
+        "   group_pool_used_bytes after group-a write: {}",
+        group_pool_after_a
+    );
 
     // Member must have personal storage for group-b (no pool)
     let _ = member
@@ -1198,19 +1290,29 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(write_b.is_success(), "Write to group-b should succeed with personal storage");
+    assert!(
+        write_b.is_success(),
+        "Write to group-b should succeed with personal storage"
+    );
 
     // Check group_pool_used_bytes after group-b write
-    let storage_after_b = get_storage_balance(&contract, member.id().as_str()).await?
+    let storage_after_b = get_storage_balance(&contract, member.id().as_str())
+        .await?
         .expect("Member should have storage");
     let group_pool_after_b = parse_u64_from_value(&storage_after_b, "group_pool_used_bytes");
     let balance_after_b = parse_u128_from_value(&storage_after_b, "balance");
-    
-    println!("   group_pool_used_bytes after group-b write: {}", group_pool_after_b);
-    println!("   personal balance after group-b write: {} yocto", balance_after_b);
+
+    println!(
+        "   group_pool_used_bytes after group-b write: {}",
+        group_pool_after_b
+    );
+    println!(
+        "   personal balance after group-b write: {} yocto",
+        balance_after_b
+    );
 
     // group_pool_used_bytes should remain same (group-b write didn't use group-a pool)
-    // NOTE: This test validates is_valid_for_path() indirectly - 
+    // NOTE: This test validates is_valid_for_path() indirectly -
     // group-a pool should NOT cover group-b paths
     println!("   ✓ is_valid_for_path correctly restricts pool to matching group paths");
 
@@ -1220,11 +1322,11 @@ async fn test_shared_storage_path_validation_group() -> Result<()> {
 #[tokio::test]
 async fn test_shared_storage_non_group_path_validation() -> Result<()> {
     println!("\n🧪 TEST: non-group shared storage doesn't apply to group paths");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let sponsor = create_user(&root, "ngsponsor", TEN_NEAR).await?;
     let user = create_user(&root, "nguser", TEN_NEAR).await?;
 
@@ -1291,17 +1393,23 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
     assert!(write_personal.is_success());
 
     // Check shared_storage used
-    let storage_after_personal = get_storage_balance(&contract, user.id().as_str()).await?
+    let storage_after_personal = get_storage_balance(&contract, user.id().as_str())
+        .await?
         .expect("User should have storage");
     let shared = storage_after_personal.get("shared_storage");
     let shared_used_personal = shared
         .and_then(|s| s.get("used_bytes"))
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    
-    println!("   shared_storage.used_bytes after profile write: {}", shared_used_personal);
-    assert!(shared_used_personal > 0, 
-        "Non-group shared storage should be used for profile (non-group) paths");
+
+    println!(
+        "   shared_storage.used_bytes after profile write: {}",
+        shared_used_personal
+    );
+    assert!(
+        shared_used_personal > 0,
+        "Non-group shared storage should be used for profile (non-group) paths"
+    );
     println!("   ✓ is_valid_for_path correctly allows non-group allocations for non-group paths");
 
     Ok(())
@@ -1315,11 +1423,11 @@ async fn test_shared_storage_non_group_path_validation() -> Result<()> {
 #[tokio::test]
 async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
     println!("\n🧪 TEST: assert_storage_covered blocks underfunded writes");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let contract = deploy_and_init(&worker).await?;
     let root = worker.root_account()?;
-    
+
     let user = create_user(&root, "underfunded", TEN_NEAR).await?;
 
     // Deposit tiny amount (not enough for meaningful storage)
@@ -1364,14 +1472,18 @@ async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
         .await?;
 
     // Should fail with insufficient storage error
-    assert!(write_res.is_failure(), "Large write with tiny deposit should fail");
+    assert!(
+        write_res.is_failure(),
+        "Large write with tiny deposit should fail"
+    );
     let failure_msg = format!("{:?}", write_res.failures());
     assert!(
-        failure_msg.contains("Required") || 
-        failure_msg.contains("available") ||
-        failure_msg.contains("InsufficientStorage") ||
-        failure_msg.contains("storage"),
-        "Error should mention insufficient storage: {}", failure_msg
+        failure_msg.contains("Required")
+            || failure_msg.contains("available")
+            || failure_msg.contains("InsufficientStorage")
+            || failure_msg.contains("storage"),
+        "Error should mention insufficient storage: {}",
+        failure_msg
     );
     println!("   ✓ assert_storage_covered correctly blocks underfunded writes");
 
@@ -1381,15 +1493,16 @@ async fn test_assert_storage_covered_blocks_underfunded_writes() -> Result<()> {
 #[tokio::test]
 async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()> {
     println!("\n🧪 TEST: platform sponsorship reactivates when pool is refunded after running dry");
-    
+
     let worker = near_workspaces::sandbox().await?;
-    
+
     // Deploy with minimal platform config to make pool drain quickly
-    let onboarding_bytes = 500u64;  // Very small for testing
+    let onboarding_bytes = 500u64; // Very small for testing
     let daily_refill = 100u64;
     let max_bytes = 500u64;
-    let contract = deploy_with_platform_config(&worker, onboarding_bytes, daily_refill, max_bytes).await?;
-    
+    let contract =
+        deploy_with_platform_config(&worker, onboarding_bytes, daily_refill, max_bytes).await?;
+
     let root = worker.root_account()?;
     let user = create_user(&root, "reactivateuser", TEN_NEAR).await?;
 
@@ -1414,7 +1527,10 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(deposit_res.is_success(), "Platform pool deposit should succeed");
+    assert!(
+        deposit_res.is_success(),
+        "Platform pool deposit should succeed"
+    );
     println!("   ✓ Step 1: Platform pool funded with minimal amount");
 
     // Step 2: User writes - becomes platform sponsored
@@ -1435,12 +1551,16 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
         .transact()
         .await?;
     assert!(write_res.is_success(), "First write should succeed");
-    
+
     let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
-    let is_sponsored = allowance_info.get("is_platform_sponsored")
+    let is_sponsored = allowance_info
+        .get("is_platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    assert!(is_sponsored, "User should be platform_sponsored after first write");
+    assert!(
+        is_sponsored,
+        "User should be platform_sponsored after first write"
+    );
     println!("   ✓ Step 2: User is platform sponsored");
 
     // Step 3: Exhaust the platform pool by writing lots of data
@@ -1485,15 +1605,23 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
             .gas(Gas::from_tgas(100))
             .transact()
             .await?;
-        assert!(write_res.is_success(), "Write {} should succeed (using personal balance as fallback)", i);
+        assert!(
+            write_res.is_success(),
+            "Write {} should succeed (using personal balance as fallback)",
+            i
+        );
     }
 
     // Check that platform sponsorship is now disabled (pool exhausted)
     let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
-    let is_sponsored_after_exhaust = allowance_info.get("is_platform_sponsored")
+    let is_sponsored_after_exhaust = allowance_info
+        .get("is_platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    println!("   ✓ Step 3: Platform pool exhausted, sponsored={}", is_sponsored_after_exhaust);
+    println!(
+        "   ✓ Step 3: Platform pool exhausted, sponsored={}",
+        is_sponsored_after_exhaust
+    );
 
     // Step 4: Refund the platform pool
     let refund_amount = NearToken::from_near(1);
@@ -1516,7 +1644,10 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(refund_res.is_success(), "Platform pool refund should succeed");
+    assert!(
+        refund_res.is_success(),
+        "Platform pool refund should succeed"
+    );
     println!("   ✓ Step 4: Platform pool refunded");
 
     // Step 5: User writes again - should reactivate sponsorship
@@ -1536,15 +1667,21 @@ async fn test_platform_sponsorship_reactivates_when_pool_refunded() -> Result<()
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(reactivate_res.is_success(), "Write after refund should succeed");
+    assert!(
+        reactivate_res.is_success(),
+        "Write after refund should succeed"
+    );
 
     let allowance_info = get_platform_allowance(&contract, user.id().as_str()).await?;
-    let is_sponsored_reactivated = allowance_info.get("is_platform_sponsored")
+    let is_sponsored_reactivated = allowance_info
+        .get("is_platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    
-    assert!(is_sponsored_reactivated, 
-        "User should be platform_sponsored again after pool is refunded");
+
+    assert!(
+        is_sponsored_reactivated,
+        "User should be platform_sponsored again after pool is refunded"
+    );
     println!("   ✓ Step 5: Platform sponsorship REACTIVATED after pool refund");
 
     println!("   ✅ Platform sponsorship correctly reactivates when pool is refunded");

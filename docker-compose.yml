@@ -60,6 +60,7 @@ services:
     container_name: relayer
     ports:
       - "3040:3040"
+    restart: unless-stopped
     volumes:
       - ./packages/relayer/relayer.toml:/app/relayer.toml
       - ./packages/relayer/account_keys:/app/account_keys
@@ -73,6 +74,7 @@ services:
     container_name: gateway
     ports:
       - "4000:8080"
+    restart: unless-stopped
     environment:
       - NODE_ENV=production
       - PORT=8080
@@ -88,25 +90,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  backend:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: backend
-    ports:
-      - "4001:4001"
-    working_dir: /app/packages/onsocial-backend
-    volumes:
-      - ./packages/onsocial-backend/.env:/app/packages/onsocial-backend/.env
-    environment:
-      - NODE_ENV=development
-      - PORT=4001
-    command: ["pnpm", "start"]
-    depends_on:
-      - relayer
-      - gateway
 
   onsocial-app:
     build:
@@ -124,7 +107,6 @@ services:
       - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
     command: ["pnpm", "start"]
     depends_on:
-      - backend
       - relayer
 
   onsocial-client:

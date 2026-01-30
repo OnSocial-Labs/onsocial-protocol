@@ -73,11 +73,20 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "create_group should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "create_group should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
-async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account) -> anyhow::Result<()> {
+async fn add_member(
+    contract: &Contract,
+    owner: &Account,
+    group_id: &str,
+    member: &Account,
+) -> anyhow::Result<()> {
     let res = owner
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -89,7 +98,11 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "add_group_member should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "add_group_member should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -142,7 +155,8 @@ async fn test_group_pool_deposit_non_owner_fails() -> anyhow::Result<()> {
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("Unauthorized") || failure_msg.contains("group_pool_deposit"),
-        "Expected authorization error, got: {}", failure_msg
+        "Expected authorization error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -185,7 +199,8 @@ async fn test_group_pool_deposit_insufficient_attached_balance_fails() -> anyhow
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("Insufficient deposit for group pool"),
-        "Expected 'Insufficient deposit for group pool' error, got: {}", failure_msg
+        "Expected 'Insufficient deposit for group pool' error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -227,7 +242,8 @@ async fn test_group_pool_deposit_missing_group_id_fails() -> anyhow::Result<()> 
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("group_id required"),
-        "Expected 'group_id required' error, got: {}", failure_msg
+        "Expected 'group_id required' error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -267,7 +283,8 @@ async fn test_group_pool_deposit_missing_amount_fails() -> anyhow::Result<()> {
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("amount required"),
-        "Expected 'amount required' error, got: {}", failure_msg
+        "Expected 'amount required' error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -308,7 +325,8 @@ async fn test_group_pool_deposit_zero_amount_fails() -> anyhow::Result<()> {
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("Minimum pool deposit"),
-        "Expected 'Minimum pool deposit' error, got: {}", failure_msg
+        "Expected 'Minimum pool deposit' error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -351,7 +369,8 @@ async fn test_group_pool_deposit_below_minimum_fails() -> anyhow::Result<()> {
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("Minimum pool deposit"),
-        "Expected 'Minimum pool deposit' error, got: {}", failure_msg
+        "Expected 'Minimum pool deposit' error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -390,7 +409,8 @@ async fn test_group_pool_deposit_nonexistent_group_fails() -> anyhow::Result<()>
     let failure_msg = format!("{:?}", res.failures());
     assert!(
         failure_msg.contains("not found") || failure_msg.contains("Group"),
-        "Expected group not found error, got: {}", failure_msg
+        "Expected group not found error, got: {}",
+        failure_msg
     );
 
     Ok(())
@@ -432,7 +452,11 @@ async fn test_group_pool_deposit_emits_created_event_on_first_deposit() -> anyho
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected first deposit to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected first deposit to succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let has_created_event = logs.iter().any(|l| l.contains("group_pool_created"));
@@ -477,18 +501,41 @@ async fn test_group_pool_deposit_emits_deposit_event_with_correct_fields() -> an
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected deposit to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected deposit to succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let deposit_event = logs.iter().find(|l| l.contains("group_pool_deposit"));
-    assert!(deposit_event.is_some(), "Expected group_pool_deposit event. Logs: {:?}", logs);
+    assert!(
+        deposit_event.is_some(),
+        "Expected group_pool_deposit event. Logs: {:?}",
+        logs
+    );
 
     let event_log = deposit_event.unwrap();
-    assert!(event_log.contains("group_id"), "Event should contain group_id field");
-    assert!(event_log.contains("pool_key"), "Event should contain pool_key field");
-    assert!(event_log.contains("amount"), "Event should contain amount field");
-    assert!(event_log.contains("previous_pool_balance"), "Event should contain previous_pool_balance field");
-    assert!(event_log.contains("new_pool_balance"), "Event should contain new_pool_balance field");
+    assert!(
+        event_log.contains("group_id"),
+        "Event should contain group_id field"
+    );
+    assert!(
+        event_log.contains("pool_key"),
+        "Event should contain pool_key field"
+    );
+    assert!(
+        event_log.contains("amount"),
+        "Event should contain amount field"
+    );
+    assert!(
+        event_log.contains("previous_pool_balance"),
+        "Event should contain previous_pool_balance field"
+    );
+    assert!(
+        event_log.contains("new_pool_balance"),
+        "Event should contain new_pool_balance field"
+    );
 
     Ok(())
 }
@@ -525,7 +572,11 @@ async fn test_group_pool_deposit_updates_pool_balance_correctly() -> anyhow::Res
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected deposit to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected deposit to succeed: {:?}",
+        res.failures()
+    );
 
     let pool_info: serde_json::Value = contract
         .view("get_group_pool_info")
@@ -574,7 +625,11 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res1.is_success(), "First deposit should succeed: {:?}", res1.failures());
+    assert!(
+        res1.is_success(),
+        "First deposit should succeed: {:?}",
+        res1.failures()
+    );
 
     let second_deposit = NearToken::from_near(2);
     let res2 = owner
@@ -596,7 +651,11 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res2.is_success(), "Second deposit should succeed: {:?}", res2.failures());
+    assert!(
+        res2.is_success(),
+        "Second deposit should succeed: {:?}",
+        res2.failures()
+    );
 
     let logs2 = res2.logs();
     let has_created_event = logs2.iter().any(|l| l.contains("group_pool_created"));
@@ -615,8 +674,7 @@ async fn test_group_pool_deposit_multiple_deposits_accumulate() -> anyhow::Resul
     let storage_balance = parse_u128_string(&pool_info, "storage_balance");
     let expected_total = first_deposit.as_yoctonear() + second_deposit.as_yoctonear();
     assert_eq!(
-        storage_balance,
-        expected_total,
+        storage_balance, expected_total,
         "Expected pool storage_balance to be sum of all deposits"
     );
 
@@ -657,7 +715,11 @@ async fn test_group_pool_deposit_manager_with_manage_permission_succeeds() -> an
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(grant_res.is_success(), "Grant MANAGE permission should succeed: {:?}", grant_res.failures());
+    assert!(
+        grant_res.is_success(),
+        "Grant MANAGE permission should succeed: {:?}",
+        grant_res.failures()
+    );
 
     let deposit_amount = NearToken::from_near(1);
     let res = manager

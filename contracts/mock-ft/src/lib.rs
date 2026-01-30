@@ -16,6 +16,8 @@ pub struct MockFT {
     balances: LookupMap<AccountId, u128>,
     total_supply: u128,
     decimals: u8,
+    /// Test helper: if set, the next ft_transfer will fail
+    fail_next_transfer: bool,
 }
 
 #[near(serializers = [json])]
@@ -36,6 +38,7 @@ impl MockFT {
             balances,
             total_supply: total_supply.0,
             decimals,
+            fail_next_transfer: false,
         }
     }
 
@@ -50,6 +53,13 @@ impl MockFT {
             NearToken::from_yoctonear(1),
             "Requires 1 yoctoNEAR"
         );
+
+        // Test helper: fail if flag is set
+        if self.fail_next_transfer {
+            self.fail_next_transfer = false;
+            env::panic_str("MockFT: Simulated transfer failure");
+        }
+
         let sender_id = env::predecessor_account_id();
         self.internal_transfer(&sender_id, &receiver_id, amount.0, memo);
     }
@@ -141,6 +151,16 @@ impl MockFT {
         self.total_supply += amount.0;
     }
 
+    /// Set flag to fail the next ft_transfer call (for testing callbacks)
+    pub fn set_fail_next_transfer(&mut self, should_fail: bool) {
+        self.fail_next_transfer = should_fail;
+    }
+
+    /// Check if fail flag is set (for debugging)
+    pub fn get_fail_next_transfer(&self) -> bool {
+        self.fail_next_transfer
+    }
+
     // =========================================================================
     // Internal
     // =========================================================================
@@ -155,9 +175,11 @@ impl MockFT {
         let sender_balance = self.balances.get(sender_id).copied().unwrap_or(0);
         assert!(sender_balance >= amount, "Insufficient balance");
 
-        self.balances.insert(sender_id.clone(), sender_balance - amount);
+        self.balances
+            .insert(sender_id.clone(), sender_balance - amount);
         let receiver_balance = self.balances.get(receiver_id).copied().unwrap_or(0);
-        self.balances.insert(receiver_id.clone(), receiver_balance + amount);
+        self.balances
+            .insert(receiver_id.clone(), receiver_balance + amount);
     }
 
     #[private]

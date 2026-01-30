@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { MagneticButton } from '@/components/effects/magnetic-button'
 import { GradientMesh } from '@/components/effects/gradient-mesh'
 import { AnimatedGrid } from '@/components/effects/animated-grid'
+import { PlatformStats } from '@/components/sections/platform-stats'
 
 export function Hero() {
   return (
@@ -115,6 +116,9 @@ export function Hero() {
               </motion.div>
             ))}
           </motion.div>
+
+          {/* Platform Stats */}
+          <PlatformStats />
         </div>
       </div>
 

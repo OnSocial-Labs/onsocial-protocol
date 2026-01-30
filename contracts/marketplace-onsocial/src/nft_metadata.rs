@@ -9,12 +9,12 @@ use crate::*;
 #[borsh(crate = "near_sdk::borsh")]
 #[derive(near_sdk::NearSchema)]
 pub struct NFTContractMetadata {
-    pub spec: String,              // "nft-1.0.0"
-    pub name: String,              // "OnSocial Marketplace NFTs"
-    pub symbol: String,            // "ONSOCIAL"
-    pub icon: Option<String>,      // Data URL
-    pub base_uri: Option<String>,  // Centralized gateway for off-chain metadata
-    pub reference: Option<String>, // URL to JSON with more info
+    pub spec: String,                   // "nft-1.0.0"
+    pub name: String,                   // "OnSocial Marketplace NFTs"
+    pub symbol: String,                 // "ONSOCIAL"
+    pub icon: Option<String>,           // Data URL
+    pub base_uri: Option<String>,       // Centralized gateway for off-chain metadata
+    pub reference: Option<String>,      // URL to JSON with more info
     pub reference_hash: Option<String>, // Base64-encoded sha256 hash of JSON
 }
 

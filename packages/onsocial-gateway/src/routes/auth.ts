@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { generateToken, verifyNearSignature } from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
+import { config } from '../config/index.js';
 import type { Request, Response } from 'express';
 
 export const authRouter = Router();
@@ -134,5 +135,45 @@ authRouter.get('/tier/:accountId', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Get tier error:', error);
     res.status(500).json({ error: 'Failed to get tier info' });
+  }
+});
+
+/**
+ * GET /auth/config
+ * Get gateway configuration (public endpoint for monitoring)
+ */
+authRouter.get('/config', async (req: Request, res: Response) => {
+  try {
+    // Convert BigInt to string for JSON serialization
+    const tierThresholds = {
+      staker: config.tierThresholds.staker.toString(),
+      builder: config.tierThresholds.builder.toString(),
+    };
+
+    res.json({
+      network: config.nearNetwork,
+      rateLimits: config.rateLimits,
+      tierThresholds,
+      contracts: {
+        socialToken: config.socialTokenContract,
+        staking: config.stakingContract,
+      },
+      infrastructure: {
+        lighthouse: {
+          plan: 'Free tier',
+          cost: 0,
+          limit: 'TBD',
+        },
+        substreams: {
+          plan: 'Free tier',
+          cost: 0,
+          limit: '7M blocks/month',
+        },
+        totalCost: 0,
+      },
+    });
+  } catch (error) {
+    console.error('Get config error:', error);
+    res.status(500).json({ error: 'Failed to get config' });
   }
 });

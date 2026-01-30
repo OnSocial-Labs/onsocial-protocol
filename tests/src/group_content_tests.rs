@@ -116,13 +116,13 @@ fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {
         "target/near/core_onsocial/core_onsocial.wasm",
         "/code/target/near/core_onsocial/core_onsocial.wasm",
     ];
-    
+
     for path in paths {
         if let Ok(wasm) = std::fs::read(Path::new(path)) {
             return Ok(wasm);
         }
     }
-    
+
     Err(anyhow::anyhow!("Could not find core_onsocial.wasm"))
 }
 
@@ -131,17 +131,24 @@ async fn deploy_and_init(
 ) -> anyhow::Result<Contract> {
     let wasm = load_core_onsocial_wasm()?;
     let contract = worker.dev_deploy(&wasm).await?;
-    
+
     let _ = contract.call("new").args_json(json!({})).transact().await?;
-    let _ = contract.call("activate_contract")
+    let _ = contract
+        .call("activate_contract")
         .deposit(NearToken::from_yoctonear(1))
-        .transact().await?;
-    
+        .transact()
+        .await?;
+
     Ok(contract)
 }
 
 async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::Result<Account> {
-    let user = root.create_subaccount(name).initial_balance(balance).transact().await?.unwrap();
+    let user = root
+        .create_subaccount(name)
+        .initial_balance(balance)
+        .transact()
+        .await?
+        .unwrap();
     Ok(user)
 }
 
@@ -157,12 +164,22 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(result.is_success(), "Create group failed: {:?}", result.failures());
+
+    assert!(
+        result.is_success(),
+        "Create group failed: {:?}",
+        result.failures()
+    );
     Ok(())
 }
 
-async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account, _permissions: u8) -> anyhow::Result<()> {
+async fn add_member(
+    contract: &Contract,
+    owner: &Account,
+    group_id: &str,
+    member: &Account,
+    _permissions: u8,
+) -> anyhow::Result<()> {
     let result = owner
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -174,8 +191,12 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(result.is_success(), "Add member failed: {:?}", result.failures());
+
+    assert!(
+        result.is_success(),
+        "Add member failed: {:?}",
+        result.failures()
+    );
     Ok(())
 }
 
@@ -186,18 +207,18 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
 #[tokio::test]
 async fn test_member_can_create_content() -> anyhow::Result<()> {
     println!("\n=== Test: Member Can Create Content ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    
+
     // Alice creates group, adds Bob with WRITE permission (1)
     create_group(&contract, &alice, "devs").await?;
     add_member(&contract, &alice, "devs", &bob, 1).await?;
-    
+
     // Bob creates content
     let result = bob
         .call(contract.id(), "execute")
@@ -215,7 +236,7 @@ async fn test_member_can_create_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result.is_success(), "Content creation should succeed");
     println!("✅ Member can create content");
     Ok(())
@@ -224,19 +245,20 @@ async fn test_member_can_create_content() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
     println!("\n=== Test: Content Stored at User-Owned Path ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "devs").await?;
     add_member(&contract, &alice, "devs", &bob, 1).await?;
-    
+
     // Bob creates content via groups/devs/content/posts/hello
-    let _ = bob.call(contract.id(), "execute")
+    let _ = bob
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -251,10 +273,10 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-// Content should be at {bob/groups/devs/content/posts/hello
+
+    // Content should be at {bob/groups/devs/content/posts/hello
     let user_owned_path = format!("{}/groups/devs/content/posts/hello", bob.id());
-    
+
     // get() now returns ordered EntryView values (no stored metadata envelope).
     let entries: Vec<Value> = contract
         .view("get")
@@ -276,7 +298,9 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
     );
     assert_eq!(entry.get("deleted").and_then(|v| v.as_bool()), Some(false));
 
-    let content_value = entry.get("value").expect("EntryView should have value field");
+    let content_value = entry
+        .get("value")
+        .expect("EntryView should have value field");
     assert_eq!(
         content_value.get("title").and_then(|v| v.as_str()),
         Some("Test Post")
@@ -299,17 +323,18 @@ async fn test_content_stored_at_user_owned_path() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_metadata_block_height() -> anyhow::Result<()> {
     println!("\n=== Test: Metadata Block Height ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "mygroup").await?;
-    
+
     // Alice creates content
-    let _ = alice.call(contract.id(), "execute")
+    let _ = alice
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -355,18 +380,19 @@ async fn test_metadata_block_height() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_content_metadata() -> anyhow::Result<()> {
     println!("\n=== Test: Content Metadata ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "testgroup").await?;
     add_member(&contract, &alice, "testgroup", &bob, 1).await?;
-    
-    let _ = bob.call(contract.id(), "execute")
+
+    let _ = bob
+        .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
                 "target_account": null,
@@ -403,7 +429,10 @@ async fn test_content_metadata() -> anyhow::Result<()> {
     let content_data = entry.get("value").unwrap();
 
     // Verify raw content (including any client-provided "metadata" field inside the value)
-    assert_eq!(content_data.get("title").unwrap().as_str().unwrap(), "Metadata Test");
+    assert_eq!(
+        content_data.get("title").unwrap().as_str().unwrap(),
+        "Metadata Test"
+    );
     assert_eq!(
         content_data
             .get("metadata")
@@ -434,14 +463,20 @@ async fn test_content_metadata() -> anyhow::Result<()> {
 
     println!(
         "   author: {}",
-        client_metadata.get("author").and_then(|v| v.as_str()).unwrap_or("<missing>")
+        client_metadata
+            .get("author")
+            .and_then(|v| v.as_str())
+            .unwrap_or("<missing>")
     );
     println!(
         "   parent_id: {}",
-        client_metadata.get("parent_id").and_then(|v| v.as_str()).unwrap_or("<missing>")
+        client_metadata
+            .get("parent_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("<missing>")
     );
     println!("   block_height: {}", block_height);
-    
+
     println!("✅ Content metadata is correct");
     Ok(())
 }
@@ -449,17 +484,17 @@ async fn test_content_metadata() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_member_can_update_own_content() -> anyhow::Result<()> {
     println!("\n=== Test: Member Can Update Own Content ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "devs").await?;
     add_member(&contract, &alice, "devs", &bob, 1).await?;
-    
+
     // Bob creates content
     let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
@@ -474,7 +509,7 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Bob updates content
     let update_result = bob
         .call(contract.id(), "execute")
@@ -490,9 +525,9 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(update_result.is_success(), "Update should succeed");
-    
+
     // Verify updated content (raw content, no wrapper)
     let path = format!("{}/groups/devs/content/posts/update", bob.id());
     let entries: Vec<Value> = contract
@@ -514,7 +549,7 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
         content.get("title").and_then(|v| v.as_str()),
         Some("Updated")
     );
-    
+
     println!("✅ Member can update own content");
     Ok(())
 }
@@ -522,17 +557,17 @@ async fn test_member_can_update_own_content() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
     println!("\n=== Test: Member Can Delete Own Content ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "devs").await?;
     add_member(&contract, &alice, "devs", &bob, 1).await?;
-    
+
     // Bob creates content
     let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
@@ -547,7 +582,7 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Verify content exists
     let path = format!("{}/groups/devs/content/posts/delete_me", bob.id());
     let entries_before: Vec<Value> = contract
@@ -561,12 +596,18 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
         entry_before.get("full_key").and_then(|v| v.as_str()),
         Some(path.as_str())
     );
-    assert_eq!(entry_before.get("deleted").and_then(|v| v.as_bool()), Some(false));
+    assert_eq!(
+        entry_before.get("deleted").and_then(|v| v.as_bool()),
+        Some(false)
+    );
     assert!(
-        entry_before.get("value").map(|v| !v.is_null()).unwrap_or(false),
+        entry_before
+            .get("value")
+            .map(|v| !v.is_null())
+            .unwrap_or(false),
         "Content should exist before deletion"
     );
-    
+
     // Bob deletes content (null value)
     let delete_result = bob
         .call(contract.id(), "execute")
@@ -582,9 +623,9 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(delete_result.is_success(), "Delete should succeed");
-    
+
     // Verify content is deleted (tombstone => deleted=true, value=null)
     let entries_after: Vec<Value> = contract
         .view("get")
@@ -598,12 +639,18 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
         entry_after.get("full_key").and_then(|v| v.as_str()),
         Some(path.as_str())
     );
-    assert_eq!(entry_after.get("deleted").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(
+        entry_after.get("deleted").and_then(|v| v.as_bool()),
+        Some(true)
+    );
     assert!(
-        entry_after.get("value").map(|v| v.is_null()).unwrap_or(true),
+        entry_after
+            .get("value")
+            .map(|v| v.is_null())
+            .unwrap_or(true),
         "Deleted EntryView should have null value"
     );
-    
+
     println!("✅ Member can delete own content");
     Ok(())
 }
@@ -615,17 +662,17 @@ async fn test_member_can_delete_own_content() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_non_member_cannot_write() -> anyhow::Result<()> {
     println!("\n=== Test: Non-Member Cannot Write ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "private_group").await?;
     // Charlie is NOT added as a member
-    
+
     // Charlie tries to write
     let result = charlie
         .call(contract.id(), "execute")
@@ -641,10 +688,10 @@ async fn test_non_member_cannot_write() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Should fail - Charlie is not a member
     assert!(!result.is_success(), "Non-member write should fail");
-    
+
     println!("✅ Non-member cannot write to group");
     Ok(())
 }
@@ -652,15 +699,15 @@ async fn test_non_member_cannot_write() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_owner_can_write_without_explicit_membership() -> anyhow::Result<()> {
     println!("\n=== Test: Owner Can Write Without Explicit Membership ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "alice_group").await?;
-    
+
     // Alice (owner) writes without being explicitly added as member
     let result = alice
         .call(contract.id(), "execute")
@@ -676,9 +723,9 @@ async fn test_owner_can_write_without_explicit_membership() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result.is_success(), "Owner should be able to write");
-    
+
     println!("✅ Owner can write without explicit membership");
     Ok(())
 }
@@ -690,20 +737,20 @@ async fn test_owner_can_write_without_explicit_membership() -> anyhow::Result<()
 #[tokio::test]
 async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
     println!("\n=== Test: Same User Multiple Groups - No Collision ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
-    
+
     // Create two groups
     create_group(&contract, &alice, "group_a").await?;
     create_group(&contract, &alice, "group_b").await?;
     add_member(&contract, &alice, "group_a", &bob, 1).await?;
     add_member(&contract, &alice, "group_b", &bob, 1).await?;
-    
+
     // Bob posts same path to both groups
     let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
@@ -718,7 +765,7 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
@@ -732,7 +779,7 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Verify both exist with different content
     let path_a = format!("{}/groups/group_a/content/posts/1", bob.id());
     let path_b = format!("{}/groups/group_b/content/posts/1", bob.id());
@@ -743,7 +790,11 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    assert_eq!(entries.len(), 2, "Should return one EntryView per requested key");
+    assert_eq!(
+        entries.len(),
+        2,
+        "Should return one EntryView per requested key"
+    );
 
     let find_title = |key: &str| -> Option<String> {
         entries
@@ -757,10 +808,10 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
 
     let title_a = find_title(&path_a).expect("Post in group_a should exist");
     let title_b = find_title(&path_b).expect("Post in group_b should exist");
-    
+
     assert_eq!(title_a, "Post in A");
     assert_eq!(title_b, "Post in B");
-    
+
     println!("✅ Same user multiple groups - no collision");
     Ok(())
 }
@@ -768,19 +819,19 @@ async fn test_same_user_multiple_groups_no_collision() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
     println!("\n=== Test: Multiple Users Same Group - No Collision ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
     let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "shared").await?;
     add_member(&contract, &alice, "shared", &bob, 1).await?;
     add_member(&contract, &alice, "shared", &charlie, 1).await?;
-    
+
     // Both post to same path
     let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
@@ -795,7 +846,7 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     let _ = charlie.call(contract.id(), "execute")
         .args_json(json!({
             "request": {
@@ -809,7 +860,7 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Verify both exist (different storage paths)
     let bob_path = format!("{}/groups/shared/content/posts/1", bob.id());
     let charlie_path = format!("{}/groups/shared/content/posts/1", charlie.id());
@@ -820,7 +871,11 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    assert_eq!(entries.len(), 2, "Should return one EntryView per requested key");
+    assert_eq!(
+        entries.len(),
+        2,
+        "Should return one EntryView per requested key"
+    );
 
     let find_title = |key: &str| -> Option<String> {
         entries
@@ -834,10 +889,10 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
 
     let bob_title = find_title(&bob_path).expect("Bob's post should exist");
     let charlie_title = find_title(&charlie_path).expect("Charlie's post should exist");
-    
+
     assert_eq!(bob_title, "Bob's Post");
     assert_eq!(charlie_title, "Charlie's Post");
-    
+
     println!("✅ Multiple users same group - no collision");
     Ok(())
 }
@@ -849,16 +904,16 @@ async fn test_multiple_users_same_group_no_collision() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_cannot_write_to_groups_namespace_without_membership() -> anyhow::Result<()> {
     println!("\n=== Test: Cannot Write to groups/ Namespace Without Membership ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let attacker = create_user(&root, "attacker", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "protected").await?;
-    
+
     // Attacker tries to write directly to groups/ path
     let result = attacker
         .call(contract.id(), "execute")
@@ -874,10 +929,13 @@ async fn test_cannot_write_to_groups_namespace_without_membership() -> anyhow::R
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Should fail - attacker is not a member
-    assert!(!result.is_success(), "Writing to groups/ without membership should fail");
-    
+    assert!(
+        !result.is_success(),
+        "Writing to groups/ without membership should fail"
+    );
+
     println!("✅ Cannot write to groups/ namespace without membership");
     Ok(())
 }
@@ -885,13 +943,13 @@ async fn test_cannot_write_to_groups_namespace_without_membership() -> anyhow::R
 #[tokio::test]
 async fn test_cannot_write_to_nonexistent_group() -> anyhow::Result<()> {
     println!("\n=== Test: Cannot Write to Nonexistent Group ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     // Try to write to a group that doesn't exist
     let result = alice
         .call(contract.id(), "execute")
@@ -907,10 +965,13 @@ async fn test_cannot_write_to_nonexistent_group() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Should fail - group doesn't exist
-    assert!(!result.is_success(), "Writing to nonexistent group should fail");
-    
+    assert!(
+        !result.is_success(),
+        "Writing to nonexistent group should fail"
+    );
+
     println!("✅ Cannot write to nonexistent group");
     Ok(())
 }
@@ -922,15 +983,15 @@ async fn test_cannot_write_to_nonexistent_group() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_content_creation_emits_event() -> anyhow::Result<()> {
     println!("\n=== Test: Content Creation Emits Event ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "event_group").await?;
-    
+
     let result = alice
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -945,16 +1006,16 @@ async fn test_content_creation_emits_event() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result.is_success());
-    
+
     // Check for events
     let logs = result.logs();
     let event_count = logs.iter().filter(|l| l.starts_with("EVENT_JSON:")).count();
-    
+
     assert!(event_count > 0, "Should emit at least one event");
     println!("   Events emitted: {}", event_count);
-    
+
     println!("✅ Content creation emits event");
     Ok(())
 }
@@ -962,15 +1023,15 @@ async fn test_content_creation_emits_event() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_deletion_emits_event() -> anyhow::Result<()> {
     println!("\n=== Test: Deletion Emits Event ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "delete_event").await?;
-    
+
     // Create content first
     let _ = alice.call(contract.id(), "execute")
         .args_json(json!({
@@ -985,7 +1046,7 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Delete with events enabled
     let delete_result = alice
         .call(contract.id(), "execute")
@@ -1001,15 +1062,15 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(delete_result.is_success());
-    
+
     let logs = delete_result.logs();
     let event_count = logs.iter().filter(|l| l.starts_with("EVENT_JSON:")).count();
-    
+
     assert!(event_count > 0, "Deletion should emit event");
     println!("   Deletion events: {}", event_count);
-    
+
     println!("✅ Deletion emits event");
     Ok(())
 }
@@ -1017,15 +1078,15 @@ async fn test_deletion_emits_event() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
     println!("\n=== Test: Metadata Block Height Matches Event ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "block_test").await?;
-    
+
     // Create content with events enabled
     let result = alice
         .call(contract.id(), "execute")
@@ -1041,18 +1102,16 @@ async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result.is_success());
-    
+
     // Decode event to verify it was emitted
     let logs = result.logs();
-    let events: Vec<Event> = logs.iter()
-        .filter_map(|log| decode_event(log))
-        .collect();
-    
+    let events: Vec<Event> = logs.iter().filter_map(|log| decode_event(log)).collect();
+
     assert!(!events.is_empty(), "Should have at least one event");
     println!("   ✓ Event emitted successfully");
-    
+
     // Get stored content
     let path = format!("{}/groups/block_test/content/posts/1", alice.id());
     let entries: Vec<Value> = contract
@@ -1086,15 +1145,15 @@ async fn test_content_block_height_matches_event() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_create_emits_create_operation() -> anyhow::Result<()> {
     println!("\n=== Test: Create Emits 'create' Operation ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "op_test").await?;
-    
+
     // Create new content
     let result = alice
         .call(contract.id(), "execute")
@@ -1110,9 +1169,9 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result.is_success());
-    
+
     // Decode events and check operation
     let logs = result.logs();
     println!("   📝 Total logs: {}", logs.len());
@@ -1121,21 +1180,28 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
             println!("   Event {}: {}", i, log);
         }
     }
-    let events: Vec<Event> = logs.iter()
-        .filter_map(|log| decode_event(log))
-        .collect();
-    
+    let events: Vec<Event> = logs.iter().filter_map(|log| decode_event(log)).collect();
+
     println!("   📊 Decoded {} events", events.len());
     for (i, ev) in events.iter().enumerate() {
-        println!("   Event {}: type={}, operation={:?}", i, ev.event, get_event_operation(ev));
+        println!(
+            "   Event {}: type={}, operation={:?}",
+            i,
+            ev.event,
+            get_event_operation(ev)
+        );
     }
-    
-    let create_event = events.iter()
+
+    let create_event = events
+        .iter()
         .find(|e| e.event == "GROUP_UPDATE" && get_event_operation(e) == Some("create"));
-    
-    assert!(create_event.is_some(), "Should emit 'create' operation for new content");
+
+    assert!(
+        create_event.is_some(),
+        "Should emit 'create' operation for new content"
+    );
     println!("   Operation: create ✓");
-    
+
     println!("✅ Create emits 'create' operation");
     Ok(())
 }
@@ -1143,15 +1209,15 @@ async fn test_create_emits_create_operation() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_update_emits_update_operation() -> anyhow::Result<()> {
     println!("\n=== Test: Update Emits 'update' Operation ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "op_test2").await?;
-    
+
     // First create content
     let _ = alice.call(contract.id(), "execute")
         .args_json(json!({
@@ -1166,7 +1232,7 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Now update the same content
     let update_result = alice
         .call(contract.id(), "execute")
@@ -1182,9 +1248,9 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(update_result.is_success());
-    
+
     // Decode events and check operation
     let logs = update_result.logs();
     println!("   📝 Total logs: {}", logs.len());
@@ -1193,21 +1259,28 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
             println!("   Event {}: {}", i, log);
         }
     }
-    let events: Vec<Event> = logs.iter()
-        .filter_map(|log| decode_event(log))
-        .collect();
-    
+    let events: Vec<Event> = logs.iter().filter_map(|log| decode_event(log)).collect();
+
     println!("   📊 Decoded {} events", events.len());
     for (i, ev) in events.iter().enumerate() {
-        println!("   Event {}: type={}, operation={:?}", i, ev.event, get_event_operation(ev));
+        println!(
+            "   Event {}: type={}, operation={:?}",
+            i,
+            ev.event,
+            get_event_operation(ev)
+        );
     }
-    
-    let update_event = events.iter()
+
+    let update_event = events
+        .iter()
         .find(|e| e.event == "GROUP_UPDATE" && get_event_operation(e) == Some("update"));
-    
-    assert!(update_event.is_some(), "Should emit 'update' operation for existing content");
+
+    assert!(
+        update_event.is_some(),
+        "Should emit 'update' operation for existing content"
+    );
     println!("   Operation: update ✓");
-    
+
     println!("✅ Update emits 'update' operation");
     Ok(())
 }
@@ -1219,19 +1292,19 @@ async fn test_update_emits_update_operation() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
     println!("\n=== Test: User Cannot Modify Another User's Content ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
     let bob = create_user(&root, "bob", TEN_NEAR).await?;
     let charlie = create_user(&root, "charlie", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "shared_group").await?;
     add_member(&contract, &alice, "shared_group", &bob, 1).await?;
     add_member(&contract, &alice, "shared_group", &charlie, 1).await?;
-    
+
     // Bob creates content
     let _ = bob.call(contract.id(), "execute")
         .args_json(json!({
@@ -1246,7 +1319,7 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Charlie tries to update Bob's content by using Bob's path directly
     // This should create Charlie's own content, NOT modify Bob's
     let _ = charlie.call(contract.id(), "execute")
@@ -1262,7 +1335,7 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Verify Bob's content is unchanged
     let bob_path = format!("{}/groups/shared_group/content/posts/bobs_post", bob.id());
 
@@ -1273,15 +1346,20 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
         .json()?;
 
     assert_eq!(bob_entries.len(), 1, "Should return one EntryView");
-    let bob_content = bob_entries[0].get("value").expect("EntryView should have value");
+    let bob_content = bob_entries[0]
+        .get("value")
+        .expect("EntryView should have value");
     assert_eq!(
         bob_content.get("title").and_then(|v| v.as_str()),
         Some("Bob's Original"),
         "Bob's content should be unchanged"
     );
-    
+
     // Charlie's content is at Charlie's path
-    let charlie_path = format!("{}/groups/shared_group/content/posts/bobs_post", charlie.id());
+    let charlie_path = format!(
+        "{}/groups/shared_group/content/posts/bobs_post",
+        charlie.id()
+    );
 
     let charlie_entries: Vec<Value> = contract
         .view("get")
@@ -1290,12 +1368,14 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
         .json()?;
 
     assert_eq!(charlie_entries.len(), 1, "Should return one EntryView");
-    let charlie_content = charlie_entries[0].get("value").expect("EntryView should have value");
+    let charlie_content = charlie_entries[0]
+        .get("value")
+        .expect("EntryView should have value");
     assert_eq!(
         charlie_content.get("title").and_then(|v| v.as_str()),
         Some("Charlie's Attempt")
     );
-    
+
     println!("   Bob's content unchanged: ✓");
     println!("   Charlie got separate content: ✓");
     println!("✅ User cannot modify another user's content");
@@ -1310,15 +1390,15 @@ async fn test_user_cannot_modify_another_users_content() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
     println!("\n=== Test: Path Without Content Path Rejected ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "mygroup").await?;
-    
+
     // Try: groups/mygroup (no content path after group_id)
     let result = alice
         .call(contract.id(), "execute")
@@ -1334,9 +1414,12 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Should fail - no content path after group_id
-    assert!(!result.is_success(), "Path without content should be rejected");
+    assert!(
+        !result.is_success(),
+        "Path without content should be rejected"
+    );
     println!("   groups/mygroup (no slash) rejected: ✓");
 
     // Try: groups/mygroup/ (trailing slash, empty content path)
@@ -1355,11 +1438,14 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Should fail - empty content path after trailing slash
-    assert!(!result_trailing.is_success(), "Path with trailing slash (empty content) should be rejected");
+    assert!(
+        !result_trailing.is_success(),
+        "Path with trailing slash (empty content) should be rejected"
+    );
     println!("   groups/mygroup/ (trailing slash) rejected: ✓");
-    
+
     println!("✅ Paths without valid content path rejected");
     Ok(())
 }
@@ -1370,21 +1456,27 @@ async fn test_path_without_content_path_rejected() -> anyhow::Result<()> {
 
 /// Helper to extract a string from event extra fields
 fn get_extra_str(event: &Event, key: &str) -> Option<String> {
-    event.data.first()
+    event
+        .data
+        .first()
         .and_then(|d| d.extra.get(key))
         .and_then(|v| v.as_str().map(|s| s.to_string()))
 }
 
 /// Helper to extract a bool from event extra fields
 fn get_extra_bool_val(event: &Event, key: &str) -> Option<bool> {
-    event.data.first()
+    event
+        .data
+        .first()
         .and_then(|d| d.extra.get(key))
         .and_then(|v| v.as_bool())
 }
 
 /// Helper to extract a u64 from event extra fields
 fn get_extra_u64(event: &Event, key: &str) -> Option<u64> {
-    event.data.first()
+    event
+        .data
+        .first()
         .and_then(|d| d.extra.get(key))
         .and_then(|v| v.as_u64())
 }
@@ -1408,15 +1500,15 @@ fn find_events_by_type(logs: &[String], event_type: &str) -> Vec<Event> {
 #[tokio::test]
 async fn test_event_derived_fields_for_group_content() -> anyhow::Result<()> {
     println!("\n=== Test: Event Derived Fields for Group Content ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "testgrp").await?;
-    
+
     // Create group content at: groups/testgrp/posts/article1
     // Stored at: {alice}/groups/testgrp/posts/article1
     let result = alice
@@ -1432,52 +1524,83 @@ async fn test_event_derived_fields_for_group_content() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(result.is_success(), "Content creation should succeed: {:?}", result.failures());
-    
+
+    assert!(
+        result.is_success(),
+        "Content creation should succeed: {:?}",
+        result.failures()
+    );
+
     let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
     let group_events = find_events_by_type(&logs, "GROUP_UPDATE");
-    
+
     assert!(!group_events.is_empty(), "Should emit GROUP_UPDATE event");
-    
+
     // Find the create event (not the meta event)
-    let create_event = group_events.iter()
+    let create_event = group_events
+        .iter()
         .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("create"))
         .expect("Should have create operation event");
-    
+
     // Verify derived fields from derived_fields_from_path()
     let id = get_extra_str(create_event, "id");
     let typ = get_extra_str(create_event, "type");
     let group_id = get_extra_str(create_event, "group_id");
     let group_path = get_extra_str(create_event, "group_path");
     let is_group_content = get_extra_bool_val(create_event, "is_group_content");
-    
+
     println!("   id: {:?}", id);
     println!("   type: {:?}", typ);
     println!("   group_id: {:?}", group_id);
     println!("   group_path: {:?}", group_path);
     println!("   is_group_content: {:?}", is_group_content);
-    
+
     // Path stored: {alice}/groups/testgrp/posts/article1
     // Expected derived fields:
-    assert_eq!(id.as_deref(), Some("article1"), "id should be last path segment");
-    assert_eq!(typ.as_deref(), Some("posts"), "type should be collection segment");
-    assert_eq!(group_id.as_deref(), Some("testgrp"), "group_id should be extracted");
-    assert_eq!(group_path.as_deref(), Some("posts/article1"), "group_path should be relative path within group");
-    assert_eq!(is_group_content, Some(true), "is_group_content should be true");
-    
+    assert_eq!(
+        id.as_deref(),
+        Some("article1"),
+        "id should be last path segment"
+    );
+    assert_eq!(
+        typ.as_deref(),
+        Some("posts"),
+        "type should be collection segment"
+    );
+    assert_eq!(
+        group_id.as_deref(),
+        Some("testgrp"),
+        "group_id should be extracted"
+    );
+    assert_eq!(
+        group_path.as_deref(),
+        Some("posts/article1"),
+        "group_path should be relative path within group"
+    );
+    assert_eq!(
+        is_group_content,
+        Some(true),
+        "is_group_content should be true"
+    );
+
     // Verify block context from insert_block_context()
     let block_height = get_extra_u64(create_event, "block_height");
     let block_timestamp = get_extra_u64(create_event, "block_timestamp");
-    
+
     println!("   block_height: {:?}", block_height);
     println!("   block_timestamp: {:?}", block_timestamp);
-    
+
     assert!(block_height.is_some(), "block_height should be present");
     assert!(block_height.unwrap() > 0, "block_height should be positive");
-    assert!(block_timestamp.is_some(), "block_timestamp should be present");
-    assert!(block_timestamp.unwrap() > 0, "block_timestamp should be positive");
-    
+    assert!(
+        block_timestamp.is_some(),
+        "block_timestamp should be present"
+    );
+    assert!(
+        block_timestamp.unwrap() > 0,
+        "block_timestamp should be positive"
+    );
+
     println!("✅ Event derived fields for group content are correct");
     Ok(())
 }
@@ -1489,13 +1612,13 @@ async fn test_event_derived_fields_for_group_content() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_event_derived_fields_for_non_group_data() -> anyhow::Result<()> {
     println!("\n=== Test: Event Derived Fields for Non-Group Data ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     // Write non-group data: profile/settings
     // Stored at: {alice}/profile/settings
     let result = alice
@@ -1511,43 +1634,68 @@ async fn test_event_derived_fields_for_non_group_data() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(result.is_success(), "Data write should succeed: {:?}", result.failures());
-    
+
+    assert!(
+        result.is_success(),
+        "Data write should succeed: {:?}",
+        result.failures()
+    );
+
     let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
     let data_events = find_events_by_type(&logs, "DATA_UPDATE");
-    
+
     assert!(!data_events.is_empty(), "Should emit DATA_UPDATE event");
-    
-    let set_event = data_events.iter()
+
+    let set_event = data_events
+        .iter()
         .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("set"))
         .expect("Should have set operation event");
-    
+
     // Verify derived fields
     let id = get_extra_str(set_event, "id");
     let typ = get_extra_str(set_event, "type");
     let group_id = get_extra_str(set_event, "group_id");
     let is_group_content = get_extra_bool_val(set_event, "is_group_content");
-    
+
     println!("   id: {:?}", id);
     println!("   type: {:?}", typ);
     println!("   group_id: {:?}", group_id);
     println!("   is_group_content: {:?}", is_group_content);
-    
+
     // Path: {alice}/profile/settings
     // Expected: id=settings, type=profile, no group fields
-    assert_eq!(id.as_deref(), Some("settings"), "id should be last path segment");
-    assert_eq!(typ.as_deref(), Some("profile"), "type should be collection segment");
-    assert!(group_id.is_none(), "group_id should NOT be present for non-group paths");
-    assert!(is_group_content.is_none(), "is_group_content should NOT be present for non-group paths");
-    
+    assert_eq!(
+        id.as_deref(),
+        Some("settings"),
+        "id should be last path segment"
+    );
+    assert_eq!(
+        typ.as_deref(),
+        Some("profile"),
+        "type should be collection segment"
+    );
+    assert!(
+        group_id.is_none(),
+        "group_id should NOT be present for non-group paths"
+    );
+    assert!(
+        is_group_content.is_none(),
+        "is_group_content should NOT be present for non-group paths"
+    );
+
     // Verify block context
     let block_height = get_extra_u64(set_event, "block_height");
     let block_timestamp = get_extra_u64(set_event, "block_timestamp");
-    
-    assert!(block_height.is_some() && block_height.unwrap() > 0, "block_height should be present and positive");
-    assert!(block_timestamp.is_some() && block_timestamp.unwrap() > 0, "block_timestamp should be present and positive");
-    
+
+    assert!(
+        block_height.is_some() && block_height.unwrap() > 0,
+        "block_height should be present and positive"
+    );
+    assert!(
+        block_timestamp.is_some() && block_timestamp.unwrap() > 0,
+        "block_timestamp should be present and positive"
+    );
+
     println!("✅ Event derived fields for non-group data are correct");
     Ok(())
 }
@@ -1556,15 +1704,15 @@ async fn test_event_derived_fields_for_non_group_data() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_event_derived_fields_deep_nested_path() -> anyhow::Result<()> {
     println!("\n=== Test: Event Derived Fields for Deep Nested Path ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "deepgrp").await?;
-    
+
     // Deep path: groups/deepgrp/content/posts/2024/01/10/article
     let result = alice
         .call(contract.id(), "execute")
@@ -1579,34 +1727,51 @@ async fn test_event_derived_fields_deep_nested_path() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(result.is_success(), "Deep path write should succeed: {:?}", result.failures());
-    
+
+    assert!(
+        result.is_success(),
+        "Deep path write should succeed: {:?}",
+        result.failures()
+    );
+
     let logs: Vec<String> = result.logs().iter().map(|s| s.to_string()).collect();
     let group_events = find_events_by_type(&logs, "GROUP_UPDATE");
-    
-    let create_event = group_events.iter()
+
+    let create_event = group_events
+        .iter()
         .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("create"))
         .expect("Should have create operation event");
-    
+
     let id = get_extra_str(create_event, "id");
     let typ = get_extra_str(create_event, "type");
     let group_id = get_extra_str(create_event, "group_id");
     let group_path = get_extra_str(create_event, "group_path");
-    
+
     println!("   id: {:?}", id);
     println!("   type: {:?}", typ);
     println!("   group_id: {:?}", group_id);
     println!("   group_path: {:?}", group_path);
-    
+
     // Path: {alice}/groups/deepgrp/content/posts/2024/01/10/article
     // parts[0]=alice, parts[1]=groups, parts[2]=deepgrp, parts[3]=content, ...
     // type = parts[3] = content (account-prefixed group pattern)
     assert_eq!(id.as_deref(), Some("article"), "id should be last segment");
-    assert_eq!(typ.as_deref(), Some("content"), "type should be parts[3] for account-prefixed group");
-    assert_eq!(group_id.as_deref(), Some("deepgrp"), "group_id should be extracted");
-    assert_eq!(group_path.as_deref(), Some("content/posts/2024/01/10/article"), "group_path should be full relative path");
-    
+    assert_eq!(
+        typ.as_deref(),
+        Some("content"),
+        "type should be parts[3] for account-prefixed group"
+    );
+    assert_eq!(
+        group_id.as_deref(),
+        Some("deepgrp"),
+        "group_id should be extracted"
+    );
+    assert_eq!(
+        group_path.as_deref(),
+        Some("content/posts/2024/01/10/article"),
+        "group_path should be full relative path"
+    );
+
     println!("✅ Event derived fields for deep nested path are correct");
     Ok(())
 }
@@ -1615,15 +1780,15 @@ async fn test_event_derived_fields_deep_nested_path() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
     println!("\n=== Test: Event Derived Fields on Delete ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "delgrp").await?;
-    
+
     // Create content first
     let _ = alice
         .call(contract.id(), "execute")
@@ -1638,7 +1803,7 @@ async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // Delete content (set to null)
     let delete_result = alice
         .call(contract.id(), "execute")
@@ -1653,32 +1818,52 @@ async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(delete_result.is_success(), "Delete should succeed: {:?}", delete_result.failures());
-    
+
+    assert!(
+        delete_result.is_success(),
+        "Delete should succeed: {:?}",
+        delete_result.failures()
+    );
+
     let logs: Vec<String> = delete_result.logs().iter().map(|s| s.to_string()).collect();
     let group_events = find_events_by_type(&logs, "GROUP_UPDATE");
-    
-    let delete_event = group_events.iter()
+
+    let delete_event = group_events
+        .iter()
         .find(|e| e.data.first().map(|d| d.operation.as_str()) == Some("delete"))
         .expect("Should have delete operation event");
-    
+
     // Verify derived fields are still present on delete events
     let id = get_extra_str(delete_event, "id");
     let group_id = get_extra_str(delete_event, "group_id");
     let is_group_content = get_extra_bool_val(delete_event, "is_group_content");
     let block_height = get_extra_u64(delete_event, "block_height");
-    
+
     println!("   id: {:?}", id);
     println!("   group_id: {:?}", group_id);
     println!("   is_group_content: {:?}", is_group_content);
     println!("   block_height: {:?}", block_height);
-    
-    assert_eq!(id.as_deref(), Some("todelete"), "id should be present on delete");
-    assert_eq!(group_id.as_deref(), Some("delgrp"), "group_id should be present on delete");
-    assert_eq!(is_group_content, Some(true), "is_group_content should be true on delete");
-    assert!(block_height.is_some(), "block_height should be present on delete");
-    
+
+    assert_eq!(
+        id.as_deref(),
+        Some("todelete"),
+        "id should be present on delete"
+    );
+    assert_eq!(
+        group_id.as_deref(),
+        Some("delgrp"),
+        "group_id should be present on delete"
+    );
+    assert_eq!(
+        is_group_content,
+        Some(true),
+        "is_group_content should be true on delete"
+    );
+    assert!(
+        block_height.is_some(),
+        "block_height should be present on delete"
+    );
+
     println!("✅ Event derived fields on delete are correct");
     Ok(())
 }
@@ -1691,15 +1876,15 @@ async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
     println!("\n=== Test: Cannot Write to Config Namespace ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "testgroup").await?;
-    
+
     // Attempt to write directly to config path
     let result = alice
         .call(contract.id(), "execute")
@@ -1715,10 +1900,13 @@ async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!result.is_success(), "Writing to config namespace should fail");
+
+    assert!(
+        !result.is_success(),
+        "Writing to config namespace should fail"
+    );
     println!("   Direct config write blocked: ✓");
-    
+
     // Attempt to write to config subpath
     let result2 = alice
         .call(contract.id(), "execute")
@@ -1734,10 +1922,13 @@ async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!result2.is_success(), "Writing to config subpath should fail");
+
+    assert!(
+        !result2.is_success(),
+        "Writing to config subpath should fail"
+    );
     println!("   Config subpath write blocked: ✓");
-    
+
     println!("✅ Config namespace is protected");
     Ok(())
 }
@@ -1750,15 +1941,15 @@ async fn test_cannot_write_to_config_namespace() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
     println!("\n=== Test: Delete Nonexistent Entry Is Idempotent ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "idempotent_group").await?;
-    
+
     // Delete an entry that was never created
     let result = alice
         .call(contract.id(), "execute")
@@ -1774,10 +1965,13 @@ async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(result.is_success(), "Deleting nonexistent entry should succeed");
+
+    assert!(
+        result.is_success(),
+        "Deleting nonexistent entry should succeed"
+    );
     println!("   First delete of nonexistent: ✓");
-    
+
     // Delete again - should still succeed
     let result2 = alice
         .call(contract.id(), "execute")
@@ -1793,7 +1987,7 @@ async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result2.is_success(), "Second delete should also succeed");
     println!("   Second delete of nonexistent: ✓");
 
@@ -1803,10 +1997,13 @@ async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
         .into_iter()
         .filter(|e| get_event_operation(e) == Some("delete"))
         .count();
-    
-    assert_eq!(delete_events, 0, "No delete event should be emitted for nonexistent entry");
+
+    assert_eq!(
+        delete_events, 0,
+        "No delete event should be emitted for nonexistent entry"
+    );
     println!("   No spurious delete event: ✓");
-    
+
     println!("✅ Delete nonexistent entry is idempotent");
     Ok(())
 }
@@ -1815,15 +2012,15 @@ async fn test_delete_nonexistent_entry_is_idempotent() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
     println!("\n=== Test: Double Delete Is Idempotent ===");
-    
+
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
-    
+
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
-    
+
     create_group(&contract, &alice, "double_del_group").await?;
-    
+
     // Create content first
     let _ = alice
         .call(contract.id(), "execute")
@@ -1839,7 +2036,7 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // First delete
     let result1 = alice
         .call(contract.id(), "execute")
@@ -1855,9 +2052,9 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result1.is_success(), "First delete should succeed");
-    
+
     let logs1: Vec<String> = result1.logs().iter().map(|s| s.to_string()).collect();
     let delete_events1 = find_events_by_type(&logs1, "GROUP_UPDATE")
         .into_iter()
@@ -1865,7 +2062,7 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
         .count();
     assert_eq!(delete_events1, 1, "First delete should emit delete event");
     println!("   First delete emits event: ✓");
-    
+
     // Second delete (entry now has Deleted tombstone)
     let result2 = alice
         .call(contract.id(), "execute")
@@ -1881,17 +2078,20 @@ async fn test_double_delete_is_idempotent() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     assert!(result2.is_success(), "Second delete should succeed");
-    
+
     let logs2: Vec<String> = result2.logs().iter().map(|s| s.to_string()).collect();
     let delete_events2 = find_events_by_type(&logs2, "GROUP_UPDATE")
         .into_iter()
         .filter(|e| get_event_operation(e) == Some("delete"))
         .count();
-    assert_eq!(delete_events2, 0, "Second delete should NOT emit delete event (already deleted)");
+    assert_eq!(
+        delete_events2, 0,
+        "Second delete should NOT emit delete event (already deleted)"
+    );
     println!("   Second delete is no-op: ✓");
-    
+
     println!("✅ Double delete is idempotent");
     Ok(())
 }

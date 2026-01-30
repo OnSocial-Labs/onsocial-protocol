@@ -102,7 +102,11 @@ struct SignedSetPayload {
     delegate_action: Option<Value>,
 }
 
-fn sign_payload(contract_id: &str, payload: &SignedSetPayload, sk: &SigningKey) -> anyhow::Result<String> {
+fn sign_payload(
+    contract_id: &str,
+    payload: &SignedSetPayload,
+    sk: &SigningKey,
+) -> anyhow::Result<String> {
     // Must match on-chain: sha256(domain || 0x00 || json(payload))
     // where domain = "onsocial:execute:v1:{contract_id}"
     let domain = format!("onsocial:execute:v1:{contract_id}");
@@ -179,7 +183,11 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected storage deposit to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected storage deposit to succeed: {:?}",
+        res.failures()
+    );
 
     // Create deterministic payload keypair and bind that key to Alice for profile/* writes.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -193,7 +201,11 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected set_key_permission to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected set_key_permission to succeed: {:?}",
+        res.failures()
+    );
 
     // Relayer submits signed payload (payer=relayer, actor=alice).
     let action = json!({ "type": "set", "data": { "profile/name": "Alice (signed)" } });
@@ -228,7 +240,11 @@ async fn test_signed_payload_meta_tx_happy_path_and_replay_protection() -> anyho
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected signed payload set to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected signed payload set to succeed: {:?}",
+        res.failures()
+    );
 
     // Verify actor vs payer attribution in meta-tx marker event.
     let logs = res.logs();
@@ -312,7 +328,11 @@ async fn test_signed_payload_expired_signature_rejected() -> anyhow::Result<()> 
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -326,7 +346,11 @@ async fn test_signed_payload_expired_signature_rejected() -> anyhow::Result<()> 
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Create payload with expires_at_ms = 1 (expired in 1970).
     let action = json!({ "type": "set", "data": { "profile/name": "Expired" } });
@@ -360,9 +384,15 @@ async fn test_signed_payload_expired_signature_rejected() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Expected expired signature to be rejected");
+    assert!(
+        !res.is_success(),
+        "Expected expired signature to be rejected"
+    );
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("expired"), "Expected 'expired' error, got: {err}");
+    assert!(
+        err.contains("expired"),
+        "Expected 'expired' error, got: {err}"
+    );
 
     Ok(())
 }
@@ -389,7 +419,11 @@ async fn test_intent_auth_unauthorized_executor_rejected() -> anyhow::Result<()>
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // fake_solver attempts to use Intent auth without being allowlisted.
     let res = fake_solver
@@ -410,7 +444,10 @@ async fn test_intent_auth_unauthorized_executor_rejected() -> anyhow::Result<()>
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Expected unauthorized intent executor to be rejected");
+    assert!(
+        !res.is_success(),
+        "Expected unauthorized intent executor to be rejected"
+    );
     let err = format!("{:?}", res.failures());
     assert!(
         err.contains("intent_executor") || err.contains("Unauthorized"),
@@ -442,7 +479,11 @@ async fn test_intent_auth_authorized_executor_succeeds() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Manager adds solver to intents_executors allowlist.
     let res = contract
@@ -456,7 +497,11 @@ async fn test_intent_auth_authorized_executor_succeeds() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(res.is_success(), "update_config failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "update_config failed: {:?}",
+        res.failures()
+    );
 
     // Solver uses Intent auth to write on behalf of Alice.
     let res = solver
@@ -476,15 +521,31 @@ async fn test_intent_auth_authorized_executor_succeeds() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(res.is_success(), "Intent auth by allowlisted executor failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Intent auth by allowlisted executor failed: {:?}",
+        res.failures()
+    );
 
     // Verify auth_type in event metadata.
     let logs = res.logs();
     let marker = find_meta_tx_marker(&logs).expect("Expected CONTRACT_UPDATE meta_tx marker event");
     let data0 = &marker["data"][0];
-    assert_eq!(data0["auth_type"].as_str(), Some("intent"), "Expected auth_type=intent");
-    assert_eq!(data0["actor_id"].as_str(), Some(alice.id().as_str()), "Expected actor_id=alice");
-    assert_eq!(data0["payer_id"].as_str(), Some(solver.id().as_str()), "Expected payer_id=solver");
+    assert_eq!(
+        data0["auth_type"].as_str(),
+        Some("intent"),
+        "Expected auth_type=intent"
+    );
+    assert_eq!(
+        data0["actor_id"].as_str(),
+        Some(alice.id().as_str()),
+        "Expected actor_id=alice"
+    );
+    assert_eq!(
+        data0["payer_id"].as_str(),
+        Some(solver.id().as_str()),
+        "Expected payer_id=solver"
+    );
 
     // Verify data was written under Alice.
     let v: serde_json::Value = contract
@@ -522,7 +583,11 @@ async fn test_delegate_action_auth_happy_path() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission for delegate actions.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -536,7 +601,11 @@ async fn test_delegate_action_auth_happy_path() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Create DelegateAction payload (includes delegate_action field).
     let action = json!({ "type": "set", "data": { "profile/bio": "Delegate auth test" } });
@@ -585,7 +654,11 @@ async fn test_delegate_action_auth_happy_path() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "DelegateAction auth failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "DelegateAction auth failed: {:?}",
+        res.failures()
+    );
 
     // Verify auth_type in event.
     let logs = res.logs();
@@ -632,7 +705,11 @@ async fn test_intent_auth_actor_differs_from_target() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "bob storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "bob storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Bob grants Alice write permission on his profile.
     let res = bob
@@ -645,7 +722,11 @@ async fn test_intent_auth_actor_differs_from_target() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission failed: {:?}",
+        res.failures()
+    );
 
     // Manager adds solver to intents_executors.
     let res = contract
@@ -659,7 +740,11 @@ async fn test_intent_auth_actor_differs_from_target() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(res.is_success(), "update_config failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "update_config failed: {:?}",
+        res.failures()
+    );
 
     // Solver uses Intent auth: actor=alice, target=bob.
     // Alice has permission to write to Bob's namespace.
@@ -680,7 +765,11 @@ async fn test_intent_auth_actor_differs_from_target() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(res.is_success(), "Intent cross-account write failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Intent cross-account write failed: {:?}",
+        res.failures()
+    );
 
     // Verify data written under Bob's namespace.
     let v: serde_json::Value = contract
@@ -724,7 +813,11 @@ async fn test_signed_payload_invalid_signature_rejected() -> anyhow::Result<()> 
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
@@ -737,7 +830,11 @@ async fn test_signed_payload_invalid_signature_rejected() -> anyhow::Result<()> 
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
     let payload = SignedSetPayload {
@@ -775,9 +872,15 @@ async fn test_signed_payload_invalid_signature_rejected() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Expected invalid signature to be rejected");
+    assert!(
+        !res.is_success(),
+        "Expected invalid signature to be rejected"
+    );
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("invalid signature") || err.contains("signature"), "Expected signature error, got: {err}");
+    assert!(
+        err.contains("invalid signature") || err.contains("signature"),
+        "Expected signature error, got: {err}"
+    );
 
     Ok(())
 }
@@ -803,7 +906,11 @@ async fn test_signed_payload_nonce_skip_allowed() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
@@ -816,7 +923,11 @@ async fn test_signed_payload_nonce_skip_allowed() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action1 = json!({ "type": "set", "data": { "profile/n1": "first" } });
     let payload1 = SignedSetPayload {
@@ -880,7 +991,11 @@ async fn test_signed_payload_nonce_skip_allowed() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "nonce skip to 100 should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "nonce skip to 100 should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify data was written.
     let v: serde_json::Value = contract
@@ -917,7 +1032,11 @@ async fn test_delegate_action_replay_protection() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
@@ -930,7 +1049,11 @@ async fn test_delegate_action_replay_protection() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action = json!({ "type": "set", "data": { "profile/delegate": "first" } });
     let delegate_action = json!({ "receiver_id": contract.id().to_string(), "actions": ["set"] });
@@ -977,7 +1100,11 @@ async fn test_delegate_action_replay_protection() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "First delegate_action failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "First delegate_action failed: {:?}",
+        res.failures()
+    );
 
     // Replay with same nonce should fail.
     let action_replay = json!({ "type": "set", "data": { "profile/delegate": "replay" } });
@@ -991,7 +1118,10 @@ async fn test_delegate_action_replay_protection() -> anyhow::Result<()> {
     };
     let canonical_replay = SignedSetPayload {
         action: canonicalize_json(&payload_replay.action),
-        delegate_action: payload_replay.delegate_action.as_ref().map(canonicalize_json),
+        delegate_action: payload_replay
+            .delegate_action
+            .as_ref()
+            .map(canonicalize_json),
         ..payload_replay.clone()
     };
     let replay_bytes = serde_json::to_vec(&canonical_replay)?;
@@ -1025,7 +1155,10 @@ async fn test_delegate_action_replay_protection() -> anyhow::Result<()> {
 
     assert!(!res.is_success(), "Expected replay to fail");
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+    assert!(
+        err.contains("Nonce too low"),
+        "Expected 'Nonce too low', got: {err}"
+    );
 
     Ok(())
 }
@@ -1052,7 +1185,11 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Add solver to allowlist.
     let res = contract
@@ -1086,7 +1223,11 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
         .gas(Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(res.is_success(), "First intent call should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "First intent call should succeed: {:?}",
+        res.failures()
+    );
 
     // Remove solver from allowlist.
     let res = contract
@@ -1100,7 +1241,11 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(res.is_success(), "remove solver failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "remove solver failed: {:?}",
+        res.failures()
+    );
 
     // Solver now fails.
     let res = solver
@@ -1121,7 +1266,10 @@ async fn test_intent_executor_removed_from_allowlist_rejected() -> anyhow::Resul
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Expected removed executor to be rejected");
+    assert!(
+        !res.is_success(),
+        "Expected removed executor to be rejected"
+    );
     let err = format!("{:?}", res.failures());
     assert!(
         err.contains("intent_executor") || err.contains("Unauthorized"),
@@ -1154,7 +1302,11 @@ async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::R
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Alice grants KEY permission (not account permission) to solver's signer key.
     // This should allow solver to write via Direct auth, but NOT via Intent auth.
@@ -1169,7 +1321,11 @@ async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::R
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Add solver as intent executor.
     let res = contract
@@ -1183,7 +1339,11 @@ async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::R
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(res.is_success(), "update_config failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "update_config failed: {:?}",
+        res.failures()
+    );
 
     // Solver uses Direct auth to write to Alice (using key permission) — should SUCCEED.
     let res = solver
@@ -1199,7 +1359,11 @@ async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::R
         .gas(Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(res.is_success(), "Direct auth with key permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Direct auth with key permission should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify data was written.
     let v: Value = contract
@@ -1236,7 +1400,11 @@ async fn test_intent_auth_ignores_executor_signer_key_permissions() -> anyhow::R
     // This should SUCCEED because Intent auth sets actor_id = alice (from intent auth),
     // and Alice is writing to her own namespace. The key is: solver's key permissions
     // are NOT consulted for Intent auth.
-    assert!(res.is_success(), "Intent auth writes as actor_id (alice), not executor: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Intent auth writes as actor_id (alice), not executor: {:?}",
+        res.failures()
+    );
 
     Ok(())
 }
@@ -1264,7 +1432,11 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Alice grants KEY permission to solver's signer key on profile/.
     let solver_pk = solver.secret_key().public_key();
@@ -1278,7 +1450,11 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Add solver as intent executor.
     let res = contract
@@ -1292,7 +1468,11 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(res.is_success(), "update_config failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "update_config failed: {:?}",
+        res.failures()
+    );
 
     // Confirm Direct auth works (key permission is valid).
     let res = solver
@@ -1308,7 +1488,11 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
         .gas(Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(res.is_success(), "Direct auth should succeed with key permission: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Direct auth should succeed with key permission: {:?}",
+        res.failures()
+    );
 
     // Intent auth with actor_id = solver (NOT alice).
     // Solver has key permission on Alice's profile/, but Intent auth should NOT use it.
@@ -1333,7 +1517,10 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
 
     // This MUST fail: solver (actor_id) has no account permission on Alice's profile/,
     // and Intent auth must NOT fall back to solver's key permissions.
-    assert!(!res.is_success(), "Intent auth should NOT use executor's key permissions");
+    assert!(
+        !res.is_success(),
+        "Intent auth should NOT use executor's key permissions"
+    );
     let err = format!("{:?}", res.failures());
     assert!(
         err.contains("PermissionDenied") || err.contains("permission") || err.contains("denied"),
@@ -1360,7 +1547,8 @@ fn find_nonce_recorded_event<S: AsRef<str>>(logs: &[S]) -> Option<serde_json::Va
         }
 
         let data0 = v.get("data")?.get(0)?;
-        if data0.get("operation").and_then(|x| x.as_str()) == Some("signed_payload_nonce_recorded") {
+        if data0.get("operation").and_then(|x| x.as_str()) == Some("signed_payload_nonce_recorded")
+        {
             return Some(data0.clone());
         }
     }
@@ -1389,7 +1577,11 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -1403,7 +1595,11 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Relayer submits signed payload with nonce=1.
     let action = json!({ "type": "set", "data": { "profile/test_nonce": "value1" } });
@@ -1436,23 +1632,44 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "Signed payload should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Signed payload should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify `signed_payload_nonce_recorded` event is emitted.
     let logs = res.logs();
-    let event = find_nonce_recorded_event(&logs)
-        .expect("Expected signed_payload_nonce_recorded event");
+    let event =
+        find_nonce_recorded_event(&logs).expect("Expected signed_payload_nonce_recorded event");
 
     // Verify event schema fields.
-    assert_eq!(event.get("public_key").and_then(|v| v.as_str()), Some(pk_str.as_str()),
-        "Event should contain correct public_key");
-    assert_eq!(event.get("nonce").and_then(|v| v.as_str()), Some("1"),
-        "Event should contain correct nonce");
-    assert!(event.get("value").is_none(),
-        "Event should NOT contain redundant 'value' field");
-    let path = event.get("path").and_then(|v| v.as_str()).expect("Event should have path");
-    assert!(path.contains("signed_payload_nonces"), "Path should contain 'signed_payload_nonces'");
-    assert!(path.contains(alice.id().as_str()), "Path should contain owner account");
+    assert_eq!(
+        event.get("public_key").and_then(|v| v.as_str()),
+        Some(pk_str.as_str()),
+        "Event should contain correct public_key"
+    );
+    assert_eq!(
+        event.get("nonce").and_then(|v| v.as_str()),
+        Some("1"),
+        "Event should contain correct nonce"
+    );
+    assert!(
+        event.get("value").is_none(),
+        "Event should NOT contain redundant 'value' field"
+    );
+    let path = event
+        .get("path")
+        .and_then(|v| v.as_str())
+        .expect("Event should have path");
+    assert!(
+        path.contains("signed_payload_nonces"),
+        "Path should contain 'signed_payload_nonces'"
+    );
+    assert!(
+        path.contains(alice.id().as_str()),
+        "Path should contain owner account"
+    );
 
     // Now verify monotonically increasing nonce (nonce=2) works.
     let action2 = json!({ "type": "set", "data": { "profile/test_nonce2": "value2" } });
@@ -1485,14 +1702,21 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res2.is_success(), "Nonce=2 after nonce=1 should succeed: {:?}", res2.failures());
+    assert!(
+        res2.is_success(),
+        "Nonce=2 after nonce=1 should succeed: {:?}",
+        res2.failures()
+    );
 
     // Verify second event has nonce=2.
     let logs2 = res2.logs();
     let event2 = find_nonce_recorded_event(&logs2)
         .expect("Expected second signed_payload_nonce_recorded event");
-    assert_eq!(event2.get("nonce").and_then(|v| v.as_str()), Some("2"),
-        "Second event should have nonce=2");
+    assert_eq!(
+        event2.get("nonce").and_then(|v| v.as_str()),
+        Some("2"),
+        "Second event should have nonce=2"
+    );
 
     Ok(())
 }
@@ -1524,12 +1748,19 @@ async fn test_signed_payload_secp256k1_key_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Create a secp256k1 public key string (64 bytes raw key = uncompressed format).
     // secp256k1 keys are 64 bytes (uncompressed without prefix) in near-sdk format.
     let fake_secp_key_bytes = [0x42u8; 64];
-    let secp_pk_str = format!("secp256k1:{}", bs58::encode(&fake_secp_key_bytes).into_string());
+    let secp_pk_str = format!(
+        "secp256k1:{}",
+        bs58::encode(&fake_secp_key_bytes).into_string()
+    );
 
     // Attempt to use secp256k1 key in signed payload auth.
     // Note: We cannot actually grant permission to a secp256k1 key since set_key_permission
@@ -1592,7 +1823,11 @@ async fn test_signed_payload_truncated_signature_rejected() -> anyhow::Result<()
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission.
     let (_, pk_str) = make_deterministic_ed25519_keypair();
@@ -1606,7 +1841,11 @@ async fn test_signed_payload_truncated_signature_rejected() -> anyhow::Result<()
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
 
@@ -1633,7 +1872,10 @@ async fn test_signed_payload_truncated_signature_rejected() -> anyhow::Result<()
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Expected truncated signature (63 bytes) to be rejected");
+    assert!(
+        !res.is_success(),
+        "Expected truncated signature (63 bytes) to be rejected"
+    );
     let err = format!("{:?}", res.failures());
     assert!(
         err.contains("signature") || err.contains("Invalid"),
@@ -1666,7 +1908,11 @@ async fn test_signed_payload_oversized_signature_rejected() -> anyhow::Result<()
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission.
     let (_, pk_str) = make_deterministic_ed25519_keypair();
@@ -1680,7 +1926,11 @@ async fn test_signed_payload_oversized_signature_rejected() -> anyhow::Result<()
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
 
@@ -1707,7 +1957,10 @@ async fn test_signed_payload_oversized_signature_rejected() -> anyhow::Result<()
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Expected oversized signature (65 bytes) to be rejected");
+    assert!(
+        !res.is_success(),
+        "Expected oversized signature (65 bytes) to be rejected"
+    );
     let err = format!("{:?}", res.failures());
     assert!(
         err.contains("signature") || err.contains("Invalid"),
@@ -1740,7 +1993,11 @@ async fn test_signed_payload_empty_signature_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission.
     let (_, pk_str) = make_deterministic_ed25519_keypair();
@@ -1754,7 +2011,11 @@ async fn test_signed_payload_empty_signature_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action = json!({ "type": "set", "data": { "profile/name": "Test" } });
 
@@ -1816,11 +2077,16 @@ async fn test_direct_auth_context_fields_in_event() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Direct auth write should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Direct auth write should succeed: {:?}",
+        res.failures()
+    );
 
     // Find the meta_tx marker event.
     let logs = res.logs();
-    let marker = find_meta_tx_marker(&logs).expect("Expected CONTRACT_UPDATE meta_tx marker event for direct auth");
+    let marker = find_meta_tx_marker(&logs)
+        .expect("Expected CONTRACT_UPDATE meta_tx marker event for direct auth");
     let data0 = &marker["data"][0];
 
     // Verify auth_type is "direct".
@@ -1889,7 +2155,11 @@ async fn test_signed_payload_json_key_order_invariance() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -1903,7 +2173,11 @@ async fn test_signed_payload_json_key_order_invariance() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Sign with keys in one order: { "type": ..., "data": { "profile/bio": ..., "profile/name": ... } }
     // The signer's payload will be canonicalized, so keys will be sorted: bio < name
@@ -2002,7 +2276,11 @@ async fn test_signed_payload_nested_object_canonicalization() -> anyhow::Result<
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission for settings/.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -2016,7 +2294,11 @@ async fn test_signed_payload_nested_object_canonicalization() -> anyhow::Result<
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Sign with nested object keys in one order.
     let action_for_signing = json!({
@@ -2093,8 +2375,14 @@ async fn test_signed_payload_nested_object_canonicalization() -> anyhow::Result<
     let value = prefs.get("value").expect("should have value");
     assert_eq!(value.get("theme"), Some(&json!("dark")));
     assert_eq!(value.get("language"), Some(&json!("en")));
-    assert_eq!(value.get("notifications").and_then(|n| n.get("email")), Some(&json!(true)));
-    assert_eq!(value.get("notifications").and_then(|n| n.get("push")), Some(&json!(false)));
+    assert_eq!(
+        value.get("notifications").and_then(|n| n.get("email")),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        value.get("notifications").and_then(|n| n.get("push")),
+        Some(&json!(false))
+    );
 
     Ok(())
 }
@@ -2122,7 +2410,11 @@ async fn test_signed_payload_array_object_canonicalization() -> anyhow::Result<(
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     // Grant key permission for data/.
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
@@ -2136,7 +2428,11 @@ async fn test_signed_payload_array_object_canonicalization() -> anyhow::Result<(
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Sign with array containing objects with keys in specific order.
     let action_for_signing = json!({
@@ -2203,7 +2499,10 @@ async fn test_signed_payload_array_object_canonicalization() -> anyhow::Result<(
         .args_json(json!({ "key": "data/contacts", "account_id": alice.id().to_string() }))
         .await?
         .json()?;
-    let arr = contacts.get("value").and_then(|v| v.as_array()).expect("should be array");
+    let arr = contacts
+        .get("value")
+        .and_then(|v| v.as_array())
+        .expect("should be array");
     assert_eq!(arr.len(), 2);
     assert_eq!(arr[0].get("name"), Some(&json!("Bob")));
     assert_eq!(arr[1].get("name"), Some(&json!("Carol")));

@@ -74,7 +74,11 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "create_group should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "create_group should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -527,7 +531,11 @@ async fn test_group_sponsor_quota_set_emits_correct_event() -> anyhow::Result<()
         .transact()
         .await?;
 
-    assert!(res.is_success(), "group_sponsor_quota_set should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "group_sponsor_quota_set should succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let has_event = logs.iter().any(|l| l.contains("group_sponsor_quota_set"));
@@ -573,7 +581,11 @@ async fn test_group_sponsor_default_set_emits_correct_event() -> anyhow::Result<
         .transact()
         .await?;
 
-    assert!(res.is_success(), "group_sponsor_default_set should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "group_sponsor_default_set should succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let has_event = logs.iter().any(|l| l.contains("group_sponsor_default_set"));
@@ -625,7 +637,11 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res1.is_success(), "First quota_set should succeed: {:?}", res1.failures());
+    assert!(
+        res1.is_success(),
+        "First quota_set should succeed: {:?}",
+        res1.failures()
+    );
 
     // Now disable - allowance should be zeroed
     let res2 = owner
@@ -650,11 +666,17 @@ async fn test_group_sponsor_quota_set_disabled_zeros_allowance() -> anyhow::Resu
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res2.is_success(), "Disable quota_set should succeed: {:?}", res2.failures());
+    assert!(
+        res2.is_success(),
+        "Disable quota_set should succeed: {:?}",
+        res2.failures()
+    );
 
     // Verify: event should show previously_enabled=true
     let logs = res2.logs();
-    let has_previously_enabled = logs.iter().any(|l| l.contains("previously_enabled") && l.contains("true"));
+    let has_previously_enabled = logs
+        .iter()
+        .any(|l| l.contains("previously_enabled") && l.contains("true"));
     assert!(
         has_previously_enabled,
         "Expected event to show previously_enabled=true. Logs: {:?}",

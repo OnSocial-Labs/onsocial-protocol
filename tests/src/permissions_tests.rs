@@ -62,7 +62,11 @@ async fn propose_and_approve(
             .gas(near_workspaces::types::Gas::from_tgas(160))
             .transact()
             .await?;
-        assert!(vote.is_success(), "vote_on_proposal should succeed: {:?}", vote.failures());
+        assert!(
+            vote.is_success(),
+            "vote_on_proposal should succeed: {:?}",
+            vote.failures()
+        );
     }
 
     Ok(proposal_id)
@@ -115,7 +119,11 @@ async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::
         .into_result()?)
 }
 
-async fn deposit_storage(contract: &Contract, user: &Account, amount: NearToken) -> anyhow::Result<()> {
+async fn deposit_storage(
+    contract: &Contract,
+    user: &Account,
+    amount: NearToken,
+) -> anyhow::Result<()> {
     let yocto = amount.as_yoctonear().to_string();
     let res = user
         .call(contract.id(), "execute")
@@ -132,7 +140,11 @@ async fn deposit_storage(contract: &Contract, user: &Account, amount: NearToken)
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage/deposit should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage/deposit should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -148,7 +160,11 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "create_group should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "create_group should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -179,7 +195,12 @@ async fn create_member_driven_group(
     Ok(())
 }
 
-async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account) -> anyhow::Result<()> {
+async fn add_member(
+    contract: &Contract,
+    owner: &Account,
+    group_id: &str,
+    member: &Account,
+) -> anyhow::Result<()> {
     let res = owner
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -191,12 +212,17 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "add_group_member should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "add_group_member should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
 #[tokio::test]
-async fn test_account_permission_inheritance_and_trailing_slash_equivalence() -> anyhow::Result<()> {
+async fn test_account_permission_inheritance_and_trailing_slash_equivalence() -> anyhow::Result<()>
+{
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -220,7 +246,11 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
         .gas(near_workspaces::types::Gas::from_tgas(90))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission should succeed: {:?}",
+        res.failures()
+    );
 
     // Trailing-slash equivalence: permission stored at .../delegated/ must apply to .../delegated.
     let has_on_no_slash: bool = contract
@@ -233,7 +263,10 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
         }))
         .await?
         .json()?;
-    assert!(has_on_no_slash, "expected .../delegated/ to authorize .../delegated");
+    assert!(
+        has_on_no_slash,
+        "expected .../delegated/ to authorize .../delegated"
+    );
 
     // Inheritance: permission on .../delegated/ must allow cross-account set at deeper paths.
     let res = bob
@@ -250,7 +283,11 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "cross-account set should succeed with delegated permission: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "cross-account set should succeed with delegated permission: {:?}",
+        res.failures()
+    );
 
     // Revoke and verify denial.
     let res = alice
@@ -263,7 +300,11 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
         .gas(near_workspaces::types::Gas::from_tgas(90))
         .transact()
         .await?;
-    assert!(res.is_success(), "revoke should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "revoke should succeed: {:?}",
+        res.failures()
+    );
 
     let res = bob
         .call(contract.id(), "execute")
@@ -279,7 +320,10 @@ async fn test_account_permission_inheritance_and_trailing_slash_equivalence() ->
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "cross-account set should fail after revoke");
+    assert!(
+        !res.is_success(),
+        "cross-account set should fail after revoke"
+    );
 
     Ok(())
 }
@@ -305,7 +349,7 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
     add_member(&contract, &alice, "devs", &bob).await?;
     add_member(&contract, &alice, "devs", &carol).await?;
 
-// Members get default WRITE on groups/{id/content at join time.
+    // Members get default WRITE on groups/{id/content at join time.
     // So delegation tests should use a higher required level.
     let carol_has_moderate_before: bool = contract
         .view("has_permission")
@@ -333,7 +377,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
         .await?;
-    assert!(res.is_success(), "owner set_permission(MANAGE) should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "owner set_permission(MANAGE) should succeed: {:?}",
+        res.failures()
+    );
 
     // Bob delegates MODERATE downwards to Carol.
     let res = bob
@@ -346,7 +394,11 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
         .await?;
-    assert!(res.is_success(), "manage delegation should allow downward grant: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "manage delegation should allow downward grant: {:?}",
+        res.failures()
+    );
 
     // Carol must now be authorized for MODERATE; use an owner-prefixed path to exercise group root detection.
     let carol_has: bool = contract
@@ -465,7 +517,10 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
         .await?;
-    assert!(!res.is_success(), "manage delegation must not allow granting MANAGE");
+    assert!(
+        !res.is_success(),
+        "manage delegation must not allow granting MANAGE"
+    );
 
     // Bob cannot set permissions at the group root without being owner.
     let res = bob
@@ -478,7 +533,10 @@ async fn test_group_permission_delegation_and_membership_gating() -> anyhow::Res
         .gas(near_workspaces::types::Gas::from_tgas(110))
         .transact()
         .await?;
-    assert!(!res.is_success(), "non-owner must not set group-root permissions");
+    assert!(
+        !res.is_success(),
+        "non-owner must not set group-root permissions"
+    );
 
     Ok(())
 }
@@ -555,7 +613,7 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
     create_group(&contract, &alice, "expiry").await?;
     add_member(&contract, &alice, "expiry", &bob).await?;
 
-// Use a non-default path (members only get default WRITE on groups/{id/content).
+    // Use a non-default path (members only get default WRITE on groups/{id/content).
     let path = "groups/expiry/private/";
 
     let now = now_nanos(&worker).await?;
@@ -572,7 +630,11 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission(expired) should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission(expired) should succeed: {:?}",
+        res.failures()
+    );
 
     let has_expired: bool = contract
         .view("has_permission")
@@ -602,7 +664,10 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(!res.is_success(), "write should fail with expired permission");
+    assert!(
+        !res.is_success(),
+        "write should fail with expired permission"
+    );
 
     // Grant valid WRITE.
     let future = now.saturating_add(3_600_000_000_000);
@@ -616,7 +681,11 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission(valid) should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission(valid) should succeed: {:?}",
+        res.failures()
+    );
 
     let res = bob
         .call(contract.id(), "execute")
@@ -633,7 +702,11 @@ async fn test_group_permission_expiration_on_non_default_path() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "write should succeed with valid permission: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "write should succeed with valid permission: {:?}",
+        res.failures()
+    );
 
     Ok(())
 }
@@ -667,7 +740,11 @@ async fn test_key_permission_does_not_bypass_group_membership() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission should succeed: {:?}",
+        res.failures()
+    );
 
     // Relayer tries to write group content via cross-account set (should still fail: not a member).
     let res = relayer
@@ -728,7 +805,10 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         .args_json(json!({"group_id": "md2", "member_id": bob.id()}))
         .await?
         .json()?;
-    assert!(is_bob_member, "Bob should be a member after invite proposal");
+    assert!(
+        is_bob_member,
+        "Bob should be a member after invite proposal"
+    );
 
     let invite_carol = propose_and_approve(
         &contract,
@@ -748,7 +828,10 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         .args_json(json!({"group_id": "md2", "member_id": carol.id()}))
         .await?
         .json()?;
-    assert!(is_carol_member, "Carol should be a member after invite proposal");
+    assert!(
+        is_carol_member,
+        "Carol should be a member after invite proposal"
+    );
 
     // Grant Bob MANAGE at group root via PermissionChange proposal.
     let _perm_bob_manage = propose_and_approve(
@@ -809,7 +892,11 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "delegated grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "delegated grant should succeed: {:?}",
+        res.failures()
+    );
 
     let carol_can_write: bool = contract
         .view("has_permission")
@@ -834,7 +921,10 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(!res.is_success(), "member-driven groups must reject delegation at group root");
+    assert!(
+        !res.is_success(),
+        "member-driven groups must reject delegation at group root"
+    );
 
     // Disallowed: delegation on group config.
     let res = bob
@@ -847,7 +937,10 @@ async fn test_member_driven_manage_delegation_exception_rules() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(!res.is_success(), "member-driven groups must reject delegation on group config");
+    assert!(
+        !res.is_success(),
+        "member-driven groups must reject delegation on group config"
+    );
 
     Ok(())
 }
@@ -896,7 +989,11 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant MODERATE to Bob should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant MODERATE to Bob should succeed: {:?}",
+        res.failures()
+    );
 
     let bob_level: u8 = contract
         .view("get_permissions")
@@ -935,7 +1032,11 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(remove_bob.is_success(), "remove_group_member should succeed: {:?}", remove_bob.failures());
+    assert!(
+        remove_bob.is_success(),
+        "remove_group_member should succeed: {:?}",
+        remove_bob.failures()
+    );
 
     let bob_level_after_remove: u8 = contract
         .view("get_permissions")
@@ -949,7 +1050,7 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
     assert_eq!(bob_level_after_remove, 0, "removed member must get 0");
 
     // 5. Carol (still member but no explicit grant beyond default) should return her default level.
-// Members get WRITE on groups/{id/content at join; verify that path hierarchy applies.
+    // Members get WRITE on groups/{id/content at join; verify that path hierarchy applies.
     let carol_level_content: u8 = contract
         .view("get_permissions")
         .args_json(json!({
@@ -959,7 +1060,10 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(carol_level_content, WRITE, "member default grant on /content should apply to subpaths");
+    assert_eq!(
+        carol_level_content, WRITE,
+        "member default grant on /content should apply to subpaths"
+    );
 
     // 6. Carol has no permission on private namespace (no grant there).
     let carol_level_private: u8 = contract
@@ -971,7 +1075,10 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(carol_level_private, 0, "member without grant on namespace should get 0");
+    assert_eq!(
+        carol_level_private, 0,
+        "member without grant on namespace should get 0"
+    );
 
     // 7. Expired grant returns 0 via get_permissions.
     let now = now_nanos(&worker).await?;
@@ -986,7 +1093,11 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant expired permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant expired permission should succeed: {:?}",
+        res.failures()
+    );
 
     let carol_level_expired: u8 = contract
         .view("get_permissions")
@@ -997,7 +1108,10 @@ async fn test_get_permissions_group_path_semantics() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(carol_level_expired, 0, "expired grant must return 0 via get_permissions");
+    assert_eq!(
+        carol_level_expired, 0,
+        "expired grant must return 0 via get_permissions"
+    );
 
     Ok(())
 }
@@ -1027,7 +1141,11 @@ async fn test_account_permission_hierarchy_walk() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant should succeed: {:?}",
+        res.failures()
+    );
 
     // Check Bob has WRITE at deeper paths.
     let bob_level_deep: u8 = contract
@@ -1039,7 +1157,10 @@ async fn test_account_permission_hierarchy_walk() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(bob_level_deep, WRITE, "permission at parent must apply to deep children");
+    assert_eq!(
+        bob_level_deep, WRITE,
+        "permission at parent must apply to deep children"
+    );
 
     // Bob has no permission on sibling path.
     let bob_level_sibling: u8 = contract
@@ -1051,7 +1172,10 @@ async fn test_account_permission_hierarchy_walk() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(bob_level_sibling, 0, "permission on /docs must not apply to /images");
+    assert_eq!(
+        bob_level_sibling, 0,
+        "permission on /docs must not apply to /images"
+    );
 
     // Cross-account write must succeed at child path.
     let res = bob
@@ -1068,7 +1192,11 @@ async fn test_account_permission_hierarchy_walk() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "cross-account set at child path should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "cross-account set at child path should succeed: {:?}",
+        res.failures()
+    );
 
     Ok(())
 }
@@ -1100,7 +1228,11 @@ async fn test_group_rejoin_nonce_invalidates_old_permissions() -> anyhow::Result
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify Bob has MODERATE.
     let bob_level: u8 = contract
@@ -1125,7 +1257,11 @@ async fn test_group_rejoin_nonce_invalidates_old_permissions() -> anyhow::Result
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "remove should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "remove should succeed: {:?}",
+        res.failures()
+    );
 
     // Bob has no permission after removal.
     let bob_level_removed: u8 = contract
@@ -1137,7 +1273,10 @@ async fn test_group_rejoin_nonce_invalidates_old_permissions() -> anyhow::Result
         }))
         .await?
         .json()?;
-    assert_eq!(bob_level_removed, 0, "removed member must have 0 permissions");
+    assert_eq!(
+        bob_level_removed, 0,
+        "removed member must have 0 permissions"
+    );
 
     // Re-add Bob (nonce increments).
     add_member(&contract, &alice, "nonce", &bob).await?;
@@ -1167,7 +1306,10 @@ async fn test_group_rejoin_nonce_invalidates_old_permissions() -> anyhow::Result
         }))
         .await?
         .json()?;
-    assert_eq!(bob_content_level, WRITE, "rejoined member should have default WRITE on /content");
+    assert_eq!(
+        bob_content_level, WRITE,
+        "rejoined member should have default WRITE on /content"
+    );
 
     Ok(())
 }
@@ -1194,7 +1336,10 @@ async fn test_revoke_nonexistent_permission_succeeds() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(bob_level_before, 0, "Bob should have no permission initially");
+    assert_eq!(
+        bob_level_before, 0,
+        "Bob should have no permission initially"
+    );
 
     // Revoke non-existent permission (level=0).
     let res = alice
@@ -1207,7 +1352,11 @@ async fn test_revoke_nonexistent_permission_succeeds() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "revoke of non-existent permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "revoke of non-existent permission should succeed: {:?}",
+        res.failures()
+    );
 
     // Permission still 0.
     let bob_level_after: u8 = contract
@@ -1247,7 +1396,10 @@ async fn test_invalid_permission_level_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!res.is_success(), "invalid permission level should be rejected");
+    assert!(
+        !res.is_success(),
+        "invalid permission level should be rejected"
+    );
     let failure = format!("{:?}", res.failures());
     assert!(
         failure.contains("Invalid permission level"),
@@ -1278,7 +1430,10 @@ async fn test_invalid_permission_level_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!res.is_success(), "FULL_ACCESS level (255) should be rejected");
+    assert!(
+        !res.is_success(),
+        "FULL_ACCESS level (255) should be rejected"
+    );
     let failure = format!("{:?}", res.failures());
     assert!(
         failure.contains("Invalid permission level"),
@@ -1292,7 +1447,8 @@ async fn test_invalid_permission_level_rejected() -> anyhow::Result<()> {
 /// Path normalization ensures callers cannot reference arbitrary account paths directly.
 /// When Bob passes "alice.near/profile/", it becomes "bob.near/alice.near/profile/".
 #[tokio::test]
-async fn test_set_permission_path_canonicalization_prevents_cross_namespace() -> anyhow::Result<()> {
+async fn test_set_permission_path_canonicalization_prevents_cross_namespace() -> anyhow::Result<()>
+{
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -1382,7 +1538,10 @@ async fn test_set_permission_path_canonicalization_prevents_cross_namespace() ->
         }))
         .await?
         .json()?;
-    assert!(carol_has_after, "Carol should now have permissions on Alice's namespace after Alice grants");
+    assert!(
+        carol_has_after,
+        "Carol should now have permissions on Alice's namespace after Alice grants"
+    );
 
     Ok(())
 }
@@ -1414,11 +1573,16 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant should succeed: {:?}",
+        res.failures()
+    );
 
     // Find PERMISSION_UPDATE grant event.
     let logs = res.logs();
-    let grant_event = logs.iter()
+    let grant_event = logs
+        .iter()
         .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"grant\""))
         .expect("should emit PERMISSION_UPDATE grant event");
 
@@ -1427,7 +1591,7 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
         .strip_prefix("EVENT_JSON:")
         .expect("event should have EVENT_JSON prefix");
     let event: serde_json::Value = serde_json::from_str(event_json)?;
-    
+
     // extra fields are flattened into data[0], not nested under "extra"
     let event_data = &event["data"][0];
     assert!(
@@ -1446,10 +1610,15 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "revoke should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "revoke should succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
-    let revoke_event = logs.iter()
+    let revoke_event = logs
+        .iter()
         .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke\""))
         .expect("should emit PERMISSION_UPDATE revoke event");
 
@@ -1457,7 +1626,7 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
         .strip_prefix("EVENT_JSON:")
         .expect("event should have EVENT_JSON prefix");
     let event: serde_json::Value = serde_json::from_str(event_json)?;
-    
+
     // extra fields are flattened into data[0]
     let event_data = &event["data"][0];
     assert!(
@@ -1480,10 +1649,15 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "account grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "account grant should succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
-    let account_event = logs.iter()
+    let account_event = logs
+        .iter()
         .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"grant\""))
         .expect("should emit PERMISSION_UPDATE grant event for account path");
 
@@ -1491,7 +1665,7 @@ async fn test_group_permission_events_include_nonce() -> anyhow::Result<()> {
         .strip_prefix("EVENT_JSON:")
         .expect("event should have EVENT_JSON prefix");
     let event: serde_json::Value = serde_json::from_str(event_json)?;
-    
+
     // extra fields are flattened into data[0]
     let event_data = &event["data"][0];
     assert!(
@@ -1533,7 +1707,11 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant via owner-prefixed path should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant via owner-prefixed path should succeed: {:?}",
+        res.failures()
+    );
 
     // Lookup via direct path must find the permission.
     let bob_level_direct: u8 = contract
@@ -1576,7 +1754,11 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "revoke should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "revoke should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify revoked.
     let bob_level_after_revoke: u8 = contract
@@ -1601,7 +1783,11 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant via direct path should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant via direct path should succeed: {:?}",
+        res.failures()
+    );
 
     // Lookup via owner-prefixed path must find it.
     let bob_level_via_prefixed: u8 = contract
@@ -1620,7 +1806,8 @@ async fn test_group_permission_key_format_consistency_across_path_variants() -> 
 
     // --- Scenario 3: Deep subpath consistency ---
     let deep_subpath_direct = "groups/keyfmt/private/docs/nested/file.txt";
-    let deep_subpath_prefixed = format!("{}/groups/keyfmt/private/docs/nested/file.txt", alice.id());
+    let deep_subpath_prefixed =
+        format!("{}/groups/keyfmt/private/docs/nested/file.txt", alice.id());
 
     // Permission granted at parent should apply to deep child via both path forms.
     let bob_deep_direct: u8 = contract
@@ -1681,7 +1868,11 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify permission works at child path.
     let bob_level: u8 = contract
@@ -1696,7 +1887,7 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
     assert_eq!(bob_level, WRITE, "permission should apply to child path");
 
     // --- Scenario 2: Permission at top-level subpath (minimal depth) ---
-// Use a single-segment relative path which becomes "{account/segment"
+    // Use a single-segment relative path which becomes "{account/segment"
     let top_level_path = format!("{}/data/", alice.id());
     let res = alice
         .call(contract.id(), "execute")
@@ -1708,7 +1899,11 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant at top-level subpath should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant at top-level subpath should succeed: {:?}",
+        res.failures()
+    );
 
     // Permission at top-level should apply to all nested subpaths.
     let bob_data_level: u8 = contract
@@ -1726,7 +1921,7 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
     );
 
     // --- Scenario 3: Permission granted via relative path (auto-prefixed) ---
-// Grant using just "config/" which becomes "{alice/config/"
+    // Grant using just "config/" which becomes "{alice/config/"
     let res = alice
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -1737,7 +1932,11 @@ async fn test_account_permission_key_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant via relative path should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant via relative path should succeed: {:?}",
+        res.failures()
+    );
 
     // Lookup via full path should find it.
     let bob_config_level: u8 = contract
@@ -1814,7 +2013,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(!bob_admin, "Regular member should not have admin permission");
+    assert!(
+        !bob_admin,
+        "Regular member should not have admin permission"
+    );
 
     let bob_moderate: bool = contract
         .view("has_group_moderate_permission")
@@ -1824,7 +2026,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(!bob_moderate, "Regular member should not have moderate permission");
+    assert!(
+        !bob_moderate,
+        "Regular member should not have moderate permission"
+    );
 
     // 4. Grant MODERATE to bob on group config path.
     let res = alice
@@ -1837,7 +2042,11 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission(MODERATE) should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission(MODERATE) should succeed: {:?}",
+        res.failures()
+    );
 
     let bob_admin_after: bool = contract
         .view("has_group_admin_permission")
@@ -1857,7 +2066,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(bob_moderate_after, "Member with MODERATE should have moderate permission");
+    assert!(
+        bob_moderate_after,
+        "Member with MODERATE should have moderate permission"
+    );
 
     // 5. Add carol as member and grant MANAGE.
     add_member(&contract, &alice, "test-perms", &carol).await?;
@@ -1871,7 +2083,11 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission(MANAGE) should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission(MANAGE) should succeed: {:?}",
+        res.failures()
+    );
 
     let carol_admin: bool = contract
         .view("has_group_admin_permission")
@@ -1881,7 +2097,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(carol_admin, "Member with MANAGE should have admin permission");
+    assert!(
+        carol_admin,
+        "Member with MANAGE should have admin permission"
+    );
 
     let carol_moderate: bool = contract
         .view("has_group_moderate_permission")
@@ -1891,7 +2110,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(carol_moderate, "Member with MANAGE should also have moderate permission");
+    assert!(
+        carol_moderate,
+        "Member with MANAGE should also have moderate permission"
+    );
 
     // 6. Non-member should return false.
     let stranger = create_user(&root, "stranger", TEN_NEAR).await?;
@@ -1903,7 +2125,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(!stranger_admin, "Non-member should not have admin permission");
+    assert!(
+        !stranger_admin,
+        "Non-member should not have admin permission"
+    );
 
     let stranger_moderate: bool = contract
         .view("has_group_moderate_permission")
@@ -1913,7 +2138,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(!stranger_moderate, "Non-member should not have moderate permission");
+    assert!(
+        !stranger_moderate,
+        "Non-member should not have moderate permission"
+    );
 
     // 7. Nonexistent group should return false (not error).
     let fake_admin: bool = contract
@@ -1924,7 +2152,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(!fake_admin, "Nonexistent group should return false for admin");
+    assert!(
+        !fake_admin,
+        "Nonexistent group should return false for admin"
+    );
 
     let fake_moderate: bool = contract
         .view("has_group_moderate_permission")
@@ -1934,7 +2165,10 @@ async fn test_has_group_admin_and_moderate_permission_queries() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(!fake_moderate, "Nonexistent group should return false for moderate");
+    assert!(
+        !fake_moderate,
+        "Nonexistent group should return false for moderate"
+    );
 
     Ok(())
 }
@@ -1972,7 +2206,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission with past expiry should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission with past expiry should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify: expired permission should NOT grant access.
     let bob_moderate_expired: bool = contract
@@ -1983,7 +2221,10 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!bob_moderate_expired, "Expired permission should not grant moderate access");
+    assert!(
+        !bob_moderate_expired,
+        "Expired permission should not grant moderate access"
+    );
 
     let bob_admin_expired: bool = contract
         .view("has_group_admin_permission")
@@ -1993,7 +2234,10 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!bob_admin_expired, "Expired permission should not grant admin access");
+    assert!(
+        !bob_admin_expired,
+        "Expired permission should not grant admin access"
+    );
 
     // 2. Grant MODERATE with future expiration (1 hour from now).
     let future_at = now + 3_600_000_000_000u64; // +1 hour in nanoseconds
@@ -2008,7 +2252,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission with future expiry should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission with future expiry should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify: valid permission should grant access.
     let bob_moderate_valid: bool = contract
@@ -2019,7 +2267,10 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_moderate_valid, "Valid (future) permission should grant moderate access");
+    assert!(
+        bob_moderate_valid,
+        "Valid (future) permission should grant moderate access"
+    );
 
     // 3. Grant MANAGE with near-boundary expiration (current block + small delta).
     //    This tests that the comparison is correct at the boundary.
@@ -2039,7 +2290,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission with boundary expiry should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission with boundary expiry should succeed: {:?}",
+        res.failures()
+    );
 
     let carol_admin_boundary: bool = contract
         .view("has_group_admin_permission")
@@ -2049,7 +2304,10 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(carol_admin_boundary, "Permission with boundary expiration should still be valid");
+    assert!(
+        carol_admin_boundary,
+        "Permission with boundary expiration should still be valid"
+    );
 
     // 4. Revoke by setting level to 0 (NONE) and verify.
     let res = alice
@@ -2062,7 +2320,11 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "revoke permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "revoke permission should succeed: {:?}",
+        res.failures()
+    );
 
     let bob_moderate_revoked: bool = contract
         .view("has_group_moderate_permission")
@@ -2072,7 +2334,10 @@ async fn test_group_permission_expiration_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!bob_moderate_revoked, "Revoked permission should not grant access");
+    assert!(
+        !bob_moderate_revoked,
+        "Revoked permission should not grant access"
+    );
 
     Ok(())
 }
@@ -2106,7 +2371,10 @@ async fn test_owner_always_has_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(owner_perms, 255, "Owner should have FULL_ACCESS (255) on group");
+    assert_eq!(
+        owner_perms, 255,
+        "Owner should have FULL_ACCESS (255) on group"
+    );
 
     // Owner should have FULL_ACCESS on deep paths too.
     let owner_deep_perms: u8 = contract
@@ -2118,7 +2386,10 @@ async fn test_owner_always_has_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(owner_deep_perms, 255, "Owner should have FULL_ACCESS on deep group paths");
+    assert_eq!(
+        owner_deep_perms, 255,
+        "Owner should have FULL_ACCESS on deep group paths"
+    );
 
     // Non-owner member should NOT have FULL_ACCESS (only default WRITE on /content).
     let bob_perms: u8 = contract
@@ -2130,7 +2401,11 @@ async fn test_owner_always_has_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_perms < 255, "Non-owner should not have FULL_ACCESS (got {})", bob_perms);
+    assert!(
+        bob_perms < 255,
+        "Non-owner should not have FULL_ACCESS (got {})",
+        bob_perms
+    );
 
     // Verify has_permission reflects owner bypass.
     let owner_has_manage: bool = contract
@@ -2143,7 +2418,10 @@ async fn test_owner_always_has_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(owner_has_manage, "Owner should pass MANAGE check via FULL_ACCESS bypass");
+    assert!(
+        owner_has_manage,
+        "Owner should pass MANAGE check via FULL_ACCESS bypass"
+    );
 
     Ok(())
 }
@@ -2199,7 +2477,10 @@ async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()>
         }))
         .await?
         .json()?;
-    assert_eq!(bob_child_perms, MODERATE, "Should have MODERATE at child (explicit grant)");
+    assert_eq!(
+        bob_child_perms, MODERATE,
+        "Should have MODERATE at child (explicit grant)"
+    );
 
     // At parent path, Bob should have WRITE.
     let bob_parent_perms: u8 = contract
@@ -2211,7 +2492,10 @@ async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()>
         }))
         .await?
         .json()?;
-    assert_eq!(bob_parent_perms, WRITE, "Should have WRITE at sibling path (parent grant only)");
+    assert_eq!(
+        bob_parent_perms, WRITE,
+        "Should have WRITE at sibling path (parent grant only)"
+    );
 
     // Grant MANAGE at an even deeper path - should return MANAGE there.
     let res = alice
@@ -2235,7 +2519,10 @@ async fn test_permission_hierarchy_returns_highest_level() -> anyhow::Result<()>
         }))
         .await?
         .json()?;
-    assert_eq!(bob_deep_perms, MANAGE, "Should have MANAGE at deepest explicit grant path");
+    assert_eq!(
+        bob_deep_perms, MANAGE,
+        "Should have MANAGE at deepest explicit grant path"
+    );
 
     Ok(())
 }
@@ -2267,7 +2554,10 @@ async fn test_group_path_normalization_consistency() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission with prefixed path should succeed");
+    assert!(
+        res.is_success(),
+        "set_permission with prefixed path should succeed"
+    );
 
     // Check using plain path - should match.
     let plain_path = "groups/norm-test/data/file.txt";
@@ -2281,7 +2571,10 @@ async fn test_group_path_normalization_consistency() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_has_plain, "Permission granted via prefixed path should apply to plain path");
+    assert!(
+        bob_has_plain,
+        "Permission granted via prefixed path should apply to plain path"
+    );
 
     // Check using prefixed path - should also match.
     let prefixed_check = format!("{}/groups/norm-test/data/file.txt", alice.id());
@@ -2295,7 +2588,10 @@ async fn test_group_path_normalization_consistency() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_has_prefixed, "Permission should also apply to prefixed query path");
+    assert!(
+        bob_has_prefixed,
+        "Permission should also apply to prefixed query path"
+    );
 
     // get_permissions should return same value for both path forms.
     let perms_plain: u8 = contract
@@ -2316,7 +2612,10 @@ async fn test_group_path_normalization_consistency() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(perms_plain, perms_prefixed, "get_permissions must be consistent across path forms");
+    assert_eq!(
+        perms_plain, perms_prefixed,
+        "get_permissions must be consistent across path forms"
+    );
 
     Ok(())
 }
@@ -2343,7 +2642,10 @@ async fn test_account_self_permission_is_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(alice_self_perms, 255, "Self-permission should be FULL_ACCESS");
+    assert_eq!(
+        alice_self_perms, 255,
+        "Self-permission should be FULL_ACCESS"
+    );
 
     let alice_self_root: u8 = contract
         .view("get_permissions")
@@ -2354,7 +2656,10 @@ async fn test_account_self_permission_is_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(alice_self_root, 255, "Self-permission on root should be FULL_ACCESS");
+    assert_eq!(
+        alice_self_root, 255,
+        "Self-permission on root should be FULL_ACCESS"
+    );
 
     // has_permission for MANAGE level should pass.
     let alice_has_manage: bool = contract
@@ -2367,7 +2672,10 @@ async fn test_account_self_permission_is_full_access() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(alice_has_manage, "Self should always have MANAGE permission");
+    assert!(
+        alice_has_manage,
+        "Self should always have MANAGE permission"
+    );
 
     Ok(())
 }
@@ -2398,7 +2706,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission with trailing slash should succeed");
+    assert!(
+        res.is_success(),
+        "set_permission with trailing slash should succeed"
+    );
 
     // Query without trailing slash should still match
     let bob_no_slash: bool = contract
@@ -2411,7 +2722,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_no_slash, "Trailing slash grant should apply to non-slash query");
+    assert!(
+        bob_no_slash,
+        "Trailing slash grant should apply to non-slash query"
+    );
 
     // Query with trailing slash on different subpath
     let bob_subpath: bool = contract
@@ -2424,7 +2738,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_subpath, "Parent grant should apply to child with trailing slash");
+    assert!(
+        bob_subpath,
+        "Parent grant should apply to child with trailing slash"
+    );
 
     // Test empty subpath after group - should still work for group root
     let owner_group_root: bool = contract
@@ -2437,7 +2754,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(owner_group_root, "Owner should have MANAGE on group root (no trailing slash)");
+    assert!(
+        owner_group_root,
+        "Owner should have MANAGE on group root (no trailing slash)"
+    );
 
     let owner_group_root_slash: bool = contract
         .view("has_permission")
@@ -2449,7 +2769,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(owner_group_root_slash, "Owner should have MANAGE on group root (with trailing slash)");
+    assert!(
+        owner_group_root_slash,
+        "Owner should have MANAGE on group root (with trailing slash)"
+    );
 
     // Test deeply nested path
     let deep_path = "groups/edge-case-group/content/a/b/c/d/e/f/g/h/i/j/file.txt";
@@ -2463,7 +2786,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(bob_deep, "Parent grant should cascade to deeply nested paths");
+    assert!(
+        bob_deep,
+        "Parent grant should cascade to deeply nested paths"
+    );
 
     // Test that non-group path is not affected by group logic
     let alice_account_path: u8 = contract
@@ -2475,7 +2801,10 @@ async fn test_path_normalization_edge_cases() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(alice_account_path, 255, "Account path should not be confused with group path");
+    assert_eq!(
+        alice_account_path, 255,
+        "Account path should not be confused with group path"
+    );
 
     Ok(())
 }
@@ -2504,7 +2833,10 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Malformed path 'groups/' should be rejected");
+    assert!(
+        !res.is_success(),
+        "Malformed path 'groups/' should be rejected"
+    );
 
     // Malformed path: "groups//foo" (empty group ID) - should fail validation
     let res = alice
@@ -2517,7 +2849,10 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Malformed path 'groups//foo' should be rejected");
+    assert!(
+        !res.is_success(),
+        "Malformed path 'groups//foo' should be rejected"
+    );
 
     // Verify well-formed group paths still work
     create_group(&contract, &alice, "valid-group").await?;
@@ -2533,7 +2868,11 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(res.is_success(), "Well-formed group path should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Well-formed group path should succeed: {:?}",
+        res.failures()
+    );
 
     // Additional edge case: "groups" without trailing slash
     let res = alice
@@ -2546,7 +2885,10 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Path 'groups' without group ID should be rejected");
+    assert!(
+        !res.is_success(),
+        "Path 'groups' without group ID should be rejected"
+    );
 
     // View function with malformed path should return 0/false, not panic
     let perm_level: u8 = contract
@@ -2570,7 +2912,10 @@ async fn test_malformed_group_paths_rejected() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!has_perm, "Malformed path should return false for has_permission");
+    assert!(
+        !has_perm,
+        "Malformed path should return false for has_permission"
+    );
 
     Ok(())
 }
@@ -2600,12 +2945,16 @@ async fn test_group_root_permission_syncs_member_metadata() -> anyhow::Result<()
         .args_json(json!({ "keys": [member_path.clone()] }))
         .await?
         .json()?;
-    let before_value = get_before.iter()
+    let before_value = get_before
+        .iter()
         .find(|e| e.get("requested_key").and_then(|v| v.as_str()) == Some(&member_path))
         .and_then(|e| e.get("value"))
         .cloned()
         .unwrap_or(serde_json::Value::Null);
-    let level_before = before_value.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
+    let level_before = before_value
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(level_before, 0, "Bob's initial level should be 0");
 
     // Owner sets group-root permission to MANAGE for Bob
@@ -2619,7 +2968,11 @@ async fn test_group_root_permission_syncs_member_metadata() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Group-root set_permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Group-root set_permission should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify member metadata was synced: level should now be MANAGE (3)
     let get_after: Vec<serde_json::Value> = contract
@@ -2627,21 +2980,41 @@ async fn test_group_root_permission_syncs_member_metadata() -> anyhow::Result<()
         .args_json(json!({ "keys": [member_path.clone()] }))
         .await?
         .json()?;
-    let after_value = get_after.iter()
+    let after_value = get_after
+        .iter()
         .find(|e| e.get("requested_key").and_then(|v| v.as_str()) == Some(&member_path))
         .and_then(|e| e.get("value"))
         .cloned()
         .unwrap_or(serde_json::Value::Null);
-    let level_after = after_value.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
-    assert_eq!(level_after, MANAGE as u64, "Bob's level should be MANAGE (3) after sync");
+    let level_after = after_value
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
+    assert_eq!(
+        level_after, MANAGE as u64,
+        "Bob's level should be MANAGE (3) after sync"
+    );
 
     // Verify updated_by is set to alice
-    let updated_by = after_value.get("updated_by").and_then(|v| v.as_str()).unwrap_or("");
-    assert_eq!(updated_by, alice.id().as_str(), "updated_by should be alice");
+    let updated_by = after_value
+        .get("updated_by")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    assert_eq!(
+        updated_by,
+        alice.id().as_str(),
+        "updated_by should be alice"
+    );
 
     // Verify updated_at is set (non-zero string)
-    let updated_at = after_value.get("updated_at").and_then(|v| v.as_str()).unwrap_or("0");
-    assert!(updated_at != "0" && !updated_at.is_empty(), "updated_at should be set");
+    let updated_at = after_value
+        .get("updated_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("0");
+    assert!(
+        updated_at != "0" && !updated_at.is_empty(),
+        "updated_at should be set"
+    );
 
     // Verify GROUP_UPDATE event with operation=permission_changed and via=direct_api was emitted
     let logs: Vec<String> = res.logs().iter().map(|s| s.to_string()).collect();
@@ -2650,7 +3023,11 @@ async fn test_group_root_permission_syncs_member_metadata() -> anyhow::Result<()
             && log.contains("permission_changed")
             && log.contains("direct_api")
     });
-    assert!(has_event, "Expected GROUP_UPDATE/permission_changed/direct_api event. Logs: {:?}", logs);
+    assert!(
+        has_event,
+        "Expected GROUP_UPDATE/permission_changed/direct_api event. Logs: {:?}",
+        logs
+    );
 
     Ok(())
 }

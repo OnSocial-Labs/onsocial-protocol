@@ -43,12 +43,12 @@ async fn deploy_core_onsocial(
     let contract = worker.dev_deploy(&wasm).await?;
 
     // Initialize the contract
-    let init_outcome = contract
-        .call("new")
-        .args_json(json!({}))
-        .transact()
-        .await?;
-    assert!(init_outcome.is_success(), "Contract initialization failed: {:?}", init_outcome.failures());
+    let init_outcome = contract.call("new").args_json(json!({})).transact().await?;
+    assert!(
+        init_outcome.is_success(),
+        "Contract initialization failed: {:?}",
+        init_outcome.failures()
+    );
 
     // Activate the contract (move from Genesis to Live mode)
     let activate_outcome = contract
@@ -56,17 +56,21 @@ async fn deploy_core_onsocial(
         .deposit(NearToken::from_yoctonear(1))
         .transact()
         .await?;
-    assert!(activate_outcome.is_success(), "Contract activation failed: {:?}", activate_outcome.failures());
+    assert!(
+        activate_outcome.is_success(),
+        "Contract activation failed: {:?}",
+        activate_outcome.failures()
+    );
 
     Ok(contract)
 }
 
-async fn create_user(
-    root: &Account,
-    name: &str,
-    balance: NearToken,
-) -> anyhow::Result<Account> {
-    let account = root.create_subaccount(name).initial_balance(balance).transact().await?;
+async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::Result<Account> {
+    let account = root
+        .create_subaccount(name)
+        .initial_balance(balance)
+        .transact()
+        .await?;
     Ok(account.result)
 }
 
@@ -137,7 +141,10 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
         }))
         .await?
         .json()?;
-    assert_eq!(bob_permission_before, MANAGE, "Bob should have MANAGE before leaving");
+    assert_eq!(
+        bob_permission_before, MANAGE,
+        "Bob should have MANAGE before leaving"
+    );
     println!("   ✓ Bob has MANAGE permission before leaving");
 
     // Bob leaves the group
@@ -179,14 +186,17 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
         }))
         .await?
         .json()?;
-    
+
     // After rejoin, Bob should NOT have MANAGE (old nonce is stale)
     assert!(
         bob_permission_after < MANAGE,
         "Bob's MANAGE permission should be invalidated after rejoin (got {})",
         bob_permission_after
     );
-    println!("   ✓ Bob's old MANAGE permission invalidated after rejoin (now: {})", bob_permission_after);
+    println!(
+        "   ✓ Bob's old MANAGE permission invalidated after rejoin (now: {})",
+        bob_permission_after
+    );
 
     // Bob should still have default content WRITE (granted on rejoin)
     let bob_content_permission: u8 = contract
@@ -198,7 +208,10 @@ async fn test_nonce_invalidates_stale_permissions_on_rejoin() -> anyhow::Result<
         }))
         .await?
         .json()?;
-    assert_eq!(bob_content_permission, WRITE, "Bob should have default content WRITE after rejoin");
+    assert_eq!(
+        bob_content_permission, WRITE,
+        "Bob should have default content WRITE after rejoin"
+    );
     println!("   ✓ Bob has default content WRITE after rejoin");
 
     println!("✅ Nonce invalidation test passed");
@@ -260,9 +273,12 @@ async fn test_add_existing_member_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!add_bob_again.is_success(), "Adding existing member should fail");
-    
+
+    assert!(
+        !add_bob_again.is_success(),
+        "Adding existing member should fail"
+    );
+
     // Verify error message contains expected text
     let failure_msg = format!("{:?}", add_bob_again.failures());
     assert!(
@@ -360,7 +376,10 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(manager_remove_regular.is_success(), "Manager should be able to remove regular member");
+    assert!(
+        manager_remove_regular.is_success(),
+        "Manager should be able to remove regular member"
+    );
     println!("   ✓ Manager successfully removed regular member");
 
     // Verify regular is no longer a member
@@ -387,7 +406,10 @@ async fn test_manager_can_remove_regular_members() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!manager_remove_owner.is_success(), "Manager should NOT be able to remove owner");
+    assert!(
+        !manager_remove_owner.is_success(),
+        "Manager should NOT be able to remove owner"
+    );
     println!("   ✓ Manager cannot remove owner");
 
     println!("✅ Manager remove permissions test passed");
@@ -434,7 +456,10 @@ async fn test_cannot_add_blacklisted_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(blacklist_bob.is_success(), "Blacklisting Bob should succeed");
+    assert!(
+        blacklist_bob.is_success(),
+        "Blacklisting Bob should succeed"
+    );
     println!("   ✓ Bob blacklisted");
 
     // Verify Bob is blacklisted
@@ -460,9 +485,12 @@ async fn test_cannot_add_blacklisted_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!add_blacklisted.is_success(), "Adding blacklisted user should fail");
-    
+
+    assert!(
+        !add_blacklisted.is_success(),
+        "Adding blacklisted user should fail"
+    );
+
     let failure_msg = format!("{:?}", add_blacklisted.failures());
     assert!(
         failure_msg.contains("blacklist") || failure_msg.contains("Cannot add"),
@@ -543,7 +571,10 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(blacklist_manager.is_success(), "Blacklisting manager should succeed");
+    assert!(
+        blacklist_manager.is_success(),
+        "Blacklisting manager should succeed"
+    );
     println!("   ✓ Manager blacklisted");
 
     // Blacklisted manager tries to add Charlie - should fail
@@ -558,9 +589,12 @@ async fn test_blacklisted_granter_cannot_add_members() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!manager_add_charlie.is_success(), "Blacklisted granter should not be able to add members");
-    
+
+    assert!(
+        !manager_add_charlie.is_success(),
+        "Blacklisted granter should not be able to add members"
+    );
+
     let failure_msg = format!("{:?}", manager_add_charlie.failures());
     assert!(
         failure_msg.contains("blacklisted") || failure_msg.contains("permission"),
@@ -613,12 +647,19 @@ async fn test_blacklist_idempotency() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(first_blacklist.is_success(), "First blacklist should succeed");
-    
+    assert!(
+        first_blacklist.is_success(),
+        "First blacklist should succeed"
+    );
+
     // Count events from first blacklist
     let first_logs = first_blacklist.logs();
     let first_blacklist_events = find_events_by_operation(&first_logs, "add_to_blacklist");
-    assert_eq!(first_blacklist_events.len(), 1, "First blacklist should emit exactly 1 event");
+    assert_eq!(
+        first_blacklist_events.len(),
+        1,
+        "First blacklist should emit exactly 1 event"
+    );
     println!("   ✓ First blacklist succeeded with 1 event");
 
     // Verify Bob is blacklisted
@@ -644,14 +685,20 @@ async fn test_blacklist_idempotency() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(second_blacklist.is_success(), "Re-blacklisting should be idempotent (succeed)");
-    
+    assert!(
+        second_blacklist.is_success(),
+        "Re-blacklisting should be idempotent (succeed)"
+    );
+
     // Verify duplicate event is emitted (current behavior - documented as Low audit finding)
     let second_logs = second_blacklist.logs();
     let second_blacklist_events = find_events_by_operation(&second_logs, "add_to_blacklist");
     // Note: Current implementation emits duplicate event on re-blacklist (Low audit finding)
     // This assertion documents current behavior; if optimized to no-op, change to == 0
-    println!("   ✓ Re-blacklisting emits {} event(s) (duplicate write behavior)", second_blacklist_events.len());
+    println!(
+        "   ✓ Re-blacklisting emits {} event(s) (duplicate write behavior)",
+        second_blacklist_events.len()
+    );
 
     // Verify Bob is still blacklisted
     let still_blacklisted: bool = contract
@@ -724,7 +771,10 @@ async fn test_regular_member_cannot_blacklist() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(charlie_join.is_success(), "Charlie should join successfully");
+    assert!(
+        charlie_join.is_success(),
+        "Charlie should join successfully"
+    );
     println!("   ✓ Bob and Charlie joined as regular members");
 
     // Bob (regular member) tries to blacklist Charlie - should fail
@@ -740,7 +790,10 @@ async fn test_regular_member_cannot_blacklist() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(!bob_blacklist_charlie.is_success(), "Regular member should not be able to blacklist others");
+    assert!(
+        !bob_blacklist_charlie.is_success(),
+        "Regular member should not be able to blacklist others"
+    );
 
     let failure_msg = format!("{:?}", bob_blacklist_charlie.failures());
     assert!(
@@ -806,7 +859,10 @@ async fn test_owner_cannot_blacklist_self() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(!self_blacklist.is_success(), "Owner should not be able to blacklist themselves");
+    assert!(
+        !self_blacklist.is_success(),
+        "Owner should not be able to blacklist themselves"
+    );
 
     let failure_msg = format!("{:?}", self_blacklist.failures());
     assert!(
@@ -927,7 +983,11 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(admin_blacklist_target.is_success(), "Admin with MANAGE should be able to blacklist regular members: {:?}", admin_blacklist_target.failures());
+    assert!(
+        admin_blacklist_target.is_success(),
+        "Admin with MANAGE should be able to blacklist regular members: {:?}",
+        admin_blacklist_target.failures()
+    );
     println!("   ✓ Admin successfully blacklisted target");
 
     // Verify target is blacklisted
@@ -950,7 +1010,10 @@ async fn test_admin_can_blacklist_regular_members() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_target_member, "Target should be removed from group after blacklisting");
+    assert!(
+        !is_target_member,
+        "Target should be removed from group after blacklisting"
+    );
     println!("   ✓ Target is blacklisted and removed from group");
 
     println!("✅ Admin can blacklist regular members test passed");
@@ -1002,7 +1065,10 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_bob.is_success(), "Adding Bob via proposal should succeed");
+    assert!(
+        add_bob.is_success(),
+        "Adding Bob via proposal should succeed"
+    );
     println!("   ✓ Bob added via auto-executed proposal (single member)");
 
     // Verify Bob is a member
@@ -1029,7 +1095,10 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(blacklist_result.is_success(), "Blacklist should succeed (creates proposal)");
+    assert!(
+        blacklist_result.is_success(),
+        "Blacklist should succeed (creates proposal)"
+    );
 
     // Verify Charlie is NOT immediately blacklisted (proposal needs voting)
     let is_charlie_blacklisted: bool = contract
@@ -1040,13 +1109,19 @@ async fn test_member_driven_blacklist_creates_proposal() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_charlie_blacklisted, "Charlie should NOT be immediately blacklisted - proposal needs votes");
+    assert!(
+        !is_charlie_blacklisted,
+        "Charlie should NOT be immediately blacklisted - proposal needs votes"
+    );
     println!("   ✓ Blacklist in member-driven group created proposal (not direct blacklist)");
 
     // Check that proposal_created event was emitted
     let logs = blacklist_result.logs();
     let proposal_events = find_events_by_operation(&logs, "proposal_created");
-    assert!(!proposal_events.is_empty(), "Should emit proposal_created event for ban proposal");
+    assert!(
+        !proposal_events.is_empty(),
+        "Should emit proposal_created event for ban proposal"
+    );
     println!("   ✓ proposal_created event emitted for ban proposal");
 
     println!("✅ Member-driven blacklist creates proposal test passed");
@@ -1114,7 +1189,10 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_charlie.is_success(), "Adding Charlie proposal should succeed");
+    assert!(
+        add_charlie.is_success(),
+        "Adding Charlie proposal should succeed"
+    );
     let charlie_proposal_id: String = add_charlie.json()?;
 
     // Bob votes to pass Charlie's invite
@@ -1149,9 +1227,15 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(ban_owner_proposal.is_success(), "Ban owner proposal creation should succeed (validated at execution)");
+    assert!(
+        ban_owner_proposal.is_success(),
+        "Ban owner proposal creation should succeed (validated at execution)"
+    );
     let ban_proposal_id: String = ban_owner_proposal.json()?;
-    println!("   ✓ Ban proposal against owner created (ID: {})", ban_proposal_id);
+    println!(
+        "   ✓ Ban proposal against owner created (ID: {})",
+        ban_proposal_id
+    );
 
     // Charlie votes YES to try to pass the ban proposal
     let charlie_vote = charlie
@@ -1166,7 +1250,10 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
         .transact()
         .await?;
     // Vote succeeds but execution should fail with owner protection error
-    println!("   Charlie vote result: success={}", charlie_vote.is_success());
+    println!(
+        "   Charlie vote result: success={}",
+        charlie_vote.is_success()
+    );
 
     // Verify Alice is NOT blacklisted (execution failed due to owner protection)
     let is_alice_blacklisted: bool = contract
@@ -1177,7 +1264,10 @@ async fn test_ban_proposal_against_owner_fails_execution() -> anyhow::Result<()>
         }))
         .await?
         .json()?;
-    assert!(!is_alice_blacklisted, "Owner should NOT be blacklisted (execution failed)");
+    assert!(
+        !is_alice_blacklisted,
+        "Owner should NOT be blacklisted (execution failed)"
+    );
     println!("   ✓ Owner is NOT blacklisted (execution correctly failed)");
 
     // Verify Alice is still a member
@@ -1224,7 +1314,7 @@ fn decode_event(log: &str) -> Option<Event> {
         return None;
     }
     let json_str = &log[EVENT_JSON_PREFIX.len()..];
-    
+
     #[derive(serde::Deserialize)]
     struct RawEvent {
         standard: String,
@@ -1234,18 +1324,33 @@ fn decode_event(log: &str) -> Option<Event> {
     }
 
     let raw: RawEvent = serde_json::from_str(json_str).ok()?;
-    let data = raw.data.into_iter().map(|mut map| {
-        let operation = map.remove("operation")
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_default();
-        let author = map.remove("author")
-            .and_then(|v| v.as_str().map(|s| s.to_string()))
-            .unwrap_or_default();
-        let extra = map.into_iter().collect();
-        EventData { operation, author, extra }
-    }).collect();
+    let data = raw
+        .data
+        .into_iter()
+        .map(|mut map| {
+            let operation = map
+                .remove("operation")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            let author = map
+                .remove("author")
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+                .unwrap_or_default();
+            let extra = map.into_iter().collect();
+            EventData {
+                operation,
+                author,
+                extra,
+            }
+        })
+        .collect();
 
-    Some(Event { standard: raw.standard, version: raw.version, event: raw.event, data })
+    Some(Event {
+        standard: raw.standard,
+        version: raw.version,
+        event: raw.event,
+        data,
+    })
 }
 
 fn find_events_by_operation<S: AsRef<str>>(logs: &[S], operation: &str) -> Vec<Event> {
@@ -1256,27 +1361,31 @@ fn find_events_by_operation<S: AsRef<str>>(logs: &[S], operation: &str) -> Vec<E
 }
 
 fn get_extra_string(event: &Event, key: &str) -> Option<String> {
-    event.data.first()
+    event
+        .data
+        .first()
         .and_then(|d| d.extra.get(key))
         .and_then(|v| v.as_str().map(|s| s.to_string()))
 }
 
 fn get_extra_number(event: &Event, key: &str) -> Option<u64> {
-    event.data.first()
+    event
+        .data
+        .first()
         .and_then(|d| d.extra.get(key))
         .and_then(|v| v.as_u64())
 }
 
 fn get_extra_bool(event: &Event, key: &str) -> Option<bool> {
-    event.data.first()
+    event
+        .data
+        .first()
         .and_then(|d| d.extra.get(key))
         .and_then(|v| v.as_bool())
 }
 
 fn get_extra_json(event: &Event, key: &str) -> Option<serde_json::Value> {
-    event.data.first()
-        .and_then(|d| d.extra.get(key))
-        .cloned()
+    event.data.first().and_then(|d| d.extra.get(key)).cloned()
 }
 
 // =============================================================================
@@ -1335,7 +1444,11 @@ async fn test_add_member_event_schema() -> anyhow::Result<()> {
 
     // Verify author is the granter (self-join = self is granter)
     let author = &event.data[0].author;
-    assert_eq!(author, bob.id().as_str(), "Author should be bob (self-join)");
+    assert_eq!(
+        author,
+        bob.id().as_str(),
+        "Author should be bob (self-join)"
+    );
     println!("   ✓ Event author correct: {}", author);
 
     // Verify path contains member path
@@ -1350,15 +1463,22 @@ async fn test_add_member_event_schema() -> anyhow::Result<()> {
     println!("   ✓ member_nonce present: {}", nonce);
 
     // Verify member_nonce_path is present
-    let nonce_path = get_extra_string(event, "member_nonce_path").expect("Event should have member_nonce_path");
+    let nonce_path =
+        get_extra_string(event, "member_nonce_path").expect("Event should have member_nonce_path");
     let expected_nonce_path = format!("groups/event_add_test/member_nonces/{}", bob.id());
-    assert_eq!(nonce_path, expected_nonce_path, "member_nonce_path should match");
+    assert_eq!(
+        nonce_path, expected_nonce_path,
+        "member_nonce_path should match"
+    );
     println!("   ✓ member_nonce_path correct: {}", nonce_path);
 
     // Verify value contains member data
     let value = get_extra_json(event, "value").expect("Event should have value");
     assert!(value.get("level").is_some(), "Value should have level");
-    assert!(value.get("joined_at").is_some(), "Value should have joined_at");
+    assert!(
+        value.get("joined_at").is_some(),
+        "Value should have joined_at"
+    );
     println!("   ✓ Value contains member data (level, joined_at)");
 
     println!("✅ add_member event schema test passed");
@@ -1443,15 +1563,27 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
 
     // Verify self-removal flags
     let is_self_removal = get_extra_bool(self_removal_event, "is_self_removal");
-    assert_eq!(is_self_removal, Some(true), "is_self_removal should be true");
+    assert_eq!(
+        is_self_removal,
+        Some(true),
+        "is_self_removal should be true"
+    );
     println!("   ✓ is_self_removal=true for self-leave");
 
     let from_governance = get_extra_bool(self_removal_event, "from_governance");
-    assert_eq!(from_governance, Some(false), "from_governance should be false for direct leave");
+    assert_eq!(
+        from_governance,
+        Some(false),
+        "from_governance should be false for direct leave"
+    );
     println!("   ✓ from_governance=false for direct leave");
 
     let removed_by = get_extra_string(self_removal_event, "removed_by");
-    assert_eq!(removed_by.as_deref(), Some(bob.id().as_str()), "removed_by should be self");
+    assert_eq!(
+        removed_by.as_deref(),
+        Some(bob.id().as_str()),
+        "removed_by should be self"
+    );
     println!("   ✓ removed_by correct for self-removal");
 
     // Test 2: Owner removes Charlie (not self-removal)
@@ -1474,15 +1606,27 @@ async fn test_remove_member_event_schema() -> anyhow::Result<()> {
     let owner_removal_event = &owner_events[0];
 
     let owner_is_self = get_extra_bool(owner_removal_event, "is_self_removal");
-    assert_eq!(owner_is_self, Some(false), "is_self_removal should be false when owner removes");
+    assert_eq!(
+        owner_is_self,
+        Some(false),
+        "is_self_removal should be false when owner removes"
+    );
     println!("   ✓ is_self_removal=false when owner removes member");
 
     let owner_from_gov = get_extra_bool(owner_removal_event, "from_governance");
-    assert_eq!(owner_from_gov, Some(false), "from_governance should be false for direct remove");
+    assert_eq!(
+        owner_from_gov,
+        Some(false),
+        "from_governance should be false for direct remove"
+    );
     println!("   ✓ from_governance=false for direct owner remove");
 
     let owner_removed_by = get_extra_string(owner_removal_event, "removed_by");
-    assert_eq!(owner_removed_by.as_deref(), Some(alice.id().as_str()), "removed_by should be owner");
+    assert_eq!(
+        owner_removed_by.as_deref(),
+        Some(alice.id().as_str()),
+        "removed_by should be owner"
+    );
     println!("   ✓ removed_by shows owner for owner-initiated removal");
 
     println!("✅ remove_member event schema test passed");
@@ -1528,7 +1672,9 @@ async fn test_group_stats_member_count() -> anyhow::Result<()> {
             .unwrap()
             .json()
             .unwrap();
-        stats.and_then(|s| s.get("total_members").and_then(|v| v.as_u64())).unwrap_or(0)
+        stats
+            .and_then(|s| s.get("total_members").and_then(|v| v.as_u64()))
+            .unwrap_or(0)
     }
 
     // Initial: only owner (Alice) = 1 member
@@ -1644,7 +1790,11 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_result.is_success(), "Create member-driven group should succeed: {:?}", create_result.failures());
+    assert!(
+        create_result.is_success(),
+        "Create member-driven group should succeed: {:?}",
+        create_result.failures()
+    );
     println!("   ✓ Created member-driven group");
 
     // Add Bob and Carol as members (owner can add directly even in member-driven groups)
@@ -1679,7 +1829,11 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Create proposal should succeed: {:?}", create_proposal.failures());
+    assert!(
+        create_proposal.is_success(),
+        "Create proposal should succeed: {:?}",
+        create_proposal.failures()
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ Created member_invite proposal: {}", proposal_id);
 
@@ -1696,7 +1850,11 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(vote_result.is_success(), "Vote should succeed: {:?}", vote_result.failures());
+    assert!(
+        vote_result.is_success(),
+        "Vote should succeed: {:?}",
+        vote_result.failures()
+    );
     println!("   ✓ Alice voted YES - proposal executed");
 
     // Verify target is now a member
@@ -1708,28 +1866,38 @@ async fn test_governance_bypass_via_proposal() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_member, "Target should be a member after proposal execution");
+    assert!(
+        is_member,
+        "Target should be a member after proposal execution"
+    );
     println!("   ✓ Target is now a member via governance");
 
     // Check the add_member event in the vote result (proposal execution happens during vote)
     let vote_logs = vote_result.logs();
     let add_events = find_events_by_operation(&vote_logs, "add_member");
-    
+
     if add_events.is_empty() {
         println!("   ⚠ No add_member event in vote logs (may be in separate execution)");
         println!("   Checking that member was added via governance path...");
     } else {
         let add_event = &add_events[0];
-        
+
         // Verify member_nonce is present (BypassPermissions path still sets nonce)
         let nonce = get_extra_number(add_event, "member_nonce");
-        assert!(nonce.is_some(), "member_nonce should be present for governance add");
+        assert!(
+            nonce.is_some(),
+            "member_nonce should be present for governance add"
+        );
         println!("   ✓ member_nonce present in governance add: {:?}", nonce);
-        
+
         // Verify path
         let path = get_extra_string(add_event, "path");
         let expected = format!("groups/governance_test/members/{}", target.id());
-        assert_eq!(path.as_deref(), Some(expected.as_str()), "Path should match");
+        assert_eq!(
+            path.as_deref(),
+            Some(expected.as_str()),
+            "Path should match"
+        );
         println!("   ✓ Event path correct for governance add");
     }
 
@@ -1771,7 +1939,11 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_result.is_success(), "Create group should succeed: {:?}", create_result.failures());
+    assert!(
+        create_result.is_success(),
+        "Create group should succeed: {:?}",
+        create_result.failures()
+    );
     println!("   ✓ Created private group");
 
     // Add Bob, Carol, and target as members (so we can later ban target)
@@ -1787,7 +1959,12 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
             .await?;
-        assert!(add.is_success(), "Add {} should succeed: {:?}", name, add.failures());
+        assert!(
+            add.is_success(),
+            "Add {} should succeed: {:?}",
+            name,
+            add.failures()
+        );
     }
     println!("   ✓ Added Bob, Carol, and target (4 members total)");
 
@@ -1803,7 +1980,11 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(ban_result.is_success(), "Blacklist should succeed: {:?}", ban_result.failures());
+    assert!(
+        ban_result.is_success(),
+        "Blacklist should succeed: {:?}",
+        ban_result.failures()
+    );
     println!("   ✓ Target blacklisted directly");
 
     // Verify target is now blacklisted
@@ -1815,7 +1996,10 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_blacklisted, "Target should be blacklisted after ban proposal execution");
+    assert!(
+        is_blacklisted,
+        "Target should be blacklisted after ban proposal execution"
+    );
     println!("   ✓ Target is blacklisted");
 
     // Verify target is no longer a member
@@ -1827,7 +2011,10 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_target_member_before, "Target should have been removed when blacklisted");
+    assert!(
+        !is_target_member_before,
+        "Target should have been removed when blacklisted"
+    );
     println!("   ✓ Target was removed from group");
 
     // Now Alice (owner) tries to directly re-add the blacklisted target
@@ -1845,7 +2032,10 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
         .await?;
 
     // The add should fail because target is blacklisted
-    assert!(!readd_result.is_success(), "Re-adding blacklisted user should fail");
+    assert!(
+        !readd_result.is_success(),
+        "Re-adding blacklisted user should fail"
+    );
     let failure_msg = format!("{:?}", readd_result.failures());
     assert!(
         failure_msg.contains("blacklist") || failure_msg.contains("Blacklisted"),
@@ -1864,7 +2054,10 @@ async fn test_blacklisted_user_cannot_be_readded() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    assert!(!is_target_member_after, "SECURITY VIOLATION: Blacklisted user was added!");
+    assert!(
+        !is_target_member_after,
+        "SECURITY VIOLATION: Blacklisted user was added!"
+    );
     println!("   ✓ SECURITY VERIFIED: Blacklisted user was NOT added");
 
     println!("✅ Blacklist enforcement test passed");
@@ -1956,7 +2149,10 @@ async fn test_approve_join_request_cannot_add_blacklisted_user() -> anyhow::Resu
         .transact()
         .await?;
 
-    assert!(!approve_result.is_success(), "Approving blacklisted user's join request should fail");
+    assert!(
+        !approve_result.is_success(),
+        "Approving blacklisted user's join request should fail"
+    );
 
     let failure_msg = format!("{:?}", approve_result.failures());
     assert!(
@@ -2045,7 +2241,10 @@ async fn test_blacklisted_user_cannot_create_join_request_proposal() -> anyhow::
         .transact()
         .await?;
 
-    assert!(!join_result.is_success(), "Blacklisted user should not be able to create join request");
+    assert!(
+        !join_result.is_success(),
+        "Blacklisted user should not be able to create join request"
+    );
 
     let failure_msg = format!("{:?}", join_result.failures());
     assert!(
@@ -2088,7 +2287,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_public.is_success(), "Create public group should succeed");
+    assert!(
+        create_public.is_success(),
+        "Create public group should succeed"
+    );
     println!("   ✓ Created public group");
 
     // Create a PRIVATE group
@@ -2103,7 +2305,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_private.is_success(), "Create private group should succeed");
+    assert!(
+        create_private.is_success(),
+        "Create private group should succeed"
+    );
     println!("   ✓ Created private group");
 
     // Bob joins PUBLIC group - should add directly as member
@@ -2118,7 +2323,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(bob_join_public.is_success(), "Bob joining public group should succeed");
+    assert!(
+        bob_join_public.is_success(),
+        "Bob joining public group should succeed"
+    );
 
     // Verify Bob is immediately a member of public group
     let is_bob_public_member: bool = contract
@@ -2129,7 +2337,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_bob_public_member, "Bob should be immediate member of public group");
+    assert!(
+        is_bob_public_member,
+        "Bob should be immediate member of public group"
+    );
     println!("   ✓ Bob is immediate member of PUBLIC group (self-join)");
 
     // Charlie joins PRIVATE group - should create join request, not add directly
@@ -2144,7 +2355,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(charlie_join_private.is_success(), "Charlie join request should succeed");
+    assert!(
+        charlie_join_private.is_success(),
+        "Charlie join request should succeed"
+    );
 
     // Verify Charlie is NOT a member yet (waiting for approval)
     let is_charlie_private_member: bool = contract
@@ -2155,7 +2369,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_charlie_private_member, "Charlie should NOT be member of private group yet");
+    assert!(
+        !is_charlie_private_member,
+        "Charlie should NOT be member of private group yet"
+    );
     println!("   ✓ Charlie is NOT member of PRIVATE group (join request created)");
 
     // Verify Charlie has a pending join request
@@ -2167,7 +2384,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(join_request.is_some(), "Charlie should have a pending join request");
+    assert!(
+        join_request.is_some(),
+        "Charlie should have a pending join request"
+    );
     let request = join_request.unwrap();
     let status = request.get("status").and_then(|s| s.as_str());
     assert_eq!(status, Some("pending"), "Join request should be pending");
@@ -2185,7 +2405,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(approve_charlie.is_success(), "Approving Charlie should succeed");
+    assert!(
+        approve_charlie.is_success(),
+        "Approving Charlie should succeed"
+    );
 
     // Now Charlie should be a member
     let is_charlie_member_after: bool = contract
@@ -2196,7 +2419,10 @@ async fn test_private_vs_public_group_join_routing() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_charlie_member_after, "Charlie should be member after approval");
+    assert!(
+        is_charlie_member_after,
+        "Charlie should be member after approval"
+    );
     println!("   ✓ Charlie is member after approval");
 
     println!("✅ Private vs Public group join routing test passed");
@@ -2231,7 +2457,10 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_result.is_success(), "Create member-driven group should succeed");
+    assert!(
+        create_result.is_success(),
+        "Create member-driven group should succeed"
+    );
     println!("   ✓ Created member-driven group");
 
     // Add Bob (will auto-execute with single member)
@@ -2246,7 +2475,10 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(add_bob.is_success(), "Adding Bob should succeed (routes to proposal, auto-executes)");
+    assert!(
+        add_bob.is_success(),
+        "Adding Bob should succeed (routes to proposal, auto-executes)"
+    );
     println!("   ✓ Bob added via auto-executed proposal");
 
     // Verify Bob is a member
@@ -2275,12 +2507,18 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
         .await?;
 
     // Should succeed by creating a proposal (not direct removal)
-    assert!(remove_result.is_success(), "remove_group_member should create proposal");
+    assert!(
+        remove_result.is_success(),
+        "remove_group_member should create proposal"
+    );
 
     // Check for proposal_created event
     let logs = remove_result.logs();
     let proposal_events = find_events_by_operation(&logs, "proposal_created");
-    assert!(!proposal_events.is_empty(), "Should emit proposal_created event");
+    assert!(
+        !proposal_events.is_empty(),
+        "Should emit proposal_created event"
+    );
     println!("   ✓ remove_group_member created proposal (not direct removal)");
 
     // Verify Bob is still a member (proposal needs votes)
@@ -2292,7 +2530,10 @@ async fn test_remove_member_blocked_in_member_driven_group() -> anyhow::Result<(
         }))
         .await?
         .json()?;
-    assert!(is_bob_still_member, "Bob should still be member (proposal pending)");
+    assert!(
+        is_bob_still_member,
+        "Bob should still be member (proposal pending)"
+    );
     println!("   ✓ Bob still member (direct removal blocked, proposal created)");
 
     println!("✅ Remove member blocked in member-driven group test passed");
@@ -2355,7 +2596,8 @@ async fn test_reject_join_request_full_flow() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert!(request_before.is_some(), "Join request should exist");
-    let status_before = request_before.as_ref()
+    let status_before = request_before
+        .as_ref()
         .and_then(|r| r.get("status"))
         .and_then(|s| s.as_str());
     assert_eq!(status_before, Some("pending"), "Status should be pending");
@@ -2385,18 +2627,28 @@ async fn test_reject_join_request_full_flow() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(request_after.is_some(), "Join request should still exist (with rejected status)");
+    assert!(
+        request_after.is_some(),
+        "Join request should still exist (with rejected status)"
+    );
     let req = request_after.unwrap();
     let status_after = req.get("status").and_then(|s| s.as_str());
     assert_eq!(status_after, Some("rejected"), "Status should be rejected");
     let stored_reason = req.get("reason").and_then(|s| s.as_str());
-    assert_eq!(stored_reason, Some(reject_reason), "Reason should be stored");
+    assert_eq!(
+        stored_reason,
+        Some(reject_reason),
+        "Reason should be stored"
+    );
     println!("   ✓ Status is 'rejected' with correct reason in storage");
 
     // Verify event contains reason
     let logs = reject_result.logs();
     let reject_events = find_events_by_operation(&logs, "join_request_rejected");
-    assert!(!reject_events.is_empty(), "Should emit join_request_rejected event");
+    assert!(
+        !reject_events.is_empty(),
+        "Should emit join_request_rejected event"
+    );
     println!("   ✓ Event join_request_rejected emitted");
 
     // Verify Bob is not a member
@@ -2486,11 +2738,15 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!bob_approve.is_success(), "Non-moderator should not be able to approve");
+    assert!(
+        !bob_approve.is_success(),
+        "Non-moderator should not be able to approve"
+    );
     let approve_err = format!("{:?}", bob_approve.failures());
     assert!(
         approve_err.contains("permission") || approve_err.contains("denied"),
-        "Error should mention permission denied: {}", approve_err
+        "Error should mention permission denied: {}",
+        approve_err
     );
     println!("   ✓ Bob (non-moderator) cannot approve - permission denied");
 
@@ -2506,11 +2762,15 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!bob_reject.is_success(), "Non-moderator should not be able to reject");
+    assert!(
+        !bob_reject.is_success(),
+        "Non-moderator should not be able to reject"
+    );
     let reject_err = format!("{:?}", bob_reject.failures());
     assert!(
         reject_err.contains("permission") || reject_err.contains("denied"),
-        "Error should mention permission denied: {}", reject_err
+        "Error should mention permission denied: {}",
+        reject_err
     );
     println!("   ✓ Bob (non-moderator) cannot reject - permission denied");
 
@@ -2526,7 +2786,10 @@ async fn test_non_moderator_cannot_approve_reject() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(alice_approve.is_success(), "Owner should be able to approve");
+    assert!(
+        alice_approve.is_success(),
+        "Owner should be able to approve"
+    );
     println!("   ✓ Alice (owner) can approve");
 
     println!("✅ Non-moderator permission test passed");
@@ -2604,11 +2867,15 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!approve_again.is_success(), "Approving already approved should fail");
+    assert!(
+        !approve_again.is_success(),
+        "Approving already approved should fail"
+    );
     let err = format!("{:?}", approve_again.failures());
     assert!(
         err.contains("not pending") || err.contains("pending"),
-        "Error should mention pending status: {}", err
+        "Error should mention pending status: {}",
+        err
     );
     println!("   ✓ Cannot approve already approved request");
 
@@ -2637,7 +2904,10 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(reject_charlie.is_success(), "First rejection should succeed");
+    assert!(
+        reject_charlie.is_success(),
+        "First rejection should succeed"
+    );
     println!("   ✓ Charlie's request rejected");
 
     // Try to reject again - should fail
@@ -2652,7 +2922,10 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!reject_again.is_success(), "Rejecting already rejected should fail");
+    assert!(
+        !reject_again.is_success(),
+        "Rejecting already rejected should fail"
+    );
     println!("   ✓ Cannot reject already rejected request");
 
     // Try to approve rejected request - should also fail
@@ -2667,7 +2940,10 @@ async fn test_approve_reject_already_processed_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!approve_rejected.is_success(), "Approving rejected request should fail");
+    assert!(
+        !approve_rejected.is_success(),
+        "Approving rejected request should fail"
+    );
     println!("   ✓ Cannot approve already rejected request");
 
     println!("✅ Already processed request status validation test passed");
@@ -2744,11 +3020,15 @@ async fn test_cancel_already_processed_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!cancel_approved.is_success(), "Cancelling approved request should fail");
+    assert!(
+        !cancel_approved.is_success(),
+        "Cancelling approved request should fail"
+    );
     let err = format!("{:?}", cancel_approved.failures());
     assert!(
         err.contains("not pending") || err.contains("pending") || err.contains("not found"),
-        "Error should mention status issue: {}", err
+        "Error should mention status issue: {}",
+        err
     );
     println!("   ✓ Cannot cancel already approved request");
 
@@ -2982,7 +3262,10 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         }))
         .await?
         .json()?;
-    assert_eq!(mod_perm, MODERATE, "Moderator should have MODERATE permission");
+    assert_eq!(
+        mod_perm, MODERATE,
+        "Moderator should have MODERATE permission"
+    );
 
     // Test 1: Moderator with MODERATE can add member with level=0 (NONE)
     // This tests queries.rs:can_grant_permissions lines 38-48
@@ -2997,7 +3280,11 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(add_target1.is_success(), "Moderator should add member with level=0: {:?}", add_target1.failures());
+    assert!(
+        add_target1.is_success(),
+        "Moderator should add member with level=0: {:?}",
+        add_target1.failures()
+    );
     println!("   ✓ Moderator added target1 with level=0 (NONE)");
 
     // Verify target1 is a member
@@ -3023,7 +3310,10 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!grant_manage_fail.is_success(), "Moderator should NOT be able to grant MANAGE");
+    assert!(
+        !grant_manage_fail.is_success(),
+        "Moderator should NOT be able to grant MANAGE"
+    );
     println!("   ✓ Moderator correctly denied from granting MANAGE");
 
     // Test 3: Regular member (no MODERATE) CANNOT add other members
@@ -3039,7 +3329,10 @@ async fn test_moderator_can_add_members_with_limited_levels() -> anyhow::Result<
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!add_target2_by_target1.is_success(), "Regular member without MODERATE should NOT add members");
+    assert!(
+        !add_target2_by_target1.is_success(),
+        "Regular member without MODERATE should NOT add members"
+    );
     println!("   ✓ Regular member (no MODERATE) correctly denied from adding members");
 
     // Test 4: Verify error message mentions permission denied
@@ -3131,7 +3424,10 @@ async fn test_is_member_returns_false_for_left_members() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_bob_member_after, "Bob should NOT be a member after leaving (soft-deleted)");
+    assert!(
+        !is_bob_member_after,
+        "Bob should NOT be a member after leaving (soft-deleted)"
+    );
     println!("   ✓ Bob is NOT a member after leaving (soft-delete handled correctly)");
 
     // Also verify get_member_data returns null for left member
@@ -3143,7 +3439,10 @@ async fn test_is_member_returns_false_for_left_members() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(member_data.is_none(), "get_member_data should return null for left member");
+    assert!(
+        member_data.is_none(),
+        "get_member_data should return null for left member"
+    );
     println!("   ✓ get_member_data returns null for left member");
 
     println!("✅ is_member soft-delete test passed");
@@ -3173,8 +3472,11 @@ async fn test_is_member_nonexistent_group() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    assert!(!is_member_nonexistent, "is_member should return false for non-existent group (not error)");
+
+    assert!(
+        !is_member_nonexistent,
+        "is_member should return false for non-existent group (not error)"
+    );
     println!("   ✓ is_member returns false for non-existent group");
 
     // Also test is_group_owner for non-existent group
@@ -3186,8 +3488,11 @@ async fn test_is_member_nonexistent_group() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    
-    assert!(!is_owner_nonexistent, "is_owner should return false for non-existent group");
+
+    assert!(
+        !is_owner_nonexistent,
+        "is_owner should return false for non-existent group"
+    );
     println!("   ✓ is_owner returns false for non-existent group");
 
     println!("✅ Non-existent group query test passed");
@@ -3236,7 +3541,7 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
+
     // In member-driven groups, add_group_member redirects to proposal creation
     // The call succeeds but creates a proposal instead of direct add
     // Let's verify Bob is NOT immediately a member
@@ -3248,7 +3553,7 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
         }))
         .await?
         .json()?;
-    
+
     // With only 1 member, proposal auto-executes
     // Let's check the behavior - if auto-executed, Bob is member
     if is_bob_member {
@@ -3270,8 +3575,11 @@ async fn test_can_grant_permissions_member_driven_blocked() -> anyhow::Result<()
             .gas(near_workspaces::types::Gas::from_tgas(100))
             .transact()
             .await?;
-        
-        assert!(!direct_permission.is_success(), "Direct permission grant should fail in member-driven group");
+
+        assert!(
+            !direct_permission.is_success(),
+            "Direct permission grant should fail in member-driven group"
+        );
         let failure_msg = format!("{:?}", direct_permission.failures());
         assert!(
             failure_msg.contains("governance") || failure_msg.contains("Member-driven"),
@@ -3323,12 +3631,27 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
 
     // Initial state: 1 member (owner), 0 join requests
     let initial_stats = get_stats(&contract, "underflow_test").await;
-    assert!(initial_stats.is_some(), "Stats should exist after group creation");
+    assert!(
+        initial_stats.is_some(),
+        "Stats should exist after group creation"
+    );
     let initial = initial_stats.unwrap();
-    assert_eq!(initial.get("total_members").and_then(|v| v.as_u64()), Some(1));
-    assert_eq!(initial.get("total_join_requests").and_then(|v| v.as_u64()), Some(0));
-    assert!(initial.get("created_at").is_some(), "Should have created_at");
-    assert!(initial.get("last_updated").is_some(), "Should have last_updated");
+    assert_eq!(
+        initial.get("total_members").and_then(|v| v.as_u64()),
+        Some(1)
+    );
+    assert_eq!(
+        initial.get("total_join_requests").and_then(|v| v.as_u64()),
+        Some(0)
+    );
+    assert!(
+        initial.get("created_at").is_some(),
+        "Should have created_at"
+    );
+    assert!(
+        initial.get("last_updated").is_some(),
+        "Should have last_updated"
+    );
     println!("   ✓ Initial stats: members=1, join_requests=0");
 
     // Bob joins public group
@@ -3352,19 +3675,43 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
         if log.contains("EVENT_JSON:") && log.contains("stats_updated") {
             found_stats_event = true;
             // Verify it contains required fields
-            assert!(log.contains("group_id"), "stats_updated should have group_id");
-            assert!(log.contains("underflow_test"), "stats_updated should reference correct group");
-            assert!(log.contains("total_members"), "stats_updated should include total_members");
+            assert!(
+                log.contains("group_id"),
+                "stats_updated should have group_id"
+            );
+            assert!(
+                log.contains("underflow_test"),
+                "stats_updated should reference correct group"
+            );
+            assert!(
+                log.contains("total_members"),
+                "stats_updated should include total_members"
+            );
         }
     }
-    assert!(found_stats_event, "Should emit stats_updated event on member add");
+    assert!(
+        found_stats_event,
+        "Should emit stats_updated event on member add"
+    );
     println!("   ✓ stats_updated event emitted with correct schema");
 
     // Capture last_updated before next operation
     let stats_after_bob = get_stats(&contract, "underflow_test").await.unwrap();
-    let last_updated_1 = stats_after_bob.get("last_updated").and_then(|v| v.as_str()).unwrap().to_string();
-    assert_eq!(stats_after_bob.get("total_members").and_then(|v| v.as_u64()), Some(2));
-    println!("   ✓ After Bob joins: members=2, last_updated={}", last_updated_1);
+    let last_updated_1 = stats_after_bob
+        .get("last_updated")
+        .and_then(|v| v.as_str())
+        .unwrap()
+        .to_string();
+    assert_eq!(
+        stats_after_bob
+            .get("total_members")
+            .and_then(|v| v.as_u64()),
+        Some(2)
+    );
+    println!(
+        "   ✓ After Bob joins: members=2, last_updated={}",
+        last_updated_1
+    );
 
     // Bob leaves
     let leave_bob = bob
@@ -3380,7 +3727,12 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
     assert!(leave_bob.is_success());
 
     let stats_after_leave = get_stats(&contract, "underflow_test").await.unwrap();
-    assert_eq!(stats_after_leave.get("total_members").and_then(|v| v.as_u64()), Some(1));
+    assert_eq!(
+        stats_after_leave
+            .get("total_members")
+            .and_then(|v| v.as_u64()),
+        Some(1)
+    );
     println!("   ✓ After Bob leaves: members=1");
 
     // CRITICAL TEST: Verify join_requests counter stays at 0 (underflow protection)
@@ -3389,12 +3741,21 @@ async fn test_stats_counter_underflow_protection_and_event() -> anyhow::Result<(
     // Since we can't directly call internal functions, we test indirectly:
     // Ensure counter is still 0 after operations that don't involve join requests
     let final_stats = get_stats(&contract, "underflow_test").await.unwrap();
-    let final_join_requests = final_stats.get("total_join_requests").and_then(|v| v.as_u64()).unwrap_or(999);
-    assert_eq!(final_join_requests, 0, "Join request counter should remain 0");
+    let final_join_requests = final_stats
+        .get("total_join_requests")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
+    assert_eq!(
+        final_join_requests, 0,
+        "Join request counter should remain 0"
+    );
     println!("   ✓ Join request counter stable at 0 (no underflow)");
 
     // Verify last_updated changed after leave operation
-    let last_updated_2 = final_stats.get("last_updated").and_then(|v| v.as_str()).unwrap();
+    let last_updated_2 = final_stats
+        .get("last_updated")
+        .and_then(|v| v.as_str())
+        .unwrap();
     // Note: In same block they might be equal, so just verify it exists
     assert!(!last_updated_2.is_empty(), "last_updated should be set");
     println!("   ✓ last_updated field properly maintained");
@@ -3447,7 +3808,10 @@ async fn test_remove_nonexistent_member_fails() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(!remove_result.is_success(), "Remove non-existent member should fail");
+    assert!(
+        !remove_result.is_success(),
+        "Remove non-existent member should fail"
+    );
 
     let failure_msg = format!("{:?}", remove_result.failures());
     assert!(
@@ -3490,7 +3854,10 @@ async fn test_unprivileged_cannot_add_to_private_group() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_result.is_success(), "Create private group should succeed");
+    assert!(
+        create_result.is_success(),
+        "Create private group should succeed"
+    );
     println!("   ✓ Private group created");
 
     // Alice adds Bob as regular member
@@ -3521,11 +3888,16 @@ async fn test_unprivileged_cannot_add_to_private_group() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(!bob_add_charlie.is_success(), "Unprivileged member should not add others to private group");
+    assert!(
+        !bob_add_charlie.is_success(),
+        "Unprivileged member should not add others to private group"
+    );
 
     let failure_msg = format!("{:?}", bob_add_charlie.failures());
     assert!(
-        failure_msg.contains("Permission") || failure_msg.contains("denied") || failure_msg.contains("permission"),
+        failure_msg.contains("Permission")
+            || failure_msg.contains("denied")
+            || failure_msg.contains("permission"),
         "Error should mention permission denied: {}",
         failure_msg
     );
@@ -3590,7 +3962,10 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(blacklist_bob.is_success(), "Blacklisting Bob should succeed");
+    assert!(
+        blacklist_bob.is_success(),
+        "Blacklisting Bob should succeed"
+    );
     println!("   ✓ Bob blacklisted");
 
     // Verify Bob is blacklisted
@@ -3616,7 +3991,10 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!add_blacklisted.is_success(), "Adding blacklisted user should fail");
+    assert!(
+        !add_blacklisted.is_success(),
+        "Adding blacklisted user should fail"
+    );
     println!("   ✓ Cannot add while blacklisted");
 
     // Alice unblacklists Bob
@@ -3631,7 +4009,10 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(unblacklist_bob.is_success(), "Unblacklisting Bob should succeed");
+    assert!(
+        unblacklist_bob.is_success(),
+        "Unblacklisting Bob should succeed"
+    );
     println!("   ✓ Bob unblacklisted");
 
     // Verify Bob is no longer blacklisted
@@ -3657,7 +4038,11 @@ async fn test_unblacklist_then_add_flow() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(add_bob.is_success(), "Adding unblacklisted Bob should succeed: {:?}", add_bob.failures());
+    assert!(
+        add_bob.is_success(),
+        "Adding unblacklisted Bob should succeed: {:?}",
+        add_bob.failures()
+    );
     println!("   ✓ Bob added after unblacklist");
 
     // Verify Bob is now a member
@@ -3707,7 +4092,11 @@ async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Re
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_result.is_success(), "Create member-driven group should succeed: {:?}", create_result.failures());
+    assert!(
+        create_result.is_success(),
+        "Create member-driven group should succeed: {:?}",
+        create_result.failures()
+    );
     println!("   ✓ Created member-driven group");
 
     // Bob attempts to join (creates proposal in member-driven group)
@@ -3722,7 +4111,11 @@ async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Re
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(join_result.is_success(), "Join should succeed (creates proposal): {:?}", join_result.failures());
+    assert!(
+        join_result.is_success(),
+        "Join should succeed (creates proposal): {:?}",
+        join_result.failures()
+    );
     println!("   ✓ Bob submitted join request (proposal created)");
 
     // Bob tries to cancel - should fail because member-driven groups use proposals
@@ -3736,12 +4129,16 @@ async fn test_cancel_join_request_blocked_in_member_driven_group() -> anyhow::Re
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!cancel_result.is_success(), "Cancel should fail in member-driven group");
+
+    assert!(
+        !cancel_result.is_success(),
+        "Cancel should fail in member-driven group"
+    );
     let err = format!("{:?}", cancel_result.failures());
     assert!(
         err.contains("proposals only") || err.contains("Member-driven"),
-        "Error should mention proposals: {}", err
+        "Error should mention proposals: {}",
+        err
     );
     println!("   ✓ Cancel correctly rejected with 'proposals only' error");
 
@@ -3838,7 +4235,11 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(join2.is_success(), "Re-submit after rejection should succeed: {:?}", join2.failures());
+    assert!(
+        join2.is_success(),
+        "Re-submit after rejection should succeed: {:?}",
+        join2.failures()
+    );
     println!("   ✓ Bob successfully re-submitted after rejection");
 
     // Verify status is now pending again
@@ -3854,7 +4255,11 @@ async fn test_resubmit_join_request_after_rejection() -> anyhow::Result<()> {
         .as_ref()
         .and_then(|r| r.get("status"))
         .and_then(|s| s.as_str());
-    assert_eq!(new_status, Some("pending"), "Status should be pending after resubmit");
+    assert_eq!(
+        new_status,
+        Some("pending"),
+        "Status should be pending after resubmit"
+    );
     println!("   ✓ Status is 'pending' after resubmit");
 
     println!("✅ Re-submit join request after rejection test passed");
@@ -3921,7 +4326,11 @@ async fn test_event_builder_field_precedence_and_partition() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(remove_result.is_success(), "Remove should succeed: {:?}", remove_result.failures());
+    assert!(
+        remove_result.is_success(),
+        "Remove should succeed: {:?}",
+        remove_result.failures()
+    );
 
     let logs = remove_result.logs();
     let remove_events = find_events_by_operation(&logs, "remove_member");
@@ -3942,16 +4351,31 @@ async fn test_event_builder_field_precedence_and_partition() -> anyhow::Result<(
 
     let target_id = data.extra.get("target_id").and_then(|v| v.as_str());
     assert!(target_id.is_some(), "target_id field must be present");
-    assert_eq!(target_id.unwrap(), bob.id().as_str(), "target_id should be Bob");
-    println!("   ✓ target_id field present and correct: {}", target_id.unwrap());
+    assert_eq!(
+        target_id.unwrap(),
+        bob.id().as_str(),
+        "target_id should be Bob"
+    );
+    println!(
+        "   ✓ target_id field present and correct: {}",
+        target_id.unwrap()
+    );
 
     // Verify structured_data fields merged (removed_by, is_self_removal, etc.)
     let removed_by = data.extra.get("removed_by").and_then(|v| v.as_str());
-    assert_eq!(removed_by, Some(alice.id().as_str()), "removed_by should be Alice");
+    assert_eq!(
+        removed_by,
+        Some(alice.id().as_str()),
+        "removed_by should be Alice"
+    );
     println!("   ✓ structured_data field 'removed_by' merged correctly");
 
     let is_self_removal = data.extra.get("is_self_removal").and_then(|v| v.as_bool());
-    assert_eq!(is_self_removal, Some(false), "is_self_removal should be false");
+    assert_eq!(
+        is_self_removal,
+        Some(false),
+        "is_self_removal should be false"
+    );
     println!("   ✓ structured_data field 'is_self_removal' merged correctly");
 
     // Verify partition_id is present (set by EventBatch::emit via emitter)
@@ -3966,7 +4390,10 @@ async fn test_event_builder_field_precedence_and_partition() -> anyhow::Result<(
     // Verify event standard and version
     assert_eq!(event.standard, "onsocial", "standard should be 'onsocial'");
     assert_eq!(event.version, "1.0.0", "version should be '1.0.0'");
-    println!("   ✓ Event standard={} version={}", event.standard, event.version);
+    println!(
+        "   ✓ Event standard={} version={}",
+        event.standard, event.version
+    );
 
     println!("✅ EventBuilder field precedence and partition test passed");
     Ok(())
@@ -3998,11 +4425,15 @@ async fn test_create_group_rejects_non_object_config() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!array_config.is_success(), "Array config should be rejected");
+    assert!(
+        !array_config.is_success(),
+        "Array config should be rejected"
+    );
     let err = format!("{:?}", array_config.failures());
     assert!(
         err.contains("JSON object") || err.contains("must be") || err.contains("Config"),
-        "Error should mention config must be object: {}", err
+        "Error should mention config must be object: {}",
+        err
     );
     println!("   ✓ Array config rejected");
 
@@ -4033,7 +4464,10 @@ async fn test_create_group_rejects_non_object_config() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!string_config.is_success(), "String config should be rejected");
+    assert!(
+        !string_config.is_success(),
+        "String config should be rejected"
+    );
     println!("   ✓ String config rejected");
 
     // Test 4: Valid object config should succeed
@@ -4048,7 +4482,11 @@ async fn test_create_group_rejects_non_object_config() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(valid_config.is_success(), "Valid object config should succeed: {:?}", valid_config.failures());
+    assert!(
+        valid_config.is_success(),
+        "Valid object config should succeed: {:?}",
+        valid_config.failures()
+    );
     println!("   ✓ Valid object config accepted");
 
     println!("✅ create_group config validation test passed");
@@ -4082,11 +4520,15 @@ async fn test_create_group_validates_group_id_format() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!long_result.is_success(), "Group ID > 64 chars should be rejected");
+    assert!(
+        !long_result.is_success(),
+        "Group ID > 64 chars should be rejected"
+    );
     let err = format!("{:?}", long_result.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length: {}", err
+        "Error should mention length: {}",
+        err
     );
     println!("   ✓ Group ID > 64 chars rejected");
 
@@ -4102,11 +4544,18 @@ async fn test_create_group_validates_group_id_format() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!special_result.is_success(), "Special characters should be rejected");
+    assert!(
+        !special_result.is_success(),
+        "Special characters should be rejected"
+    );
     let err = format!("{:?}", special_result.failures());
     assert!(
-        err.contains("alphanumeric") || err.contains("underscores") || err.contains("hyphens") || err.contains("Group ID"),
-        "Error should mention allowed characters: {}", err
+        err.contains("alphanumeric")
+            || err.contains("underscores")
+            || err.contains("hyphens")
+            || err.contains("Group ID"),
+        "Error should mention allowed characters: {}",
+        err
     );
     println!("   ✓ Special characters rejected");
 
@@ -4122,7 +4571,11 @@ async fn test_create_group_validates_group_id_format() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(valid_result.is_success(), "Valid group ID should succeed: {:?}", valid_result.failures());
+    assert!(
+        valid_result.is_success(),
+        "Valid group ID should succeed: {:?}",
+        valid_result.failures()
+    );
     println!("   ✓ Valid group ID accepted");
 
     println!("✅ create_group group_id validation test passed");
@@ -4183,12 +4636,16 @@ async fn test_transfer_ownership_to_non_member_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    
-    assert!(!transfer_result.is_success(), "Transfer to non-member should fail");
+
+    assert!(
+        !transfer_result.is_success(),
+        "Transfer to non-member should fail"
+    );
     let err = format!("{:?}", transfer_result.failures());
     assert!(
         err.contains("must be a member") || err.contains("New owner"),
-        "Error should indicate new owner must be member: {}", err
+        "Error should indicate new owner must be member: {}",
+        err
     );
     println!("   ✓ Transfer to non-member correctly rejected");
 
@@ -4230,7 +4687,11 @@ async fn test_transfer_ownership_to_non_member_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(transfer_success.is_success(), "Transfer to member should succeed: {:?}", transfer_success.failures());
+    assert!(
+        transfer_success.is_success(),
+        "Transfer to member should succeed: {:?}",
+        transfer_success.failures()
+    );
 
     // Verify Bob is now owner
     let is_bob_owner: bool = contract
@@ -4295,11 +4756,15 @@ async fn test_admin_operations_validate_group_id_format() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!add_invalid.is_success(), "add_group_member with invalid group_id should fail");
+    assert!(
+        !add_invalid.is_success(),
+        "add_group_member with invalid group_id should fail"
+    );
     let err = format!("{:?}", add_invalid.failures());
     assert!(
         err.contains("alphanumeric") || err.contains("Group ID"),
-        "Error should mention validation, got: {}", err
+        "Error should mention validation, got: {}",
+        err
     );
     println!("   ✓ add_group_member with invalid group_id rejected");
 
@@ -4319,11 +4784,15 @@ async fn test_admin_operations_validate_group_id_format() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!remove_empty.is_success(), "remove_group_member with empty group_id should fail");
+    assert!(
+        !remove_empty.is_success(),
+        "remove_group_member with empty group_id should fail"
+    );
     let err = format!("{:?}", remove_empty.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention validation, got: {}", err
+        "Error should mention validation, got: {}",
+        err
     );
     println!("   ✓ remove_group_member with empty group_id rejected");
 
@@ -4343,11 +4812,15 @@ async fn test_admin_operations_validate_group_id_format() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!blacklist_invalid.is_success(), "blacklist with invalid group_id should fail");
+    assert!(
+        !blacklist_invalid.is_success(),
+        "blacklist with invalid group_id should fail"
+    );
     let err = format!("{:?}", blacklist_invalid.failures());
     assert!(
         err.contains("alphanumeric") || err.contains("Group ID"),
-        "Error should mention validation, got: {}", err
+        "Error should mention validation, got: {}",
+        err
     );
     println!("   ✓ blacklist_group_member with invalid group_id rejected");
 
@@ -4368,11 +4841,15 @@ async fn test_admin_operations_validate_group_id_format() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!unblacklist_long.is_success(), "unblacklist with oversized group_id should fail");
+    assert!(
+        !unblacklist_long.is_success(),
+        "unblacklist with oversized group_id should fail"
+    );
     let err = format!("{:?}", unblacklist_long.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length, got: {}", err
+        "Error should mention length, got: {}",
+        err
     );
     println!("   ✓ unblacklist_group_member with oversized group_id rejected");
 
@@ -4392,11 +4869,15 @@ async fn test_admin_operations_validate_group_id_format() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!transfer_invalid.is_success(), "transfer with invalid group_id should fail");
+    assert!(
+        !transfer_invalid.is_success(),
+        "transfer with invalid group_id should fail"
+    );
     let err = format!("{:?}", transfer_invalid.failures());
     assert!(
         err.contains("alphanumeric") || err.contains("Group ID"),
-        "Error should mention validation, got: {}", err
+        "Error should mention validation, got: {}",
+        err
     );
     println!("   ✓ transfer_group_ownership with invalid group_id rejected");
 
@@ -4450,12 +4931,16 @@ async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()>
         .transact()
         .await?;
 
-    assert!(!join_empty.is_success(), "join_group with empty group_id should fail");
+    assert!(
+        !join_empty.is_success(),
+        "join_group with empty group_id should fail"
+    );
     let err = format!("{:?}", join_empty.failures());
     // Must fail with validation error, NOT "Group not found"
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention group_id format validation, got: {}", err
+        "Error should mention group_id format validation, got: {}",
+        err
     );
     println!("   ✓ join_group with empty group_id rejected with validation error");
 
@@ -4476,11 +4961,18 @@ async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()>
         .transact()
         .await?;
 
-    assert!(!join_special.is_success(), "join_group with special chars should fail");
+    assert!(
+        !join_special.is_success(),
+        "join_group with special chars should fail"
+    );
     let err = format!("{:?}", join_special.failures());
     assert!(
-        err.contains("alphanumeric") || err.contains("underscores") || err.contains("hyphens") || err.contains("Group ID"),
-        "Error should mention allowed characters, got: {}", err
+        err.contains("alphanumeric")
+            || err.contains("underscores")
+            || err.contains("hyphens")
+            || err.contains("Group ID"),
+        "Error should mention allowed characters, got: {}",
+        err
     );
     println!("   ✓ join_group with special characters rejected with validation error");
 
@@ -4500,12 +4992,16 @@ async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()>
         .transact()
         .await?;
 
-    assert!(!leave_empty.is_success(), "leave_group with empty group_id should fail");
+    assert!(
+        !leave_empty.is_success(),
+        "leave_group with empty group_id should fail"
+    );
     let err = format!("{:?}", leave_empty.failures());
     // Must fail with validation error, NOT "Member not found"
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention group_id format validation (not 'Member not found'), got: {}", err
+        "Error should mention group_id format validation (not 'Member not found'), got: {}",
+        err
     );
     println!("   ✓ leave_group with empty group_id rejected with validation error");
 
@@ -4525,11 +5021,18 @@ async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()>
         .transact()
         .await?;
 
-    assert!(!leave_special.is_success(), "leave_group with special chars should fail");
+    assert!(
+        !leave_special.is_success(),
+        "leave_group with special chars should fail"
+    );
     let err = format!("{:?}", leave_special.failures());
     assert!(
-        err.contains("alphanumeric") || err.contains("underscores") || err.contains("hyphens") || err.contains("Group ID"),
-        "Error should mention allowed characters (not 'Member not found'), got: {}", err
+        err.contains("alphanumeric")
+            || err.contains("underscores")
+            || err.contains("hyphens")
+            || err.contains("Group ID"),
+        "Error should mention allowed characters (not 'Member not found'), got: {}",
+        err
     );
     println!("   ✓ leave_group with special characters rejected with validation error");
 
@@ -4551,11 +5054,15 @@ async fn test_join_leave_group_validates_group_id_format() -> anyhow::Result<()>
         .transact()
         .await?;
 
-    assert!(!join_long.is_success(), "join_group with oversized group_id should fail");
+    assert!(
+        !join_long.is_success(),
+        "join_group with oversized group_id should fail"
+    );
     let err = format!("{:?}", join_long.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length validation, got: {}", err
+        "Error should mention length validation, got: {}",
+        err
     );
     println!("   ✓ join_group with oversized group_id rejected");
 
@@ -4593,7 +5100,10 @@ async fn test_add_group_member_multimember_creates_pending_proposal() -> anyhow:
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_result.is_success(), "Create member-driven group should succeed");
+    assert!(
+        create_result.is_success(),
+        "Create member-driven group should succeed"
+    );
     println!("   ✓ Created member-driven group");
 
     // Add Bob via proposal (single member = auto-execute)
@@ -4608,7 +5118,10 @@ async fn test_add_group_member_multimember_creates_pending_proposal() -> anyhow:
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_bob.is_success(), "Adding Bob should succeed (auto-executes with single member)");
+    assert!(
+        add_bob.is_success(),
+        "Adding Bob should succeed (auto-executes with single member)"
+    );
 
     // Verify Bob is a member (single member = auto-executed)
     let is_bob_member: bool = contract
@@ -4619,7 +5132,10 @@ async fn test_add_group_member_multimember_creates_pending_proposal() -> anyhow:
         }))
         .await?
         .json()?;
-    assert!(is_bob_member, "Bob should be member (auto-executed with single member)");
+    assert!(
+        is_bob_member,
+        "Bob should be member (auto-executed with single member)"
+    );
     println!("   ✓ Bob added via auto-executed proposal (single member)");
 
     // Now with 2 members (Alice + Bob), try to add Charlie via add_group_member
@@ -4635,7 +5151,10 @@ async fn test_add_group_member_multimember_creates_pending_proposal() -> anyhow:
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_charlie.is_success(), "add_group_member should succeed (creates proposal)");
+    assert!(
+        add_charlie.is_success(),
+        "add_group_member should succeed (creates proposal)"
+    );
     println!("   ✓ add_group_member call succeeded");
 
     // CRITICAL: Verify Charlie is NOT immediately a member (proposal pending)

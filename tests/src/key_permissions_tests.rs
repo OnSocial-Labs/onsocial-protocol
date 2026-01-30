@@ -114,7 +114,10 @@ async fn test_key_permission_allows_cross_account_set_for() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Expected cross-account set to fail without permissions");
+    assert!(
+        !res.is_success(),
+        "Expected cross-account set to fail without permissions"
+    );
 
     // 2) Alice grants WRITE to relayer public key for her profile subtree.
     let res = alice
@@ -146,7 +149,10 @@ async fn test_key_permission_allows_cross_account_set_for() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected cross-account set to succeed with key permission");
+    assert!(
+        res.is_success(),
+        "Expected cross-account set to succeed with key permission"
+    );
 
     Ok(())
 }
@@ -247,7 +253,10 @@ async fn test_key_permission_revoke_blocks_cross_account_set_for() -> anyhow::Re
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Expected cross-account set to fail after revoke");
+    assert!(
+        !res.is_success(),
+        "Expected cross-account set to fail after revoke"
+    );
 
     Ok(())
 }
@@ -291,7 +300,10 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         )
         .transact()
         .await?;
-    assert!(add_key_res.is_success(), "Step 1: Expected add_key to succeed");
+    assert!(
+        add_key_res.is_success(),
+        "Step 1: Expected add_key to succeed"
+    );
 
     // =========================================================================
     // STEP 2: User deposits storage (requires wallet confirmation - deposits need full key)
@@ -314,7 +326,10 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(deposit_res.is_success(), "Step 2: Expected storage deposit to succeed");
+    assert!(
+        deposit_res.is_success(),
+        "Step 2: Expected storage deposit to succeed"
+    );
 
     // Verify storage balance was credited
     let storage: serde_json::Value = contract
@@ -328,7 +343,11 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
     let deposit_f64 = deposit_amount.as_yoctonear() as f64;
-    assert!(balance_f64 >= deposit_f64, "Step 2: Storage balance should be credited (got {:.4} NEAR)", balance_f64 / 1e24);
+    assert!(
+        balance_f64 >= deposit_f64,
+        "Step 2: Storage balance should be credited (got {:.4} NEAR)",
+        balance_f64 / 1e24
+    );
 
     // =========================================================================
     // STEP 3: User operates using session key (NO wallet confirmation needed)
@@ -353,7 +372,10 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Step 3a: Expected profile set to succeed with session key");
+    assert!(
+        res.is_success(),
+        "Step 3a: Expected profile set to succeed with session key"
+    );
 
     // 3b. Create a group - NO WALLET POPUP
     let res = alice_session
@@ -373,7 +395,10 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Step 3b: Expected create_group to succeed with session key");
+    assert!(
+        res.is_success(),
+        "Step 3b: Expected create_group to succeed with session key"
+    );
 
     // 3c. Write to group - NO WALLET POPUP
     let res = alice_session
@@ -391,7 +416,10 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Step 3c: Expected group post to succeed with session key");
+    assert!(
+        res.is_success(),
+        "Step 3c: Expected group post to succeed with session key"
+    );
 
     // 3d. Grant key permission to session key for a specific path - NO WALLET POPUP
     let res = alice_session
@@ -411,7 +439,10 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Step 3d: Expected set_key_permission to succeed with session key");
+    assert!(
+        res.is_success(),
+        "Step 3d: Expected set_key_permission to succeed with session key"
+    );
 
     // =========================================================================
     // VERIFICATION: Confirm all data was written correctly
@@ -499,7 +530,8 @@ async fn test_session_key_cannot_deposit_storage_directly() -> anyhow::Result<()
 }
 
 #[tokio::test]
-async fn test_session_key_multiple_operations_consume_pre_deposited_storage() -> anyhow::Result<()> {
+async fn test_session_key_multiple_operations_consume_pre_deposited_storage() -> anyhow::Result<()>
+{
     // This test verifies that multiple operations using a session key
     // correctly consume from the user's pre-deposited storage balance.
 
@@ -573,7 +605,11 @@ async fn test_session_key_multiple_operations_consume_pre_deposited_storage() ->
             .gas(near_workspaces::types::Gas::from_tgas(120))
             .transact()
             .await?;
-        assert!(res.is_success(), "Post {} should succeed with session key", i);
+        assert!(
+            res.is_success(),
+            "Post {} should succeed with session key",
+            i
+        );
     }
 
     // Step 4: Verify storage was consumed
@@ -599,7 +635,11 @@ async fn test_session_key_multiple_operations_consume_pre_deposited_storage() ->
         .get("balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    assert!(balance_f64 > 0.0, "Storage balance should still be positive (got {:.4} NEAR)", balance_f64 / 1e24);
+    assert!(
+        balance_f64 > 0.0,
+        "Storage balance should still be positive (got {:.4} NEAR)",
+        balance_f64 / 1e24
+    );
 
     Ok(())
 }
@@ -739,7 +779,10 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected platform pool funding to succeed");
+    assert!(
+        res.is_success(),
+        "Expected platform pool funding to succeed"
+    );
 
     // Fresh user with no storage pre-allocation.
     let alice = create_user(&root, "alice", TEN_NEAR).await?;
@@ -776,7 +819,10 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected first set to succeed with 0 deposit via session key when platform pool is funded");
+    assert!(
+        res.is_success(),
+        "Expected first set to succeed with 0 deposit via session key when platform pool is funded"
+    );
 
     // Verify the platform sponsorship flag is enabled for the user.
     let storage: serde_json::Value = contract
@@ -788,7 +834,10 @@ async fn test_session_key_first_write_uses_platform_sponsorship_no_deposit() -> 
         .get("platform_sponsored")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    assert!(is_sponsored, "Expected user to become platform_sponsored after first write");
+    assert!(
+        is_sponsored,
+        "Expected user to become platform_sponsored after first write"
+    );
 
     Ok(())
 }
@@ -831,7 +880,10 @@ async fn test_key_permission_invalid_level_rejected() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Undefined permission level should be rejected");
+    assert!(
+        !res.is_success(),
+        "Undefined permission level should be rejected"
+    );
 
     Ok(())
 }
@@ -943,7 +995,10 @@ async fn test_key_permission_expired_blocks_access() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "Grant with past expiry should succeed (storage write)");
+    assert!(
+        res.is_success(),
+        "Grant with past expiry should succeed (storage write)"
+    );
 
     // Relayer attempts to use expired permission - should fail
     let res = relayer
@@ -962,7 +1017,10 @@ async fn test_key_permission_expired_blocks_access() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Expired key permission should block access");
+    assert!(
+        !res.is_success(),
+        "Expired key permission should block access"
+    );
 
     Ok(())
 }
@@ -1137,7 +1195,10 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Parent path permission should grant child path access");
+    assert!(
+        res.is_success(),
+        "Parent path permission should grant child path access"
+    );
 
     // Should NOT be able to write to sibling path "settings/theme"
     let res = relayer
@@ -1156,7 +1217,10 @@ async fn test_key_permission_hierarchy_parent_grants_child() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Permission on profile/ should not grant settings/ access");
+    assert!(
+        !res.is_success(),
+        "Permission on profile/ should not grant settings/ access"
+    );
 
     Ok(())
 }
@@ -1226,7 +1290,10 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Should fail - no account perm, no key perm");
+    assert!(
+        !res.is_success(),
+        "Should fail - no account perm, no key perm"
+    );
 
     // Grant KEY permission (not account permission) to relayer's public key
     let res = alice
@@ -1258,7 +1325,10 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "Should succeed via key permission fallback");
+    assert!(
+        res.is_success(),
+        "Should succeed via key permission fallback"
+    );
 
     // Revoke the key permission
     let res = alice
@@ -1290,7 +1360,10 @@ async fn test_has_permissions_or_key_for_actor_fallback() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Should fail after key permission revoked");
+    assert!(
+        !res.is_success(),
+        "Should fail after key permission revoked"
+    );
 
     Ok(())
 }
@@ -1420,7 +1493,10 @@ async fn test_key_permission_scoped_to_caller_namespace() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "Alice should be able to grant key permission for her path");
+    assert!(
+        res.is_success(),
+        "Alice should be able to grant key permission for her path"
+    );
 
     // Verify the key permission exists for Alice's namespace
     let has_key_perm: bool = contract
@@ -1433,7 +1509,10 @@ async fn test_key_permission_scoped_to_caller_namespace() -> anyhow::Result<()> 
         }))
         .await?
         .json()?;
-    assert!(has_key_perm, "Key permission should exist for Alice's namespace");
+    assert!(
+        has_key_perm,
+        "Key permission should exist for Alice's namespace"
+    );
 
     // Verify the key permission does NOT exist for Bob's namespace
     let has_key_perm_bob: bool = contract
@@ -1446,7 +1525,10 @@ async fn test_key_permission_scoped_to_caller_namespace() -> anyhow::Result<()> 
         }))
         .await?
         .json()?;
-    assert!(!has_key_perm_bob, "Key permission should NOT exist for Bob's namespace");
+    assert!(
+        !has_key_perm_bob,
+        "Key permission should NOT exist for Bob's namespace"
+    );
 
     Ok(())
 }
@@ -1496,13 +1578,16 @@ async fn test_key_permission_events_emit_correctly() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(grant_res.is_success(), "Grant key permission should succeed");
+    assert!(
+        grant_res.is_success(),
+        "Grant key permission should succeed"
+    );
 
     // Verify PERMISSION_UPDATE grant_key event was emitted
     let grant_logs: Vec<String> = grant_res.logs().iter().map(|s| s.to_string()).collect();
-    let grant_event = grant_logs
-        .iter()
-        .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"grant_key\""));
+    let grant_event = grant_logs.iter().find(|log| {
+        log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"grant_key\"")
+    });
     assert!(
         grant_event.is_some(),
         "Should emit PERMISSION_UPDATE grant_key event. Logs: {:?}",
@@ -1535,13 +1620,16 @@ async fn test_key_permission_events_emit_correctly() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(revoke_res.is_success(), "Revoke key permission should succeed");
+    assert!(
+        revoke_res.is_success(),
+        "Revoke key permission should succeed"
+    );
 
     // Verify PERMISSION_UPDATE revoke_key event was emitted
     let revoke_logs: Vec<String> = revoke_res.logs().iter().map(|s| s.to_string()).collect();
-    let revoke_event = revoke_logs
-        .iter()
-        .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke_key\""));
+    let revoke_event = revoke_logs.iter().find(|log| {
+        log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke_key\"")
+    });
     assert!(
         revoke_event.is_some(),
         "Should emit PERMISSION_UPDATE revoke_key event. Logs: {:?}",
@@ -1560,7 +1648,8 @@ async fn test_key_permission_events_emit_correctly() -> anyhow::Result<()> {
     );
     // Since we granted first, deleted should be true
     assert!(
-        revoke_event_str.contains("\"deleted\":true") || revoke_event_str.contains("\"deleted\":\"true\""),
+        revoke_event_str.contains("\"deleted\":true")
+            || revoke_event_str.contains("\"deleted\":\"true\""),
         "revoke_key event should have deleted=true when entry existed"
     );
 
@@ -1608,13 +1697,16 @@ async fn test_revoke_nonexistent_key_permission_emits_deleted_false() -> anyhow:
         .gas(near_workspaces::types::Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(revoke_res.is_success(), "Revoke non-existent key permission should succeed");
+    assert!(
+        revoke_res.is_success(),
+        "Revoke non-existent key permission should succeed"
+    );
 
     // Verify PERMISSION_UPDATE revoke_key event was emitted with deleted=false
     let revoke_logs: Vec<String> = revoke_res.logs().iter().map(|s| s.to_string()).collect();
-    let revoke_event = revoke_logs
-        .iter()
-        .find(|log| log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke_key\""));
+    let revoke_event = revoke_logs.iter().find(|log| {
+        log.contains("PERMISSION_UPDATE") && log.contains("\"operation\":\"revoke_key\"")
+    });
     assert!(
         revoke_event.is_some(),
         "Should emit PERMISSION_UPDATE revoke_key event even for non-existent permission. Logs: {:?}",
@@ -1624,7 +1716,8 @@ async fn test_revoke_nonexistent_key_permission_emits_deleted_false() -> anyhow:
     // Verify deleted=false since no entry existed to delete
     let revoke_event_str = revoke_event.unwrap();
     assert!(
-        revoke_event_str.contains("\"deleted\":false") || revoke_event_str.contains("\"deleted\":\"false\""),
+        revoke_event_str.contains("\"deleted\":false")
+            || revoke_event_str.contains("\"deleted\":\"false\""),
         "revoke_key event should have deleted=false when no entry existed. Event: {}",
         revoke_event_str
     );
@@ -1640,7 +1733,10 @@ async fn test_revoke_nonexistent_key_permission_emits_deleted_false() -> anyhow:
         }))
         .await?
         .json()?;
-    assert!(!has_perm, "Key permission should still not exist after revoking non-existent");
+    assert!(
+        !has_perm,
+        "Key permission should still not exist after revoking non-existent"
+    );
 
     Ok(())
 }

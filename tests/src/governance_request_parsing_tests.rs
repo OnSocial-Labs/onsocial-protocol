@@ -82,11 +82,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!create_invalid.is_success(), "create_proposal with invalid group_id should fail");
+    assert!(
+        !create_invalid.is_success(),
+        "create_proposal with invalid group_id should fail"
+    );
     let err = format!("{:?}", create_invalid.failures());
     assert!(
         err.contains("alphanumeric") || err.contains("Group ID"),
-        "Error should mention group_id validation, got: {}", err
+        "Error should mention group_id validation, got: {}",
+        err
     );
     println!("   ✓ create_proposal with special characters rejected");
 
@@ -110,11 +114,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!create_empty.is_success(), "create_proposal with empty group_id should fail");
+    assert!(
+        !create_empty.is_success(),
+        "create_proposal with empty group_id should fail"
+    );
     let err = format!("{:?}", create_empty.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length validation, got: {}", err
+        "Error should mention length validation, got: {}",
+        err
     );
     println!("   ✓ create_proposal with empty group_id rejected");
 
@@ -139,11 +147,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!create_long.is_success(), "create_proposal with oversized group_id should fail");
+    assert!(
+        !create_long.is_success(),
+        "create_proposal with oversized group_id should fail"
+    );
     let err = format!("{:?}", create_long.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length validation, got: {}", err
+        "Error should mention length validation, got: {}",
+        err
     );
     println!("   ✓ create_proposal with oversized group_id rejected");
 
@@ -163,11 +175,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!vote_invalid.is_success(), "vote_on_proposal with invalid group_id should fail");
+    assert!(
+        !vote_invalid.is_success(),
+        "vote_on_proposal with invalid group_id should fail"
+    );
     let err = format!("{:?}", vote_invalid.failures());
     assert!(
         err.contains("alphanumeric") || err.contains("Group ID"),
-        "Error should mention group_id validation, got: {}", err
+        "Error should mention group_id validation, got: {}",
+        err
     );
     println!("   ✓ vote_on_proposal with special characters rejected");
 
@@ -187,11 +203,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!vote_empty.is_success(), "vote_on_proposal with empty group_id should fail");
+    assert!(
+        !vote_empty.is_success(),
+        "vote_on_proposal with empty group_id should fail"
+    );
     let err = format!("{:?}", vote_empty.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length validation, got: {}", err
+        "Error should mention length validation, got: {}",
+        err
     );
     println!("   ✓ vote_on_proposal with empty group_id rejected");
 
@@ -211,11 +231,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!cancel_invalid.is_success(), "cancel_proposal with invalid group_id should fail");
+    assert!(
+        !cancel_invalid.is_success(),
+        "cancel_proposal with invalid group_id should fail"
+    );
     let err = format!("{:?}", cancel_invalid.failures());
     assert!(
         err.contains("alphanumeric") || err.contains("Group ID"),
-        "Error should mention group_id validation, got: {}", err
+        "Error should mention group_id validation, got: {}",
+        err
     );
     println!("   ✓ cancel_proposal with special characters rejected");
 
@@ -235,11 +259,15 @@ async fn test_governance_operations_validate_group_id_format() -> anyhow::Result
         .transact()
         .await?;
 
-    assert!(!cancel_empty.is_success(), "cancel_proposal with empty group_id should fail");
+    assert!(
+        !cancel_empty.is_success(),
+        "cancel_proposal with empty group_id should fail"
+    );
     let err = format!("{:?}", cancel_empty.failures());
     assert!(
         err.contains("1-64 characters") || err.contains("Group ID"),
-        "Error should mention length validation, got: {}", err
+        "Error should mention length validation, got: {}",
+        err
     );
     println!("   ✓ cancel_proposal with empty group_id rejected");
 
@@ -356,7 +384,8 @@ async fn test_unknown_proposal_type_rejected() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", unknown_type.failures());
     assert!(
         failure_str.contains("Unknown proposal type") || failure_str.contains("InvalidInput"),
-        "Error should mention 'Unknown proposal type': {}", failure_str
+        "Error should mention 'Unknown proposal type': {}",
+        failure_str
     );
     println!("   ✓ Unknown proposal_type 'completely_invalid_type_xyz' rejected");
 
@@ -435,7 +464,8 @@ async fn test_group_update_missing_update_type_rejected() -> anyhow::Result<()> 
     let failure_str = format!("{:?}", missing_update_type.failures());
     assert!(
         failure_str.contains("update_type required") || failure_str.contains("InvalidInput"),
-        "Error should mention update_type required: {}", failure_str
+        "Error should mention update_type required: {}",
+        failure_str
     );
     println!("   ✓ group_update without update_type rejected");
 
@@ -519,7 +549,8 @@ async fn test_custom_proposal_missing_fields_rejected() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", missing_title.failures());
     assert!(
         failure_str.contains("title required") || failure_str.contains("InvalidInput"),
-        "Error should mention title required: {}", failure_str
+        "Error should mention title required: {}",
+        failure_str
     );
     println!("   ✓ Missing title field rejected");
 
@@ -547,7 +578,8 @@ async fn test_custom_proposal_missing_fields_rejected() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", missing_desc.failures());
     assert!(
         failure_str.contains("description required") || failure_str.contains("InvalidInput"),
-        "Error should mention description required: {}", failure_str
+        "Error should mention description required: {}",
+        failure_str
     );
     println!("   ✓ Missing description field rejected");
 
@@ -653,7 +685,10 @@ async fn test_voting_config_change_string_bps_accepted() -> anyhow::Result<()> {
         "voting_config_change with string bps values should succeed"
     );
     let proposal_id: String = string_bps.json()?;
-    println!("   ✓ String bps values '6000' and '5500' accepted, proposal_id: {}", proposal_id);
+    println!(
+        "   ✓ String bps values '6000' and '5500' accepted, proposal_id: {}",
+        proposal_id
+    );
 
     // Verify the proposal was created correctly
     let key = format!("groups/string-bps-test/proposals/{}", proposal_id);
@@ -662,15 +697,25 @@ async fn test_voting_config_change_string_bps_accepted() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
-    
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
+
     // Verify proposal data contains the parsed values
     let data = proposal.get("data").expect("proposal.data exists");
     if let Some(voting_config) = data.get("VotingConfigChange") {
         let quorum = voting_config.get("participation_quorum_bps");
         let threshold = voting_config.get("majority_threshold_bps");
-        assert_eq!(quorum.and_then(|v| v.as_u64()), Some(6000), "Quorum should be 6000");
-        assert_eq!(threshold.and_then(|v| v.as_u64()), Some(5500), "Threshold should be 5500");
+        assert_eq!(
+            quorum.and_then(|v| v.as_u64()),
+            Some(6000),
+            "Quorum should be 6000"
+        );
+        assert_eq!(
+            threshold.and_then(|v| v.as_u64()),
+            Some(5500),
+            "Threshold should be 5500"
+        );
         println!("   ✓ Verified parsed values: quorum=6000, threshold=5500");
     }
 
@@ -726,8 +771,10 @@ async fn test_voting_config_change_invalid_bps_rejected() -> anyhow::Result<()> 
     );
     let failure_str = format!("{:?}", invalid_string.failures());
     assert!(
-        failure_str.contains("Invalid participation_quorum_bps") || failure_str.contains("InvalidInput"),
-        "Error should mention invalid field: {}", failure_str
+        failure_str.contains("Invalid participation_quorum_bps")
+            || failure_str.contains("InvalidInput"),
+        "Error should mention invalid field: {}",
+        failure_str
     );
     println!("   ✓ Non-numeric string 'not_a_number' rejected");
 
@@ -848,7 +895,10 @@ async fn test_voting_config_change_null_bps_treated_as_none() -> anyhow::Result<
         "voting_config_change with null bps should succeed (treated as None)"
     );
     let proposal_id: String = null_bps.json()?;
-    println!("   ✓ Explicit null for participation_quorum_bps accepted, proposal_id: {}", proposal_id);
+    println!(
+        "   ✓ Explicit null for participation_quorum_bps accepted, proposal_id: {}",
+        proposal_id
+    );
 
     // Verify the proposal data
     let key = format!("groups/null-bps-test/proposals/{}", proposal_id);
@@ -857,8 +907,10 @@ async fn test_voting_config_change_null_bps_treated_as_none() -> anyhow::Result<
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
-    
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
+
     let data = proposal.get("data").expect("proposal.data exists");
     if let Some(voting_config) = data.get("VotingConfigChange") {
         // null should become None (not present or null in JSON)
@@ -868,7 +920,11 @@ async fn test_voting_config_change_null_bps_treated_as_none() -> anyhow::Result<
             quorum.is_none() || quorum == Some(&Value::Null),
             "participation_quorum_bps should be None/null"
         );
-        assert_eq!(threshold.and_then(|v| v.as_u64()), Some(6000), "Threshold should be 6000");
+        assert_eq!(
+            threshold.and_then(|v| v.as_u64()),
+            Some(6000),
+            "Threshold should be 6000"
+        );
         println!("   ✓ Verified: quorum=None, threshold=6000");
     }
 
@@ -884,7 +940,9 @@ async fn test_voting_config_change_null_bps_treated_as_none() -> anyhow::Result<
 /// Tests line 53: `v.as_str().and_then(|s| s.parse::<u64>().ok())`
 #[tokio::test]
 async fn test_voting_config_change_string_voting_period_accepted() -> anyhow::Result<()> {
-    println!("\n=== Test: voting_config_change String voting_period Accepted (governance.rs:52-53) ===");
+    println!(
+        "\n=== Test: voting_config_change String voting_period Accepted (governance.rs:52-53) ==="
+    );
 
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
@@ -929,7 +987,10 @@ async fn test_voting_config_change_string_voting_period_accepted() -> anyhow::Re
         "voting_config_change with string voting_period should succeed"
     );
     let proposal_id: String = string_period.json()?;
-    println!("   ✓ String voting_period '{}' accepted, proposal_id: {}", seven_days_ns, proposal_id);
+    println!(
+        "   ✓ String voting_period '{}' accepted, proposal_id: {}",
+        seven_days_ns, proposal_id
+    );
 
     // Verify the proposal data
     let key = format!("groups/string-period-test/proposals/{}", proposal_id);
@@ -938,8 +999,10 @@ async fn test_voting_config_change_string_voting_period_accepted() -> anyhow::Re
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
-    
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
+
     let data = proposal.get("data").expect("proposal.data exists");
     if let Some(voting_config) = data.get("VotingConfigChange") {
         let period = voting_config.get("voting_period");

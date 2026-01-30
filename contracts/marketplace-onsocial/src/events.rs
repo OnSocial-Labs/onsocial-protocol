@@ -1,8 +1,12 @@
 // Borsh-encoded Events for Substreams Indexing
 // Provides efficient event emission with binary serialization
 
-use near_sdk::{env, AccountId, borsh::{BorshSerialize, BorshDeserialize}, base64::Engine};
 use near_sdk::json_types::U128;
+use near_sdk::{
+    base64::Engine,
+    borsh::{BorshDeserialize, BorshSerialize},
+    env, AccountId,
+};
 use near_sdk_macros::NearSchema;
 use std::cell::Cell;
 
@@ -29,7 +33,9 @@ fn get_next_log_index() -> u32 {
 // --- Event Data Structures ---
 
 /// Marketplace event data variants for different operations
-#[derive(NearSchema, serde::Serialize, serde::Deserialize, Clone, BorshSerialize, BorshDeserialize)]
+#[derive(
+    NearSchema, serde::Serialize, serde::Deserialize, Clone, BorshSerialize, BorshDeserialize,
+)]
 #[abi(json, borsh)]
 pub enum MarketplaceEventData {
     NftList {
@@ -93,7 +99,9 @@ pub enum MarketplaceEventData {
 }
 
 /// Main marketplace event structure
-#[derive(NearSchema, serde::Serialize, serde::Deserialize, Clone, BorshSerialize, BorshDeserialize)]
+#[derive(
+    NearSchema, serde::Serialize, serde::Deserialize, Clone, BorshSerialize, BorshDeserialize,
+)]
 #[abi(json, borsh)]
 pub struct MarketplaceEvent {
     pub evt_standard: String,
@@ -144,7 +152,7 @@ pub fn emit_nft_list_event(
             prices: prices.into_iter().map(|p| p.0.to_string()).collect(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -169,7 +177,7 @@ pub fn emit_nft_delist_event(
             token_ids,
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -198,7 +206,7 @@ pub fn emit_nft_update_price_event(
             new_price: new_price.0.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -229,16 +237,12 @@ pub fn emit_nft_purchase_event(
             marketplace_fee: marketplace_fee.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
 /// Emit a Borsh-encoded storage deposit event
-pub fn emit_storage_deposit_event(
-    account_id: &AccountId,
-    deposit: u128,
-    new_balance: u128,
-) {
+pub fn emit_storage_deposit_event(account_id: &AccountId, deposit: u128, new_balance: u128) {
     let log_index = get_next_log_index();
     let event = MarketplaceEvent {
         evt_standard: EVENT_STANDARD.to_string(),
@@ -254,16 +258,12 @@ pub fn emit_storage_deposit_event(
             new_balance: new_balance.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
 /// Emit a Borsh-encoded storage withdraw event
-pub fn emit_storage_withdraw_event(
-    account_id: &AccountId,
-    amount: u128,
-    new_balance: u128,
-) {
+pub fn emit_storage_withdraw_event(account_id: &AccountId, amount: u128, new_balance: u128) {
     let log_index = get_next_log_index();
     let event = MarketplaceEvent {
         evt_standard: EVENT_STANDARD.to_string(),
@@ -279,7 +279,7 @@ pub fn emit_storage_withdraw_event(
             new_balance: new_balance.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -311,7 +311,7 @@ pub fn emit_nft_purchase_failed_event(
             reason: reason.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -338,7 +338,7 @@ pub fn emit_collection_created_event(
             price_near: price_near.0.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -369,7 +369,7 @@ pub fn emit_collection_purchase_event(
             marketplace_fee: marketplace_fee.0.to_string(),
         },
     };
-    
+
     emit_borsh_event(event);
 }
 
@@ -378,16 +378,18 @@ pub fn emit_collection_purchase_event(
 fn emit_borsh_event(event: MarketplaceEvent) {
     // Serialize to Borsh format
     let mut buffer = Vec::new();
-    event.serialize(&mut buffer).expect("Failed to serialize event");
-    
+    event
+        .serialize(&mut buffer)
+        .expect("Failed to serialize event");
+
     // Calculate capacity for base64 encoding
     let encoded_len = buffer.len().div_ceil(3) * 4;
     let mut log_str = String::with_capacity(EVENT_PREFIX.len() + encoded_len);
-    
+
     // Add prefix and base64-encode the Borsh data
     log_str.push_str(EVENT_PREFIX);
     near_sdk::base64::engine::general_purpose::STANDARD.encode_string(&buffer, &mut log_str);
-    
+
     // Emit the log
     env::log_str(&log_str);
 }

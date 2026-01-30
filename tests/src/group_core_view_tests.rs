@@ -39,11 +39,7 @@ async fn deploy_core_onsocial(
     let wasm = load_core_onsocial_wasm()?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    let init_outcome = contract
-        .call("new")
-        .args_json(json!({}))
-        .transact()
-        .await?;
+    let init_outcome = contract.call("new").args_json(json!({})).transact().await?;
     assert!(
         init_outcome.is_success(),
         "Contract initialization failed: {:?}",
@@ -93,7 +89,10 @@ async fn test_get_group_stats_nonexistent_returns_none() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    assert!(stats.is_none(), "get_group_stats should return None for non-existent group");
+    assert!(
+        stats.is_none(),
+        "get_group_stats should return None for non-existent group"
+    );
     println!("   ✓ get_group_stats correctly returns None for non-existent group");
 
     println!("✅ get_group_stats non-existent group test passed");
@@ -120,7 +119,10 @@ async fn test_get_group_config_nonexistent_returns_none() -> anyhow::Result<()> 
         .await?
         .json()?;
 
-    assert!(config.is_none(), "get_group_config should return None for non-existent group");
+    assert!(
+        config.is_none(),
+        "get_group_config should return None for non-existent group"
+    );
     println!("   ✓ get_group_config correctly returns None for non-existent group");
 
     println!("✅ get_group_config non-existent group test passed");
@@ -151,7 +153,10 @@ async fn test_get_join_request_nonexistent_group_returns_none() -> anyhow::Resul
         .await?
         .json()?;
 
-    assert!(request.is_none(), "get_join_request should return None for non-existent group");
+    assert!(
+        request.is_none(),
+        "get_join_request should return None for non-existent group"
+    );
     println!("   ✓ get_join_request correctly returns None for non-existent group");
 
     println!("✅ get_join_request non-existent group test passed");
@@ -197,7 +202,10 @@ async fn test_get_join_request_no_request_returns_none() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    assert!(request.is_none(), "get_join_request should return None for user who never requested");
+    assert!(
+        request.is_none(),
+        "get_join_request should return None for user who never requested"
+    );
     println!("   ✓ get_join_request correctly returns None for non-requester");
 
     println!("✅ get_join_request no request test passed");
@@ -257,8 +265,12 @@ async fn test_get_join_request_after_cancel_returns_none() -> anyhow::Result<()>
         }))
         .await?
         .json()?;
-    assert!(request_before.is_some(), "Join request should exist before cancel");
-    let status = request_before.as_ref()
+    assert!(
+        request_before.is_some(),
+        "Join request should exist before cancel"
+    );
+    let status = request_before
+        .as_ref()
         .and_then(|r| r.get("status"))
         .and_then(|s| s.as_str());
     assert_eq!(status, Some("pending"), "Request should be pending");
@@ -287,7 +299,10 @@ async fn test_get_join_request_after_cancel_returns_none() -> anyhow::Result<()>
         }))
         .await?
         .json()?;
-    assert!(request_after.is_none(), "get_join_request should return None after cancellation (soft-deleted)");
+    assert!(
+        request_after.is_none(),
+        "get_join_request should return None after cancellation (soft-deleted)"
+    );
     println!("   ✓ get_join_request correctly returns None after cancellation");
 
     println!("✅ get_join_request after cancel test passed");
@@ -318,7 +333,10 @@ async fn test_get_member_data_nonexistent_group_returns_none() -> anyhow::Result
         .await?
         .json()?;
 
-    assert!(member_data.is_none(), "get_member_data should return None for non-existent group");
+    assert!(
+        member_data.is_none(),
+        "get_member_data should return None for non-existent group"
+    );
     println!("   ✓ get_member_data correctly returns None for non-existent group");
 
     println!("✅ get_member_data non-existent group test passed");
@@ -377,7 +395,10 @@ async fn test_get_member_data_after_leave_returns_none() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(data_before.is_some(), "Member data should exist before leaving");
+    assert!(
+        data_before.is_some(),
+        "Member data should exist before leaving"
+    );
     println!("   ✓ Member data exists before leaving");
 
     // Bob leaves the group
@@ -403,7 +424,10 @@ async fn test_get_member_data_after_leave_returns_none() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(data_after.is_none(), "get_member_data should return None after member leaves (soft-deleted)");
+    assert!(
+        data_after.is_none(),
+        "get_member_data should return None after member leaves (soft-deleted)"
+    );
     println!("   ✓ get_member_data correctly returns None after member leaves");
 
     println!("✅ get_member_data after leave test passed");
@@ -463,8 +487,14 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    let first_joined_at = first_data.get("joined_at").and_then(|v| v.as_str()).unwrap_or("");
-    println!("   ✓ First join recorded with joined_at: {}", first_joined_at);
+    let first_joined_at = first_data
+        .get("joined_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    println!(
+        "   ✓ First join recorded with joined_at: {}",
+        first_joined_at
+    );
 
     // Verify is_group_member returns true
     let is_member_first: bool = contract
@@ -475,7 +505,10 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_member_first, "is_group_member should return true after first join");
+    assert!(
+        is_member_first,
+        "is_group_member should return true after first join"
+    );
 
     // Check initial stats
     let stats_first: serde_json::Value = contract
@@ -483,7 +516,10 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "rejoin_test" }))
         .await?
         .json()?;
-    let members_first = stats_first.get("total_members").and_then(|v| v.as_u64()).unwrap_or(0);
+    let members_first = stats_first
+        .get("total_members")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(members_first, 2, "Should have 2 members (alice + bob)");
     println!("   ✓ Stats show 2 members after first join");
 
@@ -510,7 +546,10 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_member_after_leave, "is_group_member should return false after leave");
+    assert!(
+        !is_member_after_leave,
+        "is_group_member should return false after leave"
+    );
 
     // Check stats after leave
     let stats_after_leave: serde_json::Value = contract
@@ -518,8 +557,14 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "rejoin_test" }))
         .await?
         .json()?;
-    let members_after_leave = stats_after_leave.get("total_members").and_then(|v| v.as_u64()).unwrap_or(0);
-    assert_eq!(members_after_leave, 1, "Should have 1 member (alice only) after leave");
+    let members_after_leave = stats_after_leave
+        .get("total_members")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        members_after_leave, 1,
+        "Should have 1 member (alice only) after leave"
+    );
     println!("   ✓ Stats show 1 member after leave");
 
     // Bob rejoins the group
@@ -546,7 +591,10 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_member_after_rejoin, "is_group_member should return true after rejoin");
+    assert!(
+        is_member_after_rejoin,
+        "is_group_member should return true after rejoin"
+    );
 
     // Get rejoin data - should have fresh joined_at timestamp
     let rejoin_data: serde_json::Value = contract
@@ -557,13 +605,22 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    let rejoin_joined_at = rejoin_data.get("joined_at").and_then(|v| v.as_str()).unwrap_or("");
+    let rejoin_joined_at = rejoin_data
+        .get("joined_at")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     println!("   ✓ Rejoin recorded with joined_at: {}", rejoin_joined_at);
 
     // Verify fresh entry (timestamp should be >= first)
     // Note: In fast tests, timestamps might be equal - just verify data exists
-    assert!(!rejoin_joined_at.is_empty(), "Rejoin should have joined_at timestamp");
-    assert!(rejoin_data.get("level").is_some(), "Rejoin data should have level");
+    assert!(
+        !rejoin_joined_at.is_empty(),
+        "Rejoin should have joined_at timestamp"
+    );
+    assert!(
+        rejoin_data.get("level").is_some(),
+        "Rejoin data should have level"
+    );
 
     // Check stats after rejoin
     let stats_after_rejoin: serde_json::Value = contract
@@ -571,8 +628,14 @@ async fn test_view_methods_consistency_after_rejoin() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "rejoin_test" }))
         .await?
         .json()?;
-    let members_after_rejoin = stats_after_rejoin.get("total_members").and_then(|v| v.as_u64()).unwrap_or(0);
-    assert_eq!(members_after_rejoin, 2, "Should have 2 members after rejoin");
+    let members_after_rejoin = stats_after_rejoin
+        .get("total_members")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        members_after_rejoin, 2,
+        "Should have 2 members after rejoin"
+    );
     println!("   ✓ Stats show 2 members after rejoin");
 
     println!("✅ View methods consistency after rejoin test passed");
@@ -603,7 +666,10 @@ async fn test_is_blacklisted_nonexistent_group_returns_false() -> anyhow::Result
         .await?
         .json()?;
 
-    assert!(!is_blacklisted, "is_blacklisted should return false for non-existent group");
+    assert!(
+        !is_blacklisted,
+        "is_blacklisted should return false for non-existent group"
+    );
     println!("   ✓ is_blacklisted correctly returns false for non-existent group");
 
     println!("✅ is_blacklisted non-existent group test passed");
@@ -634,7 +700,10 @@ async fn test_is_group_member_nonexistent_group_returns_false() -> anyhow::Resul
         .await?
         .json()?;
 
-    assert!(!is_member, "is_group_member should return false for non-existent group");
+    assert!(
+        !is_member,
+        "is_group_member should return false for non-existent group"
+    );
     println!("   ✓ is_group_member correctly returns false for non-existent group");
 
     println!("✅ is_group_member non-existent group test passed");
@@ -679,13 +748,18 @@ async fn test_get_group_config_returns_correct_owner() -> anyhow::Result<()> {
         .json()?;
 
     let config = config.expect("Config should exist for created group");
-    let owner = config.get("owner").expect("Config should have 'owner' field");
+    let owner = config
+        .get("owner")
+        .expect("Config should have 'owner' field");
     assert_eq!(
         owner.as_str().unwrap(),
         alice.id().as_str(),
         "Owner should match the creator's account ID"
     );
-    println!("   ✓ get_group_config.owner correctly set to creator: {}", alice.id());
+    println!(
+        "   ✓ get_group_config.owner correctly set to creator: {}",
+        alice.id()
+    );
 
     println!("✅ get_group_config owner field test passed");
     Ok(())
@@ -729,7 +803,8 @@ async fn test_get_group_config_member_driven_defaults_false() -> anyhow::Result<
         .json()?;
 
     let config = config.expect("Config should exist for created group");
-    let member_driven = config.get("member_driven")
+    let member_driven = config
+        .get("member_driven")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     assert!(!member_driven, "member_driven should default to false");
@@ -777,10 +852,14 @@ async fn test_get_group_config_member_driven_explicit_true() -> anyhow::Result<(
         .json()?;
 
     let config = config.expect("Config should exist for created group");
-    let member_driven = config.get("member_driven")
+    let member_driven = config
+        .get("member_driven")
         .and_then(|v| v.as_bool())
         .expect("member_driven field should exist");
-    assert!(member_driven, "member_driven should be true when explicitly set");
+    assert!(
+        member_driven,
+        "member_driven should be true when explicitly set"
+    );
     println!("   ✓ member_driven correctly set to true when explicitly specified");
 
     println!("✅ get_group_config member_driven explicit true test passed");
@@ -814,7 +893,10 @@ async fn test_get_group_config_is_private_respects_values() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_public.is_success(), "Create public group should succeed");
+    assert!(
+        create_public.is_success(),
+        "Create public group should succeed"
+    );
 
     // Bob creates a private group (is_private: true)
     let create_private = bob
@@ -828,7 +910,10 @@ async fn test_get_group_config_is_private_respects_values() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_private.is_success(), "Create private group should succeed");
+    assert!(
+        create_private.is_success(),
+        "Create private group should succeed"
+    );
 
     // Verify public group config
     let public_config: Option<serde_json::Value> = contract
@@ -840,10 +925,14 @@ async fn test_get_group_config_is_private_respects_values() -> anyhow::Result<()
         .json()?;
 
     let public_config = public_config.expect("Public group config should exist");
-    let is_private_public = public_config.get("is_private")
+    let is_private_public = public_config
+        .get("is_private")
         .and_then(|v| v.as_bool())
         .expect("is_private field should exist");
-    assert!(!is_private_public, "is_private should be false for public group");
+    assert!(
+        !is_private_public,
+        "is_private should be false for public group"
+    );
     println!("   ✓ public group is_private correctly set to false");
 
     // Verify private group config
@@ -856,10 +945,14 @@ async fn test_get_group_config_is_private_respects_values() -> anyhow::Result<()
         .json()?;
 
     let private_config = private_config.expect("Private group config should exist");
-    let is_private_private = private_config.get("is_private")
+    let is_private_private = private_config
+        .get("is_private")
         .and_then(|v| v.as_bool())
         .expect("is_private field should exist");
-    assert!(is_private_private, "is_private should be true for private group");
+    assert!(
+        is_private_private,
+        "is_private should be true for private group"
+    );
     println!("   ✓ private group is_private correctly set to true");
 
     println!("✅ get_group_config is_private test passed");
@@ -913,9 +1006,15 @@ async fn test_get_group_config_all_fields_present() -> anyhow::Result<()> {
     let config = config.expect("Config should exist for created group");
 
     // Verify all expected fields are present
-    assert!(config.get("owner").is_some(), "Config should have 'owner' field");
-    assert!(config.get("owner").unwrap().is_string(), "'owner' should be a string");
-    
+    assert!(
+        config.get("owner").is_some(),
+        "Config should have 'owner' field"
+    );
+    assert!(
+        config.get("owner").unwrap().is_string(),
+        "'owner' should be a string"
+    );
+
     // Note: member_driven and is_private may be stored as part of the config object
     // depending on how storage serialization works
     println!("   ✓ Config object returned with expected structure");

@@ -468,10 +468,7 @@ async fn test_contract_status_event_schema_completeness() -> Result<()> {
         event.get("standard").and_then(|v| v.as_str()),
         Some("onsocial")
     );
-    assert_eq!(
-        event.get("version").and_then(|v| v.as_str()),
-        Some("1.0.0")
-    );
+    assert_eq!(event.get("version").and_then(|v| v.as_str()), Some("1.0.0"));
     assert_eq!(
         event.get("event").and_then(|v| v.as_str()),
         Some("CONTRACT_UPDATE")

@@ -120,15 +120,15 @@ async fn test_create_proposal_zero_deposit_fails() -> anyhow::Result<()> {
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "zero_deposit_test", 
-                    "proposal_type": "custom_proposal", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "zero_deposit_test",
+                    "proposal_type": "custom_proposal",
                     "changes": {
                         "title": "Zero deposit test",
                         "description": "This should fail"
-                    }, 
-                    "auto_vote": true 
+                    },
+                    "auto_vote": true
                 }
             }
         }))
@@ -145,7 +145,9 @@ async fn test_create_proposal_zero_deposit_fails() -> anyhow::Result<()> {
 
     let failure_msg = format!("{:?}", zero_deposit_proposal.failures());
     assert!(
-        failure_msg.contains("Minimum") || failure_msg.contains("0.1 NEAR") || failure_msg.contains("deposit"),
+        failure_msg.contains("Minimum")
+            || failure_msg.contains("0.1 NEAR")
+            || failure_msg.contains("deposit"),
         "Error should mention minimum deposit requirement, got: {}",
         failure_msg
     );
@@ -190,15 +192,15 @@ async fn test_create_proposal_insufficient_deposit_fails() -> anyhow::Result<()>
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "insufficient_deposit_test", 
-                    "proposal_type": "custom_proposal", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "insufficient_deposit_test",
+                    "proposal_type": "custom_proposal",
                     "changes": {
                         "title": "Insufficient deposit test",
                         "description": "This should fail - only 0.05 NEAR"
-                    }, 
-                    "auto_vote": true 
+                    },
+                    "auto_vote": true
                 }
             }
         }))
@@ -214,7 +216,9 @@ async fn test_create_proposal_insufficient_deposit_fails() -> anyhow::Result<()>
 
     let failure_msg = format!("{:?}", insufficient_proposal.failures());
     assert!(
-        failure_msg.contains("Minimum") || failure_msg.contains("0.1 NEAR") || failure_msg.contains("deposit"),
+        failure_msg.contains("Minimum")
+            || failure_msg.contains("0.1 NEAR")
+            || failure_msg.contains("deposit"),
         "Error should mention minimum deposit requirement, got: {}",
         failure_msg
     );
@@ -259,15 +263,15 @@ async fn test_create_proposal_minimum_deposit_succeeds() -> anyhow::Result<()> {
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "min_deposit_test", 
-                    "proposal_type": "custom_proposal", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "min_deposit_test",
+                    "proposal_type": "custom_proposal",
                     "changes": {
                         "title": "Minimum deposit test",
                         "description": "This should succeed with exactly 0.1 NEAR"
-                    }, 
-                    "auto_vote": true 
+                    },
+                    "auto_vote": true
                 }
             }
         }))
@@ -283,7 +287,10 @@ async fn test_create_proposal_minimum_deposit_succeeds() -> anyhow::Result<()> {
     );
 
     let proposal_id: String = min_deposit_proposal.json()?;
-    println!("   ✓ Proposal created with minimum deposit: {}", proposal_id);
+    println!(
+        "   ✓ Proposal created with minimum deposit: {}",
+        proposal_id
+    );
 
     // Verify Alice now has a storage balance entry
     let alice_storage: Option<Value> = contract
@@ -291,7 +298,7 @@ async fn test_create_proposal_minimum_deposit_succeeds() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
+
     assert!(
         alice_storage.is_some(),
         "Alice should have a storage balance entry after proposal creation"
@@ -337,7 +344,7 @@ async fn test_deposit_credited_after_successful_action() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
+
     assert!(
         alice_storage.is_some(),
         "Alice should have a storage balance entry after create_group"
@@ -349,7 +356,10 @@ async fn test_deposit_credited_after_successful_action() -> anyhow::Result<()> {
     // Balance should be positive (deposit minus storage used)
     // Note: Even if all deposit is used for storage, balance can be 0
     // The key invariant is that the storage entry exists
-    println!("   ✓ Alice has storage balance entry with balance: {}", balance);
+    println!(
+        "   ✓ Alice has storage balance entry with balance: {}",
+        balance
+    );
 
     println!("✅ Deposit credited after successful action test passed");
     Ok(())
@@ -434,7 +444,10 @@ async fn test_leave_group_action_succeeds() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_bob_member_after, "Bob should NOT be a member after leave");
+    assert!(
+        !is_bob_member_after,
+        "Bob should NOT be a member after leave"
+    );
     println!("   ✓ Bob is no longer a member");
 
     println!("✅ Leave group action test passed");

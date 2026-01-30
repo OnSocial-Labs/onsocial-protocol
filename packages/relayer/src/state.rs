@@ -67,7 +67,9 @@ fn parse_keys_json(json: &str) -> Result<InMemorySigner, crate::Error> {
         .map_err(|e| crate::Error::Config(format!("Invalid secret key: {e}")))?;
 
     Ok(InMemorySigner::from_secret_key(
-        key.account_id.parse().map_err(|e| crate::Error::Config(format!("Invalid account: {e}")))?,
+        key.account_id
+            .parse()
+            .map_err(|e| crate::Error::Config(format!("Invalid account: {e}")))?,
         secret_key,
     ))
 }

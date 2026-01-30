@@ -91,11 +91,20 @@ async fn create_group(contract: &Contract, owner: &Account, group_id: &str) -> a
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "create_group should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "create_group should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
-async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member: &Account) -> anyhow::Result<()> {
+async fn add_member(
+    contract: &Contract,
+    owner: &Account,
+    group_id: &str,
+    member: &Account,
+) -> anyhow::Result<()> {
     let res = owner
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -107,7 +116,11 @@ async fn add_member(contract: &Contract, owner: &Account, group_id: &str, member
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "add_group_member should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "add_group_member should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -153,7 +166,11 @@ async fn fund_group_pool_and_set_default_quota(
     Ok(())
 }
 
-async fn fund_platform_pool(contract: &Contract, funder: &Account, amount: NearToken) -> anyhow::Result<()> {
+async fn fund_platform_pool(
+    contract: &Contract,
+    funder: &Account,
+    amount: NearToken,
+) -> anyhow::Result<()> {
     let res = funder
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -180,7 +197,11 @@ async fn fund_platform_pool(contract: &Contract, funder: &Account, amount: NearT
     Ok(())
 }
 
-async fn deposit_personal_storage(contract: &Contract, user: &Account, amount: NearToken) -> anyhow::Result<()> {
+async fn deposit_personal_storage(
+    contract: &Contract,
+    user: &Account,
+    amount: NearToken,
+) -> anyhow::Result<()> {
     let res = user
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -197,7 +218,11 @@ async fn deposit_personal_storage(contract: &Contract, user: &Account, amount: N
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "personal storage/deposit should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "personal storage/deposit should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -267,7 +292,11 @@ async fn set_member_quota_override(
         .gas(Gas::from_tgas(180))
         .transact()
         .await?;
-    assert!(res.is_success(), "group_sponsor_quota_set should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "group_sponsor_quota_set should succeed: {:?}",
+        res.failures()
+    );
     Ok(())
 }
 
@@ -285,7 +314,9 @@ async fn view_get_key(
         .await?
         .json()?;
 
-    Ok(v.get("value").cloned().and_then(|val| (!val.is_null()).then_some(val)))
+    Ok(v.get("value")
+        .cloned()
+        .and_then(|val| (!val.is_null()).then_some(val)))
 }
 
 #[tokio::test]
@@ -331,7 +362,11 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
         .gas(Gas::from_tgas(250))
         .transact()
         .await?;
-    assert!(write.is_success(), "write should succeed: {:?}", write.failures());
+    assert!(
+        write.is_success(),
+        "write should succeed: {:?}",
+        write.failures()
+    );
 
     let before: serde_json::Value = contract
         .view("get_storage_balance")
@@ -339,7 +374,10 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
         .await?
         .json()?;
     let group_used_before = parse_u64_field(&before, "group_pool_used_bytes");
-    assert!(group_used_before > 0, "expected group_pool_used_bytes > 0 after sponsored write, got: {before:?}");
+    assert!(
+        group_used_before > 0,
+        "expected group_pool_used_bytes > 0 after sponsored write, got: {before:?}"
+    );
 
     // Delete once: should free bytes and refund back to group pool up to usage.
     let del1 = member
@@ -358,7 +396,11 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
         .gas(Gas::from_tgas(250))
         .transact()
         .await?;
-    assert!(del1.is_success(), "first delete should succeed: {:?}", del1.failures());
+    assert!(
+        del1.is_success(),
+        "first delete should succeed: {:?}",
+        del1.failures()
+    );
 
     let after1: serde_json::Value = contract
         .view("get_storage_balance")
@@ -388,7 +430,11 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
         .gas(Gas::from_tgas(250))
         .transact()
         .await?;
-    assert!(del2.is_success(), "second delete should succeed: {:?}", del2.failures());
+    assert!(
+        del2.is_success(),
+        "second delete should succeed: {:?}",
+        del2.failures()
+    );
 
     let after2: serde_json::Value = contract
         .view("get_storage_balance")
@@ -405,7 +451,8 @@ async fn test_group_sponsored_delete_refund_is_bounded_and_idempotent() -> anyho
 }
 
 #[tokio::test]
-async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -> anyhow::Result<()> {
+async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -> anyhow::Result<()>
+{
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -447,7 +494,11 @@ async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected group-sponsored write to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected group-sponsored write to succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let has_spend_event = logs.iter().any(|l| l.contains("group_sponsor_spend"));
@@ -461,7 +512,8 @@ async fn test_group_default_quota_sponsors_group_write_and_emits_spend_event() -
 }
 
 #[tokio::test]
-async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_deposit_fallback() -> anyhow::Result<()> {
+async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_deposit_fallback(
+) -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -474,14 +526,8 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
     add_member(&contract, &owner, group_id, &member).await?;
 
     // Default quota is intentionally tiny so any meaningful write fails sponsorship.
-    fund_group_pool_and_set_default_quota(
-        &contract,
-        &owner,
-        group_id,
-        NearToken::from_near(2),
-        1,
-    )
-    .await?;
+    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 1)
+        .await?;
 
     let blocked_key = author_group_key(&member, group_id, "content/posts/blocked");
     let fallback_key = author_group_key(&member, group_id, "content/posts/fallback");
@@ -504,7 +550,10 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
         .transact()
         .await?;
 
-    assert!(blocked.is_failure(), "Expected group write to fail when quota exhausted");
+    assert!(
+        blocked.is_failure(),
+        "Expected group write to fail when quota exhausted"
+    );
 
     // 2) With attached deposit should succeed (fallback to user-paid storage).
     let fallback = member
@@ -524,7 +573,11 @@ async fn test_group_default_quota_blocks_without_deposit_but_allows_attached_dep
         .transact()
         .await?;
 
-    assert!(fallback.is_success(), "Expected attached-deposit fallback to succeed: {:?}", fallback.failures());
+    assert!(
+        fallback.is_success(),
+        "Expected attached-deposit fallback to succeed: {:?}",
+        fallback.failures()
+    );
 
     let logs = fallback.logs();
     let has_spend_event = logs.iter().any(|l| l.contains("group_sponsor_spend"));
@@ -557,7 +610,7 @@ async fn test_group_pool_insufficient_blocks_even_when_quota_allows() -> anyhow:
         &owner,
         group_id,
         NearToken::from_millinear(100), // 0.1 NEAR (minimum valid deposit = ~10KB)
-        50_000, // quota allows 50KB but pool only has ~10KB
+        50_000,                         // quota allows 50KB but pool only has ~10KB
     )
     .await?;
 
@@ -629,7 +682,10 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(deposit_res.is_success(), "personal storage/deposit should succeed");
+    assert!(
+        deposit_res.is_success(),
+        "personal storage/deposit should succeed"
+    );
 
     let group_key = author_group_key(&member, group_id, "content/posts/mixed");
     let profile_key = user_key(&member, "profile/name");
@@ -655,7 +711,11 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected mixed-source set to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected mixed-source set to succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let has_spend_event = logs.iter().any(|l| l.contains("group_sponsor_spend"));
@@ -669,7 +729,8 @@ async fn test_single_set_can_use_group_sponsorship_and_personal_balance() -> any
 }
 
 #[tokio::test]
-async fn test_group_write_uses_platform_pool_before_group_pool_when_available() -> anyhow::Result<()> {
+async fn test_group_write_uses_platform_pool_before_group_pool_when_available() -> anyhow::Result<()>
+{
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -711,7 +772,11 @@ async fn test_group_write_uses_platform_pool_before_group_pool_when_available() 
         .gas(Gas::from_tgas(220))
         .transact()
         .await?;
-    assert!(res.is_success(), "Expected group write to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected group write to succeed: {:?}",
+        res.failures()
+    );
 
     // If platform pool paid, there should be no group_sponsor_spend event.
     let logs = res.logs();
@@ -730,7 +795,10 @@ async fn test_group_write_uses_platform_pool_before_group_pool_when_available() 
 
     let platform_used = parse_u64_field(&storage, "platform_pool_used_bytes");
     let group_used = parse_u64_field(&storage, "group_pool_used_bytes");
-    assert!(platform_used > 0, "Expected platform_pool_used_bytes > 0, got: {storage:?}");
+    assert!(
+        platform_used > 0,
+        "Expected platform_pool_used_bytes > 0, got: {storage:?}"
+    );
     assert_eq!(
         group_used, 0,
         "Expected group_pool_used_bytes == 0 when platform pays first, got: {storage:?}"
@@ -740,7 +808,8 @@ async fn test_group_write_uses_platform_pool_before_group_pool_when_available() 
 }
 
 #[tokio::test]
-async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_attached_deposit() -> anyhow::Result<()> {
+async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_attached_deposit(
+) -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -754,7 +823,14 @@ async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_atta
 
     // Fund group pool with minimum valid amount (0.1 NEAR) but set per-user quota to 1 byte.
     // This effectively makes the quota exhausted for any meaningful write, forcing fallback.
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_millinear(100), 1).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_millinear(100),
+        1,
+    )
+    .await?;
 
     // Pre-fund member personal balance so the group write can succeed with 0 attached deposit.
     deposit_personal_storage(&contract, &member, ONE_NEAR).await?;
@@ -797,7 +873,10 @@ async fn test_group_pool_exhausted_falls_back_to_personal_balance_with_zero_atta
         .await?
         .json()?;
     let group_used = parse_u64_field(&storage, "group_pool_used_bytes");
-    assert_eq!(group_used, 0, "Expected group_pool_used_bytes == 0 when personal balance pays, got: {storage:?}");
+    assert_eq!(
+        group_used, 0,
+        "Expected group_pool_used_bytes == 0 when personal balance pays, got: {storage:?}"
+    );
 
     Ok(())
 }
@@ -815,7 +894,14 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
     create_group(&contract, &owner, group_id).await?;
     add_member(&contract, &owner, group_id, &member).await?;
 
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 200_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        200_000,
+    )
+    .await?;
 
     let key = author_group_key(&member, group_id, "content/posts/shrink");
 
@@ -835,7 +921,11 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
         .gas(Gas::from_tgas(240))
         .transact()
         .await?;
-    assert!(write_big.is_success(), "big write should succeed: {:?}", write_big.failures());
+    assert!(
+        write_big.is_success(),
+        "big write should succeed: {:?}",
+        write_big.failures()
+    );
 
     let before: serde_json::Value = contract
         .view("get_storage_balance")
@@ -843,7 +933,10 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
         .await?
         .json()?;
     let group_used_before = parse_u64_field(&before, "group_pool_used_bytes");
-    assert!(group_used_before > 0, "expected group_pool_used_bytes > 0 after sponsored write, got: {before:?}");
+    assert!(
+        group_used_before > 0,
+        "expected group_pool_used_bytes > 0 after sponsored write, got: {before:?}"
+    );
 
     let write_small = member
         .call(contract.id(), "execute")
@@ -861,7 +954,11 @@ async fn test_group_sponsored_update_to_smaller_refunds_group_pool_bytes() -> an
         .gas(Gas::from_tgas(240))
         .transact()
         .await?;
-    assert!(write_small.is_success(), "small write should succeed: {:?}", write_small.failures());
+    assert!(
+        write_small.is_success(),
+        "small write should succeed: {:?}",
+        write_small.failures()
+    );
 
     let after: serde_json::Value = contract
         .view("get_storage_balance")
@@ -892,7 +989,14 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
     add_member(&contract, &owner, group_id, &member1).await?;
     add_member(&contract, &owner, group_id, &member2).await?;
 
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 200_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        200_000,
+    )
+    .await?;
 
     let key1 = author_group_key(&member1, group_id, "content/posts/by_member1");
     let key2 = author_group_key(&member2, group_id, "content/posts/by_member2");
@@ -945,8 +1049,14 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
         .json()?;
     let m1_used_before = parse_u64_field(&s1_before, "group_pool_used_bytes");
     let m2_used_before = parse_u64_field(&s2_before, "group_pool_used_bytes");
-    assert!(m1_used_before > 0, "expected member1 group_pool_used_bytes > 0, got: {s1_before:?}");
-    assert!(m2_used_before > 0, "expected member2 group_pool_used_bytes > 0, got: {s2_before:?}");
+    assert!(
+        m1_used_before > 0,
+        "expected member1 group_pool_used_bytes > 0, got: {s1_before:?}"
+    );
+    assert!(
+        m2_used_before > 0,
+        "expected member2 group_pool_used_bytes > 0, got: {s2_before:?}"
+    );
 
     // Delete member1 content. This must not reduce member2's tracked usage.
     let d1 = member1
@@ -965,7 +1075,11 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
         .gas(Gas::from_tgas(240))
         .transact()
         .await?;
-    assert!(d1.is_success(), "member1 delete should succeed: {:?}", d1.failures());
+    assert!(
+        d1.is_success(),
+        "member1 delete should succeed: {:?}",
+        d1.failures()
+    );
 
     let s1_after: serde_json::Value = contract
         .view("get_storage_balance")
@@ -993,7 +1107,8 @@ async fn test_group_pool_refund_is_isolated_per_payer_for_same_group() -> anyhow
 }
 
 #[tokio::test]
-async fn test_group_default_update_applies_without_clamping_existing_member_allowance() -> anyhow::Result<()> {
+async fn test_group_default_update_applies_without_clamping_existing_member_allowance(
+) -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -1006,7 +1121,14 @@ async fn test_group_default_update_applies_without_clamping_existing_member_allo
     add_member(&contract, &owner, group_id, &member).await?;
 
     // Start with a large default max so the member gets a large initial allowance.
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 50_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        50_000,
+    )
+    .await?;
 
     let key1 = author_group_key(&member, group_id, "content/posts/init_allowance");
     // First write: initializes the member's default-derived quota entry and spends a bit.
@@ -1026,7 +1148,11 @@ async fn test_group_default_update_applies_without_clamping_existing_member_allo
         .gas(Gas::from_tgas(220))
         .transact()
         .await?;
-    assert!(first.is_success(), "initial sponsored write should succeed: {:?}", first.failures());
+    assert!(
+        first.is_success(),
+        "initial sponsored write should succeed: {:?}",
+        first.failures()
+    );
 
     // Now reduce the group default max drastically.
     // With "no clamp-down" semantics, the member should still be able to spend their
@@ -1082,9 +1208,16 @@ async fn test_author_prefixed_group_path_is_sponsored_by_group_pool() -> anyhow:
     create_group(&contract, &owner, group_id).await?;
     add_member(&contract, &owner, group_id, &member).await?;
 
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 50_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        50_000,
+    )
+    .await?;
 
-// Most realistic storage path for group content is "{author/groups/{group_id}/...".
+    // Most realistic storage path for group content is "{author/groups/{group_id}/...".
     let key = author_group_key(&member, group_id, "content/posts/author_prefixed");
 
     let res = member
@@ -1104,7 +1237,11 @@ async fn test_author_prefixed_group_path_is_sponsored_by_group_pool() -> anyhow:
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected author-prefixed group write to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected author-prefixed group write to succeed: {:?}",
+        res.failures()
+    );
     let logs = res.logs();
     assert!(
         logs.iter().any(|l| l.contains("group_sponsor_spend")),
@@ -1123,8 +1260,16 @@ async fn test_author_prefixed_group_path_is_sponsored_by_group_pool() -> anyhow:
     );
 
     // Sanity: the value is actually readable at the same full path.
-    let got = view_get_key(&contract, &author_group_key(&member, group_id, "content/posts/author_prefixed"), None).await?;
-    assert!(got.is_some(), "Expected get() to return stored value for author-prefixed group path");
+    let got = view_get_key(
+        &contract,
+        &author_group_key(&member, group_id, "content/posts/author_prefixed"),
+        None,
+    )
+    .await?;
+    assert!(
+        got.is_some(),
+        "Expected get() to return stored value for author-prefixed group path"
+    );
 
     Ok(())
 }
@@ -1143,7 +1288,14 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
     add_member(&contract, &owner, group_id, &member).await?;
 
     // Default would allow, but per-user override will be extremely strict.
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 50_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        50_000,
+    )
+    .await?;
     set_member_quota_override(&contract, &owner, group_id, &member, 1).await?;
 
     let blocked_key = author_group_key(&member, group_id, "content/posts/override_blocks");
@@ -1164,7 +1316,10 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
         .gas(Gas::from_tgas(220))
         .transact()
         .await?;
-    assert!(blocked.is_failure(), "Expected group write to fail due to strict per-user override quota");
+    assert!(
+        blocked.is_failure(),
+        "Expected group write to fail due to strict per-user override quota"
+    );
 
     let fallback_key = author_group_key(&member, group_id, "content/posts/override_fallback");
     // 2) With attached deposit, fallback should succeed and should NOT emit group_sponsor_spend.
@@ -1184,7 +1339,11 @@ async fn test_per_user_override_quota_takes_precedence_over_default_policy() -> 
         .gas(Gas::from_tgas(240))
         .transact()
         .await?;
-    assert!(fallback.is_success(), "Expected attached-deposit fallback to succeed: {:?}", fallback.failures());
+    assert!(
+        fallback.is_success(),
+        "Expected attached-deposit fallback to succeed: {:?}",
+        fallback.failures()
+    );
     let logs = fallback.logs();
     assert!(
         !logs.iter().any(|l| l.contains("group_sponsor_spend")),
@@ -1208,7 +1367,14 @@ async fn test_failed_multi_operation_set_does_not_persist_partial_state() -> any
     create_group(&contract, &owner, group_id).await?;
     add_member(&contract, &owner, group_id, &member).await?;
 
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 50_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        50_000,
+    )
+    .await?;
 
     // One tx that:
     // - performs a valid group write (would normally be sponsored)
@@ -1233,10 +1399,16 @@ async fn test_failed_multi_operation_set_does_not_persist_partial_state() -> any
         .transact()
         .await?;
 
-    assert!(res.is_failure(), "Expected multi-operation set to fail due to invalid default_set payload");
+    assert!(
+        res.is_failure(),
+        "Expected multi-operation set to fail due to invalid default_set payload"
+    );
 
     let got = view_get_key(&contract, &key, None).await?;
-    assert!(got.is_none(), "Expected no partial state: group key must not be written on failed tx");
+    assert!(
+        got.is_none(),
+        "Expected no partial state: group key must not be written on failed tx"
+    );
 
     let storage: serde_json::Value = contract
         .view("get_storage_balance")
@@ -1268,7 +1440,14 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
     // Fund group pool and set a generous default, but enforce a strict per-user override.
     // The override is set to a value that should be enough for a tiny write, but not enough
     // for a large one in the same tx.
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 100_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        100_000,
+    )
+    .await?;
     let allowance_max_bytes = 3_000u64;
     set_member_quota_override(&contract, &owner, group_id, &member, allowance_max_bytes).await?;
 
@@ -1298,11 +1477,21 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected mid-batch fallback tx to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected mid-batch fallback tx to succeed: {:?}",
+        res.failures()
+    );
 
     // Both values should be present.
-    assert!(view_get_key(&contract, &small_key, None).await?.is_some(), "Expected small key to be written");
-    assert!(view_get_key(&contract, &large_key, None).await?.is_some(), "Expected large key to be written via fallback");
+    assert!(
+        view_get_key(&contract, &small_key, None).await?.is_some(),
+        "Expected small key to be written"
+    );
+    assert!(
+        view_get_key(&contract, &large_key, None).await?.is_some(),
+        "Expected large key to be written via fallback"
+    );
 
     // Sponsorship should have happened for at least one key (the small one).
     let storage: serde_json::Value = contract
@@ -1311,7 +1500,10 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
         .await?
         .json()?;
     let group_used = parse_u64_field(&storage, "group_pool_used_bytes");
-    assert!(group_used > 0, "Expected some group-sponsored bytes, got: {storage:?}");
+    assert!(
+        group_used > 0,
+        "Expected some group-sponsored bytes, got: {storage:?}"
+    );
     assert!(
         group_used <= allowance_max_bytes,
         "Expected group-sponsored bytes bounded by per-user allowance_max_bytes (mid-batch quota gating). used={group_used}, max={allowance_max_bytes}"
@@ -1321,7 +1513,8 @@ async fn test_quota_exhaustion_mid_batch_falls_back_to_attached_deposit() -> any
 }
 
 #[tokio::test]
-async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_balance() -> anyhow::Result<()> {
+async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_balance(
+) -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -1333,7 +1526,14 @@ async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_
     create_group(&contract, &owner, group_id).await?;
     add_member(&contract, &owner, group_id, &member).await?;
 
-    fund_group_pool_and_set_default_quota(&contract, &owner, group_id, NearToken::from_near(2), 50_000).await?;
+    fund_group_pool_and_set_default_quota(
+        &contract,
+        &owner,
+        group_id,
+        NearToken::from_near(2),
+        50_000,
+    )
+    .await?;
 
     // Pre-fund member personal balance in a prior tx so next tx can have 0 attached deposit.
     deposit_personal_storage(&contract, &member, ONE_NEAR).await?;
@@ -1359,7 +1559,11 @@ async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_
         .transact()
         .await?;
 
-    assert!(res.is_success(), "Expected mixed-source set to succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Expected mixed-source set to succeed: {:?}",
+        res.failures()
+    );
     let logs = res.logs();
     assert!(
         logs.iter().any(|l| l.contains("group_sponsor_spend")),
@@ -1379,7 +1583,9 @@ async fn test_single_set_can_use_author_prefixed_group_sponsorship_and_personal_
         "Expected author-prefixed group value to be written"
     );
     assert!(
-        view_get_key(&contract, &user_key(&member, "profile/name"), None).await?.is_some(),
+        view_get_key(&contract, &user_key(&member, "profile/name"), None)
+            .await?
+            .is_some(),
         "Expected personal value to be written"
     );
 

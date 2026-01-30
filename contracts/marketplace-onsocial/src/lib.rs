@@ -1,31 +1,31 @@
 // --- Imports ---
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::store::{LookupMap, IterableMap, IterableSet};
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::store::{IterableMap, IterableSet, LookupMap};
 use near_sdk::{
-    env, near, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseOrValue, NearToken, Gas,
+    env, near, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue,
 };
 
+mod events;
 mod external;
 mod internal;
 mod nft_callbacks;
+mod nft_views;
 mod sale;
 mod sale_views;
 mod storage;
-mod events;
-mod nft_views;
 
 // Native NFT modules
-mod nft_core;
-mod nft_metadata;
 mod nft_approval;
+mod nft_core;
 mod nft_enumeration;
+mod nft_metadata;
 
 // Lazy collection modules
-mod collections;
 mod collection_purchase;
 mod collection_views;
+mod collections;
 
 // --- Constants ---
 /// Storage cost per sale in yoctoNEAR (0.01 NEAR)
@@ -82,14 +82,14 @@ pub enum StorageKey {
     ByNFTContractId,
     ByNFTContractIdInner { account_id_hash: Vec<u8> },
     StorageDeposits,
-    
+
     // Native NFT storage
     NativeTokensPerOwner,
     NativeTokensPerOwnerInner { account_id_hash: Vec<u8> },
     NativeTokensById,
     NativeTokenMetadataById,
     NativeTokenApprovalsById,
-    
+
     // Collection storage
     Collections,
     CollectionsByCreator,
@@ -111,9 +111,7 @@ pub enum SaleType {
         approval_id: u64,
     },
     /// Lazy-minted collection from this contract
-    LazyCollection {
-        collection_id: String,
-    },
+    LazyCollection { collection_id: String },
 }
 
 /// Information about a sale
@@ -204,36 +202,36 @@ pub struct Contract {
     // ===== MARKETPLACE STATE =====
     /// Contract owner
     pub owner_id: AccountId,
-    
+
     /// Account that receives marketplace fees (default: owner_id)
     pub fee_recipient: AccountId,
-    
+
     /// Map of sale ID -> Sale
     pub sales: IterableMap<String, Sale>,
-    
+
     /// Map of owner -> Set of sale IDs
     pub by_owner_id: LookupMap<AccountId, IterableSet<String>>,
-    
+
     /// Map of NFT contract -> Set of sale IDs
     pub by_nft_contract_id: LookupMap<AccountId, IterableSet<String>>,
-    
+
     /// Map of account -> storage deposit balance
     pub storage_deposits: LookupMap<AccountId, u128>,
-    
+
     // ===== NATIVE NFT STATE =====
     /// Map of owner -> Set of native token IDs
     pub native_tokens_per_owner: LookupMap<AccountId, IterableSet<String>>,
-    
+
     /// Map of token ID -> Token data (IterableMap for enumeration support)
     pub native_tokens_by_id: IterableMap<String, NativeToken>,
-    
+
     /// Counter for approval IDs
     pub next_approval_id: u64,
-    
+
     // ===== COLLECTION STATE =====
     /// Map of collection ID -> Collection data (IterableMap for view queries)
     pub collections: IterableMap<String, LazyCollection>,
-    
+
     /// Map of creator -> Set of collection IDs
     pub collections_by_creator: LookupMap<AccountId, IterableSet<String>>,
 }
@@ -252,20 +250,20 @@ impl Contract {
             by_owner_id: LookupMap::new(StorageKey::ByOwnerId),
             by_nft_contract_id: LookupMap::new(StorageKey::ByNFTContractId),
             storage_deposits: LookupMap::new(StorageKey::StorageDeposits),
-            
+
             // Native NFT state
             native_tokens_per_owner: LookupMap::new(StorageKey::NativeTokensPerOwner),
             native_tokens_by_id: IterableMap::new(StorageKey::NativeTokensById),
             next_approval_id: 0,
-            
+
             // Collection state
             collections: IterableMap::new(StorageKey::Collections),
             collections_by_creator: LookupMap::new(StorageKey::CollectionsByCreator),
         }
     }
-    
+
     // --- Admin Functions ---
-    
+
     /// Update the fee recipient account (only owner)
     pub fn set_fee_recipient(&mut self, fee_recipient: AccountId) {
         assert_eq!(
@@ -276,19 +274,19 @@ impl Contract {
         self.fee_recipient = fee_recipient;
         env::log_str(&format!("Fee recipient updated to: {}", self.fee_recipient));
     }
-    
+
     // --- View Functions ---
-    
+
     /// Get the current marketplace fee in basis points
     pub fn get_marketplace_fee_bps(&self) -> u16 {
         MARKETPLACE_FEE_BPS
     }
-    
+
     /// Get the fee recipient account
     pub fn get_fee_recipient(&self) -> AccountId {
         self.fee_recipient.clone()
     }
-    
+
     /// Calculate marketplace fee for a given price
     pub fn calculate_marketplace_fee(&self, price: U128) -> U128 {
         let fee = (price.0 * MARKETPLACE_FEE_BPS as u128) / BASIS_POINTS as u128;
@@ -302,7 +300,7 @@ impl Contract {
     pub(crate) fn make_sale_id(nft_contract_id: &AccountId, token_id: &str) -> String {
         format!("{}{}{}", nft_contract_id, DELIMETER, token_id)
     }
-    
+
     /// Get internal storage balance for an account
     pub(crate) fn internal_storage_balance_of(&self, account_id: &AccountId) -> u128 {
         self.storage_deposits.get(account_id).copied().unwrap_or(0)

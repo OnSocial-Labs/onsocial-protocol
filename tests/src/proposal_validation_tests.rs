@@ -141,7 +141,8 @@ async fn test_validation_non_member_driven_group_rejects_proposals() -> anyhow::
     let failure_str = format!("{:?}", create_proposal.failures());
     assert!(
         failure_str.contains("member-driven") || failure_str.contains("InvalidInput"),
-        "Error should mention member-driven: {}", failure_str
+        "Error should mention member-driven: {}",
+        failure_str
     );
     println!("   ✓ Proposal rejected in non-member-driven group");
 
@@ -206,7 +207,10 @@ async fn test_validation_blacklisted_member_cannot_create_proposal() -> anyhow::
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(blacklist_bob.is_success(), "Blacklisting Bob should succeed");
+    assert!(
+        blacklist_bob.is_success(),
+        "Blacklisting Bob should succeed"
+    );
 
     // Verify Bob is blacklisted
     let is_blacklisted: bool = contract
@@ -232,7 +236,10 @@ async fn test_validation_blacklisted_member_cannot_create_proposal() -> anyhow::
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_md_group.is_success(), "Create member-driven group should succeed");
+    assert!(
+        create_md_group.is_success(),
+        "Create member-driven group should succeed"
+    );
 
     // Add Bob to member-driven group
     let add_bob_md = alice
@@ -246,7 +253,10 @@ async fn test_validation_blacklisted_member_cannot_create_proposal() -> anyhow::
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_bob_md.is_success(), "Adding Bob to member-driven group should succeed");
+    assert!(
+        add_bob_md.is_success(),
+        "Adding Bob to member-driven group should succeed"
+    );
 
     // Create a second non-member-driven group and blacklist Bob there too to test
     // Actually, let's directly blacklist Bob in the member-driven group using the proposal approach
@@ -269,7 +279,10 @@ async fn test_validation_blacklisted_member_cannot_create_proposal() -> anyhow::
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(create_single.is_success(), "Create single-member group should succeed");
+    assert!(
+        create_single.is_success(),
+        "Create single-member group should succeed"
+    );
 
     // Add Bob so we have 2 members (proposals won't auto-execute)
     let add_bob_single = alice
@@ -326,7 +339,10 @@ async fn test_validation_blacklisted_member_cannot_create_proposal() -> anyhow::
         }))
         .await?
         .json()?;
-    assert!(is_bob_blacklisted, "Bob should be blacklisted after ban proposal executed");
+    assert!(
+        is_bob_blacklisted,
+        "Bob should be blacklisted after ban proposal executed"
+    );
     println!("   ✓ Bob is blacklisted via governance proposal");
 
     // Blacklisted Bob tries to create a proposal (should fail)
@@ -353,7 +369,8 @@ async fn test_validation_blacklisted_member_cannot_create_proposal() -> anyhow::
     let failure_str = format!("{:?}", create_proposal.failures());
     assert!(
         failure_str.contains("Blacklisted") || failure_str.contains("Permission denied"),
-        "Error should mention blacklist: {}", failure_str
+        "Error should mention blacklist: {}",
+        failure_str
     );
     println!("   ✓ Blacklisted member cannot create proposal");
 
@@ -415,7 +432,8 @@ async fn test_validation_non_member_cannot_create_proposal() -> anyhow::Result<(
     let failure_str = format!("{:?}", create_proposal.failures());
     assert!(
         failure_str.contains("Permission denied") || failure_str.contains("create_proposal"),
-        "Error should be permission denied: {}", failure_str
+        "Error should be permission denied: {}",
+        failure_str
     );
     println!("   ✓ Non-member cannot create custom_proposal");
 
@@ -477,7 +495,8 @@ async fn test_validation_join_request_proposer_requester_mismatch() -> anyhow::R
     let failure_str = format!("{:?}", mismatched_join.failures());
     assert!(
         failure_str.contains("requester") || failure_str.contains("InvalidInput"),
-        "Error should mention requester mismatch: {}", failure_str
+        "Error should mention requester mismatch: {}",
+        failure_str
     );
     println!("   ✓ JoinRequest with proposer != requester rejected");
 
@@ -551,8 +570,11 @@ async fn test_validation_already_member_cannot_join_request() -> anyhow::Result<
     );
     let failure_str = format!("{:?}", join_request.failures());
     assert!(
-        failure_str.contains("already") || failure_str.contains("member") || failure_str.contains("InvalidInput"),
-        "Error should mention already member: {}", failure_str
+        failure_str.contains("already")
+            || failure_str.contains("member")
+            || failure_str.contains("InvalidInput"),
+        "Error should mention already member: {}",
+        failure_str
     );
     println!("   ✓ Already-member cannot create JoinRequest");
 
@@ -626,8 +648,11 @@ async fn test_validation_member_invite_already_member() -> anyhow::Result<()> {
     );
     let failure_str = format!("{:?}", invite_member.failures());
     assert!(
-        failure_str.contains("already") || failure_str.contains("member") || failure_str.contains("InvalidInput"),
-        "Error should mention already member: {}", failure_str
+        failure_str.contains("already")
+            || failure_str.contains("member")
+            || failure_str.contains("InvalidInput"),
+        "Error should mention already member: {}",
+        failure_str
     );
     println!("   ✓ MemberInvite for already-member rejected");
 
@@ -753,7 +778,8 @@ async fn test_validation_member_invite_blacklisted_target() -> anyhow::Result<()
     let failure_str = format!("{:?}", invite_blacklisted.failures());
     assert!(
         failure_str.contains("blacklisted") || failure_str.contains("InvalidInput"),
-        "Error should mention blacklisted: {}", failure_str
+        "Error should mention blacklisted: {}",
+        failure_str
     );
     println!("   ✓ MemberInvite for blacklisted target rejected");
 
@@ -829,7 +855,8 @@ async fn test_validation_permission_change_invalid_level() -> anyhow::Result<()>
     let failure_str = format!("{:?}", invalid_level.failures());
     assert!(
         failure_str.contains("Invalid permission level") || failure_str.contains("InvalidInput"),
-        "Error should mention invalid level: {}", failure_str
+        "Error should mention invalid level: {}",
+        failure_str
     );
     println!("   ✓ PermissionChange with invalid level (5) rejected");
 
@@ -1258,7 +1285,8 @@ async fn test_validation_path_permission_outside_group() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", different_group.failures());
     assert!(
         failure_str.contains("within this group") || failure_str.contains("InvalidInput"),
-        "Error should mention path scope: {}", failure_str
+        "Error should mention path scope: {}",
+        failure_str
     );
     println!("   ✓ PathPermissionGrant for different group rejected");
 
@@ -1425,7 +1453,8 @@ async fn test_validation_join_request_blacklisted_requester() -> anyhow::Result<
     let failure_str = format!("{:?}", join_request.failures());
     assert!(
         failure_str.contains("blacklisted") || failure_str.contains("Blacklisted"),
-        "Error should mention blacklist: {}", failure_str
+        "Error should mention blacklist: {}",
+        failure_str
     );
     println!("   ✓ Blacklisted user cannot create JoinRequest");
 
@@ -1487,7 +1516,8 @@ async fn test_validation_permission_change_target_not_member() -> anyhow::Result
     let failure_str = format!("{:?}", perm_change.failures());
     assert!(
         failure_str.contains("must be a member") || failure_str.contains("Target user"),
-        "Error should mention target must be member: {}", failure_str
+        "Error should mention target must be member: {}",
+        failure_str
     );
     println!("   ✓ PermissionChange for non-member rejected");
 
@@ -1547,8 +1577,11 @@ async fn test_validation_voting_config_empty_params() -> anyhow::Result<()> {
     );
     let failure_str = format!("{:?}", empty_config.failures());
     assert!(
-        failure_str.contains("At least one") || failure_str.contains("must be specified") || failure_str.contains("parameter"),
-        "Error should mention at least one parameter required: {}", failure_str
+        failure_str.contains("At least one")
+            || failure_str.contains("must be specified")
+            || failure_str.contains("parameter"),
+        "Error should mention at least one parameter required: {}",
+        failure_str
     );
     println!("   ✓ VotingConfigChange with no parameters rejected");
 

@@ -38,11 +38,7 @@ async fn deploy_core_onsocial(
     let wasm = load_core_onsocial_wasm()?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    let init_outcome = contract
-        .call("new")
-        .args_json(json!({}))
-        .transact()
-        .await?;
+    let init_outcome = contract.call("new").args_json(json!({})).transact().await?;
     assert!(
         init_outcome.is_success(),
         "Contract initialization failed: {:?}",
@@ -96,7 +92,10 @@ async fn test_is_owner_nonexistent_group_returns_false() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    assert!(!is_owner, "is_owner should return false for non-existent group");
+    assert!(
+        !is_owner,
+        "is_owner should return false for non-existent group"
+    );
     println!("   ✓ is_owner correctly returns false for non-existent group");
 
     Ok(())
@@ -862,7 +861,8 @@ async fn test_transfer_to_blacklisted_member_fails() -> anyhow::Result<()> {
     let error_msg = format!("{:?}", transfer_result.failures());
     assert!(
         error_msg.contains("member") || error_msg.contains("blacklist"),
-        "Error should mention member or blacklist: {}", error_msg
+        "Error should mention member or blacklist: {}",
+        error_msg
     );
     println!("   ✓ Transfer to blacklisted member correctly rejected");
 
@@ -966,7 +966,10 @@ async fn test_member_driven_group_creates_transfer_proposal() -> anyhow::Result<
         }))
         .await?
         .json()?;
-    assert!(is_alice_owner, "Alice should still be owner (proposal pending)");
+    assert!(
+        is_alice_owner,
+        "Alice should still be owner (proposal pending)"
+    );
     println!("   ✓ Ownership NOT transferred (proposal pending)");
 
     // Verify Bob is NOT owner yet
@@ -978,7 +981,10 @@ async fn test_member_driven_group_creates_transfer_proposal() -> anyhow::Result<
         }))
         .await?
         .json()?;
-    assert!(!is_bob_owner, "Bob should not be owner yet (proposal pending)");
+    assert!(
+        !is_bob_owner,
+        "Bob should not be owner yet (proposal pending)"
+    );
     println!("   ✓ Bob is not owner yet - governance process required");
 
     Ok(())
@@ -1049,7 +1055,10 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_charlie.is_success(), "Add Charlie proposal should succeed");
+    assert!(
+        add_charlie.is_success(),
+        "Add Charlie proposal should succeed"
+    );
     let charlie_proposal_id: String = add_charlie.json()?;
 
     // Bob votes to pass Charlie's invite
@@ -1085,7 +1094,10 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(transfer_proposal.is_success(), "Transfer proposal should succeed");
+    assert!(
+        transfer_proposal.is_success(),
+        "Transfer proposal should succeed"
+    );
     let proposal_id: String = transfer_proposal.json()?;
     println!("   ✓ Transfer ownership proposal created: {}", proposal_id);
 
@@ -1098,7 +1110,10 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(is_alice_owner_before, "Alice should still be owner before vote");
+    assert!(
+        is_alice_owner_before,
+        "Alice should still be owner before vote"
+    );
 
     // Bob votes YES on transfer proposal
     // Since Alice auto-votes as proposer, Bob's vote reaches 2/3 quorum
@@ -1113,7 +1128,10 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(bob_vote.is_success(), "Bob's vote on transfer should succeed");
+    assert!(
+        bob_vote.is_success(),
+        "Bob's vote on transfer should succeed"
+    );
     println!("   ✓ Bob voted YES on transfer proposal (quorum reached: Alice + Bob = 2/3)");
 
     // Verify Bob is NOW the owner (governance executed transfer_ownership_internal with from_governance=true)
@@ -1125,7 +1143,10 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(is_bob_owner, "Bob should now be owner after governance execution");
+    assert!(
+        is_bob_owner,
+        "Bob should now be owner after governance execution"
+    );
     println!("   ✓ Bob is now the owner");
 
     // Verify Alice is no longer owner (remove_old_owner was false, but only one owner allowed)
@@ -1151,7 +1172,10 @@ async fn test_governance_proposal_executes_ownership_transfer() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(is_alice_member, "Alice should still be a member (remove_old_owner=false)");
+    assert!(
+        is_alice_member,
+        "Alice should still be a member (remove_old_owner=false)"
+    );
     println!("   ✓ Alice remains as member (not removed)");
 
     Ok(())
@@ -1226,7 +1250,8 @@ async fn test_governance_proposal_rejects_non_member_new_owner() -> anyhow::Resu
     let error_msg = format!("{:?}", transfer_proposal.failures());
     assert!(
         error_msg.contains("member"),
-        "Error should mention membership: {}", error_msg
+        "Error should mention membership: {}",
+        error_msg
     );
     println!("   ✓ Proposal correctly rejected - new_owner must be a member");
 
@@ -1374,7 +1399,8 @@ async fn test_governance_proposal_rejects_blacklisted_new_owner() -> anyhow::Res
     let error_msg = format!("{:?}", transfer_proposal.failures());
     assert!(
         error_msg.contains("blacklist") || error_msg.contains("member"),
-        "Error should mention blacklist or member: {}", error_msg
+        "Error should mention blacklist or member: {}",
+        error_msg
     );
     println!("   ✓ Proposal correctly rejected - cannot transfer to blacklisted user");
 
@@ -1440,11 +1466,14 @@ async fn test_transfer_event_includes_triggered_by_and_from_governance() -> anyh
 
     // Check event logs for new fields
     let logs = transfer_result.logs();
-    let transfer_event = logs.iter().find(|log| {
-        log.starts_with("EVENT_JSON:") && log.contains("transfer_ownership")
-    });
+    let transfer_event = logs
+        .iter()
+        .find(|log| log.starts_with("EVENT_JSON:") && log.contains("transfer_ownership"));
 
-    assert!(transfer_event.is_some(), "Should emit transfer_ownership event");
+    assert!(
+        transfer_event.is_some(),
+        "Should emit transfer_ownership event"
+    );
     let event_json = transfer_event.unwrap();
 
     // Verify triggered_by field exists
@@ -1463,8 +1492,8 @@ async fn test_transfer_event_includes_triggered_by_and_from_governance() -> anyh
 
     // Verify from_governance is false for direct transfer
     assert!(
-        event_json.contains("\"from_governance\":false") || 
-        event_json.contains("\"from_governance\": false"),
+        event_json.contains("\"from_governance\":false")
+            || event_json.contains("\"from_governance\": false"),
         "from_governance should be false for direct transfer"
     );
     println!("   ✓ from_governance=false for direct transfer");
@@ -1569,7 +1598,10 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(transfer_proposal.is_success(), "Transfer proposal should succeed");
+    assert!(
+        transfer_proposal.is_success(),
+        "Transfer proposal should succeed"
+    );
     let proposal_id: String = transfer_proposal.json()?;
     println!("   ✓ Transfer proposal created");
 
@@ -1589,18 +1621,22 @@ async fn test_governance_transfer_event_has_from_governance_true() -> anyhow::Re
 
     // Check event logs for from_governance=true
     let logs = bob_vote_transfer.logs();
-    let transfer_event = logs.iter().find(|log| {
-        log.starts_with("EVENT_JSON:") && log.contains("transfer_ownership")
-    });
+    let transfer_event = logs
+        .iter()
+        .find(|log| log.starts_with("EVENT_JSON:") && log.contains("transfer_ownership"));
 
-    assert!(transfer_event.is_some(), "Should emit transfer_ownership event");
+    assert!(
+        transfer_event.is_some(),
+        "Should emit transfer_ownership event"
+    );
     let event_json = transfer_event.unwrap();
 
     // Verify from_governance is true for governance-driven transfer
     assert!(
-        event_json.contains("\"from_governance\":true") || 
-        event_json.contains("\"from_governance\": true"),
-        "from_governance should be true for governance transfer: {}", event_json
+        event_json.contains("\"from_governance\":true")
+            || event_json.contains("\"from_governance\": true"),
+        "from_governance should be true for governance transfer: {}",
+        event_json
     );
     println!("   ✓ from_governance=true for governance transfer");
 
@@ -1681,7 +1717,8 @@ async fn test_governance_proposal_rejects_missing_new_owner() -> anyhow::Result<
     let error_msg = format!("{:?}", transfer_proposal.failures());
     assert!(
         error_msg.contains("new_owner") || error_msg.contains("required"),
-        "Error should mention new_owner is required: {}", error_msg
+        "Error should mention new_owner is required: {}",
+        error_msg
     );
     println!("   ✓ Proposal correctly rejected - new_owner is required");
 

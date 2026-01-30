@@ -55,17 +55,16 @@ pub async fn execute(
     }
 
     // Parse contract ID
-    let contract_id: near_primitives::types::AccountId =
-        match state.config.contract_id.parse() {
-            Ok(id) => id,
-            Err(e) => {
-                error!(error = %e, "Invalid contract ID");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ExecuteResponse::err("Invalid contract configuration", None)),
-                );
-            }
-        };
+    let contract_id: near_primitives::types::AccountId = match state.config.contract_id.parse() {
+        Ok(id) => id,
+        Err(e) => {
+            error!(error = %e, "Invalid contract ID");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ExecuteResponse::err("Invalid contract configuration", None)),
+            );
+        }
+    };
 
     // Call contract
     let gas = NearGas::from_tgas(state.config.gas_tgas);

@@ -64,10 +64,10 @@ pub trait ExtNftContract {
         balance: U128,
         max_len_payout: u32,
     ) -> Payout;
-    
+
     /// Get token owner (NEP-171)
     fn nft_token_owner(&self, token_id: String) -> AccountId;
-    
+
     // NEP-178 Approval Management
     /// Check if account is approved for token
     fn nft_is_approved(
@@ -76,18 +76,18 @@ pub trait ExtNftContract {
         approved_account_id: AccountId,
         approval_id: Option<u64>,
     ) -> bool;
-    
+
     // NEP-177 Metadata
     /// Get NFT token with metadata
     fn nft_token(&self, token_id: String) -> Option<Token>;
-    
+
     /// Get NFT contract metadata
     fn nft_metadata(&self) -> NFTContractMetadata;
-    
+
     // NEP-181 Enumeration
     /// Get paginated list of all tokens
     fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Vec<Token>;
-    
+
     /// Get paginated list of tokens for an owner
     fn nft_tokens_for_owner(
         &self,
@@ -95,10 +95,10 @@ pub trait ExtNftContract {
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<Token>;
-    
+
     /// Get total supply of tokens
     fn nft_total_supply(&self) -> U128;
-    
+
     /// Get supply of tokens for an owner
     fn nft_supply_for_owner(&self, account_id: AccountId) -> U128;
 }
@@ -123,7 +123,7 @@ pub trait ExtSelf {
         nft_contract_id: AccountId,
         token_id: String,
     ) -> U128;
-    
+
     /// Process listing after verification
     fn process_listing(
         &mut self,
@@ -134,14 +134,14 @@ pub trait ExtSelf {
         expires_at: Option<u64>,
         owner_id: AccountId,
     );
-    
+
     /// Resolve sale with metadata callback
     fn resolve_sale_with_metadata(
         &self,
         nft_contract_id: AccountId,
         token_id: String,
     ) -> Option<SaleWithMetadata>;
-    
+
     /// Resolve NFT transfer (NEP-171 callback)
     fn nft_resolve_transfer(
         &mut self,

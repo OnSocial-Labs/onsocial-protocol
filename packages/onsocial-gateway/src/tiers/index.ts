@@ -17,49 +17,71 @@ function getProvider(): JsonRpcProvider {
 }
 
 /**
- * Query SOCIAL token balance for an account
- * Uses NEP-141 ft_balance_of standard via direct RPC call
+ * Staking account info from the staking contract
  */
-async function getTokenBalance(accountId: string): Promise<bigint> {
+interface StakingAccount {
+  locked_amount: string;
+  unlock_at: string;
+  lock_months: number;
+  reward_per_token_paid: string;
+  pending_rewards: string;
+}
+
+/**
+ * Query staking account info from the staking contract
+ * Returns locked amount, unlock time, and reward info
+ */
+async function getStakingAccount(accountId: string): Promise<StakingAccount | null> {
   try {
     const rpc = getProvider();
 
-    // Use call_function RPC method for view calls
     const result = await rpc.query({
       request_type: 'call_function',
-      account_id: config.socialTokenContract,
-      method_name: 'ft_balance_of',
+      account_id: config.stakingContract,
+      method_name: 'get_account',
       args_base64: Buffer.from(
         JSON.stringify({ account_id: accountId })
       ).toString('base64'),
       finality: 'final',
     });
 
-    // Parse the result (comes as array of bytes)
     if ('result' in result && Array.isArray(result.result)) {
       const responseStr = Buffer.from(result.result).toString('utf-8');
-      // Remove quotes from JSON string response
-      const balance = responseStr.replace(/"/g, '');
-      return BigInt(balance || '0');
+      return JSON.parse(responseStr) as StakingAccount;
     }
 
-    return BigInt(0);
+    return null;
   } catch (error) {
-    console.error(`Failed to get balance for ${accountId}:`, error);
-    return BigInt(0);
+    console.error(`Failed to get staking account for ${accountId}:`, error);
+    return null;
   }
 }
 
 /**
- * Determine tier based on token balance
- * Phase 1: Simple balance check
- * Phase 2: Will add lock contract + USD oracle check
+ * Calculate tier based on USD value at stake time.
+ * 
+ * ARCHITECTURE: The staking contract is price-agnostic - it only stores
+ * token amounts. The USD value and tier assignment are calculated by:
+ * 
+ * 1. At stake time: Gateway/indexer fetches current SOCIAL price, calculates
+ *    USD value, and stores tier assignment in the indexer database.
+ * 
+ * 2. At query time (this function): We check the staking contract for locked
+ *    amount and query the indexer for the tier assigned at stake time.
+ * 
+ * This design avoids storing price-sensitive data in the contract, which
+ * would create risks when the SOCIAL token has no liquidity/oracle yet.
+ * 
+ * TODO: Phase 2 - Query indexer/database for tier assigned at stake time
+ * For now, we use a simple threshold check on locked amount as placeholder.
  */
-function calculateTier(balance: bigint): Tier {
-  if (balance >= config.tierThresholds.builder) {
+function calculateTier(lockedAmount: bigint): Tier {
+  // TODO: Query indexer for tier assigned at stake time
+  // For now, use simple threshold as placeholder
+  if (lockedAmount >= config.tierThresholds.builder) {
     return 'builder';
   }
-  if (balance >= config.tierThresholds.staker) {
+  if (lockedAmount >= config.tierThresholds.staker) {
     return 'staker';
   }
   return 'free';
@@ -67,6 +89,10 @@ function calculateTier(balance: bigint): Tier {
 
 /**
  * Get tier info for an account (with caching)
+ * 
+ * Queries the staking contract for locked amount and calculates tier.
+ * In Phase 2, this will also query the indexer for the tier assigned
+ * at stake time based on USD value.
  */
 export async function getTierInfo(accountId: string): Promise<TierInfo> {
   const now = Date.now();
@@ -77,13 +103,14 @@ export async function getTierInfo(accountId: string): Promise<TierInfo> {
     return cached.info;
   }
 
-  // Fetch fresh data
-  const balance = await getTokenBalance(accountId);
-  const tier = calculateTier(balance);
+  // Fetch staking account info
+  const stakingAccount = await getStakingAccount(accountId);
+  const lockedAmount = stakingAccount ? BigInt(stakingAccount.locked_amount) : BigInt(0);
+  const tier = calculateTier(lockedAmount);
 
   const info: TierInfo = {
     tier,
-    balance: balance.toString(),
+    balance: lockedAmount.toString(), // Now represents locked/staked amount
     rateLimit: config.rateLimits[tier],
   };
 

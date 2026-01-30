@@ -29,9 +29,7 @@ fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {
         }
     }
 
-    Err(anyhow::anyhow!(
-        "Could not find core_onsocial.wasm"
-    ))
+    Err(anyhow::anyhow!("Could not find core_onsocial.wasm"))
 }
 
 async fn deploy_core_onsocial(
@@ -40,7 +38,12 @@ async fn deploy_core_onsocial(
     let wasm = load_core_onsocial_wasm()?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    contract.call("new").args_json(json!({})).transact().await?.into_result()?;
+    contract
+        .call("new")
+        .args_json(json!({}))
+        .transact()
+        .await?
+        .into_result()?;
     contract
         .call("activate_contract")
         .deposit(NearToken::from_yoctonear(1))
@@ -69,7 +72,8 @@ async fn create_user(root: &Account, name: &str, balance: NearToken) -> anyhow::
 /// proposal status is updated to "rejected" instead of staying "active".
 /// This validates the fix in votes.rs that updates status before propagating error.
 #[tokio::test]
-async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status() -> anyhow::Result<()> {
+async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status(
+) -> anyhow::Result<()> {
     println!("\n=== Test: Execution Failure Updates Status to Rejected ===");
 
     let worker = near_workspaces::sandbox().await?;
@@ -144,10 +148,10 @@ async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status(
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "blacklist-test", 
-                    "proposal_type": "group_update", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "blacklist-test",
+                    "proposal_type": "group_update",
                     "changes": {
                         "update_type": "ban",
                         "target_user": charlie.id().to_string()
@@ -221,7 +225,10 @@ async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status(
         .await?;
 
     // Transaction succeeds but execution failed internally - status updated to rejected
-    assert!(bob_vote.is_success(), "Transaction should succeed (status update committed)");
+    assert!(
+        bob_vote.is_success(),
+        "Transaction should succeed (status update committed)"
+    );
     println!("   ✓ Vote transaction completed (execution failed internally)");
 
     // VERIFICATION 2: Proposal status must be "executed_skipped" (THE FIX - not stuck in "active")
@@ -235,7 +242,7 @@ async fn test_join_request_execution_failure_unlocks_deposit_and_updates_status(
         .cloned()
         .unwrap_or(Value::Null);
     let final_status = after_proposal.get("status").and_then(|v| v.as_str());
-    
+
     assert_eq!(
         final_status,
         Some("executed_skipped"),
@@ -350,7 +357,10 @@ async fn test_join_request_race_condition_user_already_member() -> anyhow::Resul
         .transact()
         .await?;
     let second_proposal_id: String = second_invite.json()?;
-    println!("   ✓ Second invite proposal created: {}", second_proposal_id);
+    println!(
+        "   ✓ Second invite proposal created: {}",
+        second_proposal_id
+    );
 
     // Alice votes YES on second proposal (1/2 votes)
     alice
@@ -390,17 +400,25 @@ async fn test_join_request_race_condition_user_already_member() -> anyhow::Resul
         }))
         .await?
         .json()?;
-    assert!(is_member, "Charlie should be a member after first proposal execution");
+    assert!(
+        is_member,
+        "Charlie should be a member after first proposal execution"
+    );
     println!("   ✓ Charlie is now a member (first proposal executed)");
 
     // VERIFICATION 1: Second proposal should still be "active"
-    let proposal_key = format!("groups/race-condition-test/proposals/{}", second_proposal_id);
+    let proposal_key = format!(
+        "groups/race-condition-test/proposals/{}",
+        second_proposal_id
+    );
     let before_result: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let before_proposal = entry_value(&before_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    let before_proposal = entry_value(&before_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         before_proposal.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -422,7 +440,10 @@ async fn test_join_request_race_condition_user_already_member() -> anyhow::Resul
         .await?;
 
     // Transaction succeeds but execution failed internally - status updated to rejected
-    assert!(bob_vote.is_success(), "Transaction should succeed (status update committed)");
+    assert!(
+        bob_vote.is_success(),
+        "Transaction should succeed (status update committed)"
+    );
     println!("   ✓ Vote transaction completed (execution failed internally)");
 
     // VERIFICATION 2: Second proposal status must be "executed_skipped" (THE FIX)
@@ -432,9 +453,11 @@ async fn test_join_request_race_condition_user_already_member() -> anyhow::Resul
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let after_proposal = entry_value(&after_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    let after_proposal = entry_value(&after_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let final_status = after_proposal.get("status").and_then(|v| v.as_str());
-    
+
     assert_eq!(
         final_status,
         Some("executed_skipped"),
@@ -505,8 +528,13 @@ async fn test_join_request_approved_event_includes_member_nonce() -> anyhow::Res
 
     let logs_join: Vec<String> = join_request.logs().iter().map(|s| s.to_string()).collect();
     let events_join = find_events_by_operation(&logs_join, "proposal_created");
-    assert!(!events_join.is_empty(), "JoinRequest should create a proposal");
-    let proposal_id = events_join[0].data.first()
+    assert!(
+        !events_join.is_empty(),
+        "JoinRequest should create a proposal"
+    );
+    let proposal_id = events_join[0]
+        .data
+        .first()
         .and_then(|d| d.extra.get("proposal_id"))
         .and_then(|v| v.as_str())
         .expect("proposal_id should exist");
@@ -529,7 +557,7 @@ async fn test_join_request_approved_event_includes_member_nonce() -> anyhow::Res
     // Find join_request_approved event
     let logs: Vec<String> = alice_vote.logs().iter().map(|s| s.to_string()).collect();
     let events = find_events_by_operation(&logs, "join_request_approved");
-    
+
     assert!(
         !events.is_empty(),
         "join_request_approved event should be emitted"
@@ -537,7 +565,7 @@ async fn test_join_request_approved_event_includes_member_nonce() -> anyhow::Res
     println!("   ✓ join_request_approved event emitted");
 
     let event_data = &events[0].data[0].extra;
-    
+
     // VERIFICATION 1: member_nonce field exists (THE FIX)
     let member_nonce = event_data.get("member_nonce");
     assert!(
@@ -567,9 +595,15 @@ async fn test_join_request_approved_event_includes_member_nonce() -> anyhow::Res
     println!("   ✓ member_nonce_path: {}", expected_path);
 
     // VERIFICATION 3: Other expected fields still present
-    assert!(event_data.get("group_id").is_some(), "group_id should exist");
+    assert!(
+        event_data.get("group_id").is_some(),
+        "group_id should exist"
+    );
     assert!(event_data.get("level").is_some(), "level should exist");
-    assert!(event_data.get("target_id").is_some(), "target_id should exist");
+    assert!(
+        event_data.get("target_id").is_some(),
+        "target_id should exist"
+    );
     println!("   ✓ All expected event fields present");
 
     println!("✅ join_request_approved event includes member nonce fields (the fix)");

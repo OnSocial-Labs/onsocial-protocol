@@ -237,7 +237,7 @@ async fn test_valid_paths_accepted() -> Result<()> {
         "files/doc.json",
         "my-data/test",
         "data_v2/config",
-        "profile/bio/",  // trailing slash allowed
+        "profile/bio/", // trailing slash allowed
     ];
 
     for path in valid_paths {

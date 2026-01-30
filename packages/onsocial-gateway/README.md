@@ -63,8 +63,19 @@ pnpm dev
 | Tier | Rate Limit | Requirements |
 |------|------------|--------------|
 | Free | 60/min | None |
-| Staker | 600/min | Hold SOCIAL tokens |
-| Builder | 6000/min | Hold more SOCIAL tokens |
+| Staker | 600/min | Stake SOCIAL tokens (tier based on USD value at stake time) |
+| Builder | 6000/min | Stake more SOCIAL tokens |
+
+### Tier Architecture
+
+Tiers are determined by **staked** tokens, not wallet balance:
+
+1. **Staking Contract**: Stores locked token amounts (price-agnostic)
+2. **Gateway**: Queries staking contract for `locked_amount` via `get_account()`
+3. **Indexer** (Phase 2): Tracks tier assignment based on USD value at stake time
+
+This design ensures tiers remain stable regardless of SOCIAL token price fluctuations,
+since the tier is locked in at the moment of staking based on USD value.
 
 ## Authentication Flow
 

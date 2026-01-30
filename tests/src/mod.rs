@@ -7,21 +7,13 @@ pub mod contract_status_tests;
 #[cfg(test)]
 pub mod core_onsocial_tests;
 #[cfg(test)]
-pub mod group_core_view_tests;
-#[cfg(test)]
 pub mod cross_contract_tests;
 #[cfg(test)]
 pub mod governance_request_parsing_tests;
 #[cfg(test)]
-pub mod join_request_execution_fixes_tests;
-#[cfg(test)]
-pub mod member_add_remove_tests;
-#[cfg(test)]
-pub mod member_invite_execution_tests;
-#[cfg(test)]
-pub mod ownership_tests;
-#[cfg(test)]
 pub mod group_content_tests;
+#[cfg(test)]
+pub mod group_core_view_tests;
 #[cfg(test)]
 pub mod group_pool_deposit_tests;
 #[cfg(test)]
@@ -29,9 +21,17 @@ pub mod group_sponsor_validation_tests;
 #[cfg(test)]
 pub mod group_sponsorship_storage_tests;
 #[cfg(test)]
+pub mod join_request_execution_fixes_tests;
+#[cfg(test)]
 pub mod key_permissions_tests;
 #[cfg(test)]
 pub mod lib_wrapper_regression_tests;
+#[cfg(test)]
+pub mod member_add_remove_tests;
+#[cfg(test)]
+pub mod member_invite_execution_tests;
+#[cfg(test)]
+pub mod ownership_tests;
 #[cfg(test)]
 pub mod path_validation_tests;
 #[cfg(test)]

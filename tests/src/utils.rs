@@ -92,7 +92,10 @@ pub fn entry_exists(entries: &[Value], full_key: &str) -> bool {
         return false;
     };
 
-    let deleted = entry.get("deleted").and_then(|v| v.as_bool()).unwrap_or(false);
+    let deleted = entry
+        .get("deleted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if deleted {
         return false;
     }

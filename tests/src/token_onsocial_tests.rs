@@ -22,9 +22,10 @@ const TOTAL_SUPPLY: u128 = 1_000_000_000 * ONE_SOCIAL; // 1 billion
 // Setup helpers
 // =============================================================================
 
-async fn setup_token_contract(
-) -> Result<(near_workspaces::Worker<near_workspaces::network::Sandbox>, near_workspaces::Contract)>
-{
+async fn setup_token_contract() -> Result<(
+    near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    near_workspaces::Contract,
+)> {
     let worker = setup_sandbox().await?;
     let wasm_path = get_wasm_path("token_onsocial");
     let contract = deploy_contract(&worker, &wasm_path).await?;
@@ -68,7 +69,11 @@ async fn test_token_deploy_and_init() -> Result<()> {
     let (_worker, contract) = setup_token_contract().await?;
 
     // Check total supply
-    let total_supply: String = contract.view("ft_total_supply").args_json(json!({})).await?.json()?;
+    let total_supply: String = contract
+        .view("ft_total_supply")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(total_supply, TOTAL_SUPPLY.to_string());
 
     // Check owner balance equals total supply
@@ -86,7 +91,11 @@ async fn test_token_deploy_and_init() -> Result<()> {
 async fn test_token_metadata() -> Result<()> {
     let (_worker, contract) = setup_token_contract().await?;
 
-    let metadata: serde_json::Value = contract.view("ft_metadata").args_json(json!({})).await?.json()?;
+    let metadata: serde_json::Value = contract
+        .view("ft_metadata")
+        .args_json(json!({}))
+        .await?
+        .json()?;
 
     assert_eq!(metadata["name"], "OnSocial");
     assert_eq!(metadata["symbol"], "SOCIAL");
@@ -122,14 +131,25 @@ async fn test_custom_token_parameters() -> Result<()> {
         .into_result()?;
 
     // Verify custom metadata
-    let metadata: serde_json::Value = contract.view("ft_metadata").args_json(json!({})).await?.json()?;
+    let metadata: serde_json::Value = contract
+        .view("ft_metadata")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(metadata["name"], "OnSocial Governance");
     assert_eq!(metadata["symbol"], "OSGOV");
     assert_eq!(metadata["decimals"], 18); // Always 18
-    assert_eq!(metadata["icon"], "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=");
+    assert_eq!(
+        metadata["icon"],
+        "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="
+    );
 
     // Verify custom supply
-    let total_supply: String = contract.view("ft_total_supply").args_json(json!({})).await?.json()?;
+    let total_supply: String = contract
+        .view("ft_total_supply")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(total_supply, custom_supply.to_string());
 
     Ok(())
@@ -207,7 +227,11 @@ async fn test_init_zero_supply_fails() -> Result<()> {
 async fn test_version() -> Result<()> {
     let (_worker, contract) = setup_token_contract().await?;
 
-    let version: String = contract.view("version").args_json(json!({})).await?.json()?;
+    let version: String = contract
+        .view("version")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(version, "1.0.0");
 
     Ok(())
@@ -217,7 +241,11 @@ async fn test_version() -> Result<()> {
 async fn test_get_owner() -> Result<()> {
     let (_worker, contract) = setup_token_contract().await?;
 
-    let owner: String = contract.view("get_owner").args_json(json!({})).await?.json()?;
+    let owner: String = contract
+        .view("get_owner")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(owner, contract.id().to_string());
 
     Ok(())
@@ -264,10 +292,7 @@ async fn test_ft_transfer() -> Result<()> {
         .args_json(json!({ "account_id": contract.id() }))
         .await?
         .json()?;
-    assert_eq!(
-        owner_balance,
-        (TOTAL_SUPPLY - transfer_amount).to_string()
-    );
+    assert_eq!(owner_balance, (TOTAL_SUPPLY - transfer_amount).to_string());
 
     Ok(())
 }
@@ -379,7 +404,11 @@ async fn test_set_icon() -> Result<()> {
         .into_result()?;
 
     // Verify icon was set
-    let metadata: serde_json::Value = contract.view("ft_metadata").args_json(json!({})).await?.json()?;
+    let metadata: serde_json::Value = contract
+        .view("ft_metadata")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(metadata["icon"], icon);
 
     Ok(())
@@ -416,7 +445,11 @@ async fn test_set_reference() -> Result<()> {
         .await?
         .into_result()?;
 
-    let metadata: serde_json::Value = contract.view("ft_metadata").args_json(json!({})).await?.json()?;
+    let metadata: serde_json::Value = contract
+        .view("ft_metadata")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(metadata["reference"], reference);
 
     Ok(())
@@ -436,7 +469,11 @@ async fn test_set_owner() -> Result<()> {
         .into_result()?;
 
     // Verify new owner
-    let owner: String = contract.view("get_owner").args_json(json!({})).await?.json()?;
+    let owner: String = contract
+        .view("get_owner")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(owner, alice.id().to_string());
 
     // Old owner (contract) can no longer set icon
@@ -471,7 +508,11 @@ async fn test_renounce_owner() -> Result<()> {
         .into_result()?;
 
     // Verify owner is now "system"
-    let owner: String = contract.view("get_owner").args_json(json!({})).await?.json()?;
+    let owner: String = contract
+        .view("get_owner")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(owner, "system");
 
     // Can no longer call owner functions
@@ -506,7 +547,11 @@ async fn test_burn() -> Result<()> {
         .into_result()?;
 
     // Check total supply decreased
-    let total_supply: String = contract.view("ft_total_supply").args_json(json!({})).await?.json()?;
+    let total_supply: String = contract
+        .view("ft_total_supply")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(total_supply, (initial_supply - burn_amount).to_string());
 
     // Check owner balance decreased
@@ -575,7 +620,11 @@ async fn test_user_can_burn_own_tokens() -> Result<()> {
     assert_eq!(alice_balance, (alice_amount - burn_amount).to_string());
 
     // Check total supply decreased
-    let total_supply: String = contract.view("ft_total_supply").args_json(json!({})).await?.json()?;
+    let total_supply: String = contract
+        .view("ft_total_supply")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     assert_eq!(total_supply, (TOTAL_SUPPLY - burn_amount).to_string());
 
     Ok(())
@@ -829,7 +878,11 @@ async fn test_storage_unregister_with_balance_force_burns_tokens() -> Result<()>
         .await?
         .into_result()?;
 
-    let supply_before: String = contract.view("ft_total_supply").args_json(json!({})).await?.json()?;
+    let supply_before: String = contract
+        .view("ft_total_supply")
+        .args_json(json!({}))
+        .await?
+        .json()?;
 
     // Force unregister - burns alice's tokens
     alice
@@ -849,7 +902,11 @@ async fn test_storage_unregister_with_balance_force_burns_tokens() -> Result<()>
     assert!(storage_balance.is_null());
 
     // Verify total supply decreased (tokens burned)
-    let supply_after: String = contract.view("ft_total_supply").args_json(json!({})).await?.json()?;
+    let supply_after: String = contract
+        .view("ft_total_supply")
+        .args_json(json!({}))
+        .await?
+        .json()?;
     let expected_supply = supply_before.parse::<u128>().unwrap() - alice_amount;
     assert_eq!(supply_after, expected_supply.to_string());
 

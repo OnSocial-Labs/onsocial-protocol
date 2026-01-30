@@ -9,7 +9,9 @@ const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
 
-async fn deploy_and_init(worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>) -> Result<Contract> {
+async fn deploy_and_init(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+) -> Result<Contract> {
     let wasm_path = get_wasm_path("core-onsocial");
     let wasm = std::fs::read(std::path::Path::new(&wasm_path))?;
     let contract = worker.dev_deploy(&wasm).await?;
@@ -159,7 +161,11 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
         .gas(Gas::from_tgas(140))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_permission should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_permission should succeed: {:?}",
+        res.failures()
+    );
 
     let logs = res.logs();
     let data0 = find_event_data(&logs, "auto_deposit", "unused_deposit_saved")
@@ -168,14 +174,21 @@ async fn test_set_permission_saves_unused_attached_deposit_to_storage_balance() 
         .get("amount")
         .and_then(parse_u128_value)
         .expect("auto_deposit event should include numeric amount");
-    assert_eq!(amount, ONE_NEAR.as_yoctonear(), "expected full attached deposit to be saved");
+    assert_eq!(
+        amount,
+        ONE_NEAR.as_yoctonear(),
+        "expected full attached deposit to be saved"
+    );
 
     let after: Value = contract
         .view("get_storage_balance")
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    assert!(!after.is_null(), "expected storage balance to exist after set_permission");
+    assert!(
+        !after.is_null(),
+        "expected storage balance to exist after set_permission"
+    );
     let after_balance = storage_balance_yocto(&after);
     let after_used_bytes = after
         .get("used_bytes")
@@ -208,12 +221,15 @@ async fn test_get_group_pool_info_invalid_group_id_returns_null_not_panic() -> R
         .await?
         .json()?;
 
-    assert!(v.is_null(), "expected null for invalid group_id, got: {v:?}");
+    assert!(
+        v.is_null(),
+        "expected null for invalid group_id, got: {v:?}"
+    );
     Ok(())
 }
 
 /// Test: set is blocked in ReadOnly mode
-/// 
+///
 /// Validates that the `set` entry point correctly rejects writes
 /// when the contract is in ReadOnly state (via require_live_state guard).
 #[tokio::test]
@@ -230,7 +246,11 @@ async fn test_set_blocked_in_readonly_mode() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(enter_ro.is_success(), "enter_read_only should succeed: {:?}", enter_ro.failures());
+    assert!(
+        enter_ro.is_success(),
+        "enter_read_only should succeed: {:?}",
+        enter_ro.failures()
+    );
 
     // Attempt to call set - should fail with ContractReadOnly
     let set_result = alice
@@ -248,15 +268,14 @@ async fn test_set_blocked_in_readonly_mode() -> Result<()> {
         .transact()
         .await?;
 
-    assert!(
-        !set_result.is_success(),
-        "set should fail in ReadOnly mode"
-    );
+    assert!(!set_result.is_success(), "set should fail in ReadOnly mode");
 
     // Verify error message contains ReadOnly indication
     let failures = format!("{:?}", set_result.failures());
     assert!(
-        failures.contains("ReadOnly") || failures.contains("read-only") || failures.contains("ContractReadOnly"),
+        failures.contains("ReadOnly")
+            || failures.contains("read-only")
+            || failures.contains("ContractReadOnly"),
         "Error should indicate contract is read-only, got: {failures}"
     );
 
@@ -264,7 +283,7 @@ async fn test_set_blocked_in_readonly_mode() -> Result<()> {
 }
 
 /// Test: set is blocked in Genesis mode (before activation)
-/// 
+///
 /// Validates that the `set` entry point correctly rejects writes
 /// when the contract has not been activated yet.
 #[tokio::test]
@@ -312,7 +331,7 @@ async fn test_set_blocked_in_genesis_mode() -> Result<()> {
 }
 
 /// Test: get_platform_pool returns None when pool doesn't exist
-/// 
+///
 /// Validates that get_platform_pool gracefully returns null
 /// when no platform pool deposit has been made.
 #[tokio::test]
@@ -327,12 +346,15 @@ async fn test_get_platform_pool_returns_null_when_empty() -> Result<()> {
         .await?
         .json()?;
 
-    assert!(v.is_null(), "expected null for empty platform pool, got: {v:?}");
+    assert!(
+        v.is_null(),
+        "expected null for empty platform pool, got: {v:?}"
+    );
     Ok(())
 }
 
 /// Test: get_platform_allowance returns defaults for non-existent account
-/// 
+///
 /// Validates that get_platform_allowance returns sensible defaults
 /// (zero allowance, not sponsored) for accounts that have never interacted.
 #[tokio::test]
@@ -368,7 +390,7 @@ async fn test_get_platform_allowance_nonexistent_account() -> Result<()> {
 }
 
 /// Test: get_storage_balance returns None for unknown account
-/// 
+///
 /// Validates that get_storage_balance gracefully returns null
 /// for accounts that have never deposited storage.
 #[tokio::test]
@@ -426,9 +448,9 @@ async fn test_contract_readonly_error_message_format() -> Result<()> {
     // Verify exact error message format from Display impl
     let failures = format!("{:?}", set_result.failures());
     assert!(
-        failures.contains("Contract is read-only") ||
-        failures.contains("read-only") ||
-        failures.contains("ContractReadOnly"),
+        failures.contains("Contract is read-only")
+            || failures.contains("read-only")
+            || failures.contains("ContractReadOnly"),
         "Error should match Display impl format 'Contract is read-only', got: {failures}"
     );
 
@@ -453,7 +475,10 @@ async fn test_unauthorized_error_message_includes_operation_and_account() -> Res
         .transact()
         .await?;
 
-    assert!(!result.is_success(), "Non-manager should not be able to enter_read_only");
+    assert!(
+        !result.is_success(),
+        "Non-manager should not be able to enter_read_only"
+    );
 
     let failures = format!("{:?}", result.failures());
     // The error should contain "Unauthorized" and ideally the operation/account
@@ -491,7 +516,10 @@ async fn test_permission_denied_error_message_includes_operation_and_path() -> R
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(alice_write.is_success(), "Alice should be able to write her profile");
+    assert!(
+        alice_write.is_success(),
+        "Alice should be able to write her profile"
+    );
 
     // Bob tries to write to Alice's account without permission
     let bob_write = bob
@@ -509,15 +537,18 @@ async fn test_permission_denied_error_message_includes_operation_and_path() -> R
         .transact()
         .await?;
 
-    assert!(!bob_write.is_success(), "Bob should not be able to write to Alice's account");
+    assert!(
+        !bob_write.is_success(),
+        "Bob should not be able to write to Alice's account"
+    );
 
     let failures = format!("{:?}", bob_write.failures());
     // The error should indicate permission denied
     assert!(
-        failures.contains("Permission denied") ||
-        failures.contains("PermissionDenied") ||
-        failures.contains("permission") ||
-        failures.contains("Unauthorized"),
+        failures.contains("Permission denied")
+            || failures.contains("PermissionDenied")
+            || failures.contains("permission")
+            || failures.contains("Unauthorized"),
         "Error should indicate permission denied for cross-account write, got: {failures}"
     );
 
@@ -547,17 +578,20 @@ async fn test_invalid_input_error_message_descriptive() -> Result<()> {
         .transact()
         .await?;
 
-    assert!(!result.is_success(), "Empty group_id should fail validation");
+    assert!(
+        !result.is_success(),
+        "Empty group_id should fail validation"
+    );
 
     let failures = format!("{:?}", result.failures());
     // The error should be InvalidInput with a descriptive message
     assert!(
-        failures.contains("Invalid") ||
-        failures.contains("empty") ||
-        failures.contains("group_id") ||
-        failures.contains("Group ID") ||
-        failures.contains("characters") ||
-        failures.contains("validation"),
+        failures.contains("Invalid")
+            || failures.contains("empty")
+            || failures.contains("group_id")
+            || failures.contains("Group ID")
+            || failures.contains("characters")
+            || failures.contains("validation"),
         "Error should indicate invalid input, got: {failures}"
     );
 
@@ -611,16 +645,19 @@ async fn test_insufficient_storage_error_message_includes_balance_details() -> R
         .transact()
         .await?;
 
-    assert!(write_res.is_failure(), "Large write with tiny deposit should fail");
+    assert!(
+        write_res.is_failure(),
+        "Large write with tiny deposit should fail"
+    );
 
     let failures = format!("{:?}", write_res.failures());
     // The error should mention storage-related terms
     assert!(
-        failures.contains("Required") ||
-        failures.contains("available") ||
-        failures.contains("InsufficientStorage") ||
-        failures.contains("storage") ||
-        failures.contains("balance"),
+        failures.contains("Required")
+            || failures.contains("available")
+            || failures.contains("InsufficientStorage")
+            || failures.contains("storage")
+            || failures.contains("balance"),
         "Error should mention insufficient storage with balance details, got: {failures}"
     );
 
@@ -628,7 +665,7 @@ async fn test_insufficient_storage_error_message_includes_balance_details() -> R
 }
 
 /// Test: set succeeds after resuming from ReadOnly mode
-/// 
+///
 /// Validates the full lifecycle: Live → ReadOnly → Live
 /// Ensures set() works after recovery via resume_live().
 #[tokio::test]
@@ -679,7 +716,10 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(!blocked_set.is_success(), "set should fail in ReadOnly mode");
+    assert!(
+        !blocked_set.is_success(),
+        "set should fail in ReadOnly mode"
+    );
 
     // Step 4: Resume Live mode
     let resume = contract
@@ -713,4 +753,3 @@ async fn test_set_succeeds_after_resume_from_readonly() -> Result<()> {
 
     Ok(())
 }
-

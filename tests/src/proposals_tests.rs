@@ -125,7 +125,11 @@ async fn test_single_member_group_auto_executes_proposal() -> anyhow::Result<()>
         create_proposal.is_success(),
         "Creating proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify Bob is immediately a member (proposal auto-executed)
@@ -150,7 +154,9 @@ async fn test_single_member_group_auto_executes_proposal() -> anyhow::Result<()>
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed"),
@@ -288,7 +294,10 @@ async fn test_auto_vote_false_skips_proposer_vote() -> anyhow::Result<()> {
         .get("total_votes")
         .and_then(|v| v.as_u64())
         .unwrap_or(999);
-    let yes_votes = tally.get("yes_votes").and_then(|v| v.as_u64()).unwrap_or(999);
+    let yes_votes = tally
+        .get("yes_votes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
 
     assert_eq!(
         total_votes, 0,
@@ -450,7 +459,9 @@ async fn test_cancel_executed_proposal_blocked() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed")
@@ -538,7 +549,10 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal1.is_success(), "First proposal should succeed");
+    assert!(
+        create_proposal1.is_success(),
+        "First proposal should succeed"
+    );
     let proposal_id1: String = create_proposal1.json()?;
 
     // Create second proposal
@@ -575,7 +589,10 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
         .unwrap_or(0);
 
     // Counter is 3: add_bob creates proposal #1, then our two custom proposals #2 and #3
-    assert_eq!(counter, 3, "Counter should be 3 after add_bob + two custom proposals");
+    assert_eq!(
+        counter, 3,
+        "Counter should be 3 after add_bob + two custom proposals"
+    );
 
     // Verify sequence numbers in proposals
     let key1 = format!("groups/counter-group/proposals/{}", proposal_id1);
@@ -586,8 +603,12 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let p1 = entry_value(&get_proposals, &key1).cloned().unwrap_or(Value::Null);
-    let p2 = entry_value(&get_proposals, &key2).cloned().unwrap_or(Value::Null);
+    let p1 = entry_value(&get_proposals, &key1)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let p2 = entry_value(&get_proposals, &key2)
+        .cloned()
+        .unwrap_or(Value::Null);
 
     let seq1 = p1
         .get("sequence_number")
@@ -600,7 +621,10 @@ async fn test_proposal_counter_increments() -> anyhow::Result<()> {
 
     // Sequence numbers are 2 and 3 (add_bob was #1)
     assert_eq!(seq1, 2, "First custom proposal sequence_number should be 2");
-    assert_eq!(seq2, 3, "Second custom proposal sequence_number should be 3");
+    assert_eq!(
+        seq2, 3,
+        "Second custom proposal sequence_number should be 3"
+    );
 
     println!("✅ Proposal counter increments test passed");
     Ok(())
@@ -721,10 +745,7 @@ async fn test_update_proposal_status_sets_timestamp() -> anyhow::Result<()> {
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
-    assert!(
-        updated_at > 0,
-        "updated_at should be a valid timestamp > 0"
-    );
+    assert!(updated_at > 0, "updated_at should be a valid timestamp > 0");
 
     println!("✅ update_proposal_status sets timestamp test passed");
     Ok(())
@@ -791,7 +812,10 @@ async fn test_join_request_target_uses_requester() -> anyhow::Result<()> {
                 Some(bob.id().as_str()),
                 "JoinRequest proposal target should be the requester (Bob), not predecessor"
             );
-            println!("   ✓ JoinRequest target correctly set to requester: {}", bob.id());
+            println!(
+                "   ✓ JoinRequest target correctly set to requester: {}",
+                bob.id()
+            );
         } else {
             // Join request stored directly, not as proposal - that's also valid
             println!("   ✓ Join request submitted (stored directly, not as proposal)");
@@ -899,7 +923,10 @@ async fn test_proposer_can_cancel_with_only_self_vote() -> anyhow::Result<()> {
         .get("total_votes")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    assert_eq!(total_votes, 1, "Should have exactly 1 vote (Alice's auto-vote)");
+    assert_eq!(
+        total_votes, 1,
+        "Should have exactly 1 vote (Alice's auto-vote)"
+    );
 
     // Alice cancels (should succeed since only her vote exists)
     let cancel = alice
@@ -1040,7 +1067,9 @@ async fn test_vote_on_cancelled_proposal_blocked() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("cancelled"),
@@ -1189,8 +1218,8 @@ async fn test_vote_on_nonexistent_group() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", vote_result.into_result());
     // Should fail with either "Proposal not found" (no proposal exists) or permission error
     assert!(
-        failure_str.contains("not found") 
-            || failure_str.contains("Permission denied") 
+        failure_str.contains("not found")
+            || failure_str.contains("Permission denied")
             || failure_str.contains("InvalidInput"),
         "Error should indicate group/proposal not found: {}",
         failure_str
@@ -1288,7 +1317,9 @@ async fn test_cancel_already_cancelled_proposal_blocked() -> anyhow::Result<()> 
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("cancelled"),
@@ -1400,7 +1431,10 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(bob_approve_carol.is_success(), "Bob approving Carol should succeed");
+    assert!(
+        bob_approve_carol.is_success(),
+        "Bob approving Carol should succeed"
+    );
 
     // Now we have 3 members: Alice, Bob, Carol
     // Alice creates proposal with auto_vote=true (she gets 1 YES)
@@ -1465,7 +1499,9 @@ async fn test_cancel_rejected_proposal_blocked() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("rejected"),
@@ -1542,7 +1578,11 @@ async fn test_voting_config_change_target_is_proposer() -> anyhow::Result<()> {
         create_proposal.is_success(),
         "Creating VotingConfigChange proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is the proposer (Alice)
@@ -1564,7 +1604,9 @@ async fn test_voting_config_change_target_is_proposer() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(alice.id().as_str()),
@@ -1639,7 +1681,11 @@ async fn test_permission_change_target_is_target_user() -> anyhow::Result<()> {
         create_proposal.is_success(),
         "Creating PermissionChange proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is Bob (the target_user), not Alice (the proposer)
@@ -1661,7 +1707,9 @@ async fn test_permission_change_target_is_target_user() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(bob.id().as_str()),
@@ -1737,7 +1785,11 @@ async fn test_path_permission_grant_target_is_target_user() -> anyhow::Result<()
         create_proposal.is_success(),
         "Creating PathPermissionGrant proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is Bob
@@ -1759,7 +1811,9 @@ async fn test_path_permission_grant_target_is_target_user() -> anyhow::Result<()
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(bob.id().as_str())
@@ -1833,7 +1887,11 @@ async fn test_path_permission_revoke_target_is_target_user() -> anyhow::Result<(
         create_proposal.is_success(),
         "Creating PathPermissionRevoke proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is Bob
@@ -1854,7 +1912,9 @@ async fn test_path_permission_revoke_target_is_target_user() -> anyhow::Result<(
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(bob.id().as_str())
@@ -1928,7 +1988,11 @@ async fn test_member_invite_target_is_target_user() -> anyhow::Result<()> {
         create_proposal.is_success(),
         "Creating MemberInvite proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is Carol (the invitee), not Alice (the proposer)
@@ -1950,7 +2014,9 @@ async fn test_member_invite_target_is_target_user() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(carol.id().as_str())
@@ -2012,7 +2078,8 @@ async fn test_member_invite_rejects_missing_target_user() -> anyhow::Result<()> 
     let failure_str = format!("{:?}", missing_target.failures());
     assert!(
         failure_str.contains("target_user required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing target_user: {}", failure_str
+        "Error should mention missing target_user: {}",
+        failure_str
     );
     println!("   ✓ member_invite correctly rejects missing target_user field");
 
@@ -2068,7 +2135,8 @@ async fn test_member_invite_rejects_invalid_target_user() -> anyhow::Result<()> 
     let failure_str = format!("{:?}", invalid_target.failures());
     assert!(
         failure_str.contains("Invalid") || failure_str.contains("target_user"),
-        "Error should mention invalid target_user: {}", failure_str
+        "Error should mention invalid target_user: {}",
+        failure_str
     );
     println!("   ✓ member_invite correctly rejects invalid account ID format");
 
@@ -2124,7 +2192,8 @@ async fn test_member_invite_rejects_null_target_user() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", null_target.failures());
     assert!(
         failure_str.contains("target_user required") || failure_str.contains("InvalidInput"),
-        "Error should mention target_user required: {}", failure_str
+        "Error should mention target_user required: {}",
+        failure_str
     );
     println!("   ✓ member_invite correctly rejects null target_user");
 
@@ -2180,7 +2249,8 @@ async fn test_member_invite_rejects_non_string_target_user() -> anyhow::Result<(
     let failure_str = format!("{:?}", int_target.failures());
     assert!(
         failure_str.contains("target_user required") || failure_str.contains("InvalidInput"),
-        "Error should mention target_user required: {}", failure_str
+        "Error should mention target_user required: {}",
+        failure_str
     );
     println!("   ✓ member_invite correctly rejects non-string target_user");
 
@@ -2242,7 +2312,8 @@ async fn test_join_request_rejects_missing_requester() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", missing_requester.failures());
     assert!(
         failure_str.contains("requester required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing requester: {}", failure_str
+        "Error should mention missing requester: {}",
+        failure_str
     );
     println!("   ✓ join_request correctly rejects missing requester field");
 
@@ -2298,7 +2369,8 @@ async fn test_join_request_rejects_invalid_requester() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", invalid_requester.failures());
     assert!(
         failure_str.contains("Invalid") || failure_str.contains("requester"),
-        "Error should mention invalid requester: {}", failure_str
+        "Error should mention invalid requester: {}",
+        failure_str
     );
     println!("   ✓ join_request correctly rejects invalid account ID format");
 
@@ -2354,7 +2426,8 @@ async fn test_join_request_rejects_null_requester() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", null_requester.failures());
     assert!(
         failure_str.contains("requester required") || failure_str.contains("InvalidInput"),
-        "Error should mention requester required: {}", failure_str
+        "Error should mention requester required: {}",
+        failure_str
     );
     println!("   ✓ join_request correctly rejects null requester");
 
@@ -2410,7 +2483,8 @@ async fn test_join_request_rejects_non_string_requester() -> anyhow::Result<()> 
     let failure_str = format!("{:?}", int_requester.failures());
     assert!(
         failure_str.contains("requester required") || failure_str.contains("InvalidInput"),
-        "Error should mention requester required: {}", failure_str
+        "Error should mention requester required: {}",
+        failure_str
     );
     println!("   ✓ join_request correctly rejects non-string requester");
 
@@ -2463,7 +2537,8 @@ async fn test_join_request_rejects_empty_changes() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", empty_changes.failures());
     assert!(
         failure_str.contains("requester required") || failure_str.contains("InvalidInput"),
-        "Error should mention requester required: {}", failure_str
+        "Error should mention requester required: {}",
+        failure_str
     );
     println!("   ✓ join_request correctly rejects empty changes object");
 
@@ -2516,7 +2591,8 @@ async fn test_member_invite_rejects_empty_changes() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", empty_changes.failures());
     assert!(
         failure_str.contains("target_user required") || failure_str.contains("InvalidInput"),
-        "Error should mention target_user required: {}", failure_str
+        "Error should mention target_user required: {}",
+        failure_str
     );
     println!("   ✓ member_invite correctly rejects empty changes object");
 
@@ -2584,8 +2660,15 @@ async fn test_custom_proposal_target_is_proposer() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating CustomProposal should succeed");
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    assert!(
+        create_proposal.is_success(),
+        "Creating CustomProposal should succeed"
+    );
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is the proposer (Alice)
@@ -2606,7 +2689,9 @@ async fn test_custom_proposal_target_is_proposer() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(alice.id().as_str())
@@ -2730,7 +2815,11 @@ async fn test_group_update_target_is_proposer() -> anyhow::Result<()> {
         create_proposal.is_success(),
         "Creating GroupUpdate proposal should succeed"
     );
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
 
     // Verify target is the proposer (Alice)
@@ -2752,7 +2841,9 @@ async fn test_group_update_target_is_proposer() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("target").and_then(|v| v.as_str()),
         Some(alice.id().as_str())
@@ -2886,13 +2977,18 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let snapshot_quorum = proposal
         .get("voting_config")
         .and_then(|v| v.get("participation_quorum_bps"))
         .and_then(|v| v.as_u64())
         .expect("Proposal should have voting_config snapshot");
-    assert_eq!(snapshot_quorum, 5100, "Snapshot should have original 51% quorum");
+    assert_eq!(
+        snapshot_quorum, 5100,
+        "Snapshot should have original 51% quorum"
+    );
 
     // Now change the group's voting config to 99% quorum (would block most proposals)
     let config_change = alice
@@ -2930,12 +3026,18 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
         .args_json(json!({ "keys": [config_key] }))
         .await?
         .json()?;
-    let group_config = entry_value(&config_result, config_key).cloned().unwrap_or(Value::Null);
+    let group_config = entry_value(&config_result, config_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let current_quorum = group_config
         .get("voting_config")
         .and_then(|v| v.get("participation_quorum_bps"))
         .and_then(|v| v.as_u64());
-    assert_eq!(current_quorum, Some(9900), "Group config should now have 99% quorum");
+    assert_eq!(
+        current_quorum,
+        Some(9900),
+        "Group config should now have 99% quorum"
+    );
 
     // Now Bob votes on the ORIGINAL proposal (should use 51% snapshot, not 99%)
     let vote_original = bob
@@ -2958,7 +3060,9 @@ async fn test_proposal_uses_snapshot_config_not_current() -> anyhow::Result<()> 
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let status = proposal.get("status").and_then(|v| v.as_str());
     assert_eq!(
         status,
@@ -3013,8 +3117,12 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [config_key] }))
         .await?
         .json()?;
-    let group_config = entry_value(&config_result, config_key).cloned().unwrap_or(Value::Null);
-    let _voting_config = group_config.get("voting_config").expect("Should have voting_config");
+    let group_config = entry_value(&config_result, config_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let _voting_config = group_config
+        .get("voting_config")
+        .expect("Should have voting_config");
 
     // Note: The raw stored values might not be clamped at write time.
     // The sanitization happens at read time in get_voting_config().
@@ -3040,8 +3148,12 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&proposal_result, &proposal_key).cloned().unwrap_or(Value::Null);
-    let proposal_voting_config = proposal.get("voting_config").expect("Proposal should have voting_config");
+    let proposal = entry_value(&proposal_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let proposal_voting_config = proposal
+        .get("voting_config")
+        .expect("Proposal should have voting_config");
 
     let quorum = proposal_voting_config
         .get("participation_quorum_bps")
@@ -3053,7 +3165,11 @@ async fn test_voting_config_sanitization_clamps_to_min() -> anyhow::Result<()> {
         .expect("Should have threshold");
     let period = proposal_voting_config
         .get("voting_period")
-        .and_then(|v| v.as_str().and_then(|s| s.parse::<u64>().ok()).or_else(|| v.as_u64()))
+        .and_then(|v| {
+            v.as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| v.as_u64())
+        })
         .expect("Should have period");
 
     // MIN_VOTING_PARTICIPATION_QUORUM_BPS = 100
@@ -3142,7 +3258,10 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Inviting Charlie should succeed"
+    );
     println!("   ✓ Group created with 3 members via proposals");
 
     // Verify Bob does NOT have MODERATE permission on docs before grant
@@ -3156,7 +3275,10 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!has_perm_before, "Bob should NOT have MODERATE on docs before grant");
+    assert!(
+        !has_perm_before,
+        "Bob should NOT have MODERATE on docs before grant"
+    );
     println!("   ✓ Verified Bob has no MODERATE on docs before grant");
 
     // Create PathPermissionGrant proposal with auto_vote=false
@@ -3177,7 +3299,10 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ PathPermissionGrant proposal created: {}", proposal_id);
 
@@ -3205,7 +3330,9 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed"),
@@ -3224,7 +3351,10 @@ async fn test_path_permission_grant_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(has_perm_after, "Bob SHOULD have MODERATE on docs after PathPermissionGrant executed");
+    assert!(
+        has_perm_after,
+        "Bob SHOULD have MODERATE on docs after PathPermissionGrant executed"
+    );
     println!("   ✓ Bob now has MODERATE permission on docs");
 
     println!("✅ PathPermissionGrant execution effect verified");
@@ -3289,7 +3419,10 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Creating Charlie invite proposal should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Creating Charlie invite proposal should succeed"
+    );
     let invite_charlie_id: String = invite_charlie.json()?;
 
     // Alice and Bob vote YES to add Charlie
@@ -3305,7 +3438,11 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
             .await?;
-        assert!(vote.is_success(), "{} vote on Charlie invite should succeed", name);
+        assert!(
+            vote.is_success(),
+            "{} vote on Charlie invite should succeed",
+            name
+        );
     }
     println!("   ✓ Group created with 3 members (alice, bob, charlie)");
 
@@ -3326,7 +3463,10 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating grant proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating grant proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ PathPermissionGrant proposal created: {}", proposal_id);
 
@@ -3345,7 +3485,10 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(remove_bob.is_success(), "Create remove proposal should succeed");
+    assert!(
+        remove_bob.is_success(),
+        "Create remove proposal should succeed"
+    );
     let remove_proposal_id: String = remove_bob.json()?;
     println!("   ✓ RemoveMember proposal created: {}", remove_proposal_id);
 
@@ -3410,7 +3553,10 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
         .await?;
 
     // The vote transaction itself should fail because execution fails
-    assert!(charlie_vote.is_failure(), "Vote should fail when execution fails for non-member");
+    assert!(
+        charlie_vote.is_failure(),
+        "Vote should fail when execution fails for non-member"
+    );
     println!("   ✓ Vote failed as expected when trying to grant permission to non-member");
 
     // Ensure no permission was granted despite the failed execution
@@ -3444,8 +3590,13 @@ async fn test_path_permission_grant_fails_if_target_not_member() -> anyhow::Resu
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
-    let status = proposal.get("status").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let status = proposal
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
     assert_ne!(status, "executed", "Proposal should NOT be executed");
     println!("   ✓ Proposal status is '{}' (not executed)", status);
 
@@ -3510,7 +3661,10 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Inviting Charlie should succeed"
+    );
     println!("   ✓ Group created with 3 members via proposals");
 
     // First, grant Bob WRITE (level 1) on content via a proposal
@@ -3544,7 +3698,10 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(has_perm_before, "Bob should have WRITE on content after grant");
+    assert!(
+        has_perm_before,
+        "Bob should have WRITE on content after grant"
+    );
     println!("   ✓ Verified Bob has WRITE permission on content after grant");
 
     // Create PathPermissionRevoke proposal (Alice auto-votes via default)
@@ -3563,9 +3720,15 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
-    println!("   ✓ PathPermissionRevoke proposal created: {}", proposal_id);
+    println!(
+        "   ✓ PathPermissionRevoke proposal created: {}",
+        proposal_id
+    );
 
     // Bob votes YES to reach quorum (2/3 votes)
     let vote = bob
@@ -3589,7 +3752,9 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed"),
@@ -3608,8 +3773,13 @@ async fn test_path_permission_revoke_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!has_perm_after, "Bob should NOT have WRITE permission after revoke");
-    println!("   ✓ Bob no longer has WRITE permission on content after PathPermissionRevoke executed");
+    assert!(
+        !has_perm_after,
+        "Bob should NOT have WRITE permission after revoke"
+    );
+    println!(
+        "   ✓ Bob no longer has WRITE permission on content after PathPermissionRevoke executed"
+    );
 
     println!("✅ PathPermissionRevoke execution effect verified");
     Ok(())
@@ -3676,7 +3846,7 @@ async fn test_path_permission_grant_requires_reason_field() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         missing_reason.is_failure(),
         "path_permission_grant without reason should fail"
@@ -3684,7 +3854,8 @@ async fn test_path_permission_grant_requires_reason_field() -> anyhow::Result<()
     let failure_str = format!("{:?}", missing_reason.failures());
     assert!(
         failure_str.contains("reason required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing reason: {}", failure_str
+        "Error should mention missing reason: {}",
+        failure_str
     );
     println!("   ✓ path_permission_grant correctly rejects missing reason field");
 
@@ -3748,7 +3919,7 @@ async fn test_path_permission_revoke_requires_reason_field() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         missing_reason.is_failure(),
         "path_permission_revoke without reason should fail"
@@ -3756,7 +3927,8 @@ async fn test_path_permission_revoke_requires_reason_field() -> anyhow::Result<(
     let failure_str = format!("{:?}", missing_reason.failures());
     assert!(
         failure_str.contains("reason required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing reason: {}", failure_str
+        "Error should mention missing reason: {}",
+        failure_str
     );
     println!("   ✓ path_permission_revoke correctly rejects missing reason field");
 
@@ -3821,7 +3993,7 @@ async fn test_path_permission_grant_requires_path_field() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         missing_path.is_failure(),
         "path_permission_grant without path should fail"
@@ -3829,7 +4001,8 @@ async fn test_path_permission_grant_requires_path_field() -> anyhow::Result<()> 
     let failure_str = format!("{:?}", missing_path.failures());
     assert!(
         failure_str.contains("path required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing path: {}", failure_str
+        "Error should mention missing path: {}",
+        failure_str
     );
     println!("   ✓ path_permission_grant correctly rejects missing path field");
 
@@ -3878,7 +4051,7 @@ async fn test_permission_change_rejects_invalid_account_id() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         invalid_account.is_failure(),
         "permission_change with invalid account ID should fail"
@@ -3886,7 +4059,8 @@ async fn test_permission_change_rejects_invalid_account_id() -> anyhow::Result<(
     let failure_str = format!("{:?}", invalid_account.failures());
     assert!(
         failure_str.contains("Invalid") || failure_str.contains("account"),
-        "Error should mention invalid account: {}", failure_str
+        "Error should mention invalid account: {}",
+        failure_str
     );
     println!("   ✓ permission_change correctly rejects invalid account ID format");
 
@@ -3950,7 +4124,7 @@ async fn test_permission_change_requires_level_field() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         missing_level.is_failure(),
         "permission_change without level should fail"
@@ -3958,7 +4132,8 @@ async fn test_permission_change_requires_level_field() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", missing_level.failures());
     assert!(
         failure_str.contains("level required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing level: {}", failure_str
+        "Error should mention missing level: {}",
+        failure_str
     );
     println!("   ✓ permission_change correctly rejects missing level field");
 
@@ -4022,7 +4197,7 @@ async fn test_path_permission_revoke_requires_path_field() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         missing_path.is_failure(),
         "path_permission_revoke without path should fail"
@@ -4030,7 +4205,8 @@ async fn test_path_permission_revoke_requires_path_field() -> anyhow::Result<()>
     let failure_str = format!("{:?}", missing_path.failures());
     assert!(
         failure_str.contains("path required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing path: {}", failure_str
+        "Error should mention missing path: {}",
+        failure_str
     );
     println!("   ✓ path_permission_revoke correctly rejects missing path field");
 
@@ -4095,7 +4271,7 @@ async fn test_path_permission_grant_requires_level_field() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         missing_level.is_failure(),
         "path_permission_grant without level should fail"
@@ -4103,7 +4279,8 @@ async fn test_path_permission_grant_requires_level_field() -> anyhow::Result<()>
     let failure_str = format!("{:?}", missing_level.failures());
     assert!(
         failure_str.contains("level required") || failure_str.contains("InvalidInput"),
-        "Error should mention missing level: {}", failure_str
+        "Error should mention missing level: {}",
+        failure_str
     );
     println!("   ✓ path_permission_grant correctly rejects missing level field");
 
@@ -4153,7 +4330,7 @@ async fn test_path_permission_grant_rejects_invalid_account_id() -> anyhow::Resu
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         invalid_account.is_failure(),
         "path_permission_grant with invalid account ID should fail"
@@ -4161,7 +4338,8 @@ async fn test_path_permission_grant_rejects_invalid_account_id() -> anyhow::Resu
     let failure_str = format!("{:?}", invalid_account.failures());
     assert!(
         failure_str.contains("Invalid") || failure_str.contains("account"),
-        "Error should mention invalid account: {}", failure_str
+        "Error should mention invalid account: {}",
+        failure_str
     );
     println!("   ✓ path_permission_grant correctly rejects invalid account ID");
 
@@ -4210,7 +4388,7 @@ async fn test_path_permission_revoke_rejects_invalid_account_id() -> anyhow::Res
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    
+
     assert!(
         invalid_account.is_failure(),
         "path_permission_revoke with invalid account ID should fail"
@@ -4218,7 +4396,8 @@ async fn test_path_permission_revoke_rejects_invalid_account_id() -> anyhow::Res
     let failure_str = format!("{:?}", invalid_account.failures());
     assert!(
         failure_str.contains("Invalid") || failure_str.contains("account"),
-        "Error should mention invalid account: {}", failure_str
+        "Error should mention invalid account: {}",
+        failure_str
     );
     println!("   ✓ path_permission_revoke correctly rejects invalid account ID");
 
@@ -4283,7 +4462,10 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Inviting Charlie should succeed"
+    );
     println!("   ✓ Group created with 3 members via proposals (all level 0)");
 
     // Verify Bob's current level is 0
@@ -4293,8 +4475,13 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [member_key.clone()] }))
         .await?
         .json()?;
-    let member_data = entry_value(&get_result, &member_key).cloned().unwrap_or(Value::Null);
-    let level_before = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
+    let member_data = entry_value(&get_result, &member_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let level_before = member_data
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
     assert_eq!(level_before, 0, "Bob's level should be 0 before change");
     println!("   ✓ Bob's level is 0 before PermissionChange");
 
@@ -4314,7 +4501,10 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ PermissionChange proposal created: {}", proposal_id);
 
@@ -4341,9 +4531,17 @@ async fn test_permission_change_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [member_key.clone()] }))
         .await?
         .json()?;
-    let member_data_after = entry_value(&get_result_after, &member_key).cloned().unwrap_or(Value::Null);
-    let level_after = member_data_after.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
-    assert_eq!(level_after, 2, "Bob's level should be 2 after PermissionChange");
+    let member_data_after = entry_value(&get_result_after, &member_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let level_after = member_data_after
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
+    assert_eq!(
+        level_after, 2,
+        "Bob's level should be 2 after PermissionChange"
+    );
     println!("   ✓ Bob's level is now 2 after PermissionChange executed");
 
     println!("✅ PermissionChange execution effect verified");
@@ -4408,7 +4606,10 @@ async fn test_permission_change_event_reason_is_always_string() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Inviting Charlie should succeed"
+    );
     println!("   ✓ Group created with 3 members");
 
     // Create PermissionChange proposal WITHOUT reason (reason=null in API)
@@ -4427,9 +4628,15 @@ async fn test_permission_change_event_reason_is_always_string() -> anyhow::Resul
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
-    println!("   ✓ PermissionChange proposal created (no reason provided): {}", proposal_id);
+    println!(
+        "   ✓ PermissionChange proposal created (no reason provided): {}",
+        proposal_id
+    );
 
     // Alice votes YES
     let alice_vote = alice
@@ -4465,12 +4672,17 @@ async fn test_permission_change_event_reason_is_always_string() -> anyhow::Resul
 
     // Find permission_changed events
     let perm_events = find_events_by_operation(&logs, "permission_changed");
-    assert!(!perm_events.is_empty(), "permission_changed event should be emitted on execution");
+    assert!(
+        !perm_events.is_empty(),
+        "permission_changed event should be emitted on execution"
+    );
     println!("   ✓ permission_changed event found");
 
     // Verify the reason field is a string (not null)
     let event = &perm_events[0];
-    let reason_value = event.data.first()
+    let reason_value = event
+        .data
+        .first()
         .and_then(|d| d.extra.get("reason"))
         .expect("reason field should exist in permission_changed event");
 
@@ -4583,8 +4795,13 @@ async fn test_permission_change_level_zero_revokes_permissions() -> anyhow::Resu
         .args_json(json!({ "keys": [member_key.clone()] }))
         .await?
         .json()?;
-    let member_data = entry_value(&get_result, &member_key).cloned().unwrap_or(Value::Null);
-    let level_before = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
+    let member_data = entry_value(&get_result, &member_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let level_before = member_data
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
     assert_eq!(level_before, 2, "Bob should be level 2 after promotion");
     println!("   ✓ Bob promoted to level 2");
 
@@ -4632,8 +4849,13 @@ async fn test_permission_change_level_zero_revokes_permissions() -> anyhow::Resu
         .args_json(json!({ "keys": [member_key.clone()] }))
         .await?
         .json()?;
-    let member_data_after = entry_value(&get_result_after, &member_key).cloned().unwrap_or(Value::Null);
-    let level_after = member_data_after.get("level").and_then(|v| v.as_u64()).unwrap_or(999);
+    let member_data_after = entry_value(&get_result_after, &member_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let level_after = member_data_after
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(999);
     assert_eq!(level_after, 0, "Bob should be level 0 after demotion");
     println!("   ✓ Bob demoted to level 0");
 
@@ -4713,7 +4935,9 @@ async fn test_permission_change_member_not_found() -> anyhow::Result<()> {
     );
     let failure_msg = format!("{:?}", create_proposal.failures());
     assert!(
-        failure_msg.contains("not a member") || failure_msg.contains("Member") || failure_msg.contains("member"),
+        failure_msg.contains("not a member")
+            || failure_msg.contains("Member")
+            || failure_msg.contains("member"),
         "Error should mention member validation, got: {}",
         failure_msg
     );
@@ -5006,7 +5230,10 @@ async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ VotingConfigChange proposal created: {}", proposal_id);
 
@@ -5034,12 +5261,18 @@ async fn test_voting_config_change_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [config_key] }))
         .await?
         .json()?;
-    let group_config = entry_value(&get_result, config_key).cloned().unwrap_or(Value::Null);
+    let group_config = entry_value(&get_result, config_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let quorum = group_config
         .get("voting_config")
         .and_then(|v| v.get("participation_quorum_bps"))
         .and_then(|v| v.as_u64());
-    assert_eq!(quorum, Some(9000), "Quorum should be 9000 after VotingConfigChange");
+    assert_eq!(
+        quorum,
+        Some(9000),
+        "Quorum should be 9000 after VotingConfigChange"
+    );
     println!("   ✓ Group config now has 90% quorum");
 
     println!("✅ VotingConfigChange execution effect verified");
@@ -5103,7 +5336,10 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Creating invite proposal should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Creating invite proposal should succeed"
+    );
     let invite_charlie_id: String = invite_charlie.json()?;
 
     // Alice and Bob vote YES to add Charlie
@@ -5132,7 +5368,10 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
         }))
         .await?
         .json()?;
-    assert!(is_charlie_member_before, "Charlie should be a member before removal");
+    assert!(
+        is_charlie_member_before,
+        "Charlie should be a member before removal"
+    );
     println!("   ✓ Charlie is a member before proposal");
 
     // Create GroupUpdate RemoveMember proposal
@@ -5150,7 +5389,10 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ RemoveMember proposal created: {}", proposal_id);
 
@@ -5180,7 +5422,10 @@ async fn test_group_update_remove_member_execution_effect() -> anyhow::Result<()
         }))
         .await?
         .json()?;
-    assert!(!is_charlie_member_after, "Charlie should NOT be a member after removal");
+    assert!(
+        !is_charlie_member_after,
+        "Charlie should NOT be a member after removal"
+    );
     println!("   ✓ Charlie is no longer a member after RemoveMember executed");
 
     println!("✅ GroupUpdate RemoveMember execution effect verified");
@@ -5244,7 +5489,10 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Inviting Charlie should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Inviting Charlie should succeed"
+    );
     println!("   ✓ Group created with 3 members via proposals");
 
     // Ban Charlie via proposal first
@@ -5338,7 +5586,10 @@ async fn test_group_update_unban_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_blacklisted_after, "Charlie should NOT be blacklisted after unban");
+    assert!(
+        !is_blacklisted_after,
+        "Charlie should NOT be blacklisted after unban"
+    );
     println!("   ✓ Charlie is no longer blacklisted after Unban executed");
 
     println!("✅ GroupUpdate Unban execution effect verified");
@@ -5397,9 +5648,15 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [config_key] }))
         .await?
         .json()?;
-    let config_before = entry_value(&get_before, config_key).cloned().unwrap_or(Value::Null);
+    let config_before = entry_value(&get_before, config_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let desc_before = config_before.get("description").and_then(|v| v.as_str());
-    assert_eq!(desc_before, Some("Original"), "Description should be 'Original' before");
+    assert_eq!(
+        desc_before,
+        Some("Original"),
+        "Description should be 'Original' before"
+    );
     println!("   ✓ Description is 'Original' before proposal");
 
     // Create GroupUpdate Metadata proposal
@@ -5419,7 +5676,10 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ Metadata update proposal created: {}", proposal_id);
 
@@ -5446,9 +5706,15 @@ async fn test_group_update_metadata_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [config_key] }))
         .await?
         .json()?;
-    let config_after = entry_value(&get_after, config_key).cloned().unwrap_or(Value::Null);
+    let config_after = entry_value(&get_after, config_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     let desc_after = config_after.get("description").and_then(|v| v.as_str());
-    assert_eq!(desc_after, Some("Updated via governance"), "Description should be updated");
+    assert_eq!(
+        desc_after,
+        Some("Updated via governance"),
+        "Description should be updated"
+    );
     println!("   ✓ Description is now 'Updated via governance' after proposal executed");
 
     println!("✅ GroupUpdate Metadata execution effect verified");
@@ -5510,7 +5776,10 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_charlie_member_before, "Charlie should NOT be a member before join request");
+    assert!(
+        !is_charlie_member_before,
+        "Charlie should NOT be a member before join request"
+    );
     println!("   ✓ Charlie is not a member before join request");
 
     // Charlie submits a join request (creates JoinRequest proposal)
@@ -5563,7 +5832,9 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed"),
@@ -5580,7 +5851,10 @@ async fn test_join_request_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_charlie_member_after, "Charlie SHOULD be a member after JoinRequest executed");
+    assert!(
+        is_charlie_member_after,
+        "Charlie SHOULD be a member after JoinRequest executed"
+    );
     println!("   ✓ Charlie is now a member after JoinRequest executed");
 
     println!("✅ JoinRequest execution effect verified");
@@ -5644,7 +5918,10 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_charlie.is_success(), "Creating invite proposal should succeed");
+    assert!(
+        invite_charlie.is_success(),
+        "Creating invite proposal should succeed"
+    );
     let invite_charlie_id: String = invite_charlie.json()?;
 
     // Alice and Bob vote YES to add Charlie
@@ -5683,7 +5960,10 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_blacklisted_before, "Charlie should NOT be blacklisted before ban");
+    assert!(
+        !is_blacklisted_before,
+        "Charlie should NOT be blacklisted before ban"
+    );
     println!("   ✓ Charlie is a member and not blacklisted before ban");
 
     // Create Ban proposal
@@ -5729,7 +6009,9 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed"),
@@ -5746,7 +6028,10 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(!is_charlie_member_after, "Charlie should NOT be a member after ban");
+    assert!(
+        !is_charlie_member_after,
+        "Charlie should NOT be a member after ban"
+    );
     println!("   ✓ Charlie is no longer a member after ban");
 
     // Verify Charlie is now blacklisted
@@ -5758,7 +6043,10 @@ async fn test_group_update_ban_execution_effect() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert!(is_blacklisted_after, "Charlie SHOULD be blacklisted after ban");
+    assert!(
+        is_blacklisted_after,
+        "Charlie SHOULD be blacklisted after ban"
+    );
     println!("   ✓ Charlie is now blacklisted after Ban executed");
 
     println!("✅ GroupUpdate Ban execution effect verified");
@@ -5826,7 +6114,10 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(!ban_no_target.is_success(), "Ban without target_user should FAIL");
+    assert!(
+        !ban_no_target.is_success(),
+        "Ban without target_user should FAIL"
+    );
     println!("   ✓ Ban proposal without target_user correctly rejected");
 
     // Test 2: RemoveMember proposal WITHOUT target_user should FAIL
@@ -5843,7 +6134,10 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(!remove_no_target.is_success(), "RemoveMember without target_user should FAIL");
+    assert!(
+        !remove_no_target.is_success(),
+        "RemoveMember without target_user should FAIL"
+    );
     println!("   ✓ RemoveMember proposal without target_user correctly rejected");
 
     // Test 3: Unban proposal WITHOUT target_user should FAIL
@@ -5860,7 +6154,10 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(!unban_no_target.is_success(), "Unban without target_user should FAIL");
+    assert!(
+        !unban_no_target.is_success(),
+        "Unban without target_user should FAIL"
+    );
     println!("   ✓ Unban proposal without target_user correctly rejected");
 
     // Test 4: Ban proposal with INVALID target_user should FAIL
@@ -5878,7 +6175,10 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(!ban_invalid_target.is_success(), "Ban with invalid target_user should FAIL");
+    assert!(
+        !ban_invalid_target.is_success(),
+        "Ban with invalid target_user should FAIL"
+    );
     println!("   ✓ Ban proposal with invalid target_user correctly rejected");
 
     // Test 5: Ban proposal with VALID target_user should SUCCEED
@@ -5896,7 +6196,10 @@ async fn test_group_update_requires_target_user() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(ban_valid.is_success(), "Ban with valid target_user should SUCCEED");
+    assert!(
+        ban_valid.is_success(),
+        "Ban with valid target_user should SUCCEED"
+    );
     println!("   ✓ Ban proposal with valid target_user correctly accepted");
 
     println!("✅ GroupUpdate target_user validation test passed");
@@ -5952,7 +6255,11 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_bob.is_success(), "Adding Bob should succeed: {:?}", add_bob.failures());
+    assert!(
+        add_bob.is_success(),
+        "Adding Bob should succeed: {:?}",
+        add_bob.failures()
+    );
     println!("   ✓ Added Bob as member");
 
     // Add Charlie so we have 3 members (need 2/3 > 51% to execute)
@@ -5969,7 +6276,10 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(add_charlie_proposal.is_success(), "Add Charlie proposal should succeed");
+    assert!(
+        add_charlie_proposal.is_success(),
+        "Add Charlie proposal should succeed"
+    );
     let charlie_proposal_id: String = add_charlie_proposal.json()?;
 
     // Bob votes to execute Charlie invite
@@ -6007,11 +6317,17 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(!insufficient_deposit.is_success(), "Proposal with 0.01 NEAR should FAIL");
+    assert!(
+        !insufficient_deposit.is_success(),
+        "Proposal with 0.01 NEAR should FAIL"
+    );
     let failure_msg = format!("{:?}", insufficient_deposit.failures());
     assert!(
-        failure_msg.contains("minimum") || failure_msg.contains("deposit") || failure_msg.contains("0.1"),
-        "Error should mention minimum deposit requirement, got: {}", failure_msg
+        failure_msg.contains("minimum")
+            || failure_msg.contains("deposit")
+            || failure_msg.contains("0.1"),
+        "Error should mention minimum deposit requirement, got: {}",
+        failure_msg
     );
     println!("   ✓ Proposal with 0.01 NEAR correctly rejected");
 
@@ -6035,23 +6351,32 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         .transact()
         .await?;
 
-    assert!(minimum_deposit.is_success(), "Proposal with exactly 0.1 NEAR should succeed");
+    assert!(
+        minimum_deposit.is_success(),
+        "Proposal with exactly 0.1 NEAR should succeed"
+    );
     println!("   ✓ Proposal with exactly 0.1 NEAR accepted");
 
     // Verify locked_deposit in proposal_created event
     let logs = minimum_deposit.logs();
     let proposal_created_events = find_events_by_operation(&logs, "proposal_created");
-    assert!(!proposal_created_events.is_empty(), "proposal_created event should be emitted");
+    assert!(
+        !proposal_created_events.is_empty(),
+        "proposal_created event should be emitted"
+    );
 
     let pc_event = &proposal_created_events[0];
     let pc_extra = &pc_event.data.first().expect("event data").extra;
 
     // locked_deposit should be PROPOSAL_EXECUTION_LOCK (0.05 NEAR = 50000000000000000000000)
-    let locked_deposit = pc_extra.get("locked_deposit")
+    let locked_deposit = pc_extra
+        .get("locked_deposit")
         .and_then(|v| v.as_str())
         .expect("locked_deposit should exist");
-    assert_eq!(locked_deposit, "50000000000000000000000", 
-        "locked_deposit should be 0.05 NEAR (PROPOSAL_EXECUTION_LOCK)");
+    assert_eq!(
+        locked_deposit, "50000000000000000000000",
+        "locked_deposit should be 0.05 NEAR (PROPOSAL_EXECUTION_LOCK)"
+    );
     println!("   ✓ locked_deposit = 0.05 NEAR in proposal_created event");
 
     let proposal_id: String = minimum_deposit.json()?;
@@ -6071,7 +6396,7 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     println!("   DEBUG: Alice storage = {:?}", alice_storage_after_create);
 
     let alice_storage = alice_storage_after_create.expect("Alice should have storage");
-    
+
     // Parse locked_balance - can be u64, f64 (scientific notation), or string
     let locked_balance_val: u128 = match alice_storage.get("locked_balance") {
         Some(Value::Number(n)) => {
@@ -6086,15 +6411,23 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         Some(Value::String(s)) => s.parse().unwrap_or(0),
         _ => 0,
     };
-    
+
     // locked_balance should be PROPOSAL_EXECUTION_LOCK (0.05 NEAR = 5e22)
-    assert!(locked_balance_val > 0, "Alice's locked_balance should be > 0 after proposal creation, got: {}", locked_balance_val);
+    assert!(
+        locked_balance_val > 0,
+        "Alice's locked_balance should be > 0 after proposal creation, got: {}",
+        locked_balance_val
+    );
     println!("   ✓ Alice's locked_balance = {} (> 0)", locked_balance_val);
 
-    let alice_used_bytes_before: u64 = alice_storage.get("used_bytes")
+    let alice_used_bytes_before: u64 = alice_storage
+        .get("used_bytes")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    println!("   ✓ Alice's used_bytes before vote = {}", alice_used_bytes_before);
+    println!(
+        "   ✓ Alice's used_bytes before vote = {}",
+        alice_used_bytes_before
+    );
 
     // Get Bob's storage before voting
     let bob_storage_before: Option<Value> = contract
@@ -6102,13 +6435,16 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         .args_json(json!({ "account_id": bob.id() }))
         .await?
         .json()?;
-    
+
     let bob_used_bytes_before: u64 = bob_storage_before
         .as_ref()
         .and_then(|s| s.get("used_bytes"))
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
-    println!("   ✓ Bob's used_bytes before vote = {}", bob_used_bytes_before);
+    println!(
+        "   ✓ Bob's used_bytes before vote = {}",
+        bob_used_bytes_before
+    );
 
     // =========================================================================
     // TEST 4: Bob votes, proposal executes, verify proposer (Alice) is charged
@@ -6165,10 +6501,14 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     // Bob's used_bytes should only increase slightly (just his vote, not execution)
     let bob_storage_delta = bob_used_bytes_after.saturating_sub(bob_used_bytes_before);
 
-    println!("   Alice used_bytes: {} -> {} (delta: +{})", 
-        alice_used_bytes_before, alice_used_bytes_after, alice_storage_delta);
-    println!("   Bob used_bytes: {} -> {} (delta: +{})", 
-        bob_used_bytes_before, bob_used_bytes_after, bob_storage_delta);
+    println!(
+        "   Alice used_bytes: {} -> {} (delta: +{})",
+        alice_used_bytes_before, alice_used_bytes_after, alice_storage_delta
+    );
+    println!(
+        "   Bob used_bytes: {} -> {} (delta: +{})",
+        bob_used_bytes_before, bob_used_bytes_after, bob_storage_delta
+    );
 
     // The key assertion: Alice's storage should grow MORE than Bob's
     // because Alice pays for execution, Bob only pays for his vote
@@ -6181,7 +6521,7 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     println!("\n📦 TEST 6: Verify locked_balance unlocked after execution...");
 
     let alice_storage_final = alice_storage_after_exec.expect("Alice should have storage");
-    
+
     // Parse locked_balance - can be u64, f64 (scientific notation), or string
     let locked_balance_after: u128 = match alice_storage_final.get("locked_balance") {
         Some(Value::Number(n)) => {
@@ -6196,9 +6536,12 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
         Some(Value::String(s)) => s.parse().unwrap_or(0),
         _ => 0,
     };
-    
+
     // locked_balance should be 0 after execution (unlocked)
-    assert_eq!(locked_balance_after, 0, "Alice's locked_balance should be 0 after execution");
+    assert_eq!(
+        locked_balance_after, 0,
+        "Alice's locked_balance should be 0 after execution"
+    );
     println!("   ✓ Alice's locked_balance = 0 after execution (unlocked)");
 
     // =========================================================================
@@ -6209,29 +6552,40 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     // Verify proposal_status_updated event
     let vote_logs = vote_result.logs();
     let status_events = find_events_by_operation(&vote_logs, "proposal_status_updated");
-    assert!(!status_events.is_empty(), "proposal_status_updated event should be emitted");
+    assert!(
+        !status_events.is_empty(),
+        "proposal_status_updated event should be emitted"
+    );
 
     let ps_event = &status_events[0];
     let ps_extra = &ps_event.data.first().expect("event data").extra;
 
     // Verify proposer field is Alice (not Bob who voted)
-    let proposer = ps_extra.get("proposer")
+    let proposer = ps_extra
+        .get("proposer")
         .and_then(|v| v.as_str())
         .expect("proposer should exist");
-    assert_eq!(proposer, alice.id().as_str(), 
-        "proposer should be Alice (who created the proposal), not Bob (who voted)");
+    assert_eq!(
+        proposer,
+        alice.id().as_str(),
+        "proposer should be Alice (who created the proposal), not Bob (who voted)"
+    );
     println!("   ✓ proposer = Alice in proposal_status_updated event");
 
     // Verify unlocked_deposit matches locked_deposit
-    let unlocked_deposit = ps_extra.get("unlocked_deposit")
+    let unlocked_deposit = ps_extra
+        .get("unlocked_deposit")
         .and_then(|v| v.as_str())
         .expect("unlocked_deposit should exist");
-    assert_eq!(unlocked_deposit, "50000000000000000000000", 
-        "unlocked_deposit should be 0.05 NEAR");
+    assert_eq!(
+        unlocked_deposit, "50000000000000000000000",
+        "unlocked_deposit should be 0.05 NEAR"
+    );
     println!("   ✓ unlocked_deposit = 0.05 NEAR in proposal_status_updated event");
 
     // Verify status is executed
-    let status = ps_extra.get("status")
+    let status = ps_extra
+        .get("status")
         .and_then(|v| v.as_str())
         .expect("status should exist");
     assert_eq!(status, "executed", "status should be 'executed'");
@@ -6292,12 +6646,16 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let balance_before: f64 = alice_storage_before.get("balance")
+
+    let balance_before: f64 = alice_storage_before
+        .get("balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    
-    println!("   Alice balance before proposal: {:.4} NEAR", balance_before / 1e24);
+
+    println!(
+        "   Alice balance before proposal: {:.4} NEAR",
+        balance_before / 1e24
+    );
 
     // Create a proposal (locks 0.05 NEAR)
     println!("\n📦 TEST 1: Create proposal to lock funds...");
@@ -6324,15 +6682,21 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let balance_after: f64 = alice_storage_after.get("balance")
+
+    let balance_after: f64 = alice_storage_after
+        .get("balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    let locked: f64 = alice_storage_after.get("locked_balance")
+    let locked: f64 = alice_storage_after
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    
-    println!("   Balance: {:.4} NEAR, Locked: {:.4} NEAR", balance_after / 1e24, locked / 1e24);
+
+    println!(
+        "   Balance: {:.4} NEAR, Locked: {:.4} NEAR",
+        balance_after / 1e24,
+        locked / 1e24
+    );
     assert!(locked > 0.0, "Locked balance should be > 0");
 
     // =========================================================================
@@ -6340,7 +6704,7 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
     // Available = balance - locked - storage_needed
     // =========================================================================
     println!("\n📦 TEST 2: Attempt to withdraw all balance (including locked)...");
-    
+
     let withdraw_result = alice
         .call(contract.id(), "execute")
         .args_json(json!({
@@ -6357,14 +6721,17 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
-    
-    assert!(withdraw_result.is_failure(), 
-        "Withdrawing locked funds should fail!");
-    
+
+    assert!(
+        withdraw_result.is_failure(),
+        "Withdrawing locked funds should fail!"
+    );
+
     let failure_str = format!("{:?}", withdraw_result.failures());
     assert!(
         failure_str.contains("exceeds available") || failure_str.contains("Withdrawal"),
-        "Error should mention withdrawal exceeds available: {}", failure_str
+        "Error should mention withdrawal exceeds available: {}",
+        failure_str
     );
     println!("   ✓ Withdrawal correctly blocked (locked funds protected)");
 
@@ -6372,12 +6739,12 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
     // TEST 3: Withdraw available portion (excluding locked) should SUCCEED
     // =========================================================================
     println!("\n📦 TEST 3: Withdraw available portion (not locked)...");
-    
+
     // Calculate what should be available: balance - locked - storage_needed
     // We'll try to withdraw a small amount that should be available
     let available_approx = balance_after - locked;
     println!("   Approx available: {:.4} NEAR", available_approx / 1e24);
-    
+
     // Withdraw a small amount (less than available)
     let small_withdraw = NearToken::from_millinear(10).as_yoctonear(); // 0.01 NEAR
     let partial_withdraw_result = alice
@@ -6395,10 +6762,12 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
-    
-    assert!(partial_withdraw_result.is_success(), 
-        "Withdrawing available (non-locked) funds should succeed! Failures: {:?}", 
-        partial_withdraw_result.failures());
+
+    assert!(
+        partial_withdraw_result.is_success(),
+        "Withdrawing available (non-locked) funds should succeed! Failures: {:?}",
+        partial_withdraw_result.failures()
+    );
     println!("   ✓ Partial withdrawal of 0.01 NEAR succeeded (locked funds still protected)");
 
     // Verify locked balance is still intact
@@ -6407,18 +6776,25 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let locked_after_partial: f64 = alice_storage_after_partial.get("locked_balance")
+
+    let locked_after_partial: f64 = alice_storage_after_partial
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    assert!(locked_after_partial > 0.0, "Locked balance should still be intact after partial withdrawal");
-    println!("   ✓ Locked balance still protected: {:.4} NEAR", locked_after_partial / 1e24);
+    assert!(
+        locked_after_partial > 0.0,
+        "Locked balance should still be intact after partial withdrawal"
+    );
+    println!(
+        "   ✓ Locked balance still protected: {:.4} NEAR",
+        locked_after_partial / 1e24
+    );
 
     // =========================================================================
     // TEST 4: After proposal execution, withdrawal should succeed
     // =========================================================================
     println!("\n📦 TEST 4: After execution, withdrawal succeeds...");
-    
+
     // Bob votes to execute
     let vote_result = bob
         .call(contract.id(), "execute")
@@ -6440,12 +6816,16 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let locked_after: f64 = alice_storage_unlocked.get("locked_balance")
+
+    let locked_after: f64 = alice_storage_unlocked
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    assert_eq!(locked_after, 0.0, "Locked balance should be 0 after execution");
-    
+    assert_eq!(
+        locked_after, 0.0,
+        "Locked balance should be 0 after execution"
+    );
+
     // Try a small withdrawal
     let withdraw_result = alice
         .call(contract.id(), "execute")
@@ -6463,9 +6843,12 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
-    
-    assert!(withdraw_result.is_success(), 
-        "Withdrawal should succeed after lock released: {:?}", withdraw_result.failures());
+
+    assert!(
+        withdraw_result.is_success(),
+        "Withdrawal should succeed after lock released: {:?}",
+        withdraw_result.failures()
+    );
     println!("   ✓ Withdrawal succeeded after lock released");
 
     println!("✅ Locked balance blocks withdraw test passed");
@@ -6525,16 +6908,21 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let initial_balance: f64 = alice_storage_initial.get("balance")
+
+    let initial_balance: f64 = alice_storage_initial
+        .get("balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    let initial_locked: f64 = alice_storage_initial.get("locked_balance")
+    let initial_locked: f64 = alice_storage_initial
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    
-    println!("   Initial: balance={:.4} NEAR, locked={:.4} NEAR", 
-        initial_balance / 1e24, initial_locked / 1e24);
+
+    println!(
+        "   Initial: balance={:.4} NEAR, locked={:.4} NEAR",
+        initial_balance / 1e24,
+        initial_locked / 1e24
+    );
 
     // =========================================================================
     // TEST 1: Create proposal with MINIMUM deposit (0.1 NEAR exactly)
@@ -6565,15 +6953,21 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let locked_after_proposal: f64 = alice_storage_after_proposal.get("locked_balance")
+
+    let locked_after_proposal: f64 = alice_storage_after_proposal
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    
-    assert!(locked_after_proposal > initial_locked, 
-        "Locked balance should increase after proposal creation");
-    println!("   ✓ Locked balance increased: {:.4} NEAR -> {:.4} NEAR", 
-        initial_locked / 1e24, locked_after_proposal / 1e24);
+
+    assert!(
+        locked_after_proposal > initial_locked,
+        "Locked balance should increase after proposal creation"
+    );
+    println!(
+        "   ✓ Locked balance increased: {:.4} NEAR -> {:.4} NEAR",
+        initial_locked / 1e24,
+        locked_after_proposal / 1e24
+    );
 
     // =========================================================================
     // TEST 2: Attempt storage write that would exceed available balance
@@ -6612,14 +7006,20 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let locked_after_write: f64 = alice_storage_after_write.get("locked_balance")
+
+    let locked_after_write: f64 = alice_storage_after_write
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    
-    assert_eq!(locked_after_proposal, locked_after_write, 
-        "Locked balance should remain unchanged after write attempt");
-    println!("   ✓ Locked balance preserved: {:.4} NEAR", locked_after_write / 1e24);
+
+    assert_eq!(
+        locked_after_proposal, locked_after_write,
+        "Locked balance should remain unchanged after write attempt"
+    );
+    println!(
+        "   ✓ Locked balance preserved: {:.4} NEAR",
+        locked_after_write / 1e24
+    );
 
     // =========================================================================
     // TEST 3: After proposal execution, locked balance is released
@@ -6647,13 +7047,20 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .args_json(json!({ "account_id": alice.id() }))
         .await?
         .json()?;
-    
-    let locked_final: f64 = alice_storage_final.get("locked_balance")
+
+    let locked_final: f64 = alice_storage_final
+        .get("locked_balance")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    
-    assert_eq!(locked_final, 0.0, "Locked balance should be 0 after execution");
-    println!("   ✓ Locked balance released: {:.4} NEAR -> 0 NEAR", locked_after_write / 1e24);
+
+    assert_eq!(
+        locked_final, 0.0,
+        "Locked balance should be 0 after execution"
+    );
+    println!(
+        "   ✓ Locked balance released: {:.4} NEAR -> 0 NEAR",
+        locked_after_write / 1e24
+    );
 
     println!("✅ Locked balance prevents spending test passed");
     Ok(())
@@ -6782,28 +7189,36 @@ async fn test_proposer_deposit_unlocked_on_rejection() -> anyhow::Result<()> {
     // Verify proposal_status_updated event shows rejection and unlocked_deposit
     let vote_logs = charlie_vote.logs();
     let status_events = find_events_by_operation(&vote_logs, "proposal_status_updated");
-    assert!(!status_events.is_empty(), "proposal_status_updated event should be emitted");
+    assert!(
+        !status_events.is_empty(),
+        "proposal_status_updated event should be emitted"
+    );
 
     let ps_event = &status_events[0];
     let ps_extra = &ps_event.data.first().expect("event data").extra;
 
     // Verify status is rejected
-    let status = ps_extra.get("status")
+    let status = ps_extra
+        .get("status")
         .and_then(|v| v.as_str())
         .expect("status should exist");
     assert_eq!(status, "rejected", "status should be 'rejected'");
     println!("   ✓ status = 'rejected'");
 
     // Verify unlocked_deposit is present (deposit returned even on rejection)
-    let unlocked_deposit = ps_extra.get("unlocked_deposit")
+    let unlocked_deposit = ps_extra
+        .get("unlocked_deposit")
         .and_then(|v| v.as_str())
         .expect("unlocked_deposit should exist");
-    assert_eq!(unlocked_deposit, "50000000000000000000000", 
-        "unlocked_deposit should be 0.05 NEAR even on rejection");
+    assert_eq!(
+        unlocked_deposit, "50000000000000000000000",
+        "unlocked_deposit should be 0.05 NEAR even on rejection"
+    );
     println!("   ✓ unlocked_deposit = 0.05 NEAR (returned on rejection)");
 
     // Verify proposer is Alice
-    let proposer = ps_extra.get("proposer")
+    let proposer = ps_extra
+        .get("proposer")
         .and_then(|v| v.as_str())
         .expect("proposer should exist");
     assert_eq!(proposer, alice.id().as_str());
@@ -6894,7 +7309,10 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(add_carol.is_success(), "Adding Carol proposal should be created");
+    assert!(
+        add_carol.is_success(),
+        "Adding Carol proposal should be created"
+    );
 
     // Get proposal counter after to find Carol's proposal
     let counter_after: Vec<Value> = contract
@@ -6906,13 +7324,16 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
     assert!(seq_after > seq_before, "Proposal counter should increment");
-    
+
     // Find Carol's proposal by looking for proposals at sequence seq_after
-// The proposal ID format is: {group_id_{sequence}_{block_height}_{proposer}_{nonce}
+    // The proposal ID format is: {group_id_{sequence}_{block_height}_{proposer}_{nonce}
     // We can find it by looking at the proposal_created event in the logs
     let add_carol_logs = add_carol.logs();
     let carol_proposal_events = find_events_by_operation(&add_carol_logs, "proposal_created");
-    assert!(!carol_proposal_events.is_empty(), "Should have proposal_created event");
+    assert!(
+        !carol_proposal_events.is_empty(),
+        "Should have proposal_created event"
+    );
     let carol_proposal_id = carol_proposal_events[0]
         .data
         .first()
@@ -6933,7 +7354,10 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(bob_vote_carol.is_success(), "Bob voting on Carol's invite should succeed");
+    assert!(
+        bob_vote_carol.is_success(),
+        "Bob voting on Carol's invite should succeed"
+    );
 
     // Verify Carol is now a member
     let is_carol_member: bool = contract
@@ -6953,7 +7377,10 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "cancel-after-vote-group" }))
         .await?
         .json()?;
-    let member_count = stats.get("total_members").and_then(|v| v.as_u64()).unwrap_or(0);
+    let member_count = stats
+        .get("total_members")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(member_count, 3, "Should have 3 members");
     println!("   ✓ Group has {} members", member_count);
 
@@ -6974,7 +7401,10 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ Proposal created: {}", proposal_id);
 
@@ -6985,8 +7415,13 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [tally_key.clone()] }))
         .await?
         .json()?;
-    let tally = entry_value(&get_result, &tally_key).cloned().unwrap_or(Value::Null);
-    let total_votes = tally.get("total_votes").and_then(|v| v.as_u64()).unwrap_or(0);
+    let tally = entry_value(&get_result, &tally_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let total_votes = tally
+        .get("total_votes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(total_votes, 1, "Should have exactly 1 vote initially");
     println!("   ✓ Initial vote count: 1 (Alice's auto-vote)");
 
@@ -7012,8 +7447,13 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [tally_key.clone()] }))
         .await?
         .json()?;
-    let tally2 = entry_value(&get_result2, &tally_key).cloned().unwrap_or(Value::Null);
-    let total_votes2 = tally2.get("total_votes").and_then(|v| v.as_u64()).unwrap_or(0);
+    let tally2 = entry_value(&get_result2, &tally_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let total_votes2 = tally2
+        .get("total_votes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(total_votes2, 2, "Should have 2 votes after Bob voted");
     println!("   ✓ Vote count after Bob's vote: 2");
 
@@ -7024,8 +7464,13 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_proposal, &proposal_key).cloned().unwrap_or(Value::Null);
-    let status = proposal.get("status").and_then(|v| v.as_str()).unwrap_or("");
+    let proposal = entry_value(&get_proposal, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let status = proposal
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     assert_eq!(status, "active", "Proposal should still be active");
     println!("   ✓ Proposal status is 'active'");
 
@@ -7065,7 +7510,9 @@ async fn test_cancel_blocked_when_other_member_voted() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_final = entry_value(&get_result3, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_final = entry_value(&get_result3, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal_final.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -7138,7 +7585,10 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
     println!("   ✓ Proposal created: {}", proposal_id);
 
@@ -7149,19 +7599,26 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
         .await?
         .json()?;
     let alice_storage = storage_before.expect("Alice should have storage");
-    
+
     // Parse locked_balance - can be u64, f64, or string
     let locked_before: u128 = match alice_storage.get("locked_balance") {
         Some(Value::Number(n)) => {
-            if let Some(u) = n.as_u64() { u as u128 }
-            else if let Some(f) = n.as_f64() { f as u128 }
-            else { 0 }
+            if let Some(u) = n.as_u64() {
+                u as u128
+            } else if let Some(f) = n.as_f64() {
+                f as u128
+            } else {
+                0
+            }
         }
         Some(Value::String(s)) => s.parse().unwrap_or(0),
         _ => 0,
     };
     println!("   ✓ Locked balance before cancel: {}", locked_before);
-    assert!(locked_before > 0, "Should have locked balance before cancel");
+    assert!(
+        locked_before > 0,
+        "Should have locked balance before cancel"
+    );
 
     // Alice cancels the proposal
     let cancel = alice
@@ -7185,12 +7642,16 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
         .await?
         .json()?;
     let alice_storage_after = storage_after.expect("Alice should have storage");
-    
+
     let locked_after: u128 = match alice_storage_after.get("locked_balance") {
         Some(Value::Number(n)) => {
-            if let Some(u) = n.as_u64() { u as u128 }
-            else if let Some(f) = n.as_f64() { f as u128 }
-            else { 0 }
+            if let Some(u) = n.as_u64() {
+                u as u128
+            } else if let Some(f) = n.as_f64() {
+                f as u128
+            } else {
+                0
+            }
         }
         Some(Value::String(s)) => s.parse().unwrap_or(0),
         _ => 0,
@@ -7201,28 +7662,36 @@ async fn test_proposer_deposit_unlocked_on_cancellation() -> anyhow::Result<()> 
     // Verify proposal_status_updated event has unlocked_deposit
     let cancel_logs = cancel.logs();
     let status_events = find_events_by_operation(&cancel_logs, "proposal_status_updated");
-    assert!(!status_events.is_empty(), "proposal_status_updated event should be emitted");
+    assert!(
+        !status_events.is_empty(),
+        "proposal_status_updated event should be emitted"
+    );
 
     let ps_event = &status_events[0];
     let ps_extra = &ps_event.data.first().expect("event data").extra;
 
     // Verify status is cancelled
-    let status = ps_extra.get("status")
+    let status = ps_extra
+        .get("status")
         .and_then(|v| v.as_str())
         .expect("status should exist");
     assert_eq!(status, "cancelled", "status should be 'cancelled'");
     println!("   ✓ status = 'cancelled'");
 
     // Verify unlocked_deposit is 0.05 NEAR
-    let unlocked_deposit = ps_extra.get("unlocked_deposit")
+    let unlocked_deposit = ps_extra
+        .get("unlocked_deposit")
         .and_then(|v| v.as_str())
         .expect("unlocked_deposit should exist");
-    assert_eq!(unlocked_deposit, "50000000000000000000000", 
-        "unlocked_deposit should be 0.05 NEAR");
+    assert_eq!(
+        unlocked_deposit, "50000000000000000000000",
+        "unlocked_deposit should be 0.05 NEAR"
+    );
     println!("   ✓ unlocked_deposit = 0.05 NEAR in proposal_status_updated event");
 
     // Verify proposer is Alice
-    let proposer = ps_extra.get("proposer")
+    let proposer = ps_extra
+        .get("proposer")
         .and_then(|v| v.as_str())
         .expect("proposer should exist");
     assert_eq!(proposer, alice.id().as_str());
@@ -7291,7 +7760,10 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(add_carol.is_success(), "Adding Carol proposal should be created");
+    assert!(
+        add_carol.is_success(),
+        "Adding Carol proposal should be created"
+    );
 
     let add_carol_logs = add_carol.logs();
     let carol_proposal_events = find_events_by_operation(&add_carol_logs, "proposal_created");
@@ -7313,7 +7785,10 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(bob_vote_carol.is_success(), "Bob voting on Carol's invite should succeed");
+    assert!(
+        bob_vote_carol.is_success(),
+        "Bob voting on Carol's invite should succeed"
+    );
     println!("   ✓ 3-member group created (Alice, Bob, Carol)");
 
     // Alice creates proposal with auto_vote=false
@@ -7333,9 +7808,15 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
-    println!("   ✓ Proposal created with auto_vote=false: {}", proposal_id);
+    println!(
+        "   ✓ Proposal created with auto_vote=false: {}",
+        proposal_id
+    );
 
     // Verify tally has 0 votes
     let tally_key = format!("groups/single-vote-cancel-group/votes/{}", proposal_id);
@@ -7344,9 +7825,17 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .args_json(json!({ "keys": [tally_key.clone()] }))
         .await?
         .json()?;
-    let tally = entry_value(&get_result, &tally_key).cloned().unwrap_or(Value::Null);
-    let total_votes = tally.get("total_votes").and_then(|v| v.as_u64()).unwrap_or(0);
-    assert_eq!(total_votes, 0, "Should have 0 votes initially (no auto-vote)");
+    let tally = entry_value(&get_result, &tally_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let total_votes = tally
+        .get("total_votes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        total_votes, 0,
+        "Should have 0 votes initially (no auto-vote)"
+    );
     println!("   ✓ Initial vote count: 0 (no auto-vote)");
 
     // Bob votes YES (now total_votes = 1, but it's NOT Alice's vote)
@@ -7370,8 +7859,13 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .args_json(json!({ "keys": [tally_key.clone()] }))
         .await?
         .json()?;
-    let tally2 = entry_value(&get_result2, &tally_key).cloned().unwrap_or(Value::Null);
-    let total_votes2 = tally2.get("total_votes").and_then(|v| v.as_u64()).unwrap_or(0);
+    let tally2 = entry_value(&get_result2, &tally_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let total_votes2 = tally2
+        .get("total_votes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(total_votes2, 1, "Should have 1 vote after Bob voted");
     println!("   ✓ Vote count: 1");
 
@@ -7412,7 +7906,9 @@ async fn test_cancel_blocked_when_single_vote_not_proposer() -> anyhow::Result<(
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_final = entry_value(&get_result3, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_final = entry_value(&get_result3, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal_final.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -7486,9 +7982,15 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "Creating proposal should succeed");
+    assert!(
+        create_proposal.is_success(),
+        "Creating proposal should succeed"
+    );
     let proposal_id: String = create_proposal.json()?;
-    println!("   ✓ Proposal created with auto_vote=false: {}", proposal_id);
+    println!(
+        "   ✓ Proposal created with auto_vote=false: {}",
+        proposal_id
+    );
 
     // Verify tally has 0 votes
     let tally_key = format!("groups/no-vote-cancel-group/votes/{}", proposal_id);
@@ -7497,8 +7999,13 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [tally_key.clone()] }))
         .await?
         .json()?;
-    let tally = entry_value(&get_result, &tally_key).cloned().unwrap_or(Value::Null);
-    let total_votes = tally.get("total_votes").and_then(|v| v.as_u64()).unwrap_or(0);
+    let tally = entry_value(&get_result, &tally_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let total_votes = tally
+        .get("total_votes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
     assert_eq!(total_votes, 0, "Should have 0 votes (no auto-vote)");
     println!("   ✓ Vote count: 0");
 
@@ -7511,14 +8018,21 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
     let alice_storage = storage_before.expect("Alice should have storage");
     let locked_before: u128 = match alice_storage.get("locked_balance") {
         Some(Value::Number(n)) => {
-            if let Some(u) = n.as_u64() { u as u128 }
-            else if let Some(f) = n.as_f64() { f as u128 }
-            else { 0 }
+            if let Some(u) = n.as_u64() {
+                u as u128
+            } else if let Some(f) = n.as_f64() {
+                f as u128
+            } else {
+                0
+            }
         }
         Some(Value::String(s)) => s.parse().unwrap_or(0),
         _ => 0,
     };
-    assert!(locked_before > 0, "Should have locked balance before cancel");
+    assert!(
+        locked_before > 0,
+        "Should have locked balance before cancel"
+    );
     println!("   ✓ Locked balance before cancel: {}", locked_before);
 
     // Alice cancels immediately (should succeed with 0 votes)
@@ -7543,7 +8057,9 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result2, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result2, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("cancelled"),
@@ -7560,9 +8076,13 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
     let alice_storage_after = storage_after.expect("Alice should have storage");
     let locked_after: u128 = match alice_storage_after.get("locked_balance") {
         Some(Value::Number(n)) => {
-            if let Some(u) = n.as_u64() { u as u128 }
-            else if let Some(f) = n.as_f64() { f as u128 }
-            else { 0 }
+            if let Some(u) = n.as_u64() {
+                u as u128
+            } else if let Some(f) = n.as_f64() {
+                f as u128
+            } else {
+                0
+            }
         }
         Some(Value::String(s)) => s.parse().unwrap_or(0),
         _ => 0,
@@ -7573,9 +8093,15 @@ async fn test_cancel_success_with_no_votes() -> anyhow::Result<()> {
     // Verify event
     let cancel_logs = cancel.logs();
     let status_events = find_events_by_operation(&cancel_logs, "proposal_status_updated");
-    assert!(!status_events.is_empty(), "proposal_status_updated event should be emitted");
+    assert!(
+        !status_events.is_empty(),
+        "proposal_status_updated event should be emitted"
+    );
     let ps_extra = &status_events[0].data.first().expect("event data").extra;
-    assert_eq!(ps_extra.get("status").and_then(|v| v.as_str()), Some("cancelled"));
+    assert_eq!(
+        ps_extra.get("status").and_then(|v| v.as_str()),
+        Some("cancelled")
+    );
     println!("   ✓ proposal_status_updated event emitted");
 
     println!("✅ Cancel success with no votes test passed");
@@ -7690,7 +8216,9 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_before = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_before = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal_before.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -7719,7 +8247,9 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_after_bob = entry_value(&get_result2, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_after_bob = entry_value(&get_result2, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal_after_bob.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -7749,9 +8279,13 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_after_charlie = entry_value(&get_result3, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_after_charlie = entry_value(&get_result3, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
-        proposal_after_charlie.get("status").and_then(|v| v.as_str()),
+        proposal_after_charlie
+            .get("status")
+            .and_then(|v| v.as_str()),
         Some("rejected"),
         "Proposal should be auto-rejected when defeat is inevitable"
     );
@@ -7771,7 +8305,10 @@ async fn test_vote_triggers_auto_rejection_when_defeat_inevitable() -> anyhow::R
 
     // Verify proposal_status_updated event was emitted
     let status_events = find_events_by_operation(&charlie_logs, "proposal_status_updated");
-    assert!(!status_events.is_empty(), "proposal_status_updated event should be emitted");
+    assert!(
+        !status_events.is_empty(),
+        "proposal_status_updated event should be emitted"
+    );
     let ps_extra = &status_events[0].data.first().expect("event data").extra;
     assert_eq!(
         ps_extra.get("status").and_then(|v| v.as_str()),
@@ -7901,7 +8438,9 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("executed"),
@@ -7913,7 +8452,10 @@ async fn test_execution_payer_is_proposer_not_final_voter() -> anyhow::Result<()
     // This validates that execution context credits proposer, not the final voter
     let vote_logs = bob_vote.logs();
     let status_events = find_events_by_operation(&vote_logs, "proposal_status_updated");
-    assert!(!status_events.is_empty(), "proposal_status_updated event should be emitted");
+    assert!(
+        !status_events.is_empty(),
+        "proposal_status_updated event should be emitted"
+    );
     let ps_extra = &status_events[0].data.first().expect("event data").extra;
     assert_eq!(
         ps_extra.get("proposer").and_then(|v| v.as_str()),
@@ -8150,10 +8692,14 @@ async fn test_majority_threshold_requires_more_than_half() -> anyhow::Result<()>
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_after_charlie = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
-    
+    let proposal_after_charlie = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+
     assert_eq!(
-        proposal_after_charlie.get("status").and_then(|v| v.as_str()),
+        proposal_after_charlie
+            .get("status")
+            .and_then(|v| v.as_str()),
         Some("executed"),
         "Proposal should EXECUTE: 2/3 = 66.67% > 50.01% threshold, 3/4 = 75% > 51% quorum"
     );
@@ -8322,7 +8868,9 @@ async fn test_defeat_inevitable_when_max_below_threshold() -> anyhow::Result<()>
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_after_alice = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_after_alice = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal_after_alice.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -8353,7 +8901,9 @@ async fn test_defeat_inevitable_when_max_below_threshold() -> anyhow::Result<()>
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_after_bob = entry_value(&get_result2, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_after_bob = entry_value(&get_result2, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
 
     assert_eq!(
         proposal_after_bob.get("status").and_then(|v| v.as_str()),
@@ -8454,12 +9004,12 @@ async fn test_voting_period_expiration_rejects_late_votes() -> anyhow::Result<()
     // near-workspaces doesn't have direct time manipulation, so we use blocks
     // Each block is ~1 second, so we need ~3600+ blocks
     // However, this is impractical in tests. Instead, we verify the error message.
-    
+
     // Alternative: We can't easily fast-forward time in integration tests,
     // so we verify the expiration logic works by checking:
     // 1. The voting_period is correctly stored in the proposal
     // 2. The is_expired check is exercised in unit tests
-    
+
     // Verify voting config was stored correctly
     let proposal_key = format!("groups/expiration-test-group/proposals/{}", proposal_id);
     let get_result: Vec<Value> = contract
@@ -8467,19 +9017,35 @@ async fn test_voting_period_expiration_rejects_late_votes() -> anyhow::Result<()
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_data = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
-    
-    let voting_config = proposal_data.get("voting_config").expect("voting_config should exist");
-    let stored_voting_period = voting_config.get("voting_period")
-        .and_then(|v| v.as_str().or_else(|| v.as_u64().map(|_| "")).and_then(|s| if s.is_empty() { v.as_u64().map(|n| n.to_string()) } else { Some(s.to_string()) }))
+    let proposal_data = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    let voting_config = proposal_data
+        .get("voting_config")
+        .expect("voting_config should exist");
+    let stored_voting_period = voting_config
+        .get("voting_period")
+        .and_then(|v| {
+            v.as_str().or_else(|| v.as_u64().map(|_| "")).and_then(|s| {
+                if s.is_empty() {
+                    v.as_u64().map(|n| n.to_string())
+                } else {
+                    Some(s.to_string())
+                }
+            })
+        })
         .unwrap_or_default();
-    
+
     assert_eq!(
         stored_voting_period,
         one_hour_nanos.to_string(),
         "Voting period should be stored as 1 hour"
     );
-    println!("   ✓ Voting period correctly stored: {} ns (1 hour)", stored_voting_period);
+    println!(
+        "   ✓ Voting period correctly stored: {} ns (1 hour)",
+        stored_voting_period
+    );
 
     // Verify proposal is currently active (not expired yet since time hasn't passed)
     assert_eq!(
@@ -8501,7 +9067,10 @@ async fn test_voting_period_expiration_rejects_late_votes() -> anyhow::Result<()
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(alice_vote.is_success(), "Vote should succeed before expiration");
+    assert!(
+        alice_vote.is_success(),
+        "Vote should succeed before expiration"
+    );
     println!("   ✓ Vote succeeded before expiration");
 
     println!("✅ Voting period configuration correctly applied");
@@ -8591,12 +9160,17 @@ async fn test_voting_config_bps_clamping() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_data = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
-    
-    let voting_config = proposal_data.get("voting_config").expect("voting_config should exist");
-    
+    let proposal_data = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+
+    let voting_config = proposal_data
+        .get("voting_config")
+        .expect("voting_config should exist");
+
     // Check majority_threshold_bps was clamped to 5001
-    let majority_bps = voting_config.get("majority_threshold_bps")
+    let majority_bps = voting_config
+        .get("majority_threshold_bps")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
     assert_eq!(
@@ -8606,7 +9180,8 @@ async fn test_voting_config_bps_clamping() -> anyhow::Result<()> {
     println!("   ✓ majority_threshold_bps clamped: 4000 → 5001");
 
     // Check participation_quorum_bps was clamped to 100
-    let quorum_bps = voting_config.get("participation_quorum_bps")
+    let quorum_bps = voting_config
+        .get("participation_quorum_bps")
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
     assert_eq!(
@@ -8617,14 +9192,22 @@ async fn test_voting_config_bps_clamping() -> anyhow::Result<()> {
 
     // Check voting_period was clamped to minimum (1 hour = 3_600_000_000_000 ns)
     let min_voting_period = 3_600_000_000_000u64;
-    let voting_period = voting_config.get("voting_period")
-        .and_then(|v| v.as_str().and_then(|s| s.parse::<u64>().ok()).or_else(|| v.as_u64()))
+    let voting_period = voting_config
+        .get("voting_period")
+        .and_then(|v| {
+            v.as_str()
+                .and_then(|s| s.parse::<u64>().ok())
+                .or_else(|| v.as_u64())
+        })
         .unwrap_or(0);
     assert_eq!(
         voting_period, min_voting_period,
         "voting_period should be clamped to minimum 1 hour (was 1 second)"
     );
-    println!("   ✓ voting_period clamped: 1s → 1 hour ({})", min_voting_period);
+    println!(
+        "   ✓ voting_period clamped: 1s → 1 hour ({})",
+        min_voting_period
+    );
 
     // Verify the clamped thresholds work correctly:
     // With 2 members and 100 bps quorum (1%), 1 vote should meet quorum
@@ -8648,23 +9231,30 @@ async fn test_voting_config_bps_clamping() -> anyhow::Result<()> {
     // However, need 2/2 members for majority check since locked_member_count=2
     // 1 YES / 1 vote = 100% majority > 50.01% → BUT participation is 50% vs 1% quorum → quorum met
     // Wait - the proposal might not execute with only 1 vote...
-    
+
     // Let's check the status
     let get_result2: Vec<Value> = contract
         .view("get")
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_after_alice = entry_value(&get_result2, &proposal_key).cloned().unwrap_or(Value::Null);
-    let status = proposal_after_alice.get("status").and_then(|v| v.as_str()).unwrap_or("");
-    
+    let proposal_after_alice = entry_value(&get_result2, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let status = proposal_after_alice
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
     // With 2 locked members and 100 bps (1%) quorum:
     // 1 vote / 2 members = 50% participation > 1% quorum ✓
     // 1 YES / 1 vote = 100% > 50.01% majority ✓
     // Should execute!
-    
+
     if status == "executed" {
-        println!("   ✓ Proposal executed with clamped thresholds (1% quorum met at 50% participation)");
+        println!(
+            "   ✓ Proposal executed with clamped thresholds (1% quorum met at 50% participation)"
+        );
     } else {
         // If not executed, verify Bob's vote would trigger it
         let bob_vote = bob
@@ -8679,13 +9269,15 @@ async fn test_voting_config_bps_clamping() -> anyhow::Result<()> {
             .transact()
             .await?;
         assert!(bob_vote.is_success());
-        
+
         let get_result3: Vec<Value> = contract
             .view("get")
             .args_json(json!({ "keys": [proposal_key.clone()] }))
             .await?
             .json()?;
-        let proposal_final = entry_value(&get_result3, &proposal_key).cloned().unwrap_or(Value::Null);
+        let proposal_final = entry_value(&get_result3, &proposal_key)
+            .cloned()
+            .unwrap_or(Value::Null);
         assert_eq!(
             proposal_final.get("status").and_then(|v| v.as_str()),
             Some("executed"),
@@ -8758,7 +9350,10 @@ async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(join_request.is_success(), "Join request should succeed when not blacklisted");
+    assert!(
+        join_request.is_success(),
+        "Join request should succeed when not blacklisted"
+    );
 
     // Find proposal ID
     let logs: Vec<String> = join_request.logs().iter().map(|s| s.to_string()).collect();
@@ -8793,7 +9388,9 @@ async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal = entry_value(&get_result, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal = entry_value(&get_result, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal.get("status").and_then(|v| v.as_str()),
         Some("active"),
@@ -8807,10 +9404,10 @@ async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "blacklist-execution-test", 
-                    "proposal_type": "group_update", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "blacklist-execution-test",
+                    "proposal_type": "group_update",
                     "changes": {
                         "update_type": "ban",
                         "target_user": charlie.id().to_string()
@@ -8881,7 +9478,10 @@ async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow
 
     // Vote should succeed, but execution is skipped due to blacklisted requester
     // (JoinRequest has recoverable execution errors)
-    assert!(bob_vote.is_success(), "Vote should succeed (execution failure is marked as skipped)");
+    assert!(
+        bob_vote.is_success(),
+        "Vote should succeed (execution failure is marked as skipped)"
+    );
     println!("   ✓ Vote succeeded (execution was skipped)");
 
     // Verify Charlie is NOT a member
@@ -8893,7 +9493,10 @@ async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow
         }))
         .await?
         .json()?;
-    assert!(!is_member, "Charlie should NOT be a member after blocked execution");
+    assert!(
+        !is_member,
+        "Charlie should NOT be a member after blocked execution"
+    );
     println!("   ✓ Charlie is not a member (execution blocked)");
 
     // Verify proposal is marked as executed_skipped (not active)
@@ -8902,7 +9505,9 @@ async fn test_join_request_blocks_blacklisted_requester_at_execution() -> anyhow
         .args_json(json!({ "keys": [proposal_key.clone()] }))
         .await?
         .json()?;
-    let proposal_final = entry_value(&get_result_final, &proposal_key).cloned().unwrap_or(Value::Null);
+    let proposal_final = entry_value(&get_result_final, &proposal_key)
+        .cloned()
+        .unwrap_or(Value::Null);
     assert_eq!(
         proposal_final.get("status").and_then(|v| v.as_str()),
         Some("executed_skipped"),
@@ -8965,7 +9570,8 @@ async fn test_group_update_unknown_update_type_rejected() -> anyhow::Result<()> 
     let failure_str = format!("{:?}", unknown_type.failures());
     assert!(
         failure_str.contains("Unknown update_type") || failure_str.contains("InvalidInput"),
-        "Error should mention unknown update_type: {}", failure_str
+        "Error should mention unknown update_type: {}",
+        failure_str
     );
     println!("   ✓ Unknown update_type correctly rejected at validation time");
 
@@ -9013,14 +9619,13 @@ async fn test_voting_config_change_enforces_minimums() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(
-        zero_quorum.is_failure(),
-        "Zero quorum should be rejected"
-    );
+    assert!(zero_quorum.is_failure(), "Zero quorum should be rejected");
     let failure_str = format!("{:?}", zero_quorum.failures());
     assert!(
-        failure_str.contains("Participation quorum bps must be between 100 and 10000") || failure_str.contains("InvalidInput"),
-        "Error should mention quorum minimum: {}", failure_str
+        failure_str.contains("Participation quorum bps must be between 100 and 10000")
+            || failure_str.contains("InvalidInput"),
+        "Error should mention quorum minimum: {}",
+        failure_str
     );
     println!("   ✓ Zero quorum correctly rejected (MIN_VOTING_PARTICIPATION_QUORUM_BPS = 100)");
 
@@ -9066,8 +9671,10 @@ async fn test_voting_config_change_enforces_minimums() -> anyhow::Result<()> {
     );
     let failure_str = format!("{:?}", zero_threshold.failures());
     assert!(
-        failure_str.contains("Majority threshold bps must be between 5001 and 10000") || failure_str.contains("InvalidInput"),
-        "Error should mention threshold minimum: {}", failure_str
+        failure_str.contains("Majority threshold bps must be between 5001 and 10000")
+            || failure_str.contains("InvalidInput"),
+        "Error should mention threshold minimum: {}",
+        failure_str
     );
     println!("   ✓ Zero threshold correctly rejected (MIN_VOTING_MAJORITY_THRESHOLD_BPS = 5001)");
 
@@ -9165,9 +9772,17 @@ async fn test_permission_change_no_op_rejected() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [member_key.clone()] }))
         .await?
         .json()?;
-    let member_data = entry_value(&get_result, &member_key).cloned().unwrap_or(Value::Null);
-    let current_level = member_data.get("level").and_then(|v| v.as_u64()).unwrap_or(0);
-    assert_eq!(current_level, 0, "Bob's default permission level should be 0");
+    let member_data = entry_value(&get_result, &member_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let current_level = member_data
+        .get("level")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    assert_eq!(
+        current_level, 0,
+        "Bob's default permission level should be 0"
+    );
     println!("   ✓ Bob has default permission level = 0");
 
     // Try creating PermissionChange proposal to set Bob to level 0 (no-op)
@@ -9193,8 +9808,10 @@ async fn test_permission_change_no_op_rejected() -> anyhow::Result<()> {
     );
     let failure_str = format!("{:?}", no_op_change.failures());
     assert!(
-        failure_str.contains("Target user already has this permission level") || failure_str.contains("InvalidInput"),
-        "Error should mention target already has this level: {}", failure_str
+        failure_str.contains("Target user already has this permission level")
+            || failure_str.contains("InvalidInput"),
+        "Error should mention target already has this level: {}",
+        failure_str
     );
     println!("   ✓ No-op PermissionChange correctly rejected");
 
@@ -9290,7 +9907,8 @@ async fn test_path_permission_invalid_format_rejected() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", invalid_grant_dotdot.failures());
     assert!(
         failure_str.contains("Invalid group path format") || failure_str.contains("InvalidInput"),
-        "Error should mention invalid path format: {}", failure_str
+        "Error should mention invalid path format: {}",
+        failure_str
     );
     println!("   ✓ PathPermissionGrant with '..' correctly rejected");
 
@@ -9342,7 +9960,8 @@ async fn test_path_permission_invalid_format_rejected() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", invalid_revoke_dotdot.failures());
     assert!(
         failure_str.contains("Invalid group path format") || failure_str.contains("InvalidInput"),
-        "Error should mention invalid path format: {}", failure_str
+        "Error should mention invalid path format: {}",
+        failure_str
     );
     println!("   ✓ PathPermissionRevoke with '..' correctly rejected");
 
@@ -9482,10 +10101,10 @@ async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Resul
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "toctou-test", 
-                    "proposal_type": "group_update", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "toctou-test",
+                    "proposal_type": "group_update",
                     "changes": {
                         "update_type": "metadata",
                         "changes": {
@@ -9501,7 +10120,10 @@ async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Resul
         .transact()
         .await?;
     let config_proposal_id: String = config_change.json()?;
-    println!("   ✓ Config change proposal created: {}", config_proposal_id);
+    println!(
+        "   ✓ Config change proposal created: {}",
+        config_proposal_id
+    );
 
     // Vote to execute the config change (Alice + Bob vote YES)
     alice
@@ -9568,9 +10190,14 @@ async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Resul
             .args_json(json!({ "keys": [proposal_key.clone()] }))
             .await?
             .json()?;
-        let proposal = entry_value(&result, &proposal_key).cloned().unwrap_or(Value::Null);
-        let status = proposal.get("status").and_then(|v| v.as_str()).unwrap_or("unknown");
-        
+        let proposal = entry_value(&result, &proposal_key)
+            .cloned()
+            .unwrap_or(Value::Null);
+        let status = proposal
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
         // Verify Charlie is NOT a member (execution was prevented)
         let is_charlie_member: bool = contract
             .view("is_group_member")
@@ -9580,7 +10207,7 @@ async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Resul
             }))
             .await?
             .json()?;
-        
+
         // The key invariant: Charlie should NOT be added because dispatch.rs rejected
         assert!(
             !is_charlie_member,
@@ -9588,7 +10215,7 @@ async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Resul
         );
         println!("   ✓ Vote succeeded but Charlie NOT added - execution was blocked");
         println!("   ✓ Proposal status: {}", status);
-        
+
         // The proposal should be in a terminal failed state (not executed, not stuck in active)
         assert!(
             status != "executed",
@@ -9599,11 +10226,13 @@ async fn test_dispatch_toctou_group_becomes_non_member_driven() -> anyhow::Resul
         // Vote failed directly - that's also acceptable
         let failure_str = format!("{:?}", bob_vote.failures());
         assert!(
-            failure_str.contains("no longer member-driven") || failure_str.contains("member-driven"),
-            "Error should mention member-driven flag change: {}", failure_str
+            failure_str.contains("no longer member-driven")
+                || failure_str.contains("member-driven"),
+            "Error should mention member-driven flag change: {}",
+            failure_str
         );
         println!("   ✓ Execution correctly failed: group is no longer member-driven");
-        
+
         // Verify Charlie is NOT a member
         let is_charlie_member: bool = contract
             .view("is_group_member")
@@ -9665,16 +10294,16 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
         .call(contract.id(), "execute")
         .args_json(json!({
             "request": {
-                "action": { 
-                    "type": "create_proposal", 
-                    "group_id": "custom-exec-test", 
-                    "proposal_type": "custom_proposal", 
+                "action": {
+                    "type": "create_proposal",
+                    "group_id": "custom-exec-test",
+                    "proposal_type": "custom_proposal",
                     "changes": {
                         "title": "Test Custom Proposal",
                         "description": "This is a test custom proposal for execution verification",
                         "custom_data": custom_data
                     },
-                    "auto_vote": null 
+                    "auto_vote": null
                 }
             }
         }))
@@ -9682,12 +10311,22 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(create_proposal.is_success(), "CustomProposal should succeed");
-    
+    assert!(
+        create_proposal.is_success(),
+        "CustomProposal should succeed"
+    );
+
     // Capture logs before consuming create_proposal with .json()
-    let logs: Vec<String> = create_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = create_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = create_proposal.json()?;
-    println!("   ✓ CustomProposal created and auto-executed: {}", proposal_id);
+    println!(
+        "   ✓ CustomProposal created and auto-executed: {}",
+        proposal_id
+    );
 
     // VERIFICATION 1: Check execution storage at groups/{group_id}/executions/{proposal_id}
     let execution_key = format!("groups/custom-exec-test/executions/{}", proposal_id);
@@ -9699,10 +10338,11 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
     let execution_data = entry_value(&get_result, &execution_key)
         .cloned()
         .unwrap_or(Value::Null);
-    
+
     assert!(
         !execution_data.is_null(),
-        "Execution data should be written to storage at {}", execution_key
+        "Execution data should be written to storage at {}",
+        execution_key
     );
     println!("   ✓ Execution data found at: {}", execution_key);
 
@@ -9730,7 +10370,7 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
         execution_data.get("block_height").is_some(),
         "execution.block_height should exist"
     );
-    
+
     // Verify custom_data is preserved
     let stored_custom_data = execution_data.get("custom_data");
     assert!(
@@ -9738,7 +10378,10 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
         "execution.custom_data should exist"
     );
     assert_eq!(
-        stored_custom_data.unwrap().get("action_type").and_then(|v| v.as_str()),
+        stored_custom_data
+            .unwrap()
+            .get("action_type")
+            .and_then(|v| v.as_str()),
         Some("community_decision"),
         "custom_data.action_type should be preserved"
     );
@@ -9746,12 +10389,12 @@ async fn test_dispatch_custom_proposal_execution_storage() -> anyhow::Result<()>
 
     // VERIFICATION 3: Check for custom_proposal_executed event (logs already captured above)
     let events = find_events_by_operation(&logs, "custom_proposal_executed");
-    
+
     assert!(
         !events.is_empty(),
         "custom_proposal_executed event should be emitted"
     );
-    
+
     let event_data = &events[0].data[0].extra;
     assert_eq!(
         event_data.get("path").and_then(|v| v.as_str()),
@@ -9835,17 +10478,28 @@ async fn test_group_update_permissions_type_e2e() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(permissions_proposal.is_success(), "Permissions proposal should succeed");
-    
+    assert!(
+        permissions_proposal.is_success(),
+        "Permissions proposal should succeed"
+    );
+
     // Verify event contains correct update_type string
-    let logs: Vec<String> = permissions_proposal.logs().iter().map(|s| s.to_string()).collect();
+    let logs: Vec<String> = permissions_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let proposal_id: String = permissions_proposal.json()?;
     println!("   ✓ Permissions update proposal created: {}", proposal_id);
 
     let proposal_events = find_events_by_operation(&logs, "proposal_created");
-    assert!(!proposal_events.is_empty(), "proposal_created event should be emitted");
-    
-    let event_proposal_type = proposal_events[0].data[0].extra
+    assert!(
+        !proposal_events.is_empty(),
+        "proposal_created event should be emitted"
+    );
+
+    let event_proposal_type = proposal_events[0].data[0]
+        .extra
         .get("proposal_type")
         .and_then(|v| v.as_str());
     assert_eq!(
@@ -9879,9 +10533,17 @@ async fn test_group_update_permissions_type_e2e() -> anyhow::Result<()> {
         .args_json(json!({ "keys": [config_key] }))
         .await?
         .json()?;
-    let config_after = entry_value(&get_after, config_key).cloned().unwrap_or(Value::Null);
-    let allow_public_read = config_after.get("allow_public_read").and_then(|v| v.as_bool());
-    assert_eq!(allow_public_read, Some(true), "allow_public_read should be updated to true");
+    let config_after = entry_value(&get_after, config_key)
+        .cloned()
+        .unwrap_or(Value::Null);
+    let allow_public_read = config_after
+        .get("allow_public_read")
+        .and_then(|v| v.as_bool());
+    assert_eq!(
+        allow_public_read,
+        Some(true),
+        "allow_public_read should be updated to true"
+    );
     println!("   ✓ Config updated with allow_public_read=true after permissions proposal executed");
 
     println!("✅ GroupUpdate permissions type E2E verified");
@@ -9937,7 +10599,8 @@ async fn test_group_update_empty_changes_rejected() -> anyhow::Result<()> {
     let failure_str = format!("{:?}", empty_metadata.failures());
     assert!(
         failure_str.contains("empty") || failure_str.contains("Changes"),
-        "Error should mention empty changes: {}", failure_str
+        "Error should mention empty changes: {}",
+        failure_str
     );
     println!("   ✓ Metadata proposal with empty changes correctly rejected");
 
@@ -10011,7 +10674,9 @@ async fn test_group_update_empty_changes_rejected() -> anyhow::Result<()> {
         no_nested_changes.is_success(),
         "Metadata without nested changes field should pass validation (falls back to outer object)"
     );
-    println!("   ✓ Metadata proposal without nested changes field passes validation (fallback behavior)");
+    println!(
+        "   ✓ Metadata proposal without nested changes field passes validation (fallback behavior)"
+    );
 
     println!("✅ GroupUpdate empty changes rejection verified");
     Ok(())
@@ -10110,10 +10775,14 @@ async fn test_group_update_event_update_type_field() -> anyhow::Result<()> {
     // Check execution event includes update_type field (from Bob's vote which triggered execution)
     let logs: Vec<String> = bob_vote.logs().iter().map(|s| s.to_string()).collect();
     let update_events = find_events_by_operation(&logs, "group_updated");
-    
-    assert!(!update_events.is_empty(), "group_updated event should be emitted on execution");
-    
-    let event_update_type = update_events[0].data[0].extra
+
+    assert!(
+        !update_events.is_empty(),
+        "group_updated event should be emitted on execution"
+    );
+
+    let event_update_type = update_events[0].data[0]
+        .extra
         .get("update_type")
         .and_then(|v| v.as_str());
     assert_eq!(
@@ -10177,9 +10846,21 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
 
     // Test each update_type variant can be parsed and round-trips correctly in proposal type name
     let test_cases = [
-        ("metadata", json!({"update_type": "metadata", "changes": {"description": "Test"}}), "group_update_metadata"),
-        ("permissions", json!({"update_type": "permissions", "changes": {"allow_join": true}}), "group_update_permissions"),
-        ("ban", json!({"update_type": "ban", "target_user": charlie.id().to_string()}), "group_update_ban"),
+        (
+            "metadata",
+            json!({"update_type": "metadata", "changes": {"description": "Test"}}),
+            "group_update_metadata",
+        ),
+        (
+            "permissions",
+            json!({"update_type": "permissions", "changes": {"allow_join": true}}),
+            "group_update_permissions",
+        ),
+        (
+            "ban",
+            json!({"update_type": "ban", "target_user": charlie.id().to_string()}),
+            "group_update_ban",
+        ),
     ];
 
     for (variant, changes, expected_type) in test_cases {
@@ -10194,24 +10875,37 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
             .gas(near_workspaces::types::Gas::from_tgas(150))
             .transact()
             .await?;
-        
-        assert!(proposal.is_success(), "Proposal for {} should succeed", variant);
-        
+
+        assert!(
+            proposal.is_success(),
+            "Proposal for {} should succeed",
+            variant
+        );
+
         // Verify event type includes the correct variant string
         let logs: Vec<String> = proposal.logs().iter().map(|s| s.to_string()).collect();
         let events = find_events_by_operation(&logs, "proposal_created");
-        assert!(!events.is_empty(), "proposal_created event should be emitted for {}", variant);
-        
-        let event_proposal_type = events[0].data[0].extra
+        assert!(
+            !events.is_empty(),
+            "proposal_created event should be emitted for {}",
+            variant
+        );
+
+        let event_proposal_type = events[0].data[0]
+            .extra
             .get("proposal_type")
             .and_then(|v| v.as_str());
         assert_eq!(
             event_proposal_type,
             Some(expected_type),
             "Event proposal_type for {} should be {}",
+            variant,
+            expected_type
+        );
+        println!(
+            "   ✓ {} → parse() → ProposalType::name() → '{}' ✓",
             variant, expected_type
         );
-        println!("   ✓ {} → parse() → ProposalType::name() → '{}' ✓", variant, expected_type);
     }
 
     // Test remove_member, unban require previous state
@@ -10232,7 +10926,7 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
         .await?;
     assert!(ban_charlie.is_success());
     let ban_id: String = ban_charlie.json()?;
-    
+
     // Vote to ban
     for user in [&alice, &bob] {
         let vote = user
@@ -10265,10 +10959,17 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
         .transact()
         .await?;
     assert!(unban_proposal.is_success(), "Unban proposal should succeed");
-    
-    let logs: Vec<String> = unban_proposal.logs().iter().map(|s| s.to_string()).collect();
+
+    let logs: Vec<String> = unban_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let events = find_events_by_operation(&logs, "proposal_created");
-    let event_proposal_type = events[0].data[0].extra.get("proposal_type").and_then(|v| v.as_str());
+    let event_proposal_type = events[0].data[0]
+        .extra
+        .get("proposal_type")
+        .and_then(|v| v.as_str());
     assert_eq!(event_proposal_type, Some("group_update_unban"));
     println!("   ✓ unban → parse() → ProposalType::name() → 'group_update_unban' ✓");
 
@@ -10287,13 +10988,25 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(remove_proposal.is_success(), "RemoveMember proposal should succeed");
-    
-    let logs: Vec<String> = remove_proposal.logs().iter().map(|s| s.to_string()).collect();
+    assert!(
+        remove_proposal.is_success(),
+        "RemoveMember proposal should succeed"
+    );
+
+    let logs: Vec<String> = remove_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let events = find_events_by_operation(&logs, "proposal_created");
-    let event_proposal_type = events[0].data[0].extra.get("proposal_type").and_then(|v| v.as_str());
+    let event_proposal_type = events[0].data[0]
+        .extra
+        .get("proposal_type")
+        .and_then(|v| v.as_str());
     assert_eq!(event_proposal_type, Some("group_update_remove_member"));
-    println!("   ✓ remove_member → parse() → ProposalType::name() → 'group_update_remove_member' ✓");
+    println!(
+        "   ✓ remove_member → parse() → ProposalType::name() → 'group_update_remove_member' ✓"
+    );
 
     // Test transfer_ownership (transfer to Bob)
     let transfer_proposal = alice
@@ -10310,11 +11023,21 @@ async fn test_group_update_type_all_variants_round_trip() -> anyhow::Result<()> 
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(transfer_proposal.is_success(), "TransferOwnership proposal should succeed");
-    
-    let logs: Vec<String> = transfer_proposal.logs().iter().map(|s| s.to_string()).collect();
+    assert!(
+        transfer_proposal.is_success(),
+        "TransferOwnership proposal should succeed"
+    );
+
+    let logs: Vec<String> = transfer_proposal
+        .logs()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     let events = find_events_by_operation(&logs, "proposal_created");
-    let event_proposal_type = events[0].data[0].extra.get("proposal_type").and_then(|v| v.as_str());
+    let event_proposal_type = events[0].data[0]
+        .extra
+        .get("proposal_type")
+        .and_then(|v| v.as_str());
     assert_eq!(event_proposal_type, Some("group_update_transfer_ownership"));
     println!("   ✓ transfer_ownership → parse() → ProposalType::name() → 'group_update_transfer_ownership' ✓");
 

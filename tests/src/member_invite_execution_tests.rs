@@ -39,7 +39,12 @@ async fn deploy_core_onsocial(
     let wasm = load_core_onsocial_wasm()?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    contract.call("new").args_json(json!({})).transact().await?.into_result()?;
+    contract
+        .call("new")
+        .args_json(json!({}))
+        .transact()
+        .await?
+        .into_result()?;
     contract
         .call("activate_contract")
         .deposit(NearToken::from_yoctonear(1))
@@ -107,17 +112,18 @@ async fn test_member_invited_event_includes_member_nonce() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(150))
         .transact()
         .await?;
-    assert!(invite_result.is_success(), "Invite should succeed: {:?}", invite_result.failures());
+    assert!(
+        invite_result.is_success(),
+        "Invite should succeed: {:?}",
+        invite_result.failures()
+    );
     println!("   ✓ Invite proposal created and auto-executed");
 
     // Find member_invited event
     let logs: Vec<String> = invite_result.logs().iter().map(|s| s.to_string()).collect();
     let events = find_events_by_operation(&logs, "member_invited");
 
-    assert!(
-        !events.is_empty(),
-        "member_invited event should be emitted"
-    );
+    assert!(!events.is_empty(), "member_invited event should be emitted");
     println!("   ✓ member_invited event emitted");
 
     let event_data = &events[0].data[0].extra;
@@ -165,10 +171,19 @@ async fn test_member_invited_event_includes_member_nonce() -> anyhow::Result<()>
     println!("   ✓ path: {}", expected_member_path);
 
     // VERIFICATION 4: Other expected fields still present
-    assert!(event_data.get("group_id").is_some(), "group_id should exist");
+    assert!(
+        event_data.get("group_id").is_some(),
+        "group_id should exist"
+    );
     assert!(event_data.get("level").is_some(), "level should exist");
-    assert!(event_data.get("target_id").is_some(), "target_id should exist");
-    assert!(event_data.get("proposal_id").is_some(), "proposal_id should exist");
+    assert!(
+        event_data.get("target_id").is_some(),
+        "target_id should exist"
+    );
+    assert!(
+        event_data.get("proposal_id").is_some(),
+        "proposal_id should exist"
+    );
     println!("   ✓ All expected event fields present");
 
     println!("✅ member_invited event includes member nonce fields");

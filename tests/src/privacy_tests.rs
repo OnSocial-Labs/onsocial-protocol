@@ -38,11 +38,7 @@ async fn deploy_core_onsocial(
     let wasm = load_core_onsocial_wasm()?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    let init_outcome = contract
-        .call("new")
-        .args_json(json!({}))
-        .transact()
-        .await?;
+    let init_outcome = contract.call("new").args_json(json!({})).transact().await?;
     assert!(
         init_outcome.is_success(),
         "Contract initialization failed: {:?}",
@@ -128,9 +124,9 @@ async fn test_privacy_change_emits_correct_event() -> anyhow::Result<()> {
     println!("   📋 Logs: {:?}", logs);
 
     // Find the GROUP_UPDATE event for privacy_changed
-    let privacy_event = logs.iter().find(|log| {
-        log.contains("GROUP_UPDATE") && log.contains("privacy_changed")
-    });
+    let privacy_event = logs
+        .iter()
+        .find(|log| log.contains("GROUP_UPDATE") && log.contains("privacy_changed"));
 
     assert!(
         privacy_event.is_some(),
@@ -185,10 +181,7 @@ async fn test_privacy_change_emits_correct_event() -> anyhow::Result<()> {
         event_data.get("changed_at").is_some(),
         "changed_at timestamp should be present"
     );
-    assert!(
-        event_data.get("path").is_some(),
-        "path should be present"
-    );
+    assert!(event_data.get("path").is_some(), "path should be present");
     assert!(
         event_data.get("partition_id").is_some(),
         "partition_id should be present for indexer"
@@ -257,7 +250,8 @@ async fn test_member_non_owner_cannot_set_privacy() -> anyhow::Result<()> {
         .await?
         .json()?;
     assert!(bob_member_data.is_some(), "Bob should be a member");
-    let bob_level = bob_member_data.as_ref()
+    let bob_level = bob_member_data
+        .as_ref()
         .and_then(|d| d.get("level"))
         .and_then(|v| v.as_u64())
         .unwrap_or(0);
@@ -296,7 +290,8 @@ async fn test_member_non_owner_cannot_set_privacy() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let is_private = config.as_ref()
+    let is_private = config
+        .as_ref()
         .and_then(|c| c.get("is_private"))
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
@@ -345,7 +340,8 @@ async fn test_privacy_round_trip() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "roundtrip-test" }))
         .await?
         .json()?;
-    let is_private1 = config1.as_ref()
+    let is_private1 = config1
+        .as_ref()
         .and_then(|c| c.get("is_private"))
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
@@ -372,14 +368,16 @@ async fn test_privacy_round_trip() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "roundtrip-test" }))
         .await?
         .json()?;
-    let is_private2 = config2.as_ref()
+    let is_private2 = config2
+        .as_ref()
         .and_then(|c| c.get("is_private"))
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
     assert!(!is_private2, "After first change should be public");
 
     // Verify metadata was updated
-    let changed_by1 = config2.as_ref()
+    let changed_by1 = config2
+        .as_ref()
         .and_then(|c| c.get("privacy_changed_by"))
         .and_then(|v| v.as_str());
     assert_eq!(
@@ -387,7 +385,8 @@ async fn test_privacy_round_trip() -> anyhow::Result<()> {
         Some(alice.id().as_str()),
         "privacy_changed_by should be alice"
     );
-    let changed_at1 = config2.as_ref()
+    let changed_at1 = config2
+        .as_ref()
         .and_then(|c| c.get("privacy_changed_at"))
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u64>().ok());
@@ -414,18 +413,23 @@ async fn test_privacy_round_trip() -> anyhow::Result<()> {
         .args_json(json!({ "group_id": "roundtrip-test" }))
         .await?
         .json()?;
-    let is_private3 = config3.as_ref()
+    let is_private3 = config3
+        .as_ref()
         .and_then(|c| c.get("is_private"))
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     assert!(is_private3, "Final state should be private");
 
     // Verify timestamp was updated (should be greater than first change)
-    let changed_at2 = config3.as_ref()
+    let changed_at2 = config3
+        .as_ref()
         .and_then(|c| c.get("privacy_changed_at"))
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u64>().ok());
-    assert!(changed_at2.is_some(), "privacy_changed_at should be updated");
+    assert!(
+        changed_at2.is_some(),
+        "privacy_changed_at should be updated"
+    );
     assert!(
         changed_at2.unwrap() >= changed_at1.unwrap(),
         "Second change timestamp should be >= first"
@@ -514,7 +518,10 @@ async fn test_privacy_change_storage_accounting() -> anyhow::Result<()> {
         used_before,
         used_after
     );
-    println!("   ✓ Storage properly accounted (delta: {} bytes)", used_after.saturating_sub(used_before));
+    println!(
+        "   ✓ Storage properly accounted (delta: {} bytes)",
+        used_after.saturating_sub(used_before)
+    );
 
     // Debug: print full storage structure
     println!("   📋 Full storage_after: {:?}", storage_after);
@@ -531,21 +538,27 @@ async fn test_privacy_change_storage_accounting() -> anyhow::Result<()> {
     } else if let Some(n) = storage_after.get("balance").and_then(|v| v.as_u64()) {
         n as u128
     } else {
-        panic!("balance field not found or not parseable in storage response: {:?}", storage_after);
+        panic!(
+            "balance field not found or not parseable in storage response: {:?}",
+            storage_after
+        );
     };
-    
+
     // We deposited 2 NEAR total. Storage cost is ~0.00001 NEAR/byte, so for ~857 bytes = ~0.00857 NEAR
     // Balance should be close to 2 NEAR (2e24 yocto) minus minimal storage costs
     let two_near = 2 * 10u128.pow(24);
     let expected_min_balance = two_near.saturating_sub(10u128.pow(22)); // 2 NEAR - 0.01 NEAR buffer
-    
+
     assert!(
         balance >= expected_min_balance,
         "Balance should be close to 2 NEAR (deposited). Got {} yocto, expected at least {} yocto",
         balance,
         expected_min_balance
     );
-    println!("   ✓ Storage balance is {:.4} NEAR (as expected ~2 NEAR)", balance as f64 / 1e24);
+    println!(
+        "   ✓ Storage balance is {:.4} NEAR (as expected ~2 NEAR)",
+        balance as f64 / 1e24
+    );
 
     println!("✅ Privacy change storage accounting test passed");
     Ok(())
@@ -601,7 +614,7 @@ async fn test_admin_member_cannot_set_privacy() -> anyhow::Result<()> {
     // Grant Bob admin permissions (via set operation on groups path)
     // Note: In this implementation, changing member level requires direct storage write
     // For this test, we verify that even if Bob has high-level permissions, only owner can change privacy
-    
+
     // Verify Bob is a member
     let bob_member: Option<Value> = contract
         .view("get_member_data")
@@ -652,7 +665,10 @@ async fn test_admin_member_cannot_set_privacy() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(100))
         .transact()
         .await?;
-    assert!(owner_privacy.is_success(), "Owner should be able to change privacy");
+    assert!(
+        owner_privacy.is_success(),
+        "Owner should be able to change privacy"
+    );
     println!("   ✓ Owner can change privacy successfully");
 
     println!("✅ Admin member cannot set privacy test passed");

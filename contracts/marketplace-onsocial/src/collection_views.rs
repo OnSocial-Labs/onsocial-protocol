@@ -9,7 +9,7 @@ impl Contract {
     pub fn get_collection(&self, collection_id: String) -> Option<LazyCollection> {
         self.collections.get(&collection_id).cloned()
     }
-    
+
     /// Get collection availability (remaining items)
     pub fn get_collection_availability(&self, collection_id: String) -> u32 {
         match self.collections.get(&collection_id) {
@@ -17,7 +17,7 @@ impl Contract {
             None => 0,
         }
     }
-    
+
     /// Check if collection is sold out
     pub fn is_collection_sold_out(&self, collection_id: String) -> bool {
         match self.collections.get(&collection_id) {
@@ -25,7 +25,7 @@ impl Contract {
             None => true,
         }
     }
-    
+
     /// Check if collection is currently active for minting
     pub fn is_collection_mintable(&self, collection_id: String) -> bool {
         match self.collections.get(&collection_id) {
@@ -39,11 +39,12 @@ impl Contract {
             None => false,
         }
     }
-    
+
     /// Get collection mint progress
     pub fn get_collection_progress(&self, collection_id: String) -> Option<CollectionProgress> {
-        self.collections.get(&collection_id).map(|collection| {
-            CollectionProgress {
+        self.collections
+            .get(&collection_id)
+            .map(|collection| CollectionProgress {
                 minted: collection.minted_count,
                 total: collection.total_supply,
                 remaining: collection.total_supply - collection.minted_count,
@@ -52,10 +53,9 @@ impl Contract {
                 } else {
                     0
                 },
-            }
-        })
+            })
     }
-    
+
     /// Get all collections by creator (paginated)
     pub fn get_collections_by_creator(
         &self,
@@ -67,20 +67,18 @@ impl Contract {
             Some(set) => set,
             None => return vec![],
         };
-        
+
         let start = from_index.unwrap_or(0) as usize;
         let limit = limit.unwrap_or(50).min(100) as usize;
-        
+
         collections_set
             .iter()
             .skip(start)
             .take(limit)
-            .filter_map(|collection_id| {
-                self.collections.get(collection_id.as_str()).cloned()
-            })
+            .filter_map(|collection_id| self.collections.get(collection_id.as_str()).cloned())
             .collect()
     }
-    
+
     /// Get number of collections by creator
     pub fn get_collections_count_by_creator(&self, creator_id: AccountId) -> u64 {
         self.collections_by_creator
@@ -88,7 +86,7 @@ impl Contract {
             .map(|set| set.len() as u64)
             .unwrap_or(0)
     }
-    
+
     /// Get all active collections (not sold out, within time window)
     /// Note: For large datasets, use Substreams indexer to query active collections efficiently
     /// This method is provided for convenience but may hit gas limits with many collections
@@ -99,9 +97,9 @@ impl Contract {
     ) -> Vec<LazyCollection> {
         let start = from_index.unwrap_or(0) as usize;
         let limit = limit.unwrap_or(50).min(100) as usize;
-        
+
         let now = env::block_timestamp();
-        
+
         self.collections
             .iter()
             .filter(|(_, collection)| {
@@ -115,12 +113,12 @@ impl Contract {
             .map(|(_, collection)| collection.clone())
             .collect()
     }
-    
+
     /// Get total number of collections
     pub fn get_total_collections(&self) -> u64 {
         self.collections.len() as u64
     }
-    
+
     /// Get paginated list of all collections
     pub fn get_all_collections(
         &self,
@@ -129,7 +127,7 @@ impl Contract {
     ) -> Vec<LazyCollection> {
         let start = from_index.unwrap_or(0) as usize;
         let limit = limit.unwrap_or(50).min(100) as usize;
-        
+
         self.collections
             .iter()
             .skip(start)
@@ -137,21 +135,22 @@ impl Contract {
             .map(|(_, collection)| collection.clone())
             .collect()
     }
-    
+
     /// Get collection statistics
     pub fn get_collection_stats(&self, collection_id: String) -> Option<CollectionStats> {
         self.collections.get(&collection_id).map(|collection| {
             let total_revenue = collection.minted_count as u128 * collection.price_near.0;
-            let marketplace_fees = (total_revenue * MARKETPLACE_FEE_BPS as u128) / BASIS_POINTS as u128;
+            let marketplace_fees =
+                (total_revenue * MARKETPLACE_FEE_BPS as u128) / BASIS_POINTS as u128;
             let creator_revenue = total_revenue - marketplace_fees;
-            
+
             // Check if active inline to avoid borrow checker issues
             let now = env::block_timestamp();
             let not_sold_out = collection.minted_count < collection.total_supply;
             let started = collection.start_time.map_or(true, |start| now >= start);
             let not_ended = collection.end_time.map_or(true, |end| now <= end);
             let is_active = not_sold_out && started && not_ended;
-            
+
             CollectionStats {
                 collection_id: collection.collection_id.clone(),
                 creator_id: collection.creator_id.clone(),
