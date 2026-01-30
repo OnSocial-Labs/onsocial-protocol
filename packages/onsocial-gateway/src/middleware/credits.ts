@@ -1,4 +1,5 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { Response, NextFunction } from 'express';
+import type { AuthRequest } from '../types/index.js';
 import { db } from '../db/index.js';
 import { logger } from '../logger.js';
 
@@ -36,7 +37,7 @@ export class PaymentRequiredError extends Error {
  * Read operations are FREE (no credit check, only rate limiting)
  */
 export async function creditCheckWrite(
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> {
