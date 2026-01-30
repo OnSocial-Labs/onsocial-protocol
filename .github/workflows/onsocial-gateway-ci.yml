@@ -17,6 +17,38 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: onsocial
+          POSTGRES_PASSWORD: onsocial
+          POSTGRES_DB: onsocial
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      hasura:
+        image: hasura/graphql-engine:v2.40.0
+        env:
+          HASURA_GRAPHQL_DATABASE_URL: postgres://onsocial:onsocial@postgres:5432/onsocial
+          HASURA_GRAPHQL_ADMIN_SECRET: ci-test-secret
+          HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+          HASURA_GRAPHQL_DEV_MODE: "true"
+          HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/healthz"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 3
+        ports:
+          - 8080:8080
+
     defaults:
       run:
         working-directory: packages/onsocial-gateway
@@ -41,23 +73,35 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Setup database schema
+        run: |
+          PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f src/db/schema.sql || true
+        env:
+          PGPASSWORD: onsocial
+
       - name: Start gateway
         run: |
           node dist/index.js &
           sleep 3
         env:
           NODE_ENV: test
+          PORT: 4000
           JWT_SECRET: ci-test-secret
           LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
-          HASURA_URL: http://135.181.110.183:8080
-          HASURA_ADMIN_SECRET: ${{ secrets.HASURA_ADMIN_SECRET }}
+          HASURA_URL: http://localhost:8080/v1/graphql
+          HASURA_ADMIN_SECRET: ci-test-secret
+          NEAR_NETWORK: testnet
+          NEAR_RPC_URL: https://rpc.testnet.near.org
+          DATABASE_URL: postgres://onsocial:onsocial@localhost:5432/onsocial
+          PRICE_ORACLE_MODE: mock
 
       - name: Run tests
         run: pnpm test
         env:
           GATEWAY_URL: http://localhost:4000
           LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
-          HASURA_ADMIN_SECRET: ${{ secrets.HASURA_ADMIN_SECRET }}
+          HASURA_URL: http://localhost:8080/v1/graphql
+          HASURA_ADMIN_SECRET: ci-test-secret
 
       - name: Health check
         run: curl -s http://localhost:4000/health | jq
