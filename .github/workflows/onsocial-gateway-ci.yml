@@ -69,6 +69,7 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+        working-directory: .
 
       - name: Build
         run: pnpm build
