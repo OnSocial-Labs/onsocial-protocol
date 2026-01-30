@@ -61,19 +61,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # Disable cache to ensure fresh install with updated lockfile
-          # cache: 'pnpm'
-          # cache-dependency-path: 'pnpm-lock.yaml'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Verify pg installation
-        run: |
-          echo "Checking pg package..."
-          ls -la packages/onsocial-gateway/node_modules/.pnpm/ | grep pg || true
-          ls -la node_modules/.pnpm/ | grep pg || true
-          find packages/onsocial-gateway/node_modules -name "pg" -type d || true
 
       - name: Build
         run: pnpm --filter onsocial-gateway build
