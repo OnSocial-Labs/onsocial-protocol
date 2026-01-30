@@ -5,8 +5,29 @@ import { describe, it, expect, beforeAll } from 'vitest';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
 
+// Helper to get auth token
+async function getAuthToken(): Promise<string> {
+  const loginRes = await fetch(`${GATEWAY_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      accountId: 'test.near',
+      message: 'OnSocial Auth: 1706000000',
+      signature: 'test-signature',
+      publicKey: 'ed25519:test',
+    }),
+  });
+  const data = await loginRes.json();
+  return data.token;
+}
+
 describe('Storage Endpoints', () => {
   let testCid: string;
+  let authToken: string;
+
+  beforeAll(async () => {
+    authToken = await getAuthToken();
+  });
 
   describe('POST /storage/upload-json', () => {
     it('should upload JSON and return CID', async () => {
@@ -14,7 +35,10 @@ describe('Storage Endpoints', () => {
 
       const res = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
         body: JSON.stringify(testData),
       });
 
@@ -28,7 +52,10 @@ describe('Storage Endpoints', () => {
     it('should reject empty body', async () => {
       const res = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
         body: '{}',
       });
 
@@ -36,7 +63,10 @@ describe('Storage Endpoints', () => {
       // Let's test with truly empty
       const res2 = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
       });
 
       expect(res2.status).toBe(400);
@@ -75,7 +105,10 @@ describe('Storage Endpoints', () => {
         // Upload something first
         const uploadRes = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
           body: JSON.stringify({ test: 'download-test' }),
         });
         const uploadData = await uploadRes.json();
@@ -96,7 +129,10 @@ describe('Storage Endpoints', () => {
       if (!testCid) {
         const uploadRes = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
           body: JSON.stringify({ test: 'json-download-test', num: 42 }),
         });
         const uploadData = await uploadRes.json();
@@ -120,6 +156,9 @@ describe('Storage Endpoints', () => {
 
       const res = await fetch(`${GATEWAY_URL}/storage/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
         body: formData,
       });
 
@@ -132,6 +171,9 @@ describe('Storage Endpoints', () => {
     it('should reject request without file', async () => {
       const res = await fetch(`${GATEWAY_URL}/storage/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
       });
 
       expect(res.status).toBe(400);

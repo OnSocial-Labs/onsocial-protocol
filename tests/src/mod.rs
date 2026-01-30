@@ -47,6 +47,8 @@ pub mod shared_storage_atomic_tests;
 #[cfg(test)]
 pub mod signed_payload_integration_tests;
 #[cfg(test)]
+pub mod staking_gas_profiling_tests;
+#[cfg(test)]
 pub mod staking_onsocial_tests;
 #[cfg(test)]
 pub mod storage_batch_tests;

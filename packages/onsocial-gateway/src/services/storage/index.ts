@@ -83,6 +83,29 @@ router.get('/url/:cid', (req: Request, res: Response) => {
   res.json({ url: `${GATEWAY_URL}/${cid}` });
 });
 
+// GET /storage/:cid/json - Download and parse as JSON (MUST come before /:cid)
+router.get('/:cid/json', async (req: Request, res: Response) => {
+  const { cid } = req.params;
+  if (!cid) {
+    res.status(400).json({ error: 'CID required' });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${GATEWAY_URL}/${cid}`);
+    if (!response.ok) {
+      res.status(response.status).json({ error: 'File not found' });
+      return;
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Download JSON error:', error);
+    res.status(500).json({ error: 'Download or parse failed' });
+  }
+});
+
 // GET /storage/:cid - Download raw file (proxied through gateway)
 router.get('/:cid', async (req: Request, res: Response) => {
   const { cid } = req.params;
@@ -106,29 +129,6 @@ router.get('/:cid', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Download error:', error);
     res.status(500).json({ error: 'Download failed' });
-  }
-});
-
-// GET /storage/:cid/json - Download and parse as JSON
-router.get('/:cid/json', async (req: Request, res: Response) => {
-  const { cid } = req.params;
-  if (!cid) {
-    res.status(400).json({ error: 'CID required' });
-    return;
-  }
-
-  try {
-    const response = await fetch(`${GATEWAY_URL}/${cid}`);
-    if (!response.ok) {
-      res.status(response.status).json({ error: 'File not found' });
-      return;
-    }
-
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error('Download JSON error:', error);
-    res.status(500).json({ error: 'Download or parse failed' });
   }
 });
 
