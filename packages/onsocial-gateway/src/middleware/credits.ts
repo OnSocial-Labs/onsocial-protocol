@@ -145,7 +145,7 @@ export async function creditCheckWrite(
 /**
  * Helper to get operation type from request
  */
-function getOperation(req: Request): 'ipfs_upload' | 'relay_tx' {
+function getOperation(req: AuthRequest): 'ipfs_upload' | 'relay_tx' {
   if (req.path.includes('/upload')) return 'ipfs_upload';
   if (req.path.includes('/relay')) return 'relay_tx';
   return 'ipfs_upload'; // default
