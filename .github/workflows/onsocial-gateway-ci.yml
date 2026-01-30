@@ -49,10 +49,6 @@ jobs:
         ports:
           - 8080:8080
 
-    defaults:
-      run:
-        working-directory: packages/onsocial-gateway
-
     steps:
       - uses: actions/checkout@v4
 
@@ -66,23 +62,23 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Install dependencies
-        run: pnpm install
-        working-directory: .
+        run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: pnpm --filter onsocial-gateway build
 
       - name: Setup database schema
         run: |
-          PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f src/db/schema.sql || true
+          PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/src/db/schema.sql || true
         env:
           PGPASSWORD: onsocial
 
       - name: Start gateway
         run: |
-          node dist/index.js &
+          node packages/onsocial-gateway/dist/index.js &
           sleep 3
         env:
           NODE_ENV: test
@@ -97,7 +93,7 @@ jobs:
           PRICE_ORACLE_MODE: mock
 
       - name: Run tests
-        run: pnpm test
+        run: pnpm --filter onsocial-gateway test
         env:
           GATEWAY_URL: http://localhost:4000
           LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
