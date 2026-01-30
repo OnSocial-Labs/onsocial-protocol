@@ -1,4 +1,4 @@
-name: OnSocial Gateway
+name: OnSocial Gateway CI
 
 on:
   push:
@@ -6,17 +6,24 @@ on:
     paths:
       - 'packages/onsocial-gateway/**'
       - '.github/workflows/onsocial-gateway-ci.yml'
+      - 'pnpm-lock.yaml'
   pull_request:
     branches: [main]
     paths:
       - 'packages/onsocial-gateway/**'
       - '.github/workflows/onsocial-gateway-ci.yml'
+      - 'pnpm-lock.yaml'
   workflow_dispatch:
+
+env:
+  NODE_ENV: test
+  CI: true
 
 jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     services:
       postgres:
@@ -38,22 +45,23 @@ jobs:
         env:
           HASURA_GRAPHQL_DATABASE_URL: postgres://onsocial:onsocial@postgres:5432/onsocial
           HASURA_GRAPHQL_ADMIN_SECRET: ci-test-secret
-          HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
-          HASURA_GRAPHQL_DEV_MODE: "true"
+          HASURA_GRAPHQL_ENABLE_CONSOLE: "false"
+          HASURA_GRAPHQL_DEV_MODE: "false"
           HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
         options: >-
           --health-cmd "curl -f http://localhost:8080/healthz"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 3
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
         ports:
           - 8080:8080
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 10
 
@@ -65,23 +73,28 @@ jobs:
           cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm --filter onsocial-gateway build
 
-      - name: Setup database schema
-        run: |
-          PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/src/db/schema.sql || true
-        env:
-          PGPASSWORD: onsocial
+      - name: Setup database
+        run: PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/src/db/schema.sql
 
       - name: Start gateway
         run: |
           node packages/onsocial-gateway/dist/index.js &
-          sleep 3
+          echo $! > /tmp/gateway.pid
+          # Wait for gateway to be ready
+          for i in {1..30}; do
+            if curl -s http://localhost:4000/health > /dev/null 2>&1; then
+              echo "Gateway is ready"
+              break
+            fi
+            echo "Waiting for gateway... ($i/30)"
+            sleep 1
+          done
         env:
-          NODE_ENV: test
           PORT: 4000
           JWT_SECRET: ci-test-secret
           LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
@@ -89,7 +102,11 @@ jobs:
           HASURA_ADMIN_SECRET: ci-test-secret
           NEAR_NETWORK: testnet
           NEAR_RPC_URL: https://rpc.testnet.near.org
-          DATABASE_URL: postgres://onsocial:onsocial@localhost:5432/onsocial
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: onsocial
+          POSTGRES_USER: onsocial
+          POSTGRES_PASSWORD: onsocial
           PRICE_ORACLE_MODE: mock
 
       - name: Run tests
@@ -101,4 +118,16 @@ jobs:
           HASURA_ADMIN_SECRET: ci-test-secret
 
       - name: Health check
-        run: curl -s http://localhost:4000/health | jq
+        run: |
+          echo "=== Gateway Health ==="
+          curl -sf http://localhost:4000/health | jq
+          echo ""
+          echo "=== Public Stats ==="
+          curl -sf http://localhost:4000/public/stats | jq || echo "Stats endpoint not available"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/gateway.pid ]; then
+            kill $(cat /tmp/gateway.pid) 2>/dev/null || true
+          fi
