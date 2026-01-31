@@ -360,7 +360,7 @@ async fn gas_profile_inject_rewards() -> Result<()> {
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (1000 * ONE_SOCIAL).to_string(),
-            "msg": r#"{"action":"rewards"}"#
+            "msg": r#"{"action":"fund_scheduled"}"#
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
@@ -446,7 +446,7 @@ async fn gas_profile_claim_rewards() -> Result<()> {
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (1000 * ONE_SOCIAL).to_string(),
-            "msg": r#"{"action":"rewards"}"#
+            "msg": r#"{"action":"fund_scheduled"}"#
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
@@ -591,7 +591,7 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (1000 * ONE_SOCIAL).to_string(),
-            "msg": r#"{"action":"rewards"}"#
+            "msg": r#"{"action":"fund_scheduled"}"#
         }))
         .deposit(NearToken::from_yoctonear(1))
         .gas(Gas::from_tgas(50))
