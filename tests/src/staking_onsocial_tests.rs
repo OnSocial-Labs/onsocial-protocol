@@ -2921,3 +2921,96 @@ async fn test_on_upgrade_callback_only_callable_by_contract() -> Result<()> {
 
     Ok(())
 }
+
+// =============================================================================
+// Additional Event Tests
+// =============================================================================
+// NOTE: Unlock-after-expiry is thoroughly tested in unit tests (tests.rs)
+// which directly manipulate block_timestamp for instant execution.
+// Integration tests for time-dependent unlock would require fast_forward
+// with millions of blocks, which is impractical.
+
+/// Test claim rewards success event
+#[tokio::test]
+async fn test_claim_rewards_success_event() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 10_000_000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
+    let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    // Deposit storage
+    user.call(staking.id(), "deposit_storage")
+        .deposit(NearToken::from_millinear(5))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Lock tokens
+    user.call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (100 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"lock","months":12}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Owner injects rewards
+    owner
+        .call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (1000 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"rewards"}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Get pending rewards amount
+    let pending: serde_json::Value = staking
+        .view("get_pending_rewards")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+    let pending_amount: u128 = pending.as_str().unwrap().parse().unwrap();
+    assert!(pending_amount > 0);
+
+    // Claim rewards
+    let outcome = user
+        .call(staking.id(), "claim_rewards")
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify REWARDS_CLAIM event emitted (success case has only amount, no success field)
+    let logs: Vec<String> = outcome.logs().iter().map(|s| s.to_string()).collect();
+    let event = find_event_log(&logs, "REWARDS_CLAIM");
+    assert!(event.is_some(), "REWARDS_CLAIM event should be emitted");
+
+    let event = event.unwrap();
+    let data = &event["data"][0];
+    // Success case: has amount, does NOT have success=false or error field
+    assert!(data["amount"].as_str().is_some(), "Event should have amount");
+    assert!(data["success"].is_null(), "Success case should not have success field");
+    assert!(data["error"].is_null(), "Success case should not have error field");
+    assert_eq!(data["account_id"], user.id().to_string());
+
+    // Verify rewards pool decreased
+    let stats: ContractStats = staking.view("get_stats").await?.json()?;
+    let pool_after: u128 = stats.rewards_pool.parse().unwrap();
+    assert!(pool_after < 1000 * ONE_SOCIAL, "Rewards pool should decrease after claim");
+
+    Ok(())
+}
+
+

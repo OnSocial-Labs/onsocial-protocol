@@ -38,7 +38,7 @@ async fn setup_token_contract() -> Result<(
             "name": "OnSocial",
             "symbol": "SOCIAL",
             "total_supply": TOTAL_SUPPLY.to_string(),
-            "icon": null
+            "icon": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='%234CAF50'/%3E%3C/svg%3E"
         }))
         .transact()
         .await?

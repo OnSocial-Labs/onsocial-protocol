@@ -258,12 +258,12 @@ deploy_contract() {
     # Expand environment variables in init args
     init_args=$(eval echo "$init_args")
     
-    [ "$VERBOSE" = "1" ] && echo "Running: near call $contract_id new '$init_args' --accountId $AUTH_ACCOUNT ..."
+    [ "$VERBOSE" = "1" ] && echo "Running: near call $contract_id new '$init_args' --accountId $AUTH_ACCOUNT --networkId $NETWORK ..."
     
     if [ "$VERBOSE" = "1" ]; then
-      near call "$contract_id" new "$init_args" --accountId "$AUTH_ACCOUNT" ${NEAR_NODE_URL:+--nodeUrl "$NEAR_NODE_URL"}
+      near call "$contract_id" new "$init_args" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK"
     else
-      near call "$contract_id" new "$init_args" --accountId "$AUTH_ACCOUNT" ${NEAR_NODE_URL:+--nodeUrl "$NEAR_NODE_URL"} >/dev/null
+      near call "$contract_id" new "$init_args" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK" >/dev/null
     fi
     
     echo -e "${SUCCESS}$contract initialized successfully${RESET}"
