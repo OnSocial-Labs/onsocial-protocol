@@ -1,4 +1,8 @@
 {
+  "genesis": {
+    "timestamp": "2026-01-31T00:00:00Z",
+    "message": "Own the graph."
+  },
   "description": "SOCIAL is the utility token of the OnSocial Protocol - a decentralized social data layer on NEAR",
   "website": "https://github.com/OnSocial-Labs",
   "socials": {
