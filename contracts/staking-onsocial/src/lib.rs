@@ -7,7 +7,7 @@ use near_sdk::{
 use primitive_types::U256;
 
 const MONTH_NS: u64 = 30 * 24 * 60 * 60 * 1_000_000_000;
-const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(30);
+const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(50);
 const GAS_FOR_CALLBACK: Gas = Gas::from_tgas(50);
 const GAS_FOR_MIGRATE: Gas = Gas::from_tgas(200);
 const PRECISION: u128 = 1_000_000_000_000_000_000;
