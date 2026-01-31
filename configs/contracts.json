@@ -9,7 +9,7 @@
         "name": "staking-onsocial",
         "id": "staking.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
-        "init": "new '{}'"
+        "init": "new '{\"token_id\": \"token.${AUTH_ACCOUNT}\", \"owner_id\": \"${AUTH_ACCOUNT}\"}'"
     },
     {
         "name": "core-onsocial",

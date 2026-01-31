@@ -9,8 +9,9 @@ use primitive_types::U256;
 const MONTH_NS: u64 = 30 * 24 * 60 * 60 * 1_000_000_000;
 const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(30);
 const GAS_FOR_CALLBACK: Gas = Gas::from_tgas(50);
+const GAS_FOR_MIGRATE: Gas = Gas::from_tgas(200);
 const PRECISION: u128 = 1_000_000_000_000_000_000;
-const STORAGE_DEPOSIT: u128 = 5_000_000_000_000_000_000_000; // 0.005 NEAR
+const STORAGE_DEPOSIT: u128 = 5_000_000_000_000_000_000_000; // 0.005N
 
 const VALID_LOCK_PERIODS: [u64; 5] = [1, 6, 12, 24, 48];
 
@@ -81,23 +82,30 @@ impl OnsocialStaking {
         }
     }
 
-    /// Deposits storage (0.005 NEAR). Required before first lock.
-    #[payable]
-    pub fn deposit_storage(&mut self) {
-        let account_id = env::predecessor_account_id();
+    // --- NEP-145 Storage Management ---
 
-        // Already paid - refund
+    /// Registers account for staking. Deposits to `account_id` or caller if omitted.
+    #[payable]
+    pub fn storage_deposit(
+        &mut self,
+        account_id: Option<AccountId>,
+        #[allow(unused_variables)] registration_only: Option<bool>,
+    ) -> StorageBalance {
+        let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
+        let deposit = env::attached_deposit().as_yoctonear();
+
         if self.storage_paid.contains_key(&account_id) {
-            let deposit = env::attached_deposit().as_yoctonear();
             if deposit > 0 {
-                Promise::new(account_id)
+                Promise::new(env::predecessor_account_id())
                     .transfer(NearToken::from_yoctonear(deposit))
                     .detach();
             }
-            return;
+            return StorageBalance {
+                total: U128(STORAGE_DEPOSIT),
+                available: U128(0),
+            };
         }
 
-        let deposit = env::attached_deposit().as_yoctonear();
         require!(
             deposit >= STORAGE_DEPOSIT,
             "Attach at least 0.005 NEAR for storage"
@@ -105,20 +113,40 @@ impl OnsocialStaking {
 
         self.storage_paid.insert(account_id.clone(), true);
 
-        // Refund excess
         let refund = deposit.saturating_sub(STORAGE_DEPOSIT);
         if refund > 0 {
-            Promise::new(account_id)
+            Promise::new(env::predecessor_account_id())
                 .transfer(NearToken::from_yoctonear(refund))
                 .detach();
         }
+
+        StorageBalance {
+            total: U128(STORAGE_DEPOSIT),
+            available: U128(0),
+        }
     }
 
-    pub fn has_storage(&self, account_id: AccountId) -> bool {
-        self.storage_paid.contains_key(&account_id)
+    /// Returns storage bounds. Fixed at 0.005N (min == max).
+    pub fn storage_balance_bounds(&self) -> StorageBalanceBounds {
+        StorageBalanceBounds {
+            min: U128(STORAGE_DEPOSIT),
+            max: U128(STORAGE_DEPOSIT),
+        }
     }
 
-    /// NEP-141 receiver. Actions: "lock", "credits", "rewards".
+    /// Returns storage balance or None if unregistered.
+    pub fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
+        if self.storage_paid.contains_key(&account_id) {
+            Some(StorageBalance {
+                total: U128(STORAGE_DEPOSIT),
+                available: U128(0),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// NEP-141 receiver. Parses `action` from msg: "lock", "credits", "rewards".
     pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
         require!(
             env::predecessor_account_id() == self.token_id,
@@ -139,7 +167,7 @@ impl OnsocialStaking {
             "lock" => {
                 require!(
                     self.storage_paid.contains_key(&sender_id),
-                    "Call deposit_storage with 0.005 NEAR first"
+                    "Call storage_deposit with 0.005 NEAR first"
                 );
                 let months = parsed["months"]
                     .as_u64()
@@ -163,7 +191,7 @@ impl OnsocialStaking {
         U128(0)
     }
 
-    /// Renews lock using current lock period.
+    /// Restarts lock timer using current lock period.
     pub fn renew_lock(&mut self) {
         let account_id = env::predecessor_account_id();
         let account = self
@@ -174,7 +202,7 @@ impl OnsocialStaking {
         self.extend_lock(account.lock_months);
     }
 
-    /// Extends lock. New period must be >= current and result in later unlock.
+    /// Extends lock period. Requires: new_months >= current, new_unlock > current.
     pub fn extend_lock(&mut self, months: u64) {
         require!(
             VALID_LOCK_PERIODS.contains(&months),
@@ -296,7 +324,7 @@ impl OnsocialStaking {
                 }),
             );
         } else {
-            // Restore state - DO NOT PANIC (would revert the restoration)
+            // Rollback on failure. No panic - would revert the rollback itself.
             let mut account = self.accounts.get(&account_id).cloned().unwrap_or_default();
             account.locked_amount = amount;
             account.unlock_at = old_unlock_at;
@@ -357,7 +385,7 @@ impl OnsocialStaking {
                 }),
             );
         } else {
-            // Restore state - DO NOT PANIC (would revert the restoration)
+            // Rollback on failure. No panic - would revert the rollback itself.
             let mut account = self.accounts.get(&account_id).cloned().unwrap_or_default();
             account.pending_rewards = U128(account.pending_rewards.0 + amount.0);
             self.accounts.insert(account_id.clone(), account);
@@ -376,7 +404,7 @@ impl OnsocialStaking {
 
     // --- Owner ---
 
-    /// Withdraws from infra pool. Owner only.
+    /// Withdraws from infra pool to specified receiver. Owner only.
     #[payable]
     pub fn withdraw_infra(&mut self, amount: U128, receiver_id: AccountId) -> Promise {
         require!(
@@ -418,7 +446,7 @@ impl OnsocialStaking {
                 }),
             );
         } else {
-            // Restore state - DO NOT PANIC (would revert the restoration)
+            // Rollback on failure. No panic - would revert the rollback itself.
             self.infra_pool += amount.0;
             Self::emit_event(
                 EVENT_INFRA_WITHDRAW,
@@ -433,7 +461,7 @@ impl OnsocialStaking {
         }
     }
 
-    /// Transfers ownership. Owner only.
+    /// Transfers contract ownership. Owner only.
     #[payable]
     pub fn set_owner(&mut self, new_owner: AccountId) {
         require!(
@@ -454,41 +482,39 @@ impl OnsocialStaking {
         );
     }
 
-    /// Deploys new contract code. Owner only.
-    #[payable]
-    pub fn update_contract(&mut self) -> Promise {
-        require!(
-            env::attached_deposit().as_yoctonear() == 1,
-            "Requires exactly 1 yoctoNEAR"
-        );
+    /// Upgrades contract code. Owner only. Uses raw input for efficiency.
+    /// Works post-key-deletion via `&self`.
+    pub fn update_contract(&self) -> Promise {
         require!(
             env::predecessor_account_id() == self.owner_id,
             "Only owner can upgrade"
         );
-        let code = env::input().unwrap_or_else(|| env::panic_str("No input"));
-        require!(code.len() <= 4 * 1024 * 1024, "Contract code too large");
+        let code = env::input().expect("No input provided").to_vec();
+
         Promise::new(env::current_account_id())
             .deploy_contract(code)
-            .then(Promise::new(env::current_account_id()).function_call(
-                "on_upgrade_callback".to_string(),
+            .function_call(
+                "migrate".to_string(),
                 vec![],
-                NearToken::from_yoctonear(0),
-                Gas::from_tgas(5),
-            ))
+                NearToken::from_near(0),
+                GAS_FOR_MIGRATE,
+            )
             .as_return()
     }
 
+    /// Handles state migration during upgrades. Extend with migration logic as needed.
     #[private]
-    pub fn on_upgrade_callback(&self) {
-        if env::promise_result_checked(0, 100).is_ok() {
-            Self::emit_event(
-                EVENT_CONTRACT_UPGRADE,
-                &self.owner_id,
-                serde_json::json!({}),
-            );
-        } else {
-            env::log_str("ERROR: Contract upgrade failed");
-        }
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let old_state: OnsocialStaking = env::state_read().expect("Failed to read state");
+
+        Self::emit_event(
+            EVENT_CONTRACT_UPGRADE,
+            &old_state.owner_id,
+            serde_json::json!({}),
+        );
+
+        old_state
     }
 
     // --- Views ---
@@ -540,7 +566,7 @@ impl OnsocialStaking {
         self.accounts.insert(account_id.clone(), updated);
     }
 
-    /// Applies lock bonus: 1-6mo +10%, 7-12mo +20%, 13-24mo +35%, 25-48mo +50%.
+    /// Returns stake × bonus multiplier. Bonus: 1-6mo=10%, 7-12mo=20%, 13-24mo=35%, 25-48mo=50%.
     fn effective_stake(&self, account: &Account) -> u128 {
         if account.locked_amount.0 == 0 {
             return 0;
@@ -615,7 +641,7 @@ impl OnsocialStaking {
         );
     }
 
-    /// Splits tokens: 60% infra, 40% rewards.
+    /// Allocates tokens: 60% to infra pool, 40% to rewards pool.
     fn internal_purchase_credits(&mut self, account_id: AccountId, amount: u128) {
         let infra_share = amount * 60 / 100;
         let rewards_share = amount - infra_share;
@@ -716,6 +742,18 @@ pub struct ContractStats {
     pub rewards_pool: U128,
     pub infra_pool: U128,
     pub reward_per_token: U128,
+}
+
+#[near(serializers = [json])]
+pub struct StorageBalance {
+    pub total: U128,
+    pub available: U128,
+}
+
+#[near(serializers = [json])]
+pub struct StorageBalanceBounds {
+    pub min: U128,
+    pub max: U128,
 }
 
 #[cfg(test)]

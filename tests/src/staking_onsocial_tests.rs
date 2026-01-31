@@ -315,19 +315,20 @@ async fn test_storage_deposit_success() -> Result<()> {
     let staking = setup_staking_contract(&worker, "social.token.near", &owner).await?;
 
     // Make storage deposit
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5)) // 0.005 NEAR
         .transact()
         .await?
         .into_result()?;
 
     // Verify storage is registered
-    let has_storage: bool = staking
-        .view("has_storage")
+    let storage_balance: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
         .args_json(json!({ "account_id": user.id().to_string() }))
         .await?
         .json()?;
-    assert!(has_storage, "User should have storage after deposit");
+    assert!(storage_balance.is_some(), "User should have storage after deposit");
 
     Ok(())
 }
@@ -348,7 +349,8 @@ async fn test_staking_lock_tokens() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage first
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -391,7 +393,8 @@ async fn test_unlock_before_expiry_fails() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -464,7 +467,8 @@ async fn test_additive_lock_extends_period() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -538,7 +542,8 @@ async fn test_lock_all_valid_periods() -> Result<()> {
         transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
 
         // Deposit storage
-        user.call(staking.id(), "deposit_storage")
+        user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
             .deposit(NearToken::from_millinear(5))
             .transact()
             .await?
@@ -584,7 +589,8 @@ async fn test_lock_invalid_periods_rejected() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -636,7 +642,8 @@ async fn test_staking_lock_wrong_token_rejected() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft_real.id().as_str(), &owner).await?;
 
     // Deposit storage on real staking contract (for testing)
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -678,7 +685,8 @@ async fn test_staking_lock_event_emitted() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -725,7 +733,8 @@ async fn test_claim_rewards_no_pending_fails() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -831,7 +840,8 @@ async fn test_rewards_distribution_multiple_stakers() -> Result<()> {
 
     // Deposit storage for both users
     for user in [&user1, &user2] {
-        user.call(staking.id(), "deposit_storage")
+        user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
             .deposit(NearToken::from_millinear(5))
             .transact()
             .await?
@@ -957,7 +967,8 @@ async fn test_effective_stake_1_month_bonus() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -996,7 +1007,8 @@ async fn test_effective_stake_12_month_bonus() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1035,7 +1047,8 @@ async fn test_effective_stake_48_month_bonus() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1256,7 +1269,8 @@ async fn test_lock_zero_amount_rejected() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1366,7 +1380,8 @@ async fn test_multiple_users_independent_state() -> Result<()> {
 
     // Deposit storage for user_a only
     user_a
-        .call(staking.id(), "deposit_storage")
+        .call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1528,7 +1543,7 @@ async fn test_update_contract_owner_succeeds() -> Result<()> {
         .call(staking.id(), "update_contract")
         .args(wasm)
         .deposit(NearToken::from_yoctonear(1))
-        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .gas(near_workspaces::types::Gas::from_tgas(300))
         .transact()
         .await?;
 
@@ -1587,7 +1602,7 @@ async fn test_update_contract_emits_event() -> Result<()> {
         .call(staking.id(), "update_contract")
         .args(wasm)
         .deposit(NearToken::from_yoctonear(1))
-        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .gas(near_workspaces::types::Gas::from_tgas(300))
         .transact()
         .await?;
 
@@ -1616,7 +1631,8 @@ async fn test_update_contract_preserves_user_balances() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1652,7 +1668,7 @@ async fn test_update_contract_preserves_user_balances() -> Result<()> {
         .call(staking.id(), "update_contract")
         .args(wasm)
         .deposit(NearToken::from_yoctonear(1))
-        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .gas(near_workspaces::types::Gas::from_tgas(300))
         .transact()
         .await?
         .into_result()?;
@@ -1702,7 +1718,8 @@ async fn test_get_stats_complete() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1771,7 +1788,8 @@ async fn test_renew_lock_success() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1868,7 +1886,8 @@ async fn test_renew_lock_no_tokens_locked_fails() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage but don't lock tokens
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -1921,7 +1940,8 @@ async fn test_extend_lock_success() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2004,7 +2024,8 @@ async fn test_extend_lock_invalid_period_fails() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2050,7 +2071,8 @@ async fn test_extend_lock_shorter_period_fails() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2120,7 +2142,8 @@ async fn test_extend_lock_no_tokens_locked_fails() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2170,7 +2193,8 @@ async fn test_storage_deposit_refunds_excess() -> Result<()> {
     let balance_before = user.view_account().await?.balance;
 
     // Deposit 0.01 NEAR (excess over required 0.005 NEAR)
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(10)) // 0.01 NEAR
         .transact()
         .await?
@@ -2179,12 +2203,12 @@ async fn test_storage_deposit_refunds_excess() -> Result<()> {
     let balance_after = user.view_account().await?.balance;
 
     // Should have storage registered
-    let has_storage: bool = staking
-        .view("has_storage")
+    let storage_balance: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
         .args_json(json!({ "account_id": user.id().to_string() }))
         .await?
         .json()?;
-    assert!(has_storage);
+    assert!(storage_balance.is_some());
 
     // Balance should have decreased by approximately 0.005 NEAR (plus gas)
     // Not exactly 0.005 due to gas costs, but should be less than 0.01 NEAR difference
@@ -2208,7 +2232,8 @@ async fn test_storage_deposit_double_deposit_refunds() -> Result<()> {
     let staking = setup_staking_contract(&worker, "social.token.near", &owner).await?;
 
     // First deposit
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2217,7 +2242,8 @@ async fn test_storage_deposit_double_deposit_refunds() -> Result<()> {
     let balance_before_second = user.view_account().await?.balance;
 
     // Second deposit - should refund entire amount
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2226,12 +2252,12 @@ async fn test_storage_deposit_double_deposit_refunds() -> Result<()> {
     let balance_after_second = user.view_account().await?.balance;
 
     // Should still have storage
-    let has_storage: bool = staking
-        .view("has_storage")
+    let storage_balance: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
         .args_json(json!({ "account_id": user.id().to_string() }))
         .await?
         .json()?;
-    assert!(has_storage);
+    assert!(storage_balance.is_some());
 
     // Balance difference should be minimal (only gas cost, not 0.005 NEAR)
     // Note: balance_after can be higher than balance_before due to refund timing
@@ -2419,7 +2445,8 @@ async fn test_ft_on_transfer_missing_action_rejected() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2463,7 +2490,8 @@ async fn test_ft_on_transfer_lock_missing_months_rejected() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2511,7 +2539,8 @@ async fn test_effective_stake_6_month_bonus() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2550,7 +2579,8 @@ async fn test_effective_stake_24_month_bonus() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2673,7 +2703,8 @@ async fn test_unlock_callback_failure_restores_state() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2810,7 +2841,8 @@ async fn test_claim_rewards_callback_failure_restores_state() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -2942,7 +2974,8 @@ async fn test_claim_rewards_success_event() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     // Deposit storage
-    user.call(staking.id(), "deposit_storage")
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?
@@ -3013,4 +3046,481 @@ async fn test_claim_rewards_success_event() -> Result<()> {
     Ok(())
 }
 
+// =============================================================================
+// Contract Upgrade Tests (Extended)
+// =============================================================================
 
+#[tokio::test]
+async fn test_upgrade_with_recommended_gas() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+
+    let staking = setup_staking_contract(&worker, "social.token.near", &owner).await?;
+
+    let wasm_path = get_wasm_path("staking-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+
+    // Use 300 TGas (recommended for upgrade + migrate)
+    let result = owner
+        .call(staking.id(), "update_contract")
+        .args(wasm)
+        .gas(near_workspaces::types::Gas::from_tgas(300))
+        .transact()
+        .await?;
+
+    assert!(
+        result.is_success(),
+        "Upgrade with 300 TGas should succeed: {:?}",
+        result
+    );
+
+    // Verify contract still works
+    let stats: ContractStats = staking.view("get_stats").await?.json()?;
+    assert_eq!(stats.owner_id, owner.id().to_string());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_preserves_multiple_users_state() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user1 = worker.dev_create_account().await?;
+    let user2 = worker.dev_create_account().await?;
+    let user3 = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 10_000_000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user1, 5000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user2, 5000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user3, 5000 * ONE_SOCIAL).await?;
+
+    let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    // All users deposit storage and lock different amounts/periods
+    for (user, amount, months) in [
+        (&user1, 100, 6),
+        (&user2, 200, 12),
+        (&user3, 300, 24),
+    ] {
+        user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
+            .deposit(NearToken::from_millinear(5))
+            .transact()
+            .await?
+            .into_result()?;
+
+        user.call(ft.id(), "ft_transfer_call")
+            .args_json(json!({
+                "receiver_id": staking.id().to_string(),
+                "amount": (amount * ONE_SOCIAL).to_string(),
+                "msg": format!(r#"{{"action":"lock","months":{}}}"#, months)
+            }))
+            .deposit(NearToken::from_yoctonear(1))
+            .gas(near_workspaces::types::Gas::from_tgas(100))
+            .transact()
+            .await?
+            .into_result()?;
+    }
+
+    // Get all states before upgrade
+    let acc1_before: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user1.id().to_string() }))
+        .await?
+        .json()?;
+    let acc2_before: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user2.id().to_string() }))
+        .await?
+        .json()?;
+    let acc3_before: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user3.id().to_string() }))
+        .await?
+        .json()?;
+    let stats_before: ContractStats = staking.view("get_stats").await?.json()?;
+
+    // Perform upgrade
+    let wasm_path = get_wasm_path("staking-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+
+    owner
+        .call(staking.id(), "update_contract")
+        .args(wasm)
+        .gas(near_workspaces::types::Gas::from_tgas(300))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify all user states preserved
+    let acc1_after: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user1.id().to_string() }))
+        .await?
+        .json()?;
+    let acc2_after: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user2.id().to_string() }))
+        .await?
+        .json()?;
+    let acc3_after: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user3.id().to_string() }))
+        .await?
+        .json()?;
+
+    assert_eq!(acc1_before.locked_amount, acc1_after.locked_amount);
+    assert_eq!(acc1_before.lock_months, acc1_after.lock_months);
+    assert_eq!(acc2_before.locked_amount, acc2_after.locked_amount);
+    assert_eq!(acc2_before.lock_months, acc2_after.lock_months);
+    assert_eq!(acc3_before.locked_amount, acc3_after.locked_amount);
+    assert_eq!(acc3_before.lock_months, acc3_after.lock_months);
+
+    // Verify global state preserved
+    let stats_after: ContractStats = staking.view("get_stats").await?.json()?;
+    assert_eq!(stats_before.total_locked, stats_after.total_locked);
+    assert_eq!(stats_before.total_effective_stake, stats_after.total_effective_stake);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_preserves_pending_rewards() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 10_000_000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user, 5000 * ONE_SOCIAL).await?;
+
+    let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    // User deposits storage and locks
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
+        .deposit(NearToken::from_millinear(5))
+        .transact()
+        .await?
+        .into_result()?;
+
+    user.call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (100 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"lock","months":12}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Owner injects rewards to create pending rewards for user
+    owner
+        .call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (1000 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"rewards"}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Get pending rewards before upgrade
+    let pending_before: String = staking
+        .view("get_pending_rewards")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+
+    // Upgrade
+    let wasm_path = get_wasm_path("staking-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+
+    owner
+        .call(staking.id(), "update_contract")
+        .args(wasm)
+        .gas(near_workspaces::types::Gas::from_tgas(300))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify pending rewards preserved
+    let pending_after: String = staking
+        .view("get_pending_rewards")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+
+    assert_eq!(
+        pending_before, pending_after,
+        "Pending rewards should be preserved after upgrade"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_preserves_storage_deposit_state() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user_with_storage = worker.dev_create_account().await?;
+    let user_without_storage = worker.dev_create_account().await?;
+
+    let staking = setup_staking_contract(&worker, "social.token.near", &owner).await?;
+
+    // Only one user deposits storage
+    user_with_storage
+        .call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
+        .deposit(NearToken::from_millinear(5))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify states before
+    let has_storage_before: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": user_with_storage.id().to_string() }))
+        .await?
+        .json()?;
+    let no_storage_before: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": user_without_storage.id().to_string() }))
+        .await?
+        .json()?;
+
+    assert!(has_storage_before.is_some());
+    assert!(no_storage_before.is_none());
+
+    // Upgrade
+    let wasm_path = get_wasm_path("staking-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+
+    owner
+        .call(staking.id(), "update_contract")
+        .args(wasm)
+        .gas(near_workspaces::types::Gas::from_tgas(300))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify storage states preserved
+    let has_storage_after: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": user_with_storage.id().to_string() }))
+        .await?
+        .json()?;
+    let no_storage_after: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": user_without_storage.id().to_string() }))
+        .await?
+        .json()?;
+
+    assert!(
+        has_storage_after.is_some(),
+        "User with storage should still have storage after upgrade"
+    );
+    assert!(
+        no_storage_after.is_none(),
+        "User without storage should still not have storage after upgrade"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_then_operations_work() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 10_000_000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user, 5000 * ONE_SOCIAL).await?;
+
+    let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    // Upgrade first (before any operations)
+    let wasm_path = get_wasm_path("staking-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+
+    owner
+        .call(staking.id(), "update_contract")
+        .args(wasm)
+        .gas(near_workspaces::types::Gas::from_tgas(300))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Now test all operations work after upgrade
+
+    // 1. Storage deposit
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
+        .deposit(NearToken::from_millinear(5))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let storage_balance: Option<serde_json::Value> = staking
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+    assert!(storage_balance.is_some(), "storage_deposit should work after upgrade");
+
+    // 2. Lock tokens
+    user.call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (100 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"lock","months":12}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let account: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+    assert_eq!(
+        account.locked_amount,
+        (100 * ONE_SOCIAL).to_string(),
+        "lock should work after upgrade"
+    );
+
+    // 3. Credits purchase
+    user.call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (50 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"credits"}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let stats: ContractStats = staking.view("get_stats").await?.json()?;
+    let infra: u128 = stats.infra_pool.parse().unwrap();
+    assert!(infra > 0, "credits purchase should work after upgrade");
+
+    // 4. Extend lock
+    user.call(staking.id(), "extend_lock")
+        .args_json(json!({ "months": 24 }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let account_extended: Account_ = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+    assert_eq!(
+        account_extended.lock_months, 24,
+        "extend_lock should work after upgrade"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_upgrade_preserves_infra_and_rewards_pools() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 10_000_000 * ONE_SOCIAL).await?;
+    transfer_tokens_to_user(&ft, &owner, &user, 5000 * ONE_SOCIAL).await?;
+
+    let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    // Deposit storage and lock
+    user.call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
+        .deposit(NearToken::from_millinear(5))
+        .transact()
+        .await?
+        .into_result()?;
+
+    user.call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (100 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"lock","months":12}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Purchase credits (creates infra and rewards pools)
+    user.call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (500 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"credits"}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Owner also injects rewards
+    owner
+        .call(ft.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": staking.id().to_string(),
+            "amount": (1000 * ONE_SOCIAL).to_string(),
+            "msg": r#"{"action":"rewards"}"#
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Get pools before upgrade
+    let stats_before: ContractStats = staking.view("get_stats").await?.json()?;
+
+    // Upgrade
+    let wasm_path = get_wasm_path("staking-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+
+    owner
+        .call(staking.id(), "update_contract")
+        .args(wasm)
+        .gas(near_workspaces::types::Gas::from_tgas(300))
+        .transact()
+        .await?
+        .into_result()?;
+
+    // Verify pools preserved
+    let stats_after: ContractStats = staking.view("get_stats").await?.json()?;
+
+    assert_eq!(
+        stats_before.infra_pool, stats_after.infra_pool,
+        "Infra pool should be preserved after upgrade"
+    );
+    assert_eq!(
+        stats_before.rewards_pool, stats_after.rewards_pool,
+        "Rewards pool should be preserved after upgrade"
+    );
+    assert_eq!(
+        stats_before.reward_per_token, stats_after.reward_per_token,
+        "Reward per token should be preserved after upgrade"
+    );
+
+    Ok(())
+}
