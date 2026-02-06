@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package staking.v1;
+
+// =============================================================================
+// TOP-LEVEL OUTPUT - All staking contract events per block
+// =============================================================================
+
+message StakingOutput {
+  repeated StakingEvent events = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string block_hash = 4;
+}
+
+// =============================================================================
+// STAKING EVENT - Unified event with typed payload
+// =============================================================================
+
+message StakingEvent {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  string account_id = 5;
+  string event_type = 6;
+  bool success = 7;
+
+  oneof payload {
+    StakeLock stake_lock = 10;
+    StakeExtend stake_extend = 11;
+    StakeUnlock stake_unlock = 12;
+    RewardsReleased rewards_released = 13;
+    RewardsClaim rewards_claim = 14;
+    CreditsPurchase credits_purchase = 15;
+    ScheduledFund scheduled_fund = 16;
+    InfraWithdraw infra_withdraw = 17;
+    OwnerChanged owner_changed = 18;
+    ContractUpgrade contract_upgrade = 19;
+    StorageDeposit storage_deposit = 20;
+    UnlockFailed unlock_failed = 21;
+    ClaimFailed claim_failed = 22;
+    WithdrawInfraFailed withdraw_infra_failed = 23;
+  }
+}
+
+// =============================================================================
+// PAYLOAD MESSAGES
+// =============================================================================
+
+message StakeLock {
+  string amount = 1;
+  uint64 months = 2;
+  string effective_stake = 3;
+}
+
+message StakeExtend {
+  uint64 new_months = 1;
+  string new_effective = 2;
+}
+
+message StakeUnlock {
+  string amount = 1;
+}
+
+message RewardsReleased {
+  string amount = 1;
+  string elapsed_ns = 2;
+  string total_released = 3;
+  string remaining_pool = 4;
+}
+
+message RewardsClaim {
+  string amount = 1;
+}
+
+message CreditsPurchase {
+  string amount = 1;
+  string infra_share = 2;
+  string rewards_share = 3;
+}
+
+message ScheduledFund {
+  string amount = 1;
+  string total_pool = 2;
+}
+
+message InfraWithdraw {
+  string amount = 1;
+  string receiver_id = 2;
+}
+
+message OwnerChanged {
+  string old_owner = 1;
+  string new_owner = 2;
+}
+
+message ContractUpgrade {
+  uint32 old_version = 1;
+  uint32 new_version = 2;
+}
+
+message StorageDeposit {
+  string deposit = 1;
+}
+
+message UnlockFailed {
+  string amount = 1;
+}
+
+message ClaimFailed {
+  string amount = 1;
+}
+
+message WithdrawInfraFailed {
+  string amount = 1;
+}

@@ -19,6 +19,7 @@ binaries:
 protobuf:
   files:
     - onsocial.proto
+    - staking.proto
     - sf/substreams/sink/database/v1/database.proto
     - sf/substreams/sink/sql/v1/service.proto
   importPaths:
@@ -54,8 +55,37 @@ modules:
       Converts typed Output to DatabaseChanges for SQL sink.
       Use this module with substreams-sink-sql for PostgreSQL indexing.
 
+  # =========================================================================
+  # STAKING CONTRACT MODULES
+  # =========================================================================
+
+  # Staking events - typed output
+  - name: map_staking_output
+    kind: map
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:staking.v1.StakingOutput
+    doc: |
+      Extracts staking contract events: lock, extend, unlock, rewards,
+      credits, funding, infra, ownership, upgrades.
+      14 event types with success/failure tracking.
+
+  # Staking database changes - for substreams-sink-sql
+  - name: staking_db_out
+    kind: map
+    inputs:
+      - map: map_staking_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts StakingOutput to DatabaseChanges for SQL sink.
+      Writes to: staking_events, staker_state, credit_purchases.
+
 params:
   map_onsocial_output: "contract_id=core.onsocial.testnet"
+  map_staking_output: "contract_id=staking.onsocial.testnet"
 
 sink:
   module: db_out

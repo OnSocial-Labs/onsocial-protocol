@@ -8,12 +8,19 @@
 mod pb;
 mod decoder;
 mod db_out;
+mod staking_decoder;
+mod staking_db_out;
+
+#[cfg(test)]
+mod tests;
 
 use substreams_near::pb::sf::near::r#type::v1::Block;
 use pb::onsocial::v1::{
     Output, DataUpdate, StorageUpdate, GroupUpdate, ContractUpdate, PermissionUpdate,
 };
+use pb::staking::v1::StakingOutput;
 use decoder::decode_onsocial_event;
+use staking_decoder::decode_staking_event;
 use serde_json::Value;
 
 const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
@@ -174,6 +181,77 @@ fn map_onsocial_output(params: String, block: Block) -> Result<Output, substream
         block_timestamp,
         block_hash,
     })
+}
+
+// =============================================================================
+// Staking Substreams Map Module
+// =============================================================================
+
+/// Staking map module - outputs typed staking events for DB sink
+#[substreams::handlers::map]
+fn map_staking_output(params: String, block: Block) -> Result<StakingOutput, substreams::errors::Error> {
+    let contract_filter: Option<&str> = params
+        .split('=')
+        .nth(1)
+        .map(|s| s.trim());
+
+    let block_height = block.header.as_ref().map(|h| h.height).unwrap_or(0);
+    let block_timestamp = block.header.as_ref().map(|h| h.timestamp_nanosec).unwrap_or(0);
+    let block_hash = block.header.as_ref()
+        .and_then(|h| h.hash.as_ref())
+        .map(|hash| bs58::encode(&hash.bytes).into_string())
+        .unwrap_or_default();
+
+    let mut events = Vec::new();
+
+    for shard in &block.shards {
+        for receipt_execution in &shard.receipt_execution_outcomes {
+            let receipt = match &receipt_execution.receipt {
+                Some(r) => r,
+                None => continue,
+            };
+
+            let outcome = match &receipt_execution.execution_outcome {
+                Some(eo) => match &eo.outcome {
+                    Some(o) => o,
+                    None => continue,
+                },
+                None => continue,
+            };
+
+            let receiver_id = &receipt.receiver_id;
+
+            if let Some(filter) = contract_filter {
+                if receiver_id != filter {
+                    continue;
+                }
+            }
+
+            let receipt_id = receipt.receipt_id.as_ref()
+                .map(|id| bs58::encode(&id.bytes).into_string())
+                .unwrap_or_default();
+
+            for (log_index, log) in outcome.logs.iter().enumerate() {
+                if !log.starts_with(EVENT_JSON_PREFIX) {
+                    continue;
+                }
+
+                let json_data = &log[EVENT_JSON_PREFIX.len()..];
+
+                if let Some(event) = decode_staking_event(
+                    json_data,
+                    &receipt_id,
+                    block_height,
+                    block_timestamp,
+                    log_index,
+                ) {
+                    events.push(event);
+                }
+            }
+        }
+    }
+
+    Ok(StakingOutput { events, block_height, block_timestamp, block_hash })
 }
 
 // =============================================================================
