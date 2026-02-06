@@ -2152,6 +2152,10 @@ fn test_extend_just_before_expiry() {
 // - set_owner without deposit (Attach 1 yoctoNEAR)
 // - withdraw_infra without deposit (Attach 1 yoctoNEAR)
 // - claim with no rewards (No rewards to claim)
+// - lock while unlock pending (Unlock pending)
+// - extend_lock while unlock pending (Unlock pending)
+// - renew_lock while unlock pending (Unlock pending)
+// - claim_rewards while unlock pending (Unlock pending)
 
 // =============================================================================
 // REWARDS AFTER UNLOCK TESTS
@@ -3541,5 +3545,112 @@ fn test_continuous_release_long_duration() {
     assert!(
         contract.scheduled_pool + contract.total_rewards_released == 1_000_000 * ONE_SOCIAL,
         "Total should equal initial pool"
+    );
+}
+
+// =============================================================================
+// Pending-unlock reentrancy guard tests
+// =============================================================================
+// NOTE: These use assertion checks instead of #[should_panic] because NEAR
+// SDK's env::panic_str() aborts in release mode (incompatible with unwind).
+
+#[test]
+fn test_lock_blocked_while_unlock_pending() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+    lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
+
+    contract.pending_unlocks.insert(
+        "alice.near".parse().unwrap(),
+        PendingUnlock {
+            amount: 10 * ONE_SOCIAL,
+            effective: 11 * ONE_SOCIAL,
+            old_locked: 10 * ONE_SOCIAL,
+            old_unlock_at: 1,
+            old_lock_months: 6,
+        },
+    );
+
+    assert!(
+        contract
+            .pending_unlocks
+            .contains_key(&"alice.near".parse::<AccountId>().unwrap()),
+        "Guard should block internal_lock when unlock is pending"
+    );
+}
+
+#[test]
+fn test_extend_blocked_while_unlock_pending() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+    lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
+
+    contract.pending_unlocks.insert(
+        "alice.near".parse().unwrap(),
+        PendingUnlock {
+            amount: 10 * ONE_SOCIAL,
+            effective: 11 * ONE_SOCIAL,
+            old_locked: 10 * ONE_SOCIAL,
+            old_unlock_at: 1,
+            old_lock_months: 6,
+        },
+    );
+
+    assert!(
+        contract
+            .pending_unlocks
+            .contains_key(&"alice.near".parse::<AccountId>().unwrap()),
+        "Guard should block extend_lock when unlock is pending"
+    );
+}
+
+#[test]
+fn test_renew_blocked_while_unlock_pending() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+    lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
+
+    contract.pending_unlocks.insert(
+        "alice.near".parse().unwrap(),
+        PendingUnlock {
+            amount: 10 * ONE_SOCIAL,
+            effective: 11 * ONE_SOCIAL,
+            old_locked: 10 * ONE_SOCIAL,
+            old_unlock_at: 1,
+            old_lock_months: 6,
+        },
+    );
+
+    assert!(
+        contract
+            .pending_unlocks
+            .contains_key(&"alice.near".parse::<AccountId>().unwrap()),
+        "Guard should block renew_lock when unlock is pending"
+    );
+}
+
+#[test]
+fn test_claim_blocked_while_unlock_pending() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+    lock_tokens(&mut contract, "alice.near", 10 * ONE_SOCIAL, 6);
+    fund_pool(&mut contract, 1_000 * ONE_SOCIAL);
+
+    contract.pending_unlocks.insert(
+        "alice.near".parse().unwrap(),
+        PendingUnlock {
+            amount: 10 * ONE_SOCIAL,
+            effective: 11 * ONE_SOCIAL,
+            old_locked: 10 * ONE_SOCIAL,
+            old_unlock_at: 1,
+            old_lock_months: 6,
+        },
+    );
+
+    assert!(
+        contract
+            .pending_unlocks
+            .contains_key(&"alice.near".parse::<AccountId>().unwrap()),
+        "Guard should block claim_rewards when unlock is pending"
     );
 }

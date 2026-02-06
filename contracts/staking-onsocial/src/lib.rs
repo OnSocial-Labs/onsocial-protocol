@@ -303,6 +303,10 @@ impl OnsocialStaking {
 
     fn internal_lock(&mut self, account_id: AccountId, amount: u128, months: u64) {
         require!(amount >= MIN_STAKE, "Minimum stake is 0.01 SOCIAL");
+        require!(
+            !self.pending_unlocks.contains_key(&account_id),
+            "Unlock pending"
+        );
         self.sync_account(&account_id);
 
         let mut account = self.accounts.get(&account_id).cloned().unwrap_or_default();
@@ -343,8 +347,11 @@ impl OnsocialStaking {
 
     pub fn extend_lock(&mut self, months: u64) {
         require!(VALID_LOCK_PERIODS.contains(&months), "Invalid lock period");
-
         let account_id = env::predecessor_account_id();
+        require!(
+            !self.pending_unlocks.contains_key(&account_id),
+            "Unlock pending"
+        );
         self.sync_account(&account_id);
 
         let mut account = self
@@ -388,6 +395,10 @@ impl OnsocialStaking {
 
     pub fn renew_lock(&mut self) {
         let account_id = env::predecessor_account_id();
+        require!(
+            !self.pending_unlocks.contains_key(&account_id),
+            "Unlock pending"
+        );
         let account = self
             .accounts
             .get(&account_id)
@@ -545,6 +556,10 @@ impl OnsocialStaking {
 
     pub fn claim_rewards(&mut self) -> Promise {
         let account_id = env::predecessor_account_id();
+        require!(
+            !self.pending_unlocks.contains_key(&account_id),
+            "Unlock pending"
+        );
         self.sync_account(&account_id);
 
         let account = self
