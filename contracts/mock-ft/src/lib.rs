@@ -92,11 +92,11 @@ impl MockFT {
                 .to_string()
                 .into_bytes(),
                 NearToken::from_near(0),
-                Gas::from_tgas(30),
+                Gas::from_tgas(80),
             )
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(5))
+                    .with_static_gas(Gas::from_tgas(10))
                     .ft_resolve_transfer(sender_id, receiver_id, amount),
             )
             .into()

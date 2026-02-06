@@ -36,6 +36,35 @@ handle_error() {
   exit 1
 }
 
+# Run integration test with optional verbose/nocapture support
+# Usage: run_integration_test "test_filter" "extra_args"
+# Returns exit code and sets test_output variable
+run_integration_test() {
+    local test_filter="$1"
+    local extra_args="${2:-}"
+    local nocapture_flag=""
+    
+    if [ "$VERBOSE" = "1" ]; then
+        nocapture_flag="--nocapture"
+    fi
+    
+    local test_cmd="NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- $test_filter $extra_args --test-threads=1 $nocapture_flag"
+    
+    [ "$VERBOSE" = "1" ] && echo "Running: $test_cmd"
+    
+    if [ "$VERBOSE" = "1" ]; then
+        # Stream output directly for verbose mode
+        eval "$test_cmd" 2>&1 | grep -v -E "(net\.(ipv4|core)\.|set_kernel_params|ERROR neard::cli)"
+        return ${PIPESTATUS[0]}
+    else
+        # Capture output for filtering
+        test_output=$(eval "$test_cmd" 2>&1)
+        local exit_code=$?
+        echo "$test_output" | grep -v -E "(net\.(ipv4|core)\.|set_kernel_params|ERROR neard::cli)"
+        return $exit_code
+    fi
+}
+
 test_unit() {
     local contract=$1
     local test_name=$2
@@ -167,19 +196,12 @@ test_integration() {
                 fi
                 
                 if [ -n "$test_filter" ]; then
-                    [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- $test_filter --test-threads=1"
-                    local test_output
-                    test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- "$test_filter" --test-threads=1 2>&1)
+                    run_integration_test "$test_filter"
                 else
                     # Run all tests except cross_contract_tests (which has its own make target)
-                    [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- --skip cross_contract_tests --test-threads=1"
-                    local test_output
-                    test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- --skip cross_contract_tests --test-threads=1 2>&1)
+                    run_integration_test "" "--skip cross_contract_tests"
                 fi
                 local test_exit_code=$?
-                
-                # Filter and display output (remove kernel param warnings)
-                echo "$test_output" | grep -v -E "(net\.(ipv4|core)\.|set_kernel_params|ERROR neard::cli)"
                 
                 if [ $test_exit_code -ne 0 ]; then
                     echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"
@@ -211,13 +233,8 @@ test_integration() {
                     echo "Running specific integration test: $test_name"
                 fi
                 
-                [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- $test_filter --test-threads=1"
-                local test_output
-                test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- "$test_filter" --test-threads=1 2>&1)
+                run_integration_test "$test_filter"
                 local test_exit_code=$?
-                
-                # Filter and display output (remove kernel param warnings)
-                echo "$test_output" | grep -v -E "(net\.(ipv4|core)\.|set_kernel_params|ERROR neard::cli)"
                 
                 if [ $test_exit_code -ne 0 ]; then
                     echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"
@@ -239,13 +256,8 @@ test_integration() {
                     echo "Running specific integration test: $test_name"
                 fi
                 
-                [ "$VERBOSE" = "1" ] && echo "Running: NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- $test_filter --test-threads=1"
-                local test_output
-                test_output=$(NEAR_WORKSPACES_SANDBOX_TIMEOUT_SECS=120 cargo test -p onsocial-integration-tests --release --color always -- "$test_filter" --test-threads=1 2>&1)
+                run_integration_test "$test_filter"
                 local test_exit_code=$?
-                
-                # Filter and display output
-                echo "$test_output" | grep -v -E "(net\.(ipv4|core)\.|set_kernel_params|ERROR neard::cli)"
                 
                 if [ $test_exit_code -ne 0 ]; then
                     echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"

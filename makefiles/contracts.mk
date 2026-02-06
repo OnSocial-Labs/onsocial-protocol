@@ -319,3 +319,9 @@ check-deps-contract-%: ensure-scripts-executable
 	@./scripts/check_contract_deps.sh $*
 
 # =============================================================================
+# VERBOSE OUTPUT (--nocapture)
+# =============================================================================
+# Add VERBOSE=1 to any test command to see test output (e.g., gas profiling results):
+#   make test-integration-contract-staking-onsocial VERBOSE=1
+#   make test-unit-contract-staking-onsocial VERBOSE=1
+#   make test-integration-contract-staking-onsocial VERBOSE=1 TEST=staking_gas_profiling

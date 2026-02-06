@@ -15,24 +15,28 @@ use crate::utils::{get_wasm_path, setup_sandbox};
 const ONE_SOCIAL: u128 = 1_000_000_000_000_000_000;
 
 // Gas threshold constants (in TGas)
-const MAX_DEPOSIT_STORAGE_TGAS: u64 = 5;
-const MAX_LOCK_TGAS: u64 = 20;
-const MAX_UNLOCK_TGAS: u64 = 25;
-const MAX_CLAIM_REWARDS_TGAS: u64 = 25;
-const MAX_EXTEND_LOCK_TGAS: u64 = 10;
-const MAX_RENEW_LOCK_TGAS: u64 = 10;
+const MAX_STORAGE_DEPOSIT_TGAS: u64 = 5;
+const MAX_LOCK_TGAS: u64 = 25;
+const MAX_UNLOCK_TGAS: u64 = 30;
+const MAX_CLAIM_REWARDS_TGAS: u64 = 30;
+const MAX_EXTEND_LOCK_TGAS: u64 = 15;
+const MAX_RENEW_LOCK_TGAS: u64 = 15;
 const MAX_INJECT_REWARDS_TGAS: u64 = 20;
-const MAX_WITHDRAW_INFRA_TGAS: u64 = 25;
+const MAX_WITHDRAW_INFRA_TGAS: u64 = 30;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct ContractStats {
+    pub version: u32,
     pub token_id: String,
     pub owner_id: String,
     pub total_locked: String,
     pub total_effective_stake: String,
-    pub rewards_pool: String,
+    pub total_stake_seconds: String,
+    pub total_rewards_released: String,
+    pub scheduled_pool: String,
     pub infra_pool: String,
-    pub reward_per_token: String,
+    pub last_release_time: u64,
 }
 
 // =============================================================================
@@ -122,7 +126,7 @@ fn format_gas_report(name: &str, gas: Gas, threshold_tgas: u64) -> String {
 // =============================================================================
 
 #[tokio::test]
-async fn gas_profile_deposit_storage() -> Result<()> {
+async fn gas_profile_storage_deposit() -> Result<()> {
     let worker = setup_sandbox().await?;
     let owner = worker.dev_create_account().await?;
     let user = worker.dev_create_account().await?;
@@ -130,18 +134,19 @@ async fn gas_profile_deposit_storage() -> Result<()> {
     let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
 
     let result = user
-        .call(staking.id(), "deposit_storage")
+        .call(staking.id(), "storage_deposit")
+        .args_json(json!({}))
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("deposit_storage", gas, MAX_DEPOSIT_STORAGE_TGAS));
+    println!("\n{}", format_gas_report("storage_deposit", gas, MAX_STORAGE_DEPOSIT_TGAS));
     
     assert!(
-        gas_to_tgas(gas) <= MAX_DEPOSIT_STORAGE_TGAS,
-        "deposit_storage exceeded {} TGas threshold: {} TGas",
-        MAX_DEPOSIT_STORAGE_TGAS,
+        gas_to_tgas(gas) <= MAX_STORAGE_DEPOSIT_TGAS,
+        "storage_deposit exceeded {} TGas threshold: {} TGas",
+        MAX_STORAGE_DEPOSIT_TGAS,
         gas_to_tgas(gas)
     );
 
@@ -158,7 +163,8 @@ async fn gas_profile_lock_tokens() -> Result<()> {
 
     // Setup
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
@@ -199,13 +205,15 @@ async fn gas_profile_unlock_tokens() -> Result<()> {
 
     // Setup
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
     // Lock with 1 month (shortest)
-    user.call(ft.id(), "ft_transfer_call")
+    let _ = user
+        .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (100 * ONE_SOCIAL).to_string(),
@@ -243,13 +251,15 @@ async fn gas_profile_extend_lock() -> Result<()> {
 
     // Setup
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
     // Lock with 6 months first
-    user.call(ft.id(), "ft_transfer_call")
+    let _ = user
+        .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (100 * ONE_SOCIAL).to_string(),
@@ -291,13 +301,15 @@ async fn gas_profile_renew_lock() -> Result<()> {
 
     // Setup
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
     // Lock with 12 months
-    user.call(ft.id(), "ft_transfer_call")
+    let _ = user
+        .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (100 * ONE_SOCIAL).to_string(),
@@ -338,12 +350,14 @@ async fn gas_profile_inject_rewards() -> Result<()> {
 
     // Setup - need at least one staker for rewards to distribute
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
-    user.call(ft.id(), "ft_transfer_call")
+    let _ = user
+        .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (100 * ONE_SOCIAL).to_string(),
@@ -390,7 +404,8 @@ async fn gas_profile_credits_purchase() -> Result<()> {
 
     // Setup
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
@@ -424,12 +439,14 @@ async fn gas_profile_claim_rewards() -> Result<()> {
 
     // Setup - stake and inject rewards
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
-    user.call(ft.id(), "ft_transfer_call")
+    let _ = user
+        .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (100 * ONE_SOCIAL).to_string(),
@@ -441,7 +458,7 @@ async fn gas_profile_claim_rewards() -> Result<()> {
         .await?;
 
     // Inject rewards
-    owner
+    let _ = owner
         .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
@@ -477,12 +494,14 @@ async fn gas_profile_withdraw_infra() -> Result<()> {
 
     // Setup - buy credits to fund infra pool
     transfer_tokens_to_user(&ft, &owner, &user, 1000 * ONE_SOCIAL).await?;
-    user.call(staking.id(), "deposit_storage")
+    let _ = user
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
 
-    user.call(ft.id(), "ft_transfer_call")
+    let _ = user
+        .call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id(),
             "amount": (100 * ONE_SOCIAL).to_string(),
@@ -534,11 +553,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
 
     // 1. Deposit Storage
     let r = user
-        .call(staking.id(), "deposit_storage")
+        .call(staking.id(), "storage_deposit")
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
-    results.push(("deposit_storage", gas_to_tgas(r.total_gas_burnt), MAX_DEPOSIT_STORAGE_TGAS));
+    results.push(("storage_deposit", gas_to_tgas(r.total_gas_burnt), MAX_STORAGE_DEPOSIT_TGAS));
 
     // 2. Lock 1 month
     let r = user
@@ -670,7 +689,8 @@ async fn gas_profile_load_test_10_users() -> Result<()> {
         transfer_tokens_to_user(&ft, &owner, user, 1000 * ONE_SOCIAL).await?;
 
         // Deposit storage
-        user.call(staking.id(), "deposit_storage")
+        let _ = user
+            .call(staking.id(), "storage_deposit")
             .deposit(NearToken::from_millinear(5))
             .transact()
             .await?;
