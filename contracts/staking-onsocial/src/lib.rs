@@ -131,6 +131,14 @@ impl OnsocialStaking {
         require!(deposit >= STORAGE_DEPOSIT, "Attach at least 0.005 NEAR");
         self.storage_paid.insert(account_id.clone(), true);
 
+        self.emit_event(
+            "STORAGE_DEPOSIT",
+            &account_id,
+            serde_json::json!({
+                "deposit": STORAGE_DEPOSIT.to_string()
+            }),
+        );
+
         let refund = deposit.saturating_sub(STORAGE_DEPOSIT);
         if refund > 0 {
             let _ = Promise::new(env::predecessor_account_id())
@@ -464,6 +472,13 @@ impl OnsocialStaking {
             self.accounts.insert(account_id.clone(), account);
             self.total_locked += pending.amount;
             self.total_effective_stake += pending.effective;
+            self.emit_event(
+                "UNLOCK_FAILED",
+                &account_id,
+                serde_json::json!({
+                    "amount": pending.amount.to_string()
+                }),
+            );
         }
     }
 
@@ -574,6 +589,13 @@ impl OnsocialStaking {
             let mut account = self.accounts.get(&account_id).cloned().unwrap_or_default();
             account.rewards_claimed = account.rewards_claimed.saturating_sub(amount.0);
             self.accounts.insert(account_id.clone(), account);
+            self.emit_event(
+                "CLAIM_FAILED",
+                &account_id,
+                serde_json::json!({
+                    "amount": amount.0.to_string()
+                }),
+            );
         }
     }
 
@@ -650,6 +672,13 @@ impl OnsocialStaking {
             );
         } else {
             self.infra_pool += amount.0;
+            self.emit_event(
+                "WITHDRAW_INFRA_FAILED",
+                &receiver_id,
+                serde_json::json!({
+                    "amount": amount.0.to_string()
+                }),
+            );
         }
     }
 
