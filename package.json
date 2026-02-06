@@ -55,5 +55,13 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "pnpm@10.28.2"
+  "packageManager": "pnpm@10.28.2",
+  "dependencies": {
+    "@near-js/accounts": "^2.5.1",
+    "@near-js/keystores": "^2.5.1",
+    "@near-js/keystores-node": "^2.5.1",
+    "@near-js/providers": "^2.5.1",
+    "@near-js/signers": "^2.5.1",
+    "near-api-js": "^7.1.0"
+  }
 }

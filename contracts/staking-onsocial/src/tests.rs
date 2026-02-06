@@ -3308,9 +3308,9 @@ fn test_credits_no_rounding_loss() {
     assert_eq!(contract.scheduled_pool, rewards);
 }
 
-/// Test weekly release timing is exact
+/// Test continuous per-second release
 #[test]
-fn test_weekly_release_timing_boundary() {
+fn test_continuous_release() {
     let mut contract = setup_contract();
     setup_with_storage(&mut contract, "alice.near");
 
@@ -3319,26 +3319,227 @@ fn test_weekly_release_timing_boundary() {
     fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
     lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
 
-    // At exactly 1 nanosecond before 1 week: no release
-    let just_before = start_time + WEEK_NS - 1;
+    // After 1 day: should have partial release (1/7 of weekly rate)
+    let one_day = 24 * 60 * 60 * 1_000_000_000u64;
     let mut context = get_context("anyone.near");
-    context.block_timestamp(just_before);
+    context.block_timestamp(start_time + one_day);
     testing_env!(context.build());
 
     contract.poke();
-    assert_eq!(
-        contract.total_rewards_released, 0,
-        "No release before week boundary"
+    // 1000 SOCIAL × 0.2% × (1/7) ≈ 0.285 SOCIAL
+    let expected_approx = 285_714_285_714_285_714u128; // ~0.285 SOCIAL
+    let tolerance = expected_approx / 100; // 1% tolerance
+    assert!(
+        contract.total_rewards_released > expected_approx - tolerance
+            && contract.total_rewards_released < expected_approx + tolerance,
+        "Should release proportional to time elapsed: got {}, expected ~{}",
+        contract.total_rewards_released,
+        expected_approx
     );
 
-    // At exactly 1 week: should release
+    // After exactly 1 week: should have full weekly release
     let mut context = get_context("anyone.near");
     context.block_timestamp(start_time + WEEK_NS);
     testing_env!(context.build());
 
     contract.poke();
+    // Total after 1 week should be ~2 SOCIAL (0.2% of 1000)
+    let expected_week = 2 * ONE_SOCIAL;
+    let tolerance_week = expected_week / 100;
     assert!(
-        contract.total_rewards_released > 0,
-        "Should release at week boundary"
+        contract.total_rewards_released > expected_week - tolerance_week
+            && contract.total_rewards_released < expected_week + tolerance_week,
+        "Should release ~2 SOCIAL after 1 week: got {}",
+        contract.total_rewards_released
+    );
+}
+
+/// Test multiple pokes within same period accumulate correctly
+#[test]
+fn test_continuous_release_multiple_pokes() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+    let one_hour = 60 * 60 * 1_000_000_000u64;
+
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    // Poke every hour for 24 hours
+    let mut total_released = 0u128;
+    for i in 1..=24 {
+        let mut context = get_context("anyone.near");
+        context.block_timestamp(start_time + i * one_hour);
+        testing_env!(context.build());
+
+        contract.poke();
+        assert!(
+            contract.total_rewards_released >= total_released,
+            "Released should never decrease"
+        );
+        total_released = contract.total_rewards_released;
+    }
+
+    // After 24 hours of hourly pokes should equal single poke after 24 hours
+    let mut contract2 = setup_contract();
+    setup_with_storage(&mut contract2, "alice.near");
+    fund_pool_at(&mut contract2, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract2, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time + 24 * one_hour);
+    testing_env!(context.build());
+    contract2.poke();
+
+    // Should be very close (within rounding)
+    let diff = if contract.total_rewards_released > contract2.total_rewards_released {
+        contract.total_rewards_released - contract2.total_rewards_released
+    } else {
+        contract2.total_rewards_released - contract.total_rewards_released
+    };
+    assert!(
+        diff < ONE_SOCIAL / 1000, // Within 0.001 SOCIAL
+        "Multiple pokes should equal single poke: {} vs {}",
+        contract.total_rewards_released,
+        contract2.total_rewards_released
+    );
+}
+
+/// Test release spanning multiple complete weeks plus partial
+#[test]
+fn test_continuous_release_multi_week_plus_partial() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    // After 2.5 weeks
+    let two_and_half_weeks = WEEK_NS * 2 + WEEK_NS / 2;
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time + two_and_half_weeks);
+    testing_env!(context.build());
+
+    contract.poke();
+
+    // Week 1: 1000 × 0.2% = 2 SOCIAL, remaining = 998
+    // Week 2: 998 × 0.2% ≈ 1.996 SOCIAL, remaining ≈ 996
+    // Half week 3: 996 × 0.2% × 0.5 ≈ 0.996 SOCIAL
+    // Total ≈ 4.99 SOCIAL
+    let expected_approx = 4_992_000_000_000_000_000u128; // ~4.99 SOCIAL
+    let tolerance = expected_approx / 50; // 2% tolerance for compound rounding
+
+    assert!(
+        contract.total_rewards_released > expected_approx - tolerance
+            && contract.total_rewards_released < expected_approx + tolerance,
+        "2.5 weeks should release ~4.99 SOCIAL: got {}",
+        contract.total_rewards_released
+    );
+}
+
+/// Test poke at same timestamp is idempotent
+#[test]
+fn test_continuous_release_same_block_idempotent() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    // Advance 1 day
+    let one_day = 24 * 60 * 60 * 1_000_000_000u64;
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time + one_day);
+    testing_env!(context.build());
+
+    contract.poke();
+    let after_first = contract.total_rewards_released;
+
+    // Poke again at same timestamp
+    contract.poke();
+    assert_eq!(
+        contract.total_rewards_released, after_first,
+        "Same-block poke should not release more"
+    );
+
+    // Poke third time
+    contract.poke();
+    assert_eq!(
+        contract.total_rewards_released, after_first,
+        "Multiple same-block pokes should be idempotent"
+    );
+}
+
+/// Test continuous release with very small pool (dust handling)
+#[test]
+fn test_continuous_release_small_pool() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    // Fund with only 0.01 SOCIAL
+    let small_amount = ONE_SOCIAL / 100;
+    fund_pool_at(&mut contract, small_amount, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    // After 1 week
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time + WEEK_NS);
+    testing_env!(context.build());
+
+    contract.poke();
+
+    // 0.01 SOCIAL × 0.2% = 0.00002 SOCIAL
+    let expected = small_amount * 20 / 10_000;
+    let tolerance = expected / 10; // 10% tolerance for small amounts
+
+    assert!(
+        contract.total_rewards_released >= expected - tolerance
+            && contract.total_rewards_released <= expected + tolerance,
+        "Small pool should still release: got {}, expected ~{}",
+        contract.total_rewards_released,
+        expected
+    );
+}
+
+/// Test long elapsed time (100 weeks) doesn't overflow
+#[test]
+fn test_continuous_release_long_duration() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    fund_pool_at(&mut contract, 1_000_000 * ONE_SOCIAL, start_time);
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+
+    // After 100 weeks
+    let hundred_weeks = WEEK_NS * 100;
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time + hundred_weeks);
+    testing_env!(context.build());
+
+    contract.poke();
+
+    // After 100 weeks of 0.2% weekly decay:
+    // remaining = 1M × 0.998^100 ≈ 818,730 SOCIAL
+    // released ≈ 181,270 SOCIAL
+    assert!(
+        contract.total_rewards_released > 180_000 * ONE_SOCIAL,
+        "Should release significant amount over 100 weeks"
+    );
+    assert!(
+        contract.scheduled_pool < 820_000 * ONE_SOCIAL,
+        "Pool should decay significantly"
+    );
+    assert!(
+        contract.scheduled_pool + contract.total_rewards_released == 1_000_000 * ONE_SOCIAL,
+        "Total should equal initial pool"
     );
 }

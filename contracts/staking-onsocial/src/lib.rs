@@ -1,5 +1,6 @@
 //! SOCIAL Token Staking Contract
 //!
+//! Rewards release continuously at 0.2%/week (pro-rata per second).
 //! Time-lock bonuses: 1-6mo=10%, 7-12mo=20%, 13-24mo=35%, 25+mo=50%
 //! Reward formula: (user_stake_seconds / total_stake_seconds) × total_released - claimed
 
@@ -44,14 +45,12 @@ pub struct Account {
     pub unlock_at: u64,
     pub lock_months: u64,
     pub last_update_time: u64,
-    /// Cumulative stake-seconds (never resets).
     pub stake_seconds: u128,
     pub rewards_claimed: u128,
-    /// Mirrors contribution to total_effective_stake for invariant maintenance.
     pub tracked_effective_stake: u128,
 }
 
-/// Snapshot for atomic rollback on failed unlock.
+/// Rollback snapshot for failed unlock.
 #[derive(Clone)]
 #[near(serializers = [json, borsh])]
 pub struct PendingUnlock {
@@ -108,7 +107,7 @@ impl OnsocialStaking {
 
     // --- Storage (NEP-145) ---
 
-    /// `registration_only` has no effect (fixed storage); excess is refunded.
+    /// Fixed storage; excess deposit is refunded.
     #[payable]
     pub fn storage_deposit(
         &mut self,
@@ -198,8 +197,7 @@ impl OnsocialStaking {
 
     // --- Core: Rewards Release ---
 
-    /// Releases due rewards using O(log n) exponentiation.
-    /// Clock pauses when no stakers exist to prevent leakage.
+    /// Releases rewards pro-rata by elapsed time. Pauses clock when no stakers.
     fn release_due_rewards(&mut self) {
         if self.scheduled_pool == 0 {
             return;
@@ -213,25 +211,26 @@ impl OnsocialStaking {
         }
 
         let elapsed = now.saturating_sub(self.last_release_time);
-
-        let weeks_passed = elapsed / WEEK_NS;
-        if weeks_passed == 0 {
+        if elapsed == 0 {
             return;
         }
 
-        let remaining = compute_remaining_pool(self.scheduled_pool, weeks_passed);
-        let final_remaining = if remaining > 0 && remaining < 1000 {
+        let to_release = compute_continuous_release(self.scheduled_pool, elapsed);
+        if to_release == 0 {
+            return;
+        }
+
+        let final_remaining = self.scheduled_pool.saturating_sub(to_release);
+        let final_remaining = if final_remaining > 0 && final_remaining < 1000 {
             0
         } else {
-            remaining
+            final_remaining
         };
         let final_released = self.scheduled_pool.saturating_sub(final_remaining);
 
         self.scheduled_pool = final_remaining;
         self.total_rewards_released = self.total_rewards_released.saturating_add(final_released);
-        self.last_release_time = self
-            .last_release_time
-            .saturating_add(weeks_passed * WEEK_NS);
+        self.last_release_time = now;
 
         if final_released > 0 {
             self.emit_event(
@@ -239,7 +238,7 @@ impl OnsocialStaking {
                 &env::current_account_id(),
                 serde_json::json!({
                     "amount": final_released.to_string(),
-                    "weeks_processed": weeks_passed,
+                    "elapsed_ns": elapsed.to_string(),
                     "total_released": self.total_rewards_released.to_string(),
                     "remaining_pool": self.scheduled_pool.to_string()
                 }),
@@ -314,7 +313,6 @@ impl OnsocialStaking {
 
         let new_effective = self.effective_stake(&account);
 
-        // Update global state
         self.total_locked = self.total_locked.saturating_add(amount);
         self.total_effective_stake = self
             .total_effective_stake
@@ -471,7 +469,7 @@ impl OnsocialStaking {
 
     // --- Rewards ---
 
-    /// Projects to current time for view functions.
+    /// Calculates claimable rewards with projected releases.
     fn calculate_claimable(&self, account: &Account) -> u128 {
         self.calculate_claimable_internal(account, true)
     }
@@ -514,23 +512,19 @@ impl OnsocialStaking {
         total_earned.saturating_sub(account.rewards_claimed)
     }
 
-    /// Projects releases for views. Returns current value if no stakers (paused).
+    /// Projects total released rewards for view calls without mutating state.
     fn project_total_released(&self) -> u128 {
-        if self.total_effective_stake == 0 {
+        if self.total_effective_stake == 0 || self.scheduled_pool == 0 {
             return self.total_rewards_released;
         }
 
         let now = env::block_timestamp();
         let elapsed = now.saturating_sub(self.last_release_time);
-        let weeks_passed = elapsed / WEEK_NS;
-
-        if weeks_passed == 0 || self.scheduled_pool == 0 {
+        if elapsed == 0 {
             return self.total_rewards_released;
         }
 
-        let remaining = compute_remaining_pool(self.scheduled_pool, weeks_passed);
-        let released = self.scheduled_pool.saturating_sub(remaining);
-
+        let released = compute_continuous_release(self.scheduled_pool, elapsed);
         self.total_rewards_released.saturating_add(released)
     }
 
@@ -723,7 +717,12 @@ impl OnsocialStaking {
         }
     }
 
+    /// Returns contract stats with projected values for consistency with get_account.
     pub fn get_stats(&self) -> ContractStats {
+        let projected_released = self.project_total_released();
+        let release_delta = projected_released.saturating_sub(self.total_rewards_released);
+        let projected_pool = self.scheduled_pool.saturating_sub(release_delta);
+
         ContractStats {
             version: self.version,
             token_id: self.token_id.clone(),
@@ -731,8 +730,8 @@ impl OnsocialStaking {
             total_locked: U128(self.total_locked),
             total_effective_stake: U128(self.total_effective_stake),
             total_stake_seconds: U128(self.total_stake_seconds),
-            total_rewards_released: U128(self.total_rewards_released),
-            scheduled_pool: U128(self.scheduled_pool),
+            total_rewards_released: U128(projected_released),
+            scheduled_pool: U128(projected_pool),
             infra_pool: U128(self.infra_pool),
             last_release_time: self.last_release_time,
         }
@@ -790,7 +789,7 @@ impl OnsocialStaking {
         }
     }
 
-    /// Triggers reward release. Useful for keepers during low-activity periods.
+    /// Triggers reward release and stake-seconds update.
     pub fn poke(&mut self) {
         self.release_due_rewards();
         self.update_global_stake_seconds();
@@ -867,7 +866,7 @@ fn u256_mul(a: u128, b: u128) -> u128 {
     result.as_u128()
 }
 
-/// Returns 0 if c is 0.
+/// Returns 0 if divisor is 0.
 fn u256_mul_div(a: u128, b: u128, c: u128) -> u128 {
     if c == 0 {
         return 0;
@@ -879,7 +878,35 @@ fn u256_mul_div(a: u128, b: u128, c: u128) -> u128 {
     result.as_u128()
 }
 
-/// Computes pool × 0.998^weeks using O(log n) exponentiation.
+/// Calculates release amount: compound decay for complete weeks + linear for partial.
+fn compute_continuous_release(pool: u128, elapsed_ns: u64) -> u128 {
+    if pool == 0 || elapsed_ns == 0 {
+        return 0;
+    }
+
+    let complete_weeks = elapsed_ns / WEEK_NS;
+    let partial_ns = elapsed_ns % WEEK_NS;
+
+    let mut remaining = pool;
+    if complete_weeks > 0 {
+        remaining = compute_remaining_pool(pool, complete_weeks);
+    }
+
+    let partial_release = if partial_ns > 0 && remaining > 0 {
+        u256_mul_div(
+            u256_mul_div(remaining, WEEKLY_RATE_BPS, 10_000),
+            partial_ns as u128,
+            WEEK_NS as u128,
+        )
+    } else {
+        0
+    };
+
+    let final_remaining = remaining.saturating_sub(partial_release);
+    pool.saturating_sub(final_remaining)
+}
+
+/// Pool × 0.998^weeks via O(log n) exponentiation.
 fn compute_remaining_pool(pool: u128, weeks: u64) -> u128 {
     if weeks == 0 || pool == 0 {
         return pool;
@@ -892,7 +919,7 @@ fn compute_remaining_pool(pool: u128, weeks: u64) -> u128 {
     u256_mul_div(pool, factor, PRECISION)
 }
 
-/// O(log n) fixed-point exponentiation.
+/// Fixed-point exponentiation via binary method.
 fn u256_pow(base: u128, exp: u64, precision: u128) -> u128 {
     if exp == 0 {
         return precision;
