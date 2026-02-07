@@ -35,7 +35,7 @@ impl Default for Config {
 
 mod defaults {
     pub fn rpc_url() -> String {
-        "https://rpc.testnet.near.org".into()
+        "https://rpc-testnet.onsocial.id".into()
     }
 
     pub fn contract_id() -> String {

@@ -5,6 +5,8 @@
 #   api.onsocial.id
 #   hasura.onsocial.id
 #   relay.onsocial.id
+#   rpc-testnet.onsocial.id
+#   rpc-mainnet.onsocial.id
 
 # ---------- API Gateway ----------
 api.onsocial.id {
@@ -44,6 +46,96 @@ hasura.onsocial.id {
 		output file /data/logs/hasura.log {
 			roll_size 50MB
 			roll_keep 5
+		}
+	}
+}
+
+# ---------- NEAR RPC Proxy (Testnet) ----------
+# Primary: Lava (authenticated, higher limits)
+# Fallback: FASTNEAR (free, high availability)
+rpc-testnet.onsocial.id {
+	rewrite * /gateway/neart/rpc-http/REDACTED_LAVA_KEY{uri}
+
+	reverse_proxy https://g.w.lavanet.xyz {
+		header_up Host g.w.lavanet.xyz
+		transport http {
+			tls_server_name g.w.lavanet.xyz
+		}
+
+		# Failover to FASTNEAR on upstream error
+		@error status 500 502 503 504
+		handle_response @error {
+			rewrite * /
+			reverse_proxy https://test.rpc.fastnear.com {
+				header_up Host test.rpc.fastnear.com
+				transport http {
+					tls
+				}
+			}
+		}
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		Access-Control-Allow-Headers "Content-Type"
+		-Server
+	}
+
+	request_body {
+		max_size 1MB
+	}
+
+	log {
+		output file /data/logs/rpc-testnet.log {
+			roll_size 50MB
+			roll_keep 3
+		}
+	}
+}
+
+# ---------- NEAR RPC Proxy (Mainnet) ----------
+# Primary: Lava (authenticated, higher limits)
+# Fallback: FASTNEAR (free, high availability)
+rpc-mainnet.onsocial.id {
+	rewrite * /gateway/near/rpc-http/REDACTED_LAVA_KEY{uri}
+
+	reverse_proxy https://g.w.lavanet.xyz {
+		header_up Host g.w.lavanet.xyz
+		transport http {
+			tls_server_name g.w.lavanet.xyz
+		}
+
+		# Failover to FASTNEAR on upstream error
+		@error status 500 502 503 504
+		handle_response @error {
+			rewrite * /
+			reverse_proxy https://free.rpc.fastnear.com {
+				header_up Host free.rpc.fastnear.com
+				transport http {
+					tls
+				}
+			}
+		}
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		Access-Control-Allow-Headers "Content-Type"
+		-Server
+	}
+
+	request_body {
+		max_size 1MB
+	}
+
+	log {
+		output file /data/logs/rpc-mainnet.log {
+			roll_size 50MB
+			roll_keep 3
 		}
 	}
 }

@@ -32,7 +32,7 @@ tests/
 
 1. **Environment Variables** - Set these in the root `.env` file or export them:
    ```bash
-   export HASURA_URL="http://135.181.110.183:8080"
+   export HASURA_URL="https://hasura.onsocial.id"
    export HASURA_ADMIN_SECRET="your_admin_secret_here"
    export CONTRACT="core.onsocial.testnet"
    export SIGNER="onsocial.testnet"

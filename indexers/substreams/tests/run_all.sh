@@ -36,7 +36,7 @@ if [ "$mode" = "help" ] || [ "$mode" = "-h" ] || [ "$mode" = "--help" ]; then
     echo "  token    - Token contract tests (events, balances)"
     echo ""
     echo "Environment variables:"
-    echo "  HASURA_URL          - Hasura endpoint (default: http://135.181.110.183:8080)"
+    echo "  HASURA_URL          - Hasura endpoint (default: https://hasura.onsocial.id)"
     echo "  HASURA_ADMIN_SECRET - Admin secret (required, no default)"
     echo "  CONTRACT            - Contract to test (default: core.onsocial.testnet)"
     echo "  SIGNER              - Account to sign transactions (default: onsocial.testnet)"

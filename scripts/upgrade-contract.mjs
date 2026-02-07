@@ -71,8 +71,8 @@ async function main() {
   const keyStore = new UnencryptedFileSystemKeyStore(credentialsPath);
   
   const nodeUrl = network === 'mainnet' 
-    ? 'https://rpc.fastnear.com'
-    : 'https://rpc.testnet.near.org';
+    ? 'https://rpc-mainnet.onsocial.id'
+    : 'https://rpc-testnet.onsocial.id';
   
   const provider = new JsonRpcProvider({ url: nodeUrl });
 
