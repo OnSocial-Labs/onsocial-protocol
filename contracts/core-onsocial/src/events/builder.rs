@@ -123,13 +123,6 @@ impl EventBuilder {
 
         Self::merge_writes_field(&mut additional_fields, writes);
 
-        additional_fields
-            .entry("block_height".to_string())
-            .or_insert_with(|| Value::Number(near_sdk::env::block_height().into()));
-        additional_fields
-            .entry("block_timestamp".to_string())
-            .or_insert_with(|| Value::Number(near_sdk::env::block_timestamp().into()));
-
         event_batch.add(
             event_type,
             operation,

@@ -122,4 +122,7 @@ packages/**/*.md
 # Local files and directories
 .local
 
-test onsocial/*.spkg
+*.spkg
+
+# Production secrets
+deployment/.env.production

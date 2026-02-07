@@ -3,7 +3,7 @@
 
 import type { CID, UploadResponse, StorageClientConfig } from './types';
 
-const DEFAULT_ENDPOINT = 'https://onsocial-backend.fly.dev/storage';
+const DEFAULT_ENDPOINT = 'https://api.onsocial.id/storage';
 const DEFAULT_GATEWAY = 'https://gateway.lighthouse.storage';
 
 /**

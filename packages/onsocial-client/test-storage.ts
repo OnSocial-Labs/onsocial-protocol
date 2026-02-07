@@ -6,7 +6,7 @@ import { StorageClient } from './src/storage';
 // Use production backend or local
 const endpoint = process.env.LOCAL 
   ? 'http://localhost:4000/storage'
-  : 'https://onsocial-backend.fly.dev/storage';
+  : 'https://api.onsocial.id/storage';
 
 const storage = new StorageClient({ endpoint });
 

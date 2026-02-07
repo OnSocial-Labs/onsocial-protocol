@@ -597,13 +597,13 @@ mod event_builder_writes_tests {
 
         assert_eq!(
             data.extra.get("block_height").and_then(|v| v.as_u64()),
-            Some(12345),
-            "block_height should be auto-injected"
+            None,
+            "block_height should not be auto-injected (substreams gets it from block header)"
         );
         assert_eq!(
             data.extra.get("block_timestamp").and_then(|v| v.as_u64()),
-            Some(1_700_000_000_000_000_000),
-            "block_timestamp should be auto-injected"
+            None,
+            "block_timestamp should not be auto-injected (substreams gets it from block header)"
         );
     }
 
@@ -634,16 +634,16 @@ mod event_builder_writes_tests {
             .expect("Should have event");
         let data = event.data.first().expect("Should have data");
 
-        // Explicit values should take precedence over env values
+        // Explicit with_field values are preserved as custom fields
         assert_eq!(
             data.extra.get("block_height").and_then(|v| v.as_u64()),
             Some(42),
-            "explicit block_height should override auto-injection"
+            "explicit block_height from with_field should be preserved"
         );
         assert_eq!(
             data.extra.get("block_timestamp").and_then(|v| v.as_u64()),
             Some(123456789),
-            "explicit block_timestamp should override auto-injection"
+            "explicit block_timestamp from with_field should be preserved"
         );
     }
 
@@ -676,13 +676,13 @@ mod event_builder_writes_tests {
 
         assert_eq!(
             data.extra.get("block_height").and_then(|v| v.as_u64()),
-            Some(55555),
-            "block_height should be injected even without path"
+            None,
+            "block_height should not be auto-injected (substreams gets it from block header)"
         );
         assert_eq!(
             data.extra.get("block_timestamp").and_then(|v| v.as_u64()),
-            Some(1_800_000_000_000_000_000),
-            "block_timestamp should be injected even without path"
+            None,
+            "block_timestamp should not be auto-injected (substreams gets it from block header)"
         );
     }
 

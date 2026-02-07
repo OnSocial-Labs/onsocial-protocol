@@ -105,8 +105,11 @@ async function main() {
     process.exit(0);
   }
 
+  // core-onsocial requires 1 yoctoNEAR deposit, staking-onsocial requires 0
+  const deposit = contractName === 'core-onsocial' ? BigInt(1) : BigInt(0);
+  console.log('Deposit:', deposit.toString(), 'yoctoNEAR');
+
   try {
-    // Use signAndSendTransaction with correct action format
     const outcome = await account.signAndSendTransaction({
       receiverId: contractId,
       actions: [{
@@ -114,7 +117,7 @@ async function main() {
           methodName: 'update_contract',
           args: wasmBytes,
           gas: BigInt('300000000000000'), // 300 TGas
-          deposit: BigInt(0),
+          deposit,
         }
       }]
     });
@@ -134,19 +137,21 @@ async function main() {
       console.log('Status:', finalStatus || 'completed');
     }
 
-    // Query new version using provider.query (RPC method)
+    // Query new version — core uses get_version, staking uses get_stats
     console.log('');
     console.log('Querying contract version...');
+    const versionMethod = contractName === 'core-onsocial' ? 'get_version' : 'get_stats';
     const viewResult = await provider.query({
       request_type: 'call_function',
       account_id: contractId,
-      method_name: 'get_stats',
+      method_name: versionMethod,
       args_base64: Buffer.from(JSON.stringify({})).toString('base64'),
       finality: 'final',
     });
-    
-    const stats = JSON.parse(Buffer.from(viewResult.result).toString());
-    console.log('New version:', stats.version);
+
+    const result = JSON.parse(Buffer.from(viewResult.result).toString());
+    const version = typeof result === 'string' ? result : result.version;
+    console.log('New version:', version);
 
   } catch (error) {
     console.error('❌ Upgrade failed:', error.message);

@@ -1,7 +1,7 @@
 // tests/setup.ts
 // Test setup with retry logic for cold starts
 
-export const GATEWAY_URL = process.env.GATEWAY_URL || 'https://onsocial-gateway.fly.dev';
+export const GATEWAY_URL = process.env.GATEWAY_URL || 'https://api.onsocial.id';
 
 /**
  * Fetch with retry for cold start tolerance

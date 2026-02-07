@@ -13,7 +13,7 @@ export interface UploadResponse {
 
 /** Storage client configuration */
 export interface StorageClientConfig {
-  /** Backend endpoint (default: https://onsocial-backend.fly.dev/storage) */
+  /** Backend endpoint (default: https://api.onsocial.id/storage) */
   endpoint?: string;
   /** IPFS gateway (default: https://gateway.lighthouse.storage) */
   gateway?: string;

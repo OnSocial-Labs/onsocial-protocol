@@ -5,11 +5,13 @@ use crate::{
     events::{EventBatch, EventBuilder},
     state::{ContractStatus, models::SocialPlatform},
 };
-use near_sdk::{AccountId, near, serde_json::Value};
+use near_sdk::{AccountId, Gas, NearToken, Promise, env, near, require, serde_json::Value};
 
 use crate::api::guards::ContractGuards;
 
 use crate::{Contract, ContractExt};
+
+const GAS_MIGRATE: Gas = Gas::from_tgas(200);
 
 #[near]
 impl Contract {
@@ -40,6 +42,10 @@ impl Contract {
 
     pub fn get_contract_status(&self) -> ContractStatus {
         self.platform.status
+    }
+
+    pub fn get_version(&self) -> String {
+        self.platform.version.clone()
     }
 
     pub fn get_config(&self) -> GovernanceConfig {
@@ -187,5 +193,55 @@ impl Contract {
         batch.emit()?;
 
         Ok(())
+    }
+
+    pub fn update_contract(&self) -> Promise {
+        require!(
+            env::attached_deposit().as_yoctonear() == 1,
+            "Attach 1 yoctoNEAR"
+        );
+        require!(
+            env::predecessor_account_id() == self.platform.manager,
+            "Not manager"
+        );
+        let code = env::input().expect("No input").to_vec();
+        Promise::new(env::current_account_id())
+            .deploy_contract(code)
+            .function_call(
+                "migrate".to_string(),
+                vec![],
+                NearToken::from_near(0),
+                GAS_MIGRATE,
+            )
+            .as_return()
+    }
+
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let mut contract: Self = env::state_read().expect("State read failed");
+        let old_version = contract.platform.version.clone();
+        contract.platform.version = env!("CARGO_PKG_VERSION").to_string();
+
+        let caller = SocialPlatform::current_caller();
+        let path = format!(
+            "{}/contract/upgrade",
+            SocialPlatform::platform_pool_account().as_str()
+        );
+
+        let mut batch = EventBatch::new();
+        EventBuilder::new(
+            constants::EVENT_TYPE_CONTRACT_UPDATE,
+            "contract_upgrade",
+            caller,
+        )
+        .with_path(&path)
+        .with_field("old_version", old_version.as_str())
+        .with_field("new_version", contract.platform.version.as_str())
+        .emit(&mut batch);
+        // Best-effort emit during migration; ignore errors
+        let _ = batch.emit();
+
+        contract
     }
 }

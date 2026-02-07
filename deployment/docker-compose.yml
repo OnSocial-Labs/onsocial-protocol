@@ -1,0 +1,168 @@
+# =============================================================================
+# OnSocial Production Stack — Single Server (Hetzner)
+# =============================================================================
+# 
+# Services: Caddy (TLS) → Gateway + Hasura + Relayer
+#           PostgreSQL, Substreams sinks run as systemd services
+#
+# Usage:
+#   cp .env.production.example .env.production
+#   # Edit .env.production with real secrets
+#   docker compose --env-file .env.production up -d
+#
+# DNS required (point to server IP):
+#   api.onsocial.id      → Gateway
+#   hasura.onsocial.id   → Hasura Console + GraphQL
+#   relay.onsocial.id    → Relayer
+
+services:
+  # =========================================================================
+  # REVERSE PROXY — Auto TLS via Let's Encrypt
+  # =========================================================================
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # TLS certificates
+      - caddy_config:/config   # Caddy runtime config
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+      hasura:
+        condition: service_healthy
+
+  # =========================================================================
+  # DATABASE
+  # =========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "127.0.0.1:5432:5432"  # Localhost only — not exposed to internet
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    shm_size: 256mb  # Shared memory for PG performance
+    command:
+      - "postgres"
+      - "-c" 
+      - "shared_buffers=2GB"
+      - "-c"
+      - "effective_cache_size=6GB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "random_page_cost=1.1"       # NVMe SSD
+      - "-c"
+      - "effective_io_concurrency=200" # NVMe SSD
+      - "-c"
+      - "wal_buffers=64MB"
+      - "-c"
+      - "max_wal_size=2GB"
+      - "-c"
+      - "log_min_duration_statement=1000"  # Log slow queries >1s
+
+  # =========================================================================
+  # GRAPHQL ENGINE
+  # =========================================================================
+  hasura:
+    image: hasura/graphql-engine:v2.40.0
+    container_name: hasura
+    # No public port — Caddy proxies via Docker network
+    expose:
+      - "8080"
+    restart: unless-stopped
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+      HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
+      HASURA_GRAPHQL_PG_CONNECTIONS: 50
+      HASURA_GRAPHQL_CORS_DOMAIN: "*"
+      HASURA_GRAPHQL_LOG_LEVEL: "warn"
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: "anonymous"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # =========================================================================
+  # API GATEWAY
+  # =========================================================================
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gateway
+    container_name: gateway
+    # No public port — Caddy proxies via Docker network
+    expose:
+      - "8080"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HASURA_URL: http://hasura:8080/v1/graphql
+      HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-https://rpc.testnet.near.org}
+      RELAYER_URL: http://relayer:3040
+    depends_on:
+      hasura:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =========================================================================
+  # NEAR TRANSACTION RELAYER
+  # =========================================================================
+  relayer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.relayer
+    container_name: relayer
+    # No public port — Caddy proxies via Docker network
+    expose:
+      - "3040"
+    restart: unless-stopped
+    environment:
+      RUST_LOG: info
+      RELAYER_CONTRACT_ID: ${RELAYER_CONTRACT_ID:-core.onsocial.testnet}
+      RELAYER_RPC_URL: ${NEAR_RPC_URL:-https://rpc.testnet.near.org}
+      RELAYER_KEYS_JSON: ${RELAYER_KEYS_JSON}
+
+volumes:
+  postgres_data:
+    external: true
+    name: onsocial-indexer_postgres_data
+  caddy_data:
+  caddy_config:
