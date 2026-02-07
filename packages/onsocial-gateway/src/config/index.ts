@@ -23,7 +23,7 @@ export const config = {
 
   // NEAR
   nearNetwork: process.env.NEAR_NETWORK || 'testnet',
-  nearRpcUrl: process.env.NEAR_RPC_URL || 'https://rpc.testnet.near.org',
+  nearRpcUrl: process.env.NEAR_RPC_URL || 'https://rpc-testnet.onsocial.id',
   socialTokenContract:
     process.env.SOCIAL_TOKEN_CONTRACT || 'social.testnet',
   stakingContract:

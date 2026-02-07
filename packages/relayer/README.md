@@ -17,7 +17,7 @@ docker compose up relayer
 Configure via `relayer.toml` or environment variables:
 
 ```toml
-rpc_url = "https://rpc.testnet.near.org"
+rpc_url = "https://rpc-testnet.onsocial.id"
 contract_id = "core.onsocial.testnet"
 keys_path = "./account_keys/relayer.onsocial.testnet.json"
 bind_address = "0.0.0.0:3040"
@@ -26,7 +26,7 @@ gas_tgas = 100
 
 Environment variables use `RELAYER_` prefix:
 ```bash
-export RELAYER_RPC_URL=https://rpc.mainnet.near.org
+export RELAYER_RPC_URL=https://rpc-mainnet.onsocial.id
 export RELAYER_CONTRACT_ID=core.onsocial.near
 ```
 
@@ -77,16 +77,19 @@ Response:
 
 ## Deployment
 
-### Fly.io (Recommended)
+### Hetzner (Production)
+
+The relayer runs as a Docker container on Hetzner via `docker compose`:
 
 ```bash
-cd packages/relayer
-fly launch
-fly secrets set RELAYER_KEYS_PATH=/app/account_keys/relayer.json
-fly deploy
+# From /opt/onsocial on the server
+docker compose build relayer
+docker compose up -d relayer
 ```
 
-### Docker
+Secrets are managed via `.env.production` (RELAYER_KEYS_JSON, RELAYER_RPC_URL, etc.).
+
+### Docker (Local)
 
 ```bash
 docker compose up relayer -d

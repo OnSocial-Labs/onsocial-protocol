@@ -30,15 +30,14 @@ export interface NetworkConfig {
 export const NETWORKS: Record<Network, NetworkConfig> = {
   mainnet: {
     networkId: 'mainnet',
-    rpcUrl: 'https://rpc.mainnet.near.org',
+    rpcUrl: 'https://rpc-mainnet.onsocial.id',
     contractId: 'core.onsocial.near',
-    hasuraUrl: 'https://hasura.onsocial.io/v1/graphql',
+    hasuraUrl: 'https://hasura.onsocial.id/v1/graphql',
   },
   testnet: {
     networkId: 'testnet',
-    rpcUrl: 'https://rpc.testnet.near.org',
+    rpcUrl: 'https://rpc-testnet.onsocial.id',
     contractId: 'core.onsocial.testnet',
-    // Hetzner-hosted Hasura instance
-    hasuraUrl: 'http://135.181.110.183:8080/v1/graphql',
+    hasuraUrl: 'https://hasura.onsocial.id/v1/graphql',
   },
 };

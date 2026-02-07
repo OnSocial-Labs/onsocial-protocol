@@ -131,7 +131,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
-      NEAR_RPC_URL: ${NEAR_RPC_URL:-https://rpc.testnet.near.org}
+      NEAR_RPC_URL: ${NEAR_RPC_URL:-https://rpc-testnet.onsocial.id}
       RELAYER_URL: http://relayer:3040
     depends_on:
       hasura:
@@ -157,7 +157,7 @@ services:
     environment:
       RUST_LOG: info
       RELAYER_CONTRACT_ID: ${RELAYER_CONTRACT_ID:-core.onsocial.testnet}
-      RELAYER_RPC_URL: ${NEAR_RPC_URL:-https://rpc.testnet.near.org}
+      RELAYER_RPC_URL: ${NEAR_RPC_URL:-https://rpc-testnet.onsocial.id}
       RELAYER_KEYS_JSON: ${RELAYER_KEYS_JSON}
 
 volumes:

@@ -17,8 +17,8 @@ if [ -f ".env" ]; then
 fi
 
 # Configuration
-HASURA_HOST="${HASURA_URL:-http://135.181.110.183:8080}"
-GATEWAY_HOST="${GATEWAY_URL:-http://135.181.110.183:4000}"
+HASURA_HOST="${HASURA_URL:-https://hasura.onsocial.id}"
+GATEWAY_HOST="${GATEWAY_URL:-https://api.onsocial.id}"
 HETZNER_SERVER="${HETZNER_IP:-135.181.110.183}"
 DISCORD_WEBHOOK="${DISCORD_WEBHOOK_URL:-}"
 SLACK_WEBHOOK="${SLACK_WEBHOOK_URL:-}"

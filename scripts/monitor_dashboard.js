@@ -67,9 +67,9 @@ loadEnv();
 
 // Configuration
 const PORT = process.env.MONITOR_PORT || 3030;
-const HASURA_URL = process.env.HASURA_URL || 'http://135.181.110.183:8080';
+const HASURA_URL = process.env.HASURA_URL || 'https://hasura.onsocial.id';
 const HASURA_ADMIN_SECRET = process.env.HASURA_ADMIN_SECRET || '';
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://135.181.110.183:4000';
+const GATEWAY_URL = process.env.GATEWAY_URL || 'https://api.onsocial.id';
 const POSTGRES_HOST = process.env.POSTGRES_HOST || '135.181.110.183';
 const POSTGRES_PORT = process.env.POSTGRES_PORT || 5432;
 const SUBSTREAMS_API_TOKEN = process.env.SUBSTREAMS_API_TOKEN || '';

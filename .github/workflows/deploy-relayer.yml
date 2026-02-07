@@ -6,21 +6,26 @@ on:
     paths:
       - 'packages/relayer/**'
       - 'docker/Dockerfile.relayer'
-      - 'fly.relayer.toml'
+      - 'deployment/**'
       - '.github/workflows/deploy-relayer.yml'
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: Deploy to Fly.io
+    name: Deploy to Hetzner
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-
-      - name: Deploy
-        run: flyctl deploy -c fly.relayer.toml --remote-only
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/onsocial
+            git pull origin main
+            docker compose build relayer
+            docker compose up -d relayer
 

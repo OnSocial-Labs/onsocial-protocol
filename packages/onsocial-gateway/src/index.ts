@@ -21,7 +21,7 @@ app.use(express.json({ limit: '10mb' }));
 // Logging
 app.use(pinoHttp({ logger }));
 
-// Trust proxy (Fly.io, etc.)
+// Trust proxy (Caddy reverse proxy)
 app.set('trust proxy', 1);
 
 // Health check (no auth needed)

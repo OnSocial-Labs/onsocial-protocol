@@ -99,7 +99,7 @@ jobs:
           HASURA_URL: http://localhost:8080/v1/graphql
           HASURA_ADMIN_SECRET: ci-test-secret
           NEAR_NETWORK: testnet
-          NEAR_RPC_URL: https://rpc.testnet.near.org
+          NEAR_RPC_URL: https://rpc-testnet.onsocial.id
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_DB: onsocial
