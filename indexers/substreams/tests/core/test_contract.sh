@@ -7,7 +7,7 @@
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/../common.sh"
 
 # =============================================================================
 # Test: Query existing ContractUpdates
@@ -15,12 +15,12 @@ source "$SCRIPT_DIR/common.sh"
 test_contract_query() {
     log_test "Query existing ContractUpdates"
     
-    local result=$(query_hasura '{ contract_updates(limit: 10, order_by: {block_height: desc}) { id operation author field old_value new_value partition_id block_timestamp } }')
+    local result=$(query_hasura '{ contractUpdates(limit: 10, order_by: {blockHeight: desc}) { id operation author path targetId partitionId blockTimestamp } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.contract_updates | length')
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.contractUpdates | length')
         test_passed "Found $count ContractUpdate entries"
-        echo "$result" | jq '.data.contract_updates'
+        echo "$result" | jq '.data.contractUpdates'
         return 0
     else
         log_warn "No ContractUpdates found (may be normal if no admin operations performed)"
@@ -35,35 +35,39 @@ test_contract_query() {
 test_contract_validate_fields() {
     log_test "Validating ContractUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ contract_updates(limit: 1, order_by: {block_height: desc}) { id operation author field old_value new_value partition_id block_height block_timestamp receipt_id target_id actor_id payer_id auth_type } }')
+    local result=$(query_hasura '{ contractUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author path partitionId blockHeight blockTimestamp receiptId derivedId derivedType targetId authType actorId payerId extraData } }')
     
-    if ! echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
+    if ! echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_warn "No ContractUpdates found to validate"
         return 0
     fi
     
     echo "Validating ContractUpdate schema fields:"
-    local entry=".data.contract_updates[0]"
+    local entry=".data.contractUpdates[0]"
     
     # Required fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field_exists "$result" "$entry.operation" "operation exists"
     assert_field_exists "$result" "$entry.author" "author exists"
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Optional fields
     echo ""
     echo "Optional fields:"
-    local field=$(echo "$result" | jq -r "$entry.field // \"null\"")
-    echo -e "  ${BLUE}○${NC} field = $field"
-    local oldValue=$(echo "$result" | jq -r "$entry.old_value // \"null\"")
-    echo -e "  ${BLUE}○${NC} old_value = $oldValue"
-    local newValue=$(echo "$result" | jq -r "$entry.new_value // \"null\"")
-    echo -e "  ${BLUE}○${NC} new_value = $newValue"
-    local partitionId=$(echo "$result" | jq -r "$entry.partition_id // \"null\"")
-    echo -e "  ${BLUE}○${NC} partition_id = $partitionId"
+    local path=$(echo "$result" | jq -r "$entry.path // \"null\"")
+    echo -e "  ${BLUE}○${NC} path = $path"
+    local derivedId=$(echo "$result" | jq -r "$entry.derivedId // \"null\"")
+    echo -e "  ${BLUE}○${NC} derivedId = $derivedId"
+    local derivedType=$(echo "$result" | jq -r "$entry.derivedType // \"null\"")
+    echo -e "  ${BLUE}○${NC} derivedType = $derivedType"
+    local targetId=$(echo "$result" | jq -r "$entry.targetId // \"null\"")
+    echo -e "  ${BLUE}○${NC} targetId = $targetId"
+    local partitionId=$(echo "$result" | jq -r "$entry.partitionId // \"null\"")
+    echo -e "  ${BLUE}○${NC} partitionId = $partitionId"
+    local extraData=$(echo "$result" | jq -r "$entry.extraData // \"null\"")
+    echo -e "  ${BLUE}○${NC} extraData = ${extraData:0:80}"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "ContractUpdate field mapping validated"
@@ -87,22 +91,22 @@ test_contract_set() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"test\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ contract_updates(where: {operation: {_eq: "set"}}, limit: 1, order_by: {block_height: desc}) { id operation author field path partition_id block_height block_timestamp receipt_id target_id auth_type } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "set"}}, limit: 1, order_by: {blockHeight: desc}) { id operation author path partitionId blockHeight blockTimestamp receiptId targetId authType actorId payerId } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         echo "Verifying ContractUpdate fields for set:"
-        local entry=".data.contract_updates[0]"
+        local entry=".data.contractUpdates[0]"
         
         assert_field "$result" "$entry.operation" "set" "operation = set"
         assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-        assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-        assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-        assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+        assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+        assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+        assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
         
         test_passed "CONTRACT_UPDATE (set) - fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.contract_updates[0]'
+        echo "$result" | jq '.data.contractUpdates[0]'
         return 0
     else
         log_warn "No CONTRACT_UPDATE (set) found"
@@ -115,21 +119,21 @@ test_contract_set() {
 # Note: Requires admin access
 # =============================================================================
 test_contract_config() {
-    log_test "CONTRACT_UPDATE (config_change) - Requires admin privileges"
+    log_test "CONTRACT_UPDATE (update_config) - Requires admin privileges"
     
-    log_warn "Skipping config_change test - requires admin privileges"
+    log_warn "Skipping update_config test - requires admin privileges"
     log_info "To test manually, call as admin:"
     echo "  near call $CONTRACT set_config '{\"key\": \"max_data_size\", \"value\": \"10000\"}' --accountId admin.testnet"
     
     # Query to see if any config changes exist
-    local result=$(query_hasura '{ contract_updates(where: {operation: {_eq: "config_change"}}, limit: 5, order_by: {block_height: desc}) { id operation field old_value new_value author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "update_config"}}, limit: 5, order_by: {blockHeight: desc}) { id operation path targetId author } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing config_change events:"
-        echo "$result" | jq '.data.contract_updates'
+        echo "$result" | jq '.data.contractUpdates'
     fi
     
-    test_passed "config_change check complete"
+    test_passed "update_config check complete"
     return 0
 }
 
@@ -138,22 +142,22 @@ test_contract_config() {
 # Note: Requires admin access
 # =============================================================================
 test_contract_admin() {
-    log_test "CONTRACT_UPDATE (admin_change) - Requires admin privileges"
+    log_test "CONTRACT_UPDATE (intents_executor) - Requires admin privileges"
     
-    log_warn "Skipping admin_change test - requires admin privileges"
+    log_warn "Skipping intents_executor test - requires admin privileges"
     log_info "To test manually:"
-    echo "  near call $CONTRACT add_admin '{\"account_id\": \"new-admin.testnet\"}' --accountId admin.testnet"
-    echo "  near call $CONTRACT remove_admin '{\"account_id\": \"admin-to-remove.testnet\"}' --accountId admin.testnet"
+    echo "  near call $CONTRACT add_intents_executor '{\"accountId\": \"executor.testnet\"}' --accountId admin.testnet"
+    echo "  near call $CONTRACT remove_intents_executor '{\"accountId\": \"executor.testnet\"}' --accountId admin.testnet"
     
-    # Query to see if any admin changes exist
-    local result=$(query_hasura '{ contract_updates(where: {operation: {_ilike: "%admin%"}}, limit: 5, order_by: {block_height: desc}) { id operation author target_id } }')
+    # Query to see if any executor changes exist
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_ilike: "%intents%"}}, limit: 5, order_by: {blockHeight: desc}) { id operation author targetId } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
-        log_info "Found existing admin events:"
-        echo "$result" | jq '.data.contract_updates'
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
+        log_info "Found existing intents_executor events:"
+        echo "$result" | jq '.data.contractUpdates'
     fi
     
-    test_passed "admin_change check complete"
+    test_passed "intents_executor check complete"
     return 0
 }
 
@@ -162,21 +166,21 @@ test_contract_admin() {
 # Note: Requires admin access
 # =============================================================================
 test_contract_manager() {
-    log_test "CONTRACT_UPDATE (manager_change) - Requires admin privileges"
+    log_test "CONTRACT_UPDATE (update_manager) - Requires admin privileges"
     
-    log_warn "Skipping manager_change test - requires admin privileges"
+    log_warn "Skipping update_manager test - requires admin privileges"
     log_info "To test manually:"
     echo "  near call $CONTRACT set_manager '{\"new_manager\": \"new-manager.testnet\"}' --accountId admin.testnet"
     
     # Query to see if any manager changes exist
-    local result=$(query_hasura '{ contract_updates(where: {operation: {_eq: "manager_change"}}, limit: 5, order_by: {block_height: desc}) { id operation old_manager new_manager executor } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_eq: "update_manager"}}, limit: 5, order_by: {blockHeight: desc}) { id operation targetId actorId author } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing manager_change events:"
-        echo "$result" | jq '.data.contract_updates'
+        echo "$result" | jq '.data.contractUpdates'
     fi
     
-    test_passed "manager_change check complete"
+    test_passed "update_manager check complete"
     return 0
 }
 
@@ -185,22 +189,22 @@ test_contract_manager() {
 # Note: Requires admin access
 # =============================================================================
 test_contract_status() {
-    log_test "CONTRACT_UPDATE (status_change) - Requires admin privileges"
+    log_test "CONTRACT_UPDATE (status transitions) - Requires admin privileges"
     
-    log_warn "Skipping status_change test - requires admin privileges"
+    log_warn "Skipping status test - requires admin privileges"
     log_info "To test manually (pausing/unpausing contract):"
-    echo "  near call $CONTRACT pause '{}' --accountId admin.testnet"
-    echo "  near call $CONTRACT unpause '{}' --accountId admin.testnet"
+    echo "  near call $CONTRACT enter_read_only '{}' --accountId admin.testnet"
+    echo "  near call $CONTRACT resume_live '{}' --accountId admin.testnet"
     
     # Query to see if any status changes exist
-    local result=$(query_hasura '{ contract_updates(where: {operation: {_eq: "status_change"}}, limit: 5, order_by: {block_height: desc}) { id operation previous_status new_status author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {operation: {_in: ["enter_read_only", "resume_live", "activate_contract"]}}, limit: 5, order_by: {blockHeight: desc}) { id operation targetId author } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing status_change events:"
-        echo "$result" | jq '.data.contract_updates'
+        echo "$result" | jq '.data.contractUpdates'
     fi
     
-    test_passed "status_change check complete"
+    test_passed "status transition check complete"
     return 0
 }
 
@@ -213,14 +217,14 @@ test_contract_partition() {
     
     log_warn "Skipping partition test - requires admin privileges"
     log_info "To test manually:"
-    echo "  near call $CONTRACT create_partition '{\"partition_id\": 1, \"config\": {}}' --accountId admin.testnet"
+    echo "  near call $CONTRACT create_partition '{\"partitionId\": 1, \"config\": {}}' --accountId admin.testnet"
     
     # Query to see if any partition events exist
-    local result=$(query_hasura '{ contract_updates(where: {partition_id: {_is_null: false}}, limit: 5, order_by: {block_height: desc}) { id operation partition_id author } }')
+    local result=$(query_hasura '{ contractUpdates(where: {partitionId: {_is_null: false}}, limit: 5, order_by: {blockHeight: desc}) { id operation partitionId author } }')
     
-    if echo "$result" | jq -e '.data.contract_updates[0]' >/dev/null 2>&1; then
+    if echo "$result" | jq -e '.data.contractUpdates[0]' >/dev/null 2>&1; then
         log_info "Found existing partition events:"
-        echo "$result" | jq '.data.contract_updates'
+        echo "$result" | jq '.data.contractUpdates'
     fi
     
     test_passed "partition check complete"
@@ -236,9 +240,9 @@ test_contract_breakdown() {
     echo ""
     echo "Operations indexed:"
     
-    for op in "set" "config_change" "admin_added" "admin_removed" "manager_change" "status_change" "partition_created" "partition_updated"; do
-        local result=$(query_hasura "{ contract_updates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
-        local count=$(echo "$result" | jq '.data.contract_updates | length // 0')
+    for op in "set" "update_config" "add_intents_executor" "remove_intents_executor" "update_manager" "enter_read_only" "resume_live" "activate_contract" "signed_payload_nonce_recorded"; do
+        local result=$(query_hasura "{ contractUpdates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
+        local count=$(echo "$result" | jq '.data.contractUpdates | length // 0')
         if [[ "$count" -gt 0 ]]; then
             echo -e "  ${GREEN}✓${NC} $op"
         else

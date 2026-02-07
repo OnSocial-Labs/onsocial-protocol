@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS storage_updates (
   payer_id TEXT,
   target_id TEXT,
   donor TEXT,
-  payer TEXT
+  payer TEXT,
+  extra_data TEXT
 );
 
 CREATE TABLE IF NOT EXISTS group_updates (
@@ -76,7 +77,8 @@ CREATE TABLE IF NOT EXISTS group_updates (
   approve BOOLEAN,
   total_votes INTEGER,
   yes_votes INTEGER,
-  no_votes INTEGER
+  no_votes INTEGER,
+  extra_data TEXT
 );
 
 CREATE TABLE IF NOT EXISTS contract_updates (
@@ -93,7 +95,8 @@ CREATE TABLE IF NOT EXISTS contract_updates (
   target_id TEXT,
   auth_type TEXT,
   actor_id TEXT,
-  payer_id TEXT
+  payer_id TEXT,
+  extra_data TEXT
 );
 
 CREATE TABLE IF NOT EXISTS permission_updates (
@@ -105,12 +108,15 @@ CREATE TABLE IF NOT EXISTS permission_updates (
   author TEXT,
   partition_id INTEGER,
   path TEXT,
-  account_id TEXT,
-  permission_type TEXT,
-  target_path TEXT,
-  permission_key TEXT,
-  granted BOOLEAN,
-  value TEXT
+  target_id TEXT,
+  public_key TEXT,
+  level INTEGER,
+  expires_at BIGINT,
+  value TEXT,
+  deleted BOOLEAN,
+  derived_id TEXT,
+  derived_type TEXT,
+  permission_nonce BIGINT
 );
 
 -- Indexes for common queries

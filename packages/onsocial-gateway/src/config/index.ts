@@ -42,21 +42,20 @@ export const config = {
   // Relay
   relayUrl: process.env.RELAY_URL || 'http://localhost:3030',
 
-  // Rate limits (requests per minute)
+  // Rate limits (requests per minute) — flat tiers
   rateLimits: {
     free: 60,
-    starter: 120,
-    staker: 600,
-    builder: 6000,
-    pro: 1000000,  // Effectively unlimited
+    pro: 600,
   } as Record<Tier, number>,
 
-  // Tier thresholds (in SOCIAL tokens, 24 decimals)
-  // Phase 1: Simple balance check. Phase 2 will add USD oracle + lock contracts
-  tierThresholds: {
-    staker: BigInt('100000000000000000000000000'), // 100 SOCIAL (placeholder)
-    builder: BigInt('1000000000000000000000000000'), // 1000 SOCIAL (placeholder)
+  // Flat tier pricing (USD/month via SOCIAL tokens)
+  tierPricing: {
+    pro: 49, // $49/month in SOCIAL
   },
+
+  // Price oracle
+  refPoolId: parseInt(process.env.REF_POOL_ID || '0', 10),
+  socialPriceUsd: parseFloat(process.env.SOCIAL_PRICE_USD || '0.10'),
 } as const;
 
 export type Config = typeof config;

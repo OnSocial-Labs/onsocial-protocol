@@ -2,6 +2,32 @@
 
 Test suite for the OnSocial Substreams indexer (PostgreSQL + Hasura).
 
+## Directory Structure
+
+```
+tests/
+  common.sh              # Shared helpers (env, queries, assertions)
+  run_all.sh             # Runner for all contracts
+  test_health.sh         # Cross-contract health & schema checks
+  coverage_report.sh     # Operation coverage across all contracts
+
+  core/                  # Core contract (onsocial NEP-297)
+    test_data.sh         # DATA_UPDATE events
+    test_storage.sh      # STORAGE_UPDATE events
+    test_group.sh        # GROUP_UPDATE events
+    test_contract.sh     # CONTRACT_UPDATE events
+    test_permission.sh   # PERMISSION_UPDATE events
+
+  staking/               # Staking contract
+    test_staking_events.sh    # Staking event types
+    test_staker_state.sh      # Staker state view
+    test_credit_purchases.sh  # Credit purchase history
+
+  token/                 # Token contract (NEP-141)
+    test_token_events.sh      # ft_mint, ft_burn, ft_transfer
+    test_token_balances.sh    # Token balance tracking
+```
+
 ## Setup
 
 1. **Environment Variables** - Set these in the root `.env` file or export them:
@@ -25,54 +51,52 @@ All test files support three modes:
 - `write` - Tests that write to contract
 - `all` - Run all tests
 
+### Run All Tests
+
+```bash
+./run_all.sh                         # All contracts, query mode
+./run_all.sh query core              # Core contract only
+./run_all.sh query 'core staking'    # Core + staking
+./run_all.sh all                     # Full suite, all contracts
+```
+
 ### Individual Test Files
 
 ```bash
-# DATA_UPDATE tests
-./test_data.sh query         # Query existing data
-./test_data.sh write         # Write tests (set, remove, refs)
-./test_data.sh validate      # Validate schema
+# Core contract tests
+./core/test_data.sh query
+./core/test_storage.sh query
+./core/test_group.sh query
+./core/test_contract.sh query
+./core/test_permission.sh query
 
-# STORAGE_UPDATE tests
-./test_storage.sh query      # Query storage updates
-./test_storage.sh write      # Test auto_deposit, deposit
+# Staking contract tests
+./staking/test_staking_events.sh query
+./staking/test_staker_state.sh query
+./staking/test_credit_purchases.sh query
 
-# PERMISSION_UPDATE tests
-./test_permission.sh query   # Query permissions
-./test_permission.sh write   # Test grant, revoke, key operations
+# Token contract tests
+./token/test_token_events.sh query
+./token/test_token_balances.sh query
 
-# GROUP_UPDATE tests
-./test_group.sh query        # Query groups
-./test_group.sh write        # Test create, members, proposals
-
-# CONTRACT_UPDATE tests
-./test_contract.sh query     # Query contract updates
-./test_contract.sh write     # Test meta_tx tracking
-
-# Health tests
-./test_health.sh             # Test Hasura connectivity
+# Cross-contract
+./test_health.sh
+./coverage_report.sh
 ```
 
 ### Coverage Report
 
 ```bash
-./coverage_report.sh         # Show operation coverage
-```
-
-### Run All Tests
-
-```bash
-./run_all.sh                 # Run all query tests
-./run_all.sh write          # Run all write tests
+./coverage_report.sh         # Show operation coverage across all contracts
 ```
 
 ## Test Features
 
-- ✅ **Smart Waiting** - Polls indexer until block is synced (no arbitrary delays)
-- ✅ **Full Field Validation** - Validates all schema fields
-- ✅ **Block Extraction** - Extracts block height from EVENT_JSON
-- ✅ **Assertions Tracking** - Counts passed/failed assertions
-- ✅ **Formatted Output** - Color-coded results matching subgraph tests
+- **Smart Waiting** - Polls indexer until block is synced (no arbitrary delays)
+- **Full Field Validation** - Validates all schema fields
+- **Block Extraction** - Extracts block height from EVENT_JSON
+- **Assertions Tracking** - Counts passed/failed assertions
+- **Formatted Output** - Color-coded results matching subgraph tests
 
 ## Security
 

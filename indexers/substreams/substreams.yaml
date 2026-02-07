@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: onsocial_events
-  version: v0.6.0
+  version: v0.7.0
   url: https://github.com/onsocial-protocol/indexers/substreams
   description: High-performance substreams indexer for OnSocial protocol events
   doc: |
@@ -18,8 +18,9 @@ binaries:
 
 protobuf:
   files:
-    - onsocial.proto
+    - core.proto
     - staking.proto
+    - token.proto
     - sf/substreams/sink/database/v1/database.proto
     - sf/substreams/sink/sql/v1/service.proto
   importPaths:
@@ -27,15 +28,16 @@ protobuf:
 
 modules:
   # Primary module - typed output
-  - name: map_onsocial_output
+  - name: map_core_output
     kind: map
+    initialBlock: 233084800
     inputs:
       - params: string
       - source: sf.near.type.v1.Block
     output:
-      type: proto:onsocial.v1.Output
+      type: proto:core_onsocial.v1.Output
     doc: |
-      Extracts OnSocial events and outputs typed protobuf messages.
+      Extracts core-onsocial contract events and outputs typed protobuf messages.
       
       Output contains:
       - data_updates: Posts, profiles, settings, group content
@@ -44,16 +46,18 @@ modules:
       - contract_updates: Meta transactions
       - permission_updates: Access control changes
 
-  # Database changes output - for substreams-sink-sql (PostgreSQL)
-  - name: db_out
+  # Core database changes output - for substreams-sink-sql (PostgreSQL)
+  - name: core_db_out
     kind: map
+    initialBlock: 233084800
     inputs:
-      - map: map_onsocial_output
+      - map: map_core_output
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges
     doc: |
       Converts typed Output to DatabaseChanges for SQL sink.
-      Use this module with substreams-sink-sql for PostgreSQL indexing.
+      Writes to: data_updates, storage_updates, group_updates,
+      contract_updates, permission_updates.
 
   # =========================================================================
   # STAKING CONTRACT MODULES
@@ -62,6 +66,7 @@ modules:
   # Staking events - typed output
   - name: map_staking_output
     kind: map
+    initialBlock: 235546389
     inputs:
       - params: string
       - source: sf.near.type.v1.Block
@@ -75,6 +80,7 @@ modules:
   # Staking database changes - for substreams-sink-sql
   - name: staking_db_out
     kind: map
+    initialBlock: 235546389
     inputs:
       - map: map_staking_output
     output:
@@ -83,12 +89,74 @@ modules:
       Converts StakingOutput to DatabaseChanges for SQL sink.
       Writes to: staking_events, staker_state, credit_purchases.
 
-params:
-  map_onsocial_output: "contract_id=core.onsocial.testnet"
-  map_staking_output: "contract_id=staking.onsocial.testnet"
+  # =========================================================================
+  # TOKEN CONTRACT MODULES (NEP-141)
+  # =========================================================================
 
+  # Token events - typed output
+  - name: map_token_output
+    kind: map
+    initialBlock: 234337349
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:token.v1.TokenOutput
+    doc: |
+      Extracts NEP-141 standard events from token.onsocial contract:
+      ft_mint, ft_burn, ft_transfer.
+
+  # Token database changes - for substreams-sink-sql
+  - name: token_db_out
+    kind: map
+    initialBlock: 234337349
+    inputs:
+      - map: map_token_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts TokenOutput to DatabaseChanges for SQL sink.
+      Writes to: token_events, token_balances.
+
+params:
+  map_core_output: "contract_id=core.onsocial.testnet"
+  map_staking_output: "contract_id=staking.onsocial.testnet"
+  map_token_output: "contract_id=token.onsocial.testnet"
+
+# ---------------------------------------------------------------------------
+# SINK DEPLOYMENT
+# ---------------------------------------------------------------------------
+# Each sink module requires its own spkg (sink module is embedded in the
+# package). Pack with `substreams pack` after setting `sink.module` below.
+#
+#   # Core (sink.module = core_db_out)
+#   substreams-sink-sql run "$DATABASE_URL" \
+#     onsocial-events-v0.7.0-core.spkg \
+#     -e "$SUBSTREAMS_ENDPOINT" \
+#     -p map_core_output=contract_id=core.onsocial.testnet \
+#     --development-mode --infinite-retry
+#
+#   # Staking (sink.module = staking_db_out)
+#   substreams-sink-sql run "$DATABASE_URL" \
+#     onsocial-events-v0.7.0-staking.spkg \
+#     -e "$SUBSTREAMS_ENDPOINT" \
+#     -p map_staking_output=contract_id=staking.onsocial.testnet \
+#     --development-mode --infinite-retry
+#
+#   # Token (sink.module = token_db_out)
+#   substreams-sink-sql run "$DATABASE_URL" \
+#     onsocial-events-v0.7.0-token.spkg \
+#     -e "$SUBSTREAMS_ENDPOINT" \
+#     -p map_token_output=contract_id=token.onsocial.testnet \
+#     --development-mode --infinite-retry
+#
+# Deployment blocks (from NEAR archival RPC):
+#   staking.onsocial.testnet  → block 235546389 (Feb 6 2026, contract deploy)
+#   core.onsocial.testnet     → block 233084800 (Jan 2026)
+#   token.onsocial.testnet    → block 234337349 (Jan 2026)
+# ---------------------------------------------------------------------------
 sink:
-  module: db_out
+  module: core_db_out
   type: sf.substreams.sink.sql.v1.Service
   config:
-    schema: "./schema.sql"
+    schema: "./core_schema.sql"

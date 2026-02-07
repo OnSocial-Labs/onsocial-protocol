@@ -19,10 +19,10 @@ check_deps
 check_hasura_health || exit 1
 
 mode="${1:-query}"
-modules="${2:-data storage group contract permission}"
+contracts="${2:-core staking token}"
 
 if [ "$mode" = "help" ] || [ "$mode" = "-h" ] || [ "$mode" = "--help" ]; then
-    echo "Usage: $0 [mode] [modules]"
+    echo "Usage: $0 [mode] [contracts]"
     echo ""
     echo "Modes:"
     echo "  query    - Read-only tests (default, safe)"
@@ -30,12 +30,10 @@ if [ "$mode" = "help" ] || [ "$mode" = "-h" ] || [ "$mode" = "--help" ]; then
     echo "  speed    - Indexing speed tests"
     echo "  all      - Run all tests including writes"
     echo ""
-    echo "Modules (space-separated):"
-    echo "  data       - DATA_UPDATE tests"
-    echo "  storage    - STORAGE_UPDATE tests"
-    echo "  group      - GROUP_UPDATE tests"
-    echo "  contract   - CONTRACT_UPDATE tests"
-    echo "  permission - PERMISSION_UPDATE tests"
+    echo "Contracts (space-separated):"
+    echo "  core     - Core contract tests (data, storage, group, contract, permission)"
+    echo "  staking  - Staking contract tests (events, staker_state, credit_purchases)"
+    echo "  token    - Token contract tests (events, balances)"
     echo ""
     echo "Environment variables:"
     echo "  HASURA_URL          - Hasura endpoint (default: http://135.181.110.183:8080)"
@@ -44,24 +42,35 @@ if [ "$mode" = "help" ] || [ "$mode" = "-h" ] || [ "$mode" = "--help" ]; then
     echo "  SIGNER              - Account to sign transactions (default: onsocial.testnet)"
     echo ""
     echo "Examples:"
-    echo "  $0                       # Query tests only"
-    echo "  $0 query data            # Query tests for data module only"
-    echo "  $0 all                   # Full test suite"
-    echo "  $0 write data storage    # Write tests for data and storage"
+    echo "  $0                       # Query tests, all contracts"
+    echo "  $0 query core            # Query tests for core contract only"
+    echo "  $0 all                   # Full test suite, all contracts"
+    echo "  $0 query 'core staking'  # Query tests for core and staking"
     exit 0
 fi
 
-# Run each module's tests
-for module in $modules; do
-    script="$SCRIPT_DIR/test_${module}.sh"
-    if [ -f "$script" ]; then
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  Running: test_${module}.sh ($mode)"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        bash "$script" "$mode"
+# Run health check first (cross-contract)
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Running: test_health.sh"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+bash "$SCRIPT_DIR/test_health.sh"
+
+# Run each contract's tests
+for contract in $contracts; do
+    contract_dir="$SCRIPT_DIR/$contract"
+    if [ -d "$contract_dir" ]; then
+        for script in "$contract_dir"/test_*.sh; do
+            [ -f "$script" ] || continue
+            script_name=$(basename "$script")
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  Running: $contract/$script_name ($mode)"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            bash "$script" "$mode"
+        done
     else
-        log_warn "Test script not found: $script"
+        log_warn "Contract test directory not found: $contract_dir"
     fi
 done
 

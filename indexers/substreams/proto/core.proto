@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package onsocial.v1;
+package core_onsocial.v1;
 
 // =============================================================================
 // TOP-LEVEL OUTPUT - Contains typed events for subgraph consumption
@@ -125,6 +125,9 @@ message StorageUpdate {
   string new_used_bytes = 29;
   string pool_available_bytes = 30;
   string used_bytes = 31;
+  
+  // Full event data as JSON (nothing lost)
+  string extra_data = 32;
 }
 
 // =============================================================================
@@ -206,6 +209,9 @@ message GroupUpdate {
   bool is_public = 51;
   string creator_role = 52;
   string storage_allocation = 53;
+  
+  // Full event data as JSON (nothing lost)
+  string extra_data = 54;
 }
 
 // =============================================================================
@@ -229,6 +235,7 @@ message ContractUpdate {
   string auth_type = 12;
   string actor_id = 13;
   string payer_id = 14;
+  string extra_data = 15;        // JSON: event-specific payload (old_config, new_manager, etc.)
 }
 
 // =============================================================================
@@ -241,15 +248,18 @@ message PermissionUpdate {
   uint64 block_timestamp = 3;
   string receipt_id = 4;
   
-  string operation = 5;
+  string operation = 5;           // "grant" | "revoke" | "grant_key" | "revoke_key"
   string author = 6;
   uint32 partition_id = 7;
   
-  string path = 8;
-  string account_id = 9;
-  string permission_type = 10;
-  string target_path = 11;
-  string permission_key = 12;
-  bool granted = 13;
-  string value = 14;
+  string path = 8;                // permission path
+  string target_id = 9;           // grantee account (grant/revoke)
+  string public_key = 10;         // key (grant_key/revoke_key)
+  int32 level = 11;               // access level
+  uint64 expires_at = 12;         // expiration timestamp
+  string value = 13;              // value or null
+  bool deleted = 14;              // true for revokes
+  string derived_id = 15;         // derived from path
+  string derived_type = 16;       // derived from path
+  uint64 permission_nonce = 17;   // group permission nonce
 }

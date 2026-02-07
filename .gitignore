@@ -122,4 +122,4 @@ packages/**/*.md
 # Local files and directories
 .local
 
-test onsocial/
+test onsocial/*.spkg

@@ -19,18 +19,6 @@ const rateLimiters: Record<Tier, RateLimiterMemory> = {
     points: config.rateLimits.free,
     duration: 60, // per minute
   }),
-  starter: new RateLimiterMemory({
-    points: config.rateLimits.starter,
-    duration: 60,
-  }),
-  staker: new RateLimiterMemory({
-    points: config.rateLimits.staker,
-    duration: 60,
-  }),
-  builder: new RateLimiterMemory({
-    points: config.rateLimits.builder,
-    duration: 60,
-  }),
   pro: new RateLimiterMemory({
     points: config.rateLimits.pro,
     duration: 60,

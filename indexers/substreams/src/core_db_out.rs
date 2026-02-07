@@ -1,14 +1,14 @@
-//! Database Changes module for Substreams SQL Sink
-//! 
-//! Converts OnSocial events to DatabaseChanges format for PostgreSQL.
+//! Database Changes module for core-onsocial contract
+//!
+//! Converts core OnSocial events to DatabaseChanges format for PostgreSQL.
 
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
-use crate::pb::onsocial::v1::Output;
+use crate::pb::core::v1::Output;
 
 /// Convert typed Output to DatabaseChanges for SQL sink
 #[substreams::handlers::map]
-pub fn db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Error> {
+pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Error> {
     let mut tables = Tables::new();
 
     // Process DataUpdates
@@ -66,6 +66,7 @@ pub fn db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Err
         row.set("target_id", &update.target_id);
         row.set("donor", &update.donor);
         row.set("payer", &update.payer);
+        row.set("extra_data", &update.extra_data);
     }
 
     // Process GroupUpdates
@@ -93,6 +94,7 @@ pub fn db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Err
         row.set("total_votes", update.total_votes);
         row.set("yes_votes", update.yes_votes);
         row.set("no_votes", update.no_votes);
+        row.set("extra_data", &update.extra_data);
     }
 
     // Process ContractUpdates
@@ -112,6 +114,7 @@ pub fn db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Err
         row.set("auth_type", &update.auth_type);
         row.set("actor_id", &update.actor_id);
         row.set("payer_id", &update.payer_id);
+        row.set("extra_data", &update.extra_data);
     }
 
     // Process PermissionUpdates
@@ -125,12 +128,15 @@ pub fn db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Err
         row.set("author", &update.author);
         row.set("partition_id", update.partition_id);
         row.set("path", &update.path);
-        row.set("account_id", &update.account_id);
-        row.set("permission_type", &update.permission_type);
-        row.set("target_path", &update.target_path);
-        row.set("permission_key", &update.permission_key);
-        row.set("granted", update.granted);
+        row.set("target_id", &update.target_id);
+        row.set("public_key", &update.public_key);
+        row.set("level", update.level);
+        row.set("expires_at", update.expires_at);
         row.set("value", &update.value);
+        row.set("deleted", update.deleted);
+        row.set("derived_id", &update.derived_id);
+        row.set("derived_type", &update.derived_type);
+        row.set("permission_nonce", update.permission_nonce);
     }
 
     Ok(tables.to_database_changes())

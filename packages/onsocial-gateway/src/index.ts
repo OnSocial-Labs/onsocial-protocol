@@ -6,14 +6,10 @@ import { pinoHttp } from 'pino-http';
 import { config } from './config/index.js';
 import { logger } from './logger.js';
 import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
-import { creditCheckWrite } from './middleware/credits.js';
 import { authRouter } from './routes/auth.js';
 import { graphRouter } from './routes/graph.js';
 import { relayRouter } from './routes/relay.js';
 import { storageRouter } from './services/storage/index.js';
-import { creditsRouter } from './routes/credits.js';
-import { publicRouter, trackResponseTime } from './routes/public.js';
-import { db } from './db/index.js';
 
 const app = express();
 
@@ -25,41 +21,29 @@ app.use(express.json({ limit: '10mb' }));
 // Logging
 app.use(pinoHttp({ logger }));
 
-// Response time tracking for /public/stats
-app.use(trackResponseTime);
-
 // Trust proxy (Fly.io, etc.)
 app.set('trust proxy', 1);
 
-// Public routes (no auth/rate limit needed)
-app.use('/public', publicRouter);
-
 // Health check (no auth needed)
-app.get('/health', async (_req, res) => {
-  const dbHealth = await db.healthCheck();
+app.get('/health', (_req, res) => {
   res.json({
-    status: dbHealth ? 'ok' : 'degraded',
-    version: '0.2.0',
-    services: ['auth', 'graph', 'storage', 'relay', 'credits'],
-    database: dbHealth ? 'connected' : 'disconnected',
+    status: 'ok',
+    version: '0.3.0',
+    services: ['auth', 'graph', 'storage', 'relay'],
   });
 });
 
 // Auth middleware (parses JWT, attaches to req.auth)
 app.use(authMiddleware);
 
-// Rate limiting (tier-based)
+// Rate limiting (tier-based: free 60/min, pro 600/min)
 app.use(rateLimitMiddleware);
 
-// Credit check for writes (uploads/relays)
-app.use(creditCheckWrite);
-
-// Routes
+// Routes — 3 proxies + auth
 app.use('/auth', authRouter);
 app.use('/graph', graphRouter);
 app.use('/storage', storageRouter);
 app.use('/relay', relayRouter);
-app.use('/credits', creditsRouter);
 
 // 404 handler
 app.use((_req, res) => {

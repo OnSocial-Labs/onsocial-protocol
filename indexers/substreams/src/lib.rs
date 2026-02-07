@@ -1,44 +1,49 @@
 //! OnSocial Substreams Module
-//! 
-//! Decodes NEP-297 JSON events from OnSocial NEAR contract logs.
-//! Events have format: `EVENT_JSON:{"standard":"onsocial","version":"1.0.0","event":"...","data":[...]}`
 //!
-//! Outputs typed protobuf messages for subgraph consumption.
+//! Decodes NEP-297 JSON events from OnSocial NEAR contract logs.
+//! Each contract gets its own `map_*_output` handler that delegates
+//! block-walking to the shared `block_walker` module.
+//!
+//! Adding a new contract:
+//!   1. proto/<contract>.proto   — message types
+//!   2. src/<contract>_decoder.rs — event decoding
+//!   3. src/<contract>_db_out.rs  — DatabaseChanges mapping
+//!   4. Wire a `map_<contract>_output` handler below (5-10 lines)
+//!   5. substreams.yaml module + params + schema
 
 mod pb;
-mod decoder;
-mod db_out;
+mod block_walker;
+mod core_decoder;
+mod core_db_out;
 mod staking_decoder;
 mod staking_db_out;
+mod token_decoder;
+mod token_db_out;
 
 #[cfg(test)]
 mod tests;
 
 use substreams_near::pb::sf::near::r#type::v1::Block;
-use pb::onsocial::v1::{
+use pb::core::v1::{
     Output, DataUpdate, StorageUpdate, GroupUpdate, ContractUpdate, PermissionUpdate,
 };
 use pb::staking::v1::StakingOutput;
-use decoder::decode_onsocial_event;
+use pb::token::v1::TokenOutput;
+use block_walker::{parse_contract_filter, block_context, for_each_event_log};
+use core_decoder::decode_onsocial_event;
 use staking_decoder::decode_staking_event;
+use token_decoder::decode_token_events;
 use serde_json::Value;
 
-const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
+// =============================================================================
+// Core-OnSocial Map Module
+// =============================================================================
 
-/// Main Substreams map module - outputs typed events for subgraph
+/// Core map module - routes onsocial-standard events to typed outputs
 #[substreams::handlers::map]
-fn map_onsocial_output(params: String, block: Block) -> Result<Output, substreams::errors::Error> {
-    let contract_filter: Option<&str> = params
-        .split('=')
-        .nth(1)
-        .map(|s| s.trim());
-
-    let block_height = block.header.as_ref().map(|h| h.height).unwrap_or(0);
-    let block_timestamp = block.header.as_ref().map(|h| h.timestamp_nanosec).unwrap_or(0);
-    let block_hash = block.header.as_ref()
-        .and_then(|h| h.hash.as_ref())
-        .map(|hash| bs58::encode(&hash.bytes).into_string())
-        .unwrap_or_default();
+fn map_core_output(params: String, block: Block) -> Result<Output, substreams::errors::Error> {
+    let filter = parse_contract_filter(&params);
+    let ctx = block_context(&block);
 
     let mut data_updates = Vec::new();
     let mut storage_updates = Vec::new();
@@ -46,130 +51,55 @@ fn map_onsocial_output(params: String, block: Block) -> Result<Output, substream
     let mut contract_updates = Vec::new();
     let mut permission_updates = Vec::new();
 
-    for shard in &block.shards {
-        for receipt_execution in &shard.receipt_execution_outcomes {
-            let receipt = match &receipt_execution.receipt {
-                Some(r) => r,
-                None => continue,
-            };
+    for_each_event_log(&block, filter.as_deref(), |log| {
+        let event = match decode_onsocial_event(log.json_data) {
+            Ok(e) => e,
+            Err(_) => return,
+        };
 
-            let outcome = match &receipt_execution.execution_outcome {
-                Some(eo) => match &eo.outcome {
-                    Some(o) => o,
-                    None => continue,
-                },
-                None => continue,
-            };
-
-            let receiver_id = &receipt.receiver_id;
-            
-            if let Some(filter) = contract_filter {
-                if receiver_id != filter {
-                    continue;
-                }
-            }
-
-            let receipt_id = receipt.receipt_id.as_ref()
-                .map(|id| bs58::encode(&id.bytes).into_string())
-                .unwrap_or_default();
-
-            for (log_index, log) in outcome.logs.iter().enumerate() {
-                if !log.starts_with(EVENT_JSON_PREFIX) {
-                    continue;
-                }
-
-                let json_data = &log[EVENT_JSON_PREFIX.len()..];
-                
-                match decode_onsocial_event(json_data) {
-                    Ok(event) => {
-                        // Validate standard and version (NEP-297)
-                        if event.standard != "onsocial" {
-                            continue;
-                        }
-                        if !event.version.starts_with("1.") {
-                            continue; // Only support v1.x.x events
-                        }
-                        
-                        // Route to typed handlers based on event type
-                        match event.event.as_str() {
-                            "DATA_UPDATE" => {
-                                for (data_index, data) in event.data.iter().enumerate() {
-                                    if let Some(update) = extract_data_update(
-                                        data,
-                                        &receipt_id,
-                                        log_index as u32,
-                                        data_index as u32,
-                                        block_height,
-                                        block_timestamp,
-                                    ) {
-                                        data_updates.push(update);
-                                    }
-                                }
-                            }
-                            "STORAGE_UPDATE" => {
-                                for (data_index, data) in event.data.iter().enumerate() {
-                                    if let Some(update) = extract_storage_update(
-                                        data,
-                                        &receipt_id,
-                                        log_index as u32,
-                                        data_index as u32,
-                                        block_height,
-                                        block_timestamp,
-                                    ) {
-                                        storage_updates.push(update);
-                                    }
-                                }
-                            }
-                            "GROUP_UPDATE" => {
-                                for (data_index, data) in event.data.iter().enumerate() {
-                                    if let Some(update) = extract_group_update(
-                                        data,
-                                        &receipt_id,
-                                        log_index as u32,
-                                        data_index as u32,
-                                        block_height,
-                                        block_timestamp,
-                                    ) {
-                                        group_updates.push(update);
-                                    }
-                                }
-                            }
-                            "CONTRACT_UPDATE" => {
-                                for (data_index, data) in event.data.iter().enumerate() {
-                                    if let Some(update) = extract_contract_update(
-                                        data,
-                                        &receipt_id,
-                                        log_index as u32,
-                                        data_index as u32,
-                                        block_height,
-                                        block_timestamp,
-                                    ) {
-                                        contract_updates.push(update);
-                                    }
-                                }
-                            }
-                            "PERMISSION_UPDATE" => {
-                                for (data_index, data) in event.data.iter().enumerate() {
-                                    if let Some(update) = extract_permission_update(
-                                        data,
-                                        &receipt_id,
-                                        log_index as u32,
-                                        data_index as u32,
-                                        block_height,
-                                        block_timestamp,
-                                    ) {
-                                        permission_updates.push(update);
-                                    }
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    Err(_) => {}
-                }
-            }
+        if event.standard != "onsocial" || !event.version.starts_with("1.") {
+            return;
         }
-    }
+
+        match event.event.as_str() {
+            "DATA_UPDATE" => {
+                for (i, data) in event.data.iter().enumerate() {
+                    if let Some(u) = extract_data_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                        data_updates.push(u);
+                    }
+                }
+            }
+            "STORAGE_UPDATE" => {
+                for (i, data) in event.data.iter().enumerate() {
+                    if let Some(u) = extract_storage_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                        storage_updates.push(u);
+                    }
+                }
+            }
+            "GROUP_UPDATE" => {
+                for (i, data) in event.data.iter().enumerate() {
+                    if let Some(u) = extract_group_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                        group_updates.push(u);
+                    }
+                }
+            }
+            "CONTRACT_UPDATE" => {
+                for (i, data) in event.data.iter().enumerate() {
+                    if let Some(u) = extract_contract_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                        contract_updates.push(u);
+                    }
+                }
+            }
+            "PERMISSION_UPDATE" => {
+                for (i, data) in event.data.iter().enumerate() {
+                    if let Some(u) = extract_permission_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                        permission_updates.push(u);
+                    }
+                }
+            }
+            _ => {}
+        }
+    });
 
     Ok(Output {
         data_updates,
@@ -177,81 +107,52 @@ fn map_onsocial_output(params: String, block: Block) -> Result<Output, substream
         group_updates,
         contract_updates,
         permission_updates,
-        block_height,
-        block_timestamp,
-        block_hash,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
     })
 }
 
 // =============================================================================
-// Staking Substreams Map Module
+// Staking Map Module
 // =============================================================================
 
 /// Staking map module - outputs typed staking events for DB sink
 #[substreams::handlers::map]
 fn map_staking_output(params: String, block: Block) -> Result<StakingOutput, substreams::errors::Error> {
-    let contract_filter: Option<&str> = params
-        .split('=')
-        .nth(1)
-        .map(|s| s.trim());
-
-    let block_height = block.header.as_ref().map(|h| h.height).unwrap_or(0);
-    let block_timestamp = block.header.as_ref().map(|h| h.timestamp_nanosec).unwrap_or(0);
-    let block_hash = block.header.as_ref()
-        .and_then(|h| h.hash.as_ref())
-        .map(|hash| bs58::encode(&hash.bytes).into_string())
-        .unwrap_or_default();
-
+    let filter = parse_contract_filter(&params);
+    let ctx = block_context(&block);
     let mut events = Vec::new();
 
-    for shard in &block.shards {
-        for receipt_execution in &shard.receipt_execution_outcomes {
-            let receipt = match &receipt_execution.receipt {
-                Some(r) => r,
-                None => continue,
-            };
-
-            let outcome = match &receipt_execution.execution_outcome {
-                Some(eo) => match &eo.outcome {
-                    Some(o) => o,
-                    None => continue,
-                },
-                None => continue,
-            };
-
-            let receiver_id = &receipt.receiver_id;
-
-            if let Some(filter) = contract_filter {
-                if receiver_id != filter {
-                    continue;
-                }
-            }
-
-            let receipt_id = receipt.receipt_id.as_ref()
-                .map(|id| bs58::encode(&id.bytes).into_string())
-                .unwrap_or_default();
-
-            for (log_index, log) in outcome.logs.iter().enumerate() {
-                if !log.starts_with(EVENT_JSON_PREFIX) {
-                    continue;
-                }
-
-                let json_data = &log[EVENT_JSON_PREFIX.len()..];
-
-                if let Some(event) = decode_staking_event(
-                    json_data,
-                    &receipt_id,
-                    block_height,
-                    block_timestamp,
-                    log_index,
-                ) {
-                    events.push(event);
-                }
-            }
+    for_each_event_log(&block, filter.as_deref(), |log| {
+        if let Some(event) = decode_staking_event(
+            log.json_data, &log.receipt_id, ctx.block_height, ctx.block_timestamp, log.log_index,
+        ) {
+            events.push(event);
         }
-    }
+    });
 
-    Ok(StakingOutput { events, block_height, block_timestamp, block_hash })
+    Ok(StakingOutput { events, block_height: ctx.block_height, block_timestamp: ctx.block_timestamp, block_hash: ctx.block_hash })
+}
+
+// =============================================================================
+// Token (NEP-141) Map Module
+// =============================================================================
+
+/// Token map module - outputs typed NEP-141 events for DB sink
+#[substreams::handlers::map]
+fn map_token_output(params: String, block: Block) -> Result<TokenOutput, substreams::errors::Error> {
+    let filter = parse_contract_filter(&params);
+    let ctx = block_context(&block);
+    let mut events = Vec::new();
+
+    for_each_event_log(&block, filter.as_deref(), |log| {
+        events.extend(decode_token_events(
+            log.json_data, &log.receipt_id, ctx.block_height, ctx.block_timestamp, log.log_index,
+        ));
+    });
+
+    Ok(TokenOutput { events, block_height: ctx.block_height, block_timestamp: ctx.block_timestamp, block_hash: ctx.block_hash })
 }
 
 // =============================================================================
@@ -259,7 +160,7 @@ fn map_staking_output(params: String, block: Block) -> Result<StakingOutput, sub
 // =============================================================================
 
 fn extract_data_update(
-    data: &decoder::EventData,
+    data: &core_decoder::EventData,
     receipt_id: &str,
     log_index: u32,
     data_index: u32,
@@ -386,7 +287,7 @@ fn extract_refs_array(value: &Option<Value>) -> (Vec<String>, Vec<String>) {
 // =============================================================================
 
 fn extract_storage_update(
-    data: &decoder::EventData,
+    data: &core_decoder::EventData,
     receipt_id: &str,
     log_index: u32,
     data_index: u32,
@@ -427,6 +328,8 @@ fn extract_storage_update(
         new_used_bytes: get_string(&data.extra, "new_used_bytes").unwrap_or_default(),
         pool_available_bytes: get_string(&data.extra, "pool_available_bytes").unwrap_or_default(),
         used_bytes: get_string(&data.extra, "used_bytes").unwrap_or_default(),
+        // Capture all fields as JSON so nothing is ever lost
+        extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
     })
 }
 
@@ -435,7 +338,7 @@ fn extract_storage_update(
 // =============================================================================
 
 fn extract_group_update(
-    data: &decoder::EventData,
+    data: &core_decoder::EventData,
     receipt_id: &str,
     log_index: u32,
     data_index: u32,
@@ -464,9 +367,9 @@ fn extract_group_update(
         amount: get_string(&data.extra, "amount").unwrap_or_default(),
         previous_pool_balance: get_string(&data.extra, "previous_pool_balance").unwrap_or_default(),
         new_pool_balance: get_string(&data.extra, "new_pool_balance").unwrap_or_default(),
-        quota_bytes: get_string(&data.extra, "quota_bytes").unwrap_or_default(),
-        quota_used: get_string(&data.extra, "quota_used").unwrap_or_default(),
-        daily_limit: get_string(&data.extra, "daily_limit").unwrap_or_default(),
+        quota_bytes: get_string(&data.extra, "allowance_max_bytes").unwrap_or_default(),
+        quota_used: get_string(&data.extra, "used_bytes").unwrap_or_default(),
+        daily_limit: get_string(&data.extra, "daily_refill_bytes").unwrap_or_default(),
         previously_enabled: get_bool(&data.extra, "previously_enabled").unwrap_or(false),
         proposal_id: get_string(&data.extra, "proposal_id").unwrap_or_default(),
         proposal_type: get_string(&data.extra, "proposal_type").unwrap_or_default(),
@@ -489,8 +392,8 @@ fn extract_group_update(
         should_reject: get_bool(&data.extra, "should_reject").unwrap_or(false),
         voted_at: get_u64(&data.extra, "voted_at").unwrap_or(0),
         voting_period: get_u64(&data.extra, "voting_period").unwrap_or(0),
-        participation_quorum: get_i32(&data.extra, "participation_quorum").unwrap_or(0),
-        approval_threshold: get_i32(&data.extra, "approval_threshold").unwrap_or(0),
+        participation_quorum: get_i32(&data.extra, "participation_quorum_bps").unwrap_or(0),
+        approval_threshold: get_i32(&data.extra, "majority_threshold_bps").unwrap_or(0),
         permission_key: get_string(&data.extra, "permission_key").unwrap_or_default(),
         permission_value: get_string(&data.extra, "permission_value").unwrap_or_default(),
         permission_target: get_string(&data.extra, "permission_target").unwrap_or_default(),
@@ -498,6 +401,8 @@ fn extract_group_update(
         is_public: get_bool(&data.extra, "is_public").unwrap_or(false),
         creator_role: get_string(&data.extra, "creator_role").unwrap_or_default(),
         storage_allocation: get_string(&data.extra, "storage_allocation").unwrap_or_default(),
+        // Capture all fields as JSON so nothing is ever lost
+        extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
     })
 }
 
@@ -506,7 +411,7 @@ fn extract_group_update(
 // =============================================================================
 
 fn extract_contract_update(
-    data: &decoder::EventData,
+    data: &core_decoder::EventData,
     receipt_id: &str,
     log_index: u32,
     data_index: u32,
@@ -514,6 +419,21 @@ fn extract_contract_update(
     block_timestamp: u64,
 ) -> Option<ContractUpdate> {
     let id = format!("{}-{}-{}-contract", receipt_id, log_index, data_index);
+    
+    // Capture event-specific fields (old_config, new_manager, executor, etc.) as JSON
+    let extra_keys: Vec<&str> = vec![
+        "old_config", "new_config", "old_manager", "new_manager",
+        "executor", "previous", "new", "public_key", "nonce",
+    ];
+    let extra_data = {
+        let mut map = serde_json::Map::new();
+        for key in &extra_keys {
+            if let Some(val) = data.extra.get(*key) {
+                map.insert(key.to_string(), val.clone());
+            }
+        }
+        if map.is_empty() { String::new() } else { serde_json::Value::Object(map).to_string() }
+    };
     
     Some(ContractUpdate {
         id,
@@ -530,6 +450,7 @@ fn extract_contract_update(
         auth_type: get_string(&data.extra, "auth_type").unwrap_or_default(),
         actor_id: get_string(&data.extra, "actor_id").unwrap_or_default(),
         payer_id: get_string(&data.extra, "payer_id").unwrap_or_default(),
+        extra_data,
     })
 }
 
@@ -538,7 +459,7 @@ fn extract_contract_update(
 // =============================================================================
 
 fn extract_permission_update(
-    data: &decoder::EventData,
+    data: &core_decoder::EventData,
     receipt_id: &str,
     log_index: u32,
     data_index: u32,
@@ -556,12 +477,15 @@ fn extract_permission_update(
         author: data.author.clone(),
         partition_id: data.partition_id.unwrap_or(0) as u32,
         path: get_string(&data.extra, "path").unwrap_or_default(),
-        account_id: get_string(&data.extra, "account_id").unwrap_or_default(),
-        permission_type: get_string(&data.extra, "permission_type").unwrap_or_default(),
-        target_path: get_string(&data.extra, "target_path").unwrap_or_default(),
-        permission_key: get_string(&data.extra, "permission_key").unwrap_or_default(),
-        granted: get_bool(&data.extra, "granted").unwrap_or(false),
+        target_id: get_string(&data.extra, "target_id").unwrap_or_default(),
+        public_key: get_string(&data.extra, "public_key").unwrap_or_default(),
+        level: get_i32(&data.extra, "level").unwrap_or(0),
+        expires_at: get_u64(&data.extra, "expires_at").unwrap_or(0),
         value: get_string(&data.extra, "value").unwrap_or_default(),
+        deleted: get_bool(&data.extra, "deleted").unwrap_or(false),
+        derived_id: get_string(&data.extra, "id").unwrap_or_default(),
+        derived_type: get_string(&data.extra, "type").unwrap_or_default(),
+        permission_nonce: get_u64(&data.extra, "permission_nonce").unwrap_or(0),
     })
 }
 

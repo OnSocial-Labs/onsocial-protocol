@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { generateToken, verifyNearSignature } from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
 import { config } from '../config/index.js';
+import { priceOracle } from '../services/price-oracle.js';
 import type { Request, Response } from 'express';
 
 export const authRouter = Router();
@@ -12,16 +13,9 @@ export const authRouter = Router();
  *
  * Body: {
  *   accountId: string,
- *   message: string,      // "OnSocial Auth: <timestamp>" (ISO-8601 recommended, or unix sec/ms)
+ *   message: string,      // "OnSocial Auth: <timestamp>"
  *   signature: string,    // base64 encoded ed25519 signature
  *   publicKey: string     // ed25519:<base64 or base58>
- * }
- *
- * Response: {
- *   token: string,
- *   expiresIn: string,
- *   tier: string,
- *   rateLimit: number
  * }
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
@@ -35,7 +29,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  // Verify NEAR signature
   const verification = await verifyNearSignature(accountId, message, signature, publicKey);
   if (!verification.valid) {
     res.status(401).json({
@@ -64,8 +57,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
 /**
  * POST /auth/refresh
  * Refresh JWT token (requires valid existing token)
- *
- * Returns new token with updated tier info
  */
 authRouter.post('/refresh', async (req: Request, res: Response) => {
   if (!req.auth) {
@@ -74,9 +65,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
   }
 
   try {
-    // Clear cache to get fresh tier info
     clearTierCache(req.auth.accountId);
-
     const token = await generateToken(req.auth.accountId);
     const tierInfo = await getTierInfo(req.auth.accountId);
 
@@ -108,7 +97,6 @@ authRouter.get('/me', async (req: Request, res: Response) => {
     res.json({
       accountId: req.auth.accountId,
       tier: tierInfo.tier,
-      balance: tierInfo.balance,
       rateLimit: tierInfo.rateLimit,
     });
   } catch (error) {
@@ -118,62 +106,42 @@ authRouter.get('/me', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /auth/tier/:accountId
- * Get tier info for any account (public endpoint)
+ * GET /auth/pricing
+ * Public endpoint: show tier pricing + current SOCIAL price
  */
-authRouter.get('/tier/:accountId', async (req: Request, res: Response) => {
-  const { accountId } = req.params;
-
+authRouter.get('/pricing', async (_req: Request, res: Response) => {
   try {
-    const tierInfo = await getTierInfo(accountId);
+    const price = await priceOracle.getPrice();
+    const proSocial = await priceOracle.socialForUsd(config.tierPricing.pro);
 
     res.json({
-      accountId,
-      tier: tierInfo.tier,
-      rateLimit: tierInfo.rateLimit,
+      tiers: {
+        free: { price: 0, rateLimit: config.rateLimits.free },
+        pro: {
+          priceUsd: config.tierPricing.pro,
+          priceSocial: proSocial,
+          rateLimit: config.rateLimits.pro,
+        },
+      },
+      socialPriceUsd: price,
     });
   } catch (error) {
-    console.error('Get tier error:', error);
-    res.status(500).json({ error: 'Failed to get tier info' });
+    console.error('Pricing error:', error);
+    res.status(500).json({ error: 'Failed to get pricing' });
   }
 });
 
 /**
  * GET /auth/config
- * Get gateway configuration (public endpoint for monitoring)
+ * Public gateway configuration
  */
-authRouter.get('/config', async (req: Request, res: Response) => {
-  try {
-    // Convert BigInt to string for JSON serialization
-    const tierThresholds = {
-      staker: config.tierThresholds.staker.toString(),
-      builder: config.tierThresholds.builder.toString(),
-    };
-
-    res.json({
-      network: config.nearNetwork,
-      rateLimits: config.rateLimits,
-      tierThresholds,
-      contracts: {
-        socialToken: config.socialTokenContract,
-        staking: config.stakingContract,
-      },
-      infrastructure: {
-        lighthouse: {
-          plan: 'Free tier',
-          cost: 0,
-          limit: 'TBD',
-        },
-        substreams: {
-          plan: 'Free tier',
-          cost: 0,
-          limit: '7M blocks/month',
-        },
-        totalCost: 0,
-      },
-    });
-  } catch (error) {
-    console.error('Get config error:', error);
-    res.status(500).json({ error: 'Failed to get config' });
-  }
+authRouter.get('/config', (_req: Request, res: Response) => {
+  res.json({
+    network: config.nearNetwork,
+    rateLimits: config.rateLimits,
+    contracts: {
+      socialToken: config.socialTokenContract,
+      staking: config.stakingContract,
+    },
+  });
 });

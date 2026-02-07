@@ -1,10 +1,14 @@
+import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 
 /**
  * Price oracle service
- * 
- * Testnet: Returns mocked price ($0.10)
- * Mainnet: Swap to CoinGecko API or pool AMM
+ *
+ * Provides SOCIAL/USD price for the /auth/pricing endpoint.
+ * NOT used on every request — only at login and tier pricing pages.
+ *
+ * Testnet: Returns config.socialPriceUsd ($0.10 default)
+ * Mainnet: Queries Ref Finance pool for SOCIAL/USDC price, cached 5 min
  */
 
 interface PriceCache {
@@ -13,7 +17,6 @@ interface PriceCache {
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const TESTNET_MOCK_PRICE = 0.10; // $0.10 for testnet
 const MAINNET_MODE = process.env.PRICE_ORACLE_MODE === 'mainnet';
 
 let priceCache: PriceCache | null = null;
@@ -23,69 +26,81 @@ export const priceOracle = {
    * Get current SOCIAL token price in USD
    */
   async getPrice(): Promise<number> {
-    // Testnet mode: return mocked price
+    // Testnet mode: return configured price
     if (!MAINNET_MODE) {
-      logger.debug({ price: TESTNET_MOCK_PRICE }, 'Using testnet mock price');
-      return TESTNET_MOCK_PRICE;
+      return config.socialPriceUsd;
     }
 
     // Check cache
     if (priceCache && Date.now() - priceCache.timestamp < CACHE_TTL_MS) {
-      logger.debug({ price: priceCache.price, cached: true }, 'Using cached price');
       return priceCache.price;
     }
 
     // Fetch fresh price (mainnet only)
     try {
-      const price = await this.fetchPrice();
+      const price = await this.fetchRefPoolPrice();
       priceCache = { price, timestamp: Date.now() };
-      logger.info({ price }, 'Fetched fresh token price');
+      logger.info({ price }, 'Fetched fresh SOCIAL price from Ref Finance');
       return price;
     } catch (error) {
-      logger.error({ error }, 'Failed to fetch price, using fallback');
-      // Fallback to cached price if available
-      if (priceCache) {
-        return priceCache.price;
-      }
-      throw new Error('Price oracle unavailable and no cached price');
+      logger.error({ error }, 'Failed to fetch Ref price, using fallback');
+      // Fallback to cached price or manual config
+      if (priceCache) return priceCache.price;
+      if (config.socialPriceUsd > 0) return config.socialPriceUsd;
+      throw new Error('Price oracle unavailable and no fallback');
     }
   },
 
   /**
-   * Fetch price from external source (mainnet only)
+   * Query Ref Finance pool for SOCIAL/USDC price
+   * Uses view-only RPC call — no transaction needed.
    */
-  async fetchPrice(): Promise<number> {
-    // TODO: Implement one of these strategies:
-    
-    // Option 1: CoinGecko API
-    // const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=social-token&vs_currencies=usd');
-    // const data = await response.json();
-    // return data['social-token'].usd;
-
-    // Option 2: Pool AMM (on-chain)
-    // const poolPrice = await nearConnection.account(poolContractId).viewFunction({
-    //   contractId: poolContractId,
-    //   methodName: 'get_price',
-    //   args: { token_in: 'social.near', token_out: 'usdc.near' }
-    // });
-    // return poolPrice;
-
-    // Option 3: Manual config (emergency fallback)
-    const manualPrice = parseFloat(process.env.SOCIAL_PRICE_USD || '0');
-    if (manualPrice > 0) {
-      return manualPrice;
+  async fetchRefPoolPrice(): Promise<number> {
+    const poolId = config.refPoolId;
+    if (!poolId) {
+      throw new Error('REF_POOL_ID not configured');
     }
 
-    throw new Error('No price source configured for mainnet');
+    const res = await fetch(config.nearRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'price',
+        method: 'query',
+        params: {
+          request_type: 'call_function',
+          account_id: 'v2.ref-finance.near',
+          method_name: 'get_pool',
+          args_base64: Buffer.from(JSON.stringify({ pool_id: poolId })).toString('base64'),
+          finality: 'final',
+        },
+      }),
+    });
+
+    const json = (await res.json()) as any;
+    if (json.error) throw new Error(json.error.message);
+
+    const resultBytes = json.result?.result;
+    if (!resultBytes) throw new Error('Empty RPC result');
+
+    const pool = JSON.parse(Buffer.from(resultBytes).toString('utf-8'));
+    // Simple pool: amounts[0] / amounts[1] gives relative price
+    // Actual calculation depends on pool type (SimplePool vs StablePool)
+    const [amountSocial, amountUsdc] = pool.amounts.map(Number);
+    if (!amountSocial || !amountUsdc) throw new Error('Empty pool');
+
+    // USDC has 6 decimals, SOCIAL has 24 decimals
+    const price = (amountUsdc / 1e6) / (amountSocial / 1e24);
+    return price;
   },
 
   /**
-   * Calculate credits per SOCIAL token
+   * Calculate SOCIAL tokens needed for a given USD amount
    */
-  getCreditsPerSocial(priceUsd: number): number {
-    const USD_PER_CREDIT = 0.01; // $0.01 per credit (never changes)
-    const credits = Math.floor(priceUsd / USD_PER_CREDIT);
-    return Math.max(1, credits); // Minimum 1 credit per SOCIAL
+  async socialForUsd(usd: number): Promise<number> {
+    const price = await this.getPrice();
+    return Math.ceil(usd / price);
   },
 
   /**

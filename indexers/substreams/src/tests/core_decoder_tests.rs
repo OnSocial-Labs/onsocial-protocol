@@ -1,4 +1,4 @@
-use crate::decoder::decode_onsocial_event;
+use crate::core_decoder::decode_onsocial_event;
 
 #[test]
 fn test_decode_nep297_event() {

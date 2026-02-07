@@ -2,8 +2,7 @@
 // Integration tests for gateway storage endpoints
 
 import { describe, it, expect, beforeAll } from 'vitest';
-
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
+import { GATEWAY_URL } from './setup.js';
 
 // Helper to get auth token
 async function getAuthToken(): Promise<string> {

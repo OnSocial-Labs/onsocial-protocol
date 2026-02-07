@@ -21,28 +21,10 @@ export const QUERY_LIMITS: Record<Tier, TierLimits> = {
     maxRowLimit: 100,      // Small result sets
     allowAggregations: false,
   },
-  starter: {
-    maxDepth: 4,           // Slightly deeper
-    maxComplexity: 100,    // Moderate queries
-    maxRowLimit: 500,      // Small-medium result sets
-    allowAggregations: false,
-  },
-  staker: {
-    maxDepth: 5,           // Moderate nesting
-    maxComplexity: 200,    // More complex queries
-    maxRowLimit: 1000,     // Medium result sets
-    allowAggregations: true,
-  },
-  builder: {
+  pro: {
     maxDepth: 8,           // Deep nesting allowed
     maxComplexity: 1000,   // Complex queries allowed
     maxRowLimit: 10000,    // Large result sets
-    allowAggregations: true,
-  },
-  pro: {
-    maxDepth: 10,          // Very deep nesting
-    maxComplexity: 2000,   // Very complex queries
-    maxRowLimit: 50000,    // Very large result sets
     allowAggregations: true,
   },
 };
@@ -204,7 +186,7 @@ export function validateQuery(query: string, tier: Tier): QueryValidationResult 
     if (queryHasAggregations && !limits.allowAggregations) {
       return {
         valid: false,
-        error: `Aggregation queries not allowed for ${tier} tier. Upgrade to staker or builder tier.`,
+        error: `Aggregation queries not allowed for ${tier} tier. Upgrade to pro tier.`,
         details,
       };
     }

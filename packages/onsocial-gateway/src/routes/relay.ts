@@ -44,7 +44,7 @@ relayRouter.post('/submit', async (req: Request, res: Response) => {
 /**
  * POST /relay/meta-tx
  * Submit meta-transaction (NEP-366)
- * Builder tier only - higher gas allowance
+ * Pro tier only - higher gas allowance
  *
  * Body: {
  *   delegateAction: object,
@@ -53,7 +53,7 @@ relayRouter.post('/submit', async (req: Request, res: Response) => {
  */
 relayRouter.post(
   '/meta-tx',
-  requireTier('staker', 'builder'),
+  requireTier('pro'),
   async (req: Request, res: Response) => {
     const { delegateAction, signature } = req.body;
 

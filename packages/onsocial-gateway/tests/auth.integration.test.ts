@@ -2,19 +2,9 @@
 // Integration test for gateway auth endpoints
 
 import { describe, it, expect } from 'vitest';
-import { GATEWAY_URL, fetchWithRetry } from './setup.js';
+import { GATEWAY_URL } from './setup.js';
 
 describe('Gateway Auth Integration', () => {
-  it('should return tier info for any account', async () => {
-    const res = await fetchWithRetry(`${GATEWAY_URL}/auth/tier/alice.near`);
-    const data = await res.json();
-    
-    expect(res.ok).toBe(true);
-    expect(data.accountId).toBe('alice.near');
-    expect(data.tier).toBe('free'); // No SOCIAL token, defaults to free
-    expect(data.rateLimit).toBe(60);
-  });
-
   it('should login and return JWT (dev mode)', async () => {
     const res = await fetch(`${GATEWAY_URL}/auth/login`, {
       method: 'POST',

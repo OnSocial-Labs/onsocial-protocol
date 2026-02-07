@@ -37,7 +37,7 @@ describe('Query Validation', () => {
       expect(result.error).toContain('depth');
     });
     
-    it('should allow deeper queries for staker tier', () => {
+    it('should allow deeper queries for pro tier', () => {
       const query = `{
         storageUpdates {
           account_id
@@ -51,16 +51,16 @@ describe('Query Validation', () => {
         }
       }`;
       
-      const result = validateQuery(query, 'staker');
+      const result = validateQuery(query, 'pro');
       expect(result.valid).toBe(true);
     });
     
-    it('should allow deep queries for builder tier', () => {
+    it('should allow deep queries for pro tier', () => {
       const query = `{
         a { b { c { d { e { f { g { value } } } } } } }
       }`;
       
-      const result = validateQuery(query, 'builder');
+      const result = validateQuery(query, 'pro');
       expect(result.valid).toBe(true);
     });
   });
@@ -80,7 +80,7 @@ describe('Query Validation', () => {
       expect(result.error).toContain('Aggregation');
     });
     
-    it('should allow aggregations for staker tier', () => {
+    it('should allow aggregations for pro tier', () => {
       const query = `{
         storageUpdates_aggregate {
           aggregate {
@@ -89,11 +89,11 @@ describe('Query Validation', () => {
         }
       }`;
       
-      const result = validateQuery(query, 'staker');
+      const result = validateQuery(query, 'pro');
       expect(result.valid).toBe(true);
     });
     
-    it('should allow aggregations for builder tier', () => {
+    it('should allow complex aggregations for pro tier', () => {
       const query = `{
         storageUpdates_aggregate {
           aggregate {
@@ -103,7 +103,7 @@ describe('Query Validation', () => {
         }
       }`;
       
-      const result = validateQuery(query, 'builder');
+      const result = validateQuery(query, 'pro');
       expect(result.valid).toBe(true);
     });
   });
@@ -133,38 +133,27 @@ describe('Query Validation', () => {
       expect(result.valid).toBe(true);
     });
     
-    it('should allow higher limits for staker tier', () => {
-      const query = `{
-        storageUpdates(limit: 500) {
-          account_id
-        }
-      }`;
-      
-      const result = validateQuery(query, 'staker');
-      expect(result.valid).toBe(true);
-    });
-    
-    it('should reject limits exceeding staker tier', () => {
+    it('should allow higher limits for pro tier', () => {
       const query = `{
         storageUpdates(limit: 5000) {
           account_id
         }
       }`;
       
-      const result = validateQuery(query, 'staker');
+      const result = validateQuery(query, 'pro');
+      expect(result.valid).toBe(true);
+    });
+    
+    it('should reject limits exceeding pro tier', () => {
+      const query = `{
+        storageUpdates(limit: 50000) {
+          account_id
+        }
+      }`;
+      
+      const result = validateQuery(query, 'pro');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('1000'); // staker tier max
-    });
-    
-    it('should allow large limits for builder tier', () => {
-      const query = `{
-        storageUpdates(limit: 5000) {
-          account_id
-        }
-      }`;
-      
-      const result = validateQuery(query, 'builder');
-      expect(result.valid).toBe(true);
+      expect(result.error).toContain('10000'); // pro tier max
     });
   });
   
@@ -213,16 +202,10 @@ describe('Query Validation', () => {
       expect(QUERY_LIMITS.free.allowAggregations).toBe(false);
     });
     
-    it('should have correct staker tier limits', () => {
-      expect(QUERY_LIMITS.staker.maxDepth).toBe(5);
-      expect(QUERY_LIMITS.staker.maxRowLimit).toBe(1000);
-      expect(QUERY_LIMITS.staker.allowAggregations).toBe(true);
-    });
-    
-    it('should have correct builder tier limits', () => {
-      expect(QUERY_LIMITS.builder.maxDepth).toBe(8);
-      expect(QUERY_LIMITS.builder.maxRowLimit).toBe(10000);
-      expect(QUERY_LIMITS.builder.allowAggregations).toBe(true);
+    it('should have correct pro tier limits', () => {
+      expect(QUERY_LIMITS.pro.maxDepth).toBe(8);
+      expect(QUERY_LIMITS.pro.maxRowLimit).toBe(10000);
+      expect(QUERY_LIMITS.pro.allowAggregations).toBe(true);
     });
   });
 });

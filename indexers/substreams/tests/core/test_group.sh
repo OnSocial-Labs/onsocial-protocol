@@ -6,7 +6,7 @@
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/../common.sh"
 
 # =============================================================================
 # Test: Query existing GroupUpdates
@@ -14,12 +14,12 @@ source "$SCRIPT_DIR/common.sh"
 test_group_query() {
     log_test "Query existing GroupUpdates"
     
-    local result=$(query_hasura '{ group_updates(limit: 5, order_by: {block_height: desc}) { id operation group_id author block_height } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation groupId author blockHeight } }')
     
-    if echo "$result" | jq -e '.data.group_updates[0]' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.group_updates | length')
+    if echo "$result" | jq -e '.data.groupUpdates[0]' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.groupUpdates | length')
         test_passed "Found $count GroupUpdate entries"
-        echo "$result" | jq '.data.group_updates'
+        echo "$result" | jq '.data.groupUpdates'
         return 0
     else
         log_warn "No GroupUpdates found (table may be empty)"
@@ -34,35 +34,35 @@ test_group_query() {
 test_group_validate_fields() {
     log_test "Validating GroupUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ group_updates(limit: 1, order_by: {block_height: desc}) { id operation group_id author member_id role proposal_id proposal_type partition_id block_height block_timestamp receipt_id } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation groupId author memberId role proposalId proposalType partitionId blockHeight blockTimestamp receiptId } }')
     
-    if ! echo "$result" | jq -e '.data.group_updates[0]' >/dev/null 2>&1; then
+    if ! echo "$result" | jq -e '.data.groupUpdates[0]' >/dev/null 2>&1; then
         log_warn "No GroupUpdates found to validate"
         return 0
     fi
     
     echo "Validating GroupUpdate schema fields:"
-    local entry=".data.group_updates[0]"
+    local entry=".data.groupUpdates[0]"
     
     # Required fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field_exists "$result" "$entry.operation" "operation exists"
     assert_field_exists "$result" "$entry.author" "author exists"
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Optional fields
     echo ""
     echo "Optional fields:"
-    local groupId=$(echo "$result" | jq -r "$entry.group_id // \"null\"")
-    echo -e "  ${BLUE}○${NC} group_id = $groupId"
-    local memberId=$(echo "$result" | jq -r "$entry.member_id // \"null\"")
-    echo -e "  ${BLUE}○${NC} member_id = $memberId"
+    local groupId=$(echo "$result" | jq -r "$entry.groupId // \"null\"")
+    echo -e "  ${BLUE}○${NC} groupId = $groupId"
+    local memberId=$(echo "$result" | jq -r "$entry.memberId // \"null\"")
+    echo -e "  ${BLUE}○${NC} memberId = $memberId"
     local role=$(echo "$result" | jq -r "$entry.role // \"null\"")
     echo -e "  ${BLUE}○${NC} role = $role"
-    local proposalId=$(echo "$result" | jq -r "$entry.proposal_id // \"null\"")
-    echo -e "  ${BLUE}○${NC} proposal_id = $proposalId"
+    local proposalId=$(echo "$result" | jq -r "$entry.proposalId // \"null\"")
+    echo -e "  ${BLUE}○${NC} proposalId = $proposalId"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "GroupUpdate field mapping validated"
@@ -85,39 +85,39 @@ test_group_create() {
         "{\"request\": {\"action\": {\"type\": \"create_group\", \"group_id\": \"$group_id\", \"config\": {}}}}" \
         "0.1"
     
-    local result=$(query_hasura '{ group_updates(limit: 5, order_by: {block_height: desc}) { id operation group_id author partition_id block_height block_timestamp receipt_id member_id role is_private } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation groupId author partitionId blockHeight blockTimestamp receiptId memberId role level } }')
     
     echo "Verifying GroupUpdate fields for group_created:"
     
     # Find the group_created event
     local create_idx=0
     for i in 0 1 2 3 4; do
-        local op=$(echo "$result" | jq -r ".data.group_updates[$i].operation // \"\"")
-        if [[ "$op" == "group_created" ]]; then
+        local op=$(echo "$result" | jq -r ".data.groupUpdates[$i].operation // \"\"")
+        if [[ "$op" == "create_group" ]]; then
             create_idx=$i
             break
         fi
     done
     
-    local entry=".data.group_updates[$create_idx]"
+    local entry=".data.groupUpdates[$create_idx]"
     
     # Core fields
-    assert_field "$result" "$entry.operation" "group_created" "operation = group_created"
-    assert_field "$result" "$entry.group_id" "$group_id" "group_id matches"
+    assert_field "$result" "$entry.operation" "create_group" "operation = create_group"
+    assert_field "$result" "$entry.groupId" "$group_id" "groupId matches"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
-    assert_field_exists "$result" "$entry.partition_id" "partition_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
+    assert_field_exists "$result" "$entry.partitionId" "partitionId exists"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "GROUP_UPDATE (group_created) - all fields validated"
         export TEST_GROUP_ID="$group_id"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq ".data.group_updates[$create_idx]"
+        echo "$result" | jq ".data.groupUpdates[$create_idx]"
         return 0
     else
         test_failed "GROUP_UPDATE (group_created) - some field assertions failed"
@@ -137,27 +137,27 @@ test_group_add_member() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"add_group_member\", \"group_id\": \"$group_id\", \"member_id\": \"$member\"}}}"
     
-    local result=$(query_hasura '{ group_updates(limit: 1, order_by: {block_height: desc}) { id operation group_id member_id author role block_height block_timestamp receipt_id partition_id } }')
+    local result=$(query_hasura '{ groupUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation groupId memberId author role blockHeight blockTimestamp receiptId partitionId } }')
     
     echo "Verifying GroupUpdate fields for member_added:"
-    local entry=".data.group_updates[0]"
+    local entry=".data.groupUpdates[0]"
     
     # Core fields
-    assert_field "$result" "$entry.operation" "member_added" "operation = member_added"
-    assert_field "$result" "$entry.group_id" "$group_id" "group_id matches"
-    assert_field_contains "$result" "$entry.member_id" "testnet" "member_id is valid account"
+    assert_field "$result" "$entry.operation" "add_member" "operation = add_member"
+    assert_field "$result" "$entry.groupId" "$group_id" "groupId matches"
+    assert_field_contains "$result" "$entry.memberId" "testnet" "memberId is valid account"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "GROUP_UPDATE (member_added) - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.group_updates[0]'
+        echo "$result" | jq '.data.groupUpdates[0]'
         return 0
     else
         test_failed "GROUP_UPDATE (member_added) - some field assertions failed"
@@ -184,17 +184,17 @@ test_group_remove_member() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"remove_group_member\", \"group_id\": \"$group_id\", \"member_id\": \"$member\"}}}"
     
-    local result=$(query_hasura '{ group_updates(limit: 3, order_by: {block_height: desc}) { id operation group_id member_id } }')
-    local op=$(echo "$result" | jq -r '.data.group_updates[0].operation // ""')
+    local result=$(query_hasura '{ groupUpdates(limit: 3, order_by: {blockHeight: desc}) { id operation groupId memberId } }')
+    local op=$(echo "$result" | jq -r '.data.groupUpdates[0].operation // ""')
     
-    if [[ "$op" == "member_removed" ]]; then
-        test_passed "GROUP_UPDATE (member_removed) indexed successfully"
-        echo "$result" | jq '.data.group_updates[0]'
+    if [[ "$op" == "remove_member" ]]; then
+        test_passed "GROUP_UPDATE (remove_member) indexed successfully"
+        echo "$result" | jq '.data.groupUpdates[0]'
         return 0
     else
-        test_failed "GROUP_UPDATE (member_removed) not found"
+        test_failed "GROUP_UPDATE (remove_member) not found"
         echo "Latest operations:"
-        echo "$result" | jq '.data.group_updates'
+        echo "$result" | jq '.data.groupUpdates'
         return 1
     fi
 }
@@ -219,25 +219,25 @@ test_group_proposal_create() {
         "{\"request\": {\"action\": {\"type\": \"create_proposal\", \"group_id\": \"$group_id\", \"proposal_type\": \"custom_proposal\", \"changes\": {\"title\": \"Test Proposal\", \"description\": \"Testing indexing\", \"custom_data\": {}}, \"auto_vote\": true}}}" \
         "0.1"
     
-    local result=$(query_hasura "{ group_updates(where: {operation: {_eq: \"proposal_created\"}, group_id: {_eq: \"$group_id\"}}, limit: 1, order_by: {block_height: desc}) { id operation group_id proposal_id proposal_type author block_height block_timestamp receipt_id } }")
-    local op=$(echo "$result" | jq -r '.data.group_updates[0].operation // ""')
+    local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"proposal_created\"}, groupId: {_eq: \"$group_id\"}}, limit: 1, order_by: {blockHeight: desc}) { id operation groupId proposalId proposalType author blockHeight blockTimestamp receiptId } }")
+    local op=$(echo "$result" | jq -r '.data.groupUpdates[0].operation // ""')
     
     if [[ "$op" == "proposal_created" ]]; then
         echo "Verifying proposal_created fields:"
-        local entry=".data.group_updates[0]"
-        assert_field "$result" "$entry.group_id" "$group_id" "group_id matches"
-        assert_field "$result" "$entry.proposal_type" "custom_proposal" "proposal_type = custom_proposal"
+        local entry=".data.groupUpdates[0]"
+        assert_field "$result" "$entry.groupId" "$group_id" "groupId matches"
+        assert_field "$result" "$entry.proposalType" "custom_proposal" "proposalType = custom_proposal"
         assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-        assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-        assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-        assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+        assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+        assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+        assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
         
         test_passed "GROUP_UPDATE (proposal_created) - all fields validated"
         export TEST_PROPOSAL_GROUP_ID="$group_id"
-        export LAST_PROPOSAL_ID=$(echo "$result" | jq -r '.data.group_updates[0].proposal_id // ""')
+        export LAST_PROPOSAL_ID=$(echo "$result" | jq -r '.data.groupUpdates[0].proposalId // ""')
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.group_updates[0]'
+        echo "$result" | jq '.data.groupUpdates[0]'
         return 0
     else
         test_failed "GROUP_UPDATE (proposal_created) not found"
@@ -263,11 +263,11 @@ test_group_vote() {
     fi
     
     # Query existing vote_cast operations
-    local result=$(query_hasura "{ group_updates(where: {operation: {_eq: \"vote_cast\"}}, limit: 1, order_by: {block_height: desc}) { id operation group_id proposal_id voter approve block_height } }")
+    local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"vote_cast\"}}, limit: 1, order_by: {blockHeight: desc}) { id operation groupId proposalId voter approve blockHeight } }")
     
-    if echo "$result" | jq -e '.data.group_updates[0]' >/dev/null 2>&1; then
+    if echo "$result" | jq -e '.data.groupUpdates[0]' >/dev/null 2>&1; then
         test_passed "Found existing vote_cast operations"
-        echo "$result" | jq '.data.group_updates[0]'
+        echo "$result" | jq '.data.groupUpdates[0]'
         return 0
     else
         log_info "No vote_cast operations found (need separate voter account)"
@@ -284,9 +284,9 @@ test_group_breakdown() {
     echo ""
     echo "Operations indexed:"
     
-    for op in "group_created" "group_deleted" "member_added" "member_removed" "member_role_changed" "proposal_created" "proposal_executed" "proposal_canceled" "vote_cast" "add_to_blacklist" "remove_from_blacklist" "group_pool_created" "voting_config_changed" "member_invited" "permission_changed" "group_updated" "group_sponsor_quota_set" "group_sponsor_default_set" "stats_updated"; do
-        local result=$(query_hasura "{ group_updates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
-        local count=$(echo "$result" | jq '.data.group_updates | length // 0')
+    for op in "create_group" "add_member" "remove_member" "member_nonce_updated" "stats_updated" "transfer_ownership" "privacy_changed" "permission_changed" "group_pool_created" "group_pool_deposit" "group_sponsor_quota_set" "group_sponsor_default_set" "join_request_submitted" "join_request_approved" "join_request_rejected" "join_request_cancelled" "add_to_blacklist" "remove_from_blacklist" "member_invited" "proposal_created" "vote_cast" "proposal_status_updated" "group_updated" "voting_config_changed" "custom_proposal_executed" "path_permission_granted" "path_permission_revoked" "create" "update" "delete"; do
+        local result=$(query_hasura "{ groupUpdates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
+        local count=$(echo "$result" | jq '.data.groupUpdates | length // 0')
         if [[ "$count" -gt 0 ]]; then
             echo -e "  ${GREEN}✓${NC} $op"
         else

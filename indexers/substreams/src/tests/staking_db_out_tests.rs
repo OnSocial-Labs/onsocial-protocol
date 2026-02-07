@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 use crate::pb::staking::v1::*;
 use crate::pb::staking::v1::staking_event::Payload;
-use crate::staking_db_out::{write_staking_event, update_staker_state, write_credit_purchase};
+use crate::staking_db_out::{write_staking_event, accumulate_staker_state, write_credit_purchase};
 
 fn make_event(event_type: &str, account_id: &str, payload: Payload) -> StakingEvent {
     StakingEvent {
@@ -50,13 +51,23 @@ fn test_write_staking_event_columns() {
 #[test]
 fn test_update_staker_state_lock_vs_unlock() {
     // STAKE_LOCK creates staker_state with locked amounts
-    let mut tables = Tables::new();
+    let mut accum = HashMap::new();
     let lock_event = make_event("STAKE_LOCK", "alice.near", Payload::StakeLock(StakeLock {
         amount: "100".to_string(),
         months: 12,
         effective_stake: "120".to_string(),
     }));
-    update_staker_state(&mut tables, &lock_event);
+    accumulate_staker_state(&mut accum, &lock_event);
+
+    // Flush to tables
+    let mut tables = Tables::new();
+    for (account_id, state) in &accum {
+        let row = tables.create_row("staker_state", account_id);
+        row.set("account_id", account_id);
+        row.set("last_event_type", &state.last_event_type);
+        if let Some(v) = &state.locked_amount { row.set("locked_amount", v); }
+        if let Some(v) = &state.effective_stake { row.set("effective_stake", v); }
+    }
     let changes = tables.to_database_changes();
 
     assert_eq!(count_table_rows(&changes, "staker_state"), 1);
@@ -64,11 +75,19 @@ fn test_update_staker_state_lock_vs_unlock() {
     assert_eq!(find_field(&changes, "staker_state", "effective_stake"), Some("120"));
 
     // STAKE_UNLOCK zeros out
-    let mut tables2 = Tables::new();
+    let mut accum2 = HashMap::new();
     let unlock_event = make_event("STAKE_UNLOCK", "alice.near", Payload::StakeUnlock(StakeUnlock {
         amount: "100".to_string(),
     }));
-    update_staker_state(&mut tables2, &unlock_event);
+    accumulate_staker_state(&mut accum2, &unlock_event);
+
+    let mut tables2 = Tables::new();
+    for (account_id, state) in &accum2 {
+        let row = tables2.create_row("staker_state", account_id);
+        row.set("account_id", account_id);
+        if let Some(v) = &state.locked_amount { row.set("locked_amount", v); }
+        if let Some(v) = &state.effective_stake { row.set("effective_stake", v); }
+    }
     let changes2 = tables2.to_database_changes();
 
     assert_eq!(find_field(&changes2, "staker_state", "locked_amount"), Some("0"));
@@ -96,14 +115,13 @@ fn test_write_credit_purchase_table() {
 
 #[test]
 fn test_non_state_event_skips_staker_state() {
-    let mut tables = Tables::new();
+    let mut accum = HashMap::new();
     let event = make_event("INFRA_WITHDRAW", "owner.near", Payload::InfraWithdraw(InfraWithdraw {
         amount: "500".to_string(),
         receiver_id: "treasury.near".to_string(),
     }));
 
-    update_staker_state(&mut tables, &event);
-    let changes = tables.to_database_changes();
+    accumulate_staker_state(&mut accum, &event);
 
-    assert_eq!(count_table_rows(&changes, "staker_state"), 0);
+    assert_eq!(accum.len(), 0, "INFRA_WITHDRAW should not create staker_state");
 }

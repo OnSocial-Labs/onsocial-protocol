@@ -83,8 +83,8 @@ check_hasura_health() {
 
 # Get current cursor/block from indexer
 get_current_block() {
-    local result=$(query_hasura '{ cursors(limit: 1) { cursor block_num } }')
-    echo "$result" | jq -r '.data.cursors[0].block_num // "0"'
+    local result=$(query_hasura '{ cursors(limit: 1) { cursor blockNum } }')
+    echo "$result" | jq -r '.data.cursors[0].blockNum // "0"'
 }
 
 # Smart wait: poll until indexer reaches target block

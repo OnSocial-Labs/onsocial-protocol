@@ -1,45 +1,14 @@
 #!/bin/bash
 # =============================================================================
-# OnSocial Hasura/PostgreSQL Indexer Test Script
+# OnSocial Hasura/PostgreSQL Indexer Health & Schema Tests
 # Tests the Substreams → PostgreSQL → Hasura indexing pipeline
 # =============================================================================
 
-set -e
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
-# Configuration
-HASURA_URL="${HASURA_URL:-http://135.181.110.183:8080}"
-HASURA_ADMIN_SECRET="${HASURA_ADMIN_SECRET:?HASURA_ADMIN_SECRET environment variable is required}"
-CONTRACT_ID="${CONTRACT_ID:-core.onsocial.testnet}"
-NETWORK="testnet"
-
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-log_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
-log_success() { echo -e "${GREEN}✅ $1${NC}"; }
-log_error() { echo -e "${RED}❌ $1${NC}"; }
-log_warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+# Header helper for health tests
 log_header() { echo -e "\n${CYAN}═══════════════════════════════════════════════════════════════${NC}"; echo -e "${CYAN}  $1${NC}"; echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"; }
-
-# Check dependencies
-check_deps() {
-    command -v curl >/dev/null 2>&1 || { log_error "curl required"; exit 1; }
-    command -v jq >/dev/null 2>&1 || { log_error "jq required"; exit 1; }
-}
-
-# Query Hasura GraphQL
-query_hasura() {
-    local query="$1"
-    curl -s -X POST "${HASURA_URL}/v1/graphql" \
-        -H "Content-Type: application/json" \
-        -H "X-Hasura-Admin-Secret: ${HASURA_ADMIN_SECRET}" \
-        -d "{\"query\": \"$query\"}"
-}
 
 # =============================================================================
 # TEST 1: Hasura Health Check
@@ -49,10 +18,10 @@ test_hasura_health() {
     
     local health=$(curl -s "${HASURA_URL}/healthz")
     if [ "$health" = "OK" ]; then
-        log_success "Hasura is healthy"
+        test_passed "Hasura is healthy"
         return 0
     else
-        log_error "Hasura health check failed: $health"
+        test_failed "Hasura health check failed: $health"
         return 1
     fi
 }
@@ -67,12 +36,12 @@ test_cursor() {
     local result=$(query_hasura "$query")
     
     if echo "$result" | jq -e '.data.cursors[0]' >/dev/null 2>&1; then
-        local block_num=$(echo "$result" | jq -r '.data.cursors[0].block_num')
-        log_success "Cursor found at block: ${block_num}"
+        local block_num=$(echo "$result" | jq -r '.data.cursors[0].blockNum')
+        test_passed "Cursor found at block: ${block_num}"
         log_info "Indexer is tracking progress correctly"
         return 0
     else
-        log_error "No cursor found - indexer may not be running"
+        test_failed "No cursor found - indexer may not be running"
         echo "$result" | jq .
         return 1
     fi
@@ -84,20 +53,21 @@ test_cursor() {
 test_data_updates() {
     log_header "Test 3: Data Updates Table"
     
-    local query='{ data_updates(limit: 5, order_by: {block_height: desc}) { id operation author path value block_height block_timestamp } }'
+    local query='{ dataUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author path value blockHeight blockTimestamp } }'
     local result=$(query_hasura "$query")
     
-    if echo "$result" | jq -e '.data.data_updates' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.data_updates | length')
+    if echo "$result" | jq -e '.data.dataUpdates' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.dataUpdates | length')
         if [ "$count" -gt 0 ]; then
-            log_success "DataUpdates found: $count entries"
-            echo "$result" | jq '.data.data_updates[0]'
+            test_passed "DataUpdates found: $count entries"
+            echo "$result" | jq '.data.dataUpdates[0]'
         else
             log_warn "DataUpdates table exists but is empty (waiting for contract activity)"
+            test_passed "DataUpdates table queryable"
         fi
         return 0
     else
-        log_error "Failed to query data_updates"
+        test_failed "Failed to query dataUpdates"
         echo "$result" | jq .
         return 1
     fi
@@ -109,19 +79,20 @@ test_data_updates() {
 test_storage_updates() {
     log_header "Test 4: Storage Updates Table"
     
-    local query='{ storage_updates(limit: 5, order_by: {block_height: desc}) { id operation author amount block_height } }'
+    local query='{ storageUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author amount blockHeight } }'
     local result=$(query_hasura "$query")
     
-    if echo "$result" | jq -e '.data.storage_updates' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.storage_updates | length')
+    if echo "$result" | jq -e '.data.storageUpdates' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.storageUpdates | length')
         if [ "$count" -gt 0 ]; then
-            log_success "StorageUpdates found: $count entries"
+            test_passed "StorageUpdates found: $count entries"
         else
             log_warn "StorageUpdates table exists but is empty"
+            test_passed "StorageUpdates table queryable"
         fi
         return 0
     else
-        log_error "Failed to query storage_updates"
+        test_failed "Failed to query storageUpdates"
         return 1
     fi
 }
@@ -132,19 +103,20 @@ test_storage_updates() {
 test_group_updates() {
     log_header "Test 5: Group Updates Table"
     
-    local query='{ group_updates(limit: 5, order_by: {block_height: desc}) { id group_id operation member_id block_height } }'
+    local query='{ groupUpdates(limit: 5, order_by: {blockHeight: desc}) { id groupId operation memberId blockHeight } }'
     local result=$(query_hasura "$query")
     
-    if echo "$result" | jq -e '.data.group_updates' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.group_updates | length')
+    if echo "$result" | jq -e '.data.groupUpdates' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.groupUpdates | length')
         if [ "$count" -gt 0 ]; then
-            log_success "GroupUpdates found: $count entries"
+            test_passed "GroupUpdates found: $count entries"
         else
             log_warn "GroupUpdates table exists but is empty"
+            test_passed "GroupUpdates table queryable"
         fi
         return 0
     else
-        log_error "Failed to query group_updates"
+        test_failed "Failed to query groupUpdates"
         return 1
     fi
 }
@@ -158,18 +130,23 @@ test_schema() {
     local query='{ __schema { queryType { fields { name } } } }'
     local result=$(query_hasura "$query")
     
-    local tables=("data_updates" "storage_updates" "group_updates" "contract_updates" "permission_updates" "cursors")
+    local tables=("dataUpdates" "storageUpdates" "groupUpdates" "contractUpdates" "permissionUpdates" "stakingEvents" "stakerState" "creditPurchases" "tokenEvents" "tokenBalances" "cursors")
     local all_found=true
     
     for table in "${tables[@]}"; do
         if echo "$result" | jq -e ".data.__schema.queryType.fields[] | select(.name == \"$table\")" >/dev/null 2>&1; then
-            log_success "Table tracked: $table"
+            log_info "Table tracked: $table"
         else
             log_error "Table NOT tracked: $table"
             all_found=false
         fi
     done
     
+    if $all_found; then
+        test_passed "All tables tracked in Hasura"
+    else
+        test_failed "Some tables missing from Hasura"
+    fi
     $all_found && return 0 || return 1
 }
 
@@ -183,11 +160,12 @@ test_subscription_support() {
     local result=$(query_hasura "$query")
     
     if echo "$result" | jq -e '.data.__schema.subscriptionType' >/dev/null 2>&1; then
-        log_success "Real-time subscriptions supported"
-        log_info "Clients can subscribe to: data_updates, storage_updates, etc."
+        test_passed "Real-time subscriptions supported"
+        log_info "Clients can subscribe to: dataUpdates, storageUpdates, etc."
         return 0
     else
         log_warn "Subscriptions may not be enabled"
+        test_passed "Subscription check complete"
         return 0
     fi
 }
@@ -224,46 +202,28 @@ test_compare_thegraph() {
 main() {
     echo ""
     echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║       OnSocial Hasura Indexer Test Suite                      ║"
+    echo "║       OnSocial Hasura Indexer Health Tests                    ║"
     echo "╠═══════════════════════════════════════════════════════════════╣"
     echo "║  Hasura:   $HASURA_URL"
-    echo "║  Contract: $CONTRACT_ID"
+    echo "║  Contract: $CONTRACT"
     echo "╚═══════════════════════════════════════════════════════════════╝"
     
     check_deps
     
-    local passed=0
-    local failed=0
-    
     set +e  # Disable exit on error for test execution
     
-    test_hasura_health && passed=$((passed+1)) || failed=$((failed+1))
-    test_cursor && passed=$((passed+1)) || failed=$((failed+1))
-    test_schema && passed=$((passed+1)) || failed=$((failed+1))
-    test_data_updates && passed=$((passed+1)) || failed=$((failed+1))
-    test_storage_updates && passed=$((passed+1)) || failed=$((failed+1))
-    test_group_updates && passed=$((passed+1)) || failed=$((failed+1))
-    test_subscription_support && passed=$((passed+1)) || failed=$((failed+1))
-    test_compare_thegraph && passed=$((passed+1)) || failed=$((failed+1))
+    test_hasura_health
+    test_cursor
+    test_schema
+    test_data_updates
+    test_storage_updates
+    test_group_updates
+    test_subscription_support
+    test_compare_thegraph
     
     set -e  # Re-enable exit on error
     
-    log_header "Test Summary"
-    echo ""
-    log_success "Passed: $passed"
-    [ $failed -gt 0 ] && log_error "Failed: $failed" || echo ""
-    echo ""
-    
-    if [ $failed -eq 0 ]; then
-        log_success "All tests passed! Hasura indexer is operational."
-        echo ""
-        echo "📊 GraphQL Endpoint: ${HASURA_URL}/v1/graphql"
-        echo "🖥️  Console: ${HASURA_URL}/console"
-        echo ""
-    else
-        log_error "Some tests failed. Check the output above."
-        exit 1
-    fi
+    print_summary
 }
 
 main "$@"

@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package token.v1;
+
+// =============================================================================
+// TOP-LEVEL OUTPUT - NEP-141 fungible token events per block
+// =============================================================================
+
+message TokenOutput {
+  repeated TokenEvent events = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string block_hash = 4;
+}
+
+// =============================================================================
+// TOKEN EVENT - Unified event with typed payload
+// =============================================================================
+
+message TokenEvent {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  string event_type = 5;       // ft_mint, ft_burn, ft_transfer
+
+  oneof payload {
+    FtMint ft_mint = 10;
+    FtBurn ft_burn = 11;
+    FtTransfer ft_transfer = 12;
+  }
+}
+
+// =============================================================================
+// PAYLOAD MESSAGES (NEP-141 standard event data)
+// =============================================================================
+
+message FtMint {
+  string owner_id = 1;
+  string amount = 2;
+  string memo = 3;
+}
+
+message FtBurn {
+  string owner_id = 1;
+  string amount = 2;
+  string memo = 3;
+}
+
+message FtTransfer {
+  string old_owner_id = 1;
+  string new_owner_id = 2;
+  string amount = 3;
+  string memo = 4;
+}

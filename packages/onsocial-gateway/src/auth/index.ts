@@ -6,7 +6,7 @@ import { JsonRpcProvider } from 'near-api-js';
 import { config } from '../config/index.js';
 import { getTierInfo } from '../tiers/index.js';
 import { logger } from '../logger.js';
-import type { JwtPayload, Tier } from '../types/index.js';
+import type { JwtPayload } from '../types/index.js';
 
 // Message validity window (5 minutes)
 const MESSAGE_VALIDITY_MS = 5 * 60 * 1000;
@@ -256,7 +256,7 @@ export async function verifyNearSignature(
 /**
  * Get tier from token or default to 'free'
  */
-export function getTierFromToken(token: string | undefined): Tier {
+export function getTierFromToken(token: string | undefined): JwtPayload['tier'] {
   if (!token) return 'free';
 
   const payload = verifyToken(token);

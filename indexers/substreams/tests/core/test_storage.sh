@@ -6,7 +6,7 @@
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/../common.sh"
 
 # =============================================================================
 # Test: Query existing StorageUpdates
@@ -14,12 +14,12 @@ source "$SCRIPT_DIR/common.sh"
 test_storage_query() {
     log_test "Query existing StorageUpdates"
     
-    local result=$(query_hasura '{ storage_updates(limit: 5, order_by: {block_height: desc}) { id operation author amount block_height block_timestamp } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author amount blockHeight blockTimestamp } }')
     
-    if echo "$result" | jq -e '.data.storage_updates[0]' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.storage_updates | length')
+    if echo "$result" | jq -e '.data.storageUpdates[0]' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.storageUpdates | length')
         test_passed "Found $count StorageUpdate entries"
-        echo "$result" | jq '.data.storage_updates'
+        echo "$result" | jq '.data.storageUpdates'
         return 0
     else
         log_warn "No StorageUpdates found (table may be empty)"
@@ -34,23 +34,23 @@ test_storage_query() {
 test_storage_validate_fields() {
     log_test "Validating StorageUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ storage_updates(limit: 1, order_by: {block_height: desc}) { id operation author amount previous_balance new_balance reason partition_id block_height block_timestamp receipt_id target_id actor_id payer_id auth_type } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
     
-    if ! echo "$result" | jq -e '.data.storage_updates[0]' >/dev/null 2>&1; then
+    if ! echo "$result" | jq -e '.data.storageUpdates[0]' >/dev/null 2>&1; then
         log_warn "No StorageUpdates found to validate"
         return 0
     fi
     
     echo "Validating StorageUpdate schema fields:"
-    local entry=".data.storage_updates[0]"
+    local entry=".data.storageUpdates[0]"
     
     # Required fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field_exists "$result" "$entry.operation" "operation exists"
     assert_field_exists "$result" "$entry.author" "author exists"
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Amount fields
     assert_field_exists "$result" "$entry.amount" "amount exists"
@@ -58,10 +58,10 @@ test_storage_validate_fields() {
     # Optional fields
     echo ""
     echo "Optional fields:"
-    local prev=$(echo "$result" | jq -r "$entry.previous_balance // \"null\"")
-    echo -e "  ${BLUE}○${NC} previous_balance = $prev"
-    local new=$(echo "$result" | jq -r "$entry.new_balance // \"null\"")
-    echo -e "  ${BLUE}○${NC} new_balance = $new"
+    local prev=$(echo "$result" | jq -r "$entry.previousBalance // \"null\"")
+    echo -e "  ${BLUE}○${NC} previousBalance = $prev"
+    local new=$(echo "$result" | jq -r "$entry.newBalance // \"null\"")
+    echo -e "  ${BLUE}○${NC} newBalance = $new"
     local reason=$(echo "$result" | jq -r "$entry.reason // \"null\"")
     echo -e "  ${BLUE}○${NC} reason = $reason"
     
@@ -87,10 +87,10 @@ test_storage_auto_deposit() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"test\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ storage_updates(limit: 1, order_by: {block_height: desc}) { id operation author amount previous_balance new_balance reason partition_id block_height block_timestamp receipt_id target_id actor_id payer_id auth_type } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId targetId actorId payerId authType } }')
     
     echo "Verifying StorageUpdate fields for auto_deposit:"
-    local entry=".data.storage_updates[0]"
+    local entry=".data.storageUpdates[0]"
     
     # Core fields
     assert_field "$result" "$entry.operation" "auto_deposit" "operation = auto_deposit"
@@ -101,23 +101,23 @@ test_storage_auto_deposit() {
     assert_field_exists "$result" "$entry.reason" "reason exists"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Balance tracking
-    assert_field_exists "$result" "$entry.previous_balance" "previous_balance exists"
-    assert_field_exists "$result" "$entry.new_balance" "new_balance exists"
+    assert_field_exists "$result" "$entry.previousBalance" "previousBalance exists"
+    assert_field_exists "$result" "$entry.newBalance" "newBalance exists"
     
     # Auth context
-    assert_field "$result" "$entry.target_id" "$SIGNER" "target_id = signer"
-    assert_field "$result" "$entry.auth_type" "direct" "auth_type = direct"
+    assert_field "$result" "$entry.targetId" "$SIGNER" "targetId = signer"
+    assert_field "$result" "$entry.authType" "direct" "authType = direct"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "STORAGE_UPDATE (auto_deposit) - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.storage_updates[0]'
+        echo "$result" | jq '.data.storageUpdates[0]'
         return 0
     else
         test_failed "STORAGE_UPDATE (auto_deposit) - some field assertions failed"
@@ -137,23 +137,23 @@ test_storage_deposit() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"deposit-test\"}}}}" \
         "0.1"
     
-    local result=$(query_hasura '{ storage_updates(limit: 1, order_by: {block_height: desc}) { id operation author amount previous_balance new_balance reason partition_id block_height block_timestamp receipt_id } }')
+    local result=$(query_hasura '{ storageUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation author amount previousBalance newBalance reason partitionId blockHeight blockTimestamp receiptId } }')
     
     echo "Verifying StorageUpdate fields for deposit:"
-    local entry=".data.storage_updates[0]"
+    local entry=".data.storageUpdates[0]"
     local op=$(echo "$result" | jq -r "$entry.operation // \"\"")
     
     if [[ "$op" == "auto_deposit" ]] || [[ "$op" == "deposit" ]]; then
         assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
         assert_field_exists "$result" "$entry.amount" "amount exists"
-        assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-        assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-        assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+        assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+        assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+        assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
         
         test_passed "STORAGE_UPDATE (deposit) - fields validated (op=$op)"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.storage_updates[0]'
+        echo "$result" | jq '.data.storageUpdates[0]'
         return 0
     else
         test_failed "STORAGE_UPDATE (deposit) - unexpected operation: $op"
@@ -170,9 +170,9 @@ test_storage_breakdown() {
     echo ""
     echo "Operations indexed:"
     
-    for op in "auto_deposit" "deposit" "withdraw" "auto_refund" "storage_changed" "share_storage" "unshare_storage" "quota_changed" "sponsored_used" "sponsored_released"; do
-        local result=$(query_hasura "{ storage_updates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
-        local count=$(echo "$result" | jq '.data.storage_updates | length // 0')
+    for op in "storage_deposit" "storage_withdraw" "auto_deposit" "attached_deposit" "refund_unused_deposit" "platform_pool_deposit" "pool_deposit" "share_storage" "return_storage" "platform_sponsor" "group_sponsor_spend"; do
+        local result=$(query_hasura "{ storageUpdates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
+        local count=$(echo "$result" | jq '.data.storageUpdates | length // 0')
         if [[ "$count" -gt 0 ]]; then
             echo -e "  ${GREEN}✓${NC} $op"
         else

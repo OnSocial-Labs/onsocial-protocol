@@ -6,7 +6,7 @@
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/../common.sh"
 
 # =============================================================================
 # Test: Query existing DataUpdates
@@ -14,16 +14,16 @@ source "$SCRIPT_DIR/common.sh"
 test_data_query() {
     log_test "Query existing DataUpdates"
     
-    local result=$(query_hasura '{ data_updates(limit: 5, order_by: {block_height: desc}) { id operation author path block_height block_timestamp } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 5, order_by: {blockHeight: desc}) { id operation author path blockHeight blockTimestamp } }')
     
-    if echo "$result" | jq -e '.data.data_updates[0]' >/dev/null 2>&1; then
-        local count=$(echo "$result" | jq '.data.data_updates | length')
+    if echo "$result" | jq -e '.data.dataUpdates[0]' >/dev/null 2>&1; then
+        local count=$(echo "$result" | jq '.data.dataUpdates | length')
         test_passed "Found $count DataUpdate entries"
-        echo "$result" | jq '.data.data_updates'
+        echo "$result" | jq '.data.dataUpdates'
         return 0
     else
         log_warn "No DataUpdates found (table may be empty - waiting for contract activity)"
-        if echo "$result" | jq -e '.data.data_updates' >/dev/null 2>&1; then
+        if echo "$result" | jq -e '.data.dataUpdates' >/dev/null 2>&1; then
             test_passed "DataUpdates table exists (empty)"
             return 0
         fi
@@ -39,9 +39,9 @@ test_data_query() {
 test_data_validate_fields() {
     log_test "Validating DataUpdate field mapping against existing data"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}) { id operation path value author partition_id block_height block_timestamp receipt_id account_id data_type group_id is_group_content } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType groupId isGroupContent } }')
     
-    if ! echo "$result" | jq -e '.data.data_updates[0]' >/dev/null 2>&1; then
+    if ! echo "$result" | jq -e '.data.dataUpdates[0]' >/dev/null 2>&1; then
         log_warn "No DataUpdates found to validate"
         echo "Raw response:"
         echo "$result" | jq .
@@ -49,31 +49,31 @@ test_data_validate_fields() {
     fi
     
     echo "Validating ALL DataUpdate schema fields:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Required fields (must exist and be valid)
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field_exists "$result" "$entry.operation" "operation exists"
     assert_field_exists "$result" "$entry.author" "author exists"
     assert_field_exists "$result" "$entry.path" "path exists"
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
-    assert_field_exists "$result" "$entry.account_id" "account_id derived from path"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
+    assert_field_exists "$result" "$entry.accountId" "accountId derived from path"
     
     # Optional fields (just verify they're queryable, may be null)
     echo ""
     echo "Optional fields (null is acceptable):"
-    local partition=$(echo "$result" | jq -r "$entry.partition_id // \"null\"")
-    echo -e "  ${BLUE}○${NC} partition_id = $partition"
+    local partition=$(echo "$result" | jq -r "$entry.partitionId // \"null\"")
+    echo -e "  ${BLUE}○${NC} partitionId = $partition"
     local value=$(echo "$result" | jq -r "$entry.value // \"null\"")
     echo -e "  ${BLUE}○${NC} value = ${value:0:50}..."
-    local groupId=$(echo "$result" | jq -r "$entry.group_id // \"null\"")
-    echo -e "  ${BLUE}○${NC} group_id = $groupId"
-    local isGroupContent=$(echo "$result" | jq -r "$entry.is_group_content // \"null\"")
-    echo -e "  ${BLUE}○${NC} is_group_content = $isGroupContent"
-    local dataType=$(echo "$result" | jq -r "$entry.data_type // \"null\"")
-    echo -e "  ${BLUE}○${NC} data_type = $dataType"
+    local groupId=$(echo "$result" | jq -r "$entry.groupId // \"null\"")
+    echo -e "  ${BLUE}○${NC} groupId = $groupId"
+    local isGroupContent=$(echo "$result" | jq -r "$entry.isGroupContent // \"null\"")
+    echo -e "  ${BLUE}○${NC} isGroupContent = $isGroupContent"
+    local dataType=$(echo "$result" | jq -r "$entry.dataType // \"null\"")
+    echo -e "  ${BLUE}○${NC} dataType = $dataType"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DataUpdate field mapping validated"
@@ -97,10 +97,10 @@ test_data_set() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": \"$value\"}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}) { id operation path value author partition_id block_height block_timestamp receipt_id account_id data_type data_id group_id group_path is_group_content } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType dataId groupId groupPath isGroupContent } }')
     
     echo "Verifying all DataUpdate fields:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
@@ -109,23 +109,23 @@ test_data_set() {
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Partition field
-    assert_field_exists "$result" "$entry.partition_id" "partition_id exists"
+    assert_field_exists "$result" "$entry.partitionId" "partitionId exists"
     
     # Derived fields from path
-    assert_field "$result" "$entry.account_id" "$SIGNER" "account_id derived from path"
-    assert_field "$result" "$entry.data_type" "profile" "data_type = profile"
-    assert_field "$result" "$entry.is_group_content" "false" "is_group_content = false"
+    assert_field "$result" "$entry.accountId" "$SIGNER" "accountId derived from path"
+    assert_field "$result" "$entry.dataType" "profile" "dataType = profile"
+    assert_field "$result" "$entry.isGroupContent" "false" "isGroupContent = false"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE (set) - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE (set) - some field assertions failed"
@@ -151,10 +151,10 @@ test_data_remove() {
     call_and_wait "execute" \
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"profile/$key\": null}}}}"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}) { id operation path value author partition_id block_height block_timestamp receipt_id } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}) { id operation path value author partitionId blockHeight blockTimestamp receiptId } }')
     
     echo "Verifying all DataUpdate fields for remove:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field "$result" "$entry.operation" "remove" "operation = remove"
@@ -162,8 +162,8 @@ test_data_remove() {
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE (remove) - all fields validated"
@@ -187,36 +187,36 @@ test_data_parent() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"This is a reply!\", \"parent\": \"$parent_path\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path value author partition_id block_height block_timestamp receipt_id account_id data_type parent_path parent_author ref_path ref_author } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
     
     echo "Verifying parent field extraction:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Parent fields
-    assert_field "$result" "$entry.parent_path" "$parent_path" "parent_path extracted from value.parent"
-    assert_field "$result" "$entry.parent_author" "alice.testnet" "parent_author = first segment of parent_path"
+    assert_field "$result" "$entry.parentPath" "$parent_path" "parentPath extracted from value.parent"
+    assert_field "$result" "$entry.parentAuthor" "alice.testnet" "parentAuthor = first segment of parentPath"
     
     # Ref fields should be null
-    assert_field_null "$result" "$entry.ref_path" "ref_path is null (no ref)"
-    assert_field_null "$result" "$entry.ref_author" "ref_author is null (no ref)"
+    assert_field_null "$result" "$entry.refPath" "refPath is null (no ref)"
+    assert_field_null "$result" "$entry.refAuthor" "refAuthor is null (no ref)"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE with parent - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with parent - some field assertions failed"
@@ -237,36 +237,36 @@ test_data_ref() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Quoting this great post!\", \"ref\": \"$ref_path\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path value author partition_id block_height block_timestamp receipt_id account_id data_type parent_path parent_author ref_path ref_author } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
     
     echo "Verifying ref field extraction:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Ref fields
-    assert_field "$result" "$entry.ref_path" "$ref_path" "ref_path extracted from value.ref"
-    assert_field "$result" "$entry.ref_author" "bob.testnet" "ref_author = first segment of ref_path"
+    assert_field "$result" "$entry.refPath" "$ref_path" "refPath extracted from value.ref"
+    assert_field "$result" "$entry.refAuthor" "bob.testnet" "refAuthor = first segment of refPath"
     
     # Parent fields should be null
-    assert_field_null "$result" "$entry.parent_path" "parent_path is null (no parent)"
-    assert_field_null "$result" "$entry.parent_author" "parent_author is null (no parent)"
+    assert_field_null "$result" "$entry.parentPath" "parentPath is null (no parent)"
+    assert_field_null "$result" "$entry.parentAuthor" "parentAuthor is null (no parent)"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE with ref - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with ref - some field assertions failed"
@@ -288,34 +288,34 @@ test_data_parent_and_ref() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Replying to Alice while quoting Bob!\", \"parent\": \"$parent_path\", \"ref\": \"$ref_path\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path value author partition_id block_height block_timestamp receipt_id account_id data_type parent_path parent_author ref_path ref_author } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path value author partitionId blockHeight blockTimestamp receiptId accountId dataType parentPath parentAuthor refPath refAuthor } }')
     
     echo "Verifying both parent and ref field extraction:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Both parent and ref fields
-    assert_field "$result" "$entry.parent_path" "$parent_path" "parent_path extracted"
-    assert_field "$result" "$entry.parent_author" "alice.testnet" "parent_author extracted"
-    assert_field "$result" "$entry.ref_path" "$ref_path" "ref_path extracted"
-    assert_field "$result" "$entry.ref_author" "bob.testnet" "ref_author extracted"
+    assert_field "$result" "$entry.parentPath" "$parent_path" "parentPath extracted"
+    assert_field "$result" "$entry.parentAuthor" "alice.testnet" "parentAuthor extracted"
+    assert_field "$result" "$entry.refPath" "$ref_path" "refPath extracted"
+    assert_field "$result" "$entry.refAuthor" "bob.testnet" "refAuthor extracted"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE with parent and ref - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with parent and ref - some field assertions failed"
@@ -336,33 +336,33 @@ test_data_parent_type() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"A typed reply\", \"parent\": \"$parent_path\", \"parentType\": \"reply\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path author data_type block_height block_timestamp receipt_id parent_path parent_author parent_type } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId parentPath parentAuthor parentType } }')
     
     echo "Verifying parentType field extraction:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Parent fields with type
-    assert_field "$result" "$entry.parent_path" "$parent_path" "parent_path extracted"
-    assert_field "$result" "$entry.parent_author" "alice.testnet" "parent_author extracted"
-    assert_field "$result" "$entry.parent_type" "reply" "parent_type = reply"
+    assert_field "$result" "$entry.parentPath" "$parent_path" "parentPath extracted"
+    assert_field "$result" "$entry.parentAuthor" "alice.testnet" "parentAuthor extracted"
+    assert_field "$result" "$entry.parentType" "reply" "parentType = reply"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE with parentType - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with parentType - some field assertions failed"
@@ -383,33 +383,33 @@ test_data_ref_type() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"A typed quote\", \"ref\": \"$ref_path\", \"refType\": \"quote\"}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path author data_type block_height block_timestamp receipt_id ref_path ref_author ref_type } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId refPath refAuthor refType } }')
     
     echo "Verifying refType field extraction:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Ref fields with type
-    assert_field "$result" "$entry.ref_path" "$ref_path" "ref_path extracted"
-    assert_field "$result" "$entry.ref_author" "bob.testnet" "ref_author extracted"
-    assert_field "$result" "$entry.ref_type" "quote" "ref_type = quote"
+    assert_field "$result" "$entry.refPath" "$ref_path" "refPath extracted"
+    assert_field "$result" "$entry.refAuthor" "bob.testnet" "refAuthor extracted"
+    assert_field "$result" "$entry.refType" "quote" "refType = quote"
     
     if [[ $ASSERTIONS_FAILED -eq 0 ]]; then
         test_passed "DATA_UPDATE with refType - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with refType - some field assertions failed"
@@ -429,22 +429,22 @@ test_data_refs_array() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Referencing multiple posts\", \"refs\": [\"alice.testnet/post/1\", \"bob.testnet/post/2\", \"carol.testnet/post/3\"]}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path author data_type block_height block_timestamp receipt_id refs ref_authors } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId refs refAuthors } }')
     
     echo "Verifying refs array extraction:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # Check refs field (stored as JSON string or array)
     local refs=$(echo "$result" | jq -r "$entry.refs // \"null\"")
@@ -455,12 +455,12 @@ test_data_refs_array() {
         ASSERTIONS_FAILED=$((ASSERTIONS_FAILED + 1))
     fi
     
-    # Check ref_authors field
-    local authors=$(echo "$result" | jq -r "$entry.ref_authors // \"null\"")
+    # Check refAuthors field
+    local authors=$(echo "$result" | jq -r "$entry.refAuthors // \"null\"")
     if [[ "$authors" != "null" && "$authors" != "" ]]; then
-        echo -e "  ${GREEN}✓${NC} ref_authors field populated: ${authors:0:50}..."
+        echo -e "  ${GREEN}✓${NC} refAuthors field populated: ${authors:0:50}..."
     else
-        echo -e "  ${RED}✗${NC} ref_authors field is empty or null"
+        echo -e "  ${RED}✗${NC} refAuthors field is empty or null"
         ASSERTIONS_FAILED=$((ASSERTIONS_FAILED + 1))
     fi
     
@@ -468,7 +468,7 @@ test_data_refs_array() {
         test_passed "DATA_UPDATE with refs array - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with refs array - some field assertions failed"
@@ -488,32 +488,32 @@ test_data_all_refs() {
         "{\"request\": {\"action\": {\"type\": \"set\", \"data\": {\"post/$key\": {\"text\": \"Complete reference test\", \"parent\": \"alice.testnet/post/thread\", \"parentType\": \"reply\", \"ref\": \"bob.testnet/post/quoted\", \"refType\": \"quote\", \"refs\": [\"carol.testnet/post/1\", \"dave.testnet/post/2\"]}}}}}" \
         "0.01"
     
-    local result=$(query_hasura '{ data_updates(limit: 1, order_by: {block_height: desc}, where: {data_type: {_eq: "post"}}) { id operation path author data_type block_height block_timestamp receipt_id parent_path parent_author parent_type ref_path ref_author ref_type refs ref_authors } }')
+    local result=$(query_hasura '{ dataUpdates(limit: 1, order_by: {blockHeight: desc}, where: {dataType: {_eq: "post"}}) { id operation path author dataType blockHeight blockTimestamp receiptId parentPath parentAuthor parentType refPath refAuthor refType refs refAuthors } }')
     
     echo "Verifying ALL reference fields:"
-    local entry=".data.data_updates[0]"
+    local entry=".data.dataUpdates[0]"
     
     # Core fields
     assert_field_exists "$result" "$entry.id" "id exists"
     assert_field "$result" "$entry.operation" "set" "operation = set"
     assert_field_contains "$result" "$entry.path" "$key" "path contains test key"
     assert_field "$result" "$entry.author" "$SIGNER" "author = signer"
-    assert_field "$result" "$entry.data_type" "post" "data_type = post"
+    assert_field "$result" "$entry.dataType" "post" "dataType = post"
     
     # Block/receipt fields
-    assert_field_bigint "$result" "$entry.block_height" "block_height is BigInt"
-    assert_field_bigint "$result" "$entry.block_timestamp" "block_timestamp is BigInt"
-    assert_field_exists "$result" "$entry.receipt_id" "receipt_id exists"
+    assert_field_bigint "$result" "$entry.blockHeight" "blockHeight is BigInt"
+    assert_field_bigint "$result" "$entry.blockTimestamp" "blockTimestamp is BigInt"
+    assert_field_exists "$result" "$entry.receiptId" "receiptId exists"
     
     # All parent fields
-    assert_field "$result" "$entry.parent_path" "alice.testnet/post/thread" "parent_path"
-    assert_field "$result" "$entry.parent_author" "alice.testnet" "parent_author"
-    assert_field "$result" "$entry.parent_type" "reply" "parent_type"
+    assert_field "$result" "$entry.parentPath" "alice.testnet/post/thread" "parentPath"
+    assert_field "$result" "$entry.parentAuthor" "alice.testnet" "parentAuthor"
+    assert_field "$result" "$entry.parentType" "reply" "parentType"
     
     # All ref fields
-    assert_field "$result" "$entry.ref_path" "bob.testnet/post/quoted" "ref_path"
-    assert_field "$result" "$entry.ref_author" "bob.testnet" "ref_author"
-    assert_field "$result" "$entry.ref_type" "quote" "ref_type"
+    assert_field "$result" "$entry.refPath" "bob.testnet/post/quoted" "refPath"
+    assert_field "$result" "$entry.refAuthor" "bob.testnet" "refAuthor"
+    assert_field "$result" "$entry.refType" "quote" "refType"
     
     # Check arrays
     local refs=$(echo "$result" | jq -r "$entry.refs // \"null\"")
@@ -524,11 +524,11 @@ test_data_all_refs() {
         ASSERTIONS_FAILED=$((ASSERTIONS_FAILED + 1))
     fi
     
-    local ref_authors=$(echo "$result" | jq -r "$entry.ref_authors // \"null\"")
+    local refAuthors=$(echo "$result" | jq -r "$entry.refAuthors // \"null\"")
     if [[ "$ref_authors" != "null" && "$ref_authors" != "" ]]; then
-        echo -e "  ${GREEN}✓${NC} ref_authors array populated"
+        echo -e "  ${GREEN}✓${NC} refAuthors array populated"
     else
-        echo -e "  ${RED}✗${NC} ref_authors array is empty"
+        echo -e "  ${RED}✗${NC} refAuthors array is empty"
         ASSERTIONS_FAILED=$((ASSERTIONS_FAILED + 1))
     fi
     
@@ -536,7 +536,7 @@ test_data_all_refs() {
         test_passed "DATA_UPDATE with ALL refs - all fields validated"
         echo ""
         echo "📄 Created entity:"
-        echo "$result" | jq '.data.data_updates[0]'
+        echo "$result" | jq '.data.dataUpdates[0]'
         return 0
     else
         test_failed "DATA_UPDATE with ALL refs - some field assertions failed"
@@ -563,9 +563,9 @@ test_indexing_speed() {
     local indexed=false
     
     for ((i=1; i<=max_wait; i++)); do
-        local result=$(query_hasura "{ data_updates(where: {path: {_ilike: \"%$key%\"}}, limit: 1) { id } }")
+        local result=$(query_hasura "{ dataUpdates(where: {path: {_ilike: \"%$key%\"}}, limit: 1) { id } }")
         
-        if echo "$result" | jq -e '.data.data_updates[0]' >/dev/null 2>&1; then
+        if echo "$result" | jq -e '.data.dataUpdates[0]' >/dev/null 2>&1; then
             indexed=true
             break
         fi
@@ -597,8 +597,8 @@ test_subscriptions_support() {
     
     local result=$(query_hasura '{ __schema { subscriptionType { name fields { name } } } }')
     
-    if echo "$result" | jq -e '.data.__schema.subscriptionType.fields[] | select(.name == "data_updates")' >/dev/null 2>&1; then
-        test_passed "Real-time subscriptions supported for data_updates"
+    if echo "$result" | jq -e '.data.__schema.subscriptionType.fields[] | select(.name == "dataUpdates")' >/dev/null 2>&1; then
+        test_passed "Real-time subscriptions supported for dataUpdates"
         return 0
     else
         test_failed "Subscriptions not available"
@@ -624,8 +624,8 @@ show_help() {
     echo "  parent       - Test DATA_UPDATE with parent field (replies)"
     echo "  ref          - Test DATA_UPDATE with ref field (quotes)"
     echo "  parent_ref   - Test DATA_UPDATE with both parent and ref"
-    echo "  parent_type  - Test DATA_UPDATE with parentType field"
-    echo "  ref_type     - Test DATA_UPDATE with refType field"
+    echo "  parentType  - Test DATA_UPDATE with parentType field"
+    echo "  refType     - Test DATA_UPDATE with refType field"
     echo "  refs_array   - Test DATA_UPDATE with refs array (multiple refs)"
     echo "  all_refs     - Test DATA_UPDATE with ALL reference fields"
     echo "  validate     - Validate all schema fields against existing data"
@@ -692,8 +692,8 @@ main() {
         parent)       test_data_parent ;;
         ref)          test_data_ref ;;
         parent_ref)   test_data_parent_and_ref ;;
-        parent_type)  test_data_parent_type ;;
-        ref_type)     test_data_ref_type ;;
+        parentType)  test_data_parent_type ;;
+        refType)     test_data_ref_type ;;
         refs_array)   test_data_refs_array ;;
         all_refs)     test_data_all_refs ;;
         validate)     test_data_validate_fields ;;
