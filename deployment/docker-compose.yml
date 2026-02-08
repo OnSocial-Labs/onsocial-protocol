@@ -132,7 +132,6 @@ services:
       LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
-      NEAR_RPC_URL: ${NEAR_RPC_URL:-}
       RELAYER_URL: http://relayer:3040
     depends_on:
       hasura:
@@ -158,8 +157,6 @@ services:
     environment:
       RUST_LOG: info
       RELAYER_CONTRACT_ID: ${RELAYER_CONTRACT_ID:-core.onsocial.testnet}
-      RELAYER_RPC_URL: ${RELAYER_RPC_URL:-}
-      RELAYER_FALLBACK_RPC_URL: ${RELAYER_FALLBACK_RPC_URL:-}
       RELAYER_NETWORK: ${NEAR_NETWORK:-testnet}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       RELAYER_KEYS_JSON: ${RELAYER_KEYS_JSON}
