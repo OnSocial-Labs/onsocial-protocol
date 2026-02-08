@@ -88,6 +88,12 @@ rsync -avz --progress \
   "root@$SERVER_IP:$REMOTE_DIR/packages/onsocial-gateway/"
 
 rsync -avz --progress \
+  --exclude='node_modules' \
+  --exclude='dist' \
+  "$REPO_DIR/packages/onsocial-rpc/" \
+  "root@$SERVER_IP:$REMOTE_DIR/packages/onsocial-rpc/"
+
+rsync -avz --progress \
   --exclude='target' \
   "$REPO_DIR/packages/relayer/" \
   "root@$SERVER_IP:$REMOTE_DIR/packages/relayer/"
