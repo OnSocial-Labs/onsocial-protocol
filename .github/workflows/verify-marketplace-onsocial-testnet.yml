@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Check contract on testnet
         run: |
-          RESPONSE=$(curl -s -X POST https://rpc-testnet.onsocial.id \
+          RESPONSE=$(curl -s -X POST https://neart.lava.build \
             -H "Content-Type: application/json" \
             -d '{
               "jsonrpc": "2.0",

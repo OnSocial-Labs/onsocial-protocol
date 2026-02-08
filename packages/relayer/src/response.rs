@@ -43,4 +43,6 @@ pub struct HealthResponse {
     pub contract_id: String,
     pub uptime_secs: u64,
     pub requests: u64,
+    pub active_rpc: String,
+    pub failovers: u64,
 }

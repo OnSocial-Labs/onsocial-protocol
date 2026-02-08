@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Check contract on mainnet
         run: |
-          RESPONSE=$(curl -s -X POST https://rpc-mainnet.onsocial.id \
+          RESPONSE=$(curl -s -X POST https://near.lava.build \
             -H "Content-Type: application/json" \
             -d '{
               "jsonrpc": "2.0",

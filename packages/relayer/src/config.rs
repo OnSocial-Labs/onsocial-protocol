@@ -8,6 +8,9 @@ pub struct Config {
     #[serde(default = "defaults::rpc_url")]
     pub rpc_url: String,
 
+    #[serde(default = "defaults::fallback_rpc_url")]
+    pub fallback_rpc_url: String,
+
     #[serde(default = "defaults::contract_id")]
     pub contract_id: String,
 
@@ -25,6 +28,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             rpc_url: defaults::rpc_url(),
+            fallback_rpc_url: defaults::fallback_rpc_url(),
             contract_id: defaults::contract_id(),
             keys_path: defaults::keys_path(),
             bind_address: defaults::bind_address(),
@@ -35,7 +39,11 @@ impl Default for Config {
 
 mod defaults {
     pub fn rpc_url() -> String {
-        "https://rpc-testnet.onsocial.id".into()
+        "https://neart.lava.build".into()
+    }
+
+    pub fn fallback_rpc_url() -> String {
+        "https://test.rpc.fastnear.com".into()
     }
 
     pub fn contract_id() -> String {

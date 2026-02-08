@@ -70,9 +70,10 @@ async function main() {
   const credentialsPath = path.join(homedir, '.near-credentials');
   const keyStore = new UnencryptedFileSystemKeyStore(credentialsPath);
   
-  const nodeUrl = network === 'mainnet' 
-    ? 'https://rpc-mainnet.onsocial.id'
-    : 'https://rpc-testnet.onsocial.id';
+  const nodeUrl = process.env.NEAR_RPC_URL
+    || (network === 'mainnet'
+      ? 'https://near.lava.build'
+      : 'https://neart.lava.build');
   
   const provider = new JsonRpcProvider({ url: nodeUrl });
 

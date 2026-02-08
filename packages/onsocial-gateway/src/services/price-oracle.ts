@@ -1,4 +1,5 @@
 import { config } from '../config/index.js';
+import { nearRpc } from '../rpc/index.js';
 import { logger } from '../logger.js';
 
 /**
@@ -61,27 +62,17 @@ export const priceOracle = {
       throw new Error('REF_POOL_ID not configured');
     }
 
-    const res = await fetch(config.nearRpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id: 'price',
-        method: 'query',
-        params: {
-          request_type: 'call_function',
-          account_id: 'v2.ref-finance.near',
-          method_name: 'get_pool',
-          args_base64: Buffer.from(JSON.stringify({ pool_id: poolId })).toString('base64'),
-          finality: 'final',
-        },
-      }),
+    const json = await nearRpc.call('query', {
+      request_type: 'call_function',
+      account_id: 'v2.ref-finance.near',
+      method_name: 'get_pool',
+      args_base64: Buffer.from(JSON.stringify({ pool_id: poolId })).toString('base64'),
+      finality: 'final',
     });
 
-    const json = (await res.json()) as any;
     if (json.error) throw new Error(json.error.message);
 
-    const resultBytes = json.result?.result;
+    const resultBytes = (json.result as any)?.result;
     if (!resultBytes) throw new Error('Empty RPC result');
 
     const pool = JSON.parse(Buffer.from(resultBytes).toString('utf-8'));

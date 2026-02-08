@@ -1,8 +1,8 @@
 //! Application state shared across handlers.
 
 use crate::config::Config;
+use crate::rpc::RpcClient;
 use near_crypto::InMemorySigner;
-use near_fetch::Client;
 use std::sync::atomic::AtomicU64;
 use std::time::Instant;
 use tracing::info;
@@ -10,7 +10,7 @@ use tracing::info;
 /// Shared application state.
 pub struct AppState {
     pub config: Config,
-    pub rpc: Client,
+    pub rpc: RpcClient,
     pub signer: InMemorySigner,
     pub start_time: Instant,
     pub request_count: AtomicU64,
@@ -30,7 +30,7 @@ impl AppState {
         info!(account = %signer.account_id, "Loaded relayer key");
 
         Ok(Self {
-            rpc: Client::new(&config.rpc_url),
+            rpc: RpcClient::new(&config.rpc_url, &config.fallback_rpc_url),
             config,
             signer,
             start_time: Instant::now(),

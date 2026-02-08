@@ -17,6 +17,7 @@ mod error;
 mod handlers;
 mod response;
 mod router;
+mod rpc;
 mod state;
 
 pub use config::Config;

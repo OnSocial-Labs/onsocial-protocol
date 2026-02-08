@@ -1,0 +1,26 @@
+{
+  "name": "@onsocial/rpc",
+  "version": "0.1.0",
+  "description": "NEAR RPC client with automatic failover, retry, and circuit breaker",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

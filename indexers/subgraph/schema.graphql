@@ -268,8 +268,8 @@ type GroupUpdate @entity(immutable: true) {
 }
 
 """
-Contract-level updates (admin, configuration, nonce tracking)
-Operations: set, signed_payload_nonce_recorded, config_update, admin_add, admin_remove, status_change
+Contract-level updates (admin, configuration)
+Operations: set, config_update, admin_add, admin_remove, status_change
 """
 type ContractUpdate @entity(immutable: true) {
   id: ID!

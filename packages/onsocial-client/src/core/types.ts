@@ -30,13 +30,13 @@ export interface NetworkConfig {
 export const NETWORKS: Record<Network, NetworkConfig> = {
   mainnet: {
     networkId: 'mainnet',
-    rpcUrl: 'https://rpc-mainnet.onsocial.id',
+    rpcUrl: 'https://near.lava.build',
     contractId: 'core.onsocial.near',
     hasuraUrl: 'https://hasura.onsocial.id/v1/graphql',
   },
   testnet: {
     networkId: 'testnet',
-    rpcUrl: 'https://rpc-testnet.onsocial.id',
+    rpcUrl: 'https://neart.lava.build',
     contractId: 'core.onsocial.testnet',
     hasuraUrl: 'https://hasura.onsocial.id/v1/graphql',
   },

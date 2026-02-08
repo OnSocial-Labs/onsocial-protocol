@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { resolveNearRpcUrl, type Network } from '@onsocial/rpc';
 import type { Tier } from '../types/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,7 +24,7 @@ export const config = {
 
   // NEAR
   nearNetwork: process.env.NEAR_NETWORK || 'testnet',
-  nearRpcUrl: process.env.NEAR_RPC_URL || 'https://rpc-testnet.onsocial.id',
+  nearRpcUrl: resolveNearRpcUrl((process.env.NEAR_NETWORK || 'testnet') as Network),
   socialTokenContract:
     process.env.SOCIAL_TOKEN_CONTRACT || 'social.testnet',
   stakingContract:

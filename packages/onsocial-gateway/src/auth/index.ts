@@ -2,8 +2,8 @@ import jwt from 'jsonwebtoken';
 import nacl from 'tweetnacl';
 import tweetnacl_util from 'tweetnacl-util';
 const { decodeBase64 } = tweetnacl_util;
-import { JsonRpcProvider } from 'near-api-js';
 import { config } from '../config/index.js';
+import { rpcQuery } from '../rpc/index.js';
 import { getTierInfo } from '../tiers/index.js';
 import { logger } from '../logger.js';
 import type { JwtPayload } from '../types/index.js';
@@ -13,16 +13,6 @@ const MESSAGE_VALIDITY_MS = 5 * 60 * 1000;
 
 // Expected message prefix
 const MESSAGE_PREFIX = 'OnSocial Auth: ';
-
-// RPC provider for NEAR queries
-let provider: JsonRpcProvider | null = null;
-
-function getProvider(): JsonRpcProvider {
-  if (!provider) {
-    provider = new JsonRpcProvider({ url: config.nearRpcUrl });
-  }
-  return provider;
-}
 
 /**
  * Generate JWT token for authenticated user
@@ -163,9 +153,7 @@ async function verifyKeyBelongsToAccount(
   publicKey: string
 ): Promise<boolean> {
   try {
-    const rpc = getProvider();
-
-    const result = await rpc.query({
+    const result = await rpcQuery<{ keys: Array<{ public_key: string }> }>({
       request_type: 'view_access_key_list',
       account_id: accountId,
       finality: 'final',

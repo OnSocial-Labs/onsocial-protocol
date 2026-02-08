@@ -2,6 +2,7 @@
 
 use crate::response::{ExecuteResponse, HealthResponse};
 use crate::state::AppState;
+use crate::rpc::RpcClient;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -20,6 +21,8 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         contract_id: state.config.contract_id.clone(),
         uptime_secs: state.start_time.elapsed().as_secs(),
         requests: state.request_count.load(Ordering::Relaxed),
+        active_rpc: state.rpc.active_url().to_string(),
+        failovers: state.rpc.failover_count(),
     })
 }
 
@@ -66,18 +69,15 @@ pub async fn execute(
         }
     };
 
-    // Call contract
+    // Call contract with retry + failover
     let gas = NearGas::from_tgas(state.config.gas_tgas);
-    let result = state
-        .rpc
-        .call(&state.signer, &contract_id, "execute")
-        .args_json(&request)
-        .gas(gas)
-        .transact()
-        .await;
+
+    // Try active provider (primary unless circuit is open)
+    let result = try_call_with_retries(&state, &contract_id, &request, gas, false).await;
 
     match result {
         Ok(outcome) => {
+            state.rpc.record_success();
             let tx_hash = outcome.outcome().id.to_string();
 
             if outcome.is_success() {
@@ -95,12 +95,78 @@ pub async fn execute(
                 )
             }
         }
-        Err(e) => {
-            error!(error = %e, "RPC call failed");
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ExecuteResponse::err(format!("RPC error: {e}"), None)),
-            )
+        Err(primary_err) => {
+            // Primary exhausted — try fallback
+            state.rpc.record_failure();
+            warn!(error = %primary_err, "Primary RPC failed, trying fallback");
+
+            match try_call_with_retries(&state, &contract_id, &request, gas, true).await {
+                Ok(outcome) => {
+                    let tx_hash = outcome.outcome().id.to_string();
+                    if outcome.is_success() {
+                        let value: Option<Value> = outcome.json().ok();
+                        (StatusCode::OK, Json(ExecuteResponse::ok(value, tx_hash)))
+                    } else {
+                        let error = outcome
+                            .failures()
+                            .first()
+                            .map(|f| format!("{f:?}"))
+                            .unwrap_or_else(|| "Execution failed".into());
+                        (
+                            StatusCode::BAD_REQUEST,
+                            Json(ExecuteResponse::err(error, Some(tx_hash))),
+                        )
+                    }
+                }
+                Err(e) => {
+                    error!(error = %e, "All RPC providers failed");
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(ExecuteResponse::err(format!("All RPC providers failed: {e}"), None)),
+                    )
+                }
+            }
         }
     }
+}
+
+/// Try calling the contract with retries on a specific provider.
+async fn try_call_with_retries(
+    state: &AppState,
+    contract_id: &near_primitives::types::AccountId,
+    request: &Value,
+    gas: NearGas,
+    use_fallback: bool,
+) -> Result<near_fetch::result::ExecutionFinalResult, near_fetch::Error> {
+    let client = if use_fallback {
+        state.rpc.fallback()
+    } else {
+        state.rpc.active()
+    };
+
+    let max_retries = RpcClient::max_retries();
+    let mut last_err = None;
+
+    for attempt in 0..=max_retries {
+        if attempt > 0 {
+            let delay = RpcClient::retry_delay(attempt - 1);
+            warn!(attempt, delay_ms = delay.as_millis() as u64, "Retrying RPC call");
+            tokio::time::sleep(delay).await;
+        }
+
+        match client
+            .call(&state.signer, contract_id, "execute")
+            .args_json(request)
+            .gas(gas)
+            .transact()
+            .await
+        {
+            Ok(outcome) => return Ok(outcome),
+            Err(e) => {
+                last_err = Some(e);
+            }
+        }
+    }
+
+    Err(last_err.unwrap())
 }

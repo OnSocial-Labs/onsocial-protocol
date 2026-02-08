@@ -149,7 +149,6 @@ count_op "contractUpdates" "update_manager"
 count_op "contractUpdates" "enter_read_only"
 count_op "contractUpdates" "resume_live"
 count_op "contractUpdates" "activate_contract"
-count_op "contractUpdates" "signed_payload_nonce_recorded"
 
 CONTRACT_TOTAL=$TOTAL_OPS
 CONTRACT_INDEXED=$INDEXED_OPS

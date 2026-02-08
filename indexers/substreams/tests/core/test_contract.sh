@@ -240,7 +240,7 @@ test_contract_breakdown() {
     echo ""
     echo "Operations indexed:"
     
-    for op in "set" "update_config" "add_intents_executor" "remove_intents_executor" "update_manager" "enter_read_only" "resume_live" "activate_contract" "signed_payload_nonce_recorded"; do
+    for op in "set" "update_config" "add_intents_executor" "remove_intents_executor" "update_manager" "enter_read_only" "resume_live" "activate_contract"; do
         local result=$(query_hasura "{ contractUpdates(where: {operation: {_eq: \"$op\"}}, limit: 1) { id } }")
         local count=$(echo "$result" | jq '.data.contractUpdates | length // 0')
         if [[ "$count" -gt 0 ]]; then

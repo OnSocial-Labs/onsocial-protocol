@@ -17,7 +17,7 @@ docker compose up relayer
 Configure via `relayer.toml` or environment variables:
 
 ```toml
-rpc_url = "https://rpc-testnet.onsocial.id"
+rpc_url = "https://neart.lava.build"
 contract_id = "core.onsocial.testnet"
 keys_path = "./account_keys/relayer.onsocial.testnet.json"
 bind_address = "0.0.0.0:3040"
@@ -26,7 +26,7 @@ gas_tgas = 100
 
 Environment variables use `RELAYER_` prefix:
 ```bash
-export RELAYER_RPC_URL=https://rpc-mainnet.onsocial.id
+export RELAYER_RPC_URL=https://near.lava.build
 export RELAYER_CONTRACT_ID=core.onsocial.near
 ```
 
