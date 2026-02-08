@@ -73,13 +73,33 @@ export const FALLBACK_RPC_URLS: Record<Network, string> = {
 // Resolve helpers
 // ---------------------------------------------------------------------------
 
+const LAVA_GATEWAY_BASE: Record<Network, string> = {
+  testnet: 'https://g.w.lavanet.xyz/gateway/neart/rpc-http',
+  mainnet: 'https://g.w.lavanet.xyz/gateway/near/rpc-http',
+};
+
 /**
- * Resolve the primary RPC URL from `NEAR_RPC_URL` env var.
- * Returns the secondary endpoint when the env var is not set (dev / CI).
+ * Build private Lava URL from API key + network.
+ * Returns `undefined` when no key is available.
+ */
+export function buildLavaUrl(apiKey: string | undefined, network: Network): string | undefined {
+  if (!apiKey) return undefined;
+  return `${LAVA_GATEWAY_BASE[network]}/${apiKey}`;
+}
+
+/**
+ * Resolve the primary RPC URL.
+ *
+ * Priority:
+ *   1. `NEAR_RPC_URL` env var (explicit full URL — escape hatch)
+ *   2. `LAVA_API_KEY` env var → builds private Lava URL for the network
+ *   3. Public Lava endpoint (no key required)
  */
 export function resolveNearRpcUrl(network: Network = 'testnet'): string {
-  if (typeof process !== 'undefined' && process.env?.NEAR_RPC_URL) {
-    return process.env.NEAR_RPC_URL;
+  if (typeof process !== 'undefined') {
+    if (process.env?.NEAR_RPC_URL) return process.env.NEAR_RPC_URL;
+    const lavaUrl = buildLavaUrl(process.env?.LAVA_API_KEY, network);
+    if (lavaUrl) return lavaUrl;
   }
   return DEFAULT_RPC_URLS[network];
 }

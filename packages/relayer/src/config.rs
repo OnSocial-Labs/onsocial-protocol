@@ -38,12 +38,47 @@ impl Default for Config {
 }
 
 mod defaults {
+    /// Build a private Lava RPC URL from API key + network.
+    fn build_lava_url(network: &str) -> Option<String> {
+        let key = std::env::var("LAVA_API_KEY").ok()?;
+        if key.is_empty() {
+            return None;
+        }
+        let chain = if network.contains("mainnet") { "near" } else { "neart" };
+        Some(format!("https://g.w.lavanet.xyz/gateway/{chain}/rpc-http/{key}"))
+    }
+
+    fn network() -> String {
+        std::env::var("RELAYER_NETWORK")
+            .or_else(|_| std::env::var("NEAR_NETWORK"))
+            .unwrap_or_else(|_| "testnet".into())
+    }
+
     pub fn rpc_url() -> String {
-        "https://neart.lava.build".into()
+        // Priority: RELAYER_RPC_URL > LAVA_API_KEY > public Lava
+        if let Ok(url) = std::env::var("RELAYER_RPC_URL") {
+            if !url.is_empty() {
+                return url;
+            }
+        }
+        let net = network();
+        if let Some(url) = build_lava_url(&net) {
+            return url;
+        }
+        if net.contains("mainnet") {
+            "https://near.lava.build".into()
+        } else {
+            "https://neart.lava.build".into()
+        }
     }
 
     pub fn fallback_rpc_url() -> String {
-        "https://test.rpc.fastnear.com".into()
+        let net = network();
+        if net.contains("mainnet") {
+            "https://free.rpc.fastnear.com".into()
+        } else {
+            "https://test.rpc.fastnear.com".into()
+        }
     }
 
     pub fn contract_id() -> String {
