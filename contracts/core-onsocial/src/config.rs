@@ -7,6 +7,19 @@ use crate::constants::{
     MIN_PLATFORM_ALLOWANCE_MAX_BYTES, MIN_PLATFORM_DAILY_REFILL_BYTES,
     MIN_PLATFORM_ONBOARDING_BYTES,
 };
+use crate::state::ContractStatus;
+
+/// Full contract metadata returned by `get_contract_info()`.
+/// JSON-only (no borsh) — this is a view response, not persisted state.
+#[derive(NearSchema, Serialize, Deserialize, Clone, Debug)]
+#[abi(json)]
+#[serde(crate = "near_sdk::serde")]
+pub struct ContractInfo {
+    pub manager: AccountId,
+    pub version: String,
+    pub status: ContractStatus,
+    pub config: GovernanceConfig,
+}
 
 #[derive(NearSchema, Serialize, Deserialize, Clone, Debug, Default)]
 #[abi(json)]

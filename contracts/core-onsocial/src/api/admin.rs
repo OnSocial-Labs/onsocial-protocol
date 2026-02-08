@@ -1,6 +1,6 @@
 use crate::{
     SocialError,
-    config::GovernanceConfig,
+    config::{ContractInfo, GovernanceConfig},
     constants,
     events::{EventBatch, EventBuilder},
     state::{ContractStatus, models::SocialPlatform},
@@ -50,6 +50,16 @@ impl Contract {
 
     pub fn get_config(&self) -> GovernanceConfig {
         self.platform.config.clone()
+    }
+
+    /// Returns full contract metadata: manager, version, status, and governance config.
+    pub fn get_contract_info(&self) -> ContractInfo {
+        ContractInfo {
+            manager: self.platform.manager.clone(),
+            version: self.get_version(),
+            status: self.get_contract_status(),
+            config: self.get_config(),
+        }
     }
 
     #[payable]

@@ -41,7 +41,7 @@ export const config = {
   lighthouseApiKey: process.env.LIGHTHOUSE_API_KEY || '',
 
   // Relay
-  relayUrl: process.env.RELAY_URL || 'http://localhost:3030',
+  relayUrl: process.env.RELAYER_URL || process.env.RELAY_URL || 'http://localhost:3040',
 
   // Rate limits (requests per minute) — flat tiers
   rateLimits: {

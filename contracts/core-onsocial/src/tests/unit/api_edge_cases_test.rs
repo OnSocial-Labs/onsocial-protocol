@@ -75,6 +75,37 @@ mod api_edge_cases_tests {
         println!("✅ get_config returns valid governance config");
     }
 
+    #[test]
+    fn test_get_contract_info_returns_all_fields() {
+        let alice = test_account(0);
+        testing_env!(get_context(alice.clone()).build());
+        let contract = init_live_contract();
+
+        let info = contract.get_contract_info();
+
+        // manager is the predecessor who called new()
+        assert_eq!(
+            info.manager, alice,
+            "manager should match deployer"
+        );
+        assert!(!info.version.is_empty(), "version should be non-empty");
+        assert!(
+            matches!(info.status, ContractStatus::Live),
+            "status should be Live"
+        );
+        assert!(info.config.max_key_length > 0, "config should be populated");
+        assert!(
+            info.config.intents_executors.is_empty(),
+            "no executors by default"
+        );
+
+        println!(
+            "ContractInfo: manager={}, version={}, status={:?}",
+            info.manager, info.version, info.status
+        );
+        println!("✅ get_contract_info returns all fields");
+    }
+
     // ==========================================================================
     // HAS_GROUP_ADMIN_PERMISSION TESTS
     // ==========================================================================
