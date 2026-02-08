@@ -34,13 +34,11 @@ impl SocialPlatform {
         let mut processed_accounts = std::collections::HashSet::new();
 
         if let Some((owner, public_key, nonce_u64)) = op.signed_nonce {
-            self.signed_payload_record_nonce(
-                &owner,
-                &public_key,
-                nonce_u64,
-                attached_balance,
-                event_batch,
-            )?;
+            let new_bytes = Self::record_nonce(&owner, &public_key, nonce_u64);
+            if new_bytes > 0 {
+                let cost = new_bytes as u128 * near_sdk::env::storage_byte_cost().as_yoctonear();
+                *attached_balance = attached_balance.saturating_sub(cost);
+            }
         }
 
         let data_obj = crate::protocol::operation::require_non_empty_object(&op.data)?;

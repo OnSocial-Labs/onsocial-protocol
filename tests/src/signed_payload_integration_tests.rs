@@ -75,6 +75,13 @@ fn make_deterministic_ed25519_keypair() -> (SigningKey, String) {
     (sk, pk_str)
 }
 
+fn make_deterministic_ed25519_keypair_2() -> (SigningKey, String) {
+    let sk = SigningKey::from_bytes(&[13u8; 32]);
+    let pk_bytes = sk.verifying_key().to_bytes();
+    let pk_str = format!("ed25519:{}", bs58::encode(pk_bytes).into_string());
+    (sk, pk_str)
+}
+
 fn canonicalize_json(value: &Value) -> Value {
     match value {
         Value::Object(map) => {
@@ -1530,34 +1537,9 @@ async fn test_intent_auth_fails_when_only_key_permission_exists() -> anyhow::Res
     Ok(())
 }
 
-/// Find `signed_payload_nonce_recorded` event in logs.
-fn find_nonce_recorded_event<S: AsRef<str>>(logs: &[S]) -> Option<serde_json::Value> {
-    for log in logs {
-        let log = log.as_ref();
-        if !log.starts_with(EVENT_JSON_PREFIX) {
-            continue;
-        }
-        let json_str = &log[EVENT_JSON_PREFIX.len()..];
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) else {
-            continue;
-        };
-
-        if v.get("event").and_then(|x| x.as_str()) != Some("CONTRACT_UPDATE") {
-            continue;
-        }
-
-        let data0 = v.get("data")?.get(0)?;
-        if data0.get("operation").and_then(|x| x.as_str()) == Some("signed_payload_nonce_recorded")
-        {
-            return Some(data0.clone());
-        }
-    }
-    None
-}
-
-/// Verify `signed_payload_nonce_recorded` event is emitted with correct schema.
+/// Verify nonce is tracked correctly via `get_nonce` view method.
 #[tokio::test]
-async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()> {
+async fn test_signed_payload_nonce_tracking() -> anyhow::Result<()> {
     let worker = near_workspaces::sandbox().await?;
     let root = worker.root_account()?;
     let contract = deploy_and_init(&worker).await?;
@@ -1601,6 +1583,17 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         res.failures()
     );
 
+    // Verify initial nonce is 0.
+    let nonce_before: serde_json::Value = contract
+        .view("get_nonce")
+        .args_json(json!({
+            "account_id": alice.id(),
+            "public_key": pk_str
+        }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_before, json!("0"), "Initial nonce should be 0");
+
     // Relayer submits signed payload with nonce=1.
     let action = json!({ "type": "set", "data": { "profile/test_nonce": "value1" } });
     let payload = SignedSetPayload {
@@ -1638,40 +1631,18 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         res.failures()
     );
 
-    // Verify `signed_payload_nonce_recorded` event is emitted.
-    let logs = res.logs();
-    let event =
-        find_nonce_recorded_event(&logs).expect("Expected signed_payload_nonce_recorded event");
+    // Verify nonce was recorded as 1.
+    let nonce_after: serde_json::Value = contract
+        .view("get_nonce")
+        .args_json(json!({
+            "account_id": alice.id(),
+            "public_key": pk_str
+        }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_after, json!("1"), "Nonce should be 1 after first call");
 
-    // Verify event schema fields.
-    assert_eq!(
-        event.get("public_key").and_then(|v| v.as_str()),
-        Some(pk_str.as_str()),
-        "Event should contain correct public_key"
-    );
-    assert_eq!(
-        event.get("nonce").and_then(|v| v.as_str()),
-        Some("1"),
-        "Event should contain correct nonce"
-    );
-    assert!(
-        event.get("value").is_none(),
-        "Event should NOT contain redundant 'value' field"
-    );
-    let path = event
-        .get("path")
-        .and_then(|v| v.as_str())
-        .expect("Event should have path");
-    assert!(
-        path.contains("signed_payload_nonces"),
-        "Path should contain 'signed_payload_nonces'"
-    );
-    assert!(
-        path.contains(alice.id().as_str()),
-        "Path should contain owner account"
-    );
-
-    // Now verify monotonically increasing nonce (nonce=2) works.
+    // Submit with nonce=2 and verify it increments.
     let action2 = json!({ "type": "set", "data": { "profile/test_nonce2": "value2" } });
     let payload2 = SignedSetPayload {
         target_account: alice.id().to_string(),
@@ -1708,15 +1679,16 @@ async fn test_signed_payload_nonce_recorded_event_schema() -> anyhow::Result<()>
         res2.failures()
     );
 
-    // Verify second event has nonce=2.
-    let logs2 = res2.logs();
-    let event2 = find_nonce_recorded_event(&logs2)
-        .expect("Expected second signed_payload_nonce_recorded event");
-    assert_eq!(
-        event2.get("nonce").and_then(|v| v.as_str()),
-        Some("2"),
-        "Second event should have nonce=2"
-    );
+    // Verify nonce is now 2.
+    let nonce_final: serde_json::Value = contract
+        .view("get_nonce")
+        .args_json(json!({
+            "account_id": alice.id(),
+            "public_key": pk_str
+        }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_final, json!("2"), "Nonce should be 2 after second call");
 
     Ok(())
 }
@@ -2506,6 +2478,751 @@ async fn test_signed_payload_array_object_canonicalization() -> anyhow::Result<(
     assert_eq!(arr.len(), 2);
     assert_eq!(arr[0].get("name"), Some(&json!("Bob")));
     assert_eq!(arr[1].get("name"), Some(&json!("Carol")));
+
+    Ok(())
+}
+
+/// Nonce=0 must be rejected even when no prior nonce exists (boundary: last=0, 0≤0).
+#[tokio::test]
+async fn test_signed_payload_nonce_zero_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let action = json!({ "type": "set", "data": { "profile/zero": "should_fail" } });
+    let payload = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(0),
+        expires_at_ms: U64(0),
+        action: action.clone(),
+        delegate_action: None,
+    };
+    let sig = sign_payload(contract.id().as_str(), &payload, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": "0",
+                    "expires_at_ms": "0",
+                    "signature": sig
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Nonce=0 should be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+
+    Ok(())
+}
+
+/// Different keys on the same account have independent nonce counters.
+#[tokio::test]
+async fn test_signed_payload_nonce_isolation_between_keys() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk_a, pk_a) = make_deterministic_ed25519_keypair();
+    let (sk_b, pk_b) = make_deterministic_ed25519_keypair_2();
+
+    // Grant both keys permission.
+    for pk in [&pk_a, &pk_b] {
+        let res = alice
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set_key_permission", "public_key": pk, "path": "profile/", "level": 1, "expires_at": null }
+                }
+            }))
+            .gas(Gas::from_tgas(80))
+            .transact()
+            .await?;
+        assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    }
+
+    // Use key A with nonce=5.
+    let action_a = json!({ "type": "set", "data": { "profile/ka": "v1" } });
+    let payload_a = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_a.clone(),
+        nonce: U64(5),
+        expires_at_ms: U64(0),
+        action: action_a.clone(),
+        delegate_action: None,
+    };
+    let sig_a = sign_payload(contract.id().as_str(), &payload_a, &sk_a)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_a,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_a.clone(),
+                    "nonce": "5",
+                    "expires_at_ms": "0",
+                    "signature": sig_a
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Key A nonce=5 failed: {:?}", res.failures());
+
+    // Key B at nonce=1 should succeed (independent from key A's nonce=5).
+    let action_b = json!({ "type": "set", "data": { "profile/kb": "v1" } });
+    let payload_b = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_b.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action_b.clone(),
+        delegate_action: None,
+    };
+    let sig_b = sign_payload(contract.id().as_str(), &payload_b, &sk_b)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_b,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_b.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": sig_b
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Key B nonce=1 should succeed independently: {:?}", res.failures());
+
+    // Verify via get_nonce that each key has its own counter.
+    let nonce_a: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": alice.id(), "public_key": pk_a }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_a, json!("5"), "Key A nonce should be 5");
+
+    let nonce_b: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": alice.id(), "public_key": pk_b }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_b, json!("1"), "Key B nonce should be 1");
+
+    Ok(())
+}
+
+/// After a high nonce, submitting a lower (but non-zero) nonce must fail.
+#[tokio::test]
+async fn test_signed_payload_nonce_regression_rejected() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    // Succeed at nonce=100.
+    let action1 = json!({ "type": "set", "data": { "profile/high": "v1" } });
+    let payload1 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(100),
+        expires_at_ms: U64(0),
+        action: action1.clone(),
+        delegate_action: None,
+    };
+    let sig1 = sign_payload(contract.id().as_str(), &payload1, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action1,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "100",
+                    "expires_at_ms": "0",
+                    "signature": sig1
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "nonce=100 failed: {:?}", res.failures());
+
+    // Attempt nonce=50 (lower than 100) — must fail.
+    let action2 = json!({ "type": "set", "data": { "profile/regress": "should_fail" } });
+    let payload2 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(50),
+        expires_at_ms: U64(0),
+        action: action2.clone(),
+        delegate_action: None,
+    };
+    let sig2 = sign_payload(contract.id().as_str(), &payload2, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action2,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": "50",
+                    "expires_at_ms": "0",
+                    "signature": sig2
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+
+    assert!(!res.is_success(), "Lower nonce after high nonce should be rejected");
+    let err = format!("{:?}", res.failures());
+    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+
+    Ok(())
+}
+
+// =============================================================================
+// Nonce Edge-Case Tests
+// =============================================================================
+
+/// Nonce survives key revocation and re-grant.
+/// After revoking a key and re-granting it, the old nonce must still apply —
+/// replaying an old nonce must fail. This prevents replay attacks via
+/// revoke→re-grant cycles.
+#[tokio::test]
+async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Storage deposit.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+
+    // Grant key permission.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "grant key_permission failed: {:?}", res.failures());
+
+    // Use nonce=5.
+    let action1 = json!({ "type": "set", "data": { "profile/revoke_test": "before_revoke" } });
+    let payload1 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(5),
+        expires_at_ms: U64(0),
+        action: action1.clone(),
+        delegate_action: None,
+    };
+    let sig1 = sign_payload(contract.id().as_str(), &payload1, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action1,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "5",
+                    "expires_at_ms": "0",
+                    "signature": sig1
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "nonce=5 failed: {:?}", res.failures());
+
+    // Verify nonce is 5.
+    let nonce_before_revoke: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": alice.id(), "public_key": pk_str }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_before_revoke, json!("5"));
+
+    // Revoke the key (level=0).
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 0, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "revoke key_permission failed: {:?}", res.failures());
+
+    // Re-grant the same key.
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "re-grant key_permission failed: {:?}", res.failures());
+
+    // Nonce should still be 5 after revoke+re-grant.
+    let nonce_after_regrant: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": alice.id(), "public_key": pk_str }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_after_regrant, json!("5"), "Nonce must survive revoke+re-grant");
+
+    // Attempting nonce=3 (below old high-water mark) must fail.
+    let action2 = json!({ "type": "set", "data": { "profile/revoke_test": "replay_attempt" } });
+    let payload2 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(3),
+        expires_at_ms: U64(0),
+        action: action2.clone(),
+        delegate_action: None,
+    };
+    let sig2 = sign_payload(contract.id().as_str(), &payload2, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action2,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "3",
+                    "expires_at_ms": "0",
+                    "signature": sig2
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "Replay with old nonce after revoke+re-grant must fail");
+    let err = format!("{:?}", res.failures());
+    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+
+    // nonce=6 should succeed (strictly greater than old high-water mark).
+    let action3 = json!({ "type": "set", "data": { "profile/revoke_test": "after_regrant" } });
+    let payload3 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(6),
+        expires_at_ms: U64(0),
+        action: action3.clone(),
+        delegate_action: None,
+    };
+    let sig3 = sign_payload(contract.id().as_str(), &payload3, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action3,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "6",
+                    "expires_at_ms": "0",
+                    "signature": sig3
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "nonce=6 after revoke+re-grant should succeed: {:?}", res.failures());
+
+    Ok(())
+}
+
+/// nonce = u64::MAX succeeds, then no further nonce can be submitted
+/// (there is no value strictly greater than u64::MAX).
+#[tokio::test]
+async fn test_signed_payload_nonce_u64_max_is_terminal() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+            }
+        }))
+        .deposit(ONE_NEAR)
+        .gas(Gas::from_tgas(120))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    let res = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+            }
+        }))
+        .gas(Gas::from_tgas(80))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+
+    let max_nonce = u64::MAX;
+    let max_nonce_str = max_nonce.to_string();
+
+    // Submit with nonce = u64::MAX.
+    let action1 = json!({ "type": "set", "data": { "profile/max_nonce": "terminal" } });
+    let payload1 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(max_nonce),
+        expires_at_ms: U64(0),
+        action: action1.clone(),
+        delegate_action: None,
+    };
+    let sig1 = sign_payload(contract.id().as_str(), &payload1, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action1,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": max_nonce_str.clone(),
+                    "expires_at_ms": "0",
+                    "signature": sig1
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "nonce=u64::MAX should succeed: {:?}", res.failures());
+
+    // Verify nonce is recorded as u64::MAX.
+    let nonce_val: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": alice.id(), "public_key": pk_str }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_val, json!(max_nonce_str), "Nonce should be u64::MAX");
+
+    // Attempting nonce=u64::MAX again must fail (not strictly greater).
+    let action2 = json!({ "type": "set", "data": { "profile/max_nonce": "replay" } });
+    let payload2 = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(max_nonce),
+        expires_at_ms: U64(0),
+        action: action2.clone(),
+        delegate_action: None,
+    };
+    let sig2 = sign_payload(contract.id().as_str(), &payload2, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action2,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str,
+                    "nonce": max_nonce_str,
+                    "expires_at_ms": "0",
+                    "signature": sig2
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(!res.is_success(), "After u64::MAX, no further nonce should be accepted");
+    let err = format!("{:?}", res.failures());
+    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+
+    Ok(())
+}
+
+/// Same public key used by two different accounts must have independent nonce counters.
+#[tokio::test]
+async fn test_signed_payload_nonce_cross_account_isolation() -> anyhow::Result<()> {
+    let worker = near_workspaces::sandbox().await?;
+    let root = worker.root_account()?;
+    let contract = deploy_and_init(&worker).await?;
+
+    let alice = create_user(&root, "alice", TEN_NEAR).await?;
+    let bob = create_user(&root, "bob", TEN_NEAR).await?;
+    let relayer = create_user(&root, "relayer", TEN_NEAR).await?;
+
+    // Both alice and bob deposit storage.
+    for user in [&alice, &bob] {
+        let res = user
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set", "data": { "storage/deposit": { "amount": "1000000000000000000000000" } } }
+                }
+            }))
+            .deposit(ONE_NEAR)
+            .gas(Gas::from_tgas(120))
+            .transact()
+            .await?;
+        assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    }
+
+    // Same key granted to both accounts.
+    let (sk, pk_str) = make_deterministic_ed25519_keypair();
+    for user in [&alice, &bob] {
+        let res = user
+            .call(contract.id(), "execute")
+            .args_json(json!({
+                "request": {
+                    "action": { "type": "set_key_permission", "public_key": pk_str.clone(), "path": "profile/", "level": 1, "expires_at": null }
+                }
+            }))
+            .gas(Gas::from_tgas(80))
+            .transact()
+            .await?;
+        assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    }
+
+    // Alice uses nonce=10.
+    let action_a = json!({ "type": "set", "data": { "profile/cross_acct": "alice_val" } });
+    let payload_a = SignedSetPayload {
+        target_account: alice.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(10),
+        expires_at_ms: U64(0),
+        action: action_a.clone(),
+        delegate_action: None,
+    };
+    let sig_a = sign_payload(contract.id().as_str(), &payload_a, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": alice.id(),
+                "action": action_a,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "10",
+                    "expires_at_ms": "0",
+                    "signature": sig_a
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Alice nonce=10 failed: {:?}", res.failures());
+
+    // Bob uses nonce=1 with the SAME key — should succeed (independent counter).
+    let action_b = json!({ "type": "set", "data": { "profile/cross_acct": "bob_val" } });
+    let payload_b = SignedSetPayload {
+        target_account: bob.id().to_string(),
+        public_key: pk_str.clone(),
+        nonce: U64(1),
+        expires_at_ms: U64(0),
+        action: action_b.clone(),
+        delegate_action: None,
+    };
+    let sig_b = sign_payload(contract.id().as_str(), &payload_b, &sk)?;
+
+    let res = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": bob.id(),
+                "action": action_b,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": pk_str.clone(),
+                    "nonce": "1",
+                    "expires_at_ms": "0",
+                    "signature": sig_b
+                }
+            }
+        }))
+        .deposit(NearToken::from_near(2))
+        .gas(Gas::from_tgas(200))
+        .transact()
+        .await?;
+    assert!(res.is_success(), "Bob nonce=1 should succeed independently of Alice's nonce=10: {:?}", res.failures());
+
+    // Verify each account's nonce independently.
+    let nonce_alice: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": alice.id(), "public_key": pk_str }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_alice, json!("10"), "Alice's nonce should be 10");
+
+    let nonce_bob: Value = contract
+        .view("get_nonce")
+        .args_json(json!({ "account_id": bob.id(), "public_key": pk_str }))
+        .await?
+        .json()?;
+    assert_eq!(nonce_bob, json!("1"), "Bob's nonce should be 1");
 
     Ok(())
 }

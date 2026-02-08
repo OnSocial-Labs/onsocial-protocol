@@ -95,4 +95,15 @@ impl Contract {
             }
         })
     }
+
+    pub fn get_nonce(
+        &self,
+        account_id: AccountId,
+        public_key: near_sdk::PublicKey,
+    ) -> near_sdk::json_types::U64 {
+        near_sdk::json_types::U64(crate::state::models::SocialPlatform::read_nonce(
+            &account_id,
+            &public_key,
+        ))
+    }
 }

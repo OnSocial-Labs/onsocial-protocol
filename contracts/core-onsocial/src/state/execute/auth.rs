@@ -2,7 +2,6 @@ use near_sdk::serde_json::{Value, json};
 use near_sdk::{AccountId, env};
 
 use crate::SocialError;
-use crate::events::EventBatch;
 use crate::protocol::{Action, Auth, Options, Request};
 use crate::state::models::SocialPlatform;
 
@@ -225,43 +224,18 @@ impl SocialPlatform {
             return Err(crate::permission_denied!("invalid signature", "execute"));
         }
 
-        self.execute_assert_nonce_fresh(target_account, sig_ctx.public_key, sig_ctx.nonce.0)?;
+        Self::assert_nonce_fresh(target_account, sig_ctx.public_key, sig_ctx.nonce.0)?;
 
-        Ok(())
-    }
-
-    fn execute_assert_nonce_fresh(
-        &self,
-        owner: &AccountId,
-        public_key: &near_sdk::PublicKey,
-        nonce: u64,
-    ) -> Result<(), SocialError> {
-        let k = format!(
-            "{}/signed_payload_nonces/{}",
-            owner.as_str(),
-            String::from(public_key)
-        );
-        let last = self
-            .storage_get_string(&k)
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(0);
-        if nonce <= last {
-            return Err(crate::invalid_input!("Nonce too low"));
-        }
         Ok(())
     }
 
     fn finalize_execute_nonce(&mut self, ctx: &mut ExecuteContext) -> Result<(), SocialError> {
         if let Some((ref owner, ref public_key, nonce)) = ctx.signed_nonce {
-            let mut event_batch = EventBatch::new();
-            self.signed_payload_record_nonce(
-                owner,
-                public_key,
-                nonce,
-                &mut ctx.attached_balance,
-                &mut event_batch,
-            )?;
-            event_batch.emit()?;
+            let new_bytes = Self::record_nonce(owner, public_key, nonce);
+            if new_bytes > 0 {
+                let cost = new_bytes as u128 * env::storage_byte_cost().as_yoctonear();
+                ctx.attached_balance = ctx.attached_balance.saturating_sub(cost);
+            }
         }
         Ok(())
     }
