@@ -156,7 +156,7 @@ async fn try_call_with_retries(
 
         match client
             .call(&state.signer, contract_id, "execute")
-            .args_json(request)
+            .args_json(serde_json::json!({ "request": request }))
             .gas(gas)
             .transact()
             .await
