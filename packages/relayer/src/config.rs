@@ -1,6 +1,7 @@
 //! Relayer configuration.
 
 use serde::Deserialize;
+use std::time::Duration;
 
 /// Configuration for the simple relayer.
 #[derive(Debug, Clone, Deserialize)]
@@ -22,6 +23,14 @@ pub struct Config {
 
     #[serde(default = "defaults::gas_tgas")]
     pub gas_tgas: u64,
+
+    /// Path to admin full-access key (for AddKey/DeleteKey).
+    #[serde(default = "defaults::admin_key_path")]
+    pub admin_key_path: String,
+
+    /// Path to encrypted key store.
+    #[serde(default = "defaults::pool_store_path")]
+    pub pool_store_path: String,
 }
 
 impl Default for Config {
@@ -33,6 +42,47 @@ impl Default for Config {
             keys_path: defaults::keys_path(),
             bind_address: defaults::bind_address(),
             gas_tgas: defaults::gas_tgas(),
+            admin_key_path: defaults::admin_key_path(),
+            pool_store_path: defaults::pool_store_path(),
+        }
+    }
+}
+
+/// Scaling configuration for the key pool.
+#[derive(Debug, Clone)]
+pub struct ScalingConfig {
+    pub min_keys: u32,
+    pub max_keys: u32,
+    pub scale_up_threshold: f32,
+    pub scale_down_threshold: f32,
+    pub scale_down_idle: Duration,
+    pub cooldown: Duration,
+    pub batch_size: u32,
+    pub max_key_age: Duration,
+}
+
+impl Default for ScalingConfig {
+    fn default() -> Self {
+        Self {
+            min_keys: std::env::var("RELAYER_MIN_KEYS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(2),
+            max_keys: std::env::var("RELAYER_MAX_KEYS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(100),
+            scale_up_threshold: 0.8,
+            scale_down_threshold: 0.2,
+            scale_down_idle: Duration::from_secs(300),
+            cooldown: Duration::from_secs(30),
+            batch_size: 5,
+            max_key_age: Duration::from_secs(
+                std::env::var("RELAYER_MAX_KEY_AGE")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(86400),
+            ),
         }
     }
 }
@@ -95,5 +145,15 @@ mod defaults {
 
     pub fn gas_tgas() -> u64 {
         100
+    }
+
+    pub fn admin_key_path() -> String {
+        std::env::var("RELAYER_ADMIN_KEY_PATH")
+            .unwrap_or_else(|_| "./account_keys/relayer-admin.json".into())
+    }
+
+    pub fn pool_store_path() -> String {
+        std::env::var("RELAYER_POOL_STORE_PATH")
+            .unwrap_or_else(|_| "./data/pool_keys.enc".into())
     }
 }

@@ -12,6 +12,8 @@ pub enum Error {
     Config(String),
     /// RPC communication error.
     Rpc(String),
+    /// Key pool error (exhausted, scaling failure, etc.).
+    KeyPool(String),
 }
 
 impl fmt::Display for Error {
@@ -19,6 +21,7 @@ impl fmt::Display for Error {
         match self {
             Error::Config(msg) => write!(f, "config error: {msg}"),
             Error::Rpc(msg) => write!(f, "rpc error: {msg}"),
+            Error::KeyPool(msg) => write!(f, "key pool error: {msg}"),
         }
     }
 }
@@ -30,6 +33,7 @@ impl IntoResponse for Error {
         let status = match &self {
             Error::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Rpc(_) => StatusCode::BAD_GATEWAY,
+            Error::KeyPool(_) => StatusCode::SERVICE_UNAVAILABLE,
         };
         let body = serde_json::json!({
             "success": false,

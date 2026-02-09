@@ -12,12 +12,14 @@
 //! - `GET /health` - Health check with metrics
 //! - `POST /execute` - Forward signed request to contract
 
-mod config;
+pub mod config;
 mod error;
 mod handlers;
+pub mod key_pool;
+pub mod key_store;
 mod response;
 mod router;
-mod rpc;
+pub mod rpc;
 mod state;
 
 pub use config::Config;

@@ -26,17 +26,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!(contract = %config.contract_id, rpc = %config.rpc_url, "Configuration loaded");
 
     let bind_address = config.bind_address.clone();
-    let state = Arc::new(AppState::new(config)?);
+    let state = Arc::new(AppState::new(config).await?);
 
-    info!(account = %state.signer.account_id, "Relayer ready");
+    info!(
+        active_keys = state.key_pool.active_count(),
+        "Relayer ready"
+    );
+
+    // Spawn autoscaler background task
+    let pool = Arc::clone(&state.key_pool);
+    let state_bg = Arc::clone(&state);
+    tokio::spawn(async move {
+        pool.run_autoscaler(&state_bg.rpc).await;
+    });
 
     let app = create_router(state);
 
     info!(address = %bind_address, "Listening");
 
-    axum::Server::bind(&bind_address.parse()?)
-        .serve(app.into_make_service())
-        .await?;
+    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
