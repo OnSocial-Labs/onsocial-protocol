@@ -1472,15 +1472,6 @@ fn get_extra_bool_val(event: &Event, key: &str) -> Option<bool> {
         .and_then(|v| v.as_bool())
 }
 
-/// Helper to extract a u64 from event extra fields
-fn get_extra_u64(event: &Event, key: &str) -> Option<u64> {
-    event
-        .data
-        .first()
-        .and_then(|d| d.extra.get(key))
-        .and_then(|v| v.as_u64())
-}
-
 /// Find events by event type from logs
 fn find_events_by_type(logs: &[String], event_type: &str) -> Vec<Event> {
     logs.iter()
@@ -1495,8 +1486,6 @@ fn find_events_by_type(logs: &[String], event_type: &str) -> Vec<Event> {
 /// - group_id: extracted group identifier
 /// - group_path: relative path within group
 /// - is_group_content: true for group paths
-/// - block_height: current block height
-/// - block_timestamp: current block timestamp
 #[tokio::test]
 async fn test_event_derived_fields_for_group_content() -> anyhow::Result<()> {
     println!("\n=== Test: Event Derived Fields for Group Content ===");
@@ -1583,23 +1572,8 @@ async fn test_event_derived_fields_for_group_content() -> anyhow::Result<()> {
         "is_group_content should be true"
     );
 
-    // Verify block context from insert_block_context()
-    let block_height = get_extra_u64(create_event, "block_height");
-    let block_timestamp = get_extra_u64(create_event, "block_timestamp");
-
-    println!("   block_height: {:?}", block_height);
-    println!("   block_timestamp: {:?}", block_timestamp);
-
-    assert!(block_height.is_some(), "block_height should be present");
-    assert!(block_height.unwrap() > 0, "block_height should be positive");
-    assert!(
-        block_timestamp.is_some(),
-        "block_timestamp should be present"
-    );
-    assert!(
-        block_timestamp.unwrap() > 0,
-        "block_timestamp should be positive"
-    );
+    // block_height and block_timestamp are no longer included in events
+    // (redundant with on-chain transaction context)
 
     println!("✅ Event derived fields for group content are correct");
     Ok(())
@@ -1683,18 +1657,8 @@ async fn test_event_derived_fields_for_non_group_data() -> anyhow::Result<()> {
         "is_group_content should NOT be present for non-group paths"
     );
 
-    // Verify block context
-    let block_height = get_extra_u64(set_event, "block_height");
-    let block_timestamp = get_extra_u64(set_event, "block_timestamp");
-
-    assert!(
-        block_height.is_some() && block_height.unwrap() > 0,
-        "block_height should be present and positive"
-    );
-    assert!(
-        block_timestamp.is_some() && block_timestamp.unwrap() > 0,
-        "block_timestamp should be present and positive"
-    );
+    // block_height and block_timestamp are no longer included in events
+    // (redundant with on-chain transaction context)
 
     println!("✅ Event derived fields for non-group data are correct");
     Ok(())
@@ -1837,12 +1801,10 @@ async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
     let id = get_extra_str(delete_event, "id");
     let group_id = get_extra_str(delete_event, "group_id");
     let is_group_content = get_extra_bool_val(delete_event, "is_group_content");
-    let block_height = get_extra_u64(delete_event, "block_height");
 
     println!("   id: {:?}", id);
     println!("   group_id: {:?}", group_id);
     println!("   is_group_content: {:?}", is_group_content);
-    println!("   block_height: {:?}", block_height);
 
     assert_eq!(
         id.as_deref(),
@@ -1859,10 +1821,7 @@ async fn test_event_derived_fields_on_delete() -> anyhow::Result<()> {
         Some(true),
         "is_group_content should be true on delete"
     );
-    assert!(
-        block_height.is_some(),
-        "block_height should be present on delete"
-    );
+    // block_height no longer included in events (redundant with on-chain context)
 
     println!("✅ Event derived fields on delete are correct");
     Ok(())

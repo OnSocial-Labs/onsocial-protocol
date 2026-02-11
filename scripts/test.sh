@@ -187,8 +187,8 @@ test_integration() {
                 # Clean up any stale sandbox temp files first
                 rm -rf /tmp/.tmp* 2>/dev/null || true
                 
-                # Run all tests in the integration test package (includes core_onsocial_tests and storage_batch_tests)
-                # When a specific test is requested, use that as the filter
+                # Run core-onsocial integration tests only
+                # Skip tests belonging to other contracts (token, staking, cross-contract)
                 local test_filter=""
                 if [ -n "$test_name" ]; then
                     test_filter="$test_name"
@@ -198,8 +198,8 @@ test_integration() {
                 if [ -n "$test_filter" ]; then
                     run_integration_test "$test_filter"
                 else
-                    # Run all tests except cross_contract_tests (which has its own make target)
-                    run_integration_test "" "--skip cross_contract_tests"
+                    # Run core-onsocial tests only: skip cross-contract, token, and staking test modules
+                    run_integration_test "" "--skip cross_contract_tests --skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests"
                 fi
                 local test_exit_code=$?
                 
