@@ -32,6 +32,20 @@ fi
   exit 1
 }
 
+# Resolve local path dependencies from a contract's Cargo.toml.
+# Populates the LOCAL_DEPS array with absolute paths to dependency crate roots.
+resolve_local_deps() {
+  local contract_dir=$1
+  LOCAL_DEPS=()
+  if [ -f "$contract_dir/Cargo.toml" ]; then
+    while IFS= read -r rel_path; do
+      local abs_path
+      abs_path=$(cd "$contract_dir" && cd "$rel_path" 2>/dev/null && pwd)
+      [ -n "$abs_path" ] && LOCAL_DEPS+=("$abs_path")
+    done < <(grep -oP 'path\s*=\s*"\K[^"]+' "$contract_dir/Cargo.toml")
+  fi
+}
+
 clean_artifacts() {
   echo "Cleaning build artifacts..."
   [ "$VERBOSE" = "1" ] && echo "Running: cargo clean"
@@ -71,8 +85,16 @@ format_contract() {
   echo "Formatting $contract..."
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
 
-  # Generate cache key
-  CACHE_KEY=$(find src -type f -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')
+  # Resolve local path dependencies
+  resolve_local_deps "$BASE_DIR/$contract"
+
+  # Generate cache key (contract src + local dep sources)
+  local hash_input
+  hash_input=$(find src -type f -exec sha256sum {} \;)
+  for dep_dir in "${LOCAL_DEPS[@]}"; do
+    [ -d "$dep_dir/src" ] && hash_input+=$'\n'$(find "$dep_dir/src" -type f -exec sha256sum {} \;)
+  done
+  CACHE_KEY=$(echo "$hash_input" | sort | sha256sum | awk '{print $1}')
   CACHE_DIR="$BASE_DIR/.cache"
   CACHE_FILE="$CACHE_DIR/format-$contract-$CACHE_KEY"
 
@@ -81,8 +103,19 @@ format_contract() {
     return
   fi
 
+  # Format the contract
   [ "$VERBOSE" = "1" ] && echo "Running: cargo fmt"
   cargo fmt || handle_error "Failed to format $contract"
+
+  # Format local path dependencies
+  for dep_dir in "${LOCAL_DEPS[@]}"; do
+    local dep_name
+    dep_name=$(basename "$dep_dir")
+    echo "  Formatting dependency $dep_name..."
+    cd "$dep_dir" || continue
+    [ "$VERBOSE" = "1" ] && echo "Running: cargo fmt (in $dep_name)"
+    cargo fmt || handle_error "Failed to format dependency $dep_name"
+  done
 
   # Save cache
   mkdir -p "$CACHE_DIR"
@@ -119,8 +152,16 @@ lint_contract() {
 
   cd "$BASE_DIR/$contract" || handle_error "Directory $contract not found"
 
-  # Generate cache key
-  CACHE_KEY=$(find src -type f -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')
+  # Resolve local path dependencies
+  resolve_local_deps "$BASE_DIR/$contract"
+
+  # Generate cache key (contract src + local dep sources)
+  local hash_input
+  hash_input=$(find src -type f -exec sha256sum {} \;)
+  for dep_dir in "${LOCAL_DEPS[@]}"; do
+    [ -d "$dep_dir/src" ] && hash_input+=$'\n'$(find "$dep_dir/src" -type f -exec sha256sum {} \;)
+  done
+  CACHE_KEY=$(echo "$hash_input" | sort | sha256sum | awk '{print $1}')
   CACHE_DIR="$BASE_DIR/.cache"
   CACHE_FILE="$CACHE_DIR/lint-$contract-$CACHE_KEY"
 
@@ -129,8 +170,25 @@ lint_contract() {
     return
   fi
 
+  # Lint the contract (also type-checks local deps as transitive dependencies)
   [ "$VERBOSE" = "1" ] && echo "Running: cargo clippy --all-targets --all-features -- -D warnings"
   cargo clippy --all-targets --all-features -- -D warnings || handle_error "Failed to lint $contract"
+
+  # Lint local path dependencies that don't use near-sdk (safe for standalone clippy).
+  # Crates with near-sdk are already type-checked above as transitive deps.
+  for dep_dir in "${LOCAL_DEPS[@]}"; do
+    local dep_name
+    dep_name=$(basename "$dep_dir")
+    if ! grep -q 'near-sdk' "$dep_dir/Cargo.toml" 2>/dev/null; then
+      echo "  Linting dependency $dep_name..."
+      cd "$dep_dir" || continue
+      [ "$VERBOSE" = "1" ] && echo "Running: cargo clippy --all-targets --all-features -- -D warnings (in $dep_name)"
+      cargo clippy --all-targets --all-features -- -D warnings || handle_error "Failed to lint dependency $dep_name"
+      cd "$BASE_DIR/$contract" || true
+    else
+      echo "  Dependency $dep_name (near-sdk) type-checked via contract clippy"
+    fi
+  done
 
   # Save cache
   mkdir -p "$CACHE_DIR"

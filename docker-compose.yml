@@ -49,6 +49,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # ===========================================
   # APPLICATION SERVICES
   # ===========================================
@@ -82,8 +95,12 @@ services:
       - HASURA_ADMIN_SECRET=${HASURA_ADMIN_SECRET}
       - JWT_SECRET=${JWT_SECRET:-onsocial_jwt_secret_2026}
       - LIGHTHOUSE_API_KEY=${LIGHTHOUSE_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     depends_on:
       hasura:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
