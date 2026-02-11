@@ -18,9 +18,18 @@ export const config = {
   port: parseInt(process.env.PORT || '4000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
 
-  // JWT
-  jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
+  // JWT — MUST be set in production
+  jwtSecret: (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret && process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: JWT_SECRET must be set in production');
+    }
+    return secret || 'dev-secret-change-in-production';
+  })(),
   jwtExpiresIn: '1h',
+
+  // CORS — comma-separated allowed origins, default '*' for dev
+  corsOrigins: process.env.CORS_ORIGINS || '*',
 
   // NEAR
   nearNetwork: process.env.NEAR_NETWORK || 'testnet',
@@ -43,15 +52,20 @@ export const config = {
   // Relay
   relayUrl: process.env.RELAYER_URL || process.env.RELAY_URL || 'http://localhost:3040',
 
+  // Redis (optional — enables shared rate limits across replicas)
+  redisUrl: process.env.REDIS_URL || '',
+
   // Rate limits (requests per minute) — flat tiers
   rateLimits: {
     free: 60,
     pro: 600,
+    scale: 3000,
   } as Record<Tier, number>,
 
   // Flat tier pricing (USD/month via SOCIAL tokens)
   tierPricing: {
-    pro: 49, // $49/month in SOCIAL
+    pro: 49,   // $49/month in SOCIAL
+    scale: 199, // $199/month in SOCIAL
   },
 
   // Price oracle
