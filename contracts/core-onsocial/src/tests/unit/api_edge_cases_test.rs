@@ -84,10 +84,7 @@ mod api_edge_cases_tests {
         let info = contract.get_contract_info();
 
         // manager is the predecessor who called new()
-        assert_eq!(
-            info.manager, alice,
-            "manager should match deployer"
-        );
+        assert_eq!(info.manager, alice, "manager should match deployer");
         assert!(!info.version.is_empty(), "version should be non-empty");
         assert!(
             matches!(info.status, ContractStatus::Live),

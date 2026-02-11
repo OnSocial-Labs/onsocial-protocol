@@ -13,6 +13,8 @@
 
 [workspace]
 members = [
+    "crates/onsocial-types",
+    "crates/onsocial-auth",
     "contracts/marketplace-onsocial",
     "contracts/staking-onsocial",
     "contracts/core-onsocial",

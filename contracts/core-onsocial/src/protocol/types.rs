@@ -1,38 +1,11 @@
 //! Protocol types for the unified execute API.
 
-use near_sdk::json_types::{Base64VecU8, U64};
+use near_sdk::json_types::U64;
 use near_sdk::serde_json::Value;
 use near_sdk::{AccountId, PublicKey};
 
-/// Authentication mode. Defaults to `Direct` (standard NEAR transaction).
-#[derive(near_sdk_macros::NearSchema, serde::Serialize, serde::Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde", tag = "type", rename_all = "snake_case")]
-pub enum Auth {
-    Direct,
-    SignedPayload {
-        public_key: PublicKey,
-        nonce: U64,
-        expires_at_ms: U64,
-        signature: Base64VecU8,
-    },
-    DelegateAction {
-        public_key: PublicKey,
-        nonce: U64,
-        expires_at_ms: U64,
-        signature: Base64VecU8,
-        action: Value,
-    },
-    Intent {
-        actor_id: AccountId,
-        intent: Value,
-    },
-}
-
-impl Default for Auth {
-    fn default() -> Self {
-        Self::Direct
-    }
-}
+/// Re-export the shared Auth enum from onsocial-auth.
+pub use onsocial_auth::Auth;
 
 /// Executable actions dispatched via the unified execute API.
 #[derive(near_sdk_macros::NearSchema, serde::Serialize, serde::Deserialize, Clone)]

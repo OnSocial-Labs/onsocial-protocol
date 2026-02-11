@@ -18,12 +18,6 @@ impl SocialPlatform {
         env::predecessor_account_id()
     }
 
-    /// Prefer for user-authorized actions to prevent intermediary abuse.
-    #[inline(always)]
-    pub fn transaction_signer() -> AccountId {
-        env::signer_account_id()
-    }
-
     #[inline(always)]
     pub fn platform_pool_account() -> AccountId {
         env::current_account_id()
