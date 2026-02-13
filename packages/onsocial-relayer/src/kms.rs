@@ -1,10 +1,8 @@
 //! GCP Cloud KMS Ed25519 signing backend.
 //!
-//! Signs NEAR transactions via `EC_SIGN_ED25519` keys in Google Cloud KMS.
-//! Private keys never leave the HSM.
-//!
-//! Env: `RELAYER_SIGNER_MODE=kms`, `GCP_KMS_PROJECT`, `GCP_KMS_LOCATION`,
-//! `GCP_KMS_KEYRING`, `GOOGLE_APPLICATION_CREDENTIALS`.
+//! Signs NEAR transactions via `EC_SIGN_ED25519` keys stored in Cloud KMS HSMs.
+//! Requires env: `RELAYER_SIGNER_MODE=kms`, `GCP_KMS_PROJECT`,
+//! `GCP_KMS_LOCATION`, `GCP_KMS_KEYRING`, `GOOGLE_APPLICATION_CREDENTIALS`.
 
 #[cfg(feature = "gcp")]
 mod inner {
@@ -27,11 +25,12 @@ mod inner {
     const KMS_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
     const KMS_MAX_RETRIES: u32 = 3;
     const KMS_RETRY_BASE_MS: u64 = 100;
-    /// 3 retries × ~4 concurrent ops = 12, so 15 avoids false triggers.
+    /// Threshold: 3 retries × ~4 concurrent ops = 12, so 15 avoids false triggers.
     const KMS_CIRCUIT_THRESHOLD: u64 = 15;
+    /// Half-open recovery window.
     const KMS_CIRCUIT_RECOVERY_SECS: u64 = 30;
 
-    /// GCP KMS key reference (project/location/keyring/key/version).
+    /// Fully-qualified KMS key version bound to a NEAR account.
     #[derive(Debug, Clone)]
     pub struct KmsKeyRef {
         pub resource_name: String,
@@ -39,12 +38,17 @@ mod inner {
         pub account_id: AccountId,
     }
 
-    /// GCP KMS client with circuit breaker and retry logic.
+    /// GCP Cloud KMS client with independent circuit breakers for signing and
+    /// management (key creation/retrieval). Management failures never block signing.
     pub struct KmsClient {
         http: reqwest::Client,
         credentials: AccessTokenCredentials,
-        cb_failures: AtomicU64,
-        cb_last_failure: AtomicU64,
+        // --- Sign circuit breaker ---
+        cb_sign_failures: AtomicU64,
+        cb_sign_last_failure: AtomicU64,
+        // --- Management circuit breaker ---
+        cb_mgmt_failures: AtomicU64,
+        cb_mgmt_last_failure: AtomicU64,
     }
 
     // --- KMS REST API types ---
@@ -65,13 +69,12 @@ mod inner {
         algorithm: String,
     }
 
-    /// Transient HTTP errors worth retrying.
     fn is_retryable(status: reqwest::StatusCode) -> bool {
         matches!(status.as_u16(), 408 | 429 | 500 | 502 | 503 | 504)
     }
 
     impl KmsClient {
-        /// Create a new KMS client using Application Default Credentials.
+        /// Initialize with Application Default Credentials.
         pub fn new() -> Result<Self, crate::Error> {
             let credentials = Builder::default()
                 .with_scopes(["https://www.googleapis.com/auth/cloudkms"])
@@ -88,49 +91,84 @@ mod inner {
             Ok(Self {
                 http,
                 credentials,
-                cb_failures: AtomicU64::new(0),
-                cb_last_failure: AtomicU64::new(0),
+                cb_sign_failures: AtomicU64::new(0),
+                cb_sign_last_failure: AtomicU64::new(0),
+                cb_mgmt_failures: AtomicU64::new(0),
+                cb_mgmt_last_failure: AtomicU64::new(0),
             })
         }
 
-        pub fn is_circuit_open(&self) -> bool {
-            let failures = self.cb_failures.load(Ordering::Relaxed);
-            if failures < KMS_CIRCUIT_THRESHOLD {
-                return false;
-            }
-            let last = self.cb_last_failure.load(Ordering::Relaxed);
-            let now = now_secs();
-            if now - last > KMS_CIRCUIT_RECOVERY_SECS {
-                return false; // half-open: retry after recovery window
-            }
-            true
+        // --- Sign circuit breaker ---
+
+        pub(crate) fn is_sign_circuit_open(&self) -> bool {
+            Self::breaker_is_open(&self.cb_sign_failures, &self.cb_sign_last_failure)
         }
 
-        /// Record success — resets circuit breaker.
-        fn record_success(&self) {
-            let prev = self.cb_failures.swap(0, Ordering::Relaxed);
+        fn record_sign_success(&self) {
+            let prev = self.cb_sign_failures.swap(0, Ordering::Relaxed);
             if prev >= KMS_CIRCUIT_THRESHOLD {
-                info!("KMS circuit breaker recovered");
+                info!("KMS sign circuit breaker recovered");
             }
         }
 
-        /// Record failure — may trip circuit breaker.
-        fn record_failure(&self) {
-            let failures = self.cb_failures.fetch_add(1, Ordering::Relaxed) + 1;
-            self.cb_last_failure.store(now_secs(), Ordering::Relaxed);
+        fn record_sign_failure(&self) {
+            let failures = self.cb_sign_failures.fetch_add(1, Ordering::Relaxed) + 1;
+            self.cb_sign_last_failure
+                .store(now_secs(), Ordering::Relaxed);
             if failures == KMS_CIRCUIT_THRESHOLD {
                 warn!(
                     failures,
-                    "KMS circuit breaker OPEN — signing will fail fast for {}s",
+                    "KMS sign circuit breaker OPEN — signing will fail fast for {}s",
                     KMS_CIRCUIT_RECOVERY_SECS
                 );
             }
         }
 
-        /// Check KMS connectivity. Used by /health.
+        // --- Management circuit breaker ---
+
+        pub(crate) fn is_mgmt_circuit_open(&self) -> bool {
+            Self::breaker_is_open(&self.cb_mgmt_failures, &self.cb_mgmt_last_failure)
+        }
+
+        fn record_mgmt_success(&self) {
+            let prev = self.cb_mgmt_failures.swap(0, Ordering::Relaxed);
+            if prev >= KMS_CIRCUIT_THRESHOLD {
+                info!("KMS management circuit breaker recovered");
+            }
+        }
+
+        fn record_mgmt_failure(&self) {
+            let failures = self.cb_mgmt_failures.fetch_add(1, Ordering::Relaxed) + 1;
+            self.cb_mgmt_last_failure
+                .store(now_secs(), Ordering::Relaxed);
+            if failures == KMS_CIRCUIT_THRESHOLD {
+                warn!(
+                    failures,
+                    "KMS management circuit breaker OPEN — key creation will fail fast for {}s",
+                    KMS_CIRCUIT_RECOVERY_SECS
+                );
+            }
+        }
+
+        // --- Shared breaker logic ---
+
+        /// Returns `true` when failures ≥ threshold and recovery window has not elapsed.
+        fn breaker_is_open(failures: &AtomicU64, last_failure: &AtomicU64) -> bool {
+            let f = failures.load(Ordering::Relaxed);
+            if f < KMS_CIRCUIT_THRESHOLD {
+                return false;
+            }
+            let last = last_failure.load(Ordering::Relaxed);
+            if now_secs() - last > KMS_CIRCUIT_RECOVERY_SECS {
+                return false;
+            }
+            true
+        }
+
+        /// Check sign-path KMS connectivity for /health.
         pub async fn health_check(&self) -> Result<(), crate::Error> {
-            if self.is_circuit_open() {
-                return Err(crate::Error::Rpc("KMS circuit breaker is open".into()));
+            if self.is_sign_circuit_open() {
+                return Err(crate::Error::Rpc("KMS sign circuit breaker is open".into()));
             }
             let _token = self.access_token().await?;
             Ok(())
@@ -145,8 +183,7 @@ mod inner {
             Ok(token.token)
         }
 
-        /// Retrieve Ed25519 public key from a KMS key version.
-        /// Retries on transient errors with exponential backoff.
+        /// Fetch Ed25519 public key from a KMS key version. Retries transient errors.
         pub async fn get_public_key(&self, resource_name: &str) -> Result<PublicKey, crate::Error> {
             let url = format!(
                 "https://cloudkms.googleapis.com/v1/{}/publicKey",
@@ -204,7 +241,7 @@ mod inner {
                     )));
                 }
 
-                // Parse PEM → raw 32-byte Ed25519 public key (SPKI: 12-byte header + 32-byte key).
+                // SPKI DER: 12-byte header + 32-byte Ed25519 key.
                 let pem_body: String = resp
                     .pem
                     .lines()
@@ -230,7 +267,7 @@ mod inner {
                 let pk = PublicKey::ED25519(ed25519_pk);
 
                 info!(key = %pk, resource = resource_name, "Retrieved Ed25519 public key from KMS");
-                self.record_success();
+                self.record_mgmt_success();
                 return Ok(pk);
             }
 
@@ -239,8 +276,7 @@ mod inner {
             }))
         }
 
-        /// Sign raw bytes via KMS Ed25519 (PureEdDSA). Returns 64-byte signature.
-        /// Retries on transient errors; respects circuit breaker.
+        /// Sign raw bytes via KMS Ed25519. Returns 64-byte signature.
         pub async fn sign(
             &self,
             resource_name: &str,
@@ -248,11 +284,10 @@ mod inner {
         ) -> Result<Signature, crate::Error> {
             let kms_start = Instant::now();
 
-            // Fail fast if KMS is down
-            if self.is_circuit_open() {
+            if self.is_sign_circuit_open() {
                 METRICS.kms_sign_errors.fetch_add(1, Ordering::Relaxed);
                 return Err(crate::Error::Rpc(
-                    "KMS circuit breaker open — signing unavailable".into(),
+                    "KMS sign circuit breaker open — signing unavailable".into(),
                 ));
             }
 
@@ -277,10 +312,8 @@ mod inner {
                 let token = match self.access_token().await {
                     Ok(t) => t,
                     Err(e) => {
-                        // Only record failure on final attempt to avoid
-                        // prematurely tripping the circuit breaker.
                         if attempt + 1 == KMS_MAX_RETRIES {
-                            self.record_failure();
+                            self.record_sign_failure();
                         }
                         last_err = Some(e);
                         continue;
@@ -298,7 +331,7 @@ mod inner {
                     Ok(r) => r,
                     Err(e) => {
                         if attempt + 1 == KMS_MAX_RETRIES {
-                            self.record_failure();
+                            self.record_sign_failure();
                         }
                         warn!(attempt, error = %e, "KMS sign request failed (retrying)");
                         last_err = Some(crate::Error::Rpc(format!("KMS sign failed: {e}")));
@@ -313,7 +346,7 @@ mod inner {
                         last_err = Some(crate::Error::Rpc(format!("KMS sign HTTP {status}")));
                         continue;
                     }
-                    self.record_failure();
+                    self.record_sign_failure();
                     return Err(crate::Error::Rpc(format!("KMS sign HTTP error: {status}")));
                 }
 
@@ -341,7 +374,7 @@ mod inner {
                     attempt, "KMS Ed25519 signature obtained"
                 );
 
-                self.record_success();
+                self.record_sign_success();
                 METRICS.record_kms_sign_duration(kms_start);
                 return Ok(Signature::ED25519(ed25519_dalek::Signature::from_bytes(
                     &sig_array,
@@ -353,9 +386,7 @@ mod inner {
                 .unwrap_or_else(|| crate::Error::Rpc("KMS sign failed after retries".into())))
         }
 
-        /// Sign a NEAR transaction via KMS.
-        /// Manually serializes → hashes → signs → assembles SignedTransaction
-        /// (bypasses `Transaction::sign()` which requires a local `Signer`).
+        /// Build and sign a NEAR transaction via KMS (serialize → hash → sign).
         pub async fn sign_transaction(
             &self,
             key_ref: &KmsKeyRef,
@@ -383,7 +414,7 @@ mod inner {
             Ok(SignedTransaction::new(signature, tx))
         }
 
-        /// Build a KMS key resource name from components.
+        /// Build a fully-qualified KMS key version resource name.
         pub fn resource_name(
             project: &str,
             location: &str,
@@ -396,7 +427,7 @@ mod inner {
             )
         }
 
-        /// Fetch public key from KMS and associate with a NEAR account.
+        /// Fetch public key from KMS and bind it to a NEAR account.
         pub async fn init_key_ref(
             &self,
             project: &str,
@@ -416,8 +447,8 @@ mod inner {
             })
         }
 
-        /// Create a new Ed25519 key in KMS and return a ready [`KmsKeyRef`].
-        /// Handles 409 (already exists) idempotently. Retries on transient errors.
+        /// Create an Ed25519 key in KMS. Idempotent (409 = already exists).
+        /// Returns immediately on 403 (permanent permission error, no retry).
         pub async fn create_key(
             &self,
             project: &str,
@@ -426,9 +457,9 @@ mod inner {
             key_id: &str,
             account_id: &AccountId,
         ) -> Result<KmsKeyRef, crate::Error> {
-            if self.is_circuit_open() {
+            if self.is_mgmt_circuit_open() {
                 return Err(crate::Error::Rpc(
-                    "KMS circuit breaker open — cannot create key".into(),
+                    "KMS management circuit breaker open — cannot create key".into(),
                 ));
             }
 
@@ -454,7 +485,7 @@ mod inner {
                 let token = match self.access_token().await {
                     Ok(t) => t,
                     Err(e) => {
-                        self.record_failure();
+                        self.record_mgmt_failure();
                         last_err = Some(e);
                         continue;
                     }
@@ -470,7 +501,7 @@ mod inner {
                 {
                     Ok(r) => r,
                     Err(e) => {
-                        self.record_failure();
+                        self.record_mgmt_failure();
                         warn!(attempt, key_id, error = %e, "KMS createKey request failed (retrying)");
                         last_err = Some(crate::Error::Rpc(format!("KMS createKey failed: {e}")));
                         continue;
@@ -479,16 +510,27 @@ mod inner {
 
                 let status = response.status();
                 if status == reqwest::StatusCode::CONFLICT {
-                    // Key already exists — idempotent
                     info!(key_id, "KMS key already exists, fetching public key");
-                    self.record_success();
+                    self.record_mgmt_success();
                     return self
                         .init_key_ref(project, location, keyring, key_id, 1, account_id)
                         .await;
                 }
 
+                if status == reqwest::StatusCode::FORBIDDEN {
+                    self.record_mgmt_failure();
+                    let body_text = response.text().await.unwrap_or_default();
+                    warn!(
+                        key_id,
+                        "KMS createKey permission denied (403) — not retrying"
+                    );
+                    return Err(crate::Error::Rpc(format!(
+                        "KMS createKey HTTP 403 Forbidden: {body_text}"
+                    )));
+                }
+
                 if !status.is_success() {
-                    self.record_failure();
+                    self.record_mgmt_failure();
                     if is_retryable(status) && attempt + 1 < KMS_MAX_RETRIES {
                         warn!(attempt, key_id, status = %status, "KMS createKey transient error (retrying)");
                         last_err = Some(crate::Error::Rpc(format!("KMS createKey HTTP {status}")));
@@ -500,11 +542,8 @@ mod inner {
                     )));
                 }
 
-                // Version 1 is auto-provisioned on creation.
-                self.record_success();
+                self.record_mgmt_success();
                 info!(key_id, "Created new KMS Ed25519 key");
-
-                // Fetch the public key from the newly created version 1
                 return self
                     .init_key_ref(project, location, keyring, key_id, 1, account_id)
                     .await;
