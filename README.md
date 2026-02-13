@@ -1,6 +1,6 @@
 # OnSocial
 
-### A user-owned protocol for the next era of decentralized interactions.
+## Step into control of your social experience.
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
