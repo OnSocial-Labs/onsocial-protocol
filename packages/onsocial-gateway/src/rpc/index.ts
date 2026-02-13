@@ -24,7 +24,7 @@ const network = (config.nearNetwork as Network) || 'testnet';
 export const nearRpc: NearRpc = createNearRpc({
   primaryUrl: config.nearRpcUrl,
   network,
-  onLog: (level, msg, meta) => {
+  onLog: (level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) => {
     logger[level]({ ...meta, component: 'rpc' }, msg);
   },
 });

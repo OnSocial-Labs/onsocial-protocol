@@ -74,7 +74,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm --filter onsocial-gateway build
+        run: pnpm --filter @onsocial/rpc build && pnpm --filter onsocial-gateway build
 
       - name: Setup database
         run: PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/src/db/schema.sql
