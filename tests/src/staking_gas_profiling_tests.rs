@@ -114,7 +114,11 @@ fn gas_to_tgas(gas: Gas) -> u64 {
 
 fn format_gas_report(name: &str, gas: Gas, threshold_tgas: u64) -> String {
     let tgas = gas_to_tgas(gas);
-    let status = if tgas <= threshold_tgas { "✅" } else { "⚠️ " };
+    let status = if tgas <= threshold_tgas {
+        "✅"
+    } else {
+        "⚠️ "
+    };
     format!(
         "{} {:25} {:>4} TGas (threshold: {} TGas)",
         status, name, tgas, threshold_tgas
@@ -141,8 +145,11 @@ async fn gas_profile_storage_deposit() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("storage_deposit", gas, MAX_STORAGE_DEPOSIT_TGAS));
-    
+    println!(
+        "\n{}",
+        format_gas_report("storage_deposit", gas, MAX_STORAGE_DEPOSIT_TGAS)
+    );
+
     assert!(
         gas_to_tgas(gas) <= MAX_STORAGE_DEPOSIT_TGAS,
         "storage_deposit exceeded {} TGas threshold: {} TGas",
@@ -183,7 +190,10 @@ async fn gas_profile_lock_tokens() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("lock_tokens (12 months)", gas, MAX_LOCK_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("lock_tokens (12 months)", gas, MAX_LOCK_TGAS)
+    );
 
     assert!(
         gas_to_tgas(gas) <= MAX_LOCK_TGAS,
@@ -235,7 +245,10 @@ async fn gas_profile_unlock_tokens() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("unlock_tokens", gas, MAX_UNLOCK_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("unlock_tokens", gas, MAX_UNLOCK_TGAS)
+    );
 
     // Note: unlock may fail if time hasn't passed, but we still measure gas
     Ok(())
@@ -279,7 +292,10 @@ async fn gas_profile_extend_lock() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("extend_lock (6→12)", gas, MAX_EXTEND_LOCK_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("extend_lock (6→12)", gas, MAX_EXTEND_LOCK_TGAS)
+    );
 
     assert!(
         gas_to_tgas(gas) <= MAX_EXTEND_LOCK_TGAS,
@@ -328,7 +344,10 @@ async fn gas_profile_renew_lock() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("renew_lock", gas, MAX_RENEW_LOCK_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("renew_lock", gas, MAX_RENEW_LOCK_TGAS)
+    );
 
     assert!(
         gas_to_tgas(gas) <= MAX_RENEW_LOCK_TGAS,
@@ -382,7 +401,10 @@ async fn gas_profile_inject_rewards() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("inject_rewards", gas, MAX_INJECT_REWARDS_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("inject_rewards", gas, MAX_INJECT_REWARDS_TGAS)
+    );
 
     assert!(
         gas_to_tgas(gas) <= MAX_INJECT_REWARDS_TGAS,
@@ -424,7 +446,10 @@ async fn gas_profile_credits_purchase() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("credits_purchase", gas, MAX_LOCK_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("credits_purchase", gas, MAX_LOCK_TGAS)
+    );
 
     Ok(())
 }
@@ -478,7 +503,10 @@ async fn gas_profile_claim_rewards() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("claim_rewards", gas, MAX_CLAIM_REWARDS_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("claim_rewards", gas, MAX_CLAIM_REWARDS_TGAS)
+    );
 
     Ok(())
 }
@@ -525,7 +553,10 @@ async fn gas_profile_withdraw_infra() -> Result<()> {
         .await?;
 
     let gas = result.total_gas_burnt;
-    println!("\n{}", format_gas_report("withdraw_infra", gas, MAX_WITHDRAW_INFRA_TGAS));
+    println!(
+        "\n{}",
+        format_gas_report("withdraw_infra", gas, MAX_WITHDRAW_INFRA_TGAS)
+    );
 
     Ok(())
 }
@@ -557,7 +588,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .deposit(NearToken::from_millinear(5))
         .transact()
         .await?;
-    results.push(("storage_deposit", gas_to_tgas(r.total_gas_burnt), MAX_STORAGE_DEPOSIT_TGAS));
+    results.push((
+        "storage_deposit",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_STORAGE_DEPOSIT_TGAS,
+    ));
 
     // 2. Lock 1 month
     let r = user
@@ -571,7 +606,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    results.push(("lock (1 month)", gas_to_tgas(r.total_gas_burnt), MAX_LOCK_TGAS));
+    results.push((
+        "lock (1 month)",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_LOCK_TGAS,
+    ));
 
     // 3. Extend lock
     let r = user
@@ -580,7 +619,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    results.push(("extend_lock (1→12)", gas_to_tgas(r.total_gas_burnt), MAX_EXTEND_LOCK_TGAS));
+    results.push((
+        "extend_lock (1→12)",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_EXTEND_LOCK_TGAS,
+    ));
 
     // 4. Renew lock
     let r = user
@@ -588,7 +631,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    results.push(("renew_lock", gas_to_tgas(r.total_gas_burnt), MAX_RENEW_LOCK_TGAS));
+    results.push((
+        "renew_lock",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_RENEW_LOCK_TGAS,
+    ));
 
     // 5. Buy credits
     let r = user
@@ -602,7 +649,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    results.push(("credits_purchase", gas_to_tgas(r.total_gas_burnt), MAX_LOCK_TGAS));
+    results.push((
+        "credits_purchase",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_LOCK_TGAS,
+    ));
 
     // 6. Inject rewards
     let r = owner
@@ -616,7 +667,11 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    results.push(("inject_rewards", gas_to_tgas(r.total_gas_burnt), MAX_INJECT_REWARDS_TGAS));
+    results.push((
+        "inject_rewards",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_INJECT_REWARDS_TGAS,
+    ));
 
     // 7. Claim rewards
     let r = user
@@ -624,32 +679,43 @@ async fn gas_profile_all_operations_summary() -> Result<()> {
         .gas(Gas::from_tgas(100))
         .transact()
         .await?;
-    results.push(("claim_rewards", gas_to_tgas(r.total_gas_burnt), MAX_CLAIM_REWARDS_TGAS));
+    results.push((
+        "claim_rewards",
+        gas_to_tgas(r.total_gas_burnt),
+        MAX_CLAIM_REWARDS_TGAS,
+    ));
 
     // Print summary
     println!("\n  Operation                   Gas Used   Threshold   Status");
     println!("  ─────────────────────────────────────────────────────────────");
-    
+
     let mut all_passed = true;
     for (name, gas, threshold) in &results {
-        let status = if *gas <= *threshold { "✅" } else { "⚠️ EXCEEDED" };
+        let status = if *gas <= *threshold {
+            "✅"
+        } else {
+            "⚠️ EXCEEDED"
+        };
         if *gas > *threshold {
             all_passed = false;
         }
-        println!("  {:25} {:>4} TGas    {:>2} TGas    {}", name, gas, threshold, status);
+        println!(
+            "  {:25} {:>4} TGas    {:>2} TGas    {}",
+            name, gas, threshold, status
+        );
     }
 
     println!("  ─────────────────────────────────────────────────────────────");
-    
+
     let total_gas: u64 = results.iter().map(|(_, g, _)| g).sum();
     println!("  Total gas for full flow:    {} TGas", total_gas);
-    
+
     if all_passed {
         println!("\n  ✅ All operations within gas thresholds!");
     } else {
         println!("\n  ⚠️  Some operations exceeded thresholds - review needed");
     }
-    
+
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     Ok(())
@@ -673,7 +739,7 @@ async fn gas_profile_load_test_10_users() -> Result<()> {
 
     let num_users = 10;
     let mut users = Vec::new();
-    
+
     // Create users
     for _ in 0..num_users {
         let user = worker.dev_create_account().await?;
@@ -721,10 +787,7 @@ async fn gas_profile_load_test_10_users() -> Result<()> {
     let max_gas = *lock_gas_samples.iter().max().unwrap();
 
     // Check final state
-    let stats: ContractStats = staking
-        .view("get_stats")
-        .await?
-        .json()?;
+    let stats: ContractStats = staking.view("get_stats").await?.json()?;
 
     println!("\n  ─────────────────────────────────────────────────────────────");
     println!("  Results:");
@@ -737,7 +800,10 @@ async fn gas_profile_load_test_10_users() -> Result<()> {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     // Verify state consistency
-    assert!(avg_gas <= MAX_LOCK_TGAS, "Average gas exceeded threshold under load");
+    assert!(
+        avg_gas <= MAX_LOCK_TGAS,
+        "Average gas exceeded threshold under load"
+    );
 
     Ok(())
 }

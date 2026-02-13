@@ -5367,7 +5367,7 @@ async fn test_rigorous_byte_accounting_across_sources() -> anyhow::Result<()> {
 
     // User account metadata is ~500-600 bytes per sponsored user
     // This is expected and correct behavior
-    assert!(net_change >= 0 && net_change < 1000, 
+    assert!(net_change >= 0 && net_change < 1000,
             "After deleting all data, pool should only have user metadata overhead (~500 bytes), got: {}", net_change);
     println!("   ✓ Remaining bytes are user account metadata (expected)");
 
@@ -8493,7 +8493,7 @@ async fn test_batch_set_for_with_mixed_operations() -> anyhow::Result<()> {
 
     // This MUST fail because settings/ is not authorized
     // After revoking alice/ and only granting profile/ and posts/, settings/ should be blocked
-    assert!(!mixed_batch_result.is_success(), 
+    assert!(!mixed_batch_result.is_success(),
         "Batch with unauthorized settings/ path should fail! Permission system not working correctly.");
     println!("   ✓ Correctly rejected: Batch fails when any path is unauthorized");
 

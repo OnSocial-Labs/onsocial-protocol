@@ -37,11 +37,11 @@ fn build_pool(
     config: relayer::config::ScalingConfig,
 ) -> KeyPool {
     let account: near_primitives::types::AccountId = account_id.parse().unwrap();
-    let admin_signer = near_crypto::InMemorySigner::from_secret_key(
-        account.clone(),
-        admin_secret.clone(),
-    );
-    let admin = RelayerSigner::Local { signer: admin_signer };
+    let admin_signer =
+        near_crypto::InMemorySigner::from_secret_key(account.clone(), admin_secret.clone());
+    let admin = RelayerSigner::Local {
+        signer: admin_signer,
+    };
     let store = KeyStore::new_plaintext("/tmp/relayer_integ_test".into());
     KeyPool::new(
         account,
@@ -101,7 +101,11 @@ async fn test_scale_up_local_registers_keys_on_chain() -> Result<()> {
     // Scale up by 3 keys
     pool.scale_up_local(&rpc, 3).await?;
 
-    assert_eq!(pool.active_count(), 3, "3 keys should be active after scale_up");
+    assert_eq!(
+        pool.active_count(),
+        3,
+        "3 keys should be active after scale_up"
+    );
 
     // Verify keys work: acquire and check nonce
     let guard = pool.acquire()?;
@@ -115,10 +119,7 @@ async fn test_scale_up_local_registers_keys_on_chain() -> Result<()> {
     };
 
     let on_chain = rpc
-        .query_access_key(
-            &relayer.id().as_str().parse()?,
-            &pk1,
-        )
+        .query_access_key(&relayer.id().as_str().parse()?, &pk1)
         .await;
     assert!(on_chain.is_ok(), "key should exist on-chain after scale_up");
 

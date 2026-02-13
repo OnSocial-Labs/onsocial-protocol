@@ -23,11 +23,7 @@ impl KeyPool {
     }
 
     /// Scale up with locally generated keys (non-KMS).
-    pub async fn scale_up_local(
-        &self,
-        rpc: &RpcClient,
-        count: u32,
-    ) -> Result<(), crate::Error> {
+    pub async fn scale_up_local(&self, rpc: &RpcClient, count: u32) -> Result<(), crate::Error> {
         let mut new_keys: Vec<(SecretKey, PublicKey)> = Vec::with_capacity(count as usize);
 
         for _ in 0..count {

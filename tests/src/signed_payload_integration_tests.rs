@@ -1640,7 +1640,11 @@ async fn test_signed_payload_nonce_tracking() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(nonce_after, json!("1"), "Nonce should be 1 after first call");
+    assert_eq!(
+        nonce_after,
+        json!("1"),
+        "Nonce should be 1 after first call"
+    );
 
     // Submit with nonce=2 and verify it increments.
     let action2 = json!({ "type": "set", "data": { "profile/test_nonce2": "value2" } });
@@ -1688,7 +1692,11 @@ async fn test_signed_payload_nonce_tracking() -> anyhow::Result<()> {
         }))
         .await?
         .json()?;
-    assert_eq!(nonce_final, json!("2"), "Nonce should be 2 after second call");
+    assert_eq!(
+        nonce_final,
+        json!("2"),
+        "Nonce should be 2 after second call"
+    );
 
     Ok(())
 }
@@ -2503,7 +2511,11 @@ async fn test_signed_payload_nonce_zero_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
@@ -2516,7 +2528,11 @@ async fn test_signed_payload_nonce_zero_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let action = json!({ "type": "set", "data": { "profile/zero": "should_fail" } });
     let payload = SignedSetPayload {
@@ -2551,7 +2567,10 @@ async fn test_signed_payload_nonce_zero_rejected() -> anyhow::Result<()> {
 
     assert!(!res.is_success(), "Nonce=0 should be rejected");
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+    assert!(
+        err.contains("Nonce too low"),
+        "Expected 'Nonce too low', got: {err}"
+    );
 
     Ok(())
 }
@@ -2577,7 +2596,11 @@ async fn test_signed_payload_nonce_isolation_between_keys() -> anyhow::Result<()
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk_a, pk_a) = make_deterministic_ed25519_keypair();
     let (sk_b, pk_b) = make_deterministic_ed25519_keypair_2();
@@ -2594,7 +2617,11 @@ async fn test_signed_payload_nonce_isolation_between_keys() -> anyhow::Result<()
             .gas(Gas::from_tgas(80))
             .transact()
             .await?;
-        assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+        assert!(
+            res.is_success(),
+            "set_key_permission failed: {:?}",
+            res.failures()
+        );
     }
 
     // Use key A with nonce=5.
@@ -2628,7 +2655,11 @@ async fn test_signed_payload_nonce_isolation_between_keys() -> anyhow::Result<()
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "Key A nonce=5 failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Key A nonce=5 failed: {:?}",
+        res.failures()
+    );
 
     // Key B at nonce=1 should succeed (independent from key A's nonce=5).
     let action_b = json!({ "type": "set", "data": { "profile/kb": "v1" } });
@@ -2661,7 +2692,11 @@ async fn test_signed_payload_nonce_isolation_between_keys() -> anyhow::Result<()
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "Key B nonce=1 should succeed independently: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Key B nonce=1 should succeed independently: {:?}",
+        res.failures()
+    );
 
     // Verify via get_nonce that each key has its own counter.
     let nonce_a: Value = contract
@@ -2702,7 +2737,11 @@ async fn test_signed_payload_nonce_regression_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
@@ -2715,7 +2754,11 @@ async fn test_signed_payload_nonce_regression_rejected() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Succeed at nonce=100.
     let action1 = json!({ "type": "set", "data": { "profile/high": "v1" } });
@@ -2782,9 +2825,15 @@ async fn test_signed_payload_nonce_regression_rejected() -> anyhow::Result<()> {
         .transact()
         .await?;
 
-    assert!(!res.is_success(), "Lower nonce after high nonce should be rejected");
+    assert!(
+        !res.is_success(),
+        "Lower nonce after high nonce should be rejected"
+    );
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+    assert!(
+        err.contains("Nonce too low"),
+        "Expected 'Nonce too low', got: {err}"
+    );
 
     Ok(())
 }
@@ -2818,7 +2867,11 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
 
@@ -2833,7 +2886,11 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "grant key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "grant key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Use nonce=5.
     let action1 = json!({ "type": "set", "data": { "profile/revoke_test": "before_revoke" } });
@@ -2887,7 +2944,11 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "revoke key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "revoke key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Re-grant the same key.
     let res = alice
@@ -2900,7 +2961,11 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "re-grant key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "re-grant key_permission failed: {:?}",
+        res.failures()
+    );
 
     // Nonce should still be 5 after revoke+re-grant.
     let nonce_after_regrant: Value = contract
@@ -2908,7 +2973,11 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .args_json(json!({ "account_id": alice.id(), "public_key": pk_str }))
         .await?
         .json()?;
-    assert_eq!(nonce_after_regrant, json!("5"), "Nonce must survive revoke+re-grant");
+    assert_eq!(
+        nonce_after_regrant,
+        json!("5"),
+        "Nonce must survive revoke+re-grant"
+    );
 
     // Attempting nonce=3 (below old high-water mark) must fail.
     let action2 = json!({ "type": "set", "data": { "profile/revoke_test": "replay_attempt" } });
@@ -2941,9 +3010,15 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(!res.is_success(), "Replay with old nonce after revoke+re-grant must fail");
+    assert!(
+        !res.is_success(),
+        "Replay with old nonce after revoke+re-grant must fail"
+    );
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+    assert!(
+        err.contains("Nonce too low"),
+        "Expected 'Nonce too low', got: {err}"
+    );
 
     // nonce=6 should succeed (strictly greater than old high-water mark).
     let action3 = json!({ "type": "set", "data": { "profile/revoke_test": "after_regrant" } });
@@ -2976,7 +3051,11 @@ async fn test_signed_payload_nonce_survives_key_revocation() -> anyhow::Result<(
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "nonce=6 after revoke+re-grant should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "nonce=6 after revoke+re-grant should succeed: {:?}",
+        res.failures()
+    );
 
     Ok(())
 }
@@ -3003,7 +3082,11 @@ async fn test_signed_payload_nonce_u64_max_is_terminal() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(120))
         .transact()
         .await?;
-    assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "storage deposit failed: {:?}",
+        res.failures()
+    );
 
     let (sk, pk_str) = make_deterministic_ed25519_keypair();
     let res = alice
@@ -3016,7 +3099,11 @@ async fn test_signed_payload_nonce_u64_max_is_terminal() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(80))
         .transact()
         .await?;
-    assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "set_key_permission failed: {:?}",
+        res.failures()
+    );
 
     let max_nonce = u64::MAX;
     let max_nonce_str = max_nonce.to_string();
@@ -3052,7 +3139,11 @@ async fn test_signed_payload_nonce_u64_max_is_terminal() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "nonce=u64::MAX should succeed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "nonce=u64::MAX should succeed: {:?}",
+        res.failures()
+    );
 
     // Verify nonce is recorded as u64::MAX.
     let nonce_val: Value = contract
@@ -3093,9 +3184,15 @@ async fn test_signed_payload_nonce_u64_max_is_terminal() -> anyhow::Result<()> {
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(!res.is_success(), "After u64::MAX, no further nonce should be accepted");
+    assert!(
+        !res.is_success(),
+        "After u64::MAX, no further nonce should be accepted"
+    );
     let err = format!("{:?}", res.failures());
-    assert!(err.contains("Nonce too low"), "Expected 'Nonce too low', got: {err}");
+    assert!(
+        err.contains("Nonce too low"),
+        "Expected 'Nonce too low', got: {err}"
+    );
 
     Ok(())
 }
@@ -3124,7 +3221,11 @@ async fn test_signed_payload_nonce_cross_account_isolation() -> anyhow::Result<(
             .gas(Gas::from_tgas(120))
             .transact()
             .await?;
-        assert!(res.is_success(), "storage deposit failed: {:?}", res.failures());
+        assert!(
+            res.is_success(),
+            "storage deposit failed: {:?}",
+            res.failures()
+        );
     }
 
     // Same key granted to both accounts.
@@ -3140,7 +3241,11 @@ async fn test_signed_payload_nonce_cross_account_isolation() -> anyhow::Result<(
             .gas(Gas::from_tgas(80))
             .transact()
             .await?;
-        assert!(res.is_success(), "set_key_permission failed: {:?}", res.failures());
+        assert!(
+            res.is_success(),
+            "set_key_permission failed: {:?}",
+            res.failures()
+        );
     }
 
     // Alice uses nonce=10.
@@ -3174,7 +3279,11 @@ async fn test_signed_payload_nonce_cross_account_isolation() -> anyhow::Result<(
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "Alice nonce=10 failed: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Alice nonce=10 failed: {:?}",
+        res.failures()
+    );
 
     // Bob uses nonce=1 with the SAME key — should succeed (independent counter).
     let action_b = json!({ "type": "set", "data": { "profile/cross_acct": "bob_val" } });
@@ -3207,7 +3316,11 @@ async fn test_signed_payload_nonce_cross_account_isolation() -> anyhow::Result<(
         .gas(Gas::from_tgas(200))
         .transact()
         .await?;
-    assert!(res.is_success(), "Bob nonce=1 should succeed independently of Alice's nonce=10: {:?}", res.failures());
+    assert!(
+        res.is_success(),
+        "Bob nonce=1 should succeed independently of Alice's nonce=10: {:?}",
+        res.failures()
+    );
 
     // Verify each account's nonce independently.
     let nonce_alice: Value = contract
