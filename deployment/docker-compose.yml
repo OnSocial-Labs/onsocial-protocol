@@ -201,8 +201,11 @@ services:
       GCP_KMS_ADMIN_KEY: admin-key
       GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-3}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
       # Instance 0 uses the original keyring
       GCP_KMS_KEYRING: ${GCP_KMS_KEYRING_0:-relayer-keys-testnet}
+    volumes:
+      - ./secrets/relayer-signer.json:/run/secrets/gcp-sa.json:ro
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3040/ready"]
       interval: 10s

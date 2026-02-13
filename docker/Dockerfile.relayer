@@ -1,5 +1,5 @@
-# Build stage
-FROM rust:slim AS builder
+# Build stage — pin to bookworm so glibc matches runtime
+FROM rust:slim-bookworm AS builder
 WORKDIR /app
 
 # Install OpenSSL dev headers (needed by reqwest/gcp auth)
@@ -12,7 +12,7 @@ COPY packages/relayer/src ./src
 # Build with GCP KMS support for production
 RUN cargo build --release --features gcp --bin relayer
 
-# Runtime stage — non-root, minimal surface
+# Runtime stage — same base as builder for glibc compat
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/* \
     && useradd -r -s /bin/false relayer
