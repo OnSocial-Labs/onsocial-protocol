@@ -14,7 +14,13 @@
 # ---------- API Gateway (sole public surface) ----------
 api.onsocial.id {
 	# 100 req/s per IP — protects infra before requests reach the app
-	rate_limit {remote.ip} 100r/s
+	rate_limit {
+		zone per_ip {
+			key    {remote_host}
+			events 100
+			window 1s
+		}
+	}
 
 	reverse_proxy gateway:8080
 
