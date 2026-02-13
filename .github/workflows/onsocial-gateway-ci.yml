@@ -77,7 +77,7 @@ jobs:
         run: pnpm --filter @onsocial/rpc build && pnpm --filter onsocial-gateway build
 
       - name: Setup database
-        run: PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/src/db/schema.sql
+        run: PGPASSWORD=onsocial psql -h localhost -U onsocial -d onsocial -f packages/onsocial-gateway/migrations/001_api_keys.sql
 
       - name: Start gateway
         run: |
