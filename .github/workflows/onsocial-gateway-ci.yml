@@ -1,4 +1,4 @@
-name: OnSocial Gateway CI
+name: Gateway CI
 
 on:
   push:
