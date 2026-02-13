@@ -94,7 +94,7 @@ jobs:
             set -euo pipefail
             cd /opt/onsocial
 
-            # ── Health check helper ──────────────────────────────────
+            # ── Health check helpers ─────────────────────────────────
             check_health() {
               local name="$1" url="$2" retries="${3:-20}" delay="${4:-3}"
               for i in $(seq 1 "$retries"); do
@@ -107,6 +107,46 @@ jobs:
               done
               echo "  ❌ $name failed after $retries attempts"
               return 1
+            }
+            check_container_health() {
+              local name="$1" svc="$2" url="$3" retries="${4:-20}" delay="${5:-3}"
+              for i in $(seq 1 "$retries"); do
+                if docker compose exec -T "$svc" wget -qO- "$url" > /dev/null 2>&1; then
+                  echo "  ✅ $name healthy (attempt $i/$retries)"
+                  return 0
+                fi
+                echo "  ⏳ $name not ready ($i/$retries)..."
+                sleep "$delay"
+              done
+              echo "  ❌ $name failed after $retries attempts"
+              return 1
+            }
+            check_container_health() {
+              local name="$1" service="$2" url="$3" retries="${4:-20}" delay="${5:-3}"
+              for i in $(seq 1 "$retries"); do
+                if docker compose exec -T "$service" wget -qO- "$url" > /dev/null 2>&1; then
+                  echo "  ✅ $name healthy (attempt $i/$retries)"
+                  return 0
+                fi
+                echo "  ⏳ $name not ready ($i/$retries)..."
+                sleep "$delay"
+              done
+              echo "  ❌ $name failed after $retries attempts"
+              return 1
+            }
+
+            # ── Rollback helper (skips if no previous tag) ───────────
+            rollback() {
+              local services="$1"
+              if [ "$PREV_TAG" = "unknown" ]; then
+                echo "⚠️  No previous tag — cannot rollback, just restarting current"
+                docker compose up -d --no-deps $services
+              else
+                echo "IMAGE_TAG=$PREV_TAG" > .env.image
+                set -a && source .env.production && source .env.image && set +a
+                docker compose pull $services || true
+                docker compose up -d --no-deps $services
+              fi
             }
 
             # ── Save previous tag for rollback ───────────────────────
@@ -126,9 +166,7 @@ jobs:
             docker compose up -d --no-deps relayer-1
             if ! check_health "relayer-1" "http://localhost:3040/ready" 20 3; then
               echo "❌ relayer-1 health check failed — rolling back"
-              echo "IMAGE_TAG=$PREV_TAG" > .env.image
-              set -a && source .env.production && source .env.image && set +a
-              docker compose up -d --no-deps relayer-1
+              rollback "relayer-1"
               exit 1
             fi
 
@@ -139,11 +177,9 @@ jobs:
             # ── Gateway restart → verify → then Caddy ────────────────
             echo "Rolling gateway..."
             docker compose up -d --no-deps gateway
-            if ! check_health "gateway" "http://localhost:8080/health" 20 3; then
+            if ! check_container_health "gateway" "gateway" "http://localhost:8080/health" 20 3; then
               echo "❌ Gateway health check failed — rolling back"
-              echo "IMAGE_TAG=$PREV_TAG" > .env.image
-              set -a && source .env.production && source .env.image && set +a
-              docker compose up -d --no-deps gateway relayer-0 relayer-1
+              rollback "gateway relayer-0 relayer-1"
               exit 1
             fi
 
