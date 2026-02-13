@@ -142,6 +142,7 @@ services:
       STAKING_CONTRACT: ${STAKING_CONTRACT:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       RELAYER_URL: http://relayer-lb:3040
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
       hasura:
