@@ -1,0 +1,98 @@
+name: Monitor Relayer Balance
+
+on:
+  schedule:
+    # Every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      threshold_testnet:
+        description: 'Minimum NEAR balance for testnet relayer'
+        default: '5'
+      threshold_mainnet:
+        description: 'Minimum NEAR balance for mainnet relayer'
+        default: '20'
+
+env:
+  NEAR_TESTNET_RPC: https://test.rpc.fastnear.com
+  NEAR_MAINNET_RPC: https://free.rpc.fastnear.com
+  RELAYER_TESTNET: relayer.onsocial.testnet
+  RELAYER_MAINNET: relayer.onsocial.near
+  MIN_BALANCE_TESTNET: ${{ inputs.threshold_testnet || '5' }}
+  MIN_BALANCE_MAINNET: ${{ inputs.threshold_mainnet || '20' }}
+
+jobs:
+  check-balance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query relayer balances
+        id: balance
+        run: |
+          get_balance() {
+            local rpc_url=$1 account_id=$2
+            local resp amount
+            resp=$(curl -sf --max-time 15 "$rpc_url" \
+              -H 'Content-Type: application/json' \
+              -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"view_account\",\"finality\":\"final\",\"account_id\":\"$account_id\"}}")
+            amount=$(echo "$resp" | jq -r '.result.amount // empty')
+            [ -z "$amount" ] && echo "ERROR" && return 1
+            python3 -c "print(f'{int(\"$amount\") / 1e24:.4f}')"
+          }
+
+          TESTNET_BAL=$(get_balance "$NEAR_TESTNET_RPC" "$RELAYER_TESTNET")
+          MAINNET_BAL=$(get_balance "$NEAR_MAINNET_RPC" "$RELAYER_MAINNET")
+
+          echo "testnet_balance=$TESTNET_BAL" >> "$GITHUB_OUTPUT"
+          echo "mainnet_balance=$MAINNET_BAL" >> "$GITHUB_OUTPUT"
+
+          echo "### Relayer Balances" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Network | Account | Balance | Threshold |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|---------|-----------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Testnet | \`$RELAYER_TESTNET\` | $TESTNET_BAL NEAR | $MIN_BALANCE_TESTNET NEAR |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Mainnet | \`$RELAYER_MAINNET\` | $MAINNET_BAL NEAR | $MIN_BALANCE_MAINNET NEAR |" >> "$GITHUB_STEP_SUMMARY"
+
+          ALERTS=""
+          if [ "$TESTNET_BAL" = "ERROR" ]; then
+            ALERTS="${ALERTS}❓ Could not query testnet relayer balance\n"
+          elif python3 -c "exit(0 if float('$TESTNET_BAL') < float('$MIN_BALANCE_TESTNET') else 1)"; then
+            ALERTS="${ALERTS}⚠️ Testnet relayer: $TESTNET_BAL NEAR (< $MIN_BALANCE_TESTNET threshold)\n"
+          fi
+
+          if [ "$MAINNET_BAL" = "ERROR" ]; then
+            ALERTS="${ALERTS}❓ Could not query mainnet relayer balance\n"
+          elif python3 -c "exit(0 if float('$MAINNET_BAL') < float('$MIN_BALANCE_MAINNET') else 1)"; then
+            ALERTS="${ALERTS}⚠️ Mainnet relayer: $MAINNET_BAL NEAR (< $MIN_BALANCE_MAINNET threshold)\n"
+          fi
+
+          if [ -n "$ALERTS" ]; then
+            echo "alerts<<EOF" >> "$GITHUB_OUTPUT"
+            echo -e "$ALERTS" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### ⚠️ Alerts" >> "$GITHUB_STEP_SUMMARY"
+            echo -e "$ALERTS" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Notify Telegram (low balance)
+        if: steps.balance.outputs.alerts != ''
+        run: |
+          TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+          [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
+
+          ALERTS="${{ steps.balance.outputs.alerts }}"
+          TEXT="🚨 *Relayer Balance Alert*
+
+          ${ALERTS}
+          💰 Top up:
+          \`near send <account> relayer.onsocial.testnet <amount> --networkId testnet\`
+          \`near send <account> relayer.onsocial.near <amount> --networkId mainnet\`
+
+          [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          # Collapse whitespace from heredoc indentation
+          TEXT=$(echo "$TEXT" | sed 's/^          //g')
+
+          curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d "{\"chat_id\": \"$CHAT_ID\", \"text\": \"$TEXT\", \"parse_mode\": \"Markdown\"}" || true

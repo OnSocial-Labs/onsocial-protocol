@@ -22,6 +22,20 @@ GATEWAY_HOST="${GATEWAY_URL:-https://api.onsocial.id}"
 HETZNER_SERVER="${HETZNER_IP:-135.181.110.183}"
 DISCORD_WEBHOOK="${DISCORD_WEBHOOK_URL:-}"
 SLACK_WEBHOOK="${SLACK_WEBHOOK_URL:-}"
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+
+# NEAR RPC endpoints
+NEAR_TESTNET_RPC="https://test.rpc.fastnear.com"
+NEAR_MAINNET_RPC="https://free.rpc.fastnear.com"
+
+# Relayer accounts
+RELAYER_TESTNET="relayer.onsocial.testnet"
+RELAYER_MAINNET="relayer.onsocial.near"
+
+# Minimum balance thresholds (in NEAR)
+RELAYER_MIN_BALANCE_TESTNET="${RELAYER_MIN_BALANCE_TESTNET:-5}"
+RELAYER_MIN_BALANCE_MAINNET="${RELAYER_MIN_BALANCE_MAINNET:-20}"
 
 # Timestamp
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
@@ -113,6 +127,70 @@ send_alert() {
             -d "{\"text\":\"🚨 OnSocial Alert: $message\"}" \
             > /dev/null 2>&1
     fi
+
+    # Telegram bot
+    if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+        local text
+        text=$(echo "$message" | sed 's/"/\\"/g')
+        curl -sf -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d "{\"chat_id\": \"$TELEGRAM_CHAT_ID\", \"text\": \"🚨 *OnSocial Alert*\n${text}\", \"parse_mode\": \"Markdown\"}" \
+            > /dev/null 2>&1 || true
+    fi
+}
+
+# Function to get NEAR account balance in NEAR (decimal)
+get_near_balance() {
+    local rpc_url=$1
+    local account_id=$2
+
+    local response
+    response=$(curl -s --max-time 10 "$rpc_url" \
+        -H 'Content-Type: application/json' \
+        -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"view_account\",\"finality\":\"final\",\"account_id\":\"$account_id\"}}" 2>/dev/null)
+
+    local amount
+    amount=$(echo "$response" | grep -o '"amount":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    if [ -z "$amount" ]; then
+        echo "ERROR"
+        return 1
+    fi
+
+    # Convert yoctoNEAR to NEAR (divide by 1e24)
+    python3 -c "print(f'{int(\"$amount\") / 1e24:.2f}')" 2>/dev/null || echo "ERROR"
+}
+
+# Function to check relayer balance
+check_relayer_balance() {
+    local name=$1
+    local rpc_url=$2
+    local account_id=$3
+    local min_balance=$4
+
+    echo -n "Checking $name balance ($account_id)... "
+
+    local balance
+    balance=$(get_near_balance "$rpc_url" "$account_id")
+
+    if [ "$balance" = "ERROR" ]; then
+        echo -e "${RED}✗ FAILED${NC} (could not query balance)"
+        FAILURES=$((FAILURES + 1))
+        return 1
+    fi
+
+    local is_low
+    is_low=$(python3 -c "print('LOW' if float('$balance') < float('$min_balance') else 'OK')" 2>/dev/null)
+
+    if [ "$is_low" = "LOW" ]; then
+        echo -e "${RED}✗ LOW${NC} ($balance NEAR < $min_balance NEAR threshold)"
+        FAILURES=$((FAILURES + 1))
+        BALANCE_ALERTS="${BALANCE_ALERTS}⚠️ $name: $balance NEAR (threshold: $min_balance NEAR)\n"
+        return 1
+    else
+        echo -e "${GREEN}✓ OK${NC} ($balance NEAR)"
+        return 0
+    fi
 }
 
 # Run checks
@@ -161,6 +239,13 @@ else
 fi
 echo ""
 
+echo "4. Relayer Balance Checks"
+echo "-------------------------"
+BALANCE_ALERTS=""
+check_relayer_balance "Relayer (testnet)" "$NEAR_TESTNET_RPC" "$RELAYER_TESTNET" "$RELAYER_MIN_BALANCE_TESTNET"
+check_relayer_balance "Relayer (mainnet)" "$NEAR_MAINNET_RPC" "$RELAYER_MAINNET" "$RELAYER_MIN_BALANCE_MAINNET"
+echo ""
+
 # Summary
 echo "========================================"
 if [ $FAILURES -eq 0 ]; then
@@ -169,8 +254,11 @@ if [ $FAILURES -eq 0 ]; then
 else
     echo -e "${RED}✗ $FAILURES check(s) failed${NC}"
     
-    # Send alert
+    # Build alert message
     ALERT_MSG="Production health check failed at $TIMESTAMP. $FAILURES service(s) down."
+    if [ -n "$BALANCE_ALERTS" ]; then
+        ALERT_MSG="$ALERT_MSG\n\n💰 Low Relayer Balance:\n$BALANCE_ALERTS\nTop up with: near send <funded-account> <relayer-account> <amount> --networkId <network>"
+    fi
     send_alert "$ALERT_MSG"
     
     exit 1
