@@ -15,7 +15,9 @@ path = "src/lib.rs"
 # Web framework
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.6", features = ["trace", "cors"] }
+tokio-util = "0.7"
+tower = { version = "0.5", features = ["limit", "timeout"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "timeout"] }
 
 # NEAR SDK
 near-crypto = "0.30"
@@ -40,6 +42,16 @@ aes-gcm = "0.10"
 rand = "0.8"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 base64 = "0.22"
+subtle = "2.6"
+
+# HTTP client for KMS
+reqwest = { version = "0.12", features = ["json"], optional = true }
+
+# GCP KMS (Ed25519 signing in HSM — no private keys on server)
+google-cloud-auth = { version = "1.5", optional = true }
+
+[features]
+default = []
+gcp = ["google-cloud-auth", "reqwest"]
 
 [dev-dependencies]
-mockall = "0.14"

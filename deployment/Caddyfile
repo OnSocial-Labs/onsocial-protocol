@@ -1,70 +1,37 @@
 # OnSocial Production Caddyfile
-# Auto-TLS via Let's Encrypt for all domains
+# Auto-TLS via Let's Encrypt
 #
-# DNS records required (A records → your Hetzner IP):
+# SINGLE PUBLIC ENTRY POINT — only the API gateway is exposed.
+# Hasura, Relay, and Postgres are internal-only (Docker network).
+# Admin access: SSH tunnel to the server for Hasura Console or Postgres.
+#
+#   ssh -L 8080:localhost:8080 your-server   # Hasura Console
+#   ssh -L 5432:localhost:5432 your-server   # Postgres
+#
+# DNS record required (A record → server IP):
 #   api.onsocial.id
-#   hasura.onsocial.id
-#   relay.onsocial.id
 
-# ---------- API Gateway ----------
+# ---------- API Gateway (sole public surface) ----------
 api.onsocial.id {
+	# 100 req/s per IP — protects infra before requests reach the app
+	rate_limit {remote.ip} 100r/s
+
 	reverse_proxy gateway:8080
 
-	# Security headers
 	header {
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 		-Server
 	}
 
-	# Request size limit (10MB — for Lighthouse uploads)
 	request_body {
 		max_size 10MB
 	}
 
 	log {
 		output file /data/logs/gateway.log {
-			roll_size 50MB
-			roll_keep 5
-		}
-	}
-}
-
-# ---------- Hasura GraphQL ----------
-hasura.onsocial.id {
-	reverse_proxy hasura:8080
-
-	header {
-		X-Content-Type-Options "nosniff"
-		-Server
-	}
-
-	log {
-		output file /data/logs/hasura.log {
-			roll_size 50MB
-			roll_keep 5
-		}
-	}
-}
-
-# ---------- Relayer ----------
-relay.onsocial.id {
-	reverse_proxy relayer:3040
-
-	header {
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
-		-Server
-	}
-
-	# Relayer requests are small
-	request_body {
-		max_size 1MB
-	}
-
-	log {
-		output file /data/logs/relayer.log {
 			roll_size 50MB
 			roll_keep 5
 		}

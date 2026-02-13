@@ -1,10 +1,9 @@
 // src/core/types.ts
 // Core types for @onsocial/client
 
-/**
- * Supported NEAR networks
- */
-export type Network = 'mainnet' | 'testnet';
+import { FALLBACK_RPC_URLS, type Network } from '@onsocial/rpc';
+
+export type { Network } from '@onsocial/rpc';
 
 /**
  * Network configuration
@@ -30,13 +29,13 @@ export interface NetworkConfig {
 export const NETWORKS: Record<Network, NetworkConfig> = {
   mainnet: {
     networkId: 'mainnet',
-    rpcUrl: 'https://near.lava.build',
+    rpcUrl: FALLBACK_RPC_URLS.mainnet,
     contractId: 'core.onsocial.near',
     hasuraUrl: 'https://hasura.onsocial.id/v1/graphql',
   },
   testnet: {
     networkId: 'testnet',
-    rpcUrl: 'https://neart.lava.build',
+    rpcUrl: FALLBACK_RPC_URLS.testnet,
     contractId: 'core.onsocial.testnet',
     hasuraUrl: 'https://hasura.onsocial.id/v1/graphql',
   },

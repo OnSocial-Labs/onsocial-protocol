@@ -1,0 +1,181 @@
+name: Deploy Testnet
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/relayer/**'
+      - 'packages/onsocial-gateway/**'
+      - 'packages/onsocial-rpc/**'
+      - 'docker/**'
+      - 'deployment/**'
+      - '.github/workflows/deploy-testnet.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ── Build & push Docker images to GHCR ──────────────────────────────
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: caddy
+            dockerfile: docker/Dockerfile.caddy
+            context: docker
+          - image: gateway
+            dockerfile: docker/Dockerfile.gateway
+            context: .
+          - image: relayer
+            dockerfile: docker/Dockerfile.relayer
+            context: .
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy to testnet server ─────────────────────────────────────────
+  deploy:
+    name: Deploy to Testnet
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testnet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 135.181.110.183
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/onsocial
+
+            # ── Health check helper ──────────────────────────────────
+            check_health() {
+              local name="$1" url="$2" retries="${3:-20}" delay="${4:-3}"
+              for i in $(seq 1 "$retries"); do
+                if curl -sf --max-time 5 "$url" > /dev/null 2>&1; then
+                  echo "  ✅ $name healthy (attempt $i/$retries)"
+                  return 0
+                fi
+                echo "  ⏳ $name not ready ($i/$retries)..."
+                sleep "$delay"
+              done
+              echo "  ❌ $name failed after $retries attempts"
+              return 1
+            }
+
+            # ── Save previous tag for rollback ───────────────────────
+            PREV_TAG="unknown"
+            [ -f .env.image ] && PREV_TAG=$(grep IMAGE_TAG .env.image | cut -d= -f2)
+            echo "Previous tag: $PREV_TAG"
+
+            # ── Set new image tag ────────────────────────────────────
+            echo "IMAGE_TAG=${{ steps.sha.outputs.short }}" > .env.image
+            set -a && source .env.production && source .env.image && set +a
+
+            # ── Pull new images ──────────────────────────────────────
+            docker compose pull caddy gateway relayer-0 relayer-1
+
+            # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
+            echo "Rolling relayer-1..."
+            docker compose up -d --no-deps relayer-1
+            if ! check_health "relayer-1" "http://localhost:3040/ready" 20 3; then
+              echo "❌ relayer-1 health check failed — rolling back"
+              echo "IMAGE_TAG=$PREV_TAG" > .env.image
+              set -a && source .env.production && source .env.image && set +a
+              docker compose up -d --no-deps relayer-1
+              exit 1
+            fi
+
+            echo "Rolling relayer-0..."
+            docker compose up -d --no-deps relayer-0
+            sleep 10  # let relayer-0 stabilize (relayer-1 serves traffic)
+
+            # ── Gateway restart → verify → then Caddy ────────────────
+            echo "Rolling gateway..."
+            docker compose up -d --no-deps gateway
+            if ! check_health "gateway" "http://localhost:8080/health" 20 3; then
+              echo "❌ Gateway health check failed — rolling back"
+              echo "IMAGE_TAG=$PREV_TAG" > .env.image
+              set -a && source .env.production && source .env.image && set +a
+              docker compose up -d --no-deps gateway relayer-0 relayer-1
+              exit 1
+            fi
+
+            echo "Reloading caddy..."
+            docker compose up -d --no-deps caddy
+            if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
+              echo "⚠️  Public health check failed — services may still be starting"
+            fi
+
+            # ── Bring up any remaining services ──────────────────────
+            docker compose up -d
+
+            echo ""
+            docker compose ps --format "table {{.Name}}\t{{.Status}}"
+            echo ""
+            echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"
+
+      - name: Notify deploy result
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          SHA="${{ steps.sha.outputs.short }}"
+          TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+          [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅" MSG="Testnet deploy succeeded"
+          else
+            EMOJI="❌" MSG="Testnet deploy FAILED"
+          fi
+          TEXT="$EMOJI *$MSG* — \`$SHA\` [run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d "{\"chat_id\": \"$CHAT_ID\", \"text\": \"$TEXT\", \"parse_mode\": \"Markdown\"}" || true

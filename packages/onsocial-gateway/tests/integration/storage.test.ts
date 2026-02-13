@@ -1,24 +1,8 @@
-// tests/storage.integration.test.ts
+// tests/integration/storage.test.ts
 // Integration tests for gateway storage endpoints
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { GATEWAY_URL } from './setup.js';
-
-// Helper to get auth token
-async function getAuthToken(): Promise<string> {
-  const loginRes = await fetch(`${GATEWAY_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      accountId: 'test.near',
-      message: 'OnSocial Auth: 1706000000',
-      signature: 'test-signature',
-      publicKey: 'ed25519:test',
-    }),
-  });
-  const data = await loginRes.json();
-  return data.token;
-}
+import { GATEWAY_URL, getAuthToken } from './setup.js';
 
 describe('Storage Endpoints', () => {
   let testCid: string;

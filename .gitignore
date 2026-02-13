@@ -30,6 +30,9 @@ target/
 keys/
 configs/keys/
 **/account_keys/
+*.pem
+*.key
+!package.json
 
 # Temporary and sandbox data
 tmp/
@@ -124,5 +127,7 @@ packages/**/*.md
 
 *.spkg
 
-# Production secrets
+# Production secrets (generated — never commit)
 deployment/.env.production
+deployment/.Caddyfile.generated
+.env.secrets

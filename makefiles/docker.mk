@@ -85,7 +85,6 @@ define docker_run_contracts_network
 		-e FT_ACCOUNT=$(FT_ACCOUNT) \
 		-e RELAYER_ACCOUNT=$(RELAYER_ACCOUNT) \
 		-e NEAR_NODE_URL=$(NEAR_NODE_URL) \
-		$(if $(2),-e PRIVATE_KEY_FILE=$(2)) \
 		-e CONTRACT_NAME=$(CONTRACT_NAME) \
 		-e INIT=$(INIT) \
 		-e REPRODUCIBLE=$(REPRODUCIBLE) \

@@ -1,0 +1,55 @@
+name: Relayer CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/relayer/**'
+      - 'crates/**'
+      - '.github/workflows/relayer-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/relayer/**'
+      - 'crates/**'
+      - '.github/workflows/relayer-ci.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: Clippy, Format & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/relayer/target
+          key: relayer-${{ runner.os }}-cargo-${{ hashFiles('packages/relayer/Cargo.lock') }}
+          restore-keys: relayer-${{ runner.os }}-cargo-
+
+      - name: Clippy (all features)
+        working-directory: packages/relayer
+        run: cargo clippy --features gcp --all-targets -- -D warnings
+
+      - name: Format check
+        working-directory: packages/relayer
+        run: cargo fmt -- --check
+
+      - name: Unit tests
+        working-directory: packages/relayer
+        run: cargo test --lib --bins

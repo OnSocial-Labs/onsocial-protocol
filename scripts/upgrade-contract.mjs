@@ -72,8 +72,8 @@ async function main() {
   
   const nodeUrl = process.env.NEAR_RPC_URL
     || (network === 'mainnet'
-      ? 'https://near.lava.build'
-      : 'https://neart.lava.build');
+      ? 'https://free.rpc.fastnear.com'
+      : 'https://test.rpc.fastnear.com');
   
   const provider = new JsonRpcProvider({ url: nodeUrl });
 

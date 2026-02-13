@@ -10,6 +10,7 @@ path = "src/mod.rs"
 near-sdk = { workspace = true, features = ["unit-testing"] }
 near-workspaces = { workspace = true }
 near-crypto = { workspace = true }
+near-primitives = { workspace = true }
 borsh = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }
@@ -21,3 +22,4 @@ bs58 = { workspace = true }
 sha2 = { workspace = true }
 xxhash-rust = { workspace = true, features = ["xxh3"] }
 serde = { workspace = true, features = ["derive"] }
+relayer = { path = "../packages/relayer" }

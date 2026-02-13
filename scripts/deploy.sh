@@ -21,7 +21,6 @@ log_info() {
 
 # Parse Makefile-style environment variables for unified interface
 parse_makefile_params() {
-  # Support Makefile parameter style (INIT=1, REPRODUCIBLE=1, DRY_RUN=1)
   if [ "$INIT" = "1" ]; then
     DEPLOY_MODE="init"
     log_info "Makefile mode: Deploy with initialization (INIT=1)"
@@ -34,47 +33,6 @@ parse_makefile_params() {
   else
     DEPLOY_MODE="standard"
     log_info "Makefile mode: Standard deployment"
-  fi
-}
-
-# Setup secure credentials if using key file
-setup_secure_credentials() {
-  if [ -n "$PRIVATE_KEY_FILE" ]; then
-    log_info "Setting up secure credentials from key file: $PRIVATE_KEY_FILE"
-    
-    # Validate key file exists
-    [ ! -f "$PRIVATE_KEY_FILE" ] && handle_error "Private key file not found: $PRIVATE_KEY_FILE"
-    
-    # Validate key file format
-    if ! jq -e '.account_id and .public_key and .private_key' "$PRIVATE_KEY_FILE" >/dev/null 2>&1; then
-      handle_error "Invalid key file format. Must contain account_id, public_key, and private_key fields"
-    fi
-    
-    # Get account from key file
-    local key_account
-    key_account=$(jq -r '.account_id' "$PRIVATE_KEY_FILE")
-    log_info "Using key file for account: $key_account"
-    
-    # Create temporary credentials directory
-    TEMP_CREDS_DIR=$(mktemp -d)
-    # Set trap to cleanup on exit
-    trap "rm -rf $TEMP_CREDS_DIR" EXIT
-    
-    mkdir -p "$TEMP_CREDS_DIR/$NETWORK"
-    cp "$PRIVATE_KEY_FILE" "$TEMP_CREDS_DIR/$NETWORK/$key_account.json"
-    
-    # Override NEAR credentials directory
-    export NEAR_CREDENTIALS_DIR="$TEMP_CREDS_DIR"
-    
-    # Update AUTH_ACCOUNT to use the key file account if not explicitly set
-    if [ -z "$DEPLOY_ACCOUNT_OVERRIDE" ]; then
-      export AUTH_ACCOUNT="$key_account"
-      log_info "Using deployer account from key file: $AUTH_ACCOUNT"
-    fi
-    
-    log_info "Temporary credentials directory: $TEMP_CREDS_DIR"
-  else
-    log_info "Using NEAR CLI default credentials from ~/.near-credentials"
   fi
 }
 
@@ -102,52 +60,36 @@ COMMANDS:
     init --contract <name>          Deploy and initialize contract
     help                           Show this help message
 
-OPTIONS:
-    --use-key-file                 Use private key file (set PRIVATE_KEY_FILE env var)
-
 ENVIRONMENT VARIABLES:
     NETWORK                        Target network (sandbox/testnet/mainnet)
     AUTH_ACCOUNT                   Account ID for deployment
     FT_ACCOUNT                     Account ID for FT wrapper
     RELAYER_ACCOUNT               Account ID for relayer
     NEAR_NODE_URL                 NEAR node URL
-    PRIVATE_KEY_FILE              Path to private key file (JSON format)
     VERBOSE                       Enable verbose output (0/1)
     DRY_RUN                       Enable dry-run mode (0/1)
 
+CREDENTIALS:
+    Uses ~/.near-credentials/ (standard NEAR CLI credential store).
+    Login with: near login --networkId testnet
+
 EXAMPLES:
-    # Deploy using NEAR CLI credentials
+    # Deploy using NEAR CLI credentials (~/.near-credentials)
     ./deploy.sh --contract core-onsocial
 
     # Deploy and initialize
     ./deploy.sh --contract core-onsocial init
 
-    # Deploy using private key file
-    PRIVATE_KEY_FILE=./configs/keys/deployer.testnet.json ./deploy.sh --contract core-onsocial
-
     # Dry run deployment
     DRY_RUN=1 ./deploy.sh --contract core-onsocial
-
-KEY FILE FORMAT:
-    {
-        "account_id": "your-account.testnet",
-        "public_key": "ed25519:...",
-        "private_key": "ed25519:..."
-    }
 
 EOF
     exit 0
 fi
 
-# Validate .env file based on NETWORK
+# Validate NETWORK is set and valid
 case "$NETWORK" in
-  mainnet)
-    [ -f .env.mainnet ] || handle_error ".env.mainnet not found"
-    ;;
-  testnet)
-    [ -f .env.testnet ] || handle_error ".env.testnet not found"
-    ;;
-  sandbox)
+  mainnet|testnet|sandbox)
     [ -f .env ] || handle_error ".env not found"
     ;;
   *)
@@ -173,8 +115,7 @@ deploy_contract() {
   [ -z "$NETWORK" ] && handle_error "NETWORK not set"
   [ -z "$AUTH_ACCOUNT" ] && handle_error "AUTH_ACCOUNT not set"
 
-  # Setup secure credentials if using key file
-  setup_secure_credentials
+  log_info "Using credentials from ~/.near-credentials"
 
   # Get contract configuration from configs/contracts.json
   local contract_config
@@ -279,7 +220,6 @@ case "$DEPLOY_MODE" in
     [ "$1" = "--contract" ] && shift
     contract="$1"
     build_type="non-reproducible-wasm"
-    [ "$2" = "--use-key-file" ] && shift  # Support --use-key-file flag from Makefile
     deploy_contract "$contract" "$build_type" "init"
     ;;
   reproducible)
@@ -293,7 +233,6 @@ case "$DEPLOY_MODE" in
     [ "$1" = "--contract" ] && shift
     contract="$1"
     build_type="non-reproducible-wasm"
-    [ "$2" = "--use-key-file" ] && shift  # Support --use-key-file flag from Makefile
     deploy_contract "$contract" "$build_type" "init"
     ;;
   standard)
@@ -303,7 +242,6 @@ case "$DEPLOY_MODE" in
     init=""
     build_type="non-reproducible-wasm"
     [ "$2" = "init" ] && init="init"
-    [ "$2" = "--use-key-file" ] && shift  # Support --use-key-file flag from Makefile
     deploy_contract "$contract" "$build_type" "$init"
     ;;
   *)

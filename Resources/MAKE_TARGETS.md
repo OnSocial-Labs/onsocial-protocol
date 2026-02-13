@@ -198,15 +198,7 @@ make test-all-contracts  # Run all tests
 | `cache-clean` | Clean build caches |
 | `cache-status` | Show cache status |
 
-### 🔐 **Deployment Key Management**
-
-| Target | Description |
-|--------|-------------|
-| `setup-deployment-keys` | Setup secure deployment keys |
-| `list-deployment-keys` | List available deployment keys |
-| `validate-deployment-key` | Validate deployment key file (use KEY_FILE=path) |
-
-### 📚 **Help and Information**
+###  **Help and Information**
 
 | Target | Description |
 |--------|-------------|
@@ -223,7 +215,16 @@ VERBOSE=1               # Enable verbose output
 DRY_RUN=1               # Simulate operations without changes
 INIT=1                  # Deploy with initialization
 REPRODUCIBLE=1          # Use reproducible builds
-KEY_FILE=path/to/key    # Use specific deployment key
+```
+
+#### Credentials
+All deployments use `~/.near-credentials/` (the standard NEAR CLI credential store).
+```bash
+# Login to testnet
+near login --networkId testnet
+
+# Login to mainnet
+near login --networkId mainnet
 ```
 
 #### Deployment Examples
@@ -233,9 +234,6 @@ make deploy-contract-social-onsocial NETWORK=testnet
 
 # Deploy with initialization
 make deploy-contract-social-onsocial NETWORK=testnet INIT=1
-
-# Deploy with specific key file
-make deploy-contract-social-onsocial NETWORK=testnet KEY_FILE=./configs/keys/deployer.testnet.json
 
 # Reproducible WASM deployment
 make deploy-contract-social-onsocial NETWORK=testnet REPRODUCIBLE=1
@@ -267,19 +265,12 @@ make cache-clean                      # Clear all caches
 
 ## 🔐 **Security Best Practices**
 
-### Deployment Keys
-- Use `KEY_FILE` for secure deployments
-- Store keys in `./configs/keys/`
+### Deployment Credentials
+- Use `~/.near-credentials/` — the standard NEAR CLI credential store
+- Login per network: `near login --networkId testnet`
 - Never commit private keys to version control
-- Use separate keys per network environment
-
-### Recommended Key Structure
-```
-./configs/keys/
-├── deployer.testnet.json
-├── deployer.mainnet.json
-└── test-deployer.testnet.json
-```
+- Use separate NEAR accounts per network environment
+- For CI/CD, set `NEAR_CREDENTIALS_DIR` to point to a secure location
 
 ## 📁 **File Structure**
 
@@ -314,7 +305,6 @@ makefiles/
 
 3. **Deployment Preparation**
    ```bash
-   make setup-deployment-keys
    make deploy-contract-<name> NETWORK=testnet DRY_RUN=1
    ```
 

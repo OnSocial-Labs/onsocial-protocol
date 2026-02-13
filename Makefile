@@ -46,77 +46,46 @@ lint: lint-all-contracts lint-all-js lint-relayer
 	$(call log_complete,All linting completed)
 
 # =============================================================================
-# DEPLOYMENT KEY MANAGEMENT
+# PRODUCTION DEPLOYMENT
 # =============================================================================
-.PHONY: setup-deployment-keys
-setup-deployment-keys:
-	@$(call log_start,Setting up secure deployment keys)
-	@echo ""
-	@echo "$(WARNING)IMPORTANT: Deployment keys should be kept secure and never committed to git$(RESET)"
-	@echo ""
-	@mkdir -p $(KEYS_DIR)
-	@echo "$(INFO)Created keys directory: $(KEYS_DIR)$(RESET)"
-	@echo ""
-	@echo "$(INFO)To create a deployment key:$(RESET)"
-	@echo "1. Generate a new NEAR account key pair"
-	@echo "2. Save it as: $(KEYS_DIR)/deployer.NETWORK.json"
-	@echo "3. Format: {\"account_id\": \"your.account\", \"public_key\": \"ed25519:...\", \"private_key\": \"ed25519:...\"}"
-	@echo ""
-	@echo "$(INFO)Example key files:$(RESET)"
-	@echo "  $(KEYS_DIR)/deployer.testnet.json"
-	@echo "  $(KEYS_DIR)/deployer.mainnet.json"
-	@echo ""
-	@echo "$(SUCCESS)Deployment keys directory ready$(RESET)"
 
-.PHONY: list-deployment-keys
-list-deployment-keys:
-	@$(call log_start,Available Deployment Keys)
-	@echo "$(INFO)Deployment keys directory: $(KEYS_DIR)$(RESET)"
-	@if [ -d "$(KEYS_DIR)" ]; then \
-		@echo "$(INFO)Found key files:$(RESET)"; \
-		for key in $(KEYS_DIR)/*.json; do \
-			if [ -f "$$key" ]; then \
-				@echo "  $(SUCCESS)$$(basename $$key)$(RESET)"; \
-				if command -v jq >/dev/null 2>&1; then \
-					account=$$(jq -r '.account_id' "$$key" 2>/dev/null || echo "invalid format"); \
-					@echo "    Account: $$account"; \
-				fi; \
-			fi; \
-		done; \
-		if ! ls $(KEYS_DIR)/*.json >/dev/null 2>&1; then \
-			@echo "  $(WARNING)No key files found$(RESET)"; \
-			@echo "  $(INFO)Run 'make setup-deployment-keys' to get started$(RESET)"; \
-		fi; \
-	else \
-		@echo "$(WARNING)Deployment keys directory not found$(RESET)"; \
-	fi
+.PHONY: generate-env-testnet
+generate-env-testnet:
+	@$(call log_start,Generating testnet production env)
+	@scripts/generate-env.sh testnet
+	@$(call log_complete,Testnet env generated)
 
-.PHONY: validate-deployment-key
-validate-deployment-key:
-	@if [ -z "$(KEY_FILE)" ]; then \
-		echo "$(ERROR)Please specify KEY_FILE=path/to/key.json$(RESET)"; \
-		exit 1; \
-	fi
-	$(call log_start,Validating Deployment Key)
-	$(call log_progress,Checking key file: $(KEY_FILE))
-	@if [ ! -f "$(KEY_FILE)" ]; then \
-		echo "$(ERROR)Key file not found: $(KEY_FILE)$(RESET)"; \
-		exit 1; \
-	fi
-	@if command -v jq >/dev/null 2>&1; then \
-		if jq -e '.account_id and .public_key and .private_key' "$(KEY_FILE)" >/dev/null 2>&1; then \
-			account=$$(jq -r '.account_id' "$(KEY_FILE)"); \
-			echo "$(SUCCESS)Key file is valid$(RESET)"; \
-			echo "$(INFO)Account ID: $$account$(RESET)"; \
-		else \
-			echo "$(ERROR)Invalid key file format$(RESET)"; \
-			echo "$(INFO)Required fields: account_id, public_key, private_key$(RESET)"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "$(WARNING)jq not found - unable to validate JSON format$(RESET)"; \
-	fi
-	$(call log_success,Key validation completed)
+.PHONY: generate-env-mainnet
+generate-env-mainnet:
+	@$(call log_start,Generating mainnet production env)
+	@scripts/generate-env.sh mainnet
+	@$(call log_complete,Mainnet env generated)
+
+.PHONY: deploy-testnet
+deploy-testnet: generate-env-testnet
+	@$(call log_start,Deploying to testnet)
+	@test -n "$(SERVER_IP)" || { echo "$(ERROR)SERVER_IP required: make deploy-testnet SERVER_IP=1.2.3.4$(RESET)"; exit 1; }
+	@deployment/deploy-production.sh $(SERVER_IP) $(if $(BUILD),--build,)
+	@$(call log_complete,Testnet deployment complete)
+
+.PHONY: deploy-mainnet
+deploy-mainnet: generate-env-mainnet
+	@$(call log_start,Deploying to mainnet)
+	@test -n "$(SERVER_IP)" || { echo "$(ERROR)SERVER_IP required: make deploy-mainnet SERVER_IP=1.2.3.4$(RESET)"; exit 1; }
+	@echo "$(WARNING)MAINNET deployment — are you sure? Press Ctrl+C to abort, Enter to continue$(RESET)"
+	@read -r _
+	@deployment/deploy-production.sh $(SERVER_IP) $(if $(BUILD),--build,)
+	@$(call log_complete,Mainnet deployment complete)
+
+.PHONY: setup-kms-mainnet
+setup-kms-mainnet:
+	@$(call log_start,Setting up GCP KMS for mainnet)
+	@scripts/setup-kms-mainnet.sh
+	@$(call log_complete,KMS mainnet setup complete)
+
+.PHONY: setup-kms-mainnet-dry-run
+setup-kms-mainnet-dry-run:
+	@scripts/setup-kms-mainnet.sh --dry-run
 
 # =============================================================================
 # HELP SYSTEM
@@ -165,7 +134,7 @@ help:
 	@echo "  lint-relayer                  # Lint relayer code"
 	@echo ""
 	@echo "$(TOOLS) **System Management:**"
-	@echo "  status                        # Show system status"
+	@echo "  status                        # Check system status"
 	@echo "  clean-all                     # Clean everything"
 	@echo "  cache-clean                   # Clean caches"
 	@echo "  start-redis                   # Start Redis for development"
@@ -174,8 +143,15 @@ help:
 	@echo "  upgrade-deps-js               # Interactively upgrade JavaScript dependencies"
 	@echo "  cargo-update                  # Simple cargo update (refresh Cargo.lock)"
 	@echo ""
+	@echo "$(ROCKET) **Production Deployment:**"
+	@echo "  generate-env-testnet          # Generate .env.production for testnet"
+	@echo "  generate-env-mainnet          # Generate .env.production for mainnet"
+	@echo "  deploy-testnet SERVER_IP=x    # Deploy full stack to testnet"
+	@echo "  deploy-mainnet SERVER_IP=x    # Deploy full stack to mainnet (with confirmation)"
+	@echo "  setup-kms-mainnet             # Create GCP KMS keyrings for mainnet"
+	@echo "  setup-kms-mainnet-dry-run     # Preview KMS setup without changes"
+	@echo ""
 	@echo "$(INFO) **For detailed documentation:** Resources/MAKE_TARGETS.md$(RESET)"
-	@echo "$(INFO) **For deployment help:** make setup-deployment-keys$(RESET)"
 	@echo ""
 	@echo "$(SUCCESS)Use VERBOSE=1 for detailed output$(RESET)"
 	@echo "$(SUCCESS)Use -j$(shell nproc) for parallel builds$(RESET)"
@@ -194,12 +170,10 @@ help-deployment:
 	@echo "  Reproducible:  make deploy-contract-<name> NETWORK=testnet REPRODUCIBLE=1"
 	@echo "  Dry Run:       make deploy-contract-<name> NETWORK=testnet DRY_RUN=1"
 	@echo ""
-	@echo "$(TOOLS) **Key Management:**"
-	@echo "  setup-deployment-keys         # Setup secure deployment keys"
-	@echo "  list-deployment-keys          # List available keys"
-	@echo "  validate-deployment-key       # Validate key file (use KEY_FILE=path)"
+	@echo "$(TOOLS) **Deployment Credentials:**"
+	@echo "  Uses ~/.near-credentials/ (standard NEAR CLI store)"
+	@echo "  Login: near login --networkId testnet"
 	@echo ""
-	@echo "$(INFO) **Security:** Always use KEY_FILE for production deployments$(RESET)"
 	@echo "$(INFO) **Documentation:** See Resources/MAKE_TARGETS.md for complete reference$(RESET)"
 
 # Include target count for reference

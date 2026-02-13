@@ -1,36 +1,15 @@
-services:
-  # ===========================================
-  # INDEXER SERVICES (Substreams → PostgreSQL → Hasura)
-  # ===========================================
-  
-  hasura:
-    image: hasura/graphql-engine:v2.40.0
-    container_name: hasura
-    ports:
-      - "8080:8080"
-    restart: unless-stopped
-    environment:
-      # Database connection (Substreams sink PostgreSQL)
-      HASURA_GRAPHQL_DATABASE_URL: ${HASURA_GRAPHQL_DATABASE_URL:-postgres://onsocial:onsocial@postgres:5432/onsocial}
-      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
-      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
-      HASURA_GRAPHQL_DEV_MODE: "true"
-      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
-      # Naming convention: snake_case tables → camelCase GraphQL
-      HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
-      HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
-      # Performance settings
-      HASURA_GRAPHQL_PG_CONNECTIONS: 50
-      HASURA_GRAPHQL_CORS_DOMAIN: "*"
-      HASURA_GRAPHQL_LOG_LEVEL: "info"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    depends_on:
-      - postgres
+# =============================================================================
+# OnSocial Local Development — Infrastructure Only
+# =============================================================================
+# Run app code natively: cargo run (relayer), pnpm dev (gateway/app)
+# Usage: docker compose up -d
+#
+# Services:
+#   postgres  → localhost:5432
+#   hasura    → localhost:8080 (console enabled)
+#   redis     → localhost:6379
 
+services:
   postgres:
     image: postgres:16-alpine
     container_name: postgres
@@ -44,10 +23,35 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U onsocial"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-onsocial}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  hasura:
+    image: hasura/graphql-engine:v2.40.0
+    container_name: hasura
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: ${HASURA_GRAPHQL_DATABASE_URL:-postgres://onsocial:onsocial@postgres:5432/onsocial}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET:-dev-secret}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+      HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
+      HASURA_GRAPHQL_CORS_DOMAIN: "*"
+      HASURA_GRAPHQL_LOG_LEVEL: "info"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -62,114 +66,5 @@ services:
       timeout: 5s
       retries: 3
 
-  # ===========================================
-  # APPLICATION SERVICES
-  # ===========================================
-
-  relayer:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.relayer
-    container_name: relayer
-    ports:
-      - "3040:3040"
-    restart: unless-stopped
-    volumes:
-      - ./packages/relayer/relayer.toml:/app/relayer.toml
-      - ./packages/relayer/account_keys:/app/account_keys
-    environment:
-      - RUST_LOG=info
-
-  gateway:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.gateway
-    container_name: gateway
-    ports:
-      - "4000:8080"
-    restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - PORT=8080
-      - HASURA_URL=http://hasura:8080/v1/graphql
-      - HASURA_ADMIN_SECRET=${HASURA_ADMIN_SECRET}
-      - JWT_SECRET=${JWT_SECRET:-onsocial_jwt_secret_2026}
-      - LIGHTHOUSE_API_KEY=${LIGHTHOUSE_API_KEY}
-      - REDIS_URL=redis://redis:6379
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
-    depends_on:
-      hasura:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  onsocial-app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-app
-    ports:
-      - "8081:8081"
-    working_dir: /app/packages/onsocial-app
-    volumes:
-      - ./packages/onsocial-app:/app/packages/onsocial-app:cached
-    environment:
-      - NODE_ENV=development
-      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
-    command: ["pnpm", "start"]
-    depends_on:
-      - relayer
-
-  onsocial-client:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-client
-    working_dir: /app/packages/onsocial-client
-    volumes:
-      - ./packages/onsocial-client:/app/packages/onsocial-client:cached
-    environment:
-      - NODE_ENV=development
-    command: ["pnpm", "test"]
-
-  onsocial-app-lint:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-app-lint
-    working_dir: /app/packages/onsocial-app
-    command: ["pnpm", "run", "lint"]
-    environment:
-      - NODE_ENV=development
-
-  onsocial-backend-lint:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-backend-lint
-    working_dir: /app/packages/onsocial-backend
-    command: ["pnpm", "run", "lint"]
-    environment:
-      - NODE_ENV=development
-
-  onsocial-client-lint:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.nodejs
-      target: runtime-alpine
-    container_name: onsocial-client-lint
-    working_dir: /app/packages/onsocial-client
-    command: ["pnpm", "run", "lint"]
-    environment:
-      - NODE_ENV=development
 volumes:
   postgres_data:

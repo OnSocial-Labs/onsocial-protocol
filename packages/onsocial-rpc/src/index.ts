@@ -1,7 +1,8 @@
 // @onsocial/rpc — NEAR RPC client with automatic failover
 //
-// Primary:   NEAR_RPC_URL env var (set in .env.production)
-// Secondary: Built-in per-network endpoints (updated centrally below)
+// Single source of truth for all NEAR RPC URLs in the monorepo.
+// Primary:   Private Lava (LAVA_API_KEY from GSM / env)
+// Fallback:  FASTNEAR public endpoints
 //
 // Features:
 //   - Retry with exponential backoff per provider
@@ -9,6 +10,9 @@
 //   - Circuit breaker to skip a dead primary
 //   - Structured logging callback for observability
 //   - Zero runtime dependencies (native fetch)
+//
+// Callers inject the Lava API key (from GSM, env, etc.).
+// This package stays dependency-free — no gcloud, no fs, no secrets SDK.
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,21 +91,32 @@ export function buildLavaUrl(apiKey: string | undefined, network: Network): stri
   return `${LAVA_GATEWAY_BASE[network]}/${apiKey}`;
 }
 
+export interface ResolveOptions {
+  /** Lava API key — injected by caller (gateway reads from GSM). */
+  lavaApiKey?: string;
+}
+
 /**
  * Resolve the primary RPC URL.
  *
  * Priority:
  *   1. `NEAR_RPC_URL` env var (explicit full URL — escape hatch)
- *   2. `LAVA_API_KEY` env var → builds private Lava URL for the network
- *   3. Public Lava endpoint (no key required)
+ *   2. `lavaApiKey` option → private Lava gateway
+ *   3. `LAVA_API_KEY` env var → private Lava gateway
+ *   4. FASTNEAR public endpoint (always-available fallback)
+ *
+ * NOTE: Public Lava (`near.lava.build`) is no longer a tier.
+ * Without a key you go straight to FASTNEAR.
  */
-export function resolveNearRpcUrl(network: Network = 'testnet'): string {
+export function resolveNearRpcUrl(network: Network = 'testnet', opts?: ResolveOptions): string {
   if (typeof process !== 'undefined') {
     if (process.env?.NEAR_RPC_URL) return process.env.NEAR_RPC_URL;
-    const lavaUrl = buildLavaUrl(process.env?.LAVA_API_KEY, network);
+    const key = opts?.lavaApiKey || process.env?.LAVA_API_KEY;
+    const lavaUrl = buildLavaUrl(key, network);
     if (lavaUrl) return lavaUrl;
   }
-  return DEFAULT_RPC_URLS[network];
+  // No API key available — fall back to FASTNEAR (public, no key required)
+  return FALLBACK_RPC_URLS[network];
 }
 
 // ---------------------------------------------------------------------------

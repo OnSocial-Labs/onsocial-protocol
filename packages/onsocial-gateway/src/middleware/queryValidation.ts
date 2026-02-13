@@ -1,7 +1,6 @@
-import { parse, visit, DocumentNode, Kind } from 'graphql';
+import { parse, visit, DocumentNode, Kind, type ASTNode, type IntValueNode } from 'graphql';
 import type { Request, Response, NextFunction } from 'express';
 import type { Tier } from '../types/index.js';
-import { config } from '../config/index.js';
 
 interface TierLimits {
   maxDepth: number;
@@ -78,14 +77,14 @@ function calculateComplexity(ast: DocumentNode): number {
 function calculateDepth(ast: DocumentNode): number {
   let maxDepth = 0;
   
-  function traverse(node: any, currentDepth: number) {
+  function traverse(node: ASTNode & { selectionSet?: { selections: readonly ASTNode[] } }, currentDepth: number) {
     if (node.kind === Kind.FIELD) {
       maxDepth = Math.max(maxDepth, currentDepth);
     }
     
     if (node.selectionSet?.selections) {
       for (const selection of node.selectionSet.selections) {
-        traverse(selection, currentDepth + 1);
+        traverse(selection as ASTNode & { selectionSet?: { selections: readonly ASTNode[] } }, currentDepth + 1);
       }
     }
   }
@@ -129,7 +128,7 @@ function extractLimit(ast: DocumentNode): number | null {
     Argument: {
       enter(node) {
         if (node.name.value === 'limit' && node.value.kind === Kind.INT) {
-          limit = parseInt((node.value as any).value, 10);
+          limit = parseInt((node.value as IntValueNode).value, 10);
         }
       },
     },
@@ -208,10 +207,11 @@ export function validateQuery(query: string, tier: Tier): QueryValidationResult 
     
     return { valid: true, details };
     
-  } catch (parseError: any) {
+  } catch (parseError: unknown) {
+    const message = parseError instanceof Error ? parseError.message : String(parseError);
     return {
       valid: false,
-      error: `Invalid GraphQL query: ${parseError.message}`,
+      error: `Invalid GraphQL query: ${message}`,
     };
   }
 }
@@ -243,7 +243,8 @@ export function queryValidationMiddleware(
     return;
   }
   
-  const tier: Tier = req.auth?.tier || 'free';
+  // Auth is guaranteed by requireAuth upstream on all graph routes
+  const tier: Tier = req.auth!.tier || 'free';
   const result = validateQuery(query, tier);
   
   if (!result.valid) {
@@ -258,7 +259,7 @@ export function queryValidationMiddleware(
   }
   
   // Attach validation details to request for logging
-  (req as any).queryValidation = result.details;
+  (req as Request & { queryValidation?: QueryValidationResult['details'] }).queryValidation = result.details;
   
   next();
 }

@@ -14,7 +14,7 @@ export interface PermissionConfig {
   table: string;
   select: {
     columns: string[] | '*';
-    filter: Record<string, any>;
+    filter: Record<string, unknown>;
     limit: number;
     allow_aggregations: boolean;
   };

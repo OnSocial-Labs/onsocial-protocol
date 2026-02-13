@@ -271,25 +271,15 @@ define deploy_contract_unified
 	$(call log_complete,$(3))
 endef
 
-# Contract initialization function
+# Contract initialization function — uses ~/.near-credentials
 define init_contract_only
 	$(call log_start,Initializing contract $(1))
-	@if [ -n "$(KEY_FILE)" ] && [ -f "$(KEY_FILE)" ]; then \
-		$(call log_info,Using key file: $(KEY_FILE)); \
-		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -v $(KEY_FILE):/tmp/private_key.json --network host \
-			-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
-			bash -c "./scripts/deploy.sh init --contract $(1) --use-key-file"; \
-	elif [ -f "$(KEYS_DIR)/deployer.$(NETWORK).json" ]; then \
-		$(call log_info,Using auto-detected key for $(NETWORK)); \
-		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code -v $(KEYS_DIR)/deployer.$(NETWORK).json:/tmp/private_key.json --network host \
-			-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
-			bash -c "./scripts/deploy.sh init --contract $(1) --use-key-file"; \
-	else \
-		$(call log_warning,No key file found - using NEAR CLI credentials); \
-		docker run --rm $(DOCKER_TTY) -v $(CODE_DIR):/code --network host \
-			-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
-			bash -c "./scripts/deploy.sh init --contract $(1)"; \
-	fi
+	@docker run --rm $(DOCKER_TTY) \
+		-v $(CODE_DIR):/code \
+		-v $(HOME)/.near-credentials:/root/.near-credentials:ro \
+		--network host \
+		-e NETWORK=$(NETWORK) -e VERBOSE=$(VERBOSE) $(CONTRACTS_DOCKER_IMAGE) \
+		bash -c "./scripts/deploy.sh init --contract $(1)"
 	$(call log_complete,Contract $(1) initialized)
 endef
 

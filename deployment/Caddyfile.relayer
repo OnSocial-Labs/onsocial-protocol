@@ -1,0 +1,22 @@
+# Internal load balancer for relayer instances.
+# Round-robins between relayer-0 and relayer-1 with passive health checks.
+# Only routes to instances that pass /ready (503 until keys are synced).
+
+:3040 {
+	reverse_proxy relayer-0:3040 relayer-1:3040 {
+		lb_policy round_robin
+
+		# Passive health: stop routing after 2 consecutive failures
+		health_interval 5s
+		health_timeout  3s
+		health_uri      /ready
+		fail_duration   10s
+		max_fails       2
+		unhealthy_status 503
+	}
+
+	log {
+		output stderr
+		level WARN
+	}
+}

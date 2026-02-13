@@ -6,7 +6,6 @@
 
 import {
   createNearRpc,
-  resolveNearRpcUrl,
   type Network,
   type NearRpc,
   type NearRpcResponse,
@@ -23,7 +22,7 @@ const network = (config.nearNetwork as Network) || 'testnet';
  * Secondary: Built-in per-network endpoint (automatic failover)
  */
 export const nearRpc: NearRpc = createNearRpc({
-  primaryUrl: resolveNearRpcUrl(network),
+  primaryUrl: config.nearRpcUrl,
   network,
   onLog: (level, msg, meta) => {
     logger[level]({ ...meta, component: 'rpc' }, msg);

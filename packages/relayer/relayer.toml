@@ -1,8 +1,11 @@
 # Relayer configuration
-# Can also be set via environment variables with RELAYER_ prefix
+# All values can be overridden via env vars with RELAYER_ prefix.
+# In production, use env vars exclusively (via .env.production).
 
-rpc_url = "https://neart.lava.build"
-contract_id = "core.onsocial.testnet"
-keys_path = "./account_keys/relayer.onsocial.testnet.json"
 bind_address = "0.0.0.0:3040"
 gas_tgas = 100
+
+# Defaults are set in config.rs. These are shown for reference:
+# rpc_url — auto-built from LAVA_API_KEY, or RELAYER_RPC_URL env var
+# contract_id — RELAYER_CONTRACT_ID env var
+# signer_mode — RELAYER_SIGNER_MODE ("kms" or "local")

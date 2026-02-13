@@ -4,28 +4,32 @@
 # OnSocial Protocol - Variables and Configuration
 # Centralized configuration for the entire build system
 
-# Load environment variables based on NETWORK
+# Load root .env (single source of truth for local dev config)
+-include .env
+
+# Core Configuration — derive from NETWORK
+NETWORK         ?= sandbox
+
 ifeq ($(NETWORK),mainnet)
-	-include .env.mainnet
+  AUTH_ACCOUNT    ?= onsocial.near
+  FT_ACCOUNT      ?= onsocial.near
+  RELAYER_ACCOUNT ?= onsocial.near
+  NEAR_NODE_URL   ?= https://free.rpc.fastnear.com
 else ifeq ($(NETWORK),testnet)
-	-include .env.testnet
+  AUTH_ACCOUNT    ?= onsocial.testnet
+  FT_ACCOUNT      ?= onsocial.testnet
+  RELAYER_ACCOUNT ?= onsocial.testnet
+  NEAR_NODE_URL   ?= https://test.rpc.fastnear.com
 else
-	-include .env
+  AUTH_ACCOUNT    ?= test.near
+  FT_ACCOUNT      ?= test.near
+  RELAYER_ACCOUNT ?= test.near
+  NEAR_NODE_URL   ?= http://localhost:3030
 endif
 
-# Core Configuration
-NETWORK         ?= sandbox
-AUTH_ACCOUNT    ?= test.near
-FT_ACCOUNT      ?= test.near
-RELAYER_ACCOUNT ?= test.near
-NEAR_NODE_URL   ?= http://localhost:3030
 NEAR_SANDBOX_PORT := 3030
 VERBOSE         ?= 0
 DRY_RUN         ?= 0
-
-# Deployment security settings
-KEY_FILE        ?= 
-KEYS_DIR        ?= ./configs/keys
 
 # Docker image names
 JS_DOCKER_IMAGE := nodejs-builder

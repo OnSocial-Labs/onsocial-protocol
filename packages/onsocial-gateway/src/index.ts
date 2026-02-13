@@ -134,4 +134,10 @@ function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// Crash-safe: log unhandled promise rejections and exit
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ reason }, 'Unhandled promise rejection — shutting down');
+  shutdown('unhandledRejection');
+});
+
 export default app;

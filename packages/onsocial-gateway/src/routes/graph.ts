@@ -1,12 +1,41 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
+import { logger } from '../logger.js';
+import { requireAuth } from '../middleware/index.js';
 import { queryValidationMiddleware, QUERY_LIMITS } from '../middleware/queryValidation.js';
 import type { Tier } from '../types/index.js';
 
 export const graphRouter = Router();
 
-// Apply query validation to all graph routes
+// Health check registered BEFORE auth middleware — must stay public for Docker/Caddy probes
+graphRouter.get('/health', async (_req: Request, res: Response) => {
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (config.hasuraAdminSecret) {
+      headers['x-hasura-admin-secret'] = config.hasuraAdminSecret;
+    }
+
+    const response = await fetch(config.hasuraUrl, {
+      method: 'POST',
+      headers,
+      signal: AbortSignal.timeout(5_000),
+      body: JSON.stringify({ query: '{ __typename }' }),
+    });
+
+    if (response.ok) {
+      res.json({ status: 'ok', hasura: 'connected' });
+    } else {
+      res.status(502).json({ status: 'error', hasura: 'unhealthy' });
+    }
+  } catch (error) {
+    logger.error({ error }, 'Hasura health check error');
+    res.status(502).json({ status: 'error', hasura: 'unreachable' });
+  }
+});
+
+// All remaining graph routes require JWT — tier controls query depth, complexity, and row limits
+graphRouter.use(requireAuth);
 graphRouter.use(queryValidationMiddleware);
 
 /**
@@ -14,7 +43,7 @@ graphRouter.use(queryValidationMiddleware);
  * Return query limits for the current tier
  */
 graphRouter.get('/limits', (req: Request, res: Response) => {
-  const tier: Tier = req.auth?.tier || 'free';
+  const tier: Tier = req.auth!.tier || 'free';
   res.json({
     tier,
     limits: QUERY_LIMITS[tier],
@@ -40,34 +69,25 @@ graphRouter.post('/query', async (req: Request, res: Response) => {
     return;
   }
 
-  const tier: Tier = req.auth?.tier || 'free';
+  // Hasura role = user's tier. Admin secret authenticates the gateway service;
+  // x-hasura-role scopes the query to the user's tier permissions.
+  const tier: Tier = req.auth!.tier || 'free';
 
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'x-hasura-role': tier,
+      'x-hasura-user-id': req.auth!.accountId,
     };
 
-    // Use role-based permissions (production mode)
-    // Admin secret only used as fallback when roles not configured
     if (config.hasuraAdminSecret) {
       headers['x-hasura-admin-secret'] = config.hasuraAdminSecret;
-      // Also set role headers - Hasura applies role permissions even with admin secret
-      // when x-hasura-role is present
-      headers['x-hasura-role'] = tier;
-      if (req.auth) {
-        headers['x-hasura-user-id'] = req.auth.accountId;
-      }
-    } else {
-      // Without admin secret, rely purely on role headers
-      headers['x-hasura-role'] = tier;
-      if (req.auth) {
-        headers['x-hasura-user-id'] = req.auth.accountId;
-      }
     }
 
     const response = await fetch(config.hasuraUrl, {
       method: 'POST',
       headers,
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         query,
         variables,
@@ -80,7 +100,7 @@ graphRouter.post('/query', async (req: Request, res: Response) => {
     // Hasura returns 200 even for errors, forward as-is
     res.status(response.status).json(data);
   } catch (error) {
-    console.error('Graph query error:', error);
+    logger.error({ error }, 'Graph query error');
     res.status(502).json({ error: 'Failed to query graph' });
   }
 });
@@ -95,37 +115,4 @@ graphRouter.get('/subscription', (_req: Request, res: Response) => {
     error: 'WebSocket subscriptions not yet implemented',
     hint: 'Use direct Hasura connection for subscriptions',
   });
-});
-
-/**
- * GET /graph/health
- * Check Hasura connection health
- */
-graphRouter.get('/health', async (_req: Request, res: Response) => {
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    if (config.hasuraAdminSecret) {
-      headers['x-hasura-admin-secret'] = config.hasuraAdminSecret;
-    }
-
-    const response = await fetch(config.hasuraUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query: '{ __typename }',
-      }),
-    });
-
-    if (response.ok) {
-      res.json({ status: 'ok', hasura: 'connected' });
-    } else {
-      res.status(502).json({ status: 'error', hasura: 'unhealthy' });
-    }
-  } catch (error) {
-    console.error('Hasura health check error:', error);
-    res.status(502).json({ status: 'error', hasura: 'unreachable' });
-  }
 });

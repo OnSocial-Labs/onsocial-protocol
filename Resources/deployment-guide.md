@@ -42,14 +42,11 @@ make deploy-contract-core-onsocial NETWORK=sandbox
 
 **Deployment options:**
 ```bash
-# Standard deployment
+# Standard deployment (uses ~/.near-credentials)
 make deploy-contract-<name> NETWORK=testnet
 
 # Deploy with initialization
 make deploy-contract-<name> NETWORK=testnet INIT=1
-
-# Deploy with specific key file
-make deploy-contract-<name> NETWORK=testnet KEY_FILE=./configs/keys/deployer.testnet.json
 
 # Reproducible WASM deployment
 make deploy-contract-<name> NETWORK=testnet REPRODUCIBLE=1
@@ -89,21 +86,21 @@ Where `$NETWORK` is `sandbox`, `testnet`, or `mainnet`.
 - **Docker issues:** Ensure Docker is running and you have permissions (`sudo usermod -aG docker $USER`)
 - **Account errors:** Make sure your NEAR account exists and has enough balance
 - **Build errors:** Run `make clean-docker-all` and then `make setup`
-- **Deployment key issues:** Run `make setup-deployment-keys` for help with key management
+- **Deployment key issues:** Run `near login --networkId testnet` to refresh credentials
 
-## Key Management
+## Credentials
 
-For production deployments, use secure key files:
+All deployments use `~/.near-credentials/` — the standard NEAR CLI credential store.
 
 ```bash
-# Setup deployment keys
-make setup-deployment-keys
+# Login to testnet
+near login --networkId testnet
 
-# List available keys  
-make list-deployment-keys
+# Login to mainnet
+near login --networkId mainnet
 
-# Validate a key file
-make validate-deployment-key KEY_FILE=./configs/keys/deployer.testnet.json
+# Verify credentials exist
+ls ~/.near-credentials/testnet/
 ```
 
 For advanced usage and complete make targets, see the [Make Targets Reference](MAKE_TARGETS.md).

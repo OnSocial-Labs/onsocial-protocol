@@ -102,15 +102,21 @@ function parsePublicKey(publicKey: string): Uint8Array | null {
 
   try {
     // Try base64 first (more common in wallet-selector)
-    return decodeBase64(keyData);
+    const b64 = decodeBase64(keyData);
+    if (b64.length === 32) return b64;
   } catch {
-    // Try base58 (used by some NEAR tools)
-    try {
-      return base58Decode(keyData);
-    } catch {
-      return null;
-    }
+    // Not valid base64 — fall through to base58
   }
+
+  try {
+    // Try base58 (used by NEAR CLI / near-api-js)
+    const b58 = base58Decode(keyData);
+    if (b58.length === 32) return b58;
+  } catch {
+    // Not valid base58 either
+  }
+
+  return null;
 }
 
 /**
@@ -191,12 +197,6 @@ export async function verifyNearSignature(
   signature: string,
   publicKey: string
 ): Promise<{ valid: boolean; error?: string }> {
-  // Development/test mode: skip verification for easier testing
-  if (config.nodeEnv === 'development' || config.nodeEnv === 'test') {
-    logger.warn({ accountId }, 'NEAR signature verification skipped in dev/test mode');
-    return { valid: true };
-  }
-
   // Step 1: Validate message format and timestamp
   const messageValidation = validateMessage(message);
   if (!messageValidation.valid) {

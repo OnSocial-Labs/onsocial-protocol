@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateQuery, QUERY_LIMITS } from '../src/middleware/queryValidation.js';
+import { validateQuery, QUERY_LIMITS } from '../../src/middleware/queryValidation.js';
 
 describe('Query Validation', () => {
   describe('Query Depth', () => {

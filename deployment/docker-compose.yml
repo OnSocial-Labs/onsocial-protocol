@@ -2,25 +2,29 @@
 # OnSocial Production Stack — Single Server (Hetzner)
 # =============================================================================
 # 
-# Services: Caddy (TLS) → Gateway + Hasura + Relayer
-#           PostgreSQL, Substreams sinks run as systemd services
+# Architecture: Internet → Caddy (TLS) → Gateway → Hasura / Relayer
+#               Hasura, Relayer, Postgres are internal-only (not internet-facing).
+#               Substreams sinks run as systemd services.
+#
+# Admin access (SSH tunnel from your machine):
+#   ssh -L 8080:localhost:8080 your-server   # Hasura Console
+#   ssh -L 5432:localhost:5432 your-server   # Postgres
+#   ssh -L 3040:localhost:3040 your-server   # Relayer
 #
 # Usage:
-#   cp .env.production.example .env.production
-#   # Edit .env.production with real secrets
+#   Secrets are pulled from GSM by deploy-production.sh — no manual .env needed.
+#   deployment/deploy-production.sh testnet <server-ip>
 #   docker compose --env-file .env.production up -d
 #
-# DNS required (point to server IP):
-#   api.onsocial.id      → Gateway
-#   hasura.onsocial.id   → Hasura Console + GraphQL
-#   relay.onsocial.id    → Relayer
+# DNS required (single A record → server IP):
+#   api.onsocial.id
 
 services:
   # =========================================================================
   # REVERSE PROXY — Auto TLS via Let's Encrypt
   # =========================================================================
   caddy:
-    image: caddy:2-alpine
+    image: ghcr.io/onsocial-labs/onsocial-protocol/caddy:${IMAGE_TAG:-latest}
     container_name: caddy
     ports:
       - "80:80"
@@ -28,13 +32,13 @@ services:
       - "443:443/udp"  # HTTP/3
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data       # TLS certificates
-      - caddy_config:/config   # Caddy runtime config
+      - caddy_data:/data
+      - caddy_config:/config
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
     depends_on:
       gateway:
-        condition: service_healthy
-      hasura:
         condition: service_healthy
 
   # =========================================================================
@@ -57,7 +61,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    shm_size: 256mb  # Shared memory for PG performance
+    mem_limit: 4g
+    cpus: 2.0
+    shm_size: 256mb
     command:
       - "postgres"
       - "-c" 
@@ -87,19 +93,20 @@ services:
   hasura:
     image: hasura/graphql-engine:v2.40.0
     container_name: hasura
-    # No public port — Caddy proxies via Docker network
-    expose:
-      - "8080"
+    # No public port — gateway proxies via Docker network
+    # For admin access: ssh -L 8080:localhost:8080 your-server
+    ports:
+      - "127.0.0.1:8080:8080"  # Localhost only — SSH tunnel for admin
     restart: unless-stopped
     environment:
       HASURA_GRAPHQL_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
-      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_ENABLE_CONSOLE: ${HASURA_ENABLE_CONSOLE:-false}  # Enable via SSH tunnel only
       HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
       HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
       HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
       HASURA_GRAPHQL_PG_CONNECTIONS: 50
-      HASURA_GRAPHQL_CORS_DOMAIN: "*"
+      HASURA_GRAPHQL_CORS_DOMAIN: ${HASURA_GRAPHQL_CORS_DOMAIN:-https://api.onsocial.id}
       HASURA_GRAPHQL_LOG_LEVEL: "warn"
       HASURA_GRAPHQL_UNAUTHORIZED_ROLE: "anonymous"
     healthcheck:
@@ -107,6 +114,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    mem_limit: 1g
+    cpus: 1.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,9 +124,7 @@ services:
   # API GATEWAY
   # =========================================================================
   gateway:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.gateway
+    image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
     container_name: gateway
     # No public port — Caddy proxies via Docker network
     expose:
@@ -131,8 +138,11 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      SOCIAL_TOKEN_CONTRACT: ${SOCIAL_TOKEN_CONTRACT:-}
+      STAKING_CONTRACT: ${STAKING_CONTRACT:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
-      RELAYER_URL: http://relayer:3040
+      RELAYER_URL: http://relayer-lb:3040
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
       hasura:
         condition: service_healthy
@@ -141,29 +151,147 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    mem_limit: 512m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
 
   # =========================================================================
-  # NEAR TRANSACTION RELAYER
+  # NEAR TRANSACTION RELAYER — Two instances for zero-downtime deploys.
+  # Each gets its own KMS keyring (separate admin nonces → no conflicts).
+  # Gateway talks to relayer-lb (Caddy upstream), which round-robins
+  # between relayer-0 and relayer-1 with /ready health checks.
   # =========================================================================
-  relayer:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.relayer
-    container_name: relayer
-    # No public port — Caddy proxies via Docker network
+
+  # --- Internal load balancer for relayer instances ---
+  relayer-lb:
+    image: caddy:2-alpine
+    container_name: relayer-lb
+    expose:
+      - "3040"
+    ports:
+      - "127.0.0.1:3040:3040"
+    volumes:
+      - ./Caddyfile.relayer:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    depends_on:
+      relayer-0:
+        condition: service_healthy
+      relayer-1:
+        condition: service_healthy
+
+  relayer-0: &relayer-base
+    image: ghcr.io/onsocial-labs/onsocial-protocol/relayer:${IMAGE_TAG:-latest}
+    container_name: relayer-0
     expose:
       - "3040"
     restart: unless-stopped
-    environment:
+    environment: &relayer-env
       RUST_LOG: info
+      RELAYER_SIGNER_MODE: kms
+      RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.testnet}
       RELAYER_CONTRACT_ID: ${RELAYER_CONTRACT_ID:-core.onsocial.testnet}
-      RELAYER_NETWORK: ${NEAR_NETWORK:-testnet}
+      RELAYER_RPC_URL: ${RELAYER_RPC_URL:-https://test.rpc.fastnear.com}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
+      GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
+      GCP_KMS_ADMIN_KEY: admin-key
+      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-3}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
-      RELAYER_KEYS_JSON: ${RELAYER_KEYS_JSON}
+      # Instance 0 uses the original keyring
+      GCP_KMS_KEYRING: ${GCP_KMS_KEYRING_0:-relayer-keys-testnet}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3040/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 1.0
+
+  relayer-1:
+    <<: *relayer-base
+    container_name: relayer-1
+    environment:
+      <<: *relayer-env
+      # Instance 1 uses a separate keyring (separate admin key → no nonce conflicts)
+      GCP_KMS_KEYRING: ${GCP_KMS_KEYRING_1:-relayer-keys-inst-1}
+
+  # =========================================================================
+  # MONITORING — Uptime Kuma (lightweight, self-hosted)
+  # =========================================================================
+  # Access: ssh -L 3001:localhost:3001 your-server → http://localhost:3001
+  # First-time: create admin user and add monitors:
+  #   - https://<PUBLIC_DOMAIN>/health  (gateway via Caddy)
+  #   - http://hasura:8080/healthz      (Hasura internal)
+  #   - http://relayer-0:3040/ready     (Relayer instance 0)
+  #   - http://relayer-1:3040/ready     (Relayer instance 1)
+  # Supports: Discord, Slack, Telegram, email notifications
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    ports:
+      - "127.0.0.1:3001:3001"  # Localhost only — SSH tunnel for admin
+    volumes:
+      - uptime_kuma_data:/app/data
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+
+  # =========================================================================
+  # DATABASE BACKUP — Daily pg_dump to local volume + 7-day retention
+  # =========================================================================
+  # Backups stored in /backups inside the container (postgres_backups volume).
+  # To download: ssh root@server "docker cp postgres-backup:/backups/latest.sql.gz -" > backup.sql.gz
+  # To restore:  gunzip -c backup.sql.gz | docker exec -i postgres psql -U $POSTGRES_USER -d $POSTGRES_DB
+  postgres-backup:
+    image: postgres:15-alpine
+    container_name: postgres-backup
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - postgres_backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Postgres backup cron: daily at 03:00 UTC, 7-day retention"
+        while true; do
+          # Sleep until next 03:00 UTC
+          NOW=$$(date +%s)
+          NEXT=$$(date -d "tomorrow 03:00" +%s 2>/dev/null || date -d "03:00" +%s)
+          [ "$$NEXT" -le "$$NOW" ] && NEXT=$$((NEXT + 86400))
+          DELAY=$$((NEXT - NOW))
+          echo "Next backup in $${DELAY}s (at $$(date -d @$$NEXT -u '+%Y-%m-%d %H:%M UTC' 2>/dev/null || echo 'next 03:00 UTC'))"
+          sleep "$$DELAY"
+          # Run backup
+          STAMP=$$(date -u '+%Y%m%d-%H%M%S')
+          echo "Starting backup: $$STAMP"
+          if pg_dump --clean --if-exists | gzip > "/backups/onsocial-$$STAMP.sql.gz"; then
+            cp "/backups/onsocial-$$STAMP.sql.gz" /backups/latest.sql.gz
+            echo "✅ Backup complete: onsocial-$$STAMP.sql.gz ($$(du -h /backups/onsocial-$$STAMP.sql.gz | cut -f1))"
+          else
+            echo "❌ Backup FAILED at $$STAMP"
+          fi
+          # Prune backups older than 7 days
+          find /backups -name 'onsocial-*.sql.gz' -mtime +7 -delete
+          echo "Retained backups: $$(ls /backups/onsocial-*.sql.gz 2>/dev/null | wc -l)"
+        done
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
-    external: true
-    name: onsocial-indexer_postgres_data
+  postgres_backups:  # Daily pg_dump backups — 7-day retention
   caddy_data:
   caddy_config:
+  uptime_kuma_data:

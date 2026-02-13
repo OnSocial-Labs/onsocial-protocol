@@ -72,7 +72,7 @@ export const priceOracle = {
 
     if (json.error) throw new Error(json.error.message);
 
-    const resultBytes = (json.result as any)?.result;
+    const resultBytes = (json.result as { result?: number[] })?.result;
     if (!resultBytes) throw new Error('Empty RPC result');
 
     const pool = JSON.parse(Buffer.from(resultBytes).toString('utf-8'));

@@ -1,18 +1,14 @@
-//! Error types for the relayer.
+//! Relayer error types.
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use std::fmt;
 
-/// Relayer error type.
 #[derive(Debug)]
 pub enum Error {
-    /// Configuration error.
     Config(String),
-    /// RPC communication error.
     Rpc(String),
-    /// Key pool error (exhausted, scaling failure, etc.).
     KeyPool(String),
 }
 
@@ -30,14 +26,20 @@ impl std::error::Error for Error {}
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        let status = match &self {
-            Error::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::Rpc(_) => StatusCode::BAD_GATEWAY,
-            Error::KeyPool(_) => StatusCode::SERVICE_UNAVAILABLE,
+        let (status, public_msg) = match &self {
+            Error::Config(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal configuration error",
+            ),
+            Error::Rpc(_) => (StatusCode::BAD_GATEWAY, "RPC communication error"),
+            Error::KeyPool(_) => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Service temporarily unavailable",
+            ),
         };
         let body = serde_json::json!({
             "success": false,
-            "error": self.to_string()
+            "error": public_msg
         });
         (status, Json(body)).into_response()
     }

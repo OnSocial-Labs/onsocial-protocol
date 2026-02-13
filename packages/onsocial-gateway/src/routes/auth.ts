@@ -3,6 +3,7 @@ import { generateToken, verifyNearSignature } from '../auth/index.js';
 import { getTierInfo, clearTierCache } from '../tiers/index.js';
 import { config } from '../config/index.js';
 import { priceOracle } from '../services/price-oracle.js';
+import { logger } from '../logger.js';
 import type { Request, Response } from 'express';
 
 export const authRouter = Router();
@@ -29,16 +30,16 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  const verification = await verifyNearSignature(accountId, message, signature, publicKey);
-  if (!verification.valid) {
-    res.status(401).json({
-      error: 'Authentication failed',
-      details: verification.error,
-    });
-    return;
-  }
-
   try {
+    const verification = await verifyNearSignature(accountId, message, signature, publicKey);
+    if (!verification.valid) {
+      res.status(401).json({
+        error: 'Authentication failed',
+        details: verification.error,
+      });
+      return;
+    }
+
     const token = await generateToken(accountId);
     const tierInfo = await getTierInfo(accountId);
 
@@ -49,7 +50,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       rateLimit: tierInfo.rateLimit,
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error({ error }, 'Login error');
     res.status(500).json({ error: 'Authentication failed' });
   }
 });
@@ -76,7 +77,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       rateLimit: tierInfo.rateLimit,
     });
   } catch (error) {
-    console.error('Refresh error:', error);
+    logger.error({ error }, 'Refresh error');
     res.status(500).json({ error: 'Token refresh failed' });
   }
 });
@@ -100,7 +101,7 @@ authRouter.get('/me', async (req: Request, res: Response) => {
       rateLimit: tierInfo.rateLimit,
     });
   } catch (error) {
-    console.error('Get me error:', error);
+    logger.error({ error }, 'Get me error');
     res.status(500).json({ error: 'Failed to get user info' });
   }
 });
@@ -126,7 +127,7 @@ authRouter.get('/pricing', async (_req: Request, res: Response) => {
       socialPriceUsd: price,
     });
   } catch (error) {
-    console.error('Pricing error:', error);
+    logger.error({ error }, 'Pricing error');
     res.status(500).json({ error: 'Failed to get pricing' });
   }
 });

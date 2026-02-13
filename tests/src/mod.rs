@@ -43,6 +43,8 @@ pub mod proposal_validation_tests;
 #[cfg(test)]
 pub mod proposals_tests;
 #[cfg(test)]
+pub mod relayer_key_pool_tests;
+#[cfg(test)]
 pub mod shared_storage_atomic_tests;
 #[cfg(test)]
 pub mod signed_payload_integration_tests;

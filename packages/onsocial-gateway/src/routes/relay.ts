@@ -6,6 +6,15 @@ import { logger } from '../logger.js';
 
 export const relayRouter = Router();
 
+/** Build headers for relayer requests, including API key if configured. */
+function relayHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (config.relayApiKey) {
+    headers['X-Api-Key'] = config.relayApiKey;
+  }
+  return headers;
+}
+
 // ---------------------------------------------------------------------------
 // POST /relay/execute  — Intent auth (JWT → relayer acts on behalf of user)
 //
@@ -38,7 +47,8 @@ relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) =>
   try {
     const response = await fetch(`${config.relayUrl}/execute`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: relayHeaders(),
+      signal: AbortSignal.timeout(30_000),
       body: JSON.stringify(contractRequest),
     });
 
@@ -53,8 +63,9 @@ relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) =>
 // ---------------------------------------------------------------------------
 // POST /relay/signed  — SignedPayload auth (user signs with NEAR key)
 //
-// Trustless: contract verifies the ed25519 signature on-chain.
-// The gateway just forwards the pre-signed request to the relayer.
+// JWT required: proves identity to the gateway (rate limits, tier billing).
+// Signed payload: proves to the smart contract that user authorized this action.
+// These are complementary layers — JWT gates the gateway, signature gates the chain.
 //
 // Body: {
 //   target_account: "alice.testnet",
@@ -69,7 +80,7 @@ relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) =>
 //   options?: {...}
 // }
 // ---------------------------------------------------------------------------
-relayRouter.post('/signed', async (req: Request, res: Response) => {
+relayRouter.post('/signed', requireAuth, async (req: Request, res: Response) => {
   const { target_account, action, auth, options } = req.body;
 
   if (!target_account) {
@@ -84,7 +95,7 @@ relayRouter.post('/signed', async (req: Request, res: Response) => {
     res.status(400).json({ error: 'auth.type must be "signed_payload"' });
     return;
   }
-  if (!auth.public_key || !auth.nonce || !auth.signature) {
+  if (!auth.public_key || !auth.nonce || !auth.expires_at_ms || !auth.signature) {
     res.status(400).json({
       error: 'Missing required auth fields',
       required: ['public_key', 'nonce', 'expires_at_ms', 'signature'],
@@ -97,7 +108,8 @@ relayRouter.post('/signed', async (req: Request, res: Response) => {
   try {
     const response = await fetch(`${config.relayUrl}/execute`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: relayHeaders(),
+      signal: AbortSignal.timeout(30_000),
       body: JSON.stringify(contractRequest),
     });
 
@@ -135,7 +147,7 @@ relayRouter.post(
     try {
       const response = await fetch(`${config.relayUrl}/execute`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: relayHeaders(),
         body: JSON.stringify(contractRequest),
       });
 
@@ -153,7 +165,9 @@ relayRouter.post(
 // ---------------------------------------------------------------------------
 relayRouter.get('/health', async (_req: Request, res: Response) => {
   try {
-    const response = await fetch(`${config.relayUrl}/health`);
+    const response = await fetch(`${config.relayUrl}/health`, {
+      signal: AbortSignal.timeout(5_000),
+    });
 
     if (response.ok) {
       const data = await response.json();

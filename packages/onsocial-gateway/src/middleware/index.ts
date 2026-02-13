@@ -8,6 +8,7 @@ import type { Tier, JwtPayload } from '../types/index.js';
 
 // Extend Express Request to include auth info
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- standard Express augmentation pattern
   namespace Express {
     interface Request {
       auth?: JwtPayload;

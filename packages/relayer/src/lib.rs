@@ -1,25 +1,28 @@
 //! # OnSocial Relayer
 //!
-//! A minimal relayer for gasless transactions. Forwards pre-signed requests
-//! to the OnSocial contract which verifies signatures on-chain.
-//!
-//! ## Quick Start
-//! ```bash
-//! cargo run --bin simple-relayer
-//! ```
+//! Gasless TX relayer. Forwards signed requests to the on-chain contract.
+//! Supports local Ed25519 keys or GCP Cloud KMS (`--features gcp`).
 //!
 //! ## Endpoints
-//! - `GET /health` - Health check with metrics
-//! - `POST /execute` - Forward signed request to contract
+//! - `GET  /health`     - Pool/KMS/RPC status
+//! - `GET  /ready`      - Readiness probe (503 until bootstrapped)
+//! - `POST /execute`    - Relay signed request to contract
+//! - `GET  /tx/:hash`   - Query TX status
+//! - `GET  /metrics`    - Prometheus metrics
 
 pub mod config;
 mod error;
 mod handlers;
 pub mod key_pool;
 pub mod key_store;
+#[cfg(feature = "gcp")]
+pub mod kms;
+pub mod metrics;
+mod middleware;
 mod response;
 mod router;
 pub mod rpc;
+pub mod signer;
 mod state;
 
 pub use config::Config;

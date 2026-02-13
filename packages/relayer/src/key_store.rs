@@ -1,20 +1,12 @@
-//! Encrypted key persistence using AES-256-GCM.
-//!
-//! Stores pool keys to disk so the relayer can recover after restart
-//! without re-provisioning keys on-chain.
+//! Encrypted key persistence (AES-256-GCM) for crash recovery.
 
 use near_primitives::types::AccountId;
 use std::path::PathBuf;
 use tracing::info;
 
-/// Key store backed by a JSON file.
-///
-/// Supports two modes:
-/// - **Encrypted** (production): AES-256-GCM with a 32-byte key from env.
-/// - **Plaintext** (dev/testing): Raw JSON on disk.
+/// Key store: encrypted (AES-256-GCM) for production, plaintext for dev.
 pub struct KeyStore {
     path: PathBuf,
-    /// Base64-decoded 32-byte encryption key. None = plaintext mode.
     encryption_key: Option<[u8; 32]>,
 }
 
@@ -31,7 +23,6 @@ struct StoredKey {
 }
 
 impl KeyStore {
-    /// Create a plaintext (unencrypted) key store for development.
     pub fn new_plaintext(path: PathBuf) -> Self {
         Self {
             path,
@@ -39,13 +30,9 @@ impl KeyStore {
         }
     }
 
-    /// Create an encrypted key store with a base64-encoded 32-byte key.
     pub fn new_encrypted(path: PathBuf, key_b64: &str) -> Result<Self, crate::Error> {
-        let key_bytes = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            key_b64,
-        )
-        .map_err(|e| crate::Error::Config(format!("Invalid encryption key base64: {e}")))?;
+        let key_bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, key_b64)
+            .map_err(|e| crate::Error::Config(format!("Invalid encryption key base64: {e}")))?;
 
         if key_bytes.len() != 32 {
             return Err(crate::Error::Config(format!(
@@ -63,11 +50,10 @@ impl KeyStore {
         })
     }
 
-    /// Save keys to disk.
     pub fn save(
         &self,
         account_id: &AccountId,
-        keys: &[(String, String)], // (public_key, secret_key)
+        keys: &[(String, String)],
     ) -> Result<(), crate::Error> {
         let stored = StoredKeys {
             account_id: account_id.to_string(),
@@ -89,8 +75,14 @@ impl KeyStore {
             json.into_bytes()
         };
 
-        // Write atomically: write to tmp, then rename
+        // Atomic write: tmp + rename
         let tmp = self.path.with_extension("tmp");
+        // Ensure parent directory exists
+        if let Some(parent) = tmp.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                crate::Error::Config(format!("Failed to create key store directory: {e}"))
+            })?;
+        }
         std::fs::write(&tmp, &data)
             .map_err(|e| crate::Error::Config(format!("Failed to write key store: {e}")))?;
         std::fs::rename(&tmp, &self.path)
@@ -100,7 +92,6 @@ impl KeyStore {
         Ok(())
     }
 
-    /// Load keys from disk. Returns empty vec if file doesn't exist.
     pub fn load(&self) -> Result<Vec<(String, String)>, crate::Error> {
         if !self.path.exists() {
             info!(path = %self.path.display(), "No key store found, starting fresh");
