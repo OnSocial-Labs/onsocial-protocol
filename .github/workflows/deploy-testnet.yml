@@ -185,7 +185,7 @@ jobs:
 
             # ── Sync Hasura permissions (idempotent — skips existing) ─
             echo "Syncing Hasura permissions..."
-            docker compose exec -T gateway node dist/scripts/apply-hasura-permissions.js create 2>&1 || \
+            docker compose exec -T gateway node packages/onsocial-gateway/dist/scripts/apply-hasura-permissions.js create 2>&1 || \
               echo "⚠️  Hasura permission sync skipped (script not built or unavailable)"
 
             echo "Reloading caddy..."
