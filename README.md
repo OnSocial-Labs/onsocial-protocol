@@ -34,27 +34,10 @@ make setup && make build && make test
 
 ## Architecture
 
-```mermaid
-graph TD
-    C[Clients] -->|HTTPS| CD[Caddy]
-    CD --> GW[Gateway]
-
-    GW --> H[Hasura]
-    GW --> LH[Lighthouse]
-    GW --> LB[Relayer LB]
-
-    H --> PG[(Postgres)]
-    LB --> R0[Relay 0]
-    LB --> R1[Relay 1]
-
-    R0 & R1 -->|tx| NEAR
-    SS[Substreams] -->|Firehose| NEAR
-    SS --> PG
-
-    subgraph NEAR[NEAR Protocol]
-        Core & Staking & Token & Marketplace
-    end
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://mermaid.ink/svg/Z3JhcGggVEQKICAgIENbQ2xpZW50c10gLS0-fEhUVFBTfCBDRFtDYWRkeV0KICAgIENEIC0tPiBHV1tHYXRld2F5XQogICAgR1cgLS0-IEhbSGFzdXJhXQogICAgR1cgLS0-IExIW0xpZ2h0aG91c2VdCiAgICBHVyAtLT4gTEJbUmVsYXllciBMQl0KICAgIEggLS0-IFBHWyhQb3N0Z3JlcyldCiAgICBMQiAtLT4gUjBbUmVsYXkgMF0KICAgIExCIC0tPiBSMVtSZWxheSAxXQogICAgUjAgJiBSMSAtLT58dHh8IE5FQVIKICAgIFNTW1N1YnN0cmVhbXNdIC0tPnxGaXJlaG9zZXwgTkVBUgogICAgU1MgLS0-IFBHCiAgICBzdWJncmFwaCBORUFSW05FQVIgUHJvdG9jb2xdCiAgICAgICAgQ29yZSAmIFN0YWtpbmcgJiBUb2tlbiAmIE1hcmtldHBsYWNlCiAgICBlbmQ?bgColor=0d1117">
+  <img alt="OnSocial Architecture" src="https://mermaid.ink/svg/Z3JhcGggVEQKICAgIENbQ2xpZW50c10gLS0-fEhUVFBTfCBDRFtDYWRkeV0KICAgIENEIC0tPiBHV1tHYXRld2F5XQogICAgR1cgLS0-IEhbSGFzdXJhXQogICAgR1cgLS0-IExIW0xpZ2h0aG91c2VdCiAgICBHVyAtLT4gTEJbUmVsYXllciBMQl0KICAgIEggLS0-IFBHWyhQb3N0Z3JlcyldCiAgICBMQiAtLT4gUjBbUmVsYXkgMF0KICAgIExCIC0tPiBSMVtSZWxheSAxXQogICAgUjAgJiBSMSAtLT58dHh8IE5FQVIKICAgIFNTW1N1YnN0cmVhbXNdIC0tPnxGaXJlaG9zZXwgTkVBUgogICAgU1MgLS0-IFBHCiAgICBzdWJncmFwaCBORUFSW05FQVIgUHJvdG9jb2xdCiAgICAgICAgQ29yZSAmIFN0YWtpbmcgJiBUb2tlbiAmIE1hcmtldHBsYWNlCiAgICBlbmQ">
+</picture>
 
 ---
 
