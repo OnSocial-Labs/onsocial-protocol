@@ -15,6 +15,7 @@ env:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 jobs:
   # ── Safety gate ──────────────────────────────────────────────────────
@@ -95,17 +96,17 @@ jobs:
         id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Authenticate to GCP
+      - name: Authenticate to GCP (Workload Identity Federation)
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
 
       - name: Fetch SSH key from Secret Manager
         id: ssh
         run: |
           gcloud secrets versions access latest \
-            --secret="hetzner-mainnet-ssh-key" \
-            --project="${{ secrets.GCP_PROJECT_ID }}" > /tmp/deploy_key
+            --secret="hetzner-mainnet-ssh-key" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
           echo "key<<SSHEOF" >> "$GITHUB_OUTPUT"
           cat /tmp/deploy_key >> "$GITHUB_OUTPUT"
