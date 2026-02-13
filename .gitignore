@@ -81,6 +81,10 @@ contracts/rewards-onsocial/
 # Ignore temp prompts folder
 Resources/prompts/
 
+# Python bytecode
+__pycache__/
+*.pyc
+
 # Cache files
 .cache/
 .make-cache/
