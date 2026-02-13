@@ -108,6 +108,10 @@ jobs:
           gcloud secrets versions access latest \
             --secret="hetzner-mainnet-ssh-key" > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
+          # Mask every line of the key so it never appears in logs
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done < /tmp/deploy_key
           echo "key<<SSHEOF" >> "$GITHUB_OUTPUT"
           cat /tmp/deploy_key >> "$GITHUB_OUTPUT"
           echo "SSHEOF" >> "$GITHUB_OUTPUT"
