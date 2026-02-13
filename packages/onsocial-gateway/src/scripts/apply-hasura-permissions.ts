@@ -192,7 +192,7 @@ async function createPermissions(): Promise<void> {
         console.log(`   ✓ Created permission on ${table.name}`);
         created++;
       } catch (e: any) {
-        if (e.message.includes('already exists')) {
+        if (e.message.includes('already defined') || e.message.includes('already-exists') || e.message.includes('already exists')) {
           console.log(`   ⏭ ${table.name} (already exists)`);
           skipped++;
         } else if (e.message.includes('table') && e.message.includes('does not exist')) {
