@@ -1,13 +1,11 @@
 # OnSocial
 
-## A user-owned protocol for the next era of decentralized interactions.
+### A user-owned protocol for the next era of decentralized interactions.
 
-&nbsp;
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![NEAR](https://img.shields.io/badge/NEAR-Protocol-000000?logo=near)](https://near.org)
 
-&nbsp;
 
 ### Contracts
 [![Core CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
