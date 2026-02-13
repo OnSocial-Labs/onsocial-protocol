@@ -21,10 +21,16 @@ env:
   MIN_BALANCE_TESTNET: ${{ inputs.threshold_testnet || '5' }}
   MIN_BALANCE_MAINNET: ${{ inputs.threshold_mainnet || '20' }}
 
+permissions:
+  contents: write
+
 jobs:
   check-balance:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout (for badge updates)
+        uses: actions/checkout@v4
+
       - name: Query relayer balances
         id: balance
         run: |
@@ -96,3 +102,56 @@ jobs:
           curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
             -H 'Content-Type: application/json' \
             -d "{\"chat_id\": \"$CHAT_ID\", \"text\": \"$TEXT\", \"parse_mode\": \"Markdown\"}" || true
+
+      - name: Update balance badges
+        run: |
+          TESTNET_BAL="${{ steps.balance.outputs.testnet_balance }}"
+          MAINNET_BAL="${{ steps.balance.outputs.mainnet_balance }}"
+
+          badge_color() {
+            local bal=$1 threshold=$2
+            if [ "$bal" = "ERROR" ]; then echo "lightgrey"
+            elif python3 -c "exit(0 if float('$bal') < float('$threshold') else 1)"; then echo "red"
+            elif python3 -c "exit(0 if float('$bal') < float('$threshold') * 2 else 1)"; then echo "yellow"
+            else echo "brightgreen"
+            fi
+          }
+
+          TESTNET_COLOR=$(badge_color "$TESTNET_BAL" "$MIN_BALANCE_TESTNET")
+          MAINNET_COLOR=$(badge_color "$MAINNET_BAL" "$MIN_BALANCE_MAINNET")
+
+          TESTNET_MSG="${TESTNET_BAL} NEAR"
+          MAINNET_MSG="${MAINNET_BAL} NEAR"
+          [ "$TESTNET_BAL" = "ERROR" ] && TESTNET_MSG="unavailable"
+          [ "$MAINNET_BAL" = "ERROR" ] && MAINNET_MSG="unavailable"
+
+          cat > .github/badges/relayer-testnet.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "relayer testnet",
+            "message": "$TESTNET_MSG",
+            "color": "$TESTNET_COLOR"
+          }
+          EOF
+
+          cat > .github/badges/relayer-mainnet.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "relayer mainnet",
+            "message": "$MAINNET_MSG",
+            "color": "$MAINNET_COLOR"
+          }
+          EOF
+
+          # Remove heredoc indentation
+          sed -i 's/^          //' .github/badges/relayer-testnet.json
+          sed -i 's/^          //' .github/badges/relayer-mainnet.json
+
+      - name: Commit badge updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/
+          git diff --staged --quiet && exit 0
+          git commit -m "badge: update relayer balances [skip ci]"
+          git push
