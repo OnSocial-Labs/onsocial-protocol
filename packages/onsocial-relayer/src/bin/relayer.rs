@@ -1,6 +1,6 @@
 //! OnSocial Relayer binary.
 
-use relayer::{create_router, AppState, Config};
+use onsocial_relayer::{create_router, AppState, Config};
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};

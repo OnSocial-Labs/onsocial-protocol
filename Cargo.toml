@@ -22,7 +22,7 @@ members = [
     "contracts/mock-ft",
     "contracts/token-onsocial",
     "tests",
-    "packages/relayer"
+    "packages/onsocial-relayer"
 ]
 exclude = [
     "indexers/substreams"  # Standalone WASM module with its own deps

@@ -43,6 +43,9 @@ jobs:
       - name: Test
         run: make test-unit-contract-staking-onsocial
 
+      - name: Fix artifact permissions
+        run: sudo chown -R $(id -u):$(id -g) target/near/
+
       - name: Upload WASM
         uses: actions/upload-artifact@v4
         with:

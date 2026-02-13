@@ -69,8 +69,8 @@ wait_ready() {
 info "Syncing relayer source to server..."
 rsync -avz --progress \
   --exclude='target' \
-  "$REPO_DIR/packages/relayer/" \
-  "root@$SERVER_IP:$REMOTE_DIR/packages/relayer/"
+  "$REPO_DIR/packages/onsocial-relayer/" \
+  "root@$SERVER_IP:$REMOTE_DIR/packages/onsocial-relayer/"
 
 rsync -avz --progress \
   "$REPO_DIR/docker/Dockerfile.relayer" \

@@ -22,4 +22,4 @@ bs58 = { workspace = true }
 sha2 = { workspace = true }
 xxhash-rust = { workspace = true, features = ["xxh3"] }
 serde = { workspace = true, features = ["derive"] }
-relayer = { path = "../packages/relayer" }
+onsocial-relayer = { path = "../packages/onsocial-relayer" }

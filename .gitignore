@@ -61,7 +61,7 @@ debug/
 cargo-audit.lock
 
 # Relayer examples (local development only)
-packages/relayer/examples/
+packages/onsocial-relayer/examples/
 
 # Build output
 dist/
@@ -86,7 +86,7 @@ Resources/prompts/
 .make-cache/
 
 # Relayer account keys
-packages/relayer/account_keys/
+packages/onsocial-relayer/account_keys/
 
 # AWS CLI v2 installer
 awscliv2.zip

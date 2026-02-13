@@ -6,11 +6,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
 # Copy relayer crate sources into image
-COPY packages/relayer/Cargo.toml packages/relayer/Cargo.lock ./
-COPY packages/relayer/src ./src
+COPY packages/onsocial-relayer/Cargo.toml packages/onsocial-relayer/Cargo.lock ./
+COPY packages/onsocial-relayer/src ./src
 
 # Build with GCP KMS support for production
-RUN cargo build --release --features gcp --bin relayer
+RUN cargo build --release --features gcp --bin onsocial-relayer
 
 # Runtime stage — same base as builder for glibc compat
 FROM debian:bookworm-slim
@@ -18,11 +18,11 @@ RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib
     && useradd -r -s /bin/false relayer
 WORKDIR /app
 
-COPY --from=builder /app/target/release/relayer .
-COPY packages/relayer/relayer.toml ./relayer.toml
+COPY --from=builder /app/target/release/onsocial-relayer .
+COPY packages/onsocial-relayer/relayer.toml ./relayer.toml
 
 USER relayer
 ENV RUST_LOG=info
 EXPOSE 3040
 
-CMD ["./relayer"]
+CMD ["./onsocial-relayer"]

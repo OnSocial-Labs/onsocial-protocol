@@ -2944,13 +2944,41 @@ dependencies = [
  "near-primitives 0.30.3",
  "near-sdk",
  "near-workspaces",
+ "onsocial-relayer",
  "rand 0.8.5",
- "relayer",
  "serde",
  "serde_json",
  "sha2",
  "tokio",
  "xxhash-rust",
+]
+
+[[package]]
+name = "onsocial-relayer"
+version = "0.4.0"
+dependencies = [
+ "aes-gcm",
+ "axum",
+ "base64 0.22.1",
+ "config",
+ "ed25519-dalek",
+ "google-cloud-auth",
+ "near-crypto 0.30.3",
+ "near-gas",
+ "near-jsonrpc-client 0.17.0",
+ "near-jsonrpc-primitives 0.30.3",
+ "near-primitives 0.30.3",
+ "rand 0.8.5",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "subtle",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3522,34 +3550,6 @@ name = "regex-syntax"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
-
-[[package]]
-name = "relayer"
-version = "0.4.0"
-dependencies = [
- "aes-gcm",
- "axum",
- "base64 0.22.1",
- "config",
- "ed25519-dalek",
- "google-cloud-auth",
- "near-crypto 0.30.3",
- "near-gas",
- "near-jsonrpc-client 0.17.0",
- "near-jsonrpc-primitives 0.30.3",
- "near-primitives 0.30.3",
- "rand 0.8.5",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "subtle",
- "tokio",
- "tokio-util",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "reqwest"

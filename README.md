@@ -1,10 +1,16 @@
 [![Core CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
 [![Staking CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/staking-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/staking-onsocial-ci.yml)
 [![Token CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml)
+
 [![Gateway CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
 [![Relayer CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml)
 [![Substreams CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml)
-[![Deploy Services Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
+
+[![Deploy Services (Testnet)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
+[![Core Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml)
+[![Staking Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-staking-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-staking-onsocial-testnet.yml)
+[![Token Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-token-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-token-onsocial-mainnet.yml)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![NEAR](https://img.shields.io/badge/NEAR-Protocol-blueviolet)](https://near.org)
 
@@ -26,61 +32,63 @@ make setup && make build && make test
 
 ---
 
-## Monorepo Layout
+## Architecture
 
 ```
-contracts/                  Smart contracts (Rust → WASM)
-├── core-onsocial               Posts, groups, stores, permissions
-├── staking-onsocial            Stake SOCIAL → earn rewards
-├── token-onsocial              SOCIAL token (NEP-141)
-└── marketplace-onsocial        Listings & commerce
-
-packages/                   Backend services
-├── onsocial-gateway            API gateway (GraphQL, storage, relay)
-├── relayer                     Tx relayer (Rust, KMS-backed signing)
-├── onsocial-rpc                NEAR RPC client
-└── onsocial-portal             Portal UI
-
-indexers/substreams/        Real-time blockchain indexing (3 sinks)
-
-deployment/                 Docker Compose, Caddy, systemd
+                     ┌──────────┐
+                     │ Clients  │
+                     └────┬─────┘
+                          │ HTTPS
+                     ┌────▼─────┐
+                     │  Caddy   │  TLS + reverse proxy
+                     └────┬─────┘
+                          │
+                     ┌────▼─────┐
+                     │ Gateway  │  API (GraphQL, storage, relay)
+                     └┬───┬───┬─┘
+                      │   │   │
+         ┌────────────┘   │   └──────────────┐
+         ▼                ▼                  ▼
+   ┌──────────┐    ┌────────────┐     ┌─────────────┐
+   │  Hasura  │    │ Lighthouse │     │ Relayer LB  │
+   │  (GQL)   │    │  (IPFS)    │     └──┬───────┬──┘
+   └────┬─────┘    └────────────┘        ▼       ▼
+        │                           ┌────────┐ ┌────────┐
+        │                           │Relay-0 │ │Relay-1 │  KMS
+        │                           └───┬────┘ └───┬────┘
+        ▼                               │          │
+   ┌──────────┐                         ▼          ▼
+   │ Postgres │◄─────────────── ┌───────────────────┐
+   └──────────┘                 │    NEAR Chain      │
+        ▲                       │ ┌───────────────┐  │
+        │                       │ │ Core          │  │
+   ┌────┴──────┐                │ │ Staking       │  │
+   │Substreams │◄── Firehose    │ │ Token         │  │
+   │ (indexer) │                │ │ Marketplace   │  │
+   └───────────┘                │ └───────────────┘  │
+                                └────────────────────┘
 ```
 
 ---
 
-## CI/CD Pipeline
+## Monorepo Layout
 
-Every push to `main` triggers automated build → test → deploy with rollback.
-
-### Build & Test
-
-| Workflow | Trigger | Purpose |
+| Directory | Description | Docs |
 |---|---|---|
-| **Core CI** | `contracts/core-onsocial/**` | Build WASM + unit & integration tests |
-| **Staking CI** | `contracts/staking-onsocial/**` | Build WASM + unit tests |
-| **Token CI** | `contracts/token-onsocial/**` | Build WASM + unit tests |
-| **Marketplace CI** | `contracts/marketplace-onsocial/**` | Build WASM + unit tests |
-| **Gateway CI** | `packages/onsocial-gateway/**` | Lint, typecheck, 77 tests |
-| **Relayer CI** | `packages/relayer/**` | Clippy + cargo test |
-| **Substreams CI** | `indexers/substreams/**` | Check, test, pack 3 spkgs |
-
-### Deploy
-
-| Workflow | Trigger | Purpose |
-|---|---|---|
-| **Deploy Services (Testnet)** | push to `main` | Gateway + Relayer + Caddy → rolling restart |
-| **Deploy Substreams (Testnet)** | after Substreams CI | 3 spkgs → restart sinks on server |
-| **Deploy Services (Mainnet)** | manual (requires approval) | Same pipeline, reviewer gate |
-
-### Verify Live Contracts
-
-Runs every 6 hours + manual dispatch — confirms deployed code on-chain.
-
-| Contract | Testnet | Mainnet |
-|---|---|---|
-| **Core** | `core.onsocial.testnet` ✅ | `core.onsocial.near` ✅ |
-| **Staking** | `staking.onsocial.testnet` ✅ | — |
-| **Token** | `token.onsocial.testnet` ✅ | `token.onsocial.near` ✅ |
+| **Smart Contracts** | | |
+| [contracts/core-onsocial](contracts/core-onsocial) | Posts, groups, stores, permissions | [README](contracts/core-onsocial/README.md) |
+| [contracts/staking-onsocial](contracts/staking-onsocial) | Stake SOCIAL → earn rewards | [README](contracts/staking-onsocial/README.md) |
+| [contracts/token-onsocial](contracts/token-onsocial) | SOCIAL token (NEP-141) | [README](contracts/token-onsocial/README.md) |
+| [contracts/marketplace-onsocial](contracts/marketplace-onsocial) | Listings & commerce | [README](contracts/marketplace-onsocial/README.md) |
+| **Backend Services** | | |
+| [packages/onsocial-gateway](packages/onsocial-gateway) | API gateway (GraphQL, storage, relay) | [README](packages/onsocial-gateway/README.md) |
+| [packages/onsocial-relayer](packages/onsocial-relayer) | Tx relayer (Rust, KMS-backed signing) | [README](packages/onsocial-relayer/README.md) |
+| [packages/onsocial-rpc](packages/onsocial-rpc) | NEAR RPC client | — |
+| [packages/onsocial-portal](packages/onsocial-portal) | Portal UI | [README](packages/onsocial-portal/README.md) |
+| **Indexing** | | |
+| [indexers/substreams](indexers/substreams) | Real-time blockchain indexing (3 sinks) | [README](indexers/substreams/README.md) |
+| **Infrastructure** | | |
+| [deployment/](deployment) | Docker Compose, Caddy, systemd | — |
 
 ---
 

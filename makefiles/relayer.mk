@@ -75,8 +75,8 @@ docker-run-relayer: build-docker-relayer-production
 	@CONTAINER_NAME=relayer; \
 	PORT=3040; \
 	IMAGE_NAME=$(RS_PRODUCTION_IMAGE); \
-	CONFIG_PATH=$(CODE_DIR)/packages/relayer/config.toml; \
-	KEYS_PATH=$(CODE_DIR)/packages/relayer/account_keys; \
+	CONFIG_PATH=$(CODE_DIR)/packages/onsocial-relayer/config.toml; \
+	KEYS_PATH=$(CODE_DIR)/packages/onsocial-relayer/account_keys; \
 	if docker ps -a --format "table {{.Names}}" | grep -q "^$$CONTAINER_NAME$$"; then \
 		echo "$(BUILD)Removing existing relayer container...$(RESET)"; \
 		docker rm -f $$CONTAINER_NAME; \
@@ -172,7 +172,7 @@ stop-relayer-all:
 keys-relayer:
 	@$(call log_start,Setting Up Relayer Keys)
 	@$(call log_progress,Running multikey setup script)
-	@bash packages/relayer/multikey_setup.sh
+	@bash packages/onsocial-relayer/multikey_setup.sh
 	@$(call log_success,Relayer keys setup completed)
 
 # =============================================================================

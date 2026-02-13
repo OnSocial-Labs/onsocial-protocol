@@ -98,7 +98,7 @@ endef
 define docker_run_relayer
 	docker run --rm $(DOCKER_TTY) \
 		-v $(CODE_DIR):/code \
-		-w /code/packages/relayer \
+		-w /code/packages/onsocial-relayer \
 		-e FORCE_COLOR=1 \
 		-e TERM=xterm-256color \
 		-e VERBOSE=$(VERBOSE) \
@@ -111,7 +111,7 @@ define docker_run_relayer_network
 	docker run --rm $(DOCKER_TTY) \
 		--network host \
 		-v $(CODE_DIR):/code \
-		-w /code/packages/relayer \
+		-w /code/packages/onsocial-relayer \
 		-e FORCE_COLOR=1 \
 		-e TERM=xterm-256color \
 		-e VERBOSE=$(VERBOSE) \
@@ -173,7 +173,7 @@ RELAYER_IMAGE_STAMP := $(DOCKER_CACHE_DIR)/relayer-image.stamp
 # Dependencies for image rebuilds
 CONTRACTS_DEPS := docker/Dockerfile.contracts Cargo.toml contracts/*/Cargo.toml
 JS_DEPS := docker/Dockerfile.nodejs package.json packages/*/package.json pnpm-lock.yaml
-RELAYER_DEPS := docker/Dockerfile.relayer packages/relayer/Cargo.toml
+RELAYER_DEPS := docker/Dockerfile.relayer packages/onsocial-relayer/Cargo.toml
 
 # Build Docker images with intelligent caching
 $(CONTRACTS_IMAGE_STAMP): $(CONTRACTS_DEPS)

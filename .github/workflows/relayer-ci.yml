@@ -4,13 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'packages/relayer/**'
+      - 'packages/onsocial-relayer/**'
       - 'crates/**'
       - '.github/workflows/relayer-ci.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'packages/relayer/**'
+      - 'packages/onsocial-relayer/**'
       - 'crates/**'
       - '.github/workflows/relayer-ci.yml'
   workflow_dispatch:
@@ -38,18 +38,18 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            packages/relayer/target
-          key: relayer-${{ runner.os }}-cargo-${{ hashFiles('packages/relayer/Cargo.lock') }}
+            packages/onsocial-relayer/target
+          key: relayer-${{ runner.os }}-cargo-${{ hashFiles('packages/onsocial-relayer/Cargo.lock') }}
           restore-keys: relayer-${{ runner.os }}-cargo-
 
       - name: Clippy (all features)
-        working-directory: packages/relayer
+        working-directory: packages/onsocial-relayer
         run: cargo clippy --features gcp --all-targets -- -D warnings
 
       - name: Format check
-        working-directory: packages/relayer
+        working-directory: packages/onsocial-relayer
         run: cargo fmt -- --check
 
       - name: Unit tests
-        working-directory: packages/relayer
+        working-directory: packages/onsocial-relayer
         run: cargo test --lib --bins

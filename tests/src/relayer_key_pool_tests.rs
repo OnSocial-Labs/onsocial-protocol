@@ -9,10 +9,10 @@
 use anyhow::Result;
 use near_crypto::SecretKey;
 use near_workspaces::types::NearToken;
-use relayer::key_pool::KeyPool;
-use relayer::key_store::KeyStore;
-use relayer::rpc::RpcClient;
-use relayer::signer::RelayerSigner;
+use onsocial_relayer::key_pool::KeyPool;
+use onsocial_relayer::key_store::KeyStore;
+use onsocial_relayer::rpc::RpcClient;
+use onsocial_relayer::signer::RelayerSigner;
 use std::sync::Arc;
 use std::time::Duration;
 
