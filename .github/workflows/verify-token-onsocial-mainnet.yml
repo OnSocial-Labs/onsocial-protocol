@@ -1,0 +1,46 @@
+name: Token Mainnet Deploy
+
+on:
+  push:
+    paths:
+      - '.github/workflows/verify-token-onsocial-mainnet.yml'
+  schedule:
+    - cron: '0 */6 * * *' # Every 6 hours
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check contract on mainnet
+        run: |
+          RESPONSE=$(curl -s -X POST https://near.lava.build \
+            -H "Content-Type: application/json" \
+            -d '{
+              "jsonrpc": "2.0",
+              "id": "1",
+              "method": "query",
+              "params": {
+                "request_type": "view_account",
+                "finality": "final",
+                "account_id": "token.onsocial.near"
+              }
+            }')
+          
+          echo "Response: $RESPONSE"
+          
+          CODE_HASH=$(echo "$RESPONSE" | jq -r '.result.code_hash // empty')
+          
+          if [ -z "$CODE_HASH" ]; then
+            echo "❌ Contract not found on mainnet"
+            exit 1
+          fi
+          
+          if [ "$CODE_HASH" = "11111111111111111111111111111111" ]; then
+            echo "❌ No code deployed to contract"
+            exit 1
+          fi
+          
+          echo "✅ Token contract deployed on mainnet"
+          echo "Code hash: $CODE_HASH"

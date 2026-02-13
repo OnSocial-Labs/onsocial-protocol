@@ -1,0 +1,51 @@
+name: Staking CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/staking-onsocial/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/staking-onsocial-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'contracts/staking-onsocial/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/staking-onsocial-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: Check, Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check
+        run: make check-contract-staking-onsocial
+
+      - name: Lint
+        run: make lint-contract-staking-onsocial
+
+      - name: Format
+        run: make format-contract-staking-onsocial
+
+      - name: Build
+        run: make build-contract-staking-onsocial
+
+      - name: Test
+        run: make test-unit-contract-staking-onsocial
+
+      - name: Upload WASM
+        uses: actions/upload-artifact@v4
+        with:
+          name: staking-onsocial.wasm
+          path: target/near/staking_onsocial/staking_onsocial.wasm
+          retention-days: 7

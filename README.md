@@ -1,5 +1,6 @@
-[![Core OnSocial CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
-[![Core Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml)
+[![Core CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
+[![Staking CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/staking-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/staking-onsocial-ci.yml)
+[![Token CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/token-onsocial-ci.yml)
 [![Gateway CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
 [![Relayer CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml)
 [![Substreams CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml)
@@ -51,17 +52,35 @@ deployment/                 Docker Compose, Caddy, systemd
 
 Every push to `main` triggers automated build → test → deploy with rollback.
 
+### Build & Test
+
 | Workflow | Trigger | Purpose |
 |---|---|---|
-| **Core CI** | `contracts/**` | Build WASM + unit & integration tests |
+| **Core CI** | `contracts/core-onsocial/**` | Build WASM + unit & integration tests |
+| **Staking CI** | `contracts/staking-onsocial/**` | Build WASM + unit tests |
+| **Token CI** | `contracts/token-onsocial/**` | Build WASM + unit tests |
+| **Marketplace CI** | `contracts/marketplace-onsocial/**` | Build WASM + unit tests |
 | **Gateway CI** | `packages/onsocial-gateway/**` | Lint, typecheck, 77 tests |
 | **Relayer CI** | `packages/relayer/**` | Clippy + cargo test |
 | **Substreams CI** | `indexers/substreams/**` | Check, test, pack 3 spkgs |
+
+### Deploy
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
 | **Deploy Services (Testnet)** | push to `main` | Gateway + Relayer + Caddy → rolling restart |
 | **Deploy Substreams (Testnet)** | after Substreams CI | 3 spkgs → restart sinks on server |
-| **Verify Contracts (Testnet)** | after deploy | On-chain contract verification |
 | **Deploy Services (Mainnet)** | manual (requires approval) | Same pipeline, reviewer gate |
-| **Verify Contracts (Mainnet)** | after mainnet deploy | On-chain contract verification |
+
+### Verify Live Contracts
+
+Runs every 6 hours + manual dispatch — confirms deployed code on-chain.
+
+| Contract | Testnet | Mainnet |
+|---|---|---|
+| **Core** | `core.onsocial.testnet` ✅ | `core.onsocial.near` ✅ |
+| **Staking** | `staking.onsocial.testnet` ✅ | — |
+| **Token** | `token.onsocial.testnet` ✅ | `token.onsocial.near` ✅ |
 
 ---
 
