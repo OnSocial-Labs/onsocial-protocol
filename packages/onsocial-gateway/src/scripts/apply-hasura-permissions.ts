@@ -10,7 +10,7 @@
  *   HASURA_ADMIN_SECRET - Admin secret for Hasura
  */
 
-import { config } from '../src/config/index.js';
+import { config } from '../config/index.js';
 
 // Tables and their columns (actual Hasura schema - snake_case)
 const TABLES = [

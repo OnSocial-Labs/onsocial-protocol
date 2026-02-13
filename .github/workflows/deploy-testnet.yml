@@ -183,6 +183,11 @@ jobs:
               exit 1
             fi
 
+            # ── Sync Hasura permissions (idempotent — skips existing) ─
+            echo "Syncing Hasura permissions..."
+            docker compose exec -T gateway node dist/scripts/apply-hasura-permissions.js create 2>&1 || \
+              echo "⚠️  Hasura permission sync skipped (script not built or unavailable)"
+
             echo "Reloading caddy..."
             docker compose up -d --no-deps caddy
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
