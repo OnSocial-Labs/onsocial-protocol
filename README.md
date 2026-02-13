@@ -28,8 +28,6 @@
 
 ### Monitoring
 [![Relayer Balance](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/monitor-relayer-balance.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/monitor-relayer-balance.yml)
-[![Testnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OnSocial-Labs/onsocial-protocol/main/.github/badges/relayer-testnet.json)](https://nearblocks.io/address/relayer.onsocial.testnet)
-[![Mainnet](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OnSocial-Labs/onsocial-protocol/main/.github/badges/relayer-mainnet.json)](https://nearblocks.io/address/relayer.onsocial.near)
 
 ---
 
