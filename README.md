@@ -1,6 +1,6 @@
 # OnSocial
 
-## Step into control of your social experience.
+### Step into control of your social experience.
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
