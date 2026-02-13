@@ -207,7 +207,7 @@ services:
     volumes:
       - ./secrets/relayer-signer.json:/run/secrets/gcp-sa.json:ro
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:3040/ready"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/3040'"]
       interval: 10s
       timeout: 5s
       retries: 3

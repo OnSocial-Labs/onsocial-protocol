@@ -14,7 +14,7 @@ RUN cargo build --release --features gcp --bin relayer
 
 # Runtime stage — same base as builder for glibc compat
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/* \
     && useradd -r -s /bin/false relayer
 WORKDIR /app
 
