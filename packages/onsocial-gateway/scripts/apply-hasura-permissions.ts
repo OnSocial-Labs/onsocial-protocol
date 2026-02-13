@@ -12,8 +12,9 @@
 
 import { config } from '../src/config/index.js';
 
-// Tables and their columns (actual Hasura schema - snake_case table names, camelCase columns)
+// Tables and their columns (actual Hasura schema - snake_case)
 const TABLES = [
+  // ── Core contract ──
   { 
     name: 'data_updates', 
     columns: ['id', 'account_id', 'author', 'block_height', 'block_timestamp', 'data_id', 'data_type', 
@@ -43,16 +44,46 @@ const TABLES = [
     columns: ['id', 'actor_id', 'auth_type', 'author', 'block_height', 'block_timestamp', 'derived_id',
               'derived_type', 'operation', 'partition_id', 'path', 'payer_id', 'receipt_id', 'target_id'] 
   },
+  // ── Token contract (NEP-141) ──
+  {
+    name: 'token_events',
+    columns: ['id', 'block_height', 'block_timestamp', 'receipt_id', 'event_type',
+              'owner_id', 'amount', 'memo', 'old_owner_id', 'new_owner_id']
+  },
+  {
+    name: 'token_balances',
+    columns: ['account_id', 'last_event_type', 'last_event_block', 'updated_at']
+  },
+  // ── Staking contract ──
+  {
+    name: 'staking_events',
+    columns: ['id', 'block_height', 'block_timestamp', 'receipt_id', 'account_id', 'event_type',
+              'success', 'amount', 'effective_stake', 'months', 'new_months', 'new_effective',
+              'elapsed_ns', 'total_released', 'remaining_pool', 'infra_share', 'rewards_share',
+              'total_pool', 'receiver_id', 'old_owner', 'new_owner', 'old_version', 'new_version', 'deposit']
+  },
+  {
+    name: 'staker_state',
+    columns: ['account_id', 'locked_amount', 'effective_stake', 'lock_months',
+              'total_claimed', 'total_credits_purchased', 'last_event_type', 'last_event_block', 'updated_at']
+  },
+  {
+    name: 'credit_purchases',
+    columns: ['id', 'block_height', 'block_timestamp', 'receipt_id', 'account_id',
+              'amount', 'infra_share', 'rewards_share']
+  },
+  // ── Substreams cursor ──
   { 
     name: 'cursors', 
     columns: ['id', 'cursor', 'block_num', 'block_id'] 
   },
 ];
 
+// Tiers must match gateway Tier type: 'free' | 'pro' | 'scale'
 const TIERS = {
   free: { limit: 100, allow_aggregations: false },
-  staker: { limit: 1000, allow_aggregations: true },
-  builder: { limit: 10000, allow_aggregations: true },
+  pro: { limit: 1000, allow_aggregations: true },
+  scale: { limit: 10000, allow_aggregations: true },
 };
 
 const HASURA_METADATA_URL = config.hasuraUrl.replace('/v1/graphql', '/v1/metadata');
