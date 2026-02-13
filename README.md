@@ -1,48 +1,15 @@
-[![Core OnSocial](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
-[![Core OnSocial Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml)
-[![Core OnSocial Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-mainnet.yml)
-
-[![Marketplace OnSocial](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/marketplace-onsocial-ci.yml)
-[![Marketplace Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-testnet.yml)
-[![Marketplace Mainnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-marketplace-onsocial-mainnet.yml)
-
-[![OnSocial Gateway](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
-[![OnSocial Client](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml)
-[![Relayer Deploy](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-relayer.yml)
+[![Core OnSocial CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/core-onsocial-ci.yml)
+[![Core Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/verify-core-onsocial-testnet.yml)
+[![Gateway CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
+[![Client CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-client-ci.yml)
+[![Relayer CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml)
+[![Deploy Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![NEAR Protocol](https://img.shields.io/badge/NEAR-Protocol-blueviolet)](https://near.org)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 # OnSocial Protocol
 
-A decentralized, gasless social media platform on NEAR—empowering everyone to connect, create, and share freely in a privacy-first, user-owned ecosystem. Built for openness, modularity, and seamless onboarding.
-
----
-
-## Vision
-
-- **Gasless & Seamless:** No blockchain friction—users onboard and interact with a familiar in-app wallet, no crypto knowledge required.
-- **Privacy-First:** Users control their own data and identity.
-- **Open & Modular:** Extensible, composable, and designed for community-driven innovation.
-
----
-
-## Get Involved
-
-Contributions of all kinds are welcome—code, design, documentation, and ideas. Every contribution helps shape the future of decentralized social media.
-
-- Start contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Join the discussion: [GitHub Issues](https://github.com/OnSocial-Labs/onsocial-protocol/issues)
-- Explore the docs: [Resources/README.md](Resources/README.md)
-
----
-
-## Project Structure
-
-- `contracts/` — Core smart contracts (token, relayer, marketplace, social, staking)
-- `packages/` — JavaScript SDKs and relayer service
-- `scripts/` — Automation for deployment and testing
-- `tests/` — Integration and unit tests
+Decentralized, gasless social media on NEAR. Privacy-first, user-owned, zero blockchain friction.
 
 ---
 
@@ -51,42 +18,63 @@ Contributions of all kinds are welcome—code, design, documentation, and ideas.
 ```bash
 git clone https://github.com/OnSocial-Labs/onsocial-protocol.git
 cd onsocial-protocol
-make setup   # Initial setup with Docker
-make build   # Build all contracts and packages
+make setup   # Build Docker toolchains
+make build   # Build contracts + packages
+make test    # Run all tests
 ```
-For full setup and deployment, see the [Deployment Guide](Resources/deployment-guide.md).
+
+See [Deployment Guide](Resources/deployment-guide.md) for production setup.
 
 ---
 
-## Documentation Index
+## Architecture
 
-### Contracts
-- [Marketplace-OnSocial](contracts/marketplace-onsocial/README.md): Marketplace for digital assets.
-- [Core-OnSocial](contracts/core-onsocial/README.md): Social media interactions.
-- [Staking-OnSocial](contracts/staking-onsocial/README.md): Staking and rewards.
+```
+contracts/          Smart contracts (Rust/NEAR)
+├── core-onsocial       Social interactions, groups, stores
+├── staking-onsocial    Staking & rewards
+└── token-onsocial      SOCIAL token (NEP-141)
 
-### Packages
-- [@onsocial/client](packages/onsocial-client/README.md): Client library for interacting with OnSocial protocol.
-- [OnSocial-Gateway](packages/onsocial-gateway/README.md): Unified API gateway for graph, storage, and relay services.
-- [OnSocial-Backend](packages/onsocial-backend/README.md): Backend services and APIs.
-- [OnSocial-App](packages/onsocial-app/README.md): Frontend application components.
-- [Relayer](packages/relayer/README.md): Rust-based transaction relayer service.
+packages/           Services & libraries (TypeScript + Rust)
+├── onsocial-gateway    API gateway — graph, storage, relay
+├── onsocial-client     Browser SDK
+├── onsocial-rpc        NEAR RPC client (single source of truth)
+├── relayer             Tx relayer (Rust, KMS-backed keys)
+├── onsocial-app        Frontend
+├── onsocial-portal     Portal UI
+└── onsocial-intents    NEAR intents integration
 
-### Resources
-- [Deployment Guide](Resources/deployment-guide.md): Step-by-step instructions for deploying contracts.
-- [AI Prompts](Resources/ai-prompts.md): Prompts for AI-assisted development.
-- [Resources Overview](Resources/README.md): Additional guides and resources.
+deployment/         Docker Compose, Caddy, deploy scripts
+scripts/            Automation — KMS setup, secrets, env generation
+tests/              Contract integration tests
+```
 
 ---
 
-## Values
+## CI/CD
 
-- **Humility:** Progress through learning and collaboration.
-- **Openness:** All ideas and backgrounds are valued.
-- **Impact:** Technology as a force for positive change.
+| Workflow | Trigger | What it does |
+|---|---|---|
+| Core OnSocial CI | push/PR to `contracts/` | Build + unit/integration tests |
+| Gateway CI | push/PR to `packages/onsocial-gateway/` | Lint, typecheck, 77 tests |
+| Client CI | push/PR to `packages/onsocial-client/` | Build + test |
+| Relayer CI | push/PR to `packages/relayer/` | Clippy + cargo test |
+| Deploy Testnet | push to `main` | Build images → rolling deploy to Hetzner |
+| Deploy Mainnet | manual | Same as testnet, requires confirmation |
+
+All deploys include health verification and auto-rollback.
+
+---
+
+## Key Links
+
+- [Contributing](CONTRIBUTING.md)
+- [Deployment Guide](Resources/deployment-guide.md)
+- [Make Targets](Resources/MAKE_TARGETS.md)
+- [Resources](Resources/README.md)
 
 ---
 
 ## License
 
-MIT — see [LICENSE.md](LICENSE.md)
+MIT — [LICENSE.md](LICENSE.md)
