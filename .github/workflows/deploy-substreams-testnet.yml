@@ -30,6 +30,9 @@ jobs:
         with:
           workspaces: indexers/substreams -> target
 
+      - name: Install protoc
+        run: sudo apt-get install -y protobuf-compiler
+
       - name: Build WASM
         working-directory: indexers/substreams
         run: cargo build --target wasm32-unknown-unknown --release
