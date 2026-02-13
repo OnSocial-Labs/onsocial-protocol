@@ -196,7 +196,7 @@ jobs:
 
             echo "Reloading caddy..."
             docker compose up -d --no-deps caddy
-            if ! check_health "caddy (public)" "https://api.onsocial.id/health" 10 5; then
+            if ! check_health "caddy (public)" "https://mainnet.onsocial.id/health" 10 5; then
               echo "⚠️  Public health check failed — services may still be starting"
             fi
 

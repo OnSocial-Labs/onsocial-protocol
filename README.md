@@ -3,7 +3,7 @@
 [![Gateway CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/onsocial-gateway-ci.yml)
 [![Relayer CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/relayer-ci.yml)
 [![Substreams CI](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/substreams-ci.yml)
-[![Deploy Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
+[![Deploy Services Testnet](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml/badge.svg)](https://github.com/OnSocial-Labs/onsocial-protocol/actions/workflows/deploy-testnet.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![NEAR](https://img.shields.io/badge/NEAR-Protocol-blueviolet)](https://near.org)
 
@@ -57,11 +57,11 @@ Every push to `main` triggers automated build → test → deploy with rollback.
 | **Gateway CI** | `packages/onsocial-gateway/**` | Lint, typecheck, 77 tests |
 | **Relayer CI** | `packages/relayer/**` | Clippy + cargo test |
 | **Substreams CI** | `indexers/substreams/**` | Check, test, pack 3 spkgs |
-| **Deploy Testnet** | push to `main` | Rolling deploy → health check → rollback |
-| **Deploy Substreams** | after Substreams CI | Upload spkgs → restart sinks |
-| **Verify Testnet** | after deploy | On-chain contract verification |
-| **Deploy Mainnet** | manual (requires approval) | Same pipeline, reviewer gate |
-| **Verify Mainnet** | after mainnet deploy | On-chain contract verification |
+| **Deploy Services (Testnet)** | push to `main` | Gateway + Relayer + Caddy → rolling restart |
+| **Deploy Substreams (Testnet)** | after Substreams CI | 3 spkgs → restart sinks on server |
+| **Verify Contracts (Testnet)** | after deploy | On-chain contract verification |
+| **Deploy Services (Mainnet)** | manual (requires approval) | Same pipeline, reviewer gate |
+| **Verify Contracts (Mainnet)** | after mainnet deploy | On-chain contract verification |
 
 ---
 

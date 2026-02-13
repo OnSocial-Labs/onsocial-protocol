@@ -8,11 +8,13 @@
 #   ssh -L 8080:localhost:8080 your-server   # Hasura Console
 #   ssh -L 5432:localhost:5432 your-server   # Postgres
 #
-# DNS record required (A record → server IP):
-#   api.onsocial.id
+# DNS records required (A records → server IP):
+#   api.onsocial.id       — current unified endpoint
+#   testnet.onsocial.id   — testnet alias
+#   mainnet.onsocial.id   — mainnet alias (future: separate server)
 
 # ---------- API Gateway (sole public surface) ----------
-api.onsocial.id {
+api.onsocial.id, testnet.onsocial.id, mainnet.onsocial.id {
 	# 100 req/s per IP — protects infra before requests reach the app
 	rate_limit {
 		zone per_ip {
