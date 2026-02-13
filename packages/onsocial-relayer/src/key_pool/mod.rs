@@ -16,6 +16,8 @@ use crate::key_store::KeyStore;
 use crate::signer::RelayerSigner;
 use near_primitives::types::AccountId;
 use slot::{now_secs, ACTIVE, DRAINING, WARMUP};
+#[cfg(feature = "gcp")]
+use std::sync::atomic::AtomicU32;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;

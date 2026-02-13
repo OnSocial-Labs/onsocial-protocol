@@ -36,18 +36,24 @@ make setup && make build && make test
 
 ```mermaid
 graph TD
-    Clients -->|HTTPS| Caddy[Caddy - TLS]
-    Caddy --> Gateway[Gateway - API]
-    Gateway --> Hasura[Hasura - GraphQL]
-    Gateway --> Lighthouse[Lighthouse - IPFS]
-    Gateway --> LB[Relayer LB]
-    LB --> R0[Relayer 0 - KMS]
-    LB --> R1[Relayer 1 - KMS]
-    Hasura --> Postgres[(Postgres)]
-    R0 --> NEAR[NEAR Chain]
-    R1 --> NEAR
-    Substreams[Substreams - indexer] -->|Firehose| NEAR
-    Substreams --> Postgres
+    C[Clients] -->|HTTPS| CD[Caddy]
+    CD --> GW[Gateway]
+
+    GW --> H[Hasura]
+    GW --> LH[Lighthouse]
+    GW --> LB[Relayer LB]
+
+    H --> PG[(Postgres)]
+    LB --> R0[Relay 0]
+    LB --> R1[Relay 1]
+
+    R0 & R1 -->|tx| NEAR
+    SS[Substreams] -->|Firehose| NEAR
+    SS --> PG
+
+    subgraph NEAR[NEAR Protocol]
+        Core & Staking & Token & Marketplace
+    end
 ```
 
 ---
