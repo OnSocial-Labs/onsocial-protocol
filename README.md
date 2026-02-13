@@ -34,39 +34,20 @@ make setup && make build && make test
 
 ## Architecture
 
-```
-                     ┌──────────┐
-                     │ Clients  │
-                     └────┬─────┘
-                          │ HTTPS
-                     ┌────▼─────┐
-                     │  Caddy   │  TLS + reverse proxy
-                     └────┬─────┘
-                          │
-                     ┌────▼─────┐
-                     │ Gateway  │  API (GraphQL, storage, relay)
-                     └┬───┬───┬─┘
-                      │   │   │
-         ┌────────────┘   │   └──────────────┐
-         ▼                ▼                  ▼
-   ┌──────────┐    ┌────────────┐     ┌─────────────┐
-   │  Hasura  │    │ Lighthouse │     │ Relayer LB  │
-   │  (GQL)   │    │  (IPFS)    │     └──┬───────┬──┘
-   └────┬─────┘    └────────────┘        ▼       ▼
-        │                           ┌────────┐ ┌────────┐
-        │                           │Relay-0 │ │Relay-1 │  KMS
-        │                           └───┬────┘ └───┬────┘
-        ▼                               │          │
-   ┌──────────┐                         ▼          ▼
-   │ Postgres │◄─────────────── ┌───────────────────┐
-   └──────────┘                 │    NEAR Chain      │
-        ▲                       │ ┌───────────────┐  │
-        │                       │ │ Core          │  │
-   ┌────┴──────┐                │ │ Staking       │  │
-   │Substreams │◄── Firehose    │ │ Token         │  │
-   │ (indexer) │                │ │ Marketplace   │  │
-   └───────────┘                │ └───────────────┘  │
-                                └────────────────────┘
+```mermaid
+graph TD
+    Clients -->|HTTPS| Caddy[Caddy - TLS]
+    Caddy --> Gateway[Gateway - API]
+    Gateway --> Hasura[Hasura - GraphQL]
+    Gateway --> Lighthouse[Lighthouse - IPFS]
+    Gateway --> LB[Relayer LB]
+    LB --> R0[Relayer 0 - KMS]
+    LB --> R1[Relayer 1 - KMS]
+    Hasura --> Postgres[(Postgres)]
+    R0 --> NEAR[NEAR Chain]
+    R1 --> NEAR
+    Substreams[Substreams - indexer] -->|Firehose| NEAR
+    Substreams --> Postgres
 ```
 
 ---
