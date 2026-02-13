@@ -85,7 +85,8 @@ jobs:
     name: Deploy to Mainnet
     needs: build
     runs-on: ubuntu-latest
-    environment: mainnet
+    environment:
+      name: mainnet
 
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +101,6 @@ jobs:
           host: 135.181.110.183
           username: root
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          script_stop: true
           script: |
             set -euo pipefail
             cd /opt/onsocial

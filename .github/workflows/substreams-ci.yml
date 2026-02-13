@@ -1,0 +1,74 @@
+name: Substreams CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'indexers/substreams/**'
+      - '.github/workflows/substreams-ci.yml'
+  pull_request:
+    paths:
+      - 'indexers/substreams/**'
+      - '.github/workflows/substreams-ci.yml'
+
+defaults:
+  run:
+    working-directory: indexers/substreams
+
+jobs:
+  check:
+    name: Check & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: indexers/substreams -> target
+
+      - name: Cargo check (native)
+        run: cargo check --all-targets
+
+      - name: Cargo test
+        run: cargo test
+
+      - name: Build WASM
+        run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Install substreams CLI
+        run: |
+          curl -sL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
+          substreams --version
+
+      - name: Pack spkg (core)
+        run: substreams pack -o onsocial-events-v0.7.0-core.spkg
+
+      - name: Pack spkg (staking)
+        run: |
+          sed -i 's/module: core_db_out/module: staking_db_out/' substreams.yaml
+          substreams pack -o onsocial-events-v0.7.0-staking.spkg
+
+      - name: Pack spkg (token)
+        run: |
+          sed -i 's/module: staking_db_out/module: token_db_out/' substreams.yaml
+          substreams pack -o onsocial-events-v0.7.0-token.spkg
+
+      - name: Restore substreams.yaml
+        run: |
+          sed -i 's/module: token_db_out/module: core_db_out/' substreams.yaml
+
+      - name: Upload spkg artifacts
+        if: "github.ref == 'refs/heads/main'"
+        uses: actions/upload-artifact@v4
+        with:
+          name: substreams-spkg
+          path: |
+            indexers/substreams/onsocial-events-v0.7.0-core.spkg
+            indexers/substreams/onsocial-events-v0.7.0-staking.spkg
+            indexers/substreams/onsocial-events-v0.7.0-token.spkg
+          retention-days: 30

@@ -55,7 +55,7 @@ fn test_update_balances_ft_mint() {
 
     let mut tables = Tables::new();
     for (account_id, state) in &accum {
-        let row = tables.create_row("token_balances", account_id);
+        let row = tables.upsert_row("token_balances", account_id);
         row.set("account_id", account_id);
         row.set("last_event_type", &state.last_event_type);
     }
@@ -77,7 +77,7 @@ fn test_update_balances_ft_transfer_creates_two_rows() {
 
     let mut tables = Tables::new();
     for (account_id, state) in &accum {
-        let row = tables.create_row("token_balances", account_id);
+        let row = tables.upsert_row("token_balances", account_id);
         row.set("account_id", account_id);
         row.set("last_event_type", &state.last_event_type);
     }

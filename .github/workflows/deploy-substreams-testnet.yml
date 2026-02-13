@@ -1,0 +1,174 @@
+name: Deploy Substreams (Testnet)
+
+on:
+  workflow_run:
+    workflows: ["Substreams CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: Deploy spkg to Hetzner
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: indexers/substreams -> target
+
+      - name: Build WASM
+        working-directory: indexers/substreams
+        run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Install substreams CLI
+        run: |
+          curl -sL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
+          substreams --version
+
+      - name: Pack all 3 spkgs
+        working-directory: indexers/substreams
+        run: |
+          # Core (default sink.module: core_db_out)
+          substreams pack -o onsocial-events-v0.7.0-core.spkg
+
+          # Staking
+          sed -i 's/module: core_db_out/module: staking_db_out/' substreams.yaml
+          substreams pack -o onsocial-events-v0.7.0-staking.spkg
+
+          # Token
+          sed -i 's/module: staking_db_out/module: token_db_out/' substreams.yaml
+          substreams pack -o onsocial-events-v0.7.0-token.spkg
+
+          # Restore original
+          sed -i 's/module: token_db_out/module: core_db_out/' substreams.yaml
+
+          echo "Built spkgs:"
+          ls -la onsocial-events-v0.7.0-*.spkg
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Step 1: Upload spkgs to server staging directory
+      - name: Upload spkgs
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 135.181.110.183
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          source: indexers/substreams/onsocial-events-v0.7.0-core.spkg,indexers/substreams/onsocial-events-v0.7.0-staking.spkg,indexers/substreams/onsocial-events-v0.7.0-token.spkg
+          target: /tmp/onsocial-spkg-upload/
+          strip_components: 2
+          overwrite: true
+
+      # Step 2: Stop sinks, swap spkgs, restart, health-check with rollback
+      - name: Deploy and restart sinks
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 135.181.110.183
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            SPKG_DIR=/root/onsocial-indexer
+            UPLOAD_DIR=/tmp/onsocial-spkg-upload
+
+            echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} ==="
+
+            # Verify uploaded files exist
+            for variant in core staking token; do
+              SRC="${UPLOAD_DIR}/onsocial-events-v0.7.0-${variant}.spkg"
+              if [ ! -f "$SRC" ]; then
+                echo "❌ Upload missing: $SRC"
+                exit 1
+              fi
+            done
+            echo "✓ All spkgs uploaded"
+
+            # Stop sinks
+            systemctl stop onsocial-sink-core onsocial-sink-staking onsocial-sink-token || true
+            echo "✓ Sinks stopped"
+
+            # Backup current spkgs
+            for variant in core staking token; do
+              CURRENT="${SPKG_DIR}/onsocial-events-v0.7.0-${variant}.spkg"
+              [ -f "$CURRENT" ] && cp "$CURRENT" "${CURRENT}.prev"
+            done
+
+            # Move uploaded spkgs into place
+            for variant in core staking token; do
+              mv "${UPLOAD_DIR}/onsocial-events-v0.7.0-${variant}.spkg" \
+                 "${SPKG_DIR}/onsocial-events-v0.7.0-${variant}.spkg"
+            done
+            rm -rf "$UPLOAD_DIR"
+            echo "✓ Spkgs swapped"
+
+            # Restart sinks
+            systemctl start onsocial-sink-core onsocial-sink-staking onsocial-sink-token
+            echo "✓ Sinks started"
+
+            # Health check — wait 20s then verify at least 2/3 active
+            # (FREE StreamingFast plan allows only 2 concurrent streams)
+            sleep 20
+            ACTIVE=0
+            for s in core staking token; do
+              if systemctl is-active --quiet "onsocial-sink-$s"; then
+                ACTIVE=$((ACTIVE + 1))
+                echo "  ✅ $s: active"
+              else
+                echo "  ⚠️  $s: $(systemctl is-active onsocial-sink-$s)"
+              fi
+            done
+
+            if [ "$ACTIVE" -lt 2 ]; then
+              echo ""
+              echo "❌ Only $ACTIVE/3 sinks active after 20s — rolling back"
+              for variant in core staking token; do
+                PREV="${SPKG_DIR}/onsocial-events-v0.7.0-${variant}.spkg.prev"
+                [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/onsocial-events-v0.7.0-${variant}.spkg"
+              done
+              systemctl restart onsocial-sink-core onsocial-sink-staking onsocial-sink-token || true
+              exit 1
+            fi
+
+            # Cleanup backups on success
+            rm -f ${SPKG_DIR}/*.spkg.prev
+
+            echo ""
+            echo "✅ Deploy complete — $ACTIVE/3 sinks active (${{ steps.sha.outputs.short }})"
+
+      - name: Notify Telegram
+        if: always()
+        run: |
+          STATUS="${{ job.status }}"
+          SHA="${{ steps.sha.outputs.short }}"
+          TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+          [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
+
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"; MSG="Substreams deploy succeeded"
+          else
+            EMOJI="❌"; MSG="Substreams deploy FAILED"
+          fi
+
+          TEXT="$EMOJI *$MSG* — \`$SHA\`
+          [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
+            -H 'Content-Type: application/json' \
+            -d "{\"chat_id\":\"$CHAT_ID\",\"text\":\"$TEXT\",\"parse_mode\":\"Markdown\"}" || true

@@ -40,9 +40,9 @@ pub fn staking_db_out(output: StakingOutput) -> Result<DatabaseChanges, substrea
         }
     }
 
-    // 4. Flush one staker_state row per account
+    // 4. Flush one staker_state row per account (upsert: same account can appear across blocks)
     for (account_id, state) in &staker_accum {
-        let row = tables.create_row("staker_state", account_id);
+        let row = tables.upsert_row("staker_state", account_id);
         row.set("account_id", account_id);
         row.set("last_event_type", &state.last_event_type);
         row.set("last_event_block", &state.last_event_block);

@@ -30,9 +30,9 @@ pub fn token_db_out(output: TokenOutput) -> Result<DatabaseChanges, substreams::
         accumulate_token_balances(&mut balance_accum, event);
     }
 
-    // 3. Flush one token_balances row per account
+    // 3. Flush one token_balances row per account (upsert: same account can appear across blocks)
     for (account_id, state) in &balance_accum {
-        let row = tables.create_row("token_balances", account_id);
+        let row = tables.upsert_row("token_balances", account_id);
         row.set("account_id", account_id);
         row.set("last_event_type", &state.last_event_type);
         row.set("last_event_block", &state.last_event_block);

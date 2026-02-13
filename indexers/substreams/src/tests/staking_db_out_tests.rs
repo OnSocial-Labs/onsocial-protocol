@@ -62,7 +62,7 @@ fn test_update_staker_state_lock_vs_unlock() {
     // Flush to tables
     let mut tables = Tables::new();
     for (account_id, state) in &accum {
-        let row = tables.create_row("staker_state", account_id);
+        let row = tables.upsert_row("staker_state", account_id);
         row.set("account_id", account_id);
         row.set("last_event_type", &state.last_event_type);
         if let Some(v) = &state.locked_amount { row.set("locked_amount", v); }
@@ -83,7 +83,7 @@ fn test_update_staker_state_lock_vs_unlock() {
 
     let mut tables2 = Tables::new();
     for (account_id, state) in &accum2 {
-        let row = tables2.create_row("staker_state", account_id);
+        let row = tables2.upsert_row("staker_state", account_id);
         row.set("account_id", account_id);
         if let Some(v) = &state.locked_amount { row.set("locked_amount", v); }
         if let Some(v) = &state.effective_stake { row.set("effective_stake", v); }
