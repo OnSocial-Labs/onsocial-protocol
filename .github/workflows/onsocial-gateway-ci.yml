@@ -15,6 +15,10 @@ on:
       - 'pnpm-lock.yaml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 env:
   NODE_ENV: test
   CI: true
@@ -60,6 +64,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Fetch secrets from GSM
+        id: secrets
+        run: |
+          LIGHTHOUSE_KEY=$(gcloud secrets versions access latest --secret="LIGHTHOUSE_API_KEY")
+          echo "::add-mask::$LIGHTHOUSE_KEY"
+          echo "LIGHTHOUSE_API_KEY=$LIGHTHOUSE_KEY" >> "$GITHUB_ENV"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
@@ -95,7 +112,7 @@ jobs:
         env:
           PORT: 4000
           JWT_SECRET: ci-test-secret
-          LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
+          LIGHTHOUSE_API_KEY: ${{ env.LIGHTHOUSE_API_KEY }}
           HASURA_URL: http://localhost:8080/v1/graphql
           HASURA_ADMIN_SECRET: ci-test-secret
           NEAR_NETWORK: testnet
@@ -110,7 +127,7 @@ jobs:
         run: pnpm --filter onsocial-gateway test
         env:
           GATEWAY_URL: http://localhost:4000
-          LIGHTHOUSE_API_KEY: ${{ secrets.LIGHTHOUSE_API_KEY }}
+          LIGHTHOUSE_API_KEY: ${{ env.LIGHTHOUSE_API_KEY }}
           HASURA_URL: http://localhost:8080/v1/graphql
           HASURA_ADMIN_SECRET: ci-test-secret
 
