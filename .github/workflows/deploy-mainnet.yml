@@ -95,12 +95,29 @@ jobs:
         id: sha
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Fetch SSH key from Secret Manager
+        id: ssh
+        run: |
+          gcloud secrets versions access latest \
+            --secret="hetzner-mainnet-ssh-key" \
+            --project="${{ secrets.GCP_PROJECT_ID }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          echo "key<<SSHEOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/deploy_key >> "$GITHUB_OUTPUT"
+          echo "SSHEOF" >> "$GITHUB_OUTPUT"
+          rm -f /tmp/deploy_key
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: 135.181.110.183
           username: root
-          key: ${{ secrets.HETZNER_SSH_KEY }}
+          key: ${{ steps.ssh.outputs.key }}
           script: |
             set -euo pipefail
             cd /opt/onsocial
