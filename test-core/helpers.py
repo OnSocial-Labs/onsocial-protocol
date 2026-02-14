@@ -23,6 +23,8 @@ CREDS_FILE = os.environ.get(
     os.path.expanduser(f"~/.near-credentials/testnet/{ACCOUNT_ID}.json"),
 )
 RPC_URL = os.environ.get("RPC_URL", "https://test.rpc.fastnear.com")
+RPC_FALLBACK = os.environ.get("RPC_FALLBACK", "https://archival-rpc.testnet.near.org")
+RPC_URLS = [RPC_URL, RPC_FALLBACK]
 
 # State
 _jwt_token: str | None = None
@@ -60,16 +62,24 @@ def _http(method: str, url: str, body=None, headers=None):
     hdrs = {"Content-Type": "application/json"}
     if headers:
         hdrs.update(headers)
-    req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.status, json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode()
+    last_err = None
+    for attempt in range(3):
+        req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
         try:
-            return e.code, json.loads(raw)
-        except json.JSONDecodeError:
-            return e.code, {"raw": raw}
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.status, json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            raw = e.read().decode()
+            try:
+                return e.code, json.loads(raw)
+            except json.JSONDecodeError:
+                return e.code, {"raw": raw}
+        except urllib.error.URLError as e:
+            last_err = e
+            if attempt < 2:
+                time.sleep(3 * (attempt + 1))
+                continue
+            raise
 
 
 def api(method: str, path: str, body=None, token=None):
@@ -248,6 +258,33 @@ def near_call_result(
 
 
 # ---------------------------------------------------------------------------
+# RPC — low-level POST with primary→fallback failover
+# ---------------------------------------------------------------------------
+def _rpc_post(body: dict) -> dict:
+    """POST to NEAR RPC, trying primary (10s) then fallback (20s)."""
+    data = json.dumps(body).encode()
+    headers = {"Content-Type": "application/json"}
+    timeouts = [10, 20]
+    last_err = None
+    for url, t in zip(RPC_URLS, timeouts):
+        req = urllib.request.Request(url, data=data, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=t) as resp:
+                r = json.loads(resp.read())
+                # 429 from primary → try fallback
+                return r
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                last_err = e
+                continue
+            raise
+        except urllib.error.URLError as e:
+            last_err = e
+            continue
+    raise last_err or RuntimeError("All RPC endpoints failed")
+
+
+# ---------------------------------------------------------------------------
 # TX result — poll NEAR RPC for finalized return value
 # ---------------------------------------------------------------------------
 def get_tx_result(
@@ -259,18 +296,11 @@ def get_tx_result(
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            rpc_body = {
+            r = _rpc_post({
                 "jsonrpc": "2.0", "id": 1,
                 "method": "tx",
                 "params": [tx_hash, sender_id],
-            }
-            req = urllib.request.Request(
-                RPC_URL,
-                data=json.dumps(rpc_body).encode(),
-                headers={"Content-Type": "application/json"},
-            )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                r = json.loads(resp.read())
+            })
             if "error" in r:
                 time.sleep(2)
                 continue
@@ -290,8 +320,9 @@ def get_tx_result(
                         f"TX failed: {json.dumps(st['Failure'])}"
                     )
         except (urllib.error.URLError, urllib.error.HTTPError):
-            time.sleep(3)  # back off on 429 / network errors
-        time.sleep(2)
+            time.sleep(4)
+            continue
+        time.sleep(3)
     raise TimeoutError(f"TX {tx_hash} not finalized in {timeout}s")
 
 
@@ -299,7 +330,10 @@ def get_tx_result(
 # RPC — Direct contract view calls
 # ---------------------------------------------------------------------------
 def view_call(method_name: str, args: dict, _retries: int = 3):
-    """Call a view method on the contract via NEAR RPC (with 429 retry)."""
+    """Call a view method on the contract via NEAR RPC.
+
+    Uses primary→fallback failover per attempt, with retries on transient errors.
+    """
     args_b64 = base64.b64encode(json.dumps(args).encode()).decode()
     rpc_body = {
         "jsonrpc": "2.0", "id": 1, "method": "query",
@@ -311,24 +345,20 @@ def view_call(method_name: str, args: dict, _retries: int = 3):
             "args_base64": args_b64,
         },
     }
+    last_err = None
     for attempt in range(_retries):
-        req = urllib.request.Request(
-            RPC_URL,
-            data=json.dumps(rpc_body).encode(),
-            headers={"Content-Type": "application/json"},
-        )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                r = json.loads(resp.read())
-                if "error" in r:
-                    raise RuntimeError(f"RPC error: {r['error']}")
-                raw = bytes(r["result"]["result"]).decode()
-                return json.loads(raw)
-        except urllib.error.HTTPError as e:
-            if e.code == 429 and attempt < _retries - 1:
+            r = _rpc_post(rpc_body)
+            if "error" in r:
+                raise RuntimeError(f"RPC error: {r['error']}")
+            raw = bytes(r["result"]["result"]).decode()
+            return json.loads(raw)
+        except Exception as e:
+            last_err = e
+            if attempt < _retries - 1:
                 time.sleep(2 * (attempt + 1))
                 continue
-            raise
+    raise last_err or RuntimeError("view_call failed")
 
 
 # ---------------------------------------------------------------------------

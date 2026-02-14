@@ -36,7 +36,7 @@ def _grant(grantee, path, level, expires_at=None):
         get_tx_result(tx)
     else:
         wait_for_chain(5)
-    time.sleep(2)  # throttle to avoid 429 / stale views
+    time.sleep(3)  # throttle to avoid 429 / stale views
 
 
 # ---------------------------------------------------------------------------
