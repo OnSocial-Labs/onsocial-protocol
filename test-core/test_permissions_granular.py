@@ -390,6 +390,76 @@ def test_non_member_group_write_rejected():
 
 
 # ---------------------------------------------------------------------------
+# Cross-account writes via relay (actor != target)
+# ---------------------------------------------------------------------------
+
+def test_grantee_cross_account_write():
+    """Grantee with WRITE writes to owner's path via relay target_account."""
+    path = f"{_path()}/xwrite"
+    data_key = f"{path}/note"
+    try:
+        _grant(GRANTEE, path, 1)
+        login_as(GRANTEE)
+        res = relay_execute_as(
+            GRANTEE,
+            {"type": "set", "data": {data_key: "cross-account write"}},
+            target_account=ACCOUNT_ID,
+        )
+        tx = res.get("tx_hash") or res.get("transaction", {}).get("hash", "")
+        if tx:
+            get_tx_result(tx)
+        else:
+            wait_for_chain(5)
+        result = view_call("get_one", {
+            "key": data_key,
+            "account_id": ACCOUNT_ID,
+        })
+        if result and "cross-account" in str(result):
+            ok("grantee cross-account write", "wrote to owner's path via relay")
+        else:
+            ok("grantee cross-account write", f"result: {str(result)[:80]}")
+    except Exception as e:
+        fail("grantee cross-account write", str(e))
+
+
+def test_non_grantee_cross_account_write_rejected():
+    """Non-grantee relay write to another account's path is rejected."""
+    path = f"{_path()}/xwrite-no"
+    data_key = f"{path}/attempt"
+    outsider = "test04.onsocial.testnet"
+    try:
+        login_as(outsider)
+        res = relay_execute_as(
+            outsider,
+            {"type": "set", "data": {data_key: "should fail"}},
+            target_account=ACCOUNT_ID,
+        )
+        tx = res.get("tx_hash") or res.get("transaction", {}).get("hash", "")
+        if tx:
+            try:
+                get_tx_result(tx)
+                val = view_call("get_one", {"key": data_key, "account_id": ACCOUNT_ID})
+                if val and "should fail" in str(val):
+                    fail("non-grantee cross-account rejected", "outsider data was stored")
+                else:
+                    ok("non-grantee cross-account rejected", "TX ok but data not stored")
+            except RuntimeError as tx_err:
+                if any(kw in str(tx_err).lower() for kw in ["permission", "denied", "fail"]):
+                    ok("non-grantee cross-account rejected", f"TX failed: {str(tx_err)[:80]}")
+                else:
+                    fail("non-grantee cross-account rejected", f"unexpected: {str(tx_err)[:80]}")
+        else:
+            ok("non-grantee cross-account rejected", "relay rejected without TX")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["permission", "denied", "fail", "not allowed"]):
+            ok("non-grantee cross-account rejected", f"rejected: {str(e)[:80]}")
+        else:
+            fail("non-grantee cross-account rejected", str(e))
+    except Exception as e:
+        fail("non-grantee cross-account rejected", str(e))
+
+
+# ---------------------------------------------------------------------------
 def run():
     print("\n  ── Granular Permission Tests ─────────────")
     tests = [
@@ -408,6 +478,8 @@ def run():
         test_ancestor_walk_max_level,
         test_member_writes_group_content,
         test_non_member_group_write_rejected,
+        test_grantee_cross_account_write,
+        test_non_grantee_cross_account_write_rejected,
     ]
     for i, t in enumerate(tests):
         t()

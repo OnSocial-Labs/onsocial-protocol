@@ -25,7 +25,7 @@ function relayHeaders(): Record<string, string> {
 // Body: { action: { type: "set", data: {...} }, options?: {...} }
 // ---------------------------------------------------------------------------
 relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) => {
-  const { action, options } = req.body;
+  const { action, options, target_account } = req.body;
   const accountId = req.auth!.accountId;
 
   if (!action || !action.type) {
@@ -33,8 +33,11 @@ relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) =>
     return;
   }
 
+  // target_account defaults to JWT user; callers may override for cross-account
+  // writes (e.g. grantee writing to owner's path). actor_id always stays locked
+  // to the JWT identity — the contract enforces permission checks.
   const contractRequest = {
-    target_account: accountId,
+    target_account: target_account || accountId,
     action,
     auth: {
       type: 'intent',

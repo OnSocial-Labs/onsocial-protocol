@@ -142,12 +142,19 @@ def login_as(account_id: str, creds_file: str | None = None) -> str:
 # ---------------------------------------------------------------------------
 # Relay — Gasless execute (default account)
 # ---------------------------------------------------------------------------
-def relay_execute(action: dict, options: dict | None = None) -> dict:
-    """Send a gasless execute via the relay. Returns the response body."""
+def relay_execute(
+    action: dict, options: dict | None = None, target_account: str | None = None,
+) -> dict:
+    """Send a gasless execute via the relay. Returns the response body.
+
+    Set target_account for cross-account writes (actor != target).
+    """
     token = login()
-    body = {"action": action}
+    body: dict = {"action": action}
     if options:
         body["options"] = options
+    if target_account:
+        body["target_account"] = target_account
 
     status, result = api("POST", "/relay/execute", body, token=token)
     if status not in (200, 202):
@@ -159,13 +166,21 @@ def relay_execute(action: dict, options: dict | None = None) -> dict:
 # Relay — Multi-account execute
 # ---------------------------------------------------------------------------
 def relay_execute_as(
-    account_id: str, action: dict, options: dict | None = None
+    account_id: str,
+    action: dict,
+    options: dict | None = None,
+    target_account: str | None = None,
 ) -> dict:
-    """Relay an action as a specific account. Auto-logs in if needed."""
+    """Relay an action as a specific account. Auto-logs in if needed.
+
+    Set target_account for cross-account writes (actor != target).
+    """
     token = login_as(account_id)
-    body = {"action": action}
+    body: dict = {"action": action}
     if options:
         body["options"] = options
+    if target_account:
+        body["target_account"] = target_account
     status, result = api("POST", "/relay/execute", body, token=token)
     if status not in (200, 202):
         raise RuntimeError(
@@ -182,14 +197,20 @@ def near_call(
     action: dict,
     deposit: str = "0",
     gas: str = "300000000000000",
+    target_account: str | None = None,
 ) -> str:
     """Call core contract via `near call` CLI. Returns the raw output.
 
     Use this for operations that require an attached deposit
     (e.g., create_proposal needs 0.1 NEAR) since the relay uses
     FunctionCall keys which cannot attach deposits.
+
+    Set target_account for cross-account writes (actor != target).
     """
-    request_json = json.dumps({"request": {"action": action}})
+    request_data: dict = {"action": action}
+    if target_account:
+        request_data["target_account"] = target_account
+    request_json = json.dumps({"request": request_data})
     cmd = [
         "near", "call", CONTRACT_ID, "execute",
         request_json,
