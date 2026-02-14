@@ -22,7 +22,7 @@ CREDS_FILE = os.environ.get(
     "CREDS_FILE",
     os.path.expanduser(f"~/.near-credentials/testnet/{ACCOUNT_ID}.json"),
 )
-RPC_URL = os.environ.get("RPC_URL", "https://rpc.testnet.near.org")
+RPC_URL = os.environ.get("RPC_URL", "https://test.rpc.fastnear.com")
 
 # State
 _jwt_token: str | None = None
@@ -232,7 +232,7 @@ def near_call_result(
 def get_tx_result(
     tx_hash: str,
     sender_id: str = "relayer.onsocial.testnet",
-    timeout: int = 30,
+    timeout: int = 60,
 ):
     """Poll NEAR RPC until tx finalizes. Returns the function-call result."""
     deadline = time.time() + timeout
@@ -268,8 +268,8 @@ def get_tx_result(
                     raise RuntimeError(
                         f"TX failed: {json.dumps(st['Failure'])}"
                     )
-        except urllib.error.URLError:
-            pass
+        except (urllib.error.URLError, urllib.error.HTTPError):
+            time.sleep(3)  # back off on 429 / network errors
         time.sleep(2)
     raise TimeoutError(f"TX {tx_hash} not finalized in {timeout}s")
 
@@ -277,8 +277,8 @@ def get_tx_result(
 # ---------------------------------------------------------------------------
 # RPC — Direct contract view calls
 # ---------------------------------------------------------------------------
-def view_call(method_name: str, args: dict):
-    """Call a view method on the contract via NEAR RPC."""
+def view_call(method_name: str, args: dict, _retries: int = 3):
+    """Call a view method on the contract via NEAR RPC (with 429 retry)."""
     args_b64 = base64.b64encode(json.dumps(args).encode()).decode()
     rpc_body = {
         "jsonrpc": "2.0", "id": 1, "method": "query",
@@ -290,17 +290,24 @@ def view_call(method_name: str, args: dict):
             "args_base64": args_b64,
         },
     }
-    req = urllib.request.Request(
-        RPC_URL,
-        data=json.dumps(rpc_body).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        r = json.loads(resp.read())
-        if "error" in r:
-            raise RuntimeError(f"RPC error: {r['error']}")
-        raw = bytes(r["result"]["result"]).decode()
-        return json.loads(raw)
+    for attempt in range(_retries):
+        req = urllib.request.Request(
+            RPC_URL,
+            data=json.dumps(rpc_body).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                r = json.loads(resp.read())
+                if "error" in r:
+                    raise RuntimeError(f"RPC error: {r['error']}")
+                raw = bytes(r["result"]["result"]).decode()
+                return json.loads(raw)
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < _retries - 1:
+                time.sleep(2 * (attempt + 1))
+                continue
+            raise
 
 
 # ---------------------------------------------------------------------------
