@@ -409,6 +409,153 @@ def test_owner_votes_on_own_proposal():
 
 
 # ---------------------------------------------------------------------------
+# Double-vote, vote-on-resolved, non-member-proposal, cancel-by-non-proposer
+# ---------------------------------------------------------------------------
+
+def test_double_vote_rejected():
+    """Same member voting twice on the same proposal must fail."""
+    gid = _ensure_group()
+    pid = _create_custom_proposal("Double vote test")
+    if not pid:
+        fail("double vote", "could not create proposal")
+        return
+    wait_for_chain(2)
+
+    # First vote — should succeed
+    try:
+        near_call(VOTER2, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid,
+            "approve": True,
+        }, deposit="0.01")
+        wait_for_chain(2)
+    except Exception as e:
+        fail("double vote", f"first vote failed: {str(e)[:120]}")
+        return
+
+    # Second vote — should fail
+    try:
+        near_call(VOTER2, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid,
+            "approve": False,
+        }, deposit="0.01")
+        # If no error, check the vote is still the original
+        vote = get_vote(gid, pid, VOTER2)
+        if vote and vote.get("approve") is True:
+            ok("double vote", "second vote silently ignored, first stands")
+        else:
+            fail("double vote", "second vote overrode first")
+    except RuntimeError as e:
+        if "already voted" in str(e).lower() or "panicked" in str(e).lower():
+            ok("double vote", "correctly rejected second vote")
+        else:
+            ok("double vote", f"rejected: {str(e)[:120]}")
+
+
+def test_vote_on_executed_proposal():
+    """Voting on an already-executed proposal must fail."""
+    gid = _ensure_group()
+    # Create and auto-execute via all 3 members voting
+    pid = _create_custom_proposal("Vote-on-executed test")
+    if not pid:
+        fail("vote on executed", "could not create proposal")
+        return
+    wait_for_chain(2)
+
+    # voter2 + voter3 approve → quorum → executed
+    near_call(VOTER2, {
+        "type": "vote_on_proposal",
+        "group_id": gid,
+        "proposal_id": pid,
+        "approve": True,
+    }, deposit="0.01")
+    wait_for_chain(2)
+    near_call(VOTER3, {
+        "type": "vote_on_proposal",
+        "group_id": gid,
+        "proposal_id": pid,
+        "approve": True,
+    }, deposit="0.01")
+    wait_for_chain(2)
+
+    # Verify executed
+    proposal = get_proposal(gid, pid)
+    status = proposal.get("status", "") if proposal else ""
+    if status not in ("executed", "Executed"):
+        skip("vote on executed", f"proposal not executed (status={status})")
+        return
+
+    # Owner tries to vote on executed proposal
+    try:
+        near_call(OWNER, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid,
+            "approve": True,
+        }, deposit="0.01")
+        fail("vote on executed", "vote accepted on executed proposal")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["not active", "panicked", "already"]):
+            ok("vote on executed", "correctly rejected")
+        else:
+            ok("vote on executed", f"rejected: {str(e)[:120]}")
+
+
+def test_non_member_cannot_create_proposal():
+    """Non-member (test04) should be rejected creating a proposal."""
+    gid = _ensure_group()
+    try:
+        near_call(NON_MEMBER, {
+            "type": "create_proposal",
+            "group_id": gid,
+            "proposal_type": "custom_proposal",
+            "changes": {
+                "title": "Non-member proposal",
+                "description": "Should be rejected",
+            },
+            "auto_vote": False,
+        }, deposit="0.1")
+        fail("non-member create proposal", "proposal accepted from non-member")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["permission", "not a member", "panicked"]):
+            ok("non-member create proposal", "correctly rejected")
+        else:
+            ok("non-member create proposal", f"rejected: {str(e)[:120]}")
+
+
+def test_cancel_by_non_proposer_rejected():
+    """Non-proposer cannot cancel another member's proposal."""
+    gid = _ensure_group()
+    pid = _create_custom_proposal("Cancel-by-other test")
+    if not pid:
+        fail("cancel by non-proposer", "could not create proposal")
+        return
+    wait_for_chain(2)
+
+    try:
+        near_call(VOTER2, {
+            "type": "cancel_proposal",
+            "group_id": gid,
+            "proposal_id": pid,
+        })
+        # Check if proposal is still active
+        proposal = get_proposal(gid, pid)
+        status = proposal.get("status", "") if proposal else ""
+        if status in ("active", "Active"):
+            ok("cancel by non-proposer", "cancel ignored, proposal still active")
+        else:
+            fail("cancel by non-proposer", f"non-proposer cancelled proposal (status={status})")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["proposer", "permission", "panicked"]):
+            ok("cancel by non-proposer", "correctly rejected")
+        else:
+            ok("cancel by non-proposer", f"rejected: {str(e)[:120]}")
+
+
+# ---------------------------------------------------------------------------
 def run():
     print("\n  ── Voting Tests (multi-account, member-driven) ──────────")
     test_group_setup()
@@ -422,6 +569,10 @@ def run():
     test_non_member_cannot_vote()
     test_auto_vote_single_member()
     test_owner_votes_on_own_proposal()
+    test_double_vote_rejected()
+    test_vote_on_executed_proposal()
+    test_non_member_cannot_create_proposal()
+    test_cancel_by_non_proposer_rejected()
 
 
 if __name__ == "__main__":

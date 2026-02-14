@@ -278,7 +278,7 @@ def _rpc_post(body: dict) -> dict:
                 last_err = e
                 continue
             raise
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
             last_err = e
             continue
     raise last_err or RuntimeError("All RPC endpoints failed")
@@ -290,7 +290,7 @@ def _rpc_post(body: dict) -> dict:
 def get_tx_result(
     tx_hash: str,
     sender_id: str = "relayer.onsocial.testnet",
-    timeout: int = 60,
+    timeout: int = 90,
 ):
     """Poll NEAR RPC until tx finalizes. Returns the function-call result."""
     deadline = time.time() + timeout
@@ -319,7 +319,7 @@ def get_tx_result(
                     raise RuntimeError(
                         f"TX failed: {json.dumps(st['Failure'])}"
                     )
-        except (urllib.error.URLError, urllib.error.HTTPError):
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
             time.sleep(4)
             continue
         time.sleep(3)

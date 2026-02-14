@@ -460,6 +460,171 @@ def test_non_grantee_cross_account_write_rejected():
 
 
 # ---------------------------------------------------------------------------
+# Cross-account security — escalation, expiry, revocation, group boundary
+# ---------------------------------------------------------------------------
+
+def test_cross_account_write_cannot_escalate():
+    """Grantee with WRITE cannot set_permission on owner's behalf via target_account."""
+    path = f"{_path()}/xescalate"
+    try:
+        _grant(GRANTEE, path, 1)  # WRITE only
+        login_as(GRANTEE)
+        res = relay_execute_as(
+            GRANTEE,
+            {
+                "type": "set_permission",
+                "grantee": "test04.onsocial.testnet",
+                "path": path,
+                "level": 3,  # MANAGE — should fail
+            },
+            target_account=ACCOUNT_ID,
+        )
+        tx = res.get("tx_hash") or res.get("transaction", {}).get("hash", "")
+        if tx:
+            try:
+                get_tx_result(tx)
+                # Check if permission was actually granted
+                has_perm = has_permission(ACCOUNT_ID, "test04.onsocial.testnet", path, 3)
+                if has_perm:
+                    fail("cross-account escalation blocked", "grantee escalated to MANAGE!")
+                else:
+                    ok("cross-account escalation blocked", "TX ok but permission not set")
+            except RuntimeError as tx_err:
+                ok("cross-account escalation blocked", f"TX failed: {str(tx_err)[:80]}")
+        else:
+            ok("cross-account escalation blocked", "relay rejected")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["permission", "denied", "unauthorized", "fail"]):
+            ok("cross-account escalation blocked", f"rejected: {str(e)[:80]}")
+        else:
+            fail("cross-account escalation blocked", str(e))
+    except Exception as e:
+        fail("cross-account escalation blocked", str(e))
+
+
+def test_cross_account_expired_permission_denied():
+    """Grant WRITE with past expiry → cross-account write must fail."""
+    path = f"{_path()}/xexpired"
+    data_key = f"{path}/note"
+    past_ns = str(int((time.time() - 3600) * 1e9))
+    try:
+        _grant(GRANTEE, path, 1, expires_at=past_ns)
+        login_as(GRANTEE)
+        res = relay_execute_as(
+            GRANTEE,
+            {"type": "set", "data": {data_key: "expired write"}},
+            target_account=ACCOUNT_ID,
+        )
+        tx = res.get("tx_hash") or res.get("transaction", {}).get("hash", "")
+        if tx:
+            try:
+                get_tx_result(tx)
+                val = view_call("get_one", {"key": data_key, "account_id": ACCOUNT_ID})
+                if val and "expired write" in str(val):
+                    fail("expired cross-account denied", "write succeeded with expired permission!")
+                else:
+                    ok("expired cross-account denied", "TX ok but data not stored")
+            except RuntimeError as tx_err:
+                ok("expired cross-account denied", f"TX failed: {str(tx_err)[:80]}")
+        else:
+            ok("expired cross-account denied", "relay rejected")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["permission", "denied", "expire", "fail"]):
+            ok("expired cross-account denied", f"rejected: {str(e)[:80]}")
+        else:
+            fail("expired cross-account denied", str(e))
+    except Exception as e:
+        fail("expired cross-account denied", str(e))
+
+
+def test_cross_account_revoked_permission_denied():
+    """Grant WRITE → verify write → revoke → cross-account write must fail."""
+    path = f"{_path()}/xrevoke"
+    data_key = f"{path}/pre"
+    data_key2 = f"{path}/post"
+    try:
+        _grant(GRANTEE, path, 1)
+        login_as(GRANTEE)
+        # First write should succeed
+        res1 = relay_execute_as(
+            GRANTEE,
+            {"type": "set", "data": {data_key: "before revoke"}},
+            target_account=ACCOUNT_ID,
+        )
+        tx1 = res1.get("tx_hash") or res1.get("transaction", {}).get("hash", "")
+        if tx1:
+            get_tx_result(tx1)
+        wait_for_chain(3)
+
+        # Revoke
+        _grant(GRANTEE, path, 0)
+
+        # Second write should fail
+        res2 = relay_execute_as(
+            GRANTEE,
+            {"type": "set", "data": {data_key2: "after revoke"}},
+            target_account=ACCOUNT_ID,
+        )
+        tx2 = res2.get("tx_hash") or res2.get("transaction", {}).get("hash", "")
+        if tx2:
+            try:
+                get_tx_result(tx2)
+                val = view_call("get_one", {"key": data_key2, "account_id": ACCOUNT_ID})
+                if val and "after revoke" in str(val):
+                    fail("revoked cross-account denied", "write succeeded after revoke!")
+                else:
+                    ok("revoked cross-account denied", "TX ok but data not stored after revoke")
+            except RuntimeError as tx_err:
+                ok("revoked cross-account denied", f"TX failed after revoke: {str(tx_err)[:80]}")
+        else:
+            ok("revoked cross-account denied", "relay rejected after revoke")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["permission", "denied", "fail"]):
+            ok("revoked cross-account denied", f"rejected: {str(e)[:80]}")
+        else:
+            fail("revoked cross-account denied", str(e))
+    except Exception as e:
+        fail("revoked cross-account denied", str(e))
+
+
+def test_cross_account_no_group_membership():
+    """Account-level permission doesn't grant access to owner's group paths."""
+    path = f"{_path()}/xgroup-bleed"
+    try:
+        gid = _ensure_group()
+        # Grant broad WRITE on a path prefix
+        _grant("test04.onsocial.testnet", path, 1)
+        # Try to write to owner's group content via target_account
+        login_as("test04.onsocial.testnet")
+        data_key = f"groups/{gid}/content/sneak"
+        res = relay_execute_as(
+            "test04.onsocial.testnet",
+            {"type": "set", "data": {data_key: "sneak write"}},
+            target_account=ACCOUNT_ID,
+        )
+        tx = res.get("tx_hash") or res.get("transaction", {}).get("hash", "")
+        if tx:
+            try:
+                get_tx_result(tx)
+                val = view_call("get_one", {"key": data_key, "account_id": ACCOUNT_ID})
+                if val and "sneak" in str(val):
+                    fail("cross-account no group bleed", "non-member wrote to group path!")
+                else:
+                    ok("cross-account no group bleed", "TX ok but group data not stored")
+            except RuntimeError as tx_err:
+                ok("cross-account no group bleed", f"TX failed: {str(tx_err)[:80]}")
+        else:
+            ok("cross-account no group bleed", "relay rejected")
+    except RuntimeError as e:
+        if any(kw in str(e).lower() for kw in ["permission", "denied", "member", "fail"]):
+            ok("cross-account no group bleed", f"rejected: {str(e)[:80]}")
+        else:
+            fail("cross-account no group bleed", str(e))
+    except Exception as e:
+        fail("cross-account no group bleed", str(e))
+
+
+# ---------------------------------------------------------------------------
 def run():
     print("\n  ── Granular Permission Tests ─────────────")
     tests = [
@@ -480,6 +645,10 @@ def run():
         test_non_member_group_write_rejected,
         test_grantee_cross_account_write,
         test_non_grantee_cross_account_write_rejected,
+        test_cross_account_write_cannot_escalate,
+        test_cross_account_expired_permission_denied,
+        test_cross_account_revoked_permission_denied,
+        test_cross_account_no_group_membership,
     ]
     for i, t in enumerate(tests):
         t()

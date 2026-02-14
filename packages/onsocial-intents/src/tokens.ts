@@ -54,8 +54,8 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
   },
   SOCIAL: {
     symbol: 'SOCIAL',
-    assetId: 'nep141:social.tkn.near',
-    decimals: 24,
+    assetId: 'nep141:token.onsocial.near',
+    decimals: 18,
     name: 'OnSocial Token',
     icon: '🎭',
   },
