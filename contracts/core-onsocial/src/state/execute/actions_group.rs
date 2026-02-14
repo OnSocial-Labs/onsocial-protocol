@@ -6,18 +6,28 @@ use crate::state::execute::ExecuteContext;
 use crate::state::models::SocialPlatform;
 
 impl SocialPlatform {
+    fn prepare_group_storage(&mut self, ctx: &mut ExecuteContext) {
+        if ctx.attached_balance > 0 {
+            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
+            ctx.attached_balance = 0;
+        }
+        self.set_execution_payer(ctx.actor_id.clone());
+    }
+
+    fn cleanup_group_storage(&mut self) {
+        self.clear_execution_payer();
+    }
+
     pub(super) fn execute_action_create_group(
         &mut self,
         group_id: &str,
         config: Value,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.create_group(group_id.to_string(), config, &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result = self.create_group(group_id.to_string(), config, &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_join_group(
@@ -25,12 +35,10 @@ impl SocialPlatform {
         group_id: &str,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.join_group(group_id.to_string(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result = self.join_group(group_id.to_string(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_leave_group(
@@ -38,12 +46,10 @@ impl SocialPlatform {
         group_id: &str,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.leave_group(group_id.to_string(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result = self.leave_group(group_id.to_string(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_add_member(
@@ -52,12 +58,10 @@ impl SocialPlatform {
         member_id: &AccountId,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.add_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result = self.add_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_remove_member(
@@ -66,12 +70,11 @@ impl SocialPlatform {
         member_id: &AccountId,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.remove_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result =
+            self.remove_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_approve_join(
@@ -80,12 +83,11 @@ impl SocialPlatform {
         requester_id: &AccountId,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.approve_join_request(group_id.to_string(), requester_id.clone(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result =
+            self.approve_join_request(group_id.to_string(), requester_id.clone(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_reject_join(
@@ -95,17 +97,15 @@ impl SocialPlatform {
         reason: Option<&str>,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.reject_join_request(
+        self.prepare_group_storage(ctx);
+        let result = self.reject_join_request(
             group_id.to_string(),
             requester_id.clone(),
             &ctx.actor_id,
             reason.map(|s| s.to_string()),
-        )
+        );
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_cancel_join(
@@ -113,12 +113,10 @@ impl SocialPlatform {
         group_id: &str,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.cancel_join_request(group_id.to_string(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result = self.cancel_join_request(group_id.to_string(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_blacklist(
@@ -127,12 +125,11 @@ impl SocialPlatform {
         member_id: &AccountId,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.blacklist_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result =
+            self.blacklist_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_unblacklist(
@@ -141,12 +138,11 @@ impl SocialPlatform {
         member_id: &AccountId,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.unblacklist_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result =
+            self.unblacklist_group_member(group_id.to_string(), member_id.clone(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_transfer_ownership(
@@ -156,17 +152,15 @@ impl SocialPlatform {
         remove_old_owner: Option<bool>,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.transfer_group_ownership(
+        self.prepare_group_storage(ctx);
+        let result = self.transfer_group_ownership(
             group_id.to_string(),
             new_owner.clone(),
             remove_old_owner,
             &ctx.actor_id,
-        )
+        );
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_set_privacy(
@@ -175,12 +169,10 @@ impl SocialPlatform {
         is_private: bool,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.set_group_privacy(group_id.to_string(), is_private, &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result = self.set_group_privacy(group_id.to_string(), is_private, &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_create_proposal(
@@ -198,18 +190,16 @@ impl SocialPlatform {
             ));
         }
 
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.create_group_proposal(
+        self.prepare_group_storage(ctx);
+        let result = self.create_group_proposal(
             group_id.to_string(),
             proposal_type.to_string(),
             changes,
             &ctx.actor_id,
             auto_vote,
-        )
+        );
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_vote(
@@ -219,17 +209,15 @@ impl SocialPlatform {
         approve: bool,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.vote_on_proposal(
+        self.prepare_group_storage(ctx);
+        let result = self.vote_on_proposal(
             group_id.to_string(),
             proposal_id.to_string(),
             approve,
             &ctx.actor_id,
-        )
+        );
+        self.cleanup_group_storage();
+        result
     }
 
     pub(super) fn execute_action_cancel_proposal(
@@ -238,11 +226,10 @@ impl SocialPlatform {
         proposal_id: &str,
         ctx: &mut ExecuteContext,
     ) -> Result<(), SocialError> {
-        if ctx.attached_balance > 0 {
-            self.credit_storage_balance(&ctx.actor_id, ctx.attached_balance);
-            ctx.attached_balance = 0;
-        }
-
-        self.cancel_proposal(group_id.to_string(), proposal_id.to_string(), &ctx.actor_id)
+        self.prepare_group_storage(ctx);
+        let result =
+            self.cancel_proposal(group_id.to_string(), proposal_id.to_string(), &ctx.actor_id);
+        self.cleanup_group_storage();
+        result
     }
 }

@@ -87,9 +87,10 @@ impl GroupGovernance {
         );
 
         if should_execute {
+            let prev_payer = platform.execution_payer.clone();
             platform.set_execution_payer(proposer.clone());
             let exec_result = proposal_type.execute(platform, group_id, &proposal_id, proposer);
-            platform.clear_execution_payer();
+            platform.execution_payer = prev_payer;
             exec_result?;
 
             Self::update_proposal_status(

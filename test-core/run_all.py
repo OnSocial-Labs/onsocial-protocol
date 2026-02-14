@@ -7,6 +7,8 @@ Usage:
   python3 test-core/run_all.py --suite groups
   python3 test-core/run_all.py --suite voting
   python3 test-core/run_all.py --suite permissions
+  python3 test-core/run_all.py --suite permissions_granular
+  python3 test-core/run_all.py --suite groups_public
   python3 test-core/run_all.py --suite views
 """
 
@@ -24,13 +26,17 @@ import test_data
 import test_groups
 import test_voting
 import test_permissions
+import test_permissions_granular
+import test_groups_public
 
 SUITES = {
     "views": test_views,
     "data": test_data,
     "groups": test_groups,
+    "groups_public": test_groups_public,
     "voting": test_voting,
     "permissions": test_permissions,
+    "permissions_granular": test_permissions_granular,
 }
 
 

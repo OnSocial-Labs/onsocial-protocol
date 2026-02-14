@@ -139,9 +139,10 @@ impl GroupGovernance {
                     .and_then(|s| s.parse::<near_sdk::AccountId>().ok())
                     .ok_or_else(|| invalid_input!("Proposal missing proposer"))?;
 
+                let prev_payer = platform.execution_payer.clone();
                 platform.set_execution_payer(proposer.clone());
                 let exec_result = proposal_type.execute(platform, group_id, proposal_id, &proposer);
-                platform.clear_execution_payer();
+                platform.execution_payer = prev_payer;
 
                 match exec_result {
                     Ok(()) => {
