@@ -104,7 +104,7 @@ export function getCurrencyAsset(currency: string): AssetId {
  * @example
  * ```typescript
  * const socialToken = getTokenConfig('SOCIAL');
- * console.log(socialToken.decimals); // 24
+ * console.log(socialToken.decimals); // 18
  * console.log(socialToken.name); // "OnSocial Token"
  * ```
  */
@@ -127,8 +127,8 @@ export function getTokenConfig(currency: string): TokenConfig {
  * 
  * @example
  * ```typescript
- * const assetId = formatNep141Asset('social.tkn.near');
- * // Returns: "nep141:social.tkn.near"
+ * const assetId = formatNep141Asset('token.onsocial.near');
+ * // Returns: "nep141:token.onsocial.near"
  * ```
  */
 export function formatNep141Asset(contractId: string): AssetId {

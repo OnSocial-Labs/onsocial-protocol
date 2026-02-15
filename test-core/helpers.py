@@ -229,11 +229,22 @@ def near_call(
         "--gas", gas,
         "--networkId", "testnet",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    output = result.stdout + result.stderr
-    if result.returncode != 0:
-        raise RuntimeError(f"near call failed: {output[-500:]}")
-    return output
+    env = {**os.environ, "NEAR_TESTNET_RPC": RPC_URL}
+    last_err = None
+    for attempt in range(2):
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=90, env=env,
+        )
+        output = result.stdout + result.stderr
+        if result.returncode == 0:
+            return output
+        # Don't retry contract panics or balance issues
+        if "panicked" in output or "NotEnoughBalance" in output:
+            raise RuntimeError(f"near call failed: {output[-500:]}")
+        last_err = output
+        if attempt < 1:
+            time.sleep(5)
+    raise RuntimeError(f"near call failed: {last_err[-500:]}")
 
 
 def near_call_result(

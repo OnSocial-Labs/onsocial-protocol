@@ -555,6 +555,165 @@ def test_cancel_by_non_proposer_rejected():
             ok("cancel by non-proposer", f"rejected: {str(e)[:120]}")
 
 
+def test_joined_after_proposal_cannot_vote():
+    """A member who joined after proposal creation cannot vote on it."""
+    # Create a fresh 2-member group, create proposal, THEN invite a 3rd member
+    gid = f"vg-late-{unique_id()}"
+    near_call(OWNER, {
+        "type": "create_group",
+        "group_id": gid,
+        "config": {"member_driven": True},
+    }, deposit="0.1")
+    wait_for_chain(3)
+
+    # Invite voter2 (auto_vote, solo → instant)
+    near_call(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "member_invite",
+        "changes": {"target_user": VOTER2},
+        "auto_vote": True,
+    }, deposit="0.1")
+    wait_for_chain(3)
+
+    # Create a custom proposal BEFORE voter3 is a member
+    pid = near_call_result(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "custom_proposal",
+        "changes": {"title": "Late-join test", "description": "vote edge case"},
+        "auto_vote": False,
+    }, deposit="0.1")
+    if not pid:
+        fail("joined-after vote", "could not create proposal")
+        return
+    wait_for_chain(2)
+
+    # Now invite voter3 — after proposal was created
+    pid_inv = near_call_result(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "member_invite",
+        "changes": {"target_user": VOTER3},
+        "auto_vote": True,
+    }, deposit="0.1")
+    wait_for_chain(2)
+    if pid_inv:
+        near_call(VOTER2, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid_inv,
+            "approve": True,
+        }, deposit="0.01")
+        wait_for_chain(3)
+
+    # voter3 tries to vote on the earlier proposal — should be rejected
+    try:
+        near_call(VOTER3, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid,
+            "approve": True,
+        }, deposit="0.01")
+        # If no error, check the vote wasn't recorded
+        vote = get_vote(gid, pid, VOTER3)
+        if vote is None:
+            ok("joined-after vote", "vote silently rejected")
+        else:
+            fail("joined-after vote", "late-joiner vote was accepted")
+    except RuntimeError as e:
+        err = str(e).lower()
+        if "joined" in err or "after" in err or "panicked" in err:
+            ok("joined-after vote", "correctly rejected")
+        else:
+            ok("joined-after vote", f"rejected: {str(e)[:120]}")
+
+
+def test_blacklisted_member_cannot_vote():
+    """A blacklisted member cannot vote on proposals."""
+    gid = f"vg-bl-{unique_id()}"
+    near_call(OWNER, {
+        "type": "create_group",
+        "group_id": gid,
+        "config": {"member_driven": True},
+    }, deposit="0.1")
+    wait_for_chain(3)
+
+    # Invite voter2 + voter3
+    near_call(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "member_invite",
+        "changes": {"target_user": VOTER2},
+        "auto_vote": True,
+    }, deposit="0.1")
+    wait_for_chain(3)
+
+    pid_inv = near_call_result(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "member_invite",
+        "changes": {"target_user": VOTER3},
+        "auto_vote": True,
+    }, deposit="0.1")
+    wait_for_chain(2)
+    if pid_inv:
+        near_call(VOTER2, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid_inv,
+            "approve": True,
+        }, deposit="0.01")
+        wait_for_chain(3)
+
+    # Ban voter3 via governance
+    pid_ban = near_call_result(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "group_update",
+        "changes": {"update_type": "ban", "target_user": VOTER3},
+        "auto_vote": True,
+    }, deposit="0.1")
+    wait_for_chain(2)
+    if pid_ban:
+        near_call(VOTER2, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid_ban,
+            "approve": True,
+        }, deposit="0.01")
+        wait_for_chain(3)
+
+    # Create a new proposal — voter3 is now blacklisted
+    pid = near_call_result(OWNER, {
+        "type": "create_proposal",
+        "group_id": gid,
+        "proposal_type": "custom_proposal",
+        "changes": {"title": "Blacklist vote test", "description": "edge case"},
+        "auto_vote": False,
+    }, deposit="0.1")
+    if not pid:
+        fail("blacklisted vote", "could not create proposal")
+        return
+    wait_for_chain(2)
+
+    # Blacklisted voter3 tries to vote
+    try:
+        near_call(VOTER3, {
+            "type": "vote_on_proposal",
+            "group_id": gid,
+            "proposal_id": pid,
+            "approve": True,
+        }, deposit="0.01")
+        fail("blacklisted vote", "blacklisted member's vote accepted")
+    except RuntimeError as e:
+        err = str(e).lower()
+        if "blacklist" in err or "panicked" in err or "permission" in err:
+            ok("blacklisted vote", "correctly rejected")
+        else:
+            ok("blacklisted vote", f"rejected: {str(e)[:120]}")
+
+
 # ---------------------------------------------------------------------------
 def run():
     print("\n  ── Voting Tests (multi-account, member-driven) ──────────")
@@ -573,6 +732,8 @@ def run():
     test_vote_on_executed_proposal()
     test_non_member_cannot_create_proposal()
     test_cancel_by_non_proposer_rejected()
+    test_joined_after_proposal_cannot_vote()
+    test_blacklisted_member_cannot_vote()
 
 
 if __name__ == "__main__":
