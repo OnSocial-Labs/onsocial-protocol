@@ -1,34 +1,32 @@
 //! JSON-encoded events for Substreams/Subgraph indexing.
 //!
-//! Uses the same `EVENT_JSON:` prefix and envelope shape as core-onsocial
-//! so a single Substreams decoder handles both contracts.
+//! Matches core-onsocial envelope shape: `{ standard, version, event, data }`.
+//! A single Substreams decoder handles both contracts.
+//!
+//! Event types follow core's `SCREAMING_CASE` categorical pattern:
+//!   - `SCARCE_UPDATE`     – list, delist, update_price, purchase, purchase_failed, transfer
+//!   - `COLLECTION_UPDATE` – create, mint
+//!   - `STORAGE_UPDATE`    – storage_deposit, storage_withdraw
+//!   - `SPONSOR_UPDATE`    – deposit
 
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::{self, Map, Value};
 use near_sdk::{env, AccountId};
-use std::cell::Cell;
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants (same as core-onsocial) ────────────────────────────────────────
 
 const EVENT_STANDARD: &str = "onsocial";
 const EVENT_VERSION: &str = "1.0.0";
 const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 
-// Thread-local sequential log index within a transaction.
-thread_local! {
-    static LOG_INDEX: Cell<u32> = const { Cell::new(0) };
-}
+// Event type categories (matches core's SCREAMING_CASE pattern)
+const EVENT_TYPE_SCARCE_UPDATE: &str = "SCARCE_UPDATE";
+const EVENT_TYPE_COLLECTION_UPDATE: &str = "COLLECTION_UPDATE";
+const EVENT_TYPE_STORAGE_UPDATE: &str = "STORAGE_UPDATE";
+const EVENT_TYPE_SPONSOR_UPDATE: &str = "SPONSOR_UPDATE";
 
-fn next_log_index() -> u32 {
-    LOG_INDEX.with(|idx| {
-        let current = idx.get();
-        idx.set(current + 1);
-        current
-    })
-}
-
-// ── Envelope ─────────────────────────────────────────────────────────────────
+// ── Envelope (matches core-onsocial shape) ───────────────────────────────────
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -44,9 +42,6 @@ struct Event {
 struct EventData {
     operation: String,
     author: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    evt_id: Option<String>,
-    log_index: u32,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
@@ -54,16 +49,6 @@ struct EventData {
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
 fn emit_json_event(event_type: &str, operation: &str, author: &AccountId, extra: Map<String, Value>) {
-    let log_index = next_log_index();
-    let evt_id = format!(
-        "{}-{}-{}-{}-{}",
-        event_type,
-        author,
-        env::block_height(),
-        env::block_timestamp(),
-        log_index,
-    );
-
     let event = Event {
         standard: EVENT_STANDARD.into(),
         version: EVENT_VERSION.into(),
@@ -71,8 +56,6 @@ fn emit_json_event(event_type: &str, operation: &str, author: &AccountId, extra:
         data: vec![EventData {
             operation: operation.into(),
             author: author.to_string(),
-            evt_id: Some(evt_id),
-            log_index,
             extra,
         }],
     };
@@ -94,7 +77,7 @@ fn val_u32(n: u32) -> Value {
     Value::Number(n.into())
 }
 
-// ── Public emit functions ────────────────────────────────────────────────────
+// ── SCARCE_UPDATE ────────────────────────────────────────────────────────────
 
 pub fn emit_scarce_list(
     owner_id: &AccountId,
@@ -107,7 +90,7 @@ pub fn emit_scarce_list(
     m.insert("scarce_contract_id".into(), val(scarce_contract_id));
     m.insert("token_ids".into(), Value::Array(token_ids.into_iter().map(val).collect()));
     m.insert("prices".into(), Value::Array(prices.into_iter().map(|p| val_u128(p.0)).collect()));
-    emit_json_event("scarce_list", "list_scarce", owner_id, m);
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "list", owner_id, m);
 }
 
 pub fn emit_scarce_delist(
@@ -119,7 +102,7 @@ pub fn emit_scarce_delist(
     m.insert("owner_id".into(), val(owner_id));
     m.insert("scarce_contract_id".into(), val(scarce_contract_id));
     m.insert("token_ids".into(), Value::Array(token_ids.into_iter().map(val).collect()));
-    emit_json_event("scarce_delist", "delist_scarce", owner_id, m);
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "delist", owner_id, m);
 }
 
 pub fn emit_scarce_update_price(
@@ -135,7 +118,7 @@ pub fn emit_scarce_update_price(
     m.insert("token_id".into(), val(token_id));
     m.insert("old_price".into(), val_u128(old_price.0));
     m.insert("new_price".into(), val_u128(new_price.0));
-    emit_json_event("scarce_update_price", "update_price", owner_id, m);
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "update_price", owner_id, m);
 }
 
 pub fn emit_scarce_purchase(
@@ -155,7 +138,7 @@ pub fn emit_scarce_purchase(
     m.insert("price".into(), val_u128(price.0));
     m.insert("marketplace_fee".into(), val_u128(marketplace_fee));
     m.insert("sponsor_amount".into(), val_u128(sponsor_amount));
-    emit_json_event("scarce_purchase", "buy_scarce", buyer_id, m);
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "purchase", buyer_id, m);
 }
 
 pub fn emit_scarce_purchase_failed(
@@ -173,24 +156,26 @@ pub fn emit_scarce_purchase_failed(
     m.insert("token_id".into(), val(token_id));
     m.insert("attempted_price".into(), val_u128(attempted_price.0));
     m.insert("reason".into(), val(reason));
-    emit_json_event("scarce_purchase_failed", "buy_scarce", buyer_id, m);
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "purchase_failed", buyer_id, m);
 }
 
-pub fn emit_storage_deposit(account_id: &AccountId, deposit: u128, new_balance: u128) {
+pub fn emit_scarce_transfer(
+    sender_id: &AccountId,
+    receiver_id: &AccountId,
+    token_id: &str,
+    memo: Option<&str>,
+) {
     let mut m = Map::new();
-    m.insert("account_id".into(), val(account_id));
-    m.insert("deposit".into(), val_u128(deposit));
-    m.insert("new_balance".into(), val_u128(new_balance));
-    emit_json_event("storage_deposit", "storage_deposit", account_id, m);
+    m.insert("sender_id".into(), val(sender_id));
+    m.insert("receiver_id".into(), val(receiver_id));
+    m.insert("token_id".into(), val(token_id));
+    if let Some(memo) = memo {
+        m.insert("memo".into(), val(memo));
+    }
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "transfer", sender_id, m);
 }
 
-pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: u128) {
-    let mut m = Map::new();
-    m.insert("account_id".into(), val(account_id));
-    m.insert("amount".into(), val_u128(amount));
-    m.insert("new_balance".into(), val_u128(new_balance));
-    emit_json_event("storage_withdraw", "storage_withdraw", account_id, m);
-}
+// ── COLLECTION_UPDATE ────────────────────────────────────────────────────────
 
 pub fn emit_collection_created(
     creator_id: &AccountId,
@@ -203,7 +188,7 @@ pub fn emit_collection_created(
     m.insert("collection_id".into(), val(collection_id));
     m.insert("total_supply".into(), val_u32(total_supply));
     m.insert("price_near".into(), val_u128(price_near.0));
-    emit_json_event("collection_created", "create_collection", creator_id, m);
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "create", creator_id, m);
 }
 
 pub fn emit_collection_purchase(
@@ -223,24 +208,28 @@ pub fn emit_collection_purchase(
     m.insert("total_price".into(), val_u128(total_price.0));
     m.insert("marketplace_fee".into(), val_u128(marketplace_fee.0));
     m.insert("sponsor_amount".into(), val_u128(sponsor_amount.0));
-    emit_json_event("collection_purchase", "mint_scarce", buyer_id, m);
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "mint", buyer_id, m);
 }
 
-pub fn emit_scarce_transfer(
-    sender_id: &AccountId,
-    receiver_id: &AccountId,
-    token_id: &str,
-    memo: Option<&str>,
-) {
+// ── STORAGE_UPDATE ───────────────────────────────────────────────────────────
+
+pub fn emit_storage_deposit(account_id: &AccountId, deposit: u128, new_balance: u128) {
     let mut m = Map::new();
-    m.insert("sender_id".into(), val(sender_id));
-    m.insert("receiver_id".into(), val(receiver_id));
-    m.insert("token_id".into(), val(token_id));
-    if let Some(memo) = memo {
-        m.insert("memo".into(), val(memo));
-    }
-    emit_json_event("scarce_transfer", "transfer_scarce", sender_id, m);
+    m.insert("account_id".into(), val(account_id));
+    m.insert("deposit".into(), val_u128(deposit));
+    m.insert("new_balance".into(), val_u128(new_balance));
+    emit_json_event(EVENT_TYPE_STORAGE_UPDATE, "storage_deposit", account_id, m);
 }
+
+pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: u128) {
+    let mut m = Map::new();
+    m.insert("account_id".into(), val(account_id));
+    m.insert("amount".into(), val_u128(amount));
+    m.insert("new_balance".into(), val_u128(new_balance));
+    emit_json_event(EVENT_TYPE_STORAGE_UPDATE, "storage_withdraw", account_id, m);
+}
+
+// ── SPONSOR_UPDATE ───────────────────────────────────────────────────────────
 
 pub fn emit_sponsor_deposit(
     beneficiary: &AccountId,
@@ -251,5 +240,5 @@ pub fn emit_sponsor_deposit(
     m.insert("beneficiary".into(), val(beneficiary));
     m.insert("amount".into(), val_u128(amount));
     m.insert("fund_balance".into(), val_u128(fund_balance));
-    emit_json_event("sponsor_deposit", "sponsor_deposit", beneficiary, m);
+    emit_json_event(EVENT_TYPE_SPONSOR_UPDATE, "deposit", beneficiary, m);
 }
