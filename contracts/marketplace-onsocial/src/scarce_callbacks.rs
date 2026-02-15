@@ -1,13 +1,13 @@
-// NFT callback implementations (NEP-178)
+// Scarce callback implementations (NEP-178)
 
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Called by NFT contract when marketplace is approved
+    /// Called by Scarce contract when marketplace is approved
     /// This is part of the NEP-178 approval management standard
     ///
-    /// Can be used to automatically list an NFT when approved,
+    /// Can be used to automatically list a Scarce when approved,
     /// or just as a notification that approval was granted
     pub fn nft_on_approve(
         &mut self,
@@ -16,7 +16,7 @@ impl Contract {
         approval_id: u64,
         msg: String,
     ) -> PromiseOrValue<String> {
-        let nft_contract_id = env::predecessor_account_id();
+        let scarce_contract_id = env::predecessor_account_id();
         let signer_id = env::signer_account_id();
 
         // Validate token_id length to prevent storage DoS
@@ -49,7 +49,7 @@ impl Contract {
                                 owner_id: owner_id.clone(),
                                 sale_conditions: U128(price),
                                 sale_type: SaleType::External {
-                                    nft_contract_id: nft_contract_id.clone(),
+                                    scarce_contract_id: scarce_contract_id.clone(),
                                     token_id: token_id.clone(),
                                     approval_id,
                                 },
@@ -58,17 +58,16 @@ impl Contract {
 
                             self.internal_add_sale(sale);
 
-                            // Emit OnSocial event
-                            crate::events::emit_nft_list_event(
+                            crate::events::emit_scarce_list(
                                 &owner_id,
-                                &nft_contract_id,
+                                &scarce_contract_id,
                                 vec![token_id.clone()],
                                 vec![U128(price)],
                             );
 
                             env::log_str(&format!(
-                                "NFT auto-listed: {} listed {}.{} for {} yoctoNEAR via approval",
-                                owner_id, nft_contract_id, token_id, price
+                                "Scarce auto-listed: {} listed {}.{} for {} yoctoNEAR via approval",
+                                owner_id, scarce_contract_id, token_id, price
                             ));
 
                             return PromiseOrValue::Value("Listed successfully".to_string());
@@ -81,7 +80,7 @@ impl Contract {
         // If no valid message, just acknowledge approval
         env::log_str(&format!(
             "Marketplace approved for {}.{} by {}",
-            nft_contract_id, token_id, owner_id
+            scarce_contract_id, token_id, owner_id
         ));
 
         PromiseOrValue::Value("Approval acknowledged".to_string())

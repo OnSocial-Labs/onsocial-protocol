@@ -1,14 +1,16 @@
 // External contract interfaces for cross-contract calls
+//
+// `#[ext_contract]` generates helper structs that the compiler flags as dead_code
+// even though they are used at runtime for cross-contract calls.
+#![allow(dead_code)]
 
 use crate::Payout;
 use near_sdk::json_types::U128;
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{ext_contract, AccountId};
+use near_sdk::{ext_contract, near, AccountId};
 
-/// NFT Token structure (NEP-171)
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(near_sdk::NearSchema)]
+/// Scarce Token structure (NEP-171)
+#[near(serializers = [json])]
+#[derive(Clone)]
 pub struct Token {
     pub token_id: String,
     pub owner_id: AccountId,
@@ -16,12 +18,11 @@ pub struct Token {
     pub approved_account_ids: Option<std::collections::HashMap<AccountId, u64>>,
 }
 
-/// NFT Token Metadata (NEP-177) - for external NFT contracts
+/// Scarce Token Metadata (NEP-177) - for external Scarce contracts
 /// Note: Internal tokens use crate::TokenMetadata from lib.rs
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(near_sdk::NearSchema)]
-pub struct ExternalTokenMetadata {
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct ExternalScarceMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
     pub media: Option<String>,
@@ -36,11 +37,10 @@ pub struct ExternalTokenMetadata {
     pub reference_hash: Option<String>,
 }
 
-/// NFT Contract Metadata (NEP-177)
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(near_sdk::NearSchema)]
-pub struct NFTContractMetadata {
+/// Scarce Contract Metadata (NEP-177)
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct ScarceContractMetadata {
     pub spec: String,
     pub name: String,
     pub symbol: String,
@@ -50,11 +50,25 @@ pub struct NFTContractMetadata {
     pub reference_hash: Option<String>,
 }
 
-/// External NFT contract interface
-#[ext_contract(ext_nft_contract)]
-pub trait ExtNftContract {
+impl Default for ScarceContractMetadata {
+    fn default() -> Self {
+        Self {
+            spec: "nft-1.0.0".to_string(),
+            name: "OnSocial Scarces".to_string(),
+            symbol: "SCARCE".to_string(),
+            icon: None,
+            base_uri: None,
+            reference: None,
+            reference_hash: None,
+        }
+    }
+}
+
+/// External Scarce contract interface
+#[ext_contract(ext_scarce_contract)]
+pub trait ExtScarceContract {
     // NEP-171 Core
-    /// Transfer NFT with payout (NEP-171 + NEP-199)
+    /// Transfer Scarce with payout (NEP-171 + NEP-199)
     fn nft_transfer_payout(
         &mut self,
         receiver_id: AccountId,
@@ -78,11 +92,11 @@ pub trait ExtNftContract {
     ) -> bool;
 
     // NEP-177 Metadata
-    /// Get NFT token with metadata
+    /// Get Scarce token with metadata
     fn nft_token(&self, token_id: String) -> Option<Token>;
 
-    /// Get NFT contract metadata
-    fn nft_metadata(&self) -> NFTContractMetadata;
+    /// Get Scarce contract metadata
+    fn nft_metadata(&self) -> ScarceContractMetadata;
 
     // NEP-181 Enumeration
     /// Get paginated list of all tokens
@@ -103,31 +117,29 @@ pub trait ExtNftContract {
     fn nft_supply_for_owner(&self, account_id: AccountId) -> U128;
 }
 
-/// Sale with NFT metadata combined (used in callbacks)
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(near_sdk::NearSchema)]
+/// Sale with Scarce metadata combined (used in callbacks)
+#[near(serializers = [json])]
 pub struct SaleWithMetadata {
     pub sale: crate::Sale,
-    pub nft_token: Option<Token>,
+    pub scarce_token: Option<Token>,
 }
 
 /// Self callback interface
 #[ext_contract(ext_self)]
 pub trait ExtSelf {
-    /// Resolve purchase after NFT transfer
+    /// Resolve purchase after Scarce transfer
     fn resolve_purchase(
         &mut self,
         buyer_id: AccountId,
         price: U128,
-        nft_contract_id: AccountId,
+        scarce_contract_id: AccountId,
         token_id: String,
     ) -> U128;
 
     /// Process listing after verification
     fn process_listing(
         &mut self,
-        nft_contract_id: AccountId,
+        scarce_contract_id: AccountId,
         token_id: String,
         approval_id: u64,
         sale_conditions: U128,
@@ -138,11 +150,11 @@ pub trait ExtSelf {
     /// Resolve sale with metadata callback
     fn resolve_sale_with_metadata(
         &self,
-        nft_contract_id: AccountId,
+        scarce_contract_id: AccountId,
         token_id: String,
     ) -> Option<SaleWithMetadata>;
 
-    /// Resolve NFT transfer (NEP-171 callback)
+    /// Resolve Scarce transfer (NEP-171 callback)
     fn nft_resolve_transfer(
         &mut self,
         previous_owner_id: AccountId,
@@ -154,9 +166,9 @@ pub trait ExtSelf {
 
 /// NEP-178 Approval receiver interface
 /// Contracts that want to be notified of approvals implement this
-#[ext_contract(ext_nft_approval_receiver)]
-pub trait ExtNftApprovalReceiver {
-    /// Called when an NFT is approved
+#[ext_contract(ext_scarce_approval_receiver)]
+pub trait ExtScarceApprovalReceiver {
+    /// Called when a Scarce is approved
     /// Returns a promise that the receiver should handle the approval
     fn nft_on_approve(
         &mut self,
@@ -168,10 +180,10 @@ pub trait ExtNftApprovalReceiver {
 }
 
 /// NEP-171 Transfer receiver interface
-/// Contracts that want to receive NFT transfers implement this
-#[ext_contract(ext_nft_transfer_receiver)]
-pub trait ExtNftTransferReceiver {
-    /// Called when an NFT is transferred via nft_transfer_call
+/// Contracts that want to receive Scarce transfers implement this
+#[ext_contract(ext_scarce_transfer_receiver)]
+pub trait ExtScarceTransferReceiver {
+    /// Called when a Scarce is transferred via nft_transfer_call
     /// Returns true if the transfer should be reverted
     fn nft_on_transfer(
         &mut self,

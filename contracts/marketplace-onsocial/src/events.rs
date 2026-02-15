@@ -1,28 +1,26 @@
-// Borsh-encoded Events for Substreams Indexing
-// Provides efficient event emission with binary serialization
+//! JSON-encoded events for Substreams/Subgraph indexing.
+//!
+//! Uses the same `EVENT_JSON:` prefix and envelope shape as core-onsocial
+//! so a single Substreams decoder handles both contracts.
 
 use near_sdk::json_types::U128;
-use near_sdk::{
-    base64::Engine,
-    borsh::{BorshDeserialize, BorshSerialize},
-    env, AccountId,
-};
-use near_sdk_macros::NearSchema;
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::serde_json::{self, Map, Value};
+use near_sdk::{env, AccountId};
 use std::cell::Cell;
 
-// --- Constants ---
+// ── Constants ────────────────────────────────────────────────────────────────
 
 const EVENT_STANDARD: &str = "onsocial";
 const EVENT_VERSION: &str = "1.0.0";
-const EVENT_PREFIX: &str = "EVENT:";
+const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 
-// --- Thread-local log index for unique event IDs within a transaction ---
+// Thread-local sequential log index within a transaction.
 thread_local! {
-    static LOG_INDEX: Cell<u32> = Cell::new(0);
+    static LOG_INDEX: Cell<u32> = const { Cell::new(0) };
 }
 
-/// Get the next log index for the current transaction
-fn get_next_log_index() -> u32 {
+fn next_log_index() -> u32 {
     LOG_INDEX.with(|idx| {
         let current = idx.get();
         idx.set(current + 1);
@@ -30,366 +28,228 @@ fn get_next_log_index() -> u32 {
     })
 }
 
-// --- Event Data Structures ---
+// ── Envelope ─────────────────────────────────────────────────────────────────
 
-/// Marketplace event data variants for different operations
-#[derive(
-    NearSchema, serde::Serialize, serde::Deserialize, Clone, BorshSerialize, BorshDeserialize,
-)]
-#[abi(json, borsh)]
-pub enum MarketplaceEventData {
-    NftList {
-        owner_id: String,
-        nft_contract_id: String,
-        token_ids: Vec<String>,
-        prices: Vec<String>, // Store as strings for consistency
-    },
-    NftDelist {
-        owner_id: String,
-        nft_contract_id: String,
-        token_ids: Vec<String>,
-    },
-    NftUpdatePrice {
-        owner_id: String,
-        nft_contract_id: String,
-        token_id: String,
-        old_price: String,
-        new_price: String,
-    },
-    NftPurchase {
-        buyer_id: String,
-        seller_id: String,
-        nft_contract_id: String,
-        token_id: String,
-        price: String,
-        marketplace_fee: String,
-    },
-    NftPurchaseFailed {
-        buyer_id: String,
-        seller_id: String,
-        nft_contract_id: String,
-        token_id: String,
-        attempted_price: String,
-        reason: String,
-    },
-    StorageDeposit {
-        account_id: String,
-        deposit: String,
-        new_balance: String,
-    },
-    StorageWithdraw {
-        account_id: String,
-        amount: String,
-        new_balance: String,
-    },
-    CollectionCreated {
-        creator_id: String,
-        collection_id: String,
-        total_supply: u32,
-        price_near: String,
-    },
-    CollectionPurchase {
-        buyer_id: String,
-        creator_id: String,
-        collection_id: String,
-        quantity: u32,
-        total_price: String,
-        marketplace_fee: String,
-    },
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+struct Event {
+    standard: String,
+    version: String,
+    event: String,
+    data: Vec<EventData>,
 }
 
-/// Main marketplace event structure
-#[derive(
-    NearSchema, serde::Serialize, serde::Deserialize, Clone, BorshSerialize, BorshDeserialize,
-)]
-#[abi(json, borsh)]
-pub struct MarketplaceEvent {
-    pub evt_standard: String,
-    pub version: String,
-    pub evt_type: String,
-    pub evt_id: String,
-    pub log_index: u32,
-    pub block_height: u64,
-    pub timestamp: u64,
-    pub data: MarketplaceEventData,
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+struct EventData {
+    operation: String,
+    author: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    evt_id: Option<String>,
+    log_index: u32,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
 }
 
-// --- Helper Functions ---
+// ── Internal helpers ─────────────────────────────────────────────────────────
 
-/// Generate a unique event ID for Substreams tracking
-/// Format: {event_type}-{account}-{block_height}-{timestamp}-{log_index}
-fn generate_event_id(event_type: &str, account_id: &AccountId, log_index: u32) -> String {
-    format!(
+fn emit_json_event(event_type: &str, operation: &str, author: &AccountId, extra: Map<String, Value>) {
+    let log_index = next_log_index();
+    let evt_id = format!(
         "{}-{}-{}-{}-{}",
         event_type,
-        account_id,
+        author,
         env::block_height(),
         env::block_timestamp(),
-        log_index
-    )
+        log_index,
+    );
+
+    let event = Event {
+        standard: EVENT_STANDARD.into(),
+        version: EVENT_VERSION.into(),
+        event: event_type.into(),
+        data: vec![EventData {
+            operation: operation.into(),
+            author: author.to_string(),
+            evt_id: Some(evt_id),
+            log_index,
+            extra,
+        }],
+    };
+
+    if let Ok(json) = serde_json::to_string(&event) {
+        env::log_str(&format!("{EVENT_JSON_PREFIX}{json}"));
+    }
 }
 
-/// Emit a Borsh-encoded NFT list event
-pub fn emit_nft_list_event(
+fn val(s: impl ToString) -> Value {
+    Value::String(s.to_string())
+}
+
+fn val_u128(n: u128) -> Value {
+    Value::String(n.to_string())
+}
+
+fn val_u32(n: u32) -> Value {
+    Value::Number(n.into())
+}
+
+// ── Public emit functions ────────────────────────────────────────────────────
+
+pub fn emit_scarce_list(
     owner_id: &AccountId,
-    nft_contract_id: &AccountId,
+    scarce_contract_id: &AccountId,
     token_ids: Vec<String>,
     prices: Vec<U128>,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "nft_list".to_string(),
-        evt_id: generate_event_id("nft_list", owner_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::NftList {
-            owner_id: owner_id.to_string(),
-            nft_contract_id: nft_contract_id.to_string(),
-            token_ids,
-            prices: prices.into_iter().map(|p| p.0.to_string()).collect(),
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("scarce_contract_id".into(), val(scarce_contract_id));
+    m.insert("token_ids".into(), Value::Array(token_ids.into_iter().map(val).collect()));
+    m.insert("prices".into(), Value::Array(prices.into_iter().map(|p| val_u128(p.0)).collect()));
+    emit_json_event("scarce_list", "list_scarce", owner_id, m);
 }
 
-/// Emit a Borsh-encoded NFT delist event
-pub fn emit_nft_delist_event(
+pub fn emit_scarce_delist(
     owner_id: &AccountId,
-    nft_contract_id: &AccountId,
+    scarce_contract_id: &AccountId,
     token_ids: Vec<String>,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "nft_delist".to_string(),
-        evt_id: generate_event_id("nft_delist", owner_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::NftDelist {
-            owner_id: owner_id.to_string(),
-            nft_contract_id: nft_contract_id.to_string(),
-            token_ids,
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("scarce_contract_id".into(), val(scarce_contract_id));
+    m.insert("token_ids".into(), Value::Array(token_ids.into_iter().map(val).collect()));
+    emit_json_event("scarce_delist", "delist_scarce", owner_id, m);
 }
 
-/// Emit a Borsh-encoded NFT price update event
-pub fn emit_nft_update_price_event(
+pub fn emit_scarce_update_price(
     owner_id: &AccountId,
-    nft_contract_id: &AccountId,
+    scarce_contract_id: &AccountId,
     token_id: &str,
     old_price: U128,
     new_price: U128,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "nft_update_price".to_string(),
-        evt_id: generate_event_id("nft_update_price", owner_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::NftUpdatePrice {
-            owner_id: owner_id.to_string(),
-            nft_contract_id: nft_contract_id.to_string(),
-            token_id: token_id.to_string(),
-            old_price: old_price.0.to_string(),
-            new_price: new_price.0.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("scarce_contract_id".into(), val(scarce_contract_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("old_price".into(), val_u128(old_price.0));
+    m.insert("new_price".into(), val_u128(new_price.0));
+    emit_json_event("scarce_update_price", "update_price", owner_id, m);
 }
 
-/// Emit a Borsh-encoded NFT purchase event
-pub fn emit_nft_purchase_event(
+pub fn emit_scarce_purchase(
     buyer_id: &AccountId,
     seller_id: &AccountId,
-    nft_contract_id: &AccountId,
+    scarce_contract_id: &AccountId,
     token_id: &str,
     price: U128,
     marketplace_fee: u128,
+    sponsor_amount: u128,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "nft_purchase".to_string(),
-        evt_id: generate_event_id("nft_purchase", buyer_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::NftPurchase {
-            buyer_id: buyer_id.to_string(),
-            seller_id: seller_id.to_string(),
-            nft_contract_id: nft_contract_id.to_string(),
-            token_id: token_id.to_string(),
-            price: price.0.to_string(),
-            marketplace_fee: marketplace_fee.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("buyer_id".into(), val(buyer_id));
+    m.insert("seller_id".into(), val(seller_id));
+    m.insert("scarce_contract_id".into(), val(scarce_contract_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("price".into(), val_u128(price.0));
+    m.insert("marketplace_fee".into(), val_u128(marketplace_fee));
+    m.insert("sponsor_amount".into(), val_u128(sponsor_amount));
+    emit_json_event("scarce_purchase", "buy_scarce", buyer_id, m);
 }
 
-/// Emit a Borsh-encoded storage deposit event
-pub fn emit_storage_deposit_event(account_id: &AccountId, deposit: u128, new_balance: u128) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "storage_deposit".to_string(),
-        evt_id: generate_event_id("storage_deposit", account_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::StorageDeposit {
-            account_id: account_id.to_string(),
-            deposit: deposit.to_string(),
-            new_balance: new_balance.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
-}
-
-/// Emit a Borsh-encoded storage withdraw event
-pub fn emit_storage_withdraw_event(account_id: &AccountId, amount: u128, new_balance: u128) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "storage_withdraw".to_string(),
-        evt_id: generate_event_id("storage_withdraw", account_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::StorageWithdraw {
-            account_id: account_id.to_string(),
-            amount: amount.to_string(),
-            new_balance: new_balance.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
-}
-
-/// Emit a Borsh-encoded NFT purchase failed event
-/// Useful for analytics and debugging purchase flow
-pub fn emit_nft_purchase_failed_event(
+pub fn emit_scarce_purchase_failed(
     buyer_id: &AccountId,
     seller_id: &AccountId,
-    nft_contract_id: &AccountId,
+    scarce_contract_id: &AccountId,
     token_id: &str,
     attempted_price: U128,
     reason: &str,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "nft_purchase_failed".to_string(),
-        evt_id: generate_event_id("nft_purchase_failed", buyer_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::NftPurchaseFailed {
-            buyer_id: buyer_id.to_string(),
-            seller_id: seller_id.to_string(),
-            nft_contract_id: nft_contract_id.to_string(),
-            token_id: token_id.to_string(),
-            attempted_price: attempted_price.0.to_string(),
-            reason: reason.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("buyer_id".into(), val(buyer_id));
+    m.insert("seller_id".into(), val(seller_id));
+    m.insert("scarce_contract_id".into(), val(scarce_contract_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("attempted_price".into(), val_u128(attempted_price.0));
+    m.insert("reason".into(), val(reason));
+    emit_json_event("scarce_purchase_failed", "buy_scarce", buyer_id, m);
 }
 
-/// Emit a Borsh-encoded collection created event
-pub fn emit_collection_created_event(
+pub fn emit_storage_deposit(account_id: &AccountId, deposit: u128, new_balance: u128) {
+    let mut m = Map::new();
+    m.insert("account_id".into(), val(account_id));
+    m.insert("deposit".into(), val_u128(deposit));
+    m.insert("new_balance".into(), val_u128(new_balance));
+    emit_json_event("storage_deposit", "storage_deposit", account_id, m);
+}
+
+pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: u128) {
+    let mut m = Map::new();
+    m.insert("account_id".into(), val(account_id));
+    m.insert("amount".into(), val_u128(amount));
+    m.insert("new_balance".into(), val_u128(new_balance));
+    emit_json_event("storage_withdraw", "storage_withdraw", account_id, m);
+}
+
+pub fn emit_collection_created(
     creator_id: &AccountId,
     collection_id: &str,
     total_supply: u32,
     price_near: U128,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "collection_created".to_string(),
-        evt_id: generate_event_id("collection_created", creator_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::CollectionCreated {
-            creator_id: creator_id.to_string(),
-            collection_id: collection_id.to_string(),
-            total_supply,
-            price_near: price_near.0.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("creator_id".into(), val(creator_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("total_supply".into(), val_u32(total_supply));
+    m.insert("price_near".into(), val_u128(price_near.0));
+    emit_json_event("collection_created", "create_collection", creator_id, m);
 }
 
-/// Emit a Borsh-encoded collection purchase event
-pub fn emit_collection_purchase_event(
+pub fn emit_collection_purchase(
     buyer_id: &AccountId,
     creator_id: &AccountId,
     collection_id: &str,
     quantity: u32,
     total_price: U128,
     marketplace_fee: U128,
+    sponsor_amount: U128,
 ) {
-    let log_index = get_next_log_index();
-    let event = MarketplaceEvent {
-        evt_standard: EVENT_STANDARD.to_string(),
-        version: EVENT_VERSION.to_string(),
-        evt_type: "collection_purchase".to_string(),
-        evt_id: generate_event_id("collection_purchase", buyer_id, log_index),
-        log_index,
-        block_height: env::block_height(),
-        timestamp: env::block_timestamp(),
-        data: MarketplaceEventData::CollectionPurchase {
-            buyer_id: buyer_id.to_string(),
-            creator_id: creator_id.to_string(),
-            collection_id: collection_id.to_string(),
-            quantity,
-            total_price: total_price.0.to_string(),
-            marketplace_fee: marketplace_fee.0.to_string(),
-        },
-    };
-
-    emit_borsh_event(event);
+    let mut m = Map::new();
+    m.insert("buyer_id".into(), val(buyer_id));
+    m.insert("creator_id".into(), val(creator_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("quantity".into(), val_u32(quantity));
+    m.insert("total_price".into(), val_u128(total_price.0));
+    m.insert("marketplace_fee".into(), val_u128(marketplace_fee.0));
+    m.insert("sponsor_amount".into(), val_u128(sponsor_amount.0));
+    emit_json_event("collection_purchase", "mint_scarce", buyer_id, m);
 }
 
-/// Internal helper to emit Borsh-encoded events with base64 encoding
-/// Matches core-onsocial contract pattern for consistency
-fn emit_borsh_event(event: MarketplaceEvent) {
-    // Serialize to Borsh format
-    let mut buffer = Vec::new();
-    event
-        .serialize(&mut buffer)
-        .expect("Failed to serialize event");
+pub fn emit_scarce_transfer(
+    sender_id: &AccountId,
+    receiver_id: &AccountId,
+    token_id: &str,
+    memo: Option<&str>,
+) {
+    let mut m = Map::new();
+    m.insert("sender_id".into(), val(sender_id));
+    m.insert("receiver_id".into(), val(receiver_id));
+    m.insert("token_id".into(), val(token_id));
+    if let Some(memo) = memo {
+        m.insert("memo".into(), val(memo));
+    }
+    emit_json_event("scarce_transfer", "transfer_scarce", sender_id, m);
+}
 
-    // Calculate capacity for base64 encoding
-    let encoded_len = buffer.len().div_ceil(3) * 4;
-    let mut log_str = String::with_capacity(EVENT_PREFIX.len() + encoded_len);
-
-    // Add prefix and base64-encode the Borsh data
-    log_str.push_str(EVENT_PREFIX);
-    near_sdk::base64::engine::general_purpose::STANDARD.encode_string(&buffer, &mut log_str);
-
-    // Emit the log
-    env::log_str(&log_str);
+pub fn emit_sponsor_deposit(
+    beneficiary: &AccountId,
+    amount: u128,
+    fund_balance: u128,
+) {
+    let mut m = Map::new();
+    m.insert("beneficiary".into(), val(beneficiary));
+    m.insert("amount".into(), val_u128(amount));
+    m.insert("fund_balance".into(), val_u128(fund_balance));
+    emit_json_event("sponsor_deposit", "sponsor_deposit", beneficiary, m);
 }

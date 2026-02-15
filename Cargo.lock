@@ -2036,11 +2036,9 @@ dependencies = [
 name = "marketplace-onsocial"
 version = "0.1.0"
 dependencies = [
- "borsh",
  "near-sdk",
- "near-sdk-macros",
- "semver",
- "serde",
+ "onsocial-auth",
+ "onsocial-types",
 ]
 
 [[package]]

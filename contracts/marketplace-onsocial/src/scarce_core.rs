@@ -1,6 +1,7 @@
-// NEP-171 NFT Core Implementation
-// Native NFT functionality for lazy-minted collections
+// NEP-171 Scarce Core Implementation
+// Native Scarce functionality for lazy-minted collections
 
+use crate::internal::assert_one_yocto;
 use crate::*;
 use near_sdk::{require, serde_json};
 use std::collections::HashMap;
@@ -33,32 +34,32 @@ impl Contract {
 
         // Ensure token doesn't already exist
         require!(
-            !self.native_tokens_by_id.contains_key(&token_id),
+            !self.scarces_by_id.contains_key(&token_id),
             "Token ID already exists"
         );
 
         // Create token
-        let token = NativeToken {
+        let token = Scarce {
             owner_id: owner_id.clone(),
             metadata,
             approved_account_ids: HashMap::new(),
         };
 
         // Store token
-        self.native_tokens_by_id.insert(token_id.clone(), token);
+        self.scarces_by_id.insert(token_id.clone(), token);
 
         // Add to owner's tokens - get or create
-        if !self.native_tokens_per_owner.contains_key(&owner_id) {
-            self.native_tokens_per_owner.insert(
+        if !self.scarces_per_owner.contains_key(&owner_id) {
+            self.scarces_per_owner.insert(
                 owner_id.clone(),
-                IterableSet::new(StorageKey::NativeTokensPerOwnerInner {
+                IterableSet::new(StorageKey::ScarcesPerOwnerInner {
                     account_id_hash: env::sha256(owner_id.as_bytes()),
                 }),
             );
         }
 
         // Now insert the token (set is guaranteed to exist)
-        self.native_tokens_per_owner
+        self.scarces_per_owner
             .get_mut(&owner_id)
             .unwrap()
             .insert(token_id.clone());
@@ -76,7 +77,7 @@ impl Contract {
         memo: Option<String>,
     ) {
         let mut token = self
-            .native_tokens_by_id
+            .scarces_by_id
             .get(token_id)
             .expect("Token not found")
             .clone();
@@ -97,12 +98,12 @@ impl Contract {
         }
 
         // Remove from sender's tokens
-        if let Some(sender_tokens) = self.native_tokens_per_owner.get_mut(&token.owner_id) {
+        if let Some(sender_tokens) = self.scarces_per_owner.get_mut(&token.owner_id) {
             sender_tokens.remove(token_id);
             // Check if empty and remove the whole set
             if sender_tokens.is_empty() {
                 let owner_id = token.owner_id.clone();
-                self.native_tokens_per_owner.remove(&owner_id);
+                self.scarces_per_owner.remove(&owner_id);
             }
         }
 
@@ -111,23 +112,23 @@ impl Contract {
         token.approved_account_ids.clear();
 
         // Add to receiver's tokens - get or create
-        if !self.native_tokens_per_owner.contains_key(receiver_id) {
-            self.native_tokens_per_owner.insert(
+        if !self.scarces_per_owner.contains_key(receiver_id) {
+            self.scarces_per_owner.insert(
                 receiver_id.clone(),
-                IterableSet::new(StorageKey::NativeTokensPerOwnerInner {
+                IterableSet::new(StorageKey::ScarcesPerOwnerInner {
                     account_id_hash: env::sha256(receiver_id.as_bytes()),
                 }),
             );
         }
 
         // Now insert the token (set is guaranteed to exist)
-        self.native_tokens_per_owner
+        self.scarces_per_owner
             .get_mut(receiver_id)
             .unwrap()
             .insert(token_id.to_string());
 
         // Save updated token
-        self.native_tokens_by_id.insert(token_id.to_string(), token);
+        self.scarces_by_id.insert(token_id.to_string(), token);
 
         // Log event
         if let Some(memo_str) = memo {
@@ -266,7 +267,7 @@ impl Contract {
 
         // Store token data before transfer for potential revert
         let token = self
-            .native_tokens_by_id
+            .scarces_by_id
             .get(&token_id)
             .expect("Token not found");
         let previous_owner_id = token.owner_id.clone();
@@ -280,7 +281,7 @@ impl Contract {
         let resolve_gas = Gas::from_tgas(resolve_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
 
         // Call nft_on_transfer on receiver and resolve
-        external::ext_nft_transfer_receiver::ext(receiver_id.clone())
+        external::ext_scarce_transfer_receiver::ext(receiver_id.clone())
             .with_static_gas(receiver_gas)
             .nft_on_transfer(
                 sender_id.clone(),
@@ -310,12 +311,12 @@ impl Contract {
         approved_account_ids: Option<std::collections::HashMap<AccountId, u64>>,
     ) -> bool {
         // Check callback result from nft_on_transfer
-        let should_revert = match env::promise_result(0) {
-            near_sdk::PromiseResult::Successful(value) => {
+        let should_revert = match env::promise_result_checked(0, 16) {
+            Ok(value) => {
                 // Deserialize boolean result
                 near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(false)
             }
-            _ => {
+            Err(_) => {
                 // If callback failed or panicked, don't revert the transfer
                 false
             }
@@ -329,16 +330,16 @@ impl Contract {
             ));
 
             let mut token = self
-                .native_tokens_by_id
+                .scarces_by_id
                 .get(&token_id)
                 .expect("Token not found")
                 .clone();
 
             // Remove from receiver
-            if let Some(receiver_tokens) = self.native_tokens_per_owner.get_mut(&receiver_id) {
+            if let Some(receiver_tokens) = self.scarces_per_owner.get_mut(&receiver_id) {
                 receiver_tokens.remove(&token_id);
                 if receiver_tokens.is_empty() {
-                    self.native_tokens_per_owner.remove(&receiver_id);
+                    self.scarces_per_owner.remove(&receiver_id);
                 }
             }
 
@@ -350,23 +351,23 @@ impl Contract {
 
             // Add back to previous owner's tokens
             if !self
-                .native_tokens_per_owner
+                .scarces_per_owner
                 .contains_key(&previous_owner_id)
             {
-                self.native_tokens_per_owner.insert(
+                self.scarces_per_owner.insert(
                     previous_owner_id.clone(),
-                    IterableSet::new(StorageKey::NativeTokensPerOwnerInner {
+                    IterableSet::new(StorageKey::ScarcesPerOwnerInner {
                         account_id_hash: env::sha256(previous_owner_id.as_bytes()),
                     }),
                 );
             }
-            self.native_tokens_per_owner
+            self.scarces_per_owner
                 .get_mut(&previous_owner_id)
                 .unwrap()
                 .insert(token_id.clone());
 
             // Save reverted token
-            self.native_tokens_by_id.insert(token_id, token);
+            self.scarces_by_id.insert(token_id, token);
 
             true // Transfer was reverted
         } else {
@@ -382,7 +383,7 @@ impl Contract {
 
     /// Get token information
     pub fn nft_token(&self, token_id: String) -> Option<external::Token> {
-        self.native_tokens_by_id
+        self.scarces_by_id
             .get(&token_id)
             .map(|token| external::Token {
                 token_id: token_id.clone(),
@@ -391,12 +392,4 @@ impl Contract {
                 approved_account_ids: Some(token.approved_account_ids.clone()),
             })
     }
-}
-
-// Helper functions
-fn assert_one_yocto() {
-    require!(
-        env::attached_deposit() == ONE_YOCTO,
-        "Requires attached deposit of exactly 1 yoctoNEAR"
-    );
 }

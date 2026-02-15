@@ -7,10 +7,10 @@ impl Contract {
     /// Returns the Sale object that was removed
     pub(crate) fn internal_remove_sale(
         &mut self,
-        nft_contract_id: AccountId,
+        scarce_contract_id: AccountId,
         token_id: String,
     ) -> Sale {
-        let sale_id = Contract::make_sale_id(&nft_contract_id, &token_id);
+        let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
 
         // Get and remove the sale object
         let sale = self.sales.remove(&sale_id).expect("No sale found");
@@ -24,13 +24,13 @@ impl Contract {
             }
         }
 
-        // Remove from NFT contract's sales set by removing and reinserting
-        if let Some(mut contract_set) = self.by_nft_contract_id.remove(&nft_contract_id) {
+        // Remove from Scarce contract's sales set by removing and reinserting
+        if let Some(mut contract_set) = self.by_scarce_contract_id.remove(&scarce_contract_id) {
             contract_set.remove(&sale_id);
 
             if !contract_set.is_empty() {
-                self.by_nft_contract_id
-                    .insert(nft_contract_id, contract_set);
+                self.by_scarce_contract_id
+                    .insert(scarce_contract_id, contract_set);
             }
         }
 
@@ -40,19 +40,19 @@ impl Contract {
     /// Internal function to add a sale
     pub(crate) fn internal_add_sale(&mut self, sale: Sale) {
         // Extract contract and token from SaleType
-        let (nft_contract_id, token_id) = match &sale.sale_type {
+        let (scarce_contract_id, token_id) = match &sale.sale_type {
             SaleType::External {
-                nft_contract_id,
+                scarce_contract_id,
                 token_id,
                 ..
-            } => (nft_contract_id.clone(), token_id.clone()),
+            } => (scarce_contract_id.clone(), token_id.clone()),
             SaleType::LazyCollection { collection_id } => {
                 // For lazy collections, use collection_id as unique identifier
                 (env::current_account_id(), collection_id.clone())
             }
         };
 
-        let sale_id = Contract::make_sale_id(&nft_contract_id, &token_id);
+        let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
 
         // Add to main sales map
         self.sales.insert(sale_id.clone(), sale.clone());
@@ -66,18 +66,18 @@ impl Contract {
         by_owner_id.insert(sale_id.clone());
         self.by_owner_id.insert(sale.owner_id.clone(), by_owner_id);
 
-        // Add to NFT contract's sales set by removing, modifying, and reinserting
-        let mut by_nft_contract_id = self
-            .by_nft_contract_id
-            .remove(&nft_contract_id)
+        // Add to Scarce contract's sales set by removing, modifying, and reinserting
+        let mut by_scarce_contract_id = self
+            .by_scarce_contract_id
+            .remove(&scarce_contract_id)
             .unwrap_or_else(|| {
-                IterableSet::new(StorageKey::ByNFTContractIdInner {
-                    account_id_hash: hash_account_id(&nft_contract_id),
+                IterableSet::new(StorageKey::ByScarceContractIdInner {
+                    account_id_hash: hash_account_id(&scarce_contract_id),
                 })
             });
-        by_nft_contract_id.insert(sale_id);
-        self.by_nft_contract_id
-            .insert(nft_contract_id, by_nft_contract_id);
+        by_scarce_contract_id.insert(sale_id);
+        self.by_scarce_contract_id
+            .insert(scarce_contract_id, by_scarce_contract_id);
     }
 }
 

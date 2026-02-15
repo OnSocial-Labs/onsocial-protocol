@@ -1,6 +1,7 @@
 // NEP-178 Approval Management Implementation
-// Allows marketplace to transfer NFTs on behalf of owners
+// Allows marketplace to transfer Scarces on behalf of owners
 
+use crate::internal::{assert_at_least_one_yocto, assert_one_yocto};
 use crate::*;
 use near_sdk::require;
 
@@ -19,7 +20,7 @@ impl Contract {
         assert_at_least_one_yocto();
 
         let token = self
-            .native_tokens_by_id
+            .scarces_by_id
             .get(&token_id)
             .expect("Token not found");
 
@@ -35,7 +36,7 @@ impl Contract {
         token
             .approved_account_ids
             .insert(account_id.clone(), approval_id);
-        self.native_tokens_by_id.insert(token_id.clone(), token);
+        self.scarces_by_id.insert(token_id.clone(), token);
 
         env::log_str(&format!(
             "Approved: {} approved {} for token {} (approval_id: {})",
@@ -49,7 +50,7 @@ impl Contract {
 
             // Make cross-contract call to approved account
             Some(
-                external::ext_nft_approval_receiver::ext(account_id)
+                external::ext_scarce_approval_receiver::ext(account_id)
                     .with_static_gas(callback_gas)
                     .nft_on_approve(token_id, owner_id, approval_id, msg_str),
             )
@@ -64,7 +65,7 @@ impl Contract {
         assert_one_yocto();
 
         let token = self
-            .native_tokens_by_id
+            .scarces_by_id
             .get(&token_id)
             .expect("Token not found");
 
@@ -76,7 +77,7 @@ impl Contract {
 
         let mut token = token.clone();
         token.approved_account_ids.remove(&account_id);
-        self.native_tokens_by_id.insert(token_id.clone(), token);
+        self.scarces_by_id.insert(token_id.clone(), token);
 
         env::log_str(&format!(
             "Revoked: {} revoked approval for {} on token {}",
@@ -90,7 +91,7 @@ impl Contract {
         assert_one_yocto();
 
         let token = self
-            .native_tokens_by_id
+            .scarces_by_id
             .get(&token_id)
             .expect("Token not found");
 
@@ -102,7 +103,7 @@ impl Contract {
 
         let mut token = token.clone();
         token.approved_account_ids.clear();
-        self.native_tokens_by_id.insert(token_id, token);
+        self.scarces_by_id.insert(token_id, token);
 
         env::log_str(&format!(
             "Revoked all: {} revoked all approvals on token",
@@ -117,7 +118,7 @@ impl Contract {
         approved_account_id: AccountId,
         approval_id: Option<u64>,
     ) -> bool {
-        let token = match self.native_tokens_by_id.get(&token_id) {
+        let token = match self.scarces_by_id.get(&token_id) {
             Some(t) => t,
             None => return false,
         };
@@ -133,18 +134,4 @@ impl Contract {
             None => false,
         }
     }
-}
-
-fn assert_at_least_one_yocto() {
-    require!(
-        env::attached_deposit() >= ONE_YOCTO,
-        "Requires attached deposit of at least 1 yoctoNEAR"
-    );
-}
-
-fn assert_one_yocto() {
-    require!(
-        env::attached_deposit() == ONE_YOCTO,
-        "Requires attached deposit of exactly 1 yoctoNEAR"
-    );
 }

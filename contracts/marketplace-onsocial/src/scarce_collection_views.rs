@@ -141,7 +141,7 @@ impl Contract {
         self.collections.get(&collection_id).map(|collection| {
             let total_revenue = collection.minted_count as u128 * collection.price_near.0;
             let marketplace_fees =
-                (total_revenue * MARKETPLACE_FEE_BPS as u128) / BASIS_POINTS as u128;
+                (total_revenue * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
             let creator_revenue = total_revenue - marketplace_fees;
 
             // Check if active inline to avoid borrow checker issues
@@ -170,9 +170,7 @@ impl Contract {
 }
 
 /// Collection progress information
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(near_sdk::NearSchema)]
+#[near(serializers = [json])]
 pub struct CollectionProgress {
     pub minted: u32,
     pub total: u32,
@@ -181,9 +179,7 @@ pub struct CollectionProgress {
 }
 
 /// Collection statistics
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[derive(near_sdk::NearSchema)]
+#[near(serializers = [json])]
 pub struct CollectionStats {
     pub collection_id: String,
     pub creator_id: AccountId,

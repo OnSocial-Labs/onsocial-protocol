@@ -4,9 +4,9 @@ use crate::*;
 
 #[near]
 impl Contract {
-    /// Get a specific sale by NFT contract and token ID
-    pub fn get_sale(&self, nft_contract_id: AccountId, token_id: String) -> Option<Sale> {
-        let sale_id = Contract::make_sale_id(&nft_contract_id, &token_id);
+    /// Get a specific sale by Scarce contract and token ID
+    pub fn get_sale(&self, scarce_contract_id: AccountId, token_id: String) -> Option<Sale> {
+        let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         self.sales.get(&sale_id).cloned()
     }
 
@@ -23,10 +23,10 @@ impl Contract {
             .unwrap_or(0)
     }
 
-    /// Get number of sales from a specific NFT contract
-    pub fn get_supply_by_nft_contract_id(&self, nft_contract_id: AccountId) -> u64 {
-        self.by_nft_contract_id
-            .get(&nft_contract_id)
+    /// Get number of sales from a specific Scarce contract
+    pub fn get_supply_by_scarce_contract_id(&self, scarce_contract_id: AccountId) -> u64 {
+        self.by_scarce_contract_id
+            .get(&scarce_contract_id)
             .map(|set| set.len() as u64)
             .unwrap_or(0)
     }
@@ -57,17 +57,17 @@ impl Contract {
             .collect()
     }
 
-    /// Get paginated sales by NFT contract
-    pub fn get_sales_by_nft_contract_id(
+    /// Get paginated sales by Scarce contract
+    pub fn get_sales_by_scarce_contract_id(
         &self,
-        nft_contract_id: AccountId,
+        scarce_contract_id: AccountId,
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<Sale> {
-        let by_nft_contract_id = self.by_nft_contract_id.get(&nft_contract_id);
+        let by_scarce_contract_id = self.by_scarce_contract_id.get(&scarce_contract_id);
 
-        let sales = if let Some(by_nft_contract_id) = by_nft_contract_id {
-            by_nft_contract_id
+        let sales = if let Some(by_scarce_contract_id) = by_scarce_contract_id {
+            by_scarce_contract_id
         } else {
             return vec![];
         };
@@ -97,8 +97,8 @@ impl Contract {
     }
 
     /// Check if a sale has expired
-    pub fn is_sale_expired(&self, nft_contract_id: AccountId, token_id: String) -> bool {
-        let sale_id = Contract::make_sale_id(&nft_contract_id, &token_id);
+    pub fn is_sale_expired(&self, scarce_contract_id: AccountId, token_id: String) -> bool {
+        let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         if let Some(sale) = self.sales.get(&sale_id) {
             if let Some(expiration) = sale.expires_at {
                 let now = env::block_timestamp();
