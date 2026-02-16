@@ -9,28 +9,31 @@ impl Contract {
     ///
     /// Can be used to automatically list a Scarce when approved,
     /// or just as a notification that approval was granted
+    #[handle_result]
     pub fn nft_on_approve(
         &mut self,
         token_id: String,
         owner_id: AccountId,
         approval_id: u64,
         msg: String,
-    ) -> PromiseOrValue<String> {
+    ) -> Result<PromiseOrValue<String>, MarketplaceError> {
         let scarce_contract_id = env::predecessor_account_id();
         let signer_id = env::signer_account_id();
 
         // Validate token_id length to prevent storage DoS
-        assert!(
-            token_id.len() <= MAX_TOKEN_ID_LEN,
-            "Token ID too long (max {} characters)",
-            MAX_TOKEN_ID_LEN
-        );
+        if token_id.len() > MAX_TOKEN_ID_LEN {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Token ID too long (max {} characters)",
+                MAX_TOKEN_ID_LEN
+            )));
+        }
 
         // Verify the signer is the owner
-        assert_eq!(
-            owner_id, signer_id,
-            "Only the token owner can approve the marketplace"
-        );
+        if owner_id != signer_id {
+            return Err(MarketplaceError::Unauthorized(
+                "Only the token owner can approve the marketplace".to_string(),
+            ));
+        }
 
         // Parse the message to get sale conditions
         // Message format: {"sale_conditions": "1000000000000000000000000"}
@@ -41,10 +44,17 @@ impl Contract {
                 if let Some(sale_conditions) = sale_data.get("sale_conditions") {
                     if let Some(price_str) = sale_conditions.as_str() {
                         if let Ok(price) = price_str.parse::<u128>() {
-                            // Check storage availability
-                            self.assert_storage_available(&owner_id);
+                            // Check if a sale already exists (prevent silent overwrite)
+                            let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
+                            if self.sales.contains_key(&sale_id) {
+                                env::log_str(&format!(
+                                    "Sale already exists for {}.{} — use update_price to change",
+                                    scarce_contract_id, token_id
+                                ));
+                                return Ok(PromiseOrValue::Value("Sale already exists".to_string()));
+                            }
 
-                            // Create and store the sale (no expiration for auto-listed sales)
+                            // Measure storage and charge via waterfall
                             let sale = Sale {
                                 owner_id: owner_id.clone(),
                                 sale_conditions: U128(price),
@@ -53,10 +63,16 @@ impl Contract {
                                     token_id: token_id.clone(),
                                     approval_id,
                                 },
-                                expires_at: None, // Auto-listed sales don't expire by default
+                                expires_at: None,
+                                auction: None,
                             };
 
+                            let before = env::storage_usage();
                             self.internal_add_sale(sale);
+                            let after = env::storage_usage();
+                            let bytes_used = after.saturating_sub(before);
+
+                            self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
 
                             crate::events::emit_scarce_list(
                                 &owner_id,
@@ -70,7 +86,7 @@ impl Contract {
                                 owner_id, scarce_contract_id, token_id, price
                             ));
 
-                            return PromiseOrValue::Value("Listed successfully".to_string());
+                            return Ok(PromiseOrValue::Value("Listed successfully".to_string()));
                         }
                     }
                 }
@@ -83,6 +99,6 @@ impl Contract {
             scarce_contract_id, token_id, owner_id
         ));
 
-        PromiseOrValue::Value("Approval acknowledged".to_string())
+        Ok(PromiseOrValue::Value("Approval acknowledged".to_string()))
     }
 }

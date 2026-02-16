@@ -38,7 +38,7 @@ pub struct ExternalScarceMetadata {
 }
 
 /// Scarce Contract Metadata (NEP-177)
-#[near(serializers = [json])]
+#[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct ScarceContractMetadata {
     pub spec: String,

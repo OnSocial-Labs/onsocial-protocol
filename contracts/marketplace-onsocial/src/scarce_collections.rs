@@ -1,9 +1,9 @@
 //! Lazy Scarce Collection management.
 //! Create and manage collections that mint on purchase.
 
-use crate::internal::{assert_at_least_one_yocto, assert_one_yocto};
+use crate::internal::{check_at_least_one_yocto, check_one_yocto};
 use crate::*;
-use near_sdk::{require, serde_json};
+use near_sdk::serde_json;
 
 // ── #[payable] public methods (direct transactions) ──────────────────────────
 
@@ -11,42 +11,46 @@ use near_sdk::{require, serde_json};
 impl Contract {
     /// Create a new lazy-minted scarce collection.
     #[payable]
+    #[handle_result]
     pub fn create_collection(
         &mut self,
-        collection_id: String,
-        total_supply: u32,
-        metadata_template: String,
-        price_near: U128,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
-    ) {
-        assert_at_least_one_yocto();
+        params: CollectionConfig,
+    ) -> Result<(), MarketplaceError> {
+        check_at_least_one_yocto()?;
         let creator_id = env::predecessor_account_id();
-        self.internal_create_collection(
-            &creator_id, collection_id, total_supply,
-            metadata_template, price_near, start_time, end_time,
-        );
+        self.internal_create_collection(&creator_id, params)
     }
 
     /// Update collection price (only creator).
     #[payable]
-    pub fn update_collection_price(&mut self, collection_id: String, new_price_near: U128) {
-        assert_one_yocto();
+    #[handle_result]
+    pub fn update_collection_price(&mut self, collection_id: String, new_price_near: U128) -> Result<(), MarketplaceError> {
+        check_one_yocto()?;
         let caller = env::predecessor_account_id();
-        self.internal_update_collection_price(&caller, collection_id, new_price_near);
+        self.internal_update_collection_price(&caller, collection_id, new_price_near)
     }
 
     /// Update collection timing (only creator).
     #[payable]
+    #[handle_result]
     pub fn update_collection_timing(
         &mut self,
         collection_id: String,
         start_time: Option<u64>,
         end_time: Option<u64>,
-    ) {
-        assert_one_yocto();
+    ) -> Result<(), MarketplaceError> {
+        check_one_yocto()?;
         let caller = env::predecessor_account_id();
-        self.internal_update_collection_timing(&caller, collection_id, start_time, end_time);
+        self.internal_update_collection_timing(&caller, collection_id, start_time, end_time)
+    }
+
+    /// Delete an empty collection (minted_count == 0). Creator/app owner only.
+    #[payable]
+    #[handle_result]
+    pub fn delete_collection(&mut self, collection_id: String) -> Result<(), MarketplaceError> {
+        check_one_yocto()?;
+        let caller = env::predecessor_account_id();
+        self.internal_delete_collection(&caller, &collection_id)
     }
 }
 
@@ -56,40 +60,103 @@ impl Contract {
     pub(crate) fn internal_create_collection(
         &mut self,
         creator_id: &AccountId,
-        collection_id: String,
-        total_supply: u32,
-        metadata_template: String,
-        price_near: U128,
-        start_time: Option<u64>,
-        end_time: Option<u64>,
-    ) {
-        require!(
-            !collection_id.is_empty() && collection_id.len() <= 64,
-            "Collection ID must be 1-64 characters"
-        );
-        require!(
-            total_supply > 0 && total_supply <= MAX_COLLECTION_SUPPLY,
-            format!("Total supply must be 1-{}", MAX_COLLECTION_SUPPLY)
-        );
-        require!(price_near.0 > 0, "Price must be greater than 0");
-        require!(
-            metadata_template.len() <= MAX_METADATA_LEN,
-            format!("Metadata template exceeds max length of {}", MAX_METADATA_LEN)
-        );
+        params: CollectionConfig,
+    ) -> Result<(), MarketplaceError> {
+        let CollectionConfig {
+            collection_id, total_supply, metadata_template, price_near,
+            start_time, end_time, app_id, royalty, renewable, revocation_mode,
+            max_redeems, burnable, mint_mode, metadata, max_per_wallet,
+            transferable, start_price, allowlist_price,
+        } = params;
 
-        let _: TokenMetadata =
-            serde_json::from_str(&metadata_template).expect("Invalid metadata template JSON");
-
-        if let (Some(start), Some(end)) = (start_time, end_time) {
-            require!(end > start, "End time must be after start time");
+        if collection_id.is_empty() || collection_id.len() > 64 {
+            return Err(MarketplaceError::InvalidInput("Collection ID must be 1-64 characters".into()));
+        }
+        if total_supply == 0 || total_supply > MAX_COLLECTION_SUPPLY {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Total supply must be 1-{}", MAX_COLLECTION_SUPPLY
+            )));
+        }
+        if metadata_template.len() > MAX_METADATA_LEN {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Metadata template exceeds max length of {}", MAX_METADATA_LEN
+            )));
         }
 
-        self.assert_storage_available(creator_id);
+        let _: TokenMetadata = serde_json::from_str(&metadata_template)
+            .map_err(|_| MarketplaceError::InvalidInput("Invalid metadata template JSON".into()))?;
 
-        require!(
-            !self.collections.contains_key(&collection_id),
-            "Collection ID already exists"
-        );
+        if let (Some(start), Some(end)) = (start_time, end_time) {
+            if end <= start {
+                return Err(MarketplaceError::InvalidInput("End time must be after start time".into()));
+            }
+        }
+
+        // Merge app default royalty + creator royalty, then validate total
+        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty);
+        if let Some(ref r) = merged_royalty {
+            if r.is_empty() {
+                return Err(MarketplaceError::InvalidInput("Royalty map cannot be empty if provided".into()));
+            }
+            if r.len() > 10 {
+                return Err(MarketplaceError::InvalidInput("Maximum 10 royalty recipients after merge".into()));
+            }
+            let total: u32 = r.values().sum();
+            if total > MAX_ROYALTY_BPS {
+                return Err(MarketplaceError::InvalidInput(format!(
+                    "Total royalty {} bps exceeds max {} bps (50%)", total, MAX_ROYALTY_BPS
+                )));
+            }
+            for (_, bps) in r.iter() {
+                if *bps == 0 {
+                    return Err(MarketplaceError::InvalidInput("Each royalty share must be > 0 bps".into()));
+                }
+            }
+        }
+
+        // Validate collection metadata JSON if provided
+        if let Some(ref m) = metadata {
+            Self::validate_metadata_json(m)?;
+        }
+
+        // Validate max_per_wallet
+        if let Some(max) = max_per_wallet {
+            if max == 0 {
+                return Err(MarketplaceError::InvalidInput("max_per_wallet must be > 0".into()));
+            }
+        }
+
+        // Validate Dutch auction start_price
+        if let Some(sp) = &start_price {
+            if sp.0 <= price_near.0 {
+                return Err(MarketplaceError::InvalidInput(
+                    "start_price must be greater than price_near (floor) for Dutch auction".into(),
+                ));
+            }
+            if start_time.is_none() || end_time.is_none() {
+                return Err(MarketplaceError::InvalidInput(
+                    "Dutch auction requires both start_time and end_time".into(),
+                ));
+            }
+        }
+
+        // Validate allowlist price
+        if let Some(alp) = &allowlist_price {
+            if start_time.is_none() {
+                return Err(MarketplaceError::InvalidInput(
+                    "allowlist_price requires start_time (WL phase = before start_time)".into(),
+                ));
+            }
+            if alp.0 == 0 && price_near.0 != 0 {
+                return Err(MarketplaceError::InvalidInput(
+                    "allowlist_price must be > 0 unless collection is free".into(),
+                ));
+            }
+        }
+
+        if self.collections.contains_key(&collection_id) {
+            return Err(MarketplaceError::InvalidState("Collection ID already exists".into()));
+        }
 
         let collection = LazyCollection {
             creator_id: creator_id.clone(),
@@ -98,10 +165,32 @@ impl Contract {
             minted_count: 0,
             metadata_template,
             price_near,
+            start_price,
             start_time,
             end_time,
             created_at: env::block_timestamp(),
+            app_id: app_id.clone(),
+            royalty: merged_royalty,
+            renewable,
+            revocation_mode,
+            max_redeems,
+            burnable,
+            mint_mode,
+            max_per_wallet,
+            transferable,
+            paused: false,
+            redeemed_count: 0,
+            fully_redeemed_count: 0,
+            cancelled: false,
+            refund_pool: 0,
+            refund_per_token: 0,
+            refunded_count: 0,
+            refund_deadline: None,
+            allowlist_price,
+            metadata,
         };
+
+        let before = env::storage_usage();
 
         self.collections.insert(collection_id.clone(), collection);
 
@@ -118,7 +207,14 @@ impl Contract {
             .unwrap()
             .insert(collection_id.clone());
 
+        let after = env::storage_usage();
+        let bytes_used = after.saturating_sub(before);
+
+        // Charge storage via app pool → user balance waterfall
+        self.charge_storage_waterfall(creator_id, bytes_used as u64, app_id.as_ref())?;
+
         events::emit_collection_created(creator_id, &collection_id, total_supply, price_near);
+        Ok(())
     }
 
     pub(crate) fn internal_update_collection_price(
@@ -126,22 +222,20 @@ impl Contract {
         caller: &AccountId,
         collection_id: String,
         new_price_near: U128,
-    ) {
-        require!(new_price_near.0 > 0, "Price must be greater than 0");
-
+    ) -> Result<(), MarketplaceError> {
         let mut collection = self
             .collections
             .get(&collection_id)
-            .expect("Collection not found")
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
-        require!(
-            &collection.creator_id == caller,
-            "Only collection creator can update price"
-        );
+        if &collection.creator_id != caller {
+            return Err(MarketplaceError::Unauthorized("Only collection creator can update price".into()));
+        }
 
         collection.price_near = new_price_near;
         self.collections.insert(collection_id, collection);
+        Ok(())
     }
 
     pub(crate) fn internal_update_collection_timing(
@@ -150,28 +244,36 @@ impl Contract {
         collection_id: String,
         start_time: Option<u64>,
         end_time: Option<u64>,
-    ) {
+    ) -> Result<(), MarketplaceError> {
         if let (Some(start), Some(end)) = (start_time, end_time) {
-            require!(end > start, "End time must be after start time");
+            if end <= start {
+                return Err(MarketplaceError::InvalidInput("End time must be after start time".into()));
+            }
         }
 
         let mut collection = self
             .collections
             .get(&collection_id)
-            .expect("Collection not found")
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
-        require!(
-            &collection.creator_id == caller,
-            "Only collection creator can update timing"
-        );
+        if &collection.creator_id != caller {
+            return Err(MarketplaceError::Unauthorized("Only collection creator can update timing".into()));
+        }
 
         collection.start_time = start_time;
         collection.end_time = end_time;
         self.collections.insert(collection_id, collection);
+        Ok(())
     }
 
     pub(crate) fn is_collection_active(&self, collection: &LazyCollection) -> bool {
+        if collection.cancelled {
+            return false;
+        }
+        if collection.paused {
+            return false;
+        }
         let now = env::block_timestamp();
         if collection.minted_count >= collection.total_supply {
             return false;
@@ -187,5 +289,221 @@ impl Contract {
             }
         }
         true
+    }
+
+    /// Pause minting from a collection. Creator or app owner only.
+    /// Unlike cancel, paused collections can be resumed.
+    pub(crate) fn internal_pause_collection(
+        &mut self,
+        actor_id: &AccountId,
+        collection_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        let mut collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        self.check_collection_authority(actor_id, &collection)?;
+        if collection.cancelled {
+            return Err(MarketplaceError::InvalidState("Cannot pause a cancelled collection".into()));
+        }
+        if collection.paused {
+            return Err(MarketplaceError::InvalidState("Collection is already paused".into()));
+        }
+
+        collection.paused = true;
+        self.collections.insert(collection_id.to_string(), collection);
+
+        events::emit_collection_paused(actor_id, collection_id);
+        Ok(())
+    }
+
+    /// Resume minting from a paused collection. Creator or app owner only.
+    pub(crate) fn internal_resume_collection(
+        &mut self,
+        actor_id: &AccountId,
+        collection_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        let mut collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        self.check_collection_authority(actor_id, &collection)?;
+        if !collection.paused {
+            return Err(MarketplaceError::InvalidState("Collection is not paused".into()));
+        }
+
+        collection.paused = false;
+        self.collections.insert(collection_id.to_string(), collection);
+
+        events::emit_collection_resumed(actor_id, collection_id);
+        Ok(())
+    }
+
+    // ── Allowlist ────────────────────────────────────────────────────────────
+
+    /// Add or update allowlist entries for a collection.
+    /// Each entry specifies a wallet and its max early-access mint allocation.
+    /// Creator or app owner only. Max 100 entries per call.
+    pub(crate) fn internal_set_allowlist(
+        &mut self,
+        actor_id: &AccountId,
+        collection_id: &str,
+        entries: Vec<crate::protocol::AllowlistEntry>,
+    ) -> Result<(), MarketplaceError> {
+        if entries.is_empty() || entries.len() > 100 {
+            return Err(MarketplaceError::InvalidInput("1-100 entries per call".into()));
+        }
+
+        let collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        self.check_collection_authority(actor_id, &collection)?;
+
+        let before = env::storage_usage();
+
+        let mut accounts = Vec::with_capacity(entries.len());
+        for entry in &entries {
+            let key = format!("{}:al:{}", collection_id, entry.account_id);
+            if entry.allocation > 0 {
+                self.collection_allowlist.insert(key, entry.allocation);
+            } else {
+                self.collection_allowlist.remove(&key);
+            }
+            accounts.push(entry.account_id.clone());
+        }
+
+        let after = env::storage_usage();
+        let bytes_used = after.saturating_sub(before);
+        if bytes_used > 0 {
+            self.charge_storage_waterfall(actor_id, bytes_used as u64, collection.app_id.as_ref())?;
+        }
+
+        events::emit_allowlist_updated(actor_id, collection_id, &accounts, entries.len() as u32);
+        Ok(())
+    }
+
+    /// Remove wallets from the allowlist. Creator or app owner only.
+    pub(crate) fn internal_remove_from_allowlist(
+        &mut self,
+        actor_id: &AccountId,
+        collection_id: &str,
+        accounts: Vec<AccountId>,
+    ) -> Result<(), MarketplaceError> {
+        if accounts.is_empty() || accounts.len() > 100 {
+            return Err(MarketplaceError::InvalidInput("1-100 accounts per call".into()));
+        }
+
+        let collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        self.check_collection_authority(actor_id, &collection)?;
+
+        for account in &accounts {
+            let key = format!("{}:al:{}", collection_id, account);
+            self.collection_allowlist.remove(&key);
+        }
+
+        events::emit_allowlist_updated(actor_id, collection_id, &accounts, 0);
+        Ok(())
+    }
+
+    /// Delete an empty collection (minted_count == 0).
+    /// Only the collection creator or the app owner can delete.
+    /// Frees up the collection storage.
+    pub(crate) fn internal_delete_collection(
+        &mut self,
+        actor_id: &AccountId,
+        collection_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        let collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        self.check_collection_authority(actor_id, &collection)?;
+
+        if collection.minted_count != 0 {
+            return Err(MarketplaceError::InvalidState(
+                "Cannot delete a collection that has minted tokens".into(),
+            ));
+        }
+
+        // Remove from collections map
+        self.collections.remove(collection_id);
+
+        // Remove from creator's collection set
+        if let Some(creator_set) = self.collections_by_creator.get_mut(&collection.creator_id) {
+            creator_set.remove(collection_id);
+            if creator_set.is_empty() {
+                self.collections_by_creator.remove(&collection.creator_id);
+            }
+        }
+
+        events::emit_collection_deleted(actor_id, collection_id);
+        Ok(())
+    }
+
+    /// Set collection-level metadata (only creator or app owner).
+    pub(crate) fn internal_set_collection_metadata(
+        &mut self,
+        actor_id: &AccountId,
+        collection_id: &str,
+        metadata: Option<String>,
+    ) -> Result<(), MarketplaceError> {
+        let mut collection = self
+            .collections
+            .get(collection_id)
+            .cloned()
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
+
+        // Allow creator or app owner
+        let is_creator = actor_id == &collection.creator_id;
+        let is_app_owner = collection
+            .app_id
+            .as_ref()
+            .and_then(|app_id| self.app_pools.get(app_id))
+            .is_some_and(|pool| actor_id == &pool.owner_id);
+        if !is_creator && !is_app_owner {
+            return Err(MarketplaceError::Unauthorized(
+                "Only collection creator or app owner can set metadata".into(),
+            ));
+        }
+
+        // None = no change, Some("") = clear, Some(json) = replace
+        if let Some(m) = metadata {
+            if m.is_empty() {
+                collection.metadata = None;
+            } else {
+                Self::validate_metadata_json(&m)?;
+                collection.metadata = Some(m);
+            }
+        } else {
+            return Ok(()); // None = no change, skip storage + event
+        }
+
+        let before = env::storage_usage();
+        self.collections
+            .insert(collection_id.to_string(), collection.clone());
+        let after = env::storage_usage();
+
+        // Charge storage delta through the waterfall
+        if after > before {
+            let bytes_added = (after - before) as u64;
+            self.charge_storage_waterfall(actor_id, bytes_added, collection.app_id.as_ref())?;
+        }
+
+        events::emit_collection_metadata_update(actor_id, collection_id);
+        Ok(())
     }
 }

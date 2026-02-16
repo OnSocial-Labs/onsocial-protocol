@@ -29,13 +29,7 @@ impl Contract {
     /// Check if collection is currently active for minting
     pub fn is_collection_mintable(&self, collection_id: String) -> bool {
         match self.collections.get(&collection_id) {
-            Some(collection) => {
-                let now = env::block_timestamp();
-                let not_sold_out = collection.minted_count < collection.total_supply;
-                let started = collection.start_time.map_or(true, |start| now >= start);
-                let not_ended = collection.end_time.map_or(true, |end| now <= end);
-                not_sold_out && started && not_ended
-            }
+            Some(collection) => self.is_collection_active(collection),
             None => false,
         }
     }
@@ -98,15 +92,10 @@ impl Contract {
         let start = from_index.unwrap_or(0) as usize;
         let limit = limit.unwrap_or(50).min(100) as usize;
 
-        let now = env::block_timestamp();
-
         self.collections
             .iter()
             .filter(|(_, collection)| {
-                let not_sold_out = collection.minted_count < collection.total_supply;
-                let started = collection.start_time.map_or(true, |start| now >= start);
-                let not_ended = collection.end_time.map_or(true, |end| now <= end);
-                not_sold_out && started && not_ended
+                self.is_collection_active(collection)
             })
             .skip(start)
             .take(limit)
@@ -139,33 +128,129 @@ impl Contract {
     /// Get collection statistics
     pub fn get_collection_stats(&self, collection_id: String) -> Option<CollectionStats> {
         self.collections.get(&collection_id).map(|collection| {
+            let current = crate::scarce_collection_purchase::compute_dutch_price(collection);
             let total_revenue = collection.minted_count as u128 * collection.price_near.0;
             let marketplace_fees =
                 (total_revenue * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
             let creator_revenue = total_revenue - marketplace_fees;
 
-            // Check if active inline to avoid borrow checker issues
-            let now = env::block_timestamp();
-            let not_sold_out = collection.minted_count < collection.total_supply;
-            let started = collection.start_time.map_or(true, |start| now >= start);
-            let not_ended = collection.end_time.map_or(true, |end| now <= end);
-            let is_active = not_sold_out && started && not_ended;
+            let is_active = self.is_collection_active(collection);
 
             CollectionStats {
                 collection_id: collection.collection_id.clone(),
                 creator_id: collection.creator_id.clone(),
+                app_id: collection.app_id.clone(),
                 total_supply: collection.total_supply,
                 minted_count: collection.minted_count,
                 remaining: collection.total_supply - collection.minted_count,
                 price_near: collection.price_near,
+                start_price: collection.start_price,
+                current_price: U128(current),
                 total_revenue: U128(total_revenue),
                 creator_revenue: U128(creator_revenue),
                 marketplace_fees: U128(marketplace_fees),
                 is_active,
                 is_sold_out: collection.minted_count >= collection.total_supply,
+                cancelled: collection.cancelled,
                 created_at: collection.created_at,
+                // Lifecycle
+                renewable: collection.renewable,
+                revocation_mode: collection.revocation_mode.clone(),
+                max_redeems: collection.max_redeems,
+                redeemed_count: collection.redeemed_count,
+                fully_redeemed_count: collection.fully_redeemed_count,
+                burnable: collection.burnable,
+                mint_mode: collection.mint_mode.clone(),
+                max_per_wallet: collection.max_per_wallet,
+                transferable: collection.transferable,
+                paused: collection.paused,
+                allowlist_price: collection.allowlist_price,
             }
         })
+    }
+
+    /// Get how many tokens a specific wallet has minted from a collection.
+    pub fn get_wallet_mint_count(&self, collection_id: String, account_id: AccountId) -> u32 {
+        let key = format!("{}:{}", collection_id, account_id);
+        self.collection_mint_counts.get(&key).copied().unwrap_or(0)
+    }
+
+    /// Get remaining mint allowance for a wallet in a collection.
+    /// Returns None if collection has no per-wallet limit.
+    pub fn get_wallet_mint_remaining(
+        &self,
+        collection_id: String,
+        account_id: AccountId,
+    ) -> Option<u32> {
+        let collection = self.collections.get(&collection_id)?;
+        let max = collection.max_per_wallet?;
+        let key = format!("{}:{}", collection_id, account_id);
+        let minted = self.collection_mint_counts.get(&key).copied().unwrap_or(0);
+        Some(max.saturating_sub(minted))
+    }
+
+    // ── Allowlist views ──────────────────────────────────────────────────────
+
+    /// Check if a wallet is on a collection's allowlist and return its allocation.
+    /// Returns 0 if not allowlisted.
+    pub fn get_allowlist_allocation(
+        &self,
+        collection_id: String,
+        account_id: AccountId,
+    ) -> u32 {
+        let key = format!("{}:al:{}", collection_id, account_id);
+        self.collection_allowlist.get(&key).copied().unwrap_or(0)
+    }
+
+    /// Check if a wallet is on a collection's allowlist.
+    pub fn is_allowlisted(
+        &self,
+        collection_id: String,
+        account_id: AccountId,
+    ) -> bool {
+        let key = format!("{}:al:{}", collection_id, account_id);
+        self.collection_allowlist.get(&key).copied().unwrap_or(0) > 0
+    }
+
+    /// Get remaining allowlist allocation for a wallet (allocation - minted).
+    /// Returns 0 if not allowlisted. Useful for UI.
+    pub fn get_allowlist_remaining(
+        &self,
+        collection_id: String,
+        account_id: AccountId,
+    ) -> u32 {
+        let al_key = format!("{}:al:{}", collection_id, account_id);
+        let allocation = self.collection_allowlist.get(&al_key).copied().unwrap_or(0);
+        if allocation == 0 {
+            return 0;
+        }
+        let mint_key = format!("{}:{}", collection_id, account_id);
+        let minted = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+        allocation.saturating_sub(minted)
+    }
+
+    /// Returns current unit price, accounting for Dutch auction decay.
+    #[handle_result]
+    pub fn get_collection_price(&self, collection_id: String) -> Result<U128, MarketplaceError> {
+        let collection = self
+            .collections
+            .get(&collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("Collection not found: {}", collection_id)))?;
+        Ok(U128(crate::scarce_collection_purchase::compute_dutch_price(collection)))
+    }
+
+    /// Returns total price for `quantity` tokens at the current Dutch price.
+    #[handle_result]
+    pub fn calculate_collection_purchase_price(
+        &self,
+        collection_id: String,
+        quantity: u32,
+    ) -> Result<U128, MarketplaceError> {
+        let collection = self
+            .collections
+            .get(&collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("Collection not found: {}", collection_id)))?;
+        Ok(U128(crate::scarce_collection_purchase::compute_dutch_price(collection) * quantity as u128))
     }
 }
 
@@ -183,14 +268,33 @@ pub struct CollectionProgress {
 pub struct CollectionStats {
     pub collection_id: String,
     pub creator_id: AccountId,
+    pub app_id: Option<AccountId>,
     pub total_supply: u32,
     pub minted_count: u32,
     pub remaining: u32,
     pub price_near: U128,
+    /// Dutch auction start price (None = fixed price).
+    pub start_price: Option<U128>,
+    /// Current effective price (accounts for Dutch price decay).
+    pub current_price: U128,
     pub total_revenue: U128,
     pub creator_revenue: U128,
     pub marketplace_fees: U128,
     pub is_active: bool,
     pub is_sold_out: bool,
+    pub cancelled: bool,
     pub created_at: u64,
+    // Lifecycle
+    pub renewable: bool,
+    pub revocation_mode: RevocationMode,
+    pub max_redeems: Option<u32>,
+    pub redeemed_count: u32,
+    pub fully_redeemed_count: u32,
+    pub burnable: bool,
+    pub mint_mode: MintMode,
+    pub max_per_wallet: Option<u32>,
+    pub transferable: bool,
+    pub paused: bool,
+    /// Early-access price for allowlisted wallets (None = same as regular price).
+    pub allowlist_price: Option<U128>,
 }

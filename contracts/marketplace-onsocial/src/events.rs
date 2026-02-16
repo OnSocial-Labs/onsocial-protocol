@@ -7,7 +7,7 @@
 //!   - `SCARCE_UPDATE`     – list, delist, update_price, purchase, purchase_failed, transfer
 //!   - `COLLECTION_UPDATE` – create, mint
 //!   - `STORAGE_UPDATE`    – storage_deposit, storage_withdraw
-//!   - `SPONSOR_UPDATE`    – deposit
+//!   - `APP_POOL_UPDATE`   – register, fund, withdraw
 
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -24,7 +24,8 @@ const EVENT_JSON_PREFIX: &str = "EVENT_JSON:";
 const EVENT_TYPE_SCARCE_UPDATE: &str = "SCARCE_UPDATE";
 const EVENT_TYPE_COLLECTION_UPDATE: &str = "COLLECTION_UPDATE";
 const EVENT_TYPE_STORAGE_UPDATE: &str = "STORAGE_UPDATE";
-const EVENT_TYPE_SPONSOR_UPDATE: &str = "SPONSOR_UPDATE";
+const EVENT_TYPE_APP_POOL_UPDATE: &str = "APP_POOL_UPDATE";
+const EVENT_TYPE_CONTRACT_UPDATE: &str = "CONTRACT_UPDATE";
 
 // ── Envelope (matches core-onsocial shape) ───────────────────────────────────
 
@@ -128,7 +129,7 @@ pub fn emit_scarce_purchase(
     token_id: &str,
     price: U128,
     marketplace_fee: u128,
-    sponsor_amount: u128,
+    app_pool_amount: u128,
 ) {
     let mut m = Map::new();
     m.insert("buyer_id".into(), val(buyer_id));
@@ -137,7 +138,7 @@ pub fn emit_scarce_purchase(
     m.insert("token_id".into(), val(token_id));
     m.insert("price".into(), val_u128(price.0));
     m.insert("marketplace_fee".into(), val_u128(marketplace_fee));
-    m.insert("sponsor_amount".into(), val_u128(sponsor_amount));
+    m.insert("app_pool_amount".into(), val_u128(app_pool_amount));
     emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "purchase", buyer_id, m);
 }
 
@@ -198,7 +199,7 @@ pub fn emit_collection_purchase(
     quantity: u32,
     total_price: U128,
     marketplace_fee: U128,
-    sponsor_amount: U128,
+    app_pool_amount: U128,
 ) {
     let mut m = Map::new();
     m.insert("buyer_id".into(), val(buyer_id));
@@ -207,7 +208,7 @@ pub fn emit_collection_purchase(
     m.insert("quantity".into(), val_u32(quantity));
     m.insert("total_price".into(), val_u128(total_price.0));
     m.insert("marketplace_fee".into(), val_u128(marketplace_fee.0));
-    m.insert("sponsor_amount".into(), val_u128(sponsor_amount.0));
+    m.insert("app_pool_amount".into(), val_u128(app_pool_amount.0));
     emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "mint", buyer_id, m);
 }
 
@@ -229,16 +230,315 @@ pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: 
     emit_json_event(EVENT_TYPE_STORAGE_UPDATE, "storage_withdraw", account_id, m);
 }
 
-// ── SPONSOR_UPDATE ───────────────────────────────────────────────────────────
+// ── APP_POOL_UPDATE ──────────────────────────────────────────────────────────
 
-pub fn emit_sponsor_deposit(
-    beneficiary: &AccountId,
-    amount: u128,
-    fund_balance: u128,
+pub fn emit_app_pool_register(owner_id: &AccountId, app_id: &AccountId) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("app_id".into(), val(app_id));
+    emit_json_event(EVENT_TYPE_APP_POOL_UPDATE, "register", owner_id, m);
+}
+
+pub fn emit_app_pool_fund(funder: &AccountId, app_id: &AccountId, amount: u128, new_balance: u128) {
+    let mut m = Map::new();
+    m.insert("funder".into(), val(funder));
+    m.insert("app_id".into(), val(app_id));
+    m.insert("amount".into(), val_u128(amount));
+    m.insert("new_balance".into(), val_u128(new_balance));
+    emit_json_event(EVENT_TYPE_APP_POOL_UPDATE, "fund", funder, m);
+}
+
+pub fn emit_app_pool_withdraw(owner_id: &AccountId, app_id: &AccountId, amount: u128, new_balance: u128) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("app_id".into(), val(app_id));
+    m.insert("amount".into(), val_u128(amount));
+    m.insert("new_balance".into(), val_u128(new_balance));
+    emit_json_event(EVENT_TYPE_APP_POOL_UPDATE, "withdraw", owner_id, m);
+}
+
+pub fn emit_app_config_update(owner_id: &AccountId, app_id: &AccountId) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("app_id".into(), val(app_id));
+    emit_json_event(EVENT_TYPE_APP_POOL_UPDATE, "config_update", owner_id, m);
+}
+
+pub fn emit_collection_metadata_update(actor_id: &AccountId, collection_id: &str) {
+    let mut m = Map::new();
+    m.insert("actor_id".into(), val(actor_id));
+    m.insert("collection_id".into(), val(collection_id));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "metadata_update", actor_id, m);
+}
+
+// ── SCARCE_UPDATE — lifecycle ────────────────────────────────────────────────
+
+pub fn emit_token_renewed(
+    actor_id: &AccountId,
+    token_id: &str,
+    collection_id: &str,
+    owner_id: &AccountId,
+    new_expires_at: u64,
 ) {
     let mut m = Map::new();
-    m.insert("beneficiary".into(), val(beneficiary));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("new_expires_at".into(), Value::String(new_expires_at.to_string()));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "renew", actor_id, m);
+}
+
+pub fn emit_token_revoked(
+    actor_id: &AccountId,
+    token_id: &str,
+    collection_id: &str,
+    owner_id: &AccountId,
+    mode: &str,
+    memo: Option<&str>,
+) {
+    let mut m = Map::new();
+    m.insert("token_id".into(), val(token_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("mode".into(), val(mode));
+    if let Some(memo) = memo {
+        m.insert("memo".into(), val(memo));
+    }
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "revoke", actor_id, m);
+}
+
+pub fn emit_token_redeemed(
+    actor_id: &AccountId,
+    token_id: &str,
+    collection_id: &str,
+    owner_id: &AccountId,
+    redeem_count: u32,
+    max_redeems: u32,
+) {
+    let mut m = Map::new();
+    m.insert("token_id".into(), val(token_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("redeem_count".into(), val_u32(redeem_count));
+    m.insert("max_redeems".into(), val_u32(max_redeems));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "redeem", actor_id, m);
+}
+
+// ── COLLECTION_UPDATE — lifecycle ──────────────────────────────────────────
+
+pub fn emit_collection_cancelled(
+    actor_id: &AccountId,
+    collection_id: &str,
+    refund_per_token: u128,
+    refund_pool: u128,
+    refundable_count: u32,
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("refund_per_token".into(), val_u128(refund_per_token));
+    m.insert("refund_pool".into(), val_u128(refund_pool));
+    m.insert("refundable_count".into(), val_u32(refundable_count));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "cancel", actor_id, m);
+}
+
+pub fn emit_refund_claimed(
+    holder_id: &AccountId,
+    token_id: &str,
+    collection_id: &str,
+    refund_amount: u128,
+) {
+    let mut m = Map::new();
+    m.insert("token_id".into(), val(token_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("refund_amount".into(), val_u128(refund_amount));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "refund_claimed", holder_id, m);
+}
+
+pub fn emit_refund_pool_withdrawn(
+    actor_id: &AccountId,
+    collection_id: &str,
+    amount: u128,
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
     m.insert("amount".into(), val_u128(amount));
-    m.insert("fund_balance".into(), val_u128(fund_balance));
-    emit_json_event(EVENT_TYPE_SPONSOR_UPDATE, "deposit", beneficiary, m);
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "refund_pool_withdrawn", actor_id, m);
+}
+
+pub fn emit_scarce_burned(
+    owner_id: &AccountId,
+    token_id: &str,
+    collection_id: &str,
+) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("collection_id".into(), val(collection_id));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "burn", owner_id, m);
+}
+
+pub fn emit_collection_deleted(
+    actor_id: &AccountId,
+    collection_id: &str,
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "delete", actor_id, m);
+}
+
+pub fn emit_collection_paused(
+    actor_id: &AccountId,
+    collection_id: &str,
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "pause", actor_id, m);
+}
+
+pub fn emit_collection_resumed(
+    actor_id: &AccountId,
+    collection_id: &str,
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "resume", actor_id, m);
+}
+
+pub fn emit_allowlist_updated(
+    actor_id: &AccountId,
+    collection_id: &str,
+    accounts: &[AccountId],
+    entries_count: u32,
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("accounts".into(), Value::Array(accounts.iter().map(val).collect()));
+    m.insert("entries_count".into(), val_u32(entries_count));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "allowlist_update", actor_id, m);
+}
+
+pub fn emit_collection_mint(
+    actor_id: &AccountId,
+    receiver_id: &AccountId,
+    collection_id: &str,
+    quantity: u32,
+    token_ids: &[String],
+) {
+    let mut m = Map::new();
+    m.insert("receiver_id".into(), val(receiver_id));
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("quantity".into(), val_u32(quantity));
+    m.insert("token_ids".into(), Value::Array(token_ids.iter().map(val).collect()));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "creator_mint", actor_id, m);
+}
+
+pub fn emit_collection_airdrop(
+    actor_id: &AccountId,
+    collection_id: &str,
+    quantity: u32,
+    token_ids: &[String],
+    receivers: &[AccountId],
+) {
+    let mut m = Map::new();
+    m.insert("collection_id".into(), val(collection_id));
+    m.insert("quantity".into(), val_u32(quantity));
+    m.insert("token_ids".into(), Value::Array(token_ids.iter().map(val).collect()));
+    m.insert("receivers".into(), Value::Array(receivers.iter().map(val).collect()));
+    emit_json_event(EVENT_TYPE_COLLECTION_UPDATE, "airdrop", actor_id, m);
+}
+
+pub fn emit_native_scarce_listed(
+    owner_id: &AccountId,
+    token_id: &str,
+    price: U128,
+) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("price".into(), val_u128(price.0));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "list_native", owner_id, m);
+}
+
+pub fn emit_native_scarce_delisted(
+    owner_id: &AccountId,
+    token_id: &str,
+) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("token_id".into(), val(token_id));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "delist_native", owner_id, m);
+}
+
+// ── Auction Events ───────────────────────────────────────────────────────────
+
+pub fn emit_auction_created(
+    owner_id: &AccountId,
+    token_id: &str,
+    reserve_price: u128,
+    buy_now_price: Option<u128>,
+) {
+    let mut m = Map::new();
+    m.insert("owner_id".into(), val(owner_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("reserve_price".into(), val_u128(reserve_price));
+    if let Some(bnp) = buy_now_price {
+        m.insert("buy_now_price".into(), val_u128(bnp));
+    }
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "auction_created", owner_id, m);
+}
+
+pub fn emit_auction_bid(
+    bidder: &AccountId,
+    token_id: &str,
+    bid_amount: u128,
+    bid_count: u32,
+) {
+    let mut m = Map::new();
+    m.insert("bidder".into(), val(bidder));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("bid_amount".into(), val_u128(bid_amount));
+    m.insert("bid_count".into(), val_u32(bid_count));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "auction_bid", bidder, m);
+}
+
+pub fn emit_auction_settled(
+    winner_id: &AccountId,
+    seller_id: &AccountId,
+    token_id: &str,
+    winning_bid: u128,
+    revenue: u128,
+    app_pool_amount: u128,
+) {
+    let mut m = Map::new();
+    m.insert("winner_id".into(), val(winner_id));
+    m.insert("seller_id".into(), val(seller_id));
+    m.insert("token_id".into(), val(token_id));
+    m.insert("winning_bid".into(), val_u128(winning_bid));
+    m.insert("revenue".into(), val_u128(revenue));
+    m.insert("app_pool_amount".into(), val_u128(app_pool_amount));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "auction_settled", winner_id, m);
+}
+
+pub fn emit_auction_cancelled(
+    actor_id: &AccountId,
+    token_id: &str,
+    reason: &str,
+) {
+    let mut m = Map::new();
+    m.insert("token_id".into(), val(token_id));
+    m.insert("reason".into(), val(reason));
+    emit_json_event(EVENT_TYPE_SCARCE_UPDATE, "auction_cancelled", actor_id, m);
+}
+
+// ── Contract lifecycle events ────────────────────────────────────────────────
+
+pub fn emit_contract_upgraded(
+    contract_id: &AccountId,
+    old_version: &str,
+    new_version: &str,
+) {
+    let mut m = Map::new();
+    m.insert("old_version".into(), val(old_version));
+    m.insert("new_version".into(), val(new_version));
+    emit_json_event(EVENT_TYPE_CONTRACT_UPDATE, "contract_upgrade", contract_id, m);
 }

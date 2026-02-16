@@ -2037,8 +2037,10 @@ name = "marketplace-onsocial"
 version = "0.1.0"
 dependencies = [
  "near-sdk",
+ "near-sdk-macros",
  "onsocial-auth",
  "onsocial-types",
+ "serde",
 ]
 
 [[package]]
