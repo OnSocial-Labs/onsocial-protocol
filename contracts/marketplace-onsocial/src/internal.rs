@@ -2,6 +2,212 @@
 
 use crate::*;
 
+// ── Token ownership set management ───────────────────────────────────────────
+
+impl Contract {
+    /// Add a token to an owner's per-account set, creating the set if needed.
+    pub(crate) fn add_token_to_owner(&mut self, owner_id: &AccountId, token_id: &str) {
+        if !self.scarces_per_owner.contains_key(owner_id) {
+            self.scarces_per_owner.insert(
+                owner_id.clone(),
+                IterableSet::new(StorageKey::ScarcesPerOwnerInner {
+                    account_id_hash: env::sha256(owner_id.as_bytes()),
+                }),
+            );
+        }
+        self.scarces_per_owner
+            .get_mut(owner_id)
+            .unwrap()
+            .insert(token_id.to_string());
+    }
+
+    /// Remove a token from its owner's set. Cleans up the set if empty.
+    pub(crate) fn remove_token_from_owner(&mut self, owner_id: &AccountId, token_id: &str) {
+        if let Some(owner_tokens) = self.scarces_per_owner.get_mut(owner_id) {
+            owner_tokens.remove(token_id);
+            if owner_tokens.is_empty() {
+                self.scarces_per_owner.remove(owner_id);
+            }
+        }
+    }
+}
+
+// ── Transferability guard ────────────────────────────────────────────────────
+
+impl Contract {
+    /// Check whether a token is transferable. Returns `Err` for soulbound tokens.
+    /// Token-level flag takes precedence; `None` falls through to collection.
+    pub(crate) fn check_transferable(&self, token: &Scarce, token_id: &str, action: &str) -> Result<(), MarketplaceError> {
+        match token.transferable {
+            Some(false) => Err(MarketplaceError::soulbound(action)),
+            Some(true) => Ok(()),
+            None => {
+                let cid = collection_id_from_token_id(token_id);
+                if !cid.is_empty() {
+                    if let Some(collection) = self.collections.get(cid) {
+                        if !collection.transferable {
+                            return Err(MarketplaceError::soulbound(action));
+                        }
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+// ── Resolve effective app_id for a token ─────────────────────────────────────
+
+impl Contract {
+    /// Get the effective `app_id` for a token: standalone tokens carry their own,
+    /// collection tokens inherit from the collection.
+    pub(crate) fn resolve_token_app_id(&self, token_id: &str, token_app_id: Option<&AccountId>) -> Option<AccountId> {
+        token_app_id.cloned().or_else(|| {
+            let cid = collection_id_from_token_id(token_id);
+            self.collections.get(cid).and_then(|c| c.app_id.clone())
+        })
+    }
+}
+
+// ── Royalty validation ───────────────────────────────────────────────────────
+
+impl Contract {
+    /// Validate a royalty map: max 10 recipients, each > 0 bps, total <= MAX_ROYALTY_BPS.
+    pub(crate) fn validate_royalty(royalty: &std::collections::HashMap<AccountId, u32>) -> Result<(), MarketplaceError> {
+        if royalty.is_empty() {
+            return Ok(());
+        }
+        if royalty.len() > 10 {
+            return Err(MarketplaceError::InvalidInput(
+                "Maximum 10 royalty recipients".into(),
+            ));
+        }
+        let total: u32 = royalty.values().sum();
+        if total > MAX_ROYALTY_BPS {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Total royalty {} bps exceeds max {} bps (50%)",
+                total, MAX_ROYALTY_BPS
+            )));
+        }
+        for bps in royalty.values() {
+            if *bps == 0 {
+                return Err(MarketplaceError::InvalidInput(
+                    "Each royalty share must be > 0 bps".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+// ── Authority guards ─────────────────────────────────────────────────────────
+
+impl Contract {
+    /// Check that `actor_id` is the contract owner.
+    pub(crate) fn check_contract_owner(&self, actor_id: &AccountId) -> Result<(), MarketplaceError> {
+        if actor_id != &self.owner_id {
+            return Err(MarketplaceError::only_owner("contract owner"));
+        }
+        Ok(())
+    }
+
+}
+
+// ── Refund excess deposit ────────────────────────────────────────────────────
+
+/// Refund excess deposit to the buyer. No-op when `deposit <= price`.
+pub(crate) fn refund_excess(buyer: &AccountId, deposit: u128, price: u128) {
+    let refund = deposit.saturating_sub(price);
+    if refund > 0 {
+        let _ = Promise::new(buyer.clone()).transfer(NearToken::from_yoctonear(refund));
+    }
+}
+
+// ── Primary sale payment routing ─────────────────────────────────────────────
+
+/// Result from `route_primary_sale`: amounts for event emission and analytics.
+pub(crate) struct PrimarySaleResult {
+    pub revenue: u128,
+    pub app_pool_amount: u128,
+}
+
+impl Contract {
+    /// Route payment for a primary sale (collection purchase, lazy listing purchase).
+    ///
+    /// If `price > 0` (paid mint):
+    ///   1. Storage cost deducted from price (Tier 1)
+    ///   2. Marketplace fee + app pool funding via `route_fee`
+    ///   3. App owner primary sale commission
+    ///   4. Remainder to creator
+    ///
+    /// If `price == 0` (free mint): storage via waterfall (Tier 2 → Tier 3).
+    ///
+    /// Returns `(revenue, app_pool_amount)` for event emission.
+    pub(crate) fn route_primary_sale(
+        &mut self,
+        price: u128,
+        bytes_used: u64,
+        creator_id: &AccountId,
+        payer_id: &AccountId,
+        app_id: Option<&AccountId>,
+    ) -> Result<PrimarySaleResult, MarketplaceError> {
+        if price > 0 {
+            let storage_cost = self.charge_storage_from_price(bytes_used);
+            let (rev, app_amt) = self.route_fee(price, app_id);
+
+            let app_commission = self.calculate_app_commission(price, app_id);
+            if app_commission > 0 {
+                if let Some(aid) = app_id {
+                    if let Some(pool) = self.app_pools.get(aid) {
+                        let _ = Promise::new(pool.owner_id.clone())
+                            .transfer(NearToken::from_yoctonear(app_commission));
+                    }
+                }
+            }
+
+            let total_deductions = rev + app_amt + storage_cost + app_commission;
+            let creator_payment = price.saturating_sub(total_deductions);
+            if creator_payment > 0 {
+                let _ = Promise::new(creator_id.clone())
+                    .transfer(NearToken::from_yoctonear(creator_payment));
+            }
+
+            Ok(PrimarySaleResult { revenue: rev, app_pool_amount: app_amt })
+        } else {
+            self.charge_storage_waterfall(payer_id, bytes_used, app_id)?;
+            Ok(PrimarySaleResult { revenue: 0, app_pool_amount: 0 })
+        }
+    }
+
+    /// Settle a secondary sale: resolve app_id → route_fee → compute_payout → distribute.
+    /// Returns `(revenue, app_pool_amount)` for event emission.
+    pub(crate) fn settle_secondary_sale(
+        &mut self,
+        token_id: &str,
+        sale_price: u128,
+        seller_id: &AccountId,
+    ) -> Result<PrimarySaleResult, MarketplaceError> {
+        let token = self.scarces_by_id.get(token_id);
+        let token_app_id = token.and_then(|t| t.app_id.as_ref());
+        let app_id = self.resolve_token_app_id(token_id, token_app_id);
+        let (revenue, app_pool_amount) = self.route_fee(sale_price, app_id.as_ref());
+        let total_fee = revenue + app_pool_amount;
+        let amount_after_fee = sale_price.saturating_sub(total_fee);
+
+        if let Some(token) = self.scarces_by_id.get(token_id) {
+            let payout = self.internal_compute_payout(token, sale_price, 10)?;
+            self.distribute_payout(&payout, amount_after_fee, seller_id);
+        } else if amount_after_fee > 0 {
+            let _ = Promise::new(seller_id.clone())
+                .transfer(NearToken::from_yoctonear(amount_after_fee));
+        }
+
+        Ok(PrimarySaleResult { revenue, app_pool_amount })
+    }
+}
+
+// ── Existing helpers ─────────────────────────────────────────────────────────
+
 impl Contract {
     /// Internal function to remove a sale
     /// Returns the Sale object that was removed
@@ -184,6 +390,11 @@ impl Contract {
             }
             self.fee_config.app_pool_fee_bps = bps;
         }
+        events::emit_fee_config_updated(
+            &self.owner_id,
+            self.fee_config.total_fee_bps,
+            self.fee_config.app_pool_fee_bps,
+        );
         Ok(())
     }
 

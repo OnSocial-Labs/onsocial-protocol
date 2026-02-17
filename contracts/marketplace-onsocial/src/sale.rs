@@ -442,27 +442,11 @@ impl Contract {
         // Transfer the native scarce to buyer
         self.internal_transfer(&seller_id, &buyer_id, &token_id, None, Some("Purchased on OnSocial Marketplace".to_string()))?;
 
-        // Compute royalty payout via NEP-199
-        let token = self.scarces_by_id.get(&token_id)
-            .ok_or_else(|| MarketplaceError::InternalError("Token not found after transfer".into()))?;
-        let payout = self.internal_compute_payout(token, price, 10)?;
-
-        // Route marketplace fee (use collection's app_id if available)
-        let cid = collection_id_from_token_id(&token_id);
-        let app_id = self.collections.get(cid).and_then(|c| c.app_id.clone());
-        let (revenue, app_pool_amount) = self.route_fee(price, app_id.as_ref());
-        let total_fee = revenue + app_pool_amount;
-        let amount_after_fee = price.saturating_sub(total_fee);
-
-        // Distribute according to royalty payout
-        self.distribute_payout(&payout, amount_after_fee, &seller_id);
+        // Settle secondary sale: fee routing + royalty distribution
+        let result = self.settle_secondary_sale(&token_id, price, &seller_id)?;
 
         // Refund excess
-        let refund = deposit - price;
-        if refund > 0 {
-            let _ = Promise::new(buyer_id.clone())
-                .transfer(NearToken::from_yoctonear(refund));
-        }
+        crate::internal::refund_excess(&buyer_id, deposit, price);
 
         events::emit_scarce_purchase(
             &buyer_id,
@@ -470,8 +454,8 @@ impl Contract {
             &env::current_account_id(),
             &token_id,
             U128(price),
-            revenue,
-            app_pool_amount,
+            result.revenue,
+            result.app_pool_amount,
         );
         Ok(())
     }
@@ -505,17 +489,11 @@ impl Contract {
             ));
         }
 
-        // Block listing of soulbound (non-transferable) tokens
-        let cid = collection_id_from_token_id(token_id);
-        if !cid.is_empty() {
-            if let Some(collection) = self.collections.get(cid) {
-                if !collection.transferable {
-                    return Err(MarketplaceError::InvalidState(
-                        "Cannot list a non-transferable (soulbound) token for sale".into(),
-                    ));
-                }
-            }
-        }
+        // Block listing of soulbound (non-transferable) tokens.
+        self.check_transferable(token, token_id, "list for sale")?;
+
+        // Grab app_id before dropping the immutable borrow.
+        let token_app_id = token.app_id.clone();
 
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
         if self.sales.contains_key(&sale_id) {
@@ -547,9 +525,9 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Charge storage via waterfall (use collection's app_id if available)
-        let cid = collection_id_from_token_id(token_id);
-        let app_id = self.collections.get(cid).and_then(|c| c.app_id.clone());
+        // Charge storage via waterfall.
+        // Standalone tokens carry their own app_id; collection tokens inherit.
+        let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
         self.charge_storage_waterfall(owner_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_native_scarce_listed(owner_id, token_id, price);

@@ -9,7 +9,7 @@ use crate::*;
 
 impl Contract {
     /// Renew a native scarce's expiry date.
-    /// Only the collection creator or the app owner can renew.
+    /// Only the collection creator can renew.
     pub(crate) fn internal_renew_token(
         &mut self,
         actor_id: &AccountId,
@@ -52,7 +52,7 @@ impl Contract {
     /// Revoke a native scarce using the collection's revocation mode.
     /// - `Invalidate`: marks token with `revoked_at` + memo, keeps on-chain.
     /// - `Burn`: hard-deletes token from storage.
-    ///   Only the collection creator or the app owner can revoke.
+    ///   Only the collection creator can revoke.
     pub(crate) fn internal_revoke_token(
         &mut self,
         actor_id: &AccountId,
@@ -94,7 +94,7 @@ impl Contract {
                 self.scarces_by_id.insert(token_id.to_string(), token);
 
                 // Remove from any active sale
-                self.internal_remove_sale_listing(token_id, &owner_id);
+                self.internal_remove_sale_listing(token_id, &owner_id, "revoked");
 
                 events::emit_token_revoked(
                     actor_id, token_id, collection_id, &owner_id,
@@ -109,15 +109,10 @@ impl Contract {
                 let owner_id = token.owner_id.clone();
 
                 // Remove from owner's set
-                if let Some(owner_tokens) = self.scarces_per_owner.get_mut(&owner_id) {
-                    owner_tokens.remove(token_id);
-                    if owner_tokens.is_empty() {
-                        self.scarces_per_owner.remove(&owner_id);
-                    }
-                }
+                self.remove_token_from_owner(&owner_id, token_id);
 
                 // Remove from any active sale
-                self.internal_remove_sale_listing(token_id, &owner_id);
+                self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
                 events::emit_token_revoked(
                     actor_id, token_id, collection_id, &owner_id,
@@ -131,7 +126,13 @@ impl Contract {
 
     /// Remove a native scarce's sale listing (if any).
     /// Cleans up empty sets to prevent storage leaks.
-    pub(crate) fn internal_remove_sale_listing(&mut self, token_id: &str, owner_id: &AccountId) {
+    /// Emits an auto-delist event when a sale was actually removed.
+    pub(crate) fn internal_remove_sale_listing(
+        &mut self,
+        token_id: &str,
+        owner_id: &AccountId,
+        reason: &str,
+    ) {
         let sale_id = Self::make_sale_id(&env::current_account_id(), token_id);
         if self.sales.contains_key(&sale_id) {
             self.sales.remove(&sale_id);
@@ -148,11 +149,12 @@ impl Contract {
                     self.by_scarce_contract_id.remove(&contract_id);
                 }
             }
+            events::emit_auto_delisted(token_id, owner_id, reason);
         }
     }
 
     /// Redeem (check-in / use) a token.
-    /// Only the collection creator or the app owner can redeem.
+    /// Only the collection creator can redeem.
     /// The token stays on-chain and remains transferable (collectible resale).
     /// Updates `redeemed_at` and increments `redeem_count`.
     /// Once `redeem_count >= max_redeems`, `is_token_valid()` returns false.
@@ -209,20 +211,16 @@ impl Contract {
         Ok(())
     }
 
-    /// Check that actor is the collection creator or the app owner.
+    /// Check that actor is the collection creator.
+    ///
+    /// App owners **cannot** manage individual collections — their only
+    /// collection-level power is ban / unban (see `internal_ban_collection`).
     pub(crate) fn check_collection_authority(&self, actor_id: &AccountId, collection: &LazyCollection) -> Result<(), MarketplaceError> {
         if actor_id == &collection.creator_id {
             return Ok(());
         }
-        if let Some(ref app_id) = collection.app_id {
-            if let Some(pool) = self.app_pools.get(app_id) {
-                if actor_id == &pool.owner_id {
-                    return Ok(());
-                }
-            }
-        }
         Err(MarketplaceError::Unauthorized(
-            "Only collection creator or app owner can perform this action".into(),
+            "Only the collection creator can perform this action".into(),
         ))
     }
 
@@ -259,17 +257,52 @@ impl Contract {
         let owner_id = token.owner_id.clone();
 
         // Remove from owner's set
-        if let Some(owner_tokens) = self.scarces_per_owner.get_mut(&owner_id) {
-            owner_tokens.remove(token_id);
-            if owner_tokens.is_empty() {
-                self.scarces_per_owner.remove(&owner_id);
-            }
-        }
+        self.remove_token_from_owner(&owner_id, token_id);
 
         // Remove from any active sale
-        self.internal_remove_sale_listing(token_id, &owner_id);
+        self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
         events::emit_scarce_burned(&owner_id, token_id, collection_id);
+        Ok(())
+    }
+
+    /// Owner burns a standalone (non-collection) token. Checks token.burnable flag.
+    pub(crate) fn internal_burn_standalone(
+        &mut self,
+        actor_id: &AccountId,
+        token_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        let token = self
+            .scarces_by_id
+            .remove(token_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
+
+        // Check burnable flag (None treated as burnable for backward compat)
+        if token.burnable == Some(false) {
+            // Put it back
+            self.scarces_by_id.insert(token_id.to_string(), token);
+            return Err(MarketplaceError::InvalidState(
+                "Token is not burnable".into(),
+            ));
+        }
+
+        if &token.owner_id != actor_id {
+            // Put it back
+            self.scarces_by_id.insert(token_id.to_string(), token);
+            return Err(MarketplaceError::Unauthorized(
+                "Only the token owner can burn their token".into(),
+            ));
+        }
+
+        let owner_id = token.owner_id.clone();
+
+        // Remove from owner's set
+        self.remove_token_from_owner(&owner_id, token_id);
+
+        // Remove from any active sale
+        self.internal_remove_sale_listing(token_id, &owner_id, "burned");
+
+        events::emit_scarce_burned(&owner_id, token_id, "standalone");
         Ok(())
     }
 }

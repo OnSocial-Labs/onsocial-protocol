@@ -24,6 +24,7 @@ impl Contract {
             scarces_per_owner: LookupMap::new(StorageKey::ScarcesPerOwner),
             scarces_by_id: IterableMap::new(StorageKey::ScarcesById),
             next_approval_id: 0,
+            next_token_id: 0,
             collections: IterableMap::new(StorageKey::Collections),
             collections_by_creator: LookupMap::new(StorageKey::CollectionsByCreator),
             fee_config: FeeConfig::default(),
@@ -32,6 +33,9 @@ impl Contract {
             user_storage: LookupMap::new(StorageKey::UserStorage),
             collection_mint_counts: LookupMap::new(StorageKey::CollectionMintCounts),
             collection_allowlist: LookupMap::new(StorageKey::CollectionAllowlist),
+            offers: IterableMap::new(StorageKey::Offers),
+            collection_offers: IterableMap::new(StorageKey::CollectionOffers),
+            lazy_listings: IterableMap::new(StorageKey::LazyListings),
             intents_executors: Vec::new(),
             contract_metadata: contract_metadata.unwrap_or_default(),
         }
@@ -39,18 +43,33 @@ impl Contract {
 
     // ── Admin ────────────────────────────────────────────────────────
 
+    /// Transfer contract ownership to a new account (single-step).
+    /// Requires 1 yoctoNEAR. Only the current owner.
+    #[payable]
+    #[handle_result]
+    pub fn transfer_ownership(&mut self, new_owner: AccountId) -> Result<(), MarketplaceError> {
+        crate::internal::check_one_yocto()?;
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        let old_owner = self.owner_id.clone();
+        self.owner_id = new_owner;
+        events::emit_owner_transferred(&old_owner, &self.owner_id);
+        Ok(())
+    }
+
+    /// View: get the current contract owner.
+    pub fn get_owner(&self) -> &AccountId {
+        &self.owner_id
+    }
+
     /// Set the fee recipient. Requires 1 yoctoNEAR to prevent
     /// function-call access keys from calling admin methods.
     #[payable]
     #[handle_result]
     pub fn set_fee_recipient(&mut self, fee_recipient: AccountId) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
-        if env::predecessor_account_id() != self.owner_id {
-            return Err(MarketplaceError::Unauthorized(
-                "Only contract owner can set fee recipient".into(),
-            ));
-        }
+        self.check_contract_owner(&env::predecessor_account_id())?;
         self.fee_recipient = fee_recipient;
+        events::emit_fee_recipient_changed(&self.owner_id, &self.fee_recipient);
         Ok(())
     }
 
@@ -60,12 +79,9 @@ impl Contract {
     #[handle_result]
     pub fn set_intents_executors(&mut self, executors: Vec<AccountId>) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
-        if env::predecessor_account_id() != self.owner_id {
-            return Err(MarketplaceError::Unauthorized(
-                "Only contract owner can set intents executors".into(),
-            ));
-        }
+        self.check_contract_owner(&env::predecessor_account_id())?;
         self.intents_executors = executors;
+        events::emit_intents_executors_updated(&self.owner_id, &self.intents_executors);
         Ok(())
     }
 
@@ -87,11 +103,7 @@ impl Contract {
         reference_hash: Option<String>,
     ) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
-        if env::predecessor_account_id() != self.owner_id {
-            return Err(MarketplaceError::Unauthorized(
-                "Only contract owner can update contract metadata".into(),
-            ));
-        }
+        self.check_contract_owner(&env::predecessor_account_id())?;
         if let Some(n) = name {
             self.contract_metadata.name = n;
         }
@@ -111,6 +123,7 @@ impl Contract {
         if reference_hash.is_some() {
             self.contract_metadata.reference_hash = reference_hash;
         }
+        events::emit_contract_metadata_updated(&self.owner_id);
         Ok(())
     }
 

@@ -49,9 +49,8 @@ impl Contract {
             MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
         })?;
         if caller != pool.owner_id {
-            return Err(MarketplaceError::Unauthorized(
-                "Only pool owner can withdraw".to_string(),
-            ));
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::only_owner("pool owner"));
         }
         if amount.0 > pool.balance {
             return Err(MarketplaceError::InsufficientDeposit(
@@ -141,10 +140,7 @@ impl Contract {
         &mut self,
         actor_id: &AccountId,
         app_id: &AccountId,
-        max_user_bytes: Option<u64>,
-        default_royalty: Option<std::collections::HashMap<AccountId, u32>>,
-        primary_sale_bps: Option<u16>,
-        metadata: Option<String>,
+        params: AppConfig,
     ) -> Result<(), MarketplaceError> {
         if self.app_pools.contains_key(app_id) {
             return Err(MarketplaceError::InvalidState(
@@ -152,9 +148,25 @@ impl Contract {
             ));
         }
 
+        // Anti-squatting: caller must own the app_id namespace.
+        // Allowed when:
+        //   - actor_id == app_id  (e.g. "photogram.near" registers itself)
+        //   - app_id is a sub-account of actor_id (e.g. "alice.near" registers "feed.alice.near")
+        //   - actor_id is the contract owner (platform can register any app)
+        if actor_id != app_id
+            && !app_id.as_str().ends_with(&format!(".{}", actor_id))
+            && actor_id != &self.owner_id
+        {
+            return Err(MarketplaceError::Unauthorized(
+                "Can only register an app_id you own (exact match or sub-account)".to_string(),
+            ));
+        }
+
+        let AppConfig { max_user_bytes, default_royalty, primary_sale_bps, curated, metadata } = params;
+
         // Validate royalty if provided
         if let Some(ref r) = default_royalty {
-            Self::validate_royalty_map(r)?;
+            Self::validate_royalty(r)?;
         }
 
         let bps = primary_sale_bps.unwrap_or(0);
@@ -176,6 +188,8 @@ impl Contract {
             max_user_bytes: max_user_bytes.unwrap_or(DEFAULT_APP_MAX_USER_BYTES),
             default_royalty,
             primary_sale_bps: bps,
+            moderators: Vec::new(),
+            curated: curated.unwrap_or(false),
             metadata,
         };
 
@@ -190,26 +204,24 @@ impl Contract {
         &mut self,
         actor_id: &AccountId,
         app_id: &AccountId,
-        max_user_bytes: Option<u64>,
-        default_royalty: Option<std::collections::HashMap<AccountId, u32>>,
-        primary_sale_bps: Option<u16>,
-        metadata: Option<String>,
+        params: AppConfig,
     ) -> Result<(), MarketplaceError> {
         let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
             MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
         })?;
         if actor_id != &pool.owner_id {
-            return Err(MarketplaceError::Unauthorized(
-                "Only pool owner can configure".to_string(),
-            ));
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::only_owner("pool owner"));
         }
+
+        let AppConfig { max_user_bytes, default_royalty, primary_sale_bps, curated, metadata } = params;
 
         if let Some(max) = max_user_bytes {
             pool.max_user_bytes = max;
         }
 
         if let Some(ref r) = default_royalty {
-            Self::validate_royalty_map(r)?;
+            Self::validate_royalty(r)?;
         }
         if let Some(r) = default_royalty {
             if r.is_empty() {
@@ -228,6 +240,10 @@ impl Contract {
             pool.primary_sale_bps = bps;
         }
 
+        if let Some(c) = curated {
+            pool.curated = c;
+        }
+
         // Replace metadata entirely (None = no change, Some("") = clear)
         if let Some(m) = metadata {
             if m.is_empty() {
@@ -244,30 +260,179 @@ impl Contract {
         Ok(())
     }
 
-    /// Validate a royalty map: max 10 recipients, each > 0 bps, total <= MAX_ROYALTY_BPS.
-    fn validate_royalty_map(royalty: &std::collections::HashMap<AccountId, u32>) -> Result<(), MarketplaceError> {
-        if royalty.is_empty() {
-            return Ok(()); // Empty map is valid (used to clear)
+    /// Check whether `actor_id` is the app owner or a moderator.
+    pub(crate) fn is_app_authority(pool: &AppPool, actor_id: &AccountId) -> bool {
+        actor_id == &pool.owner_id || pool.moderators.contains(actor_id)
+    }
+
+    /// Add a moderator to an app pool (owner only, max 20).
+    pub(crate) fn internal_add_moderator(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &AccountId,
+        account_id: AccountId,
+    ) -> Result<(), MarketplaceError> {
+        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
+        })?;
+        if actor_id != &pool.owner_id {
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::only_owner("pool owner"));
         }
-        if royalty.len() > 10 {
-            return Err(MarketplaceError::InvalidInput(
-                "Maximum 10 royalty recipients".to_string(),
+        if pool.moderators.contains(&account_id) {
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::InvalidState(
+                "Account is already a moderator".to_string(),
             ));
         }
-        let total: u32 = royalty.values().sum();
-        if total > MAX_ROYALTY_BPS {
-            return Err(MarketplaceError::InvalidInput(format!(
-                "Total royalty {} bps exceeds max {} bps (50%)",
-                total, MAX_ROYALTY_BPS
-            )));
+        if pool.moderators.len() >= 20 {
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::InvalidInput(
+                "Maximum 20 moderators per app".to_string(),
+            ));
         }
-        for (_, bps) in royalty.iter() {
-            if *bps == 0 {
-                return Err(MarketplaceError::InvalidInput(
-                    "Each royalty share must be > 0 bps".to_string(),
+        pool.moderators.push(account_id.clone());
+        self.app_pools.insert(app_id.clone(), pool);
+        events::emit_moderator_added(actor_id, app_id, &account_id);
+        Ok(())
+    }
+
+    /// Remove a moderator from an app pool (owner only).
+    pub(crate) fn internal_remove_moderator(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &AccountId,
+        account_id: &AccountId,
+    ) -> Result<(), MarketplaceError> {
+        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
+        })?;
+        if actor_id != &pool.owner_id {
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::only_owner("pool owner"));
+        }
+        let before = pool.moderators.len();
+        pool.moderators.retain(|m| m != account_id);
+        if pool.moderators.len() == before {
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::NotFound(
+                "Account is not a moderator".to_string(),
+            ));
+        }
+        self.app_pools.insert(app_id.clone(), pool);
+        events::emit_moderator_removed(actor_id, app_id, account_id);
+        Ok(())
+    }
+
+    /// Ban a collection from purchases/mints. App owner or moderator.
+    /// The collection must belong to the given app.
+    pub(crate) fn internal_ban_collection(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &AccountId,
+        collection_id: &str,
+        reason: Option<&str>,
+    ) -> Result<(), MarketplaceError> {
+        let pool = self.app_pools.get(app_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
+        })?;
+        if !Self::is_app_authority(pool, actor_id) {
+            return Err(MarketplaceError::Unauthorized(
+                "Only app owner or moderator can ban collections".to_string(),
+            ));
+        }
+
+        let mut collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        match collection.app_id {
+            Some(ref coll_app) if coll_app == app_id => {}
+            _ => {
+                return Err(MarketplaceError::Unauthorized(
+                    "Collection does not belong to this app".into(),
                 ));
             }
         }
+
+        if collection.banned {
+            return Err(MarketplaceError::InvalidState(
+                "Collection is already banned".into(),
+            ));
+        }
+
+        collection.banned = true;
+        self.collections.insert(collection_id.to_string(), collection);
+
+        events::emit_collection_banned(actor_id, collection_id, reason);
+        Ok(())
+    }
+
+    /// Unban a previously banned collection. App owner or moderator.
+    pub(crate) fn internal_unban_collection(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &AccountId,
+        collection_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        let pool = self.app_pools.get(app_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
+        })?;
+        if !Self::is_app_authority(pool, actor_id) {
+            return Err(MarketplaceError::Unauthorized(
+                "Only app owner or moderator can unban collections".to_string(),
+            ));
+        }
+
+        let mut collection = self
+            .collections
+            .get(collection_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
+
+        match collection.app_id {
+            Some(ref coll_app) if coll_app == app_id => {}
+            _ => {
+                return Err(MarketplaceError::Unauthorized(
+                    "Collection does not belong to this app".into(),
+                ));
+            }
+        }
+
+        if !collection.banned {
+            return Err(MarketplaceError::InvalidState(
+                "Collection is not banned".into(),
+            ));
+        }
+
+        collection.banned = false;
+        self.collections.insert(collection_id.to_string(), collection);
+
+        events::emit_collection_unbanned(actor_id, collection_id);
+        Ok(())
+    }
+
+    /// Transfer app pool ownership to a new account (single-step).
+    /// Only the current pool owner may call this.
+    pub(crate) fn internal_transfer_app_ownership(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &AccountId,
+        new_owner: AccountId,
+    ) -> Result<(), MarketplaceError> {
+        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
+        })?;
+        if actor_id != &pool.owner_id {
+            self.app_pools.insert(app_id.clone(), pool);
+            return Err(MarketplaceError::only_owner("pool owner"));
+        }
+        let old_owner = pool.owner_id.clone();
+        pool.owner_id = new_owner.clone();
+        self.app_pools.insert(app_id.clone(), pool);
+        events::emit_app_owner_transferred(&old_owner, &new_owner, app_id);
         Ok(())
     }
 

@@ -92,6 +92,8 @@ impl Contract {
         Some(TokenStatus {
             token_id: token_id.clone(),
             owner_id: token.owner_id.clone(),
+            creator_id: token.creator_id.clone(),
+            minter_id: token.minter_id.clone(),
             collection_id: collection.map(|_| cid.to_string()),
             metadata: token.metadata.clone(),
             royalty: token.royalty.clone(),

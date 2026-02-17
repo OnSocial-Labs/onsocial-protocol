@@ -41,3 +41,29 @@ impl std::fmt::Display for MarketplaceError {
         }
     }
 }
+
+// ── Factory helpers for common errors ────────────────────────────────────────
+
+impl MarketplaceError {
+    pub fn token_not_found() -> Self {
+        Self::NotFound("Token not found".into())
+    }
+    pub fn collection_not_found() -> Self {
+        Self::NotFound("Collection not found".into())
+    }
+    pub fn sale_not_found() -> Self {
+        Self::NotFound("No sale found".into())
+    }
+    pub fn app_pool_not_found(id: &near_sdk::AccountId) -> Self {
+        Self::NotFound(format!("App pool not found: {}", id))
+    }
+    pub fn listing_not_found() -> Self {
+        Self::NotFound("Lazy listing not found".into())
+    }
+    pub fn soulbound(context: &str) -> Self {
+        Self::InvalidState(format!("Cannot {} a non-transferable (soulbound) token", context))
+    }
+    pub fn only_owner(what: &str) -> Self {
+        Self::Unauthorized(format!("Only {} can perform this action", what))
+    }
+}

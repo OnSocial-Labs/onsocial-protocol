@@ -69,4 +69,40 @@ impl Contract {
             })
             .collect()
     }
+
+    /// Get total supply of tokens in a specific collection.
+    pub fn nft_supply_for_collection(&self, collection_id: String) -> U128 {
+        let prefix = format!("{}:", collection_id);
+        let count = self
+            .scarces_by_id
+            .iter()
+            .filter(|(tid, _)| tid.starts_with(&prefix))
+            .count();
+        U128(count as u128)
+    }
+
+    /// Get paginated list of tokens in a specific collection.
+    pub fn nft_tokens_for_collection(
+        &self,
+        collection_id: String,
+        from_index: Option<U128>,
+        limit: Option<u64>,
+    ) -> Vec<external::Token> {
+        let prefix = format!("{}:", collection_id);
+        let start = from_index.map(|i| i.0 as usize).unwrap_or(0);
+        let limit = limit.unwrap_or(50).min(100) as usize;
+
+        self.scarces_by_id
+            .iter()
+            .filter(|(tid, _)| tid.starts_with(&prefix))
+            .skip(start)
+            .take(limit)
+            .map(|(token_id, token)| external::Token {
+                token_id: token_id.clone(),
+                owner_id: token.owner_id.clone(),
+                metadata: Some(token.metadata.clone()),
+                approved_account_ids: Some(token.approved_account_ids.clone()),
+            })
+            .collect()
+    }
 }

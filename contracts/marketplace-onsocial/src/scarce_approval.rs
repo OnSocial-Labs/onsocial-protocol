@@ -51,10 +51,7 @@ impl Contract {
             self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
         }
 
-        env::log_str(&format!(
-            "Approved: {} approved {} for token {} (approval_id: {})",
-            owner_id, account_id, token_id, approval_id
-        ));
+        events::emit_approval_granted(&owner_id, &token_id, &account_id, approval_id);
 
         // If msg provided, call nft_on_approve on approved account (NEP-178)
         if let Some(msg_str) = msg {
@@ -92,10 +89,7 @@ impl Contract {
         token.approved_account_ids.remove(&account_id);
         self.scarces_by_id.insert(token_id.clone(), token);
 
-        env::log_str(&format!(
-            "Revoked: {} revoked approval for {} on token {}",
-            owner_id, account_id, token_id
-        ));
+        events::emit_approval_revoked(&owner_id, &token_id, &account_id);
         Ok(())
     }
 
@@ -117,12 +111,9 @@ impl Contract {
 
         let mut token = token.clone();
         token.approved_account_ids.clear();
-        self.scarces_by_id.insert(token_id, token);
+        self.scarces_by_id.insert(token_id.clone(), token);
 
-        env::log_str(&format!(
-            "Revoked all: {} revoked all approvals on token",
-            owner_id
-        ));
+        events::emit_all_approvals_revoked(&owner_id, &token_id);
         Ok(())
     }
 
@@ -182,6 +173,7 @@ impl Contract {
         if bytes_used > 0 {
             self.charge_storage_waterfall(actor_id, bytes_used as u64, None)?;
         }
+        events::emit_approval_granted(actor_id, token_id, account_id, approval_id);
         Ok(())
     }
 
@@ -202,6 +194,7 @@ impl Contract {
         }
         token.approved_account_ids.remove(account_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
+        events::emit_approval_revoked(actor_id, token_id, account_id);
         Ok(())
     }
 
@@ -221,6 +214,7 @@ impl Contract {
         }
         token.approved_account_ids.clear();
         self.scarces_by_id.insert(token_id.to_string(), token);
+        events::emit_all_approvals_revoked(actor_id, token_id);
         Ok(())
     }
 }

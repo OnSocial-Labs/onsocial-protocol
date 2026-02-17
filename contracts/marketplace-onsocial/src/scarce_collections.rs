@@ -44,7 +44,7 @@ impl Contract {
         self.internal_update_collection_timing(&caller, collection_id, start_time, end_time)
     }
 
-    /// Delete an empty collection (minted_count == 0). Creator/app owner only.
+    /// Delete an empty collection (minted_count == 0). Creator only.
     #[payable]
     #[handle_result]
     pub fn delete_collection(&mut self, collection_id: String) -> Result<(), MarketplaceError> {
@@ -64,9 +64,13 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         let CollectionConfig {
             collection_id, total_supply, metadata_template, price_near,
-            start_time, end_time, app_id, royalty, renewable, revocation_mode,
-            max_redeems, burnable, mint_mode, metadata, max_per_wallet,
-            transferable, start_price, allowlist_price,
+            start_time, end_time,
+            options: crate::ScarceOptions {
+                royalty, app_id, transferable, burnable,
+            },
+            renewable, revocation_mode, max_redeems,
+            mint_mode, metadata, max_per_wallet,
+            start_price, allowlist_price,
         } = params;
 
         if collection_id.is_empty() || collection_id.len() > 64 {
@@ -98,20 +102,7 @@ impl Contract {
             if r.is_empty() {
                 return Err(MarketplaceError::InvalidInput("Royalty map cannot be empty if provided".into()));
             }
-            if r.len() > 10 {
-                return Err(MarketplaceError::InvalidInput("Maximum 10 royalty recipients after merge".into()));
-            }
-            let total: u32 = r.values().sum();
-            if total > MAX_ROYALTY_BPS {
-                return Err(MarketplaceError::InvalidInput(format!(
-                    "Total royalty {} bps exceeds max {} bps (50%)", total, MAX_ROYALTY_BPS
-                )));
-            }
-            for (_, bps) in r.iter() {
-                if *bps == 0 {
-                    return Err(MarketplaceError::InvalidInput("Each royalty share must be > 0 bps".into()));
-                }
-            }
+            Self::validate_royalty(r)?;
         }
 
         // Validate collection metadata JSON if provided
@@ -154,6 +145,20 @@ impl Contract {
             }
         }
 
+        // Curated-app gate: if the app is curated, only owner/moderator can create.
+        if let Some(ref app) = app_id {
+            if let Some(pool) = self.app_pools.get(app) {
+                if pool.curated
+                    && creator_id != &pool.owner_id
+                    && !pool.moderators.contains(creator_id)
+                {
+                    return Err(MarketplaceError::Unauthorized(
+                        "This app is curated — only the app owner or a moderator can create collections".into(),
+                    ));
+                }
+            }
+        }
+
         if self.collections.contains_key(&collection_id) {
             return Err(MarketplaceError::InvalidState("Collection ID already exists".into()));
         }
@@ -187,7 +192,9 @@ impl Contract {
             refunded_count: 0,
             refund_deadline: None,
             allowlist_price,
+            banned: false,
             metadata,
+            app_metadata: None,
         };
 
         let before = env::storage_usage();
@@ -234,7 +241,8 @@ impl Contract {
         }
 
         collection.price_near = new_price_near;
-        self.collections.insert(collection_id, collection);
+        self.collections.insert(collection_id.clone(), collection);
+        events::emit_collection_price_updated(caller, &collection_id, new_price_near);
         Ok(())
     }
 
@@ -263,11 +271,15 @@ impl Contract {
 
         collection.start_time = start_time;
         collection.end_time = end_time;
-        self.collections.insert(collection_id, collection);
+        self.collections.insert(collection_id.clone(), collection);
+        events::emit_collection_timing_updated(caller, &collection_id, start_time, end_time);
         Ok(())
     }
 
     pub(crate) fn is_collection_active(&self, collection: &LazyCollection) -> bool {
+        if collection.banned {
+            return false;
+        }
         if collection.cancelled {
             return false;
         }
@@ -291,7 +303,7 @@ impl Contract {
         true
     }
 
-    /// Pause minting from a collection. Creator or app owner only.
+    /// Pause minting from a collection. Creator only.
     /// Unlike cancel, paused collections can be resumed.
     pub(crate) fn internal_pause_collection(
         &mut self,
@@ -319,7 +331,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Resume minting from a paused collection. Creator or app owner only.
+    /// Resume minting from a paused collection. Creator only.
     pub(crate) fn internal_resume_collection(
         &mut self,
         actor_id: &AccountId,
@@ -347,7 +359,7 @@ impl Contract {
 
     /// Add or update allowlist entries for a collection.
     /// Each entry specifies a wallet and its max early-access mint allocation.
-    /// Creator or app owner only. Max 100 entries per call.
+    /// Creator only. Max 100 entries per call.
     pub(crate) fn internal_set_allowlist(
         &mut self,
         actor_id: &AccountId,
@@ -389,7 +401,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Remove wallets from the allowlist. Creator or app owner only.
+    /// Remove wallets from the allowlist. Creator only.
     pub(crate) fn internal_remove_from_allowlist(
         &mut self,
         actor_id: &AccountId,
@@ -418,7 +430,7 @@ impl Contract {
     }
 
     /// Delete an empty collection (minted_count == 0).
-    /// Only the collection creator or the app owner can delete.
+    /// Only the collection creator can delete.
     /// Frees up the collection storage.
     pub(crate) fn internal_delete_collection(
         &mut self,
@@ -454,7 +466,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Set collection-level metadata (only creator or app owner).
+    /// Set collection-level metadata (only creator).
     pub(crate) fn internal_set_collection_metadata(
         &mut self,
         actor_id: &AccountId,
@@ -467,18 +479,8 @@ impl Contract {
             .cloned()
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
-        // Allow creator or app owner
-        let is_creator = actor_id == &collection.creator_id;
-        let is_app_owner = collection
-            .app_id
-            .as_ref()
-            .and_then(|app_id| self.app_pools.get(app_id))
-            .is_some_and(|pool| actor_id == &pool.owner_id);
-        if !is_creator && !is_app_owner {
-            return Err(MarketplaceError::Unauthorized(
-                "Only collection creator or app owner can set metadata".into(),
-            ));
-        }
+        // Only creator — app owner uses ban/unban, not metadata edits
+        self.check_collection_authority(actor_id, &collection)?;
 
         // None = no change, Some("") = clear, Some(json) = replace
         if let Some(m) = metadata {
@@ -504,6 +506,65 @@ impl Contract {
         }
 
         events::emit_collection_metadata_update(actor_id, collection_id);
+        Ok(())
+    }
+
+    /// Set app-level metadata on a collection. App owner or moderator only.
+    /// The collection must belong to the given app.
+    pub(crate) fn internal_set_collection_app_metadata(
+        &mut self,
+        actor_id: &AccountId,
+        app_id: &AccountId,
+        collection_id: &str,
+        metadata: Option<String>,
+    ) -> Result<(), MarketplaceError> {
+        let pool = self.app_pools.get(app_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
+        })?;
+        if !Self::is_app_authority(pool, actor_id) {
+            return Err(MarketplaceError::Unauthorized(
+                "Only app owner or moderator can set app metadata on collections".into(),
+            ));
+        }
+
+        let mut collection = self
+            .collections
+            .get(collection_id)
+            .cloned()
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
+
+        match collection.app_id {
+            Some(ref coll_app) if coll_app == app_id => {}
+            _ => {
+                return Err(MarketplaceError::Unauthorized(
+                    "Collection does not belong to this app".into(),
+                ));
+            }
+        }
+
+        // None = no change, Some("") = clear, Some(json) = replace
+        if let Some(m) = metadata {
+            if m.is_empty() {
+                collection.app_metadata = None;
+            } else {
+                Self::validate_metadata_json(&m)?;
+                collection.app_metadata = Some(m);
+            }
+        } else {
+            return Ok(()); // None = no change, skip storage + event
+        }
+
+        let before = env::storage_usage();
+        self.collections
+            .insert(collection_id.to_string(), collection.clone());
+        let after = env::storage_usage();
+
+        if after > before {
+            let bytes_added = (after - before) as u64;
+            self.charge_storage_waterfall(actor_id, bytes_added, collection.app_id.as_ref())?;
+        }
+
+        events::emit_collection_app_metadata_update(actor_id, app_id, collection_id);
         Ok(())
     }
 }

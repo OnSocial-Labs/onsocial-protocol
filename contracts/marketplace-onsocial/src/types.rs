@@ -39,7 +39,7 @@ pub enum MintMode {
     /// Only public purchase allowed — creator cannot pre-mint or airdrop.
     /// Guarantees a fair launch.
     PurchaseOnly,
-    /// Only creator/app-owner can mint/airdrop — no public purchase.
+    /// Only creator can mint/airdrop — no public purchase.
     /// Ideal for loyalty tokens, credentials, airdrops.
     CreatorOnly,
 }
@@ -104,11 +104,72 @@ pub struct Sale {
     pub auction: Option<AuctionState>,
 }
 
+// ── Token-behaviour options (shared by all minting paths) ────────────────────
+
+/// Unified token-behaviour options shared by all minting paths:
+/// `QuickMint`, `LazyListing`, and `CollectionConfig`.
+///
+/// `#[serde(flatten)]` embeds these fields directly in the parent struct,
+/// so the JSON shape is flat (no nested `options: {…}` wrapper).
+///
+/// Lifecycle fields (`renewable`, `revocation_mode`, `max_redeems`) live
+/// only on `CollectionConfig` / `LazyCollection` — standalone tokens (QuickMint,
+/// LazyListing) are intentionally kept simple.
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct ScarceOptions {
+    /// Creator royalty in basis points (NEP-199). Key = payee, value = bps.
+    #[serde(default)]
+    pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
+    /// App pool to sponsor storage (and receive fee split).
+    #[serde(default)]
+    pub app_id: Option<AccountId>,
+    /// Whether the minted token can be transferred. false = soulbound. Default true.
+    #[serde(default = "crate::default_true")]
+    pub transferable: bool,
+    /// Whether the minted token can be burned by the holder. Default true.
+    #[serde(default = "crate::default_true")]
+    pub burnable: bool,
+}
+
+/// Identifies the three parties involved at mint time.
+///
+/// Keeps `internal_mint` / `internal_batch_mint` signatures compact
+/// and makes call-sites self-documenting.
+#[derive(Clone)]
+pub struct MintContext {
+    /// Who will own the token after mint.
+    pub owner_id: AccountId,
+    /// Original creator — immutable after mint.
+    pub creator_id: AccountId,
+    /// Account that triggered the mint transaction — immutable after mint.
+    /// For purchases this is the buyer; for airdrops/pre-mints the creator.
+    pub minter_id: AccountId,
+}
+
+/// Optional per-token overrides applied inside `internal_mint`.
+/// Eliminates scattered post-mint field patching.
+#[derive(Clone, Default)]
+pub struct ScarceOverrides {
+    pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
+    pub app_id: Option<AccountId>,
+    pub transferable: Option<bool>,
+    pub burnable: Option<bool>,
+    pub paid_price: u128,
+}
+
 /// Native Scarce token (Scarce)
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct Scarce {
+    /// Current owner (changes on transfer).
     pub owner_id: AccountId,
+    /// Original creator — immutable after mint. Always queryable
+    /// regardless of subsequent transfers.
+    pub creator_id: AccountId,
+    /// Account that triggered the mint transaction — immutable after mint.
+    /// For purchases this is the buyer; for airdrops/pre-mints the creator.
+    pub minter_id: AccountId,
     pub metadata: TokenMetadata,
     pub approved_account_ids: std::collections::HashMap<AccountId, u64>,
     /// Creator royalty in basis points (NEP-199). Key = payee, value = bps.
@@ -133,6 +194,18 @@ pub struct Scarce {
     /// Whether this token's refund has been claimed.
     #[serde(default)]
     pub refunded: bool,
+    /// Token-level transferable flag. `None` = inherit from collection (default).
+    /// Set to `Some(false)` for standalone soulbound tokens.
+    #[serde(default)]
+    pub transferable: Option<bool>,
+    /// Token-level burnable flag. `None` = inherit from collection (default).
+    /// Set to `Some(false)` for standalone non-burnable tokens.
+    #[serde(default)]
+    pub burnable: Option<bool>,
+    /// App pool that sponsored this standalone token's storage. `None` for
+    /// collection tokens (those inherit `app_id` from the collection).
+    #[serde(default)]
+    pub app_id: Option<AccountId>,
 }
 
 /// Token metadata (NEP-177)
@@ -236,12 +309,23 @@ pub struct LazyCollection {
     #[serde(default)]
     pub allowlist_price: Option<U128>,
 
+    /// Whether the app owner has banned this collection.
+    /// Banned collections cannot be purchased or minted from.
+    #[serde(default)]
+    pub banned: bool,
+
     /// Free-form JSON metadata for collection branding & discovery.
     /// Lets individual creators define their collection identity
     /// independent of app-level and profile-level metadata.
     /// Recommended keys: `name`, `icon`, `description`, `base_uri`, `website`.
     #[serde(default)]
     pub metadata: Option<String>,
+
+    /// App-level metadata attached by the app owner or moderator.
+    /// Independent of the creator's `metadata` — used for app-specific
+    /// branding, category tags, featured status, etc.
+    #[serde(default)]
+    pub app_metadata: Option<String>,
 }
 
 /// Payout structure from Scarce contract
@@ -257,6 +341,10 @@ pub struct Payout {
 pub struct TokenStatus {
     pub token_id: String,
     pub owner_id: AccountId,
+    /// Original creator — never changes after mint.
+    pub creator_id: AccountId,
+    /// Account that triggered the mint transaction.
+    pub minter_id: AccountId,
     pub collection_id: Option<String>,
     pub metadata: TokenMetadata,
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
@@ -283,6 +371,7 @@ pub struct TokenStatus {
 /// Parameters for creating a new lazy-minted scarce collection.
 /// Used by both the public `create_collection` method and the gasless
 /// `Action::CreateCollection` dispatch path.
+/// Token-behaviour options come from `ScarceOptions` via `#[serde(flatten)]`.
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct CollectionConfig {
@@ -294,10 +383,9 @@ pub struct CollectionConfig {
     pub start_time: Option<u64>,
     #[serde(default)]
     pub end_time: Option<u64>,
-    #[serde(default)]
-    pub app_id: Option<AccountId>,
-    #[serde(default)]
-    pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
+    /// Unified token-behaviour options (royalty, app_id, transferable, burnable).
+    #[serde(flatten)]
+    pub options: ScarceOptions,
     /// Allow tokens to be renewed (extend expiry). Default false.
     #[serde(default)]
     pub renewable: bool,
@@ -307,9 +395,6 @@ pub struct CollectionConfig {
     /// Max redemptions per token. None = not redeemable.
     #[serde(default)]
     pub max_redeems: Option<u32>,
-    /// Allow voluntary burns. Default true.
-    #[serde(default = "crate::default_true")]
-    pub burnable: bool,
     /// Controls who can mint. Default "open".
     #[serde(default)]
     pub mint_mode: MintMode,
@@ -319,9 +404,6 @@ pub struct CollectionConfig {
     /// Max tokens any single wallet can mint. None = unlimited.
     #[serde(default)]
     pub max_per_wallet: Option<u32>,
-    /// Whether tokens are transferable. false = soulbound. Default true.
-    #[serde(default = "crate::default_true")]
-    pub transferable: bool,
     /// Dutch auction start price (decreases linearly to price_near).
     #[serde(default)]
     pub start_price: Option<U128>,
@@ -361,6 +443,36 @@ pub struct GasOverrides {
     /// Gas (TGas) for the `nft_resolve_transfer` resolution.
     #[serde(default)]
     pub resolve_tgas: Option<u64>,
+}
+
+// ── Fee / pool types ─────────────────────────────────────────────────────────
+
+/// An offer to buy a specific token that is not currently listed for sale.
+/// NEAR is held in escrow until the offer is accepted, cancelled, or expires.
+/// Key: `"{token_id}\0{buyer_id}"`.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct Offer {
+    pub buyer_id: AccountId,
+    /// NEAR deposited (yoctoNEAR).
+    pub amount: u128,
+    /// Optional expiry (nanoseconds). None = no expiry.
+    pub expires_at: Option<u64>,
+    pub created_at: u64,
+}
+
+/// A floor offer to buy any token from a specific collection.
+/// NEAR is held in escrow per offer.
+/// Key: `"{collection_id}\0{buyer_id}"`.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct CollectionOffer {
+    pub buyer_id: AccountId,
+    /// NEAR offered per token (yoctoNEAR).
+    pub amount: u128,
+    /// Optional expiry (nanoseconds). None = no expiry.
+    pub expires_at: Option<u64>,
+    pub created_at: u64,
 }
 
 // ── Fee / pool types ─────────────────────────────────────────────────────────
@@ -406,12 +518,85 @@ pub struct AppPool {
     /// Max 5000 bps (50%). Default 0.
     pub primary_sale_bps: u16,
 
+    /// Accounts authorised to ban/unban collections and (in curated mode)
+    /// create collections on behalf of the app. Max 20.
+    /// Only the app owner can add/remove moderators.
+    #[serde(default)]
+    pub moderators: Vec<AccountId>,
+
+    /// Whether this app uses a curated (whitelist) model.
+    /// `false` (default) = open — anyone can create collections; app owner can ban.
+    /// `true` = curated — only the app owner or a moderator can create collections.
+    #[serde(default)]
+    pub curated: bool,
+
     /// Free-form JSON metadata for app branding & discovery.
     /// Devs define their own schema — recommended keys:
     /// `name`, `icon`, `description`, `base_uri`, `website`, `category`.
     /// Consistent with core-onsocial's schemaless KV approach.
     #[serde(default)]
     pub metadata: Option<String>,
+}
+
+/// Parameters for registering or updating an app pool.
+/// Used by `RegisterApp` and `SetAppConfig` to stay under the 7-arg clippy limit.
+#[near(serializers = [json])]
+#[derive(Clone, Default)]
+pub struct AppConfig {
+    pub max_user_bytes: Option<u64>,
+    pub default_royalty: Option<std::collections::HashMap<AccountId, u32>>,
+    pub primary_sale_bps: Option<u16>,
+    /// Whether this app uses a curated (whitelist) model.
+    pub curated: Option<bool>,
+    /// Free-form JSON metadata for app branding.
+    pub metadata: Option<String>,
+}
+
+/// A lazy listing: metadata + price stored on-chain, but the token is only
+/// minted when a buyer purchases.  Creator pays near-zero upfront (just the
+/// listing record ~0.5 KB).  On purchase the token is minted directly to the
+/// buyer, and the creator receives payment minus fees + storage.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct LazyListingRecord {
+    /// Creator / seller — receives payment on purchase.
+    pub creator_id: AccountId,
+    /// NEP-177 metadata that will be stamped onto the token at mint time.
+    pub metadata: TokenMetadata,
+    /// Fixed asking price in yoctoNEAR.  0 = free (storage-only).
+    pub price: u128,
+    /// Optional royalty (NEP-199) baked into the minted token.
+    #[serde(default)]
+    pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
+    /// App pool to sponsor storage (and receive fee split).
+    #[serde(default)]
+    pub app_id: Option<AccountId>,
+    /// Whether the minted token can be transferred. Default true.
+    #[serde(default = "crate::default_true")]
+    pub transferable: bool,
+    /// Whether the minted token can be burned by the holder. Default true.
+    #[serde(default = "crate::default_true")]
+    pub burnable: bool,
+    /// Optional expiry (ns). After this the listing can no longer be purchased.
+    #[serde(default)]
+    pub expires_at: Option<u64>,
+    /// Nanosecond timestamp when the listing was created.
+    pub created_at: u64,
+}
+
+/// Parameters for creating a lazy listing.
+/// Token-behaviour options come from `ScarceOptions` via `#[serde(flatten)]`.
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct LazyListing {
+    pub metadata: TokenMetadata,
+    pub price: U128,
+    /// Unified token-behaviour options (royalty, app_id, transferable, burnable).
+    #[serde(flatten)]
+    pub options: ScarceOptions,
+    /// Optional expiry (nanoseconds). Listing cannot be purchased after.
+    #[serde(default)]
+    pub expires_at: Option<u64>,
 }
 
 /// Per-user storage balance (manual deposits)

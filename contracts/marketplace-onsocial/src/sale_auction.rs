@@ -36,15 +36,11 @@ impl Contract {
             return Err(MarketplaceError::InvalidState("Cannot auction a revoked token".into()));
         }
 
-        // Block soulbound
-        let cid = collection_id_from_token_id(token_id);
-        if !cid.is_empty() {
-            if let Some(collection) = self.collections.get(cid) {
-                if !collection.transferable {
-                    return Err(MarketplaceError::InvalidState("Cannot auction a soulbound token".into()));
-                }
-            }
-        }
+        // Block soulbound (non-transferable) tokens.
+        self.check_transferable(token, token_id, "auction")?;
+
+        // Grab app_id before dropping the immutable borrow.
+        let token_app_id = token.app_id.clone();
 
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
         if self.sales.contains_key(&sale_id) {
@@ -92,7 +88,8 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        let app_id = self.collections.get(cid).and_then(|c| c.app_id.clone());
+        // Standalone tokens carry their own app_id; collection tokens inherit.
+        let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
         self.charge_storage_waterfall(owner_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_auction_created(owner_id, token_id, reserve_price, buy_now_price);
@@ -138,25 +135,15 @@ impl Contract {
                 Some("Auction settled on OnSocial Marketplace".to_string()),
             )?;
 
-            let token = self.scarces_by_id.get(token_id)
-                .ok_or_else(|| MarketplaceError::InternalError("Token not found after transfer".into()))?;
-            let payout = self.internal_compute_payout(token, winning_bid, 10)?;
-
-            let cid = collection_id_from_token_id(token_id);
-            let app_id = self.collections.get(cid).and_then(|c| c.app_id.clone());
-            let (revenue, app_pool_amount) = self.route_fee(winning_bid, app_id.as_ref());
-            let total_fee = revenue + app_pool_amount;
-            let amount_after_fee = winning_bid.saturating_sub(total_fee);
-
-            self.distribute_payout(&payout, amount_after_fee, &seller_id);
+            let result = self.settle_secondary_sale(token_id, winning_bid, &seller_id)?;
 
             events::emit_auction_settled(
                 &winner_id,
                 &seller_id,
                 token_id,
                 winning_bid,
-                revenue,
-                app_pool_amount,
+                result.revenue,
+                result.app_pool_amount,
             );
         } else {
             // Reserve not met (or no bids) → refund highest bidder if any

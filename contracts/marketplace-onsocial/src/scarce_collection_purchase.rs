@@ -177,62 +177,35 @@ impl Contract {
         // Measure storage BEFORE minting
         let before = env::storage_usage();
 
-        // Mint tokens (with royalty from collection)
+        // Mint tokens (with royalty + paid_price from collection)
+        let ctx = crate::MintContext {
+            owner_id: buyer_id.clone(),
+            creator_id: creator_id.clone(),
+            minter_id: buyer_id.clone(),
+        };
+        let ovr = crate::ScarceOverrides {
+            royalty,
+            paid_price: collection.price_near.0,
+            ..Default::default()
+        };
         let _minted = self.internal_batch_mint(
-            &buyer_id,
+            &ctx,
             token_ids.clone(),
             &metadata_template,
             &collection_id,
-            royalty.as_ref(),
+            Some(ovr),
         )?;
-
-        // Set paid_price on each minted token
-        let price_per_token = collection.price_near.0;
-        for tid in &token_ids {
-            if let Some(mut scarce) = self.scarces_by_id.remove(tid) {
-                scarce.paid_price = price_per_token;
-                self.scarces_by_id.insert(tid.clone(), scarce);
-            }
-        }
 
         // Measure storage AFTER minting
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        let (revenue, app_pool_amount) = if total_price > 0 {
-            // ── Paid mint: Tier 1 (storage from price) ───────────────
-            let storage_cost = self.charge_storage_from_price(bytes_used as u64);
-            let (rev, app_amt) = self.route_fee(total_price, app_id.as_ref());
-
-            // Primary sale commission to app owner
-            let app_commission = self.calculate_app_commission(total_price, app_id.as_ref());
-            if app_commission > 0 {
-                if let Some(ref aid) = app_id {
-                    if let Some(pool) = self.app_pools.get(aid) {
-                        let _ = Promise::new(pool.owner_id.clone())
-                            .transfer(NearToken::from_yoctonear(app_commission));
-                    }
-                }
-            }
-
-            let total_deductions = rev + app_amt + storage_cost + app_commission;
-            let creator_payment = total_price.saturating_sub(total_deductions);
-
-            if creator_payment > 0 {
-                let _ = Promise::new(creator_id.clone()).transfer(NearToken::from_yoctonear(creator_payment));
-            }
-            (rev, app_amt)
-        } else {
-            // ── Free mint: Tier 2 (app pool) → Tier 3 (user balance) ─
-            self.charge_storage_waterfall(&buyer_id, bytes_used as u64, app_id.as_ref())?;
-            (0u128, 0u128)
-        };
+        let result = self.route_primary_sale(
+            total_price, bytes_used as u64, &creator_id, &buyer_id, app_id.as_ref(),
+        )?;
 
         // Refund excess
-        let refund = deposit - total_price;
-        if refund > 0 {
-            let _ = Promise::new(buyer_id.clone()).transfer(NearToken::from_yoctonear(refund));
-        }
+        crate::internal::refund_excess(&buyer_id, deposit, total_price);
 
         // Update per-wallet mint count
         if collection.max_per_wallet.is_some() {
@@ -241,25 +214,26 @@ impl Contract {
             self.collection_mint_counts.insert(mint_key, prev + quantity);
         }
 
-        events::emit_collection_purchase(
-            &buyer_id,
-            &creator_id,
-            &collection_id,
+        events::emit_collection_purchase(&events::CollectionPurchase {
+            buyer_id: &buyer_id,
+            creator_id: &creator_id,
+            collection_id: &collection_id,
             quantity,
-            U128(total_price),
-            U128(revenue),
-            U128(app_pool_amount),
-        );
+            total_price: U128(total_price),
+            marketplace_fee: U128(result.revenue),
+            app_pool_amount: U128(result.app_pool_amount),
+            token_ids: &token_ids,
+        });
         Ok(())
     }
 }
 
-// ── Creator / App-owner pre-mint ─────────────────────────────────────────────
+// ── Creator pre-mint ─────────────────────────────────────────────────────────
 
 impl Contract {
     /// Mint from own collection to self or a specified recipient.
     /// No payment — storage charged via app-pool → user-balance waterfall.
-    /// Only the collection creator or app owner may call this.
+    /// Only the collection creator may call this.
     pub(crate) fn internal_mint_from_collection(
         &mut self,
         actor_id: &AccountId,
@@ -285,7 +259,7 @@ impl Contract {
             ));
         }
 
-        // Only creator or app owner
+        // Only creator
         self.check_collection_authority(actor_id, &collection)?;
 
         if collection.mint_mode == crate::MintMode::PurchaseOnly {
@@ -306,6 +280,7 @@ impl Contract {
         let metadata_template = collection.metadata_template.clone();
         let royalty = collection.royalty.clone();
         let app_id = collection.app_id.clone();
+        let creator_id = collection.creator_id.clone();
 
         let token_ids: Vec<String> = (start_index..start_index + quantity)
             .map(|i| format!("{}:{}", collection_id, i + 1))
@@ -321,12 +296,21 @@ impl Contract {
         let before = env::storage_usage();
 
         // Mint tokens to recipient
+        let ctx = crate::MintContext {
+            owner_id: recipient.clone(),
+            creator_id,
+            minter_id: actor_id.clone(),
+        };
+        let ovr = crate::ScarceOverrides {
+            royalty,
+            ..Default::default()
+        };
         let _minted = self.internal_batch_mint(
-            recipient,
+            &ctx,
             token_ids.clone(),
             &metadata_template,
             collection_id,
-            royalty.as_ref(),
+            Some(ovr),
         )?;
 
         // Measure storage AFTER minting
@@ -392,6 +376,7 @@ impl Contract {
         let metadata_template = collection.metadata_template.clone();
         let royalty = collection.royalty.clone();
         let app_id = collection.app_id.clone();
+        let creator_id = collection.creator_id.clone();
 
         // Update count FIRST (reentrancy protection)
         let mut updated_collection = collection;
@@ -416,15 +401,16 @@ impl Contract {
                 collection_id,
             )?;
 
-            let minted_id = self.internal_mint(token_id.clone(), receiver.clone(), metadata)?;
-
-            // Set royalty on minted token
-            if let Some(ref r) = royalty {
-                if let Some(mut scarce) = self.scarces_by_id.remove(&minted_id) {
-                    scarce.royalty = Some(r.clone());
-                    self.scarces_by_id.insert(minted_id.clone(), scarce);
-                }
-            }
+            let ctx = crate::MintContext {
+                owner_id: receiver.clone(),
+                creator_id: creator_id.clone(),
+                minter_id: actor_id.clone(),
+            };
+            let ovr = crate::ScarceOverrides {
+                royalty: royalty.clone(),
+                ..Default::default()
+            };
+            let minted_id = self.internal_mint(token_id.clone(), ctx, metadata, Some(ovr))?;
 
             token_ids.push(minted_id);
         }

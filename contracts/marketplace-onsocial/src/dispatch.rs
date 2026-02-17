@@ -7,6 +7,10 @@ impl Contract {
     pub(crate) fn dispatch_action(&mut self, action: Action, actor_id: &AccountId) -> Result<Value, MarketplaceError> {
         match action {
             // ── Collections ──────────────────────────────────────────
+            Action::QuickMint { metadata, options } => {
+                let token_id = self.internal_quick_mint(actor_id, metadata, options)?;
+                Ok(Value::String(token_id))
+            }
             Action::CreateCollection { params } => {
                 self.internal_create_collection(actor_id, params)?;
                 Ok(Value::Null)
@@ -77,10 +81,7 @@ impl Contract {
 
             // ── Transfers ────────────────────────────────────────────
             Action::TransferScarce { receiver_id, token_id, memo } => {
-                self.internal_transfer(actor_id, &receiver_id, &token_id, None, memo.clone())?;
-                events::emit_scarce_transfer(
-                    actor_id, &receiver_id, &token_id, memo.as_deref(),
-                );
+                self.internal_transfer(actor_id, &receiver_id, &token_id, None, memo)?;
                 Ok(Value::Null)
             }
 
@@ -116,7 +117,10 @@ impl Contract {
                 Ok(Value::Null)
             }
             Action::BurnScarce { token_id, collection_id } => {
-                self.internal_burn_scarce(actor_id, &token_id, &collection_id)?;
+                match collection_id {
+                    Some(cid) => self.internal_burn_scarce(actor_id, &token_id, &cid)?,
+                    None => self.internal_burn_standalone(actor_id, &token_id)?,
+                }
                 Ok(Value::Null)
             }
             Action::DeleteCollection { collection_id } => {
@@ -152,6 +156,7 @@ impl Contract {
                     return Err(MarketplaceError::Unauthorized("Only owner".into()));
                 }
                 self.fee_recipient = fee_recipient;
+                events::emit_fee_recipient_changed(actor_id, &self.fee_recipient);
                 Ok(Value::Null)
             }
             Action::UpdateFeeConfig {
@@ -166,18 +171,74 @@ impl Contract {
             }
 
             // ── App Pool ─────────────────────────────────────────────
-            Action::RegisterApp { app_id, max_user_bytes, default_royalty, primary_sale_bps, metadata } => {
-                self.internal_register_app(actor_id, &app_id, max_user_bytes, default_royalty, primary_sale_bps, metadata)?;
+            Action::RegisterApp { app_id, params } => {
+                self.internal_register_app(actor_id, &app_id, params)?;
                 Ok(Value::Null)
             }
-            Action::SetAppConfig { app_id, max_user_bytes, default_royalty, primary_sale_bps, metadata } => {
-                self.internal_set_app_config(actor_id, &app_id, max_user_bytes, default_royalty, primary_sale_bps, metadata)?;
+            Action::SetAppConfig { app_id, params } => {
+                self.internal_set_app_config(actor_id, &app_id, params)?;
+                Ok(Value::Null)
+            }
+            Action::TransferAppOwnership { app_id, new_owner } => {
+                self.internal_transfer_app_ownership(actor_id, &app_id, new_owner)?;
+                Ok(Value::Null)
+            }
+            Action::AddModerator { app_id, account_id } => {
+                self.internal_add_moderator(actor_id, &app_id, account_id)?;
+                Ok(Value::Null)
+            }
+            Action::RemoveModerator { app_id, account_id } => {
+                self.internal_remove_moderator(actor_id, &app_id, &account_id)?;
+                Ok(Value::Null)
+            }
+            Action::BanCollection { app_id, collection_id, reason } => {
+                self.internal_ban_collection(actor_id, &app_id, &collection_id, reason.as_deref())?;
+                Ok(Value::Null)
+            }
+            Action::UnbanCollection { app_id, collection_id } => {
+                self.internal_unban_collection(actor_id, &app_id, &collection_id)?;
                 Ok(Value::Null)
             }
 
             // ── Collection Metadata ──────────────────────────────────
             Action::SetCollectionMetadata { collection_id, metadata } => {
                 self.internal_set_collection_metadata(actor_id, &collection_id, metadata)?;
+                Ok(Value::Null)
+            }
+            Action::SetCollectionAppMetadata { app_id, collection_id, metadata } => {
+                self.internal_set_collection_app_metadata(actor_id, &app_id, &collection_id, metadata)?;
+                Ok(Value::Null)
+            }
+
+            // ── Offers ───────────────────────────────────────────────
+            Action::AcceptOffer { token_id, buyer_id } => {
+                self.internal_accept_offer(actor_id, &token_id, &buyer_id)?;
+                Ok(Value::Null)
+            }
+            Action::CancelOffer { token_id } => {
+                self.internal_cancel_offer(actor_id, &token_id)?;
+                Ok(Value::Null)
+            }
+            Action::AcceptCollectionOffer { collection_id, token_id, buyer_id } => {
+                self.internal_accept_collection_offer(actor_id, &collection_id, &token_id, &buyer_id)?;
+                Ok(Value::Null)
+            }
+            Action::CancelCollectionOffer { collection_id } => {
+                self.internal_cancel_collection_offer(actor_id, &collection_id)?;
+                Ok(Value::Null)
+            }
+
+            // ── Lazy Listings ─────────────────────────────────────────
+            Action::CreateLazyListing { params } => {
+                let listing_id = self.internal_create_lazy_listing(actor_id, params)?;
+                Ok(Value::String(listing_id))
+            }
+            Action::CancelLazyListing { listing_id } => {
+                self.internal_cancel_lazy_listing(actor_id, &listing_id)?;
+                Ok(Value::Null)
+            }
+            Action::UpdateLazyListingPrice { listing_id, new_price } => {
+                self.internal_update_lazy_listing_price(actor_id, &listing_id, new_price.0)?;
                 Ok(Value::Null)
             }
         }

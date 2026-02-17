@@ -22,6 +22,7 @@ mod protocol;
 mod sale;
 mod sale_auction;
 mod sale_views;
+mod offer;
 mod app_pool;
 mod storage;
 pub mod types;
@@ -42,6 +43,9 @@ mod scarce_collection_purchase;
 mod scarce_collection_refunds;
 mod scarce_collection_views;
 mod scarce_collections;
+
+// Lazy listing (mint-on-purchase)
+mod lazy_listing;
 
 pub use protocol::{Action, Auth, Options, Request};
 pub use constants::*;
@@ -93,6 +97,9 @@ pub enum StorageKey {
     UserStorage,
     CollectionMintCounts,
     CollectionAllowlist,
+    Offers,
+    CollectionOffers,
+    LazyListings,
 }
 
 // ── Contract State ───────────────────────────────────────────────────────────
@@ -124,6 +131,8 @@ pub struct Contract {
     pub scarces_per_owner: LookupMap<AccountId, IterableSet<String>>,
     pub scarces_by_id: IterableMap<String, Scarce>,
     pub next_approval_id: u64,
+    /// Auto-incrementing ID for standalone (non-collection) quick mints.
+    pub next_token_id: u64,
 
     // ===== COLLECTION STATE =====
     pub collections: IterableMap<String, LazyCollection>,
@@ -150,6 +159,18 @@ pub struct Contract {
     /// Key: "{collection_id}:al:{account_id}", Value: max tokens this wallet can mint early.
     /// Before `start_time`, only wallets with allocation > 0 can purchase.
     pub collection_allowlist: LookupMap<String, u32>,
+
+    // ===== OFFERS =====
+    /// Per-token offers — key: "{token_id}\0{buyer_id}".
+    /// NEAR is held in escrow until accepted, cancelled, or expired.
+    pub offers: IterableMap<String, Offer>,
+    /// Per-collection floor offers — key: "{collection_id}\0{buyer_id}".
+    pub collection_offers: IterableMap<String, CollectionOffer>,
+
+    // ===== LAZY LISTINGS =====
+    /// Lazy listings: metadata + price stored; token minted on purchase.
+    /// Key: `"ll:{next_token_id}"` (shares the counter with QuickMint).
+    pub lazy_listings: IterableMap<String, LazyListingRecord>,
 
     // ===== AUTH =====
     pub intents_executors: Vec<AccountId>,

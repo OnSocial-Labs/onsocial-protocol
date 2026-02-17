@@ -7,12 +7,13 @@ use near_sdk::serde_json;
 use std::collections::HashMap;
 
 impl Contract {
-    /// Internal: Mint a new native token
+    /// Internal: Mint a new native token with optional overrides.
     pub(crate) fn internal_mint(
         &mut self,
         token_id: String,
-        owner_id: AccountId,
+        ctx: crate::MintContext,
         metadata: TokenMetadata,
+        overrides: Option<crate::ScarceOverrides>,
     ) -> Result<String, MarketplaceError> {
         // Validate token ID
         if token_id.len() > MAX_TOKEN_ID_LEN {
@@ -37,39 +38,94 @@ impl Contract {
             return Err(MarketplaceError::InvalidState("Token ID already exists".into()));
         }
 
+        // Apply overrides (or defaults)
+        let ovr = overrides.unwrap_or_default();
+
         // Create token
+        let owner_id = ctx.owner_id.clone();
         let token = Scarce {
-            owner_id: owner_id.clone(),
+            owner_id: ctx.owner_id,
+            creator_id: ctx.creator_id,
+            minter_id: ctx.minter_id,
             metadata,
             approved_account_ids: HashMap::new(),
-            royalty: None,
+            royalty: ovr.royalty,
             revoked_at: None,
             revocation_memo: None,
             redeemed_at: None,
             redeem_count: 0,
-            paid_price: 0,
+            paid_price: ovr.paid_price,
             refunded: false,
+            transferable: ovr.transferable,
+            burnable: ovr.burnable,
+            app_id: ovr.app_id,
         };
 
         // Store token
         self.scarces_by_id.insert(token_id.clone(), token);
 
-        // Add to owner's tokens - get or create
-        if !self.scarces_per_owner.contains_key(&owner_id) {
-            self.scarces_per_owner.insert(
-                owner_id.clone(),
-                IterableSet::new(StorageKey::ScarcesPerOwnerInner {
-                    account_id_hash: env::sha256(owner_id.as_bytes()),
-                }),
-            );
+        // Add to owner's set
+        self.add_token_to_owner(&owner_id, &token_id);
+
+        Ok(token_id)
+    }
+
+    /// Quick-mint a standalone 1/1 token (no collection).
+    /// Token ID: `s:{next_token_id}`.  Storage charged via waterfall.
+    pub(crate) fn internal_quick_mint(
+        &mut self,
+        actor_id: &AccountId,
+        metadata: crate::TokenMetadata,
+        options: crate::ScarceOptions,
+    ) -> Result<String, MarketplaceError> {
+        let crate::ScarceOptions {
+            royalty,
+            app_id,
+            transferable,
+            burnable,
+        } = options;
+
+        // Validate app exists when specified
+        if let Some(ref app) = app_id {
+            if !self.app_pools.contains_key(app) {
+                return Err(MarketplaceError::NotFound("App pool not found".into()));
+            }
         }
 
-        // Now insert the token (set is guaranteed to exist)
-        self.scarces_per_owner
-            .get_mut(&owner_id)
-            .unwrap()
-            .insert(token_id.clone());
+        // Merge app default royalty + creator royalty, then validate total
+        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty);
+        if let Some(ref r) = merged_royalty {
+            Self::validate_royalty(r)?;
+        }
 
+        // Generate unique token ID
+        let id = self.next_token_id;
+        self.next_token_id += 1;
+        let token_id = format!("s:{id}");
+
+        // Measure storage before mint
+        let before = env::storage_usage();
+
+        // Mint via core path with overrides
+        let ctx = crate::MintContext {
+            owner_id: actor_id.clone(),
+            creator_id: actor_id.clone(),
+            minter_id: actor_id.clone(),
+        };
+        let ovr = crate::ScarceOverrides {
+            royalty: merged_royalty,
+            app_id: app_id.clone(),
+            transferable: Some(transferable),
+            burnable: Some(burnable),
+            paid_price: 0,
+        };
+        self.internal_mint(token_id.clone(), ctx, metadata, Some(ovr))?;
+
+        // Charge storage
+        let bytes_used = env::storage_usage().saturating_sub(before);
+        self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
+
+        crate::events::emit_quick_mint(actor_id, &token_id);
         Ok(token_id)
     }
 
@@ -93,17 +149,11 @@ impl Contract {
             return Err(MarketplaceError::InvalidState("Cannot transfer a revoked token".into()));
         }
 
-        // Block transfers of soulbound (non-transferable) tokens
-        let collection_id = crate::collection_id_from_token_id(token_id);
-        if !collection_id.is_empty() {
-            if let Some(collection) = self.collections.get(collection_id) {
-                if !collection.transferable {
-                    return Err(MarketplaceError::InvalidState(
-                        "Token is non-transferable (soulbound)".into(),
-                    ));
-                }
-            }
-        }
+        // Block transfers of soulbound (non-transferable) tokens.
+        self.check_transferable(&token, token_id, "transfer")?;
+
+        // Capture old owner before any state changes
+        let old_owner_id = token.owner_id.clone();
 
         // Check authorization
         if sender_id != &token.owner_id {
@@ -125,64 +175,40 @@ impl Contract {
         }
 
         // Remove from sender's tokens
-        if let Some(sender_tokens) = self.scarces_per_owner.get_mut(&token.owner_id) {
-            sender_tokens.remove(token_id);
-            // Check if empty and remove the whole set
-            if sender_tokens.is_empty() {
-                let owner_id = token.owner_id.clone();
-                self.scarces_per_owner.remove(&owner_id);
-            }
-        }
+        self.remove_token_from_owner(&token.owner_id, token_id);
 
         // Update token owner and clear approvals
         token.owner_id = receiver_id.clone();
         token.approved_account_ids.clear();
 
-        // Add to receiver's tokens - get or create
-        if !self.scarces_per_owner.contains_key(receiver_id) {
-            self.scarces_per_owner.insert(
-                receiver_id.clone(),
-                IterableSet::new(StorageKey::ScarcesPerOwnerInner {
-                    account_id_hash: env::sha256(receiver_id.as_bytes()),
-                }),
-            );
-        }
-
-        // Now insert the token (set is guaranteed to exist)
-        self.scarces_per_owner
-            .get_mut(receiver_id)
-            .unwrap()
-            .insert(token_id.to_string());
+        // Add to receiver's tokens
+        self.add_token_to_owner(receiver_id, token_id);
 
         // Save updated token
         self.scarces_by_id.insert(token_id.to_string(), token);
 
         // Auto-delist from any active sale (prevents stale listings)
-        self.internal_remove_sale_listing(token_id, sender_id);
+        // Uses old_owner_id because the sale is indexed under the original owner
+        self.internal_remove_sale_listing(token_id, &old_owner_id, "owner_changed");
 
-        // Log event
-        if let Some(memo_str) = memo {
-            env::log_str(&format!(
-                "Transfer: {} transferred token {} to {} - {}",
-                sender_id, token_id, receiver_id, memo_str
-            ));
-        } else {
-            env::log_str(&format!(
-                "Transfer: {} transferred token {} to {}",
-                sender_id, token_id, receiver_id
-            ));
-        }
+        events::emit_scarce_transfer(
+            sender_id,
+            receiver_id,
+            token_id,
+            memo.as_deref(),
+        );
+
         Ok(())
     }
 
     /// Batch mint multiple tokens (for collections)
     pub(crate) fn internal_batch_mint(
         &mut self,
-        owner_id: &AccountId,
+        ctx: &crate::MintContext,
         token_ids: Vec<String>,
         metadata_template: &str,
         collection_id: &str,
-        royalty: Option<&std::collections::HashMap<AccountId, u32>>,
+        overrides: Option<crate::ScarceOverrides>,
     ) -> Result<Vec<String>, MarketplaceError> {
         if token_ids.is_empty() || token_ids.len() as u32 > MAX_BATCH_MINT {
             return Err(MarketplaceError::InvalidInput(format!(
@@ -193,26 +219,15 @@ impl Contract {
         let mut minted_tokens = Vec::new();
 
         for (index, token_id) in token_ids.iter().enumerate() {
-            // Generate metadata from template
             let metadata = self.generate_metadata_from_template(
                 metadata_template,
                 token_id,
                 index as u32,
-                owner_id,
+                &ctx.owner_id,
                 collection_id,
             )?;
 
-            // Mint token
-            let minted_id = self.internal_mint(token_id.clone(), owner_id.clone(), metadata)?;
-
-            // Set royalty on minted token if collection has one
-            if let Some(r) = royalty {
-                if let Some(mut scarce) = self.scarces_by_id.remove(&minted_id) {
-                    scarce.royalty = Some(r.clone());
-                    self.scarces_by_id.insert(minted_id.clone(), scarce);
-                }
-            }
-
+            let minted_id = self.internal_mint(token_id.clone(), ctx.clone(), metadata, overrides.clone())?;
             minted_tokens.push(minted_id);
         }
 
@@ -277,13 +292,17 @@ impl Contract {
 // NEP-171 Public API
 #[near]
 impl Contract {
-    /// Owner voluntarily burns their own token. Requires collection.burnable == true.
+    /// Owner voluntarily burns their own token.
+    /// For collection tokens, supply `collection_id`. For standalone tokens, omit it.
     #[payable]
     #[handle_result]
-    pub fn burn_scarce(&mut self, token_id: String, collection_id: String) -> Result<(), MarketplaceError> {
+    pub fn burn_scarce(&mut self, token_id: String, collection_id: Option<String>) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
         let caller = env::predecessor_account_id();
-        self.internal_burn_scarce(&caller, &token_id, &collection_id)
+        match collection_id {
+            Some(cid) => self.internal_burn_scarce(&caller, &token_id, &cid),
+            None => self.internal_burn_standalone(&caller, &token_id),
+        }
     }
 
     /// Transfer token to another account
@@ -397,25 +416,11 @@ impl Contract {
 
             // If the token was re-transferred to a third party, don't revert
             if token.owner_id != receiver_id {
-                env::log_str(&format!(
-                    "Cannot revert transfer: token {} now owned by {}, not {}",
-                    token_id, token.owner_id, receiver_id
-                ));
                 return false;
             }
 
-            env::log_str(&format!(
-                "Transfer reverted: {} rejected token {}",
-                receiver_id, token_id
-            ));
-
             // Remove from receiver
-            if let Some(receiver_tokens) = self.scarces_per_owner.get_mut(&receiver_id) {
-                receiver_tokens.remove(&token_id);
-                if receiver_tokens.is_empty() {
-                    self.scarces_per_owner.remove(&receiver_id);
-                }
-            }
+            self.remove_token_from_owner(&receiver_id, &token_id);
 
             // Restore to previous owner
             token.owner_id = previous_owner_id.clone();
@@ -424,33 +429,21 @@ impl Contract {
             }
 
             // Add back to previous owner's tokens
-            if !self
-                .scarces_per_owner
-                .contains_key(&previous_owner_id)
-            {
-                self.scarces_per_owner.insert(
-                    previous_owner_id.clone(),
-                    IterableSet::new(StorageKey::ScarcesPerOwnerInner {
-                        account_id_hash: env::sha256(previous_owner_id.as_bytes()),
-                    }),
-                );
-            }
-            self.scarces_per_owner
-                .get_mut(&previous_owner_id)
-                .unwrap()
-                .insert(token_id.clone());
+            self.add_token_to_owner(&previous_owner_id, &token_id);
 
             // Save reverted token
-            self.scarces_by_id.insert(token_id, token);
+            self.scarces_by_id.insert(token_id.clone(), token);
+
+            events::emit_scarce_transfer(
+                &receiver_id,
+                &previous_owner_id,
+                &token_id,
+                Some("transfer reverted"),
+            );
 
             true // Transfer was reverted
         } else {
             // Transfer is confirmed
-            env::log_str(&format!(
-                "Transfer confirmed: {} accepted token {}",
-                receiver_id, token_id
-            ));
-
             false // Transfer was not reverted
         }
     }
@@ -493,12 +486,6 @@ impl Contract {
                 None,
                 item.memo.clone(),
             )?;
-            events::emit_scarce_transfer(
-                actor_id,
-                &item.receiver_id,
-                &item.token_id,
-                item.memo.as_deref(),
-            );
         }
         Ok(())
     }

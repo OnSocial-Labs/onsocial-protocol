@@ -38,8 +38,15 @@ pub const DOMAIN_PREFIX: &str = "onsocial:marketplace";
 #[serde(tag = "type", rename_all = "snake_case")]
 #[derive(Clone)]
 pub enum Action {
-    // ── Collections ──────────────────────────────────────────────
-    CreateCollection {
+    // ── Collections ──────────────────────────────────────────────    /// Quick-mint a standalone 1/1 token without creating a collection.
+    /// Ideal for casual users (snap a photo → mint). Storage charged via waterfall.
+    QuickMint {
+        /// NEP-177 metadata for the token (title, media, description, etc.).
+        metadata: crate::TokenMetadata,
+        /// Unified token-behaviour options (royalty, app_id, transferable, etc.).
+        #[serde(flatten)]
+        options: crate::ScarceOptions,
+    },    CreateCollection {
         #[serde(flatten)]
         params: crate::CollectionConfig,
     },
@@ -52,7 +59,7 @@ pub enum Action {
         start_time: Option<u64>,
         end_time: Option<u64>,
     },
-    /// Creator/app-owner mints from own collection to self or a recipient.
+    /// Creator mints from own collection to self or a recipient.
     /// No payment required — storage charged via waterfall.
     MintFromCollection {
         collection_id: String,
@@ -60,7 +67,7 @@ pub enum Action {
         /// Defaults to the actor (creator) if omitted.
         receiver_id: Option<AccountId>,
     },
-    /// Creator/app-owner airdrops tokens to multiple recipients (one token each).
+    /// Creator airdrops tokens to multiple recipients (one token each).
     /// No payment required — storage charged via waterfall.
     AirdropFromCollection {
         collection_id: String,
@@ -144,20 +151,20 @@ pub enum Action {
     },
 
     // ── Token Lifecycle ────────────────────────────────────────────
-    /// Renew a token's expiry date (only collection creator or app owner).
+    /// Renew a token's expiry date (only collection creator).
     RenewToken {
         token_id: String,
         collection_id: String,
         new_expires_at: u64,
     },
-    /// Revoke (burn) a token (only collection creator or app owner).
+    /// Revoke a token (only collection creator).
     RevokeToken {
         token_id: String,
         collection_id: String,
         memo: Option<String>,
     },
     /// Redeem (check-in / use) a token. Token stays on-chain and transferable.
-    /// Only collection creator or app owner can redeem.
+    /// Only collection creator can redeem.
     RedeemToken {
         token_id: String,
         collection_id: String,
@@ -168,20 +175,23 @@ pub enum Action {
         token_id: String,
         collection_id: String,
     },
-    /// Owner voluntarily burns their own token (requires collection.burnable == true).
+    /// Owner voluntarily burns their own token.
+    /// For collection tokens, supply `collection_id`. For standalone quick-mint
+    /// tokens, omit it (or set to `null`). Respects the burnable flag.
     BurnScarce {
         token_id: String,
-        collection_id: String,
+        #[serde(default)]
+        collection_id: Option<String>,
     },
-    /// Delete an empty collection (minted_count == 0). Creator/app owner only.
+    /// Delete an empty collection (minted_count == 0). Creator only.
     DeleteCollection {
         collection_id: String,
     },
-    /// Temporarily pause minting from a collection. Creator/app owner only.
+    /// Temporarily pause minting from a collection. Creator only.
     PauseCollection {
         collection_id: String,
     },
-    /// Resume minting from a paused collection. Creator/app owner only.
+    /// Resume minting from a paused collection. Creator only.
     ResumeCollection {
         collection_id: String,
     },
@@ -193,23 +203,47 @@ pub enum Action {
     // ── App Pool ─────────────────────────────────────────────────
     RegisterApp {
         app_id: AccountId,
-        max_user_bytes: Option<u64>,
-        default_royalty: Option<std::collections::HashMap<AccountId, u32>>,
-        primary_sale_bps: Option<u16>,
-        /// Free-form JSON metadata for app branding.
-        metadata: Option<String>,
+        #[serde(flatten)]
+        params: crate::AppConfig,
     },
     SetAppConfig {
         app_id: AccountId,
-        max_user_bytes: Option<u64>,
-        default_royalty: Option<std::collections::HashMap<AccountId, u32>>,
-        primary_sale_bps: Option<u16>,
-        /// Free-form JSON metadata (replaces existing metadata entirely).
-        metadata: Option<String>,
+        #[serde(flatten)]
+        params: crate::AppConfig,
+    },
+    /// Transfer app pool ownership to a new account.
+    TransferAppOwnership {
+        app_id: AccountId,
+        new_owner: AccountId,
+    },
+    /// Add a moderator to an app pool.
+    /// Moderators can ban/unban collections and (in curated mode) create
+    /// collections. Max 20 per app. Owner only.
+    AddModerator {
+        app_id: AccountId,
+        account_id: AccountId,
+    },
+    /// Remove a moderator from an app pool. Owner only.
+    RemoveModerator {
+        app_id: AccountId,
+        account_id: AccountId,
+    },
+    /// Ban a collection from purchases/mints. App owner or moderator.
+    /// The collection's `app_id` must match the provided `app_id`.
+    BanCollection {
+        app_id: AccountId,
+        collection_id: String,
+        /// Optional human-readable reason (emitted in the event).
+        reason: Option<String>,
+    },
+    /// Unban a previously banned collection. App owner or moderator.
+    UnbanCollection {
+        app_id: AccountId,
+        collection_id: String,
     },
 
     // ── Collection Metadata ──────────────────────────────────────
-    /// Update collection-level metadata. Creator or app owner only.
+    /// Update collection-level metadata. Creator only.
     /// Independent of the token `metadata_template` — this is for
     /// collection branding/discovery (name, icon, description, etc.).
     SetCollectionMetadata {
@@ -217,21 +251,68 @@ pub enum Action {
         /// Free-form JSON metadata (replaces existing metadata entirely).
         metadata: Option<String>,
     },
+    /// Set app-level metadata on a collection. App owner or moderator only.
+    /// Independent of the creator's `metadata` — used for app branding,
+    /// category tags, featured status, etc.
+    SetCollectionAppMetadata {
+        app_id: AccountId,
+        collection_id: String,
+        /// Free-form JSON metadata (replaces existing app_metadata entirely).
+        metadata: Option<String>,
+    },
 
     // ── Allowlist ─────────────────────────────────────────────────
     /// Add or update allowlist entries for early-access minting.
     /// Before `start_time`, only allowlisted wallets can purchase.
-    /// Creator or app owner only.
+    /// Creator only.
     SetAllowlist {
         collection_id: String,
         /// Each entry maps an account to its max early-access allocation.
         /// Setting allocation to 0 effectively removes the entry.
         entries: Vec<AllowlistEntry>,
     },
-    /// Remove wallets from the allowlist. Creator or app owner only.
+    /// Remove wallets from the allowlist. Creator only.
     RemoveFromAllowlist {
         collection_id: String,
         accounts: Vec<AccountId>,
+    },
+
+    // ── Offers ──────────────────────────────────────────────────────
+    /// Accept an offer on your token (gasless flow).
+    AcceptOffer {
+        token_id: String,
+        buyer_id: AccountId,
+    },
+    /// Cancel your own offer on a token (gasless flow).
+    CancelOffer {
+        token_id: String,
+    },
+    /// Accept a collection-level offer against a specific token you own.
+    AcceptCollectionOffer {
+        collection_id: String,
+        token_id: String,
+        buyer_id: AccountId,
+    },
+    /// Cancel your own collection offer (gasless flow).
+    CancelCollectionOffer {
+        collection_id: String,
+    },
+
+    // ── Lazy Listings (mint-on-purchase) ──────────────────────────
+    /// Create a lazy listing: store metadata + price on-chain without minting.
+    /// The token is only minted when a buyer purchases.
+    CreateLazyListing {
+        #[serde(flatten)]
+        params: crate::LazyListing,
+    },
+    /// Cancel (remove) your own lazy listing. No token was minted.
+    CancelLazyListing {
+        listing_id: String,
+    },
+    /// Update the price on a lazy listing you own.
+    UpdateLazyListingPrice {
+        listing_id: String,
+        new_price: U128,
     },
 }
 
@@ -239,6 +320,7 @@ impl Action {
     /// Returns a string identifier for logging/events.
     pub fn action_type(&self) -> &'static str {
         match self {
+            Self::QuickMint { .. } => "quick_mint",
             Self::CreateCollection { .. } => "create_collection",
             Self::UpdateCollectionPrice { .. } => "update_collection_price",
             Self::UpdateCollectionTiming { .. } => "update_collection_timing",
@@ -269,9 +351,22 @@ impl Action {
             Self::UpdateFeeConfig { .. } => "update_fee_config",
             Self::RegisterApp { .. } => "register_app",
             Self::SetAppConfig { .. } => "set_app_config",
+            Self::TransferAppOwnership { .. } => "transfer_app_ownership",
+            Self::AddModerator { .. } => "add_moderator",
+            Self::RemoveModerator { .. } => "remove_moderator",
+            Self::BanCollection { .. } => "ban_collection",
+            Self::UnbanCollection { .. } => "unban_collection",
             Self::SetCollectionMetadata { .. } => "set_collection_metadata",
+            Self::SetCollectionAppMetadata { .. } => "set_collection_app_metadata",
             Self::SetAllowlist { .. } => "set_allowlist",
             Self::RemoveFromAllowlist { .. } => "remove_from_allowlist",
+            Self::AcceptOffer { .. } => "accept_offer",
+            Self::CancelOffer { .. } => "cancel_offer",
+            Self::AcceptCollectionOffer { .. } => "accept_collection_offer",
+            Self::CancelCollectionOffer { .. } => "cancel_collection_offer",
+            Self::CreateLazyListing { .. } => "create_lazy_listing",
+            Self::CancelLazyListing { .. } => "cancel_lazy_listing",
+            Self::UpdateLazyListingPrice { .. } => "update_lazy_listing_price",
         }
     }
 }
