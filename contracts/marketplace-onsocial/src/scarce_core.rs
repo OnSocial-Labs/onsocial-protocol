@@ -286,6 +286,14 @@ impl Contract {
         // Set timestamps
         metadata.issued_at = Some(timestamp);
 
+        // Set `copies` to collection total_supply if not already specified by template.
+        // Wallets display "Edition X of Y" when copies is set (NEP-177).
+        if metadata.copies.is_none() {
+            if let Some(collection) = self.collections.get(collection_id) {
+                metadata.copies = Some(collection.total_supply as u64);
+            }
+        }
+
         Ok(metadata)
     }
 }
