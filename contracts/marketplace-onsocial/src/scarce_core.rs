@@ -272,6 +272,24 @@ impl Contract {
                 .replace("{owner}", owner.as_str());
         }
 
+        // Replace placeholders in media URL
+        if let Some(ref mut media) = metadata.media {
+            *media = media
+                .replace("{token_id}", token_id)
+                .replace("{index}", &index.to_string())
+                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{collection_id}", collection_id);
+        }
+
+        // Replace placeholders in reference URL
+        if let Some(ref mut reference) = metadata.reference {
+            *reference = reference
+                .replace("{token_id}", token_id)
+                .replace("{index}", &index.to_string())
+                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{collection_id}", collection_id);
+        }
+
         // Replace placeholders in extra JSON
         if let Some(ref mut extra) = metadata.extra {
             *extra = extra
