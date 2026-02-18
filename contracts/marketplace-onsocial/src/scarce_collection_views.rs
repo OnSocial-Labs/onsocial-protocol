@@ -129,10 +129,10 @@ impl Contract {
     pub fn get_collection_stats(&self, collection_id: String) -> Option<CollectionStats> {
         self.collections.get(&collection_id).map(|collection| {
             let current = crate::scarce_collection_purchase::compute_dutch_price(collection);
-            let total_revenue = collection.minted_count as u128 * collection.price_near.0;
+            let total_revenue = collection.total_revenue;
             let marketplace_fees =
                 (total_revenue * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
-            let creator_revenue = total_revenue - marketplace_fees;
+            let creator_revenue = total_revenue.saturating_sub(marketplace_fees);
 
             let is_active = self.is_collection_active(collection);
 

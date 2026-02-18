@@ -142,7 +142,9 @@ impl Contract {
 
         // Charge storage via Tier 2/3 waterfall (no app_id for external listings)
         if let Err(e) = self.charge_storage_waterfall(&owner_id, bytes_used as u64, None) {
-            env::log_str(&format!("Listing storage charge failed: {}", e));
+            // Rollback the listing to prevent unpaid storage leak
+            let _ = self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone());
+            env::log_str(&format!("Listing storage charge failed (rolled back): {}", e));
             return;
         }
 
@@ -242,6 +244,13 @@ impl Contract {
             )));
         }
 
+        let owner_id = sale.owner_id.clone();
+
+        // Remove sale BEFORE cross-contract call to prevent race condition.
+        // If the NFT transfer fails, resolve_purchase will detect the missing
+        // sale and refund the buyer.
+        self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone())?;
+
         let max_payout_recipients = max_len_payout.unwrap_or(10).min(20);
         let transfer_gas = scarce_transfer_gas_tgas.unwrap_or(DEFAULT_SCARCE_TRANSFER_GAS);
         let default_resolve_gas = if max_payout_recipients <= 10 {
@@ -265,7 +274,7 @@ impl Contract {
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(Gas::from_tgas(resolve_gas))
-                    .resolve_purchase(buyer_id, U128(price), contract_id, tok_id),
+                    .resolve_purchase(buyer_id, U128(price), U128(deposit), contract_id, tok_id, owner_id),
             ))
     }
 
@@ -273,13 +282,24 @@ impl Contract {
     /// SAFETY: This is a callback — must NEVER panic. The NFT transfer on the external
     /// contract has already completed and is irreversible. If we panic here, the buyer
     /// gets the NFT for free because payment distribution is rolled back.
+    /// Resolve purchase callback.
+    ///
+    /// The sale was already removed in `offer()` before the cross-contract call.
+    /// `seller_id` is passed from the caller so we don't need to look it up.
+    ///
+    /// SAFETY: This is a callback — must NEVER panic. The NFT transfer on the
+    /// external contract has already completed and is irreversible. If we panic
+    /// here, the buyer gets the NFT for free because payment distribution is
+    /// rolled back.
     #[private]
     pub fn resolve_purchase(
         &mut self,
         buyer_id: AccountId,
         price: U128,
+        deposit: U128,
         scarce_contract_id: AccountId,
         token_id: String,
+        seller_id: AccountId,
     ) -> U128 {
         let payout_option = match env::promise_result_checked(0, 4096) {
             Ok(value) => {
@@ -304,31 +324,16 @@ impl Contract {
             }
             Err(_) => {
                 // Transfer failed → refund buyer
-                let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-                if let Some(sale) = self.sales.get(&sale_id) {
-                    events::emit_scarce_purchase_failed(
-                        &buyer_id,
-                        &sale.owner_id,
-                        &scarce_contract_id,
-                        &token_id,
-                        price,
-                        "scarce_transfer_failed",
-                    );
-                }
-                if price.0 > 0 {
-                    let _ = Promise::new(buyer_id.clone()).transfer(NearToken::from_yoctonear(price.0));
-                }
-                return U128(0);
-            }
-        };
-
-        let sale = match self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone()) {
-            Ok(sale) => sale,
-            Err(e) => {
-                env::log_str(&format!("Warning: failed to remove sale: {e}"));
-                if price.0 > 0 {
-                    let _ = Promise::new(buyer_id.clone())
-                        .transfer(NearToken::from_yoctonear(price.0));
+                events::emit_scarce_purchase_failed(
+                    &buyer_id,
+                    &seller_id,
+                    &scarce_contract_id,
+                    &token_id,
+                    price,
+                    "scarce_transfer_failed",
+                );
+                if deposit.0 > 0 {
+                    let _ = Promise::new(buyer_id.clone()).transfer(NearToken::from_yoctonear(deposit.0));
                 }
                 return U128(0);
             }
@@ -340,24 +345,27 @@ impl Contract {
         let amount_after_fee = price.0.saturating_sub(total_fee);
 
         if let Some(payout) = payout_option {
-            self.distribute_payout(&payout, amount_after_fee, &sale.owner_id);
+            self.distribute_payout(&payout, amount_after_fee, &seller_id);
         } else {
             // No payout → pay seller directly
             if amount_after_fee > 0 {
-                let _ = Promise::new(sale.owner_id.clone())
+                let _ = Promise::new(seller_id.clone())
                     .transfer(NearToken::from_yoctonear(amount_after_fee));
             }
         }
 
         events::emit_scarce_purchase(
             &buyer_id,
-            &sale.owner_id,
+            &seller_id,
             &scarce_contract_id,
             &token_id,
             price,
             revenue,
             app_pool_amount,
         );
+
+        // Refund excess deposit
+        crate::internal::refund_excess(&buyer_id, deposit.0, price.0);
 
         price
     }
@@ -379,12 +387,19 @@ impl Contract {
         let sale = self.sales.get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?.clone();
 
-        // Verify this is actually a native scarce listing
+        // Verify this is actually a native scarce listing (not an auction)
         match &sale.sale_type {
             SaleType::NativeScarce { .. } => {}
             _ => return Err(MarketplaceError::InvalidInput(
                 "This is not a native scarce listing — use offer() for externals".into(),
             )),
+        }
+
+        // Block purchase of auction listings — use place_bid() instead
+        if sale.auction.is_some() {
+            return Err(MarketplaceError::InvalidInput(
+                "This is an auction listing — use place_bid() to bid or wait for settlement".into(),
+            ));
         }
 
         if let Some(expiration) = sale.expires_at {

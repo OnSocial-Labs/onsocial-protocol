@@ -2,8 +2,13 @@
 
 use near_sdk::NearToken;
 
-/// Cost per byte of NEAR storage (10^19 yoctoNEAR = 0.00001 NEAR per byte)
-pub const STORAGE_BYTE_COST: u128 = 10_000_000_000_000_000_000;
+/// Cost per byte of NEAR storage, sourced from the SDK's genesis config.
+/// Delegates to `env::storage_byte_cost()` so the value automatically tracks
+/// any future protocol-level changes.
+#[inline]
+pub fn storage_byte_cost() -> u128 {
+    near_sdk::env::storage_byte_cost().as_yoctonear()
+}
 
 /// Maximum token ID length
 pub const MAX_TOKEN_ID_LEN: usize = 256;

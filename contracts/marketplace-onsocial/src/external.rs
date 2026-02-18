@@ -132,8 +132,10 @@ pub trait ExtSelf {
         &mut self,
         buyer_id: AccountId,
         price: U128,
+        deposit: U128,
         scarce_contract_id: AccountId,
         token_id: String,
+        seller_id: AccountId,
     ) -> U128;
 
     /// Process listing after verification

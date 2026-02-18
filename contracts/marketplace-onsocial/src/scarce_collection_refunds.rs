@@ -9,6 +9,11 @@ use crate::*;
 /// Default refund claim window: 90 days in nanoseconds.
 const DEFAULT_REFUND_DEADLINE_NS: u64 = 90 * 24 * 60 * 60 * 1_000_000_000;
 
+/// Minimum refund claim window: 7 days in nanoseconds.
+/// Prevents authorities from setting a near-zero deadline and immediately
+/// withdrawing the refund pool before holders have a chance to claim.
+const MIN_REFUND_DEADLINE_NS: u64 = 7 * 24 * 60 * 60 * 1_000_000_000;
+
 // ── Public payable methods ───────────────────────────────────────────────────
 
 #[near]
@@ -58,7 +63,13 @@ impl Contract {
         collection.refund_pool = deposit;
         collection.refund_per_token = refund_per_token.0;
         let deadline = refund_deadline_ns.unwrap_or(DEFAULT_REFUND_DEADLINE_NS);
-        collection.refund_deadline = Some(env::block_timestamp() + deadline);
+        if deadline < MIN_REFUND_DEADLINE_NS {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Refund deadline must be at least 7 days ({} ns), got {}",
+                MIN_REFUND_DEADLINE_NS, deadline
+            )));
+        }
+        collection.refund_deadline = Some(env::block_timestamp().saturating_add(deadline));
 
         self.collections.insert(collection_id.clone(), collection);
 

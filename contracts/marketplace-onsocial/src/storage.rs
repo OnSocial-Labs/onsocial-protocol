@@ -47,7 +47,7 @@ impl Contract {
             .cloned()
             .unwrap_or_default();
 
-        let used_cost = (user.used_bytes as u128) * STORAGE_BYTE_COST;
+        let used_cost = (user.used_bytes as u128) * storage_byte_cost();
         let available = user.balance.saturating_sub(used_cost);
         if available == 0 {
             return Err(MarketplaceError::InvalidState(
@@ -98,7 +98,7 @@ impl Contract {
 
                 let remaining_allowance = pool.max_user_bytes.saturating_sub(user_used);
                 let can_cover_bytes = remaining_allowance.min(bytes_used);
-                let can_cover_cost = (can_cover_bytes as u128) * STORAGE_BYTE_COST;
+                let can_cover_cost = (can_cover_bytes as u128) * storage_byte_cost();
 
                 if can_cover_cost > 0 && pool.balance >= can_cover_cost {
                     pool.balance -= can_cover_cost;
@@ -129,12 +129,12 @@ impl Contract {
     /// Charge bytes against user's own storage balance (Tier 3).
     /// Returns error if insufficient.
     fn charge_user_storage(&mut self, account_id: &AccountId, bytes_used: u64) -> Result<(), MarketplaceError> {
-        let cost = (bytes_used as u128) * STORAGE_BYTE_COST;
+        let cost = (bytes_used as u128) * storage_byte_cost();
         let mut user = self.user_storage.get(account_id)
             .cloned()
             .unwrap_or_default();
 
-        let available = user.balance.saturating_sub((user.used_bytes as u128) * STORAGE_BYTE_COST);
+        let available = user.balance.saturating_sub((user.used_bytes as u128) * storage_byte_cost());
         if available < cost {
             return Err(MarketplaceError::InsufficientStorage(format!(
                 "Insufficient storage. Need {} yoctoNEAR ({} bytes). Deposit via storage_deposit()",
@@ -151,6 +151,6 @@ impl Contract {
     /// Returns the storage cost deducted.
     /// Used during purchases where storage is included in the price.
     pub(crate) fn charge_storage_from_price(&mut self, bytes_used: u64) -> u128 {
-        (bytes_used as u128) * STORAGE_BYTE_COST
+        (bytes_used as u128) * storage_byte_cost()
     }
 }

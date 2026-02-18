@@ -38,6 +38,12 @@ pub(crate) fn compute_dutch_price(collection: &LazyCollection) -> u128 {
 impl Contract {
     /// Purchase and mint scarces from a lazy collection.
     /// Atomic: update count → pay → mint → refund.
+    ///
+    /// **Front-running protection:** When buying from a Dutch auction, pass
+    /// `max_price_per_token` to cap the unit price. If the on-chain price at
+    /// execution time exceeds the cap, the transaction is rejected — this
+    /// prevents validators or mempool observers from delaying the tx to extract
+    /// a higher price.
     #[payable]
     #[handle_result]
     pub fn purchase_from_collection(
@@ -65,6 +71,9 @@ impl Contract {
 
         if is_before_start {
             // Allowlist early-access phase — base checks (skip start_time)
+            if collection.banned {
+                return Err(MarketplaceError::InvalidState("Collection is banned".into()));
+            }
             if collection.cancelled {
                 return Err(MarketplaceError::InvalidState("Collection is cancelled".into()));
             }
@@ -121,16 +130,16 @@ impl Contract {
         }
 
         // Per-wallet mint limit check (applies in both phases)
-        if !is_before_start {
-            if let Some(max_per_wallet) = collection.max_per_wallet {
-                let mint_key = format!("{}:{}", collection_id, buyer_id);
-                let already_minted = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
-                if already_minted + quantity > max_per_wallet {
-                    return Err(MarketplaceError::InvalidInput(format!(
-                        "Exceeds per-wallet limit: minted {}, requesting {}, max {}",
-                        already_minted, quantity, max_per_wallet
-                    )));
-                }
+        // During allowlist phase, the WL allocation is capped separately above,
+        // but max_per_wallet is an additional hard ceiling that always applies.
+        if let Some(max_per_wallet) = collection.max_per_wallet {
+            let mint_key = format!("{}:{}", collection_id, buyer_id);
+            let already_minted = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+            if already_minted + quantity > max_per_wallet {
+                return Err(MarketplaceError::InvalidInput(format!(
+                    "Exceeds per-wallet limit: minted {}, requesting {}, max {}",
+                    already_minted, quantity, max_per_wallet
+                )));
             }
         }
 
@@ -168,9 +177,10 @@ impl Contract {
             .map(|i| format!("{}:{}", collection_id, i + 1))
             .collect();
 
-        // Update count FIRST (reentrancy protection)
+        // Update count + revenue FIRST (reentrancy protection)
         let mut updated_collection = collection.clone();
         updated_collection.minted_count += quantity;
+        updated_collection.total_revenue += total_price;
         self.collections
             .insert(collection_id.clone(), updated_collection);
 
@@ -185,7 +195,7 @@ impl Contract {
         };
         let ovr = crate::ScarceOverrides {
             royalty,
-            paid_price: collection.price_near.0,
+            paid_price: unit_price,
             ..Default::default()
         };
         let _minted = self.internal_batch_mint(
@@ -208,7 +218,9 @@ impl Contract {
         crate::internal::refund_excess(&buyer_id, deposit, total_price);
 
         // Update per-wallet mint count
-        if collection.max_per_wallet.is_some() {
+        // Always track during allowlist phase (allocation enforcement reads mint counts);
+        // during public phase, only when max_per_wallet is configured.
+        if is_before_start || collection.max_per_wallet.is_some() {
             let mint_key = format!("{}:{}", collection_id, buyer_id);
             let prev = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
             self.collection_mint_counts.insert(mint_key, prev + quantity);

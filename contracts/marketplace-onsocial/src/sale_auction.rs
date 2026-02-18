@@ -97,10 +97,29 @@ impl Contract {
     }
 
     /// Settle a completed auction. Anyone may call once the timer has expired.
+    /// When `force_settle` is true, the expiry check is skipped (used by buy-now).
     pub(crate) fn internal_settle_auction(
         &mut self,
         _actor_id: &AccountId,
         token_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        self.internal_settle_auction_impl(_actor_id, token_id, false)
+    }
+
+    /// Settle an auction immediately (buy-now path). Skips the expiry check.
+    pub(crate) fn internal_settle_auction_buynow(
+        &mut self,
+        actor_id: &AccountId,
+        token_id: &str,
+    ) -> Result<(), MarketplaceError> {
+        self.internal_settle_auction_impl(actor_id, token_id, true)
+    }
+
+    fn internal_settle_auction_impl(
+        &mut self,
+        _actor_id: &AccountId,
+        token_id: &str,
+        force_settle: bool,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
         let sale = self.sales.get(&sale_id).cloned()
@@ -108,11 +127,13 @@ impl Contract {
         let auction = sale.auction.as_ref()
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
 
-        // Must be past expiry (for Foundation-style, expires_at is set on first bid)
-        let expires = sale.expires_at
-            .ok_or_else(|| MarketplaceError::InvalidState("Auction has no expiry yet (no bids placed)".into()))?;
-        if env::block_timestamp() < expires {
-            return Err(MarketplaceError::InvalidState("Auction has not ended yet".into()));
+        if !force_settle {
+            // Must be past expiry (for Foundation-style, expires_at is set on first bid)
+            let expires = sale.expires_at
+                .ok_or_else(|| MarketplaceError::InvalidState("Auction has no expiry yet (no bids placed)".into()))?;
+            if env::block_timestamp() < expires {
+                return Err(MarketplaceError::InvalidState("Auction has not ended yet".into()));
+            }
         }
 
         let seller_id = sale.owner_id.clone();
@@ -266,10 +287,10 @@ impl Contract {
 
         events::emit_auction_bid(&bidder, &token_id, bid, auction.bid_count);
 
-        // Buy-now: if bid >= buy_now_price, settle immediately
+        // Buy-now: if bid >= buy_now_price, settle immediately (skip expiry check)
         if let Some(bnp) = auction.buy_now_price {
             if bid >= bnp {
-                self.internal_settle_auction(&bidder, &token_id)?;
+                self.internal_settle_auction_buynow(&bidder, &token_id)?;
             }
         }
         Ok(())

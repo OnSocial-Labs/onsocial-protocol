@@ -225,7 +225,23 @@ impl Contract {
             created_at: env::block_timestamp(),
         };
 
-        self.offers.insert(key, offer);
+        // Measure storage and ensure the offer amount covers it
+        let before = env::storage_usage();
+        self.offers.insert(key.clone(), offer);
+        let bytes_used = env::storage_usage().saturating_sub(before);
+        let storage_cost = (bytes_used as u128) * storage_byte_cost();
+        if amount <= storage_cost {
+            // Offer amount is too small to even cover storage — reject
+            let removed = self.offers.remove(&key);
+            if let Some(o) = removed {
+                let _ = Promise::new(o.buyer_id).transfer(NearToken::from_yoctonear(o.amount));
+            }
+            return Err(MarketplaceError::InsufficientDeposit(format!(
+                "Offer amount must exceed storage cost of {} yoctoNEAR",
+                storage_cost
+            )));
+        }
+
         events::emit_offer_made(buyer_id, token_id, amount, expires_at);
         Ok(())
     }
@@ -338,7 +354,22 @@ impl Contract {
             created_at: env::block_timestamp(),
         };
 
-        self.collection_offers.insert(key, offer);
+        // Measure storage and ensure the offer amount covers it
+        let before = env::storage_usage();
+        self.collection_offers.insert(key.clone(), offer);
+        let bytes_used = env::storage_usage().saturating_sub(before);
+        let storage_cost = (bytes_used as u128) * storage_byte_cost();
+        if amount <= storage_cost {
+            let removed = self.collection_offers.remove(&key);
+            if let Some(o) = removed {
+                let _ = Promise::new(o.buyer_id).transfer(NearToken::from_yoctonear(o.amount));
+            }
+            return Err(MarketplaceError::InsufficientDeposit(format!(
+                "Offer amount must exceed storage cost of {} yoctoNEAR",
+                storage_cost
+            )));
+        }
+
         events::emit_collection_offer_made(buyer_id, collection_id, amount, expires_at);
         Ok(())
     }

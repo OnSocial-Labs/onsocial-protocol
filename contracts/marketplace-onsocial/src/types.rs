@@ -303,6 +303,11 @@ pub struct LazyCollection {
     #[serde(default)]
     pub refund_deadline: Option<u64>,
 
+    /// Cumulative NEAR revenue from all purchases (actual paid amounts, not estimates).
+    /// Incremented atomically on each successful purchase.
+    #[serde(default)]
+    pub total_revenue: u128,
+
     /// Optional early-access price for allowlisted wallets.
     /// If set, allowlisted buyers pay this during the pre-start_time phase.
     /// None = WL buyers pay the regular (or Dutch) price.

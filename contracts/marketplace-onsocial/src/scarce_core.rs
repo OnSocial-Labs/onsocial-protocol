@@ -98,9 +98,10 @@ impl Contract {
             Self::validate_royalty(r)?;
         }
 
-        // Generate unique token ID
+        // Generate unique token ID (checked to prevent overflow)
         let id = self.next_token_id;
-        self.next_token_id += 1;
+        self.next_token_id = self.next_token_id.checked_add(1)
+            .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let token_id = format!("s:{id}");
 
         // Measure storage before mint

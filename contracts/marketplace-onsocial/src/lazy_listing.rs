@@ -65,9 +65,10 @@ impl Contract {
         // Merge app royalty with creator royalty
         let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty);
 
-        // Generate listing ID using the shared counter
+        // Generate listing ID using the shared counter (checked to prevent overflow)
         let id = self.next_token_id;
-        self.next_token_id += 1;
+        self.next_token_id = self.next_token_id.checked_add(1)
+            .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let listing_id = format!("ll:{id}");
 
         let listing = LazyListingRecord {
@@ -198,9 +199,10 @@ impl Contract {
         let transferable = listing.transferable;
         let burnable = listing.burnable;
 
-        // Generate token ID using shared counter
+        // Generate token ID using shared counter (checked to prevent overflow)
         let token_num = self.next_token_id;
-        self.next_token_id += 1;
+        self.next_token_id = self.next_token_id.checked_add(1)
+            .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let token_id = format!("s:{token_num}");
 
         // ── Mint token to buyer ──────────────────────────────────────

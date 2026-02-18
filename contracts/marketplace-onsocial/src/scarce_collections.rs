@@ -76,6 +76,15 @@ impl Contract {
         if collection_id.is_empty() || collection_id.len() > 64 {
             return Err(MarketplaceError::InvalidInput("Collection ID must be 1-64 characters".into()));
         }
+        // Reject delimiter characters that collide with internal key formats:
+        //   ':'  → token ID format (collection_id:serial)
+        //   '\0' → offer key format (token_id\0buyer_id)
+        //   '.'  → sale ID format (contract.token_id)
+        if collection_id.contains(':') || collection_id.contains('\0') || collection_id.contains('.') {
+            return Err(MarketplaceError::InvalidInput(
+                "Collection ID cannot contain ':', '.', or null characters".into(),
+            ));
+        }
         if total_supply == 0 || total_supply > MAX_COLLECTION_SUPPLY {
             return Err(MarketplaceError::InvalidInput(format!(
                 "Total supply must be 1-{}", MAX_COLLECTION_SUPPLY
@@ -191,6 +200,7 @@ impl Contract {
             refund_per_token: 0,
             refunded_count: 0,
             refund_deadline: None,
+            total_revenue: 0,
             allowlist_price,
             banned: false,
             metadata,

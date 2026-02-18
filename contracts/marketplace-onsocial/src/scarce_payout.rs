@@ -20,7 +20,7 @@ impl Contract {
         let token = self.scarces_by_id.get(&token_id).ok_or_else(|| {
             MarketplaceError::NotFound(format!("Token not found: {}", token_id))
         })?;
-        self.internal_compute_payout(token, balance.0, max_len_payout.unwrap_or(10))
+        self.internal_compute_payout(token, &token.owner_id, balance.0, max_len_payout.unwrap_or(10))
     }
 
     /// Transfer token and return payout (NEP-199).
@@ -42,7 +42,7 @@ impl Contract {
         let token = self.scarces_by_id.get(&token_id).ok_or_else(|| {
             MarketplaceError::NotFound(format!("Token not found: {}", token_id))
         })?.clone();
-        let payout = self.internal_compute_payout(&token, balance.0, max_len_payout.unwrap_or(10))?;
+        let payout = self.internal_compute_payout(&token, &token.owner_id, balance.0, max_len_payout.unwrap_or(10))?;
 
         self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)?;
 
@@ -51,8 +51,10 @@ impl Contract {
 }
 
 impl Contract {
-    /// Compute payout split: royalty recipients get their bps, owner gets remainder.
-    pub(crate) fn internal_compute_payout(&self, token: &Scarce, balance: u128, max_len: u32) -> Result<Payout, MarketplaceError> {
+    /// Compute payout split: royalty recipients get their bps, seller gets remainder.
+    /// `seller_id` is the account that should receive the owner share — pass
+    /// explicitly because after a transfer `token.owner_id` is the buyer.
+    pub(crate) fn internal_compute_payout(&self, token: &Scarce, seller_id: &AccountId, balance: u128, max_len: u32) -> Result<Payout, MarketplaceError> {
         let mut payout_map = std::collections::HashMap::new();
         let mut total_royalty: u128 = 0;
 
@@ -71,12 +73,12 @@ impl Contract {
             }
         }
 
-        // Owner gets the remainder
+        // Seller gets the remainder
         let owner_amount = balance.saturating_sub(total_royalty);
         if owner_amount > 0 {
-            // If owner already in royalty map, add to their share
+            // If seller already in royalty map, add to their share
             payout_map
-                .entry(token.owner_id.clone())
+                .entry(seller_id.clone())
                 .and_modify(|v| v.0 += owner_amount)
                 .or_insert(U128(owner_amount));
         }

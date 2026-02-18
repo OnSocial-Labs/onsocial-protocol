@@ -249,6 +249,8 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
 
         if &token.owner_id != actor_id {
+            // Put it back
+            self.scarces_by_id.insert(token_id.to_string(), token);
             return Err(MarketplaceError::Unauthorized(
                 "Only the token owner can burn their token".into(),
             ));

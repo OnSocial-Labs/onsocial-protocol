@@ -29,9 +29,10 @@ impl Contract {
             return Err(MarketplaceError::Unauthorized("Only token owner can approve".into()));
         }
 
-        // Generate new approval ID
+        // Generate new approval ID (checked to prevent overflow)
         let approval_id = self.next_approval_id;
-        self.next_approval_id += 1;
+        self.next_approval_id = self.next_approval_id.checked_add(1)
+            .ok_or_else(|| MarketplaceError::InternalError("Approval ID counter overflow".into()))?;
 
         // Measure storage before/after for byte-accurate charging
         let before = env::storage_usage();
@@ -162,7 +163,8 @@ impl Contract {
             return Err(MarketplaceError::Unauthorized("Only owner can approve".into()));
         }
         let approval_id = self.next_approval_id;
-        self.next_approval_id += 1;
+        self.next_approval_id = self.next_approval_id.checked_add(1)
+            .ok_or_else(|| MarketplaceError::InternalError("Approval ID counter overflow".into()))?;
 
         let before = env::storage_usage();
         token.approved_account_ids.insert(account_id.clone(), approval_id);

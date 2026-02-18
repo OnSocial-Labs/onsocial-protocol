@@ -195,7 +195,7 @@ impl Contract {
         let amount_after_fee = sale_price.saturating_sub(total_fee);
 
         if let Some(token) = self.scarces_by_id.get(token_id) {
-            let payout = self.internal_compute_payout(token, sale_price, 10)?;
+            let payout = self.internal_compute_payout(token, seller_id, sale_price, 10)?;
             self.distribute_payout(&payout, amount_after_fee, seller_id);
         } else if amount_after_fee > 0 {
             let _ = Promise::new(seller_id.clone())
