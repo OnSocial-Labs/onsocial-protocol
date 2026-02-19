@@ -27,13 +27,19 @@ impl Contract {
         let buy_now_price = buy_now_price.map(|p| p.0);
 
         // Validate the token
-        let token = self.scarces_by_id.get(token_id)
+        let token = self
+            .scarces_by_id
+            .get(token_id)
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
         if &token.owner_id != owner_id {
-            return Err(MarketplaceError::Unauthorized("Only the token owner can list".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only the token owner can list".into(),
+            ));
         }
         if token.revoked_at.is_some() {
-            return Err(MarketplaceError::InvalidState("Cannot auction a revoked token".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Cannot auction a revoked token".into(),
+            ));
         }
 
         // Block soulbound (non-transferable) tokens.
@@ -44,7 +50,9 @@ impl Contract {
 
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
         if self.sales.contains_key(&sale_id) {
-            return Err(MarketplaceError::InvalidState("Token is already listed".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Token is already listed".into(),
+            ));
         }
 
         // Must have either a fixed expiry or an auction_duration_ns (Foundation-style)
@@ -55,12 +63,16 @@ impl Contract {
         }
         if let Some(exp) = expires_at {
             if exp <= env::block_timestamp() {
-                return Err(MarketplaceError::InvalidInput("expires_at must be in the future".into()));
+                return Err(MarketplaceError::InvalidInput(
+                    "expires_at must be in the future".into(),
+                ));
             }
         }
         if let Some(bnp) = buy_now_price {
             if bnp <= reserve_price {
-                return Err(MarketplaceError::InvalidInput("buy_now_price must exceed reserve_price".into()));
+                return Err(MarketplaceError::InvalidInput(
+                    "buy_now_price must exceed reserve_price".into(),
+                ));
             }
         }
 
@@ -78,7 +90,9 @@ impl Contract {
         let sale = Sale {
             owner_id: owner_id.clone(),
             sale_conditions: U128(reserve_price),
-            sale_type: SaleType::NativeScarce { token_id: token_id.to_string() },
+            sale_type: SaleType::NativeScarce {
+                token_id: token_id.to_string(),
+            },
             expires_at,
             auction: Some(auction),
         };
@@ -122,17 +136,25 @@ impl Contract {
         force_settle: bool,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
-        let sale = self.sales.get(&sale_id).cloned()
+        let sale = self
+            .sales
+            .get(&sale_id)
+            .cloned()
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
-        let auction = sale.auction.as_ref()
+        let auction = sale
+            .auction
+            .as_ref()
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
 
         if !force_settle {
             // Must be past expiry (for Foundation-style, expires_at is set on first bid)
-            let expires = sale.expires_at
-                .ok_or_else(|| MarketplaceError::InvalidState("Auction has no expiry yet (no bids placed)".into()))?;
+            let expires = sale.expires_at.ok_or_else(|| {
+                MarketplaceError::InvalidState("Auction has no expiry yet (no bids placed)".into())
+            })?;
             if env::block_timestamp() < expires {
-                return Err(MarketplaceError::InvalidState("Auction has not ended yet".into()));
+                return Err(MarketplaceError::InvalidState(
+                    "Auction has not ended yet".into(),
+                ));
             }
         }
 
@@ -145,8 +167,9 @@ impl Contract {
 
         if winning_bid >= auction.reserve_price && winning_bid > 0 {
             // Reserve met → transfer NFT to winner, pay seller
-            let winner_id = winner
-                .ok_or_else(|| MarketplaceError::InternalError("highest_bid > 0 but no bidder".into()))?;
+            let winner_id = winner.ok_or_else(|| {
+                MarketplaceError::InternalError("highest_bid > 0 but no bidder".into())
+            })?;
 
             self.internal_transfer(
                 &seller_id,
@@ -186,16 +209,24 @@ impl Contract {
         token_id: &str,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
-        let sale = self.sales.get(&sale_id)
+        let sale = self
+            .sales
+            .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
 
         if &sale.owner_id != actor_id {
-            return Err(MarketplaceError::Unauthorized("Only the seller can cancel".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only the seller can cancel".into(),
+            ));
         }
-        let auction = sale.auction.as_ref()
+        let auction = sale
+            .auction
+            .as_ref()
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
         if auction.bid_count != 0 {
-            return Err(MarketplaceError::InvalidState("Cannot cancel auction with active bids".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Cannot cancel auction with active bids".into(),
+            ));
         }
 
         self.internal_remove_sale(env::current_account_id(), token_id.to_string())?;
@@ -213,23 +244,30 @@ impl Contract {
     #[handle_result]
     pub fn place_bid(&mut self, token_id: String) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
-        let mut sale = self.sales.get(&sale_id).cloned()
+        let mut sale = self
+            .sales
+            .get(&sale_id)
+            .cloned()
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
-        let mut auction = sale.auction.clone()
+        let mut auction = sale
+            .auction
+            .clone()
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
 
         let bidder = env::predecessor_account_id();
         let bid = env::attached_deposit().as_yoctonear();
 
         if bidder == sale.owner_id {
-            return Err(MarketplaceError::InvalidInput("Seller cannot bid on own auction".into()));
+            return Err(MarketplaceError::InvalidInput(
+                "Seller cannot bid on own auction".into(),
+            ));
         }
 
         // If Foundation-style (no initial expires_at), first qualifying bid starts the timer
         if sale.expires_at.is_none() {
-            let duration = auction
-                .auction_duration_ns
-                .ok_or_else(|| MarketplaceError::InvalidState("Auction has no expiry and no duration".into()))?;
+            let duration = auction.auction_duration_ns.ok_or_else(|| {
+                MarketplaceError::InvalidState("Auction has no expiry and no duration".into())
+            })?;
             if bid < auction.reserve_price {
                 return Err(MarketplaceError::InsufficientDeposit(
                     "First bid must meet the reserve price".into(),
@@ -262,8 +300,7 @@ impl Contract {
         let prev_bid = auction.highest_bid;
         if let Some(ref prev) = prev_bidder {
             if prev_bid > 0 {
-                let _ = Promise::new(prev.clone())
-                    .transfer(NearToken::from_yoctonear(prev_bid));
+                let _ = Promise::new(prev.clone()).transfer(NearToken::from_yoctonear(prev_bid));
             }
         }
 

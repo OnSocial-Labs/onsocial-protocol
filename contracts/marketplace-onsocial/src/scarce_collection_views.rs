@@ -94,9 +94,7 @@ impl Contract {
 
         self.collections
             .iter()
-            .filter(|(_, collection)| {
-                self.is_collection_active(collection)
-            })
+            .filter(|(_, collection)| self.is_collection_active(collection))
             .skip(start)
             .take(limit)
             .map(|(_, collection)| collection.clone())
@@ -193,50 +191,43 @@ impl Contract {
 
     /// Check if a wallet is on a collection's allowlist and return its allocation.
     /// Returns 0 if not allowlisted.
-    pub fn get_allowlist_allocation(
-        &self,
-        collection_id: String,
-        account_id: AccountId,
-    ) -> u32 {
+    pub fn get_allowlist_allocation(&self, collection_id: String, account_id: AccountId) -> u32 {
         let key = format!("{}:al:{}", collection_id, account_id);
         self.collection_allowlist.get(&key).copied().unwrap_or(0)
     }
 
     /// Check if a wallet is on a collection's allowlist.
-    pub fn is_allowlisted(
-        &self,
-        collection_id: String,
-        account_id: AccountId,
-    ) -> bool {
+    pub fn is_allowlisted(&self, collection_id: String, account_id: AccountId) -> bool {
         let key = format!("{}:al:{}", collection_id, account_id);
         self.collection_allowlist.get(&key).copied().unwrap_or(0) > 0
     }
 
     /// Get remaining allowlist allocation for a wallet (allocation - minted).
     /// Returns 0 if not allowlisted. Useful for UI.
-    pub fn get_allowlist_remaining(
-        &self,
-        collection_id: String,
-        account_id: AccountId,
-    ) -> u32 {
+    pub fn get_allowlist_remaining(&self, collection_id: String, account_id: AccountId) -> u32 {
         let al_key = format!("{}:al:{}", collection_id, account_id);
         let allocation = self.collection_allowlist.get(&al_key).copied().unwrap_or(0);
         if allocation == 0 {
             return 0;
         }
         let mint_key = format!("{}:{}", collection_id, account_id);
-        let minted = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+        let minted = self
+            .collection_mint_counts
+            .get(&mint_key)
+            .copied()
+            .unwrap_or(0);
         allocation.saturating_sub(minted)
     }
 
     /// Returns current unit price, accounting for Dutch auction decay.
     #[handle_result]
     pub fn get_collection_price(&self, collection_id: String) -> Result<U128, MarketplaceError> {
-        let collection = self
-            .collections
-            .get(&collection_id)
-            .ok_or_else(|| MarketplaceError::NotFound(format!("Collection not found: {}", collection_id)))?;
-        Ok(U128(crate::scarce_collection_purchase::compute_dutch_price(collection)))
+        let collection = self.collections.get(&collection_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("Collection not found: {}", collection_id))
+        })?;
+        Ok(U128(
+            crate::scarce_collection_purchase::compute_dutch_price(collection),
+        ))
     }
 
     /// Returns total price for `quantity` tokens at the current Dutch price.
@@ -246,11 +237,12 @@ impl Contract {
         collection_id: String,
         quantity: u32,
     ) -> Result<U128, MarketplaceError> {
-        let collection = self
-            .collections
-            .get(&collection_id)
-            .ok_or_else(|| MarketplaceError::NotFound(format!("Collection not found: {}", collection_id)))?;
-        Ok(U128(crate::scarce_collection_purchase::compute_dutch_price(collection) * quantity as u128))
+        let collection = self.collections.get(&collection_id).ok_or_else(|| {
+            MarketplaceError::NotFound(format!("Collection not found: {}", collection_id))
+        })?;
+        Ok(U128(
+            crate::scarce_collection_purchase::compute_dutch_price(collection) * quantity as u128,
+        ))
     }
 }
 

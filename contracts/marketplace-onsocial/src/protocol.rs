@@ -46,7 +46,8 @@ pub enum Action {
         /// Unified token-behaviour options (royalty, app_id, transferable, etc.).
         #[serde(flatten)]
         options: crate::ScarceOptions,
-    },    CreateCollection {
+    },
+    CreateCollection {
         #[serde(flatten)]
         params: crate::CollectionConfig,
     },
@@ -148,6 +149,7 @@ pub enum Action {
     UpdateFeeConfig {
         total_fee_bps: Option<u16>,
         app_pool_fee_bps: Option<u16>,
+        platform_storage_fee_bps: Option<u16>,
     },
 
     // ── Token Lifecycle ────────────────────────────────────────────
@@ -314,6 +316,12 @@ pub enum Action {
         listing_id: String,
         new_price: U128,
     },
+    /// Update (or clear) the expiry on a lazy listing you own.
+    /// Pass `null` / omit `new_expires_at` to remove the expiry entirely.
+    UpdateLazyListingExpiry {
+        listing_id: String,
+        new_expires_at: Option<u64>,
+    },
 }
 
 impl Action {
@@ -367,6 +375,7 @@ impl Action {
             Self::CreateLazyListing { .. } => "create_lazy_listing",
             Self::CancelLazyListing { .. } => "cancel_lazy_listing",
             Self::UpdateLazyListingPrice { .. } => "update_lazy_listing_price",
+            Self::UpdateLazyListingExpiry { .. } => "update_lazy_listing_expiry",
         }
     }
 }

@@ -152,11 +152,7 @@ impl Contract {
     }
 
     /// Get all active auctions with pagination.
-    pub fn get_auctions(
-        &self,
-        from_index: Option<u64>,
-        limit: Option<u64>,
-    ) -> Vec<AuctionView> {
+    pub fn get_auctions(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<AuctionView> {
         let start = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(50).min(100);
 

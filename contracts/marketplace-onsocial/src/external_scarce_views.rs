@@ -1,15 +1,10 @@
-// Scarce metadata and enumeration query methods
-// NEP-177 (Metadata) and NEP-181 (Enumeration) support
+// NEP-177 (Metadata) and NEP-181 (Enumeration) cross-contract view helpers.
 
 use crate::external::*;
 use crate::*;
 
-
 #[near]
 impl Contract {
-    // ==================== NEP-177: Metadata Queries ====================
-
-    /// Get Scarce token with full metadata from the Scarce contract
     pub fn get_external_scarce(
         &self,
         scarce_contract_id: AccountId,
@@ -21,7 +16,6 @@ impl Contract {
             .nft_token(token_id)
     }
 
-    /// Get Scarce contract metadata
     pub fn get_external_scarce_metadata(
         &self,
         scarce_contract_id: AccountId,
@@ -32,7 +26,9 @@ impl Contract {
             .nft_metadata()
     }
 
-    /// Get sale with Scarce metadata combined
+    /// Dispatches `nft_token` on the external contract and joins the result with
+    /// the on-chain sale record. Panics early if no active sale exists, avoiding
+    /// a wasted cross-contract round-trip.
     pub fn get_sale_with_scarce_metadata(
         &self,
         scarce_contract_id: AccountId,
@@ -40,7 +36,10 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-        let _sale = self.sales.get(&sale_id);
+        near_sdk::require!(
+            self.sales.get(&sale_id).is_some(),
+            "No active sale for this token"
+        );
 
         let gas = Gas::from_tgas(gas_tgas.unwrap_or(10));
 
@@ -54,23 +53,24 @@ impl Contract {
             )
     }
 
-    /// Callback to resolve sale with metadata
     #[private]
     pub fn resolve_sale_with_metadata(
         &self,
         scarce_contract_id: AccountId,
         token_id: String,
     ) -> Option<SaleWithMetadata> {
-        // Get the sale
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         let sale = self.sales.get(&sale_id)?;
 
-        // Get Scarce metadata from promise result
-        let scarce_token = match env::promise_result_checked(0, 16384) {
-            Ok(value) => {
-                near_sdk::serde_json::from_slice::<Option<Token>>(&value)
-                    .ok()
-                    .flatten()
+        // Returns None on promise failure or oversized response; TooLong is logged
+        // so indexers can detect tokens whose metadata exceeds MAX_METADATA_LEN.
+        let scarce_token = match env::promise_result_checked(0, MAX_METADATA_LEN) {
+            Ok(value) => near_sdk::serde_json::from_slice::<Option<Token>>(&value)
+                .ok()
+                .flatten(),
+            Err(near_sdk::PromiseError::TooLong(len)) => {
+                env::log_str(&format!("ERR_NFT_TOKEN_RESULT_TOO_LONG: {} bytes", len));
+                None
             }
             Err(_) => None,
         };
@@ -81,9 +81,6 @@ impl Contract {
         })
     }
 
-    // ==================== NEP-181: Enumeration Queries ====================
-
-    /// Get paginated list of all tokens from a Scarce contract
     pub fn get_external_scarces(
         &self,
         scarce_contract_id: AccountId,
@@ -96,7 +93,6 @@ impl Contract {
             .nft_tokens(from_index, limit)
     }
 
-    /// Get paginated list of tokens for an owner from a Scarce contract
     pub fn get_external_scarces_for_owner(
         &self,
         scarce_contract_id: AccountId,
@@ -110,7 +106,6 @@ impl Contract {
             .nft_tokens_for_owner(account_id, from_index, limit)
     }
 
-    /// Get total supply of tokens from a Scarce contract
     pub fn get_external_scarce_total_supply(
         &self,
         scarce_contract_id: AccountId,
@@ -121,7 +116,6 @@ impl Contract {
             .nft_total_supply()
     }
 
-    /// Get supply of tokens for an owner from a Scarce contract
     pub fn get_external_scarce_supply_for_owner(
         &self,
         scarce_contract_id: AccountId,
@@ -133,17 +127,14 @@ impl Contract {
             .nft_supply_for_owner(account_id)
     }
 
-    // ==================== Combined Views ====================
-
-    /// Get all sales with Scarce metadata for a specific Scarce contract
-    /// Useful for browsing all listings from a collection
     pub fn get_sales_with_metadata_by_scarce_contract(
         &self,
         scarce_contract_id: AccountId,
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<SaleWithBasicInfo> {
-        let sales = self.get_sales_by_scarce_contract_id(scarce_contract_id.clone(), from_index, limit);
+        let sales =
+            self.get_sales_by_scarce_contract_id(scarce_contract_id.clone(), from_index, limit);
 
         sales
             .into_iter()
@@ -167,9 +158,6 @@ impl Contract {
     }
 }
 
-// ==================== Data Structures ====================
-
-/// Sale with basic identifying information
 #[near(serializers = [json])]
 pub struct SaleWithBasicInfo {
     pub sale_id: String,

@@ -18,7 +18,8 @@ impl Contract {
         // Validate token ID
         if token_id.len() > MAX_TOKEN_ID_LEN {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Token ID exceeds max length of {}", MAX_TOKEN_ID_LEN
+                "Token ID exceeds max length of {}",
+                MAX_TOKEN_ID_LEN
             )));
         }
 
@@ -35,7 +36,9 @@ impl Contract {
 
         // Ensure token doesn't already exist
         if self.scarces_by_id.contains_key(&token_id) {
-            return Err(MarketplaceError::InvalidState("Token ID already exists".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Token ID already exists".into(),
+            ));
         }
 
         // Apply overrides (or defaults)
@@ -92,15 +95,14 @@ impl Contract {
             }
         }
 
-        // Merge app default royalty + creator royalty, then validate total
-        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty);
-        if let Some(ref r) = merged_royalty {
-            Self::validate_royalty(r)?;
-        }
+        // Merge app default royalty + creator royalty (validates total internally)
+        let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
 
         // Generate unique token ID (checked to prevent overflow)
         let id = self.next_token_id;
-        self.next_token_id = self.next_token_id.checked_add(1)
+        self.next_token_id = self
+            .next_token_id
+            .checked_add(1)
             .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let token_id = format!("s:{id}");
 
@@ -147,7 +149,9 @@ impl Contract {
 
         // Block transfers of revoked (invalidated) tokens
         if token.revoked_at.is_some() {
-            return Err(MarketplaceError::InvalidState("Cannot transfer a revoked token".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Cannot transfer a revoked token".into(),
+            ));
         }
 
         // Block transfers of soulbound (non-transferable) tokens.
@@ -192,12 +196,7 @@ impl Contract {
         // Uses old_owner_id because the sale is indexed under the original owner
         self.internal_remove_sale_listing(token_id, &old_owner_id, "owner_changed");
 
-        events::emit_scarce_transfer(
-            sender_id,
-            receiver_id,
-            token_id,
-            memo.as_deref(),
-        );
+        events::emit_scarce_transfer(sender_id, receiver_id, token_id, memo.as_deref());
 
         Ok(())
     }
@@ -213,7 +212,8 @@ impl Contract {
     ) -> Result<Vec<String>, MarketplaceError> {
         if token_ids.is_empty() || token_ids.len() as u32 > MAX_BATCH_MINT {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Cannot mint more than {} tokens at once", MAX_BATCH_MINT
+                "Cannot mint more than {} tokens at once",
+                MAX_BATCH_MINT
             )));
         }
 
@@ -228,7 +228,8 @@ impl Contract {
                 collection_id,
             )?;
 
-            let minted_id = self.internal_mint(token_id.clone(), ctx.clone(), metadata, overrides.clone())?;
+            let minted_id =
+                self.internal_mint(token_id.clone(), ctx.clone(), metadata, overrides.clone())?;
             minted_tokens.push(minted_id);
         }
 
@@ -245,10 +246,8 @@ impl Contract {
         collection_id: &str,
     ) -> Result<TokenMetadata, MarketplaceError> {
         // Parse template
-        let mut metadata: TokenMetadata =
-            serde_json::from_str(template).map_err(|_| {
-                MarketplaceError::InvalidInput("Invalid metadata template".into())
-            })?;
+        let mut metadata: TokenMetadata = serde_json::from_str(template)
+            .map_err(|_| MarketplaceError::InvalidInput("Invalid metadata template".into()))?;
 
         let seat_number = index + 1;
         let timestamp = env::block_timestamp();
@@ -323,7 +322,11 @@ impl Contract {
     /// For collection tokens, supply `collection_id`. For standalone tokens, omit it.
     #[payable]
     #[handle_result]
-    pub fn burn_scarce(&mut self, token_id: String, collection_id: Option<String>) -> Result<(), MarketplaceError> {
+    pub fn burn_scarce(
+        &mut self,
+        token_id: String,
+        collection_id: Option<String>,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
         let caller = env::predecessor_account_id();
         match collection_id {
@@ -384,24 +387,26 @@ impl Contract {
         let resolve_gas = Gas::from_tgas(overrides.resolve_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
 
         // Call nft_on_transfer on receiver and resolve
-        Ok(external::ext_scarce_transfer_receiver::ext(receiver_id.clone())
-            .with_static_gas(receiver_gas)
-            .nft_on_transfer(
-                sender_id.clone(),
-                previous_owner_id.clone(),
-                token_id.clone(),
-                msg,
-            )
-            .then(
-                external::ext_self::ext(env::current_account_id())
-                    .with_static_gas(resolve_gas)
-                    .nft_resolve_transfer(
-                        previous_owner_id,
-                        receiver_id,
-                        token_id,
-                        Some(previous_approvals),
-                    ),
-            ))
+        Ok(
+            external::ext_scarce_transfer_receiver::ext(receiver_id.clone())
+                .with_static_gas(receiver_gas)
+                .nft_on_transfer(
+                    sender_id.clone(),
+                    previous_owner_id.clone(),
+                    token_id.clone(),
+                    msg,
+                )
+                .then(
+                    external::ext_self::ext(env::current_account_id())
+                        .with_static_gas(resolve_gas)
+                        .nft_resolve_transfer(
+                            previous_owner_id,
+                            receiver_id,
+                            token_id,
+                            Some(previous_approvals),
+                        ),
+                ),
+        )
     }
 
     /// Resolve transfer after callback (NEP-171)
@@ -501,7 +506,8 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         if transfers.is_empty() || transfers.len() as u32 > MAX_BATCH_TRANSFER {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Batch size must be 1-{}", MAX_BATCH_TRANSFER
+                "Batch size must be 1-{}",
+                MAX_BATCH_TRANSFER
             )));
         }
 

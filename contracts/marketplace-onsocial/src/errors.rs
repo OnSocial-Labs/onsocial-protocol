@@ -61,7 +61,10 @@ impl MarketplaceError {
         Self::NotFound("Lazy listing not found".into())
     }
     pub fn soulbound(context: &str) -> Self {
-        Self::InvalidState(format!("Cannot {} a non-transferable (soulbound) token", context))
+        Self::InvalidState(format!(
+            "Cannot {} a non-transferable (soulbound) token",
+            context
+        ))
     }
     pub fn only_owner(what: &str) -> Self {
         Self::Unauthorized(format!("Only {} can perform this action", what))

@@ -17,10 +17,16 @@ impl Contract {
         balance: U128,
         max_len_payout: Option<u32>,
     ) -> Result<Payout, MarketplaceError> {
-        let token = self.scarces_by_id.get(&token_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("Token not found: {}", token_id))
-        })?;
-        self.internal_compute_payout(token, &token.owner_id, balance.0, max_len_payout.unwrap_or(10))
+        let token = self
+            .scarces_by_id
+            .get(&token_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("Token not found: {}", token_id)))?;
+        self.internal_compute_payout(
+            token,
+            &token.owner_id,
+            balance.0,
+            max_len_payout.unwrap_or(10),
+        )
     }
 
     /// Transfer token and return payout (NEP-199).
@@ -39,10 +45,17 @@ impl Contract {
         check_one_yocto()?;
         let sender_id = env::predecessor_account_id();
 
-        let token = self.scarces_by_id.get(&token_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("Token not found: {}", token_id))
-        })?.clone();
-        let payout = self.internal_compute_payout(&token, &token.owner_id, balance.0, max_len_payout.unwrap_or(10))?;
+        let token = self
+            .scarces_by_id
+            .get(&token_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("Token not found: {}", token_id)))?
+            .clone();
+        let payout = self.internal_compute_payout(
+            &token,
+            &token.owner_id,
+            balance.0,
+            max_len_payout.unwrap_or(10),
+        )?;
 
         self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)?;
 
@@ -54,7 +67,13 @@ impl Contract {
     /// Compute payout split: royalty recipients get their bps, seller gets remainder.
     /// `seller_id` is the account that should receive the owner share — pass
     /// explicitly because after a transfer `token.owner_id` is the buyer.
-    pub(crate) fn internal_compute_payout(&self, token: &Scarce, seller_id: &AccountId, balance: u128, max_len: u32) -> Result<Payout, MarketplaceError> {
+    pub(crate) fn internal_compute_payout(
+        &self,
+        token: &Scarce,
+        seller_id: &AccountId,
+        balance: u128,
+        max_len: u32,
+    ) -> Result<Payout, MarketplaceError> {
         let mut payout_map = std::collections::HashMap::new();
         let mut total_royalty: u128 = 0;
 

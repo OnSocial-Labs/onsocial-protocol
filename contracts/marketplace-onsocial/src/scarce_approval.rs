@@ -26,13 +26,16 @@ impl Contract {
 
         let owner_id = env::predecessor_account_id();
         if token.owner_id != owner_id {
-            return Err(MarketplaceError::Unauthorized("Only token owner can approve".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only token owner can approve".into(),
+            ));
         }
 
         // Generate new approval ID (checked to prevent overflow)
         let approval_id = self.next_approval_id;
-        self.next_approval_id = self.next_approval_id.checked_add(1)
-            .ok_or_else(|| MarketplaceError::InternalError("Approval ID counter overflow".into()))?;
+        self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
+            MarketplaceError::InternalError("Approval ID counter overflow".into())
+        })?;
 
         // Measure storage before/after for byte-accurate charging
         let before = env::storage_usage();
@@ -73,7 +76,11 @@ impl Contract {
     /// Revoke approval for specific account (NEP-178)
     #[payable]
     #[handle_result]
-    pub fn nft_revoke(&mut self, token_id: String, account_id: AccountId) -> Result<(), MarketplaceError> {
+    pub fn nft_revoke(
+        &mut self,
+        token_id: String,
+        account_id: AccountId,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
 
         let token = self
@@ -83,7 +90,9 @@ impl Contract {
 
         let owner_id = env::predecessor_account_id();
         if token.owner_id != owner_id {
-            return Err(MarketplaceError::Unauthorized("Only token owner can revoke approval".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only token owner can revoke approval".into(),
+            ));
         }
 
         let mut token = token.clone();
@@ -107,7 +116,9 @@ impl Contract {
 
         let owner_id = env::predecessor_account_id();
         if token.owner_id != owner_id {
-            return Err(MarketplaceError::Unauthorized("Only token owner can revoke all approvals".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only token owner can revoke all approvals".into(),
+            ));
         }
 
         let mut token = token.clone();
@@ -160,14 +171,19 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
             .clone();
         if actor_id != &token.owner_id {
-            return Err(MarketplaceError::Unauthorized("Only owner can approve".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only owner can approve".into(),
+            ));
         }
         let approval_id = self.next_approval_id;
-        self.next_approval_id = self.next_approval_id.checked_add(1)
-            .ok_or_else(|| MarketplaceError::InternalError("Approval ID counter overflow".into()))?;
+        self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
+            MarketplaceError::InternalError("Approval ID counter overflow".into())
+        })?;
 
         let before = env::storage_usage();
-        token.approved_account_ids.insert(account_id.clone(), approval_id);
+        token
+            .approved_account_ids
+            .insert(account_id.clone(), approval_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
@@ -192,7 +208,9 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
             .clone();
         if actor_id != &token.owner_id {
-            return Err(MarketplaceError::Unauthorized("Only owner can revoke".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only owner can revoke".into(),
+            ));
         }
         token.approved_account_ids.remove(account_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
@@ -212,7 +230,9 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
             .clone();
         if actor_id != &token.owner_id {
-            return Err(MarketplaceError::Unauthorized("Only owner can revoke all".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only owner can revoke all".into(),
+            ));
         }
         token.approved_account_ids.clear();
         self.scarces_by_id.insert(token_id.to_string(), token);

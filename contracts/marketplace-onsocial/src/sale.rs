@@ -5,7 +5,6 @@ use crate::internal::*;
 use crate::*;
 use near_sdk::json_types::U128;
 
-
 #[near]
 impl Contract {
     /// List a Scarce for sale (requires cross-contract approval verification).
@@ -60,7 +59,7 @@ impl Contract {
             .and(
                 ext_scarce_contract::ext(scarce_contract_id.clone())
                     .with_static_gas(approval_gas)
-                    .nft_token_owner(token_id.clone()),
+                    .nft_token(token_id.clone()),
             )
             .then(
                 ext_self::ext(env::current_account_id())
@@ -105,14 +104,20 @@ impl Contract {
             return;
         }
 
-        let token_owner = match env::promise_result_checked(1, 128) {
-            Ok(value) => match near_sdk::serde_json::from_slice::<AccountId>(&value) {
-                Ok(owner) => owner,
-                Err(_) => {
-                    env::log_str("Listing failed: could not parse token owner");
-                    return;
+        let token_owner = match env::promise_result_checked(1, 4096) {
+            Ok(value) => {
+                match near_sdk::serde_json::from_slice::<Option<crate::external::Token>>(&value) {
+                    Ok(Some(token)) => token.owner_id,
+                    Ok(None) => {
+                        env::log_str("Listing failed: token not found on external contract");
+                        return;
+                    }
+                    Err(_) => {
+                        env::log_str("Listing failed: could not parse token");
+                        return;
+                    }
                 }
-            },
+            }
             Err(_) => {
                 env::log_str("Listing failed: owner check call failed");
                 return;
@@ -140,11 +145,14 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Charge storage via Tier 2/3 waterfall (no app_id for external listings)
+        // Charge storage via waterfall (no app_id for external listings → Tier 2 platform pool → Tier 3)
         if let Err(e) = self.charge_storage_waterfall(&owner_id, bytes_used as u64, None) {
             // Rollback the listing to prevent unpaid storage leak
             let _ = self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone());
-            env::log_str(&format!("Listing storage charge failed (rolled back): {}", e));
+            env::log_str(&format!(
+                "Listing storage charge failed (rolled back): {}",
+                e
+            ));
             return;
         }
 
@@ -159,11 +167,17 @@ impl Contract {
     /// Remove a scarce from sale.
     #[payable]
     #[handle_result]
-    pub fn remove_sale(&mut self, scarce_contract_id: AccountId, token_id: String) -> Result<(), MarketplaceError> {
+    pub fn remove_sale(
+        &mut self,
+        scarce_contract_id: AccountId,
+        token_id: String,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
 
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-        let sale = self.sales.get(&sale_id)
+        let sale = self
+            .sales
+            .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
 
         if env::predecessor_account_id() != sale.owner_id {
@@ -182,7 +196,12 @@ impl Contract {
     /// Update the price of a listing.
     #[payable]
     #[handle_result]
-    pub fn update_price(&mut self, scarce_contract_id: AccountId, token_id: String, price: U128) -> Result<(), MarketplaceError> {
+    pub fn update_price(
+        &mut self,
+        scarce_contract_id: AccountId,
+        token_id: String,
+        price: U128,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
 
         let caller = env::predecessor_account_id();
@@ -201,7 +220,9 @@ impl Contract {
         resolve_purchase_gas_tgas: Option<u64>,
     ) -> Result<Promise, MarketplaceError> {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-        let sale = self.sales.get(&sale_id)
+        let sale = self
+            .sales
+            .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
 
         if let Some(expiration) = sale.expires_at {
@@ -274,7 +295,14 @@ impl Contract {
             .then(
                 ext_self::ext(env::current_account_id())
                     .with_static_gas(Gas::from_tgas(resolve_gas))
-                    .resolve_purchase(buyer_id, U128(price), U128(deposit), contract_id, tok_id, owner_id),
+                    .resolve_purchase(
+                        buyer_id,
+                        U128(price),
+                        U128(deposit),
+                        contract_id,
+                        tok_id,
+                        owner_id,
+                    ),
             ))
     }
 
@@ -306,7 +334,9 @@ impl Contract {
                 if let Ok(payout) = near_sdk::serde_json::from_slice::<Payout>(&value) {
                     // Validate payout gracefully — never panic after irreversible transfer
                     if payout.payout.is_empty() {
-                        env::log_str("Warning: empty payout from NFT contract, paying seller directly");
+                        env::log_str(
+                            "Warning: empty payout from NFT contract, paying seller directly",
+                        );
                         None
                     } else {
                         let total_payout: u128 = payout.payout.values().map(|a| a.0).sum();
@@ -333,7 +363,8 @@ impl Contract {
                     "scarce_transfer_failed",
                 );
                 if deposit.0 > 0 {
-                    let _ = Promise::new(buyer_id.clone()).transfer(NearToken::from_yoctonear(deposit.0));
+                    let _ = Promise::new(buyer_id.clone())
+                        .transfer(NearToken::from_yoctonear(deposit.0));
                 }
                 return U128(0);
             }
@@ -379,20 +410,22 @@ impl Contract {
     /// The marketplace handles the transfer internally — no cross-contract call needed.
     #[payable]
     #[handle_result]
-    pub fn purchase_native_scarce(
-        &mut self,
-        token_id: String,
-    ) -> Result<(), MarketplaceError> {
+    pub fn purchase_native_scarce(&mut self, token_id: String) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
-        let sale = self.sales.get(&sale_id)
-            .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?.clone();
+        let sale = self
+            .sales
+            .get(&sale_id)
+            .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?
+            .clone();
 
         // Verify this is actually a native scarce listing (not an auction)
         match &sale.sale_type {
             SaleType::NativeScarce { .. } => {}
-            _ => return Err(MarketplaceError::InvalidInput(
-                "This is not a native scarce listing — use offer() for externals".into(),
-            )),
+            _ => {
+                return Err(MarketplaceError::InvalidInput(
+                    "This is not a native scarce listing — use offer() for externals".into(),
+                ))
+            }
         }
 
         // Block purchase of auction listings — use place_bid() instead
@@ -414,7 +447,8 @@ impl Contract {
 
         if deposit < price {
             return Err(MarketplaceError::InsufficientDeposit(format!(
-                "Insufficient payment: required {}, got {}", price, deposit
+                "Insufficient payment: required {}, got {}",
+                price, deposit
             )));
         }
         if buyer_id == sale.owner_id {
@@ -455,7 +489,13 @@ impl Contract {
         }
 
         // Transfer the native scarce to buyer
-        self.internal_transfer(&seller_id, &buyer_id, &token_id, None, Some("Purchased on OnSocial Marketplace".to_string()))?;
+        self.internal_transfer(
+            &seller_id,
+            &buyer_id,
+            &token_id,
+            None,
+            Some("Purchased on OnSocial Marketplace".to_string()),
+        )?;
 
         // Settle secondary sale: fee routing + royalty distribution
         let result = self.settle_secondary_sale(&token_id, price, &seller_id)?;
@@ -556,11 +596,15 @@ impl Contract {
         token_id: &str,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
-        let sale = self.sales.get(&sale_id)
+        let sale = self
+            .sales
+            .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found for this token".into()))?;
 
         if &sale.owner_id != owner_id {
-            return Err(MarketplaceError::Unauthorized("Only the owner can delist".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only the owner can delist".into(),
+            ));
         }
 
         self.internal_remove_sale(env::current_account_id(), token_id.to_string())?;
@@ -568,7 +612,6 @@ impl Contract {
         events::emit_native_scarce_delisted(owner_id, token_id);
         Ok(())
     }
-
 }
 
 // ── Sale-listing helpers (moved from lib.rs) ─────────────────────────────────
@@ -582,10 +625,14 @@ impl Contract {
         token_id: &str,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Self::make_sale_id(scarce_contract_id, token_id);
-        let sale = self.sales.get(&sale_id)
+        let sale = self
+            .sales
+            .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
         if actor_id != &sale.owner_id {
-            return Err(MarketplaceError::Unauthorized("Only owner can delist".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only owner can delist".into(),
+            ));
         }
         let owner_id = sale.owner_id.clone();
         self.internal_remove_sale(scarce_contract_id.clone(), token_id.to_string())?;
@@ -602,20 +649,30 @@ impl Contract {
         price: U128,
     ) -> Result<(), MarketplaceError> {
         let sale_id = Self::make_sale_id(scarce_contract_id, token_id);
-        let sale = self.sales.get(&sale_id)
+        let sale = self
+            .sales
+            .get(&sale_id)
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?;
         if actor_id != &sale.owner_id {
-            return Err(MarketplaceError::Unauthorized("Only owner can update price".into()));
+            return Err(MarketplaceError::Unauthorized(
+                "Only owner can update price".into(),
+            ));
         }
         if price.0 == 0 {
-            return Err(MarketplaceError::InvalidInput("Price must be greater than 0".into()));
+            return Err(MarketplaceError::InvalidInput(
+                "Price must be greater than 0".into(),
+            ));
         }
         let old_price = sale.sale_conditions;
         let mut sale = sale.clone();
         sale.sale_conditions = price;
         self.sales.insert(sale_id, sale.clone());
         events::emit_scarce_update_price(
-            &sale.owner_id, scarce_contract_id, token_id, old_price, price,
+            &sale.owner_id,
+            scarce_contract_id,
+            token_id,
+            old_price,
+            price,
         );
         Ok(())
     }

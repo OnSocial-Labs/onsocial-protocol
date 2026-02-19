@@ -2036,10 +2036,12 @@ dependencies = [
 name = "marketplace-onsocial"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.2.16",
  "near-sdk",
  "near-sdk-macros",
  "onsocial-auth",
  "onsocial-types",
+ "primitive-types 0.14.0",
  "serde",
 ]
 

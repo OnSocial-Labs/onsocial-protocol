@@ -30,6 +30,7 @@ impl Contract {
             fee_config: FeeConfig::default(),
             app_pools: LookupMap::new(StorageKey::AppPools),
             app_user_usage: LookupMap::new(StorageKey::AppUserUsage),
+            platform_storage_balance: 0,
             user_storage: LookupMap::new(StorageKey::UserStorage),
             collection_mint_counts: LookupMap::new(StorageKey::CollectionMintCounts),
             collection_allowlist: LookupMap::new(StorageKey::CollectionAllowlist),
@@ -77,7 +78,10 @@ impl Contract {
     /// function-call access keys from calling admin methods.
     #[payable]
     #[handle_result]
-    pub fn set_intents_executors(&mut self, executors: Vec<AccountId>) -> Result<(), MarketplaceError> {
+    pub fn set_intents_executors(
+        &mut self,
+        executors: Vec<AccountId>,
+    ) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         self.intents_executors = executors;
@@ -100,7 +104,7 @@ impl Contract {
         icon: Option<String>,
         base_uri: Option<String>,
         reference: Option<String>,
-        reference_hash: Option<String>,
+        reference_hash: Option<near_sdk::json_types::Base64VecU8>,
     ) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
@@ -135,6 +139,43 @@ impl Contract {
 
     pub fn get_fee_recipient(&self) -> AccountId {
         self.fee_recipient.clone()
+    }
+
+    /// Current balance of the platform storage pool (yoctoNEAR).
+    /// Funded by platform_storage_fee_bps on every standalone sale.
+    /// Used to sponsor storage for operations with no app_id.
+    pub fn get_platform_storage_balance(&self) -> U128 {
+        U128(self.platform_storage_balance)
+    }
+
+    /// Withdraw excess NEAR from the platform storage pool (owner only).
+    /// Requires 1 yoctoNEAR to ensure Full Access Key.
+    /// A minimum reserve of PLATFORM_STORAGE_MIN_RESERVE (10 NEAR) always stays
+    /// in the pool to keep storage sponsorship operational between sales.
+    #[payable]
+    #[handle_result]
+    pub fn withdraw_platform_storage(&mut self, amount: U128) -> Result<Promise, MarketplaceError> {
+        crate::internal::check_one_yocto()?;
+        let caller = env::predecessor_account_id();
+        if caller != self.owner_id {
+            return Err(MarketplaceError::only_owner("contract owner"));
+        }
+        if amount.0 > self.platform_storage_balance {
+            return Err(MarketplaceError::InsufficientDeposit(
+                "Amount exceeds platform storage balance".to_string(),
+            ));
+        }
+        let remaining = self.platform_storage_balance - amount.0;
+        if remaining < PLATFORM_STORAGE_MIN_RESERVE {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Must keep at least {} yoctoNEAR (10 NEAR) as reserve. Max withdrawable: {}",
+                PLATFORM_STORAGE_MIN_RESERVE,
+                self.platform_storage_balance
+                    .saturating_sub(PLATFORM_STORAGE_MIN_RESERVE),
+            )));
+        }
+        self.platform_storage_balance -= amount.0;
+        Ok(Promise::new(caller).transfer(NearToken::from_yoctonear(amount.0)))
     }
 
     /// Return the on-chain contract version.
@@ -187,11 +228,7 @@ impl Contract {
         let old_version = contract.version.clone();
         contract.version = env!("CARGO_PKG_VERSION").to_string();
 
-        events::emit_contract_upgraded(
-            &env::current_account_id(),
-            &old_version,
-            &contract.version,
-        );
+        events::emit_contract_upgraded(&env::current_account_id(), &old_version, &contract.version);
 
         contract
     }

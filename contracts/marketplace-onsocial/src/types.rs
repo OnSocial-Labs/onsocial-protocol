@@ -59,9 +59,13 @@ pub enum SaleType {
         token_id: String,
         approval_id: u64,
     },
-    LazyCollection { collection_id: String },
+    LazyCollection {
+        collection_id: String,
+    },
     /// A native marketplace-minted scarce listed for secondary sale.
-    NativeScarce { token_id: String },
+    NativeScarce {
+        token_id: String,
+    },
 }
 
 // ── Structs ──────────────────────────────────────────────────────────────────
@@ -486,11 +490,14 @@ pub struct CollectionOffer {
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct FeeConfig {
-    /// Total marketplace fee in basis points (250 = 2.5%)
+    /// Total marketplace fee in basis points (200 = 2.0%)
     pub total_fee_bps: u16,
-    /// Portion of total_fee_bps routed to the originating app's pool (100 = 1%)
-    /// When no app is involved, the full fee goes to platform revenue.
+    /// Portion of total_fee_bps routed to the originating app's pool (50 = 0.5%).
+    /// Only applied when the sale belongs to an app with a registered pool.
     pub app_pool_fee_bps: u16,
+    /// Portion of total_fee_bps (when no app_id) routed to the platform storage pool (50 = 0.5%).
+    /// Sponsors storage for standalone operations so users see exactly 2% and nothing else.
+    pub platform_storage_fee_bps: u16,
 }
 
 impl Default for FeeConfig {
@@ -498,6 +505,7 @@ impl Default for FeeConfig {
         Self {
             total_fee_bps: DEFAULT_TOTAL_FEE_BPS,
             app_pool_fee_bps: DEFAULT_APP_POOL_FEE_BPS,
+            platform_storage_fee_bps: DEFAULT_PLATFORM_STORAGE_FEE_BPS,
         }
     }
 }

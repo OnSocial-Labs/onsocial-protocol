@@ -13,11 +13,24 @@ pub fn storage_byte_cost() -> u128 {
 /// Maximum token ID length
 pub const MAX_TOKEN_ID_LEN: usize = 256;
 
-/// Default total marketplace fee in basis points (250 = 2.5%)
-pub const DEFAULT_TOTAL_FEE_BPS: u16 = 250;
+/// Default total marketplace fee in basis points (200 = 2.0%).
+/// Matches NEAR ecosystem norms (Mintbase, Paras) for competitive creator adoption.
+pub const DEFAULT_TOTAL_FEE_BPS: u16 = 200;
 
-/// Default app-pool split: portion of fee routed to app pool (100 = 1%)
-pub const DEFAULT_APP_POOL_FEE_BPS: u16 = 100;
+/// Default app-pool split: portion of total fee routed to the app pool (50 = 0.5%).
+/// Only applies when the sale has an app_id whose pool exists.
+pub const DEFAULT_APP_POOL_FEE_BPS: u16 = 50;
+
+/// Default platform storage pool split: portion of total fee (when no app_id) routed to
+/// the contract-level platform storage pool (50 = 0.5%).
+/// Sponsors storage for standalone operations so users never pay hidden storage costs.
+/// Protocol retains the remaining 1.5% as revenue.
+pub const DEFAULT_PLATFORM_STORAGE_FEE_BPS: u16 = 50;
+
+/// Minimum platform storage pool balance that must remain after an owner withdrawal.
+/// Keeps the pool operational as a storage sponsor between sales.
+/// 10 NEAR sponsors ~1 billion token-mint storage operations at current rates.
+pub const PLATFORM_STORAGE_MIN_RESERVE: u128 = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
 /// Default per-user byte cap from a single app pool (50 KB lifetime)
 pub const DEFAULT_APP_MAX_USER_BYTES: u64 = 50_000;
@@ -29,7 +42,8 @@ pub const BASIS_POINTS: u16 = 10_000;
 pub const MAX_ROYALTY_BPS: u32 = 5_000;
 
 /// Delimiter for unique sale ID
-pub const DELIMETER: &str = ".";
+/// ":" is not a valid character in NEAR account IDs, preventing sale_id key collisions.
+pub const DELIMETER: &str = ":";
 
 /// No deposit / 1 yocto
 pub const NO_DEPOSIT: NearToken = NearToken::from_yoctonear(0);

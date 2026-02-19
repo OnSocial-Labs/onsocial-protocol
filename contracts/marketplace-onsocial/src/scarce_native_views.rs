@@ -70,8 +70,7 @@ impl Contract {
     pub fn get_redeem_info(&self, token_id: String) -> Option<(u32, Option<u32>)> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);
-        let max_redeems = self.collections.get(cid)
-            .and_then(|c| c.max_redeems);
+        let max_redeems = self.collections.get(cid).and_then(|c| c.max_redeems);
         Some((token.redeem_count, max_redeems))
     }
 
@@ -85,7 +84,9 @@ impl Contract {
 
         let max_redeems = collection.as_ref().and_then(|c| c.max_redeems);
         let is_fully_redeemed = max_redeems.is_some_and(|max| token.redeem_count >= max);
-        let is_expired = token.metadata.expires_at
+        let is_expired = token
+            .metadata
+            .expires_at
             .is_some_and(|exp| env::block_timestamp() >= exp);
         let is_revoked = token.revoked_at.is_some();
 

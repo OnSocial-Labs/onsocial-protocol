@@ -2,7 +2,7 @@
 //!
 //! Apps register a pool, fund it with NEAR, and users consume bytes
 //! from the pool up to a per-user lifetime cap. When the pool is empty
-//! or the user exceeds the cap, the waterfall falls through to Tier 3
+//! or the user exceeds the cap, the waterfall falls through to Tier 2/3
 //! (user balance).
 
 use crate::internal::check_one_yocto;
@@ -23,9 +23,10 @@ impl Contract {
             ));
         }
 
-        let mut pool = self.app_pools.remove(&app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let mut pool = self
+            .app_pools
+            .remove(&app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         pool.balance += deposit;
         self.app_pools.insert(app_id.clone(), pool.clone());
 
@@ -42,12 +43,17 @@ impl Contract {
     /// Requires 1 yoctoNEAR to ensure Full Access Key (prevents function-call key abuse).
     #[payable]
     #[handle_result]
-    pub fn withdraw_app_pool(&mut self, app_id: AccountId, amount: U128) -> Result<(), MarketplaceError> {
+    pub fn withdraw_app_pool(
+        &mut self,
+        app_id: AccountId,
+        amount: U128,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
         let caller = env::predecessor_account_id();
-        let mut pool = self.app_pools.remove(&app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let mut pool = self
+            .app_pools
+            .remove(&app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if caller != pool.owner_id {
             self.app_pools.insert(app_id.clone(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));
@@ -94,9 +100,12 @@ impl Contract {
         }
     }
 
-    /// Get user storage info (Tier 3).
+    /// Get user storage info (Tier 3: user balance).
     pub fn get_user_storage(&self, account_id: AccountId) -> UserStorageBalance {
-        self.user_storage.get(&account_id).cloned().unwrap_or_default()
+        self.user_storage
+            .get(&account_id)
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Get app metadata JSON. Returns None if app pool doesn't exist.
@@ -162,7 +171,13 @@ impl Contract {
             ));
         }
 
-        let AppConfig { max_user_bytes, default_royalty, primary_sale_bps, curated, metadata } = params;
+        let AppConfig {
+            max_user_bytes,
+            default_royalty,
+            primary_sale_bps,
+            curated,
+            metadata,
+        } = params;
 
         // Validate royalty if provided
         if let Some(ref r) = default_royalty {
@@ -181,9 +196,15 @@ impl Contract {
             Self::validate_metadata_json(m)?;
         }
 
+        // Any attached NEAR seeds the pool's balance immediately (optional boost).
+        // This allows RegisterApp + fund in one transaction instead of two.
+        // Storage staking is handled implicitly by NEAR protocol from the contract
+        // balance (which includes the attached deposit before execution).
+        let initial_balance = env::attached_deposit().as_yoctonear();
+
         let pool = AppPool {
             owner_id: actor_id.clone(),
-            balance: 0,
+            balance: initial_balance,
             used_bytes: 0,
             max_user_bytes: max_user_bytes.unwrap_or(DEFAULT_APP_MAX_USER_BYTES),
             default_royalty,
@@ -195,7 +216,7 @@ impl Contract {
 
         self.app_pools.insert(app_id.clone(), pool);
 
-        events::emit_app_pool_register(actor_id, app_id);
+        events::emit_app_pool_register(actor_id, app_id, initial_balance);
         Ok(())
     }
 
@@ -206,15 +227,22 @@ impl Contract {
         app_id: &AccountId,
         params: AppConfig,
     ) -> Result<(), MarketplaceError> {
-        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let mut pool = self
+            .app_pools
+            .remove(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if actor_id != &pool.owner_id {
             self.app_pools.insert(app_id.clone(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));
         }
 
-        let AppConfig { max_user_bytes, default_royalty, primary_sale_bps, curated, metadata } = params;
+        let AppConfig {
+            max_user_bytes,
+            default_royalty,
+            primary_sale_bps,
+            curated,
+            metadata,
+        } = params;
 
         if let Some(max) = max_user_bytes {
             pool.max_user_bytes = max;
@@ -272,9 +300,10 @@ impl Contract {
         app_id: &AccountId,
         account_id: AccountId,
     ) -> Result<(), MarketplaceError> {
-        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let mut pool = self
+            .app_pools
+            .remove(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if actor_id != &pool.owner_id {
             self.app_pools.insert(app_id.clone(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));
@@ -304,9 +333,10 @@ impl Contract {
         app_id: &AccountId,
         account_id: &AccountId,
     ) -> Result<(), MarketplaceError> {
-        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let mut pool = self
+            .app_pools
+            .remove(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if actor_id != &pool.owner_id {
             self.app_pools.insert(app_id.clone(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));
@@ -333,9 +363,10 @@ impl Contract {
         collection_id: &str,
         reason: Option<&str>,
     ) -> Result<(), MarketplaceError> {
-        let pool = self.app_pools.get(app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let pool = self
+            .app_pools
+            .get(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if !Self::is_app_authority(pool, actor_id) {
             return Err(MarketplaceError::Unauthorized(
                 "Only app owner or moderator can ban collections".to_string(),
@@ -364,7 +395,8 @@ impl Contract {
         }
 
         collection.banned = true;
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
         events::emit_collection_banned(actor_id, collection_id, reason);
         Ok(())
@@ -377,9 +409,10 @@ impl Contract {
         app_id: &AccountId,
         collection_id: &str,
     ) -> Result<(), MarketplaceError> {
-        let pool = self.app_pools.get(app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let pool = self
+            .app_pools
+            .get(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if !Self::is_app_authority(pool, actor_id) {
             return Err(MarketplaceError::Unauthorized(
                 "Only app owner or moderator can unban collections".to_string(),
@@ -408,7 +441,8 @@ impl Contract {
         }
 
         collection.banned = false;
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
         events::emit_collection_unbanned(actor_id, collection_id);
         Ok(())
@@ -422,9 +456,10 @@ impl Contract {
         app_id: &AccountId,
         new_owner: AccountId,
     ) -> Result<(), MarketplaceError> {
-        let mut pool = self.app_pools.remove(app_id).ok_or_else(|| {
-            MarketplaceError::NotFound(format!("App pool not found: {}", app_id))
-        })?;
+        let mut pool = self
+            .app_pools
+            .remove(app_id)
+            .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
         if actor_id != &pool.owner_id {
             self.app_pools.insert(app_id.clone(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));

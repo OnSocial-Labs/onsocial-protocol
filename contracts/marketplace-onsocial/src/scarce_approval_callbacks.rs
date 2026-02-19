@@ -20,7 +20,12 @@ impl Contract {
         let scarce_contract_id = env::predecessor_account_id();
         let signer_id = env::signer_account_id();
 
-        // Validate token_id length to prevent storage DoS
+        if scarce_contract_id == signer_id {
+            return Err(MarketplaceError::Unauthorized(
+                "nft_on_approve must be called by an NFT contract".to_string(),
+            ));
+        }
+
         if token_id.len() > MAX_TOKEN_ID_LEN {
             return Err(MarketplaceError::InvalidInput(format!(
                 "Token ID too long (max {} characters)",
@@ -51,7 +56,9 @@ impl Contract {
                                     "Sale already exists for {}.{} — use update_price to change",
                                     scarce_contract_id, token_id
                                 ));
-                                return Ok(PromiseOrValue::Value("Sale already exists".to_string()));
+                                return Ok(PromiseOrValue::Value(
+                                    "Sale already exists".to_string(),
+                                ));
                             }
 
                             // Measure storage and charge via waterfall

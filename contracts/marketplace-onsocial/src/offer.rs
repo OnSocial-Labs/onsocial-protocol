@@ -258,8 +258,8 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Offer not found".into()))?;
 
         // Refund escrowed NEAR
-        let _ = Promise::new(offer.buyer_id.clone())
-            .transfer(NearToken::from_yoctonear(offer.amount));
+        let _ =
+            Promise::new(offer.buyer_id.clone()).transfer(NearToken::from_yoctonear(offer.amount));
 
         events::emit_offer_cancelled(buyer_id, token_id, offer.amount);
         Ok(())
@@ -385,8 +385,8 @@ impl Contract {
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Collection offer not found".into()))?;
 
-        let _ = Promise::new(offer.buyer_id.clone())
-            .transfer(NearToken::from_yoctonear(offer.amount));
+        let _ =
+            Promise::new(offer.buyer_id.clone()).transfer(NearToken::from_yoctonear(offer.amount));
 
         events::emit_collection_offer_cancelled(buyer_id, collection_id, offer.amount);
         Ok(())
@@ -425,7 +425,9 @@ impl Contract {
             if env::block_timestamp() > exp {
                 let _ = Promise::new(offer.buyer_id.clone())
                     .transfer(NearToken::from_yoctonear(offer.amount));
-                return Err(MarketplaceError::InvalidState("Collection offer has expired".into()));
+                return Err(MarketplaceError::InvalidState(
+                    "Collection offer has expired".into(),
+                ));
             }
         }
 

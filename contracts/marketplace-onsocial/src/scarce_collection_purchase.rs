@@ -1,4 +1,6 @@
-//! Collection purchase — mint scarces from lazy collections with Tier 1 storage.
+//! Collection purchase — mint scarces from lazy collections.
+//! Storage is covered by the waterfall (app pool → platform pool → user balance),
+//! never deducted from the sale price.
 
 use crate::*;
 
@@ -54,7 +56,8 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         if quantity == 0 || quantity > MAX_BATCH_MINT {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Quantity must be 1-{}", MAX_BATCH_MINT
+                "Quantity must be 1-{}",
+                MAX_BATCH_MINT
             )));
         }
 
@@ -72,20 +75,28 @@ impl Contract {
         if is_before_start {
             // Allowlist early-access phase — base checks (skip start_time)
             if collection.banned {
-                return Err(MarketplaceError::InvalidState("Collection is banned".into()));
+                return Err(MarketplaceError::InvalidState(
+                    "Collection is banned".into(),
+                ));
             }
             if collection.cancelled {
-                return Err(MarketplaceError::InvalidState("Collection is cancelled".into()));
+                return Err(MarketplaceError::InvalidState(
+                    "Collection is cancelled".into(),
+                ));
             }
             if collection.paused {
-                return Err(MarketplaceError::InvalidState("Collection is paused".into()));
+                return Err(MarketplaceError::InvalidState(
+                    "Collection is paused".into(),
+                ));
             }
             if collection.minted_count >= collection.total_supply {
                 return Err(MarketplaceError::InvalidState("Sold out".into()));
             }
             if let Some(end) = collection.end_time {
                 if now > end {
-                    return Err(MarketplaceError::InvalidState("Collection has ended".into()));
+                    return Err(MarketplaceError::InvalidState(
+                        "Collection has ended".into(),
+                    ));
                 }
             }
 
@@ -100,7 +111,11 @@ impl Contract {
 
             // Enforce allowlist allocation
             let mint_key = format!("{}:{}", collection_id, buyer_id);
-            let already_minted = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+            let already_minted = self
+                .collection_mint_counts
+                .get(&mint_key)
+                .copied()
+                .unwrap_or(0);
             if already_minted + quantity > allocation {
                 return Err(MarketplaceError::InvalidInput(format!(
                     "Exceeds allowlist allocation: minted {}, requesting {}, allocation {}",
@@ -118,14 +133,16 @@ impl Contract {
 
         if collection.mint_mode == crate::MintMode::CreatorOnly {
             return Err(MarketplaceError::Unauthorized(
-                "Collection is creator-only — use MintFromCollection or AirdropFromCollection".into(),
+                "Collection is creator-only — use MintFromCollection or AirdropFromCollection"
+                    .into(),
             ));
         }
 
         let available = collection.total_supply - collection.minted_count;
         if available < quantity {
             return Err(MarketplaceError::InvalidState(format!(
-                "Only {} items remaining", available
+                "Only {} items remaining",
+                available
             )));
         }
 
@@ -134,7 +151,11 @@ impl Contract {
         // but max_per_wallet is an additional hard ceiling that always applies.
         if let Some(max_per_wallet) = collection.max_per_wallet {
             let mint_key = format!("{}:{}", collection_id, buyer_id);
-            let already_minted = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+            let already_minted = self
+                .collection_mint_counts
+                .get(&mint_key)
+                .copied()
+                .unwrap_or(0);
             if already_minted + quantity > max_per_wallet {
                 return Err(MarketplaceError::InvalidInput(format!(
                     "Exceeds per-wallet limit: minted {}, requesting {}, max {}",
@@ -145,7 +166,10 @@ impl Contract {
 
         // ── Price: allowlist_price during WL phase, otherwise Dutch/fixed ──
         let unit_price = if is_before_start {
-            collection.allowlist_price.map(|p| p.0).unwrap_or_else(|| compute_dutch_price(&collection))
+            collection
+                .allowlist_price
+                .map(|p| p.0)
+                .unwrap_or_else(|| compute_dutch_price(&collection))
         } else {
             compute_dutch_price(&collection)
         };
@@ -163,7 +187,8 @@ impl Contract {
         let deposit = env::attached_deposit().as_yoctonear();
         if deposit < total_price {
             return Err(MarketplaceError::InsufficientDeposit(format!(
-                "Insufficient payment: required {}, got {}", total_price, deposit
+                "Insufficient payment: required {}, got {}",
+                total_price, deposit
             )));
         }
 
@@ -211,7 +236,11 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
 
         let result = self.route_primary_sale(
-            total_price, bytes_used as u64, &creator_id, &buyer_id, app_id.as_ref(),
+            total_price,
+            bytes_used as u64,
+            &creator_id,
+            &buyer_id,
+            app_id.as_ref(),
         )?;
 
         // Refund excess
@@ -222,8 +251,13 @@ impl Contract {
         // during public phase, only when max_per_wallet is configured.
         if is_before_start || collection.max_per_wallet.is_some() {
             let mint_key = format!("{}:{}", collection_id, buyer_id);
-            let prev = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
-            self.collection_mint_counts.insert(mint_key, prev + quantity);
+            let prev = self
+                .collection_mint_counts
+                .get(&mint_key)
+                .copied()
+                .unwrap_or(0);
+            self.collection_mint_counts
+                .insert(mint_key, prev + quantity);
         }
 
         events::emit_collection_purchase(&events::CollectionPurchase {
@@ -255,7 +289,8 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         if quantity == 0 || quantity > MAX_BATCH_MINT {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Quantity must be 1-{}", MAX_BATCH_MINT
+                "Quantity must be 1-{}",
+                MAX_BATCH_MINT
             )));
         }
 
@@ -283,7 +318,8 @@ impl Contract {
         let available = collection.total_supply - collection.minted_count;
         if available < quantity {
             return Err(MarketplaceError::InvalidState(format!(
-                "Only {} items remaining", available
+                "Only {} items remaining",
+                available
             )));
         }
 
@@ -332,17 +368,9 @@ impl Contract {
         // Storage charged via waterfall (no payment)
         self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
 
-        events::emit_collection_mint(
-            actor_id,
-            recipient,
-            collection_id,
-            quantity,
-            &token_ids,
-        );
+        events::emit_collection_mint(actor_id, recipient, collection_id, quantity, &token_ids);
         Ok(())
     }
-
-
 
     pub(crate) fn internal_airdrop_from_collection(
         &mut self,
@@ -353,7 +381,8 @@ impl Contract {
         let count = receivers.len() as u32;
         if count == 0 || count > MAX_AIRDROP_RECIPIENTS {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Receivers must be 1-{}", MAX_AIRDROP_RECIPIENTS
+                "Receivers must be 1-{}",
+                MAX_AIRDROP_RECIPIENTS
             )));
         }
 
@@ -380,7 +409,8 @@ impl Contract {
         let available = collection.total_supply - collection.minted_count;
         if available < count {
             return Err(MarketplaceError::InvalidState(format!(
-                "Only {} items remaining, need {}", available, count
+                "Only {} items remaining, need {}",
+                available, count
             )));
         }
 
@@ -434,13 +464,7 @@ impl Contract {
         // Storage charged via waterfall (creator/app pays)
         self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
 
-        events::emit_collection_airdrop(
-            actor_id,
-            collection_id,
-            count,
-            &token_ids,
-            &receivers,
-        );
+        events::emit_collection_airdrop(actor_id, collection_id, count, &token_ids, &receivers);
         Ok(())
     }
 }

@@ -1,5 +1,5 @@
 //! OnSocial Marketplace — Scarce marketplace with relayer-compatible auth,
-//! 3-tier byte-accurate storage (price-embedded → app pool → user balance),
+//! 3-tier byte-accurate storage (app pool [T1] → platform pool [T2] → user balance [T3]),
 //! and JSON events.
 
 use near_sdk::json_types::U128;
@@ -12,22 +12,23 @@ use near_sdk::{
 // ── Modules ──────────────────────────────────────────────────────────────────
 
 mod admin;
+mod app_pool;
 pub mod constants;
 mod dispatch;
 mod errors;
 mod events;
 mod external;
 mod internal;
+mod offer;
 mod protocol;
 mod sale;
 mod sale_auction;
 mod sale_views;
-mod offer;
-mod app_pool;
 mod storage;
 pub mod types;
 
 // Scarce modules (native scarces)
+mod external_scarce_views;
 mod scarce_approval;
 mod scarce_approval_callbacks;
 mod scarce_core;
@@ -36,7 +37,6 @@ mod scarce_lifecycle;
 mod scarce_metadata;
 mod scarce_native_views;
 mod scarce_payout;
-mod external_scarce_views;
 
 // Scarce collection modules
 mod scarce_collection_purchase;
@@ -47,9 +47,9 @@ mod scarce_collections;
 // Lazy listing (mint-on-purchase)
 mod lazy_listing;
 
-pub use protocol::{Action, Auth, Options, Request};
 pub use constants::*;
 pub use errors::MarketplaceError;
+pub use protocol::{Action, Auth, Options, Request};
 pub use types::*;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -60,12 +60,20 @@ pub fn default_true() -> bool {
 }
 
 /// Extract collection ID from a token ID (format: "collection_id:serial").
+/// Returns `""` for standalone tokens (no `:` separator), which safely
+/// produces no-match on collection lookups.
 pub(crate) fn collection_id_from_token_id(token_id: &str) -> &str {
-    token_id.split(':').next().unwrap_or("")
+    match token_id.find(':') {
+        Some(pos) => &token_id[..pos],
+        None => "",
+    }
 }
 
 /// Check that a token ID belongs to the specified collection.
-pub(crate) fn check_token_in_collection(token_id: &str, collection_id: &str) -> Result<(), MarketplaceError> {
+pub(crate) fn check_token_in_collection(
+    token_id: &str,
+    collection_id: &str,
+) -> Result<(), MarketplaceError> {
     if !token_id.starts_with(&format!("{}:", collection_id)) {
         return Err(MarketplaceError::InvalidInput(
             "Token does not belong to specified collection".into(),
@@ -104,16 +112,19 @@ pub enum StorageKey {
 
 // ── Contract State ───────────────────────────────────────────────────────────
 
-#[near(contract_state, contract_metadata(
-    version = "0.1.0",
-    link = "https://github.com/OnSocial-Labs/onsocial-protocol",
-    standard(standard = "nep171", version = "1.0.0"),
-    standard(standard = "nep177", version = "2.0.0"),
-    standard(standard = "nep178", version = "1.0.0"),
-    standard(standard = "nep181", version = "1.0.0"),
-    standard(standard = "nep199", version = "1.0.0"),
-    standard(standard = "nep297", version = "1.0.0"),
-))]
+#[near(
+    contract_state,
+    contract_metadata(
+        version = "0.1.0",
+        link = "https://github.com/OnSocial-Labs/onsocial-protocol",
+        standard(standard = "nep171", version = "1.0.0"),
+        standard(standard = "nep177", version = "2.0.0"),
+        standard(standard = "nep178", version = "1.0.0"),
+        standard(standard = "nep181", version = "1.0.0"),
+        standard(standard = "nep199", version = "1.0.0"),
+        standard(standard = "nep297", version = "1.0.0"),
+    )
+)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
     // ===== CONTRACT VERSION =====
@@ -142,10 +153,13 @@ pub struct Contract {
     pub fee_config: FeeConfig,
 
     // ===== STORAGE: 3-TIER SYSTEM =====
-    /// Tier 2: Per-app isolated storage pools
+    /// Tier 1: Per-app isolated storage pools
     pub app_pools: LookupMap<AccountId, AppPool>,
-    /// Tier 2: Per-(user, app) byte usage tracking — key: "user_id:app_id"
+    /// Tier 1: Per-(user, app) byte usage tracking — key: "user_id:app_id"
     pub app_user_usage: LookupMap<String, u64>,
+    /// Tier 2: Platform storage pool funded by platform_storage_fee_bps on each sale.
+    /// Sponsors storage for standalone (no-app) operations so users never pay hidden storage costs.
+    pub platform_storage_balance: u128,
     /// Tier 3: Per-user manual storage deposits
     pub user_storage: LookupMap<AccountId, UserStorageBalance>,
 
@@ -221,12 +235,7 @@ impl Contract {
 
         // Record nonce if signed auth was used
         if let Some((ref owner, ref public_key, nonce)) = auth_ctx.signed_nonce {
-            onsocial_auth::nonce::record_nonce(
-                protocol::NONCE_PREFIX,
-                owner,
-                public_key,
-                nonce,
-            );
+            onsocial_auth::nonce::record_nonce(protocol::NONCE_PREFIX, owner, public_key, nonce);
         }
 
         self.dispatch_action(action, &actor_id)

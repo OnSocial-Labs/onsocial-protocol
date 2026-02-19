@@ -195,7 +195,10 @@ pub fn emit_scarce_list(
     prices: Vec<U128>,
 ) {
     let prices_arr = Value::Array(
-        prices.into_iter().map(|p| Value::String(p.0.to_string())).collect(),
+        prices
+            .into_iter()
+            .map(|p| Value::String(p.0.to_string()))
+            .collect(),
     );
     EventBuilder::new(SCARCE, "list", owner_id)
         .field("owner_id", owner_id)
@@ -383,11 +386,7 @@ pub fn emit_approval_granted(
         .emit();
 }
 
-pub fn emit_approval_revoked(
-    owner_id: &AccountId,
-    token_id: &str,
-    account_id: &AccountId,
-) {
+pub fn emit_approval_revoked(owner_id: &AccountId, token_id: &str, account_id: &AccountId) {
     EventBuilder::new(SCARCE, "approval_revoked", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
@@ -418,12 +417,7 @@ pub fn emit_auction_created(
         .emit();
 }
 
-pub fn emit_auction_bid(
-    bidder: &AccountId,
-    token_id: &str,
-    bid_amount: u128,
-    bid_count: u32,
-) {
+pub fn emit_auction_bid(bidder: &AccountId, token_id: &str, bid_amount: u128, bid_count: u32) {
     EventBuilder::new(SCARCE, "auction_bid", bidder)
         .field("bidder", bidder)
         .field("token_id", token_id)
@@ -504,7 +498,11 @@ pub fn emit_collection_metadata_update(actor_id: &AccountId, collection_id: &str
         .emit();
 }
 
-pub fn emit_collection_app_metadata_update(actor_id: &AccountId, app_id: &AccountId, collection_id: &str) {
+pub fn emit_collection_app_metadata_update(
+    actor_id: &AccountId,
+    app_id: &AccountId,
+    collection_id: &str,
+) {
     EventBuilder::new(COLLECTION, "app_metadata_update", actor_id)
         .field("actor_id", actor_id)
         .field("app_id", app_id)
@@ -527,10 +525,7 @@ pub fn emit_collection_mint(
         .emit();
 }
 
-pub fn emit_quick_mint(
-    actor_id: &AccountId,
-    token_id: &str,
-) {
+pub fn emit_quick_mint(actor_id: &AccountId, token_id: &str) {
     EventBuilder::new(SCARCE, "quick_mint", actor_id)
         .field("token_id", token_id)
         .emit();
@@ -630,11 +625,7 @@ pub fn emit_allowlist_updated(
         .emit();
 }
 
-pub fn emit_collection_price_updated(
-    actor_id: &AccountId,
-    collection_id: &str,
-    new_price: U128,
-) {
+pub fn emit_collection_price_updated(actor_id: &AccountId, collection_id: &str, new_price: U128) {
     EventBuilder::new(COLLECTION, "price_update", actor_id)
         .field("collection_id", collection_id)
         .field("new_price", new_price)
@@ -674,19 +665,15 @@ pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: 
 
 // ── APP_POOL_UPDATE ──────────────────────────────────────────────────────────
 
-pub fn emit_app_pool_register(owner_id: &AccountId, app_id: &AccountId) {
+pub fn emit_app_pool_register(owner_id: &AccountId, app_id: &AccountId, initial_balance: u128) {
     EventBuilder::new(APP_POOL, "register", owner_id)
         .field("owner_id", owner_id)
         .field("app_id", app_id)
+        .field("initial_balance", initial_balance)
         .emit();
 }
 
-pub fn emit_app_pool_fund(
-    funder: &AccountId,
-    app_id: &AccountId,
-    amount: u128,
-    new_balance: u128,
-) {
+pub fn emit_app_pool_fund(funder: &AccountId, app_id: &AccountId, amount: u128, new_balance: u128) {
     EventBuilder::new(APP_POOL, "fund", funder)
         .field("funder", funder)
         .field("app_id", app_id)
@@ -768,10 +755,12 @@ pub fn emit_fee_config_updated(
     owner_id: &AccountId,
     total_fee_bps: u16,
     app_pool_fee_bps: u16,
+    platform_storage_fee_bps: u16,
 ) {
     EventBuilder::new(CONTRACT, "fee_config_updated", owner_id)
         .field("total_fee_bps", total_fee_bps as u32)
         .field("app_pool_fee_bps", app_pool_fee_bps as u32)
+        .field("platform_storage_fee_bps", platform_storage_fee_bps as u32)
         .emit();
 }
 
@@ -782,8 +771,7 @@ pub fn emit_intents_executors_updated(owner_id: &AccountId, executors: &[Account
 }
 
 pub fn emit_contract_metadata_updated(owner_id: &AccountId) {
-    EventBuilder::new(CONTRACT, "contract_metadata_updated", owner_id)
-        .emit();
+    EventBuilder::new(CONTRACT, "contract_metadata_updated", owner_id).emit();
 }
 
 // ── OFFER_UPDATE ─────────────────────────────────────────────────────────────
@@ -838,11 +826,7 @@ pub fn emit_collection_offer_made(
         .emit();
 }
 
-pub fn emit_collection_offer_cancelled(
-    buyer_id: &AccountId,
-    collection_id: &str,
-    amount: u128,
-) {
+pub fn emit_collection_offer_cancelled(buyer_id: &AccountId, collection_id: &str, amount: u128) {
     EventBuilder::new(OFFER, "collection_offer_cancelled", buyer_id)
         .field("buyer_id", buyer_id)
         .field("collection_id", collection_id)
@@ -868,11 +852,7 @@ pub fn emit_collection_offer_accepted(
 
 // ── Lazy Listing Events ──────────────────────────────────────────────────────
 
-pub fn emit_lazy_listing_created(
-    creator_id: &AccountId,
-    listing_id: &str,
-    price: u128,
-) {
+pub fn emit_lazy_listing_created(creator_id: &AccountId, listing_id: &str, price: u128) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
         .field("listing_id", listing_id)
         .field("price", price)
@@ -885,6 +865,8 @@ pub fn emit_lazy_listing_purchased(
     listing_id: &str,
     token_id: &str,
     price: u128,
+    creator_payment: u128,
+    fee: u128,
 ) {
     EventBuilder::new(LAZY_LISTING, "purchased", buyer_id)
         .field("buyer_id", buyer_id)
@@ -892,15 +874,33 @@ pub fn emit_lazy_listing_purchased(
         .field("listing_id", listing_id)
         .field("token_id", token_id)
         .field("price", price)
+        .field("creator_payment", creator_payment)
+        .field("fee", fee)
         .emit();
 }
 
-pub fn emit_lazy_listing_cancelled(
-    creator_id: &AccountId,
-    listing_id: &str,
-) {
+pub fn emit_lazy_listing_cancelled(creator_id: &AccountId, listing_id: &str) {
     EventBuilder::new(LAZY_LISTING, "cancelled", creator_id)
         .field("listing_id", listing_id)
+        .emit();
+}
+
+pub fn emit_lazy_listing_expired(creator_id: &AccountId, listing_id: &str) {
+    EventBuilder::new(LAZY_LISTING, "expired", creator_id)
+        .field("listing_id", listing_id)
+        .emit();
+}
+
+pub fn emit_lazy_listing_expiry_updated(
+    creator_id: &AccountId,
+    listing_id: &str,
+    old_expires_at: Option<u64>,
+    new_expires_at: Option<u64>,
+) {
+    EventBuilder::new(LAZY_LISTING, "expiry_updated", creator_id)
+        .field("listing_id", listing_id)
+        .field_opt("old_expires_at", old_expires_at)
+        .field_opt("new_expires_at", new_expires_at)
         .emit();
 }
 

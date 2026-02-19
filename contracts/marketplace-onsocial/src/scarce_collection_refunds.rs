@@ -46,10 +46,14 @@ impl Contract {
         self.check_collection_authority(&caller, &collection)?;
 
         if collection.cancelled {
-            return Err(MarketplaceError::InvalidState("Collection is already cancelled".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Collection is already cancelled".into(),
+            ));
         }
 
-        let refundable_count = collection.minted_count.saturating_sub(collection.fully_redeemed_count);
+        let refundable_count = collection
+            .minted_count
+            .saturating_sub(collection.fully_redeemed_count);
         let required_deposit = refund_per_token.0 * refundable_count as u128;
 
         if deposit < required_deposit {
@@ -85,7 +89,11 @@ impl Contract {
 
     #[payable]
     #[handle_result]
-    pub fn claim_refund(&mut self, token_id: String, collection_id: String) -> Result<(), MarketplaceError> {
+    pub fn claim_refund(
+        &mut self,
+        token_id: String,
+        collection_id: String,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
         let caller = env::predecessor_account_id();
         self.internal_claim_refund(&caller, &token_id, &collection_id)
@@ -93,7 +101,10 @@ impl Contract {
 
     #[payable]
     #[handle_result]
-    pub fn withdraw_unclaimed_refunds(&mut self, collection_id: String) -> Result<(), MarketplaceError> {
+    pub fn withdraw_unclaimed_refunds(
+        &mut self,
+        collection_id: String,
+    ) -> Result<(), MarketplaceError> {
         check_one_yocto()?;
         let caller = env::predecessor_account_id();
 
@@ -106,7 +117,9 @@ impl Contract {
         self.check_collection_authority(&caller, &collection)?;
 
         if !collection.cancelled {
-            return Err(MarketplaceError::InvalidState("Collection is not cancelled".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Collection is not cancelled".into(),
+            ));
         }
 
         if let Some(deadline) = collection.refund_deadline {
@@ -119,14 +132,15 @@ impl Contract {
 
         let remaining = collection.refund_pool;
         if remaining == 0 {
-            return Err(MarketplaceError::InvalidState("No funds remaining in refund pool".into()));
+            return Err(MarketplaceError::InvalidState(
+                "No funds remaining in refund pool".into(),
+            ));
         }
 
         collection.refund_pool = 0;
         self.collections.insert(collection_id.clone(), collection);
 
-        let _ = Promise::new(caller.clone())
-            .transfer(NearToken::from_yoctonear(remaining));
+        let _ = Promise::new(caller.clone()).transfer(NearToken::from_yoctonear(remaining));
 
         events::emit_refund_pool_withdrawn(&caller, &collection_id, remaining);
         Ok(())
@@ -151,7 +165,9 @@ impl Contract {
             .clone();
 
         if !collection.cancelled {
-            return Err(MarketplaceError::InvalidState("Collection is not cancelled".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Collection is not cancelled".into(),
+            ));
         }
 
         let mut token = self
@@ -167,7 +183,9 @@ impl Contract {
         }
 
         if token.refunded {
-            return Err(MarketplaceError::InvalidState("Refund already claimed for this token".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Refund already claimed for this token".into(),
+            ));
         }
 
         // Block refund for fully-redeemed tokens
@@ -193,11 +211,11 @@ impl Contract {
         // Deduct from pool
         collection.refund_pool -= refund_amount;
         collection.refunded_count += 1;
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
         // Transfer refund
-        let _ = Promise::new(caller.clone())
-            .transfer(NearToken::from_yoctonear(refund_amount));
+        let _ = Promise::new(caller.clone()).transfer(NearToken::from_yoctonear(refund_amount));
 
         events::emit_refund_claimed(caller, token_id, collection_id, refund_amount);
         Ok(())

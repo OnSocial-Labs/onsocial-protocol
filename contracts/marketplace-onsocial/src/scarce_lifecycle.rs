@@ -26,7 +26,9 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
         if !collection.renewable {
-            return Err(MarketplaceError::InvalidState("Collection is not renewable".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Collection is not renewable".into(),
+            ));
         }
 
         self.check_collection_authority(actor_id, collection)?;
@@ -38,7 +40,9 @@ impl Contract {
             .clone();
 
         if new_expires_at <= env::block_timestamp() {
-            return Err(MarketplaceError::InvalidInput("New expiry must be in the future".into()));
+            return Err(MarketplaceError::InvalidInput(
+                "New expiry must be in the future".into(),
+            ));
         }
 
         let owner_id = token.owner_id.clone();
@@ -69,7 +73,9 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
         if collection.revocation_mode == RevocationMode::None {
-            return Err(MarketplaceError::InvalidState("Collection tokens are irrevocable".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Collection tokens are irrevocable".into(),
+            ));
         }
 
         self.check_collection_authority(actor_id, collection)?;
@@ -83,7 +89,9 @@ impl Contract {
                     .clone();
 
                 if token.revoked_at.is_some() {
-                    return Err(MarketplaceError::InvalidState("Token is already revoked".into()));
+                    return Err(MarketplaceError::InvalidState(
+                        "Token is already revoked".into(),
+                    ));
                 }
 
                 let owner_id = token.owner_id.clone();
@@ -97,8 +105,12 @@ impl Contract {
                 self.internal_remove_sale_listing(token_id, &owner_id, "revoked");
 
                 events::emit_token_revoked(
-                    actor_id, token_id, collection_id, &owner_id,
-                    "invalidate", memo.as_deref(),
+                    actor_id,
+                    token_id,
+                    collection_id,
+                    &owner_id,
+                    "invalidate",
+                    memo.as_deref(),
                 );
             }
             RevocationMode::Burn => {
@@ -115,8 +127,12 @@ impl Contract {
                 self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
                 events::emit_token_revoked(
-                    actor_id, token_id, collection_id, &owner_id,
-                    "burn", memo.as_deref(),
+                    actor_id,
+                    token_id,
+                    collection_id,
+                    &owner_id,
+                    "burn",
+                    memo.as_deref(),
                 );
             }
             RevocationMode::None => unreachable!(),
@@ -172,7 +188,8 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
-        let max_redeems = collection.max_redeems
+        let max_redeems = collection
+            .max_redeems
             .ok_or_else(|| MarketplaceError::InvalidState("Collection is not redeemable".into()))?;
 
         self.check_collection_authority(actor_id, &collection)?;
@@ -191,7 +208,9 @@ impl Contract {
         }
 
         if token.revoked_at.is_some() {
-            return Err(MarketplaceError::InvalidState("Cannot redeem a revoked token".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Cannot redeem a revoked token".into(),
+            ));
         }
 
         let owner_id = token.owner_id.clone();
@@ -205,9 +224,17 @@ impl Contract {
         if current_count >= max_redeems {
             collection.fully_redeemed_count += 1;
         }
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
-        events::emit_token_redeemed(actor_id, token_id, collection_id, &owner_id, current_count, max_redeems);
+        events::emit_token_redeemed(
+            actor_id,
+            token_id,
+            collection_id,
+            &owner_id,
+            current_count,
+            max_redeems,
+        );
         Ok(())
     }
 
@@ -215,7 +242,11 @@ impl Contract {
     ///
     /// App owners **cannot** manage individual collections — their only
     /// collection-level power is ban / unban (see `internal_ban_collection`).
-    pub(crate) fn check_collection_authority(&self, actor_id: &AccountId, collection: &LazyCollection) -> Result<(), MarketplaceError> {
+    pub(crate) fn check_collection_authority(
+        &self,
+        actor_id: &AccountId,
+        collection: &LazyCollection,
+    ) -> Result<(), MarketplaceError> {
         if actor_id == &collection.creator_id {
             return Ok(());
         }
@@ -240,7 +271,9 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
         if !collection.burnable {
-            return Err(MarketplaceError::InvalidState("Collection tokens are not burnable".into()));
+            return Err(MarketplaceError::InvalidState(
+                "Collection tokens are not burnable".into(),
+            ));
         }
 
         let token = self
