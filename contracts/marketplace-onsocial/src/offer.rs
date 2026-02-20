@@ -40,7 +40,6 @@ impl Contract {
     }
 
     /// Cancel an existing offer and reclaim escrowed NEAR.
-    #[payable]
     #[handle_result]
     pub fn cancel_offer(&mut self, token_id: String) -> Result<(), MarketplaceError> {
         let buyer_id = env::predecessor_account_id();
@@ -63,13 +62,12 @@ impl Contract {
 
     // ── Views ────────────────────────────────────────────────────────
 
-    /// Get a specific offer on a token.
     pub fn get_offer(&self, token_id: String, buyer_id: AccountId) -> Option<Offer> {
         let key = offer_key(&token_id, &buyer_id);
         self.offers.get(&key).cloned()
     }
 
-    /// Get all active offers on a token (paginated).
+    /// Returns offers on a token (paginated). Expired offers are not proactively removed.
     pub fn get_offers_for_token(
         &self,
         token_id: String,
@@ -112,7 +110,6 @@ impl Contract {
     }
 
     /// Cancel an existing collection offer and reclaim escrowed NEAR.
-    #[payable]
     #[handle_result]
     pub fn cancel_collection_offer(
         &mut self,
@@ -139,7 +136,6 @@ impl Contract {
 
     // ── Views ────────────────────────────────────────────────────────
 
-    /// Get a specific collection offer.
     pub fn get_collection_offer(
         &self,
         collection_id: String,
@@ -149,7 +145,7 @@ impl Contract {
         self.collection_offers.get(&key).cloned()
     }
 
-    /// Get all active collection offers (paginated).
+    /// Returns collection offers (paginated). Expired offers are not proactively removed.
     pub fn get_collection_offers(
         &self,
         collection_id: String,
@@ -180,27 +176,23 @@ impl Contract {
         amount: u128,
         expires_at: Option<u64>,
     ) -> Result<(), MarketplaceError> {
-        // Validate token exists
         let token = self
             .scarces_by_id
             .get(token_id)
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
 
-        // Cannot offer on your own token
         if &token.owner_id == buyer_id {
             return Err(MarketplaceError::InvalidInput(
                 "Cannot make an offer on your own token".into(),
             ));
         }
 
-        // Cannot offer on revoked tokens
         if token.revoked_at.is_some() {
             return Err(MarketplaceError::InvalidState(
                 "Cannot offer on a revoked token".into(),
             ));
         }
 
-        // Validate expiry
         if let Some(exp) = expires_at {
             if exp <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
@@ -211,7 +203,7 @@ impl Contract {
 
         let key = offer_key(token_id, buyer_id);
 
-        // If replacing an existing offer, refund the old amount
+        // Replacing an existing offer: refund old escrow and emit a cancel event before overwrite.
         if let Some(old_offer) = self.offers.remove(&key) {
             events::emit_offer_cancelled(buyer_id, token_id, old_offer.amount);
             let _ = Promise::new(old_offer.buyer_id)
@@ -225,13 +217,13 @@ impl Contract {
             created_at: env::block_timestamp(),
         };
 
-        // Measure storage and ensure the offer amount covers it
+        // Storage cost is measured post-insert. `amount` must exceed it so the
+        // escrowed deposit is economically meaningful after storage is accounted for.
         let before = env::storage_usage();
         self.offers.insert(key.clone(), offer);
         let bytes_used = env::storage_usage().saturating_sub(before);
         let storage_cost = (bytes_used as u128) * storage_byte_cost();
         if amount <= storage_cost {
-            // Offer amount is too small to even cover storage — reject
             let removed = self.offers.remove(&key);
             if let Some(o) = removed {
                 let _ = Promise::new(o.buyer_id).transfer(NearToken::from_yoctonear(o.amount));
@@ -257,7 +249,6 @@ impl Contract {
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Offer not found".into()))?;
 
-        // Refund escrowed NEAR
         let _ =
             Promise::new(offer.buyer_id.clone()).transfer(NearToken::from_yoctonear(offer.amount));
 
@@ -271,7 +262,6 @@ impl Contract {
         token_id: &str,
         buyer_id: &AccountId,
     ) -> Result<(), MarketplaceError> {
-        // Verify ownership
         let token = self
             .scarces_by_id
             .get(token_id)
@@ -282,17 +272,14 @@ impl Contract {
             ));
         }
 
-        // Find and remove the offer
         let key = offer_key(token_id, buyer_id);
         let offer = self
             .offers
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Offer not found".into()))?;
 
-        // Check expiry
         if let Some(exp) = offer.expires_at {
             if env::block_timestamp() > exp {
-                // Refund expired offer
                 let _ = Promise::new(offer.buyer_id.clone())
                     .transfer(NearToken::from_yoctonear(offer.amount));
                 return Err(MarketplaceError::InvalidState("Offer has expired".into()));
@@ -301,7 +288,6 @@ impl Contract {
 
         let amount = offer.amount;
 
-        // Transfer token to buyer
         self.internal_transfer(
             owner_id,
             buyer_id,
@@ -310,10 +296,9 @@ impl Contract {
             Some("Offer accepted on OnSocial Marketplace".to_string()),
         )?;
 
-        // Settle secondary sale
-        self.settle_secondary_sale(token_id, amount, owner_id)?;
+        let result = self.settle_secondary_sale(token_id, amount, owner_id)?;
 
-        events::emit_offer_accepted(buyer_id, owner_id, token_id, amount);
+        events::emit_offer_accepted(buyer_id, owner_id, token_id, amount, &result);
         Ok(())
     }
 
@@ -324,12 +309,10 @@ impl Contract {
         amount: u128,
         expires_at: Option<u64>,
     ) -> Result<(), MarketplaceError> {
-        // Validate collection exists
         if !self.collections.contains_key(collection_id) {
             return Err(MarketplaceError::NotFound("Collection not found".into()));
         }
 
-        // Validate expiry
         if let Some(exp) = expires_at {
             if exp <= env::block_timestamp() {
                 return Err(MarketplaceError::InvalidInput(
@@ -340,7 +323,7 @@ impl Contract {
 
         let key = collection_offer_key(collection_id, buyer_id);
 
-        // If replacing, refund old amount
+        // Replacing an existing offer: refund old escrow and emit a cancel event before overwrite.
         if let Some(old_offer) = self.collection_offers.remove(&key) {
             events::emit_collection_offer_cancelled(buyer_id, collection_id, old_offer.amount);
             let _ = Promise::new(old_offer.buyer_id)
@@ -354,7 +337,8 @@ impl Contract {
             created_at: env::block_timestamp(),
         };
 
-        // Measure storage and ensure the offer amount covers it
+        // Storage cost is measured post-insert. `amount` must exceed it so the
+        // escrowed deposit is economically meaningful after storage is accounted for.
         let before = env::storage_usage();
         self.collection_offers.insert(key.clone(), offer);
         let bytes_used = env::storage_usage().saturating_sub(before);
@@ -399,10 +383,8 @@ impl Contract {
         token_id: &str,
         buyer_id: &AccountId,
     ) -> Result<(), MarketplaceError> {
-        // Verify token belongs to collection
         check_token_in_collection(token_id, collection_id)?;
 
-        // Verify ownership
         let token = self
             .scarces_by_id
             .get(token_id)
@@ -413,14 +395,18 @@ impl Contract {
             ));
         }
 
-        // Find and remove the collection offer
+        if buyer_id == owner_id {
+            return Err(MarketplaceError::InvalidInput(
+                "Cannot accept your own collection offer".into(),
+            ));
+        }
+
         let key = collection_offer_key(collection_id, buyer_id);
         let offer = self
             .collection_offers
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Collection offer not found".into()))?;
 
-        // Check expiry
         if let Some(exp) = offer.expires_at {
             if env::block_timestamp() > exp {
                 let _ = Promise::new(offer.buyer_id.clone())
@@ -433,7 +419,6 @@ impl Contract {
 
         let amount = offer.amount;
 
-        // Transfer token to buyer
         self.internal_transfer(
             owner_id,
             buyer_id,
@@ -442,10 +427,9 @@ impl Contract {
             Some("Collection offer accepted on OnSocial Marketplace".to_string()),
         )?;
 
-        // Settle secondary sale
-        self.settle_secondary_sale(token_id, amount, owner_id)?;
+        let result = self.settle_secondary_sale(token_id, amount, owner_id)?;
 
-        events::emit_collection_offer_accepted(buyer_id, owner_id, collection_id, token_id, amount);
+        events::emit_collection_offer_accepted(buyer_id, owner_id, collection_id, token_id, amount, &result);
         Ok(())
     }
 }

@@ -90,6 +90,35 @@ impl Contract {
     }
 }
 
+// ── Unused deposit finalization ───────────────────────────────────────────────
+
+impl Contract {
+    /// After a successful `execute()` dispatch, handle any remaining attached deposit.
+    /// If `refund_unused_deposit` is true, refund via transfer; otherwise credit user storage.
+    pub(crate) fn finalize_unused_deposit(
+        &mut self,
+        amount: u128,
+        deposit_owner: &AccountId,
+        options: &crate::Options,
+    ) {
+        if options.refund_unused_deposit {
+            let _ = Promise::new(deposit_owner.clone())
+                .transfer(NearToken::from_yoctonear(amount));
+            events::emit_storage_refund(deposit_owner, amount);
+        } else {
+            let mut user = self
+                .user_storage
+                .get(deposit_owner)
+                .cloned()
+                .unwrap_or_default();
+            user.balance += amount;
+            let new_balance = user.balance;
+            self.user_storage.insert(deposit_owner.clone(), user);
+            events::emit_storage_deposit(deposit_owner, amount, new_balance);
+        }
+    }
+}
+
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
 impl Contract {
@@ -210,7 +239,16 @@ impl Contract {
             return;
         }
 
-        // Mirror Tier 2: credit back to platform pool (no app_id)
+        // Mirror Tier 2/3 in reverse: if Tier 3 was used (user has tracked used_bytes),
+        // release from user balance first; only credit platform pool if user had no bytes.
+        if let Some(mut user) = self.user_storage.remove(account_id) {
+            if user.used_bytes >= bytes_freed {
+                user.used_bytes -= bytes_freed;
+                self.user_storage.insert(account_id.clone(), user);
+                return;
+            }
+            self.user_storage.insert(account_id.clone(), user);
+        }
         let cost = (bytes_freed as u128) * storage_byte_cost();
         self.platform_storage_balance += cost;
     }

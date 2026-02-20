@@ -108,6 +108,7 @@ pub enum StorageKey {
     Offers,
     CollectionOffers,
     LazyListings,
+    ApprovedNftContracts,
 }
 
 // ── Contract State ───────────────────────────────────────────────────────────
@@ -127,72 +128,57 @@ pub enum StorageKey {
 )]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    // ===== CONTRACT VERSION =====
     /// Semantic version from Cargo.toml, updated on each migration.
     pub version: String,
 
-    // ===== MARKETPLACE STATE =====
     pub owner_id: AccountId,
     pub fee_recipient: AccountId,
     pub sales: IterableMap<String, Sale>,
     pub by_owner_id: LookupMap<AccountId, IterableSet<String>>,
     pub by_scarce_contract_id: LookupMap<AccountId, IterableSet<String>>,
 
-    // ===== NATIVE SCARCE STATE =====
     pub scarces_per_owner: LookupMap<AccountId, IterableSet<String>>,
     pub scarces_by_id: IterableMap<String, Scarce>,
     pub next_approval_id: u64,
-    /// Auto-incrementing ID for standalone (non-collection) quick mints.
+    /// Shared counter for standalone quick-mints and lazy listings.
     pub next_token_id: u64,
 
-    // ===== COLLECTION STATE =====
     pub collections: IterableMap<String, LazyCollection>,
     pub collections_by_creator: LookupMap<AccountId, IterableSet<String>>,
 
-    // ===== FEE CONFIG =====
     pub fee_config: FeeConfig,
 
-    // ===== STORAGE: 3-TIER SYSTEM =====
-    /// Tier 1: Per-app isolated storage pools
+    /// T1: Per-app isolated storage pool. Key: app_id.
     pub app_pools: LookupMap<AccountId, AppPool>,
-    /// Tier 1: Per-(user, app) byte usage tracking — key: "user_id:app_id"
+    /// T1: Per-(user, app) byte usage. Key: "user_id:app_id".
     pub app_user_usage: LookupMap<String, u64>,
-    /// Tier 2: Platform storage pool funded by platform_storage_fee_bps on each sale.
-    /// Sponsors storage for standalone (no-app) operations so users never pay hidden storage costs.
+    /// T2: Platform pool funded by `platform_storage_fee_bps` on every sale.
+    /// Sponsors storage for no-app operations.
     pub platform_storage_balance: u128,
-    /// Tier 3: Per-user manual storage deposits
+    /// T3: Per-user manual storage deposits.
     pub user_storage: LookupMap<AccountId, UserStorageBalance>,
 
-    // ===== COLLECTION MINT TRACKING =====
-    /// Per-(collection, wallet) mint count for max_per_wallet enforcement.
-    /// Key: "collection_id:account_id", Value: number of tokens minted.
+    /// Key: "collection_id:account_id". Enforces `max_per_wallet` and allowlist quotas.
     pub collection_mint_counts: LookupMap<String, u32>,
 
-    // ===== ALLOWLIST =====
-    /// Per-(collection, wallet) allowlist allocation.
-    /// Key: "{collection_id}:al:{account_id}", Value: max tokens this wallet can mint early.
-    /// Before `start_time`, only wallets with allocation > 0 can purchase.
+    /// Key: "{collection_id}:al:{account_id}". Non-zero value = wallet may mint before `start_time`.
     pub collection_allowlist: LookupMap<String, u32>,
 
-    // ===== OFFERS =====
-    /// Per-token offers — key: "{token_id}\0{buyer_id}".
-    /// NEAR is held in escrow until accepted, cancelled, or expired.
+    /// Per-token offers. Key: "{token_id}\0{buyer_id}". NEAR held in escrow.
     pub offers: IterableMap<String, Offer>,
-    /// Per-collection floor offers — key: "{collection_id}\0{buyer_id}".
+    /// Per-collection floor offers. Key: "{collection_id}\0{buyer_id}".
     pub collection_offers: IterableMap<String, CollectionOffer>,
 
-    // ===== LAZY LISTINGS =====
-    /// Lazy listings: metadata + price stored; token minted on purchase.
-    /// Key: `"ll:{next_token_id}"` (shares the counter with QuickMint).
+    /// Key: "ll:{next_token_id}". Token minted on purchase; counter shared with QuickMint.
     pub lazy_listings: IterableMap<String, LazyListingRecord>,
 
-    // ===== AUTH =====
     pub intents_executors: Vec<AccountId>,
 
-    // ===== NFT CONTRACT METADATA (NEP-177) =====
-    /// Configurable contract-level metadata: name, symbol, icon, base_uri.
-    /// Returned by nft_metadata(). Updatable by contract owner.
+    /// Contract-level NEP-177 metadata (name, symbol, icon, base_uri). Updatable by owner.
     pub contract_metadata: external::ScarceContractMetadata,
+
+    /// Allowlisted external NFT contracts trusted to call `nft_on_approve`.
+    pub approved_nft_contracts: IterableSet<AccountId>,
 }
 
 // ── Unified execute() entry point ────────────────────────────────────────────
@@ -213,10 +199,11 @@ impl Contract {
             target_account,
             action,
             auth,
-            options: _options,
+            options,
         } = request;
 
         let auth = auth.unwrap_or_default();
+        let options = options.unwrap_or_default();
 
         let action_json = near_sdk::serde_json::to_value(&action)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize action".into()))?;
@@ -232,12 +219,24 @@ impl Contract {
         .map_err(|e| MarketplaceError::Unauthorized(format!("Auth failed: {:?}", e)))?;
 
         let actor_id = auth_ctx.actor_id.clone();
+        let deposit_owner = auth_ctx.deposit_owner.clone();
+        let mut attached_balance = auth_ctx.attached_balance;
 
-        // Record nonce if signed auth was used
         if let Some((ref owner, ref public_key, nonce)) = auth_ctx.signed_nonce {
-            onsocial_auth::nonce::record_nonce(protocol::NONCE_PREFIX, owner, public_key, nonce);
+            let new_bytes =
+                onsocial_auth::nonce::record_nonce(protocol::NONCE_PREFIX, owner, public_key, nonce);
+            if new_bytes > 0 {
+                let cost = new_bytes as u128 * env::storage_byte_cost().as_yoctonear();
+                attached_balance = attached_balance.saturating_sub(cost);
+            }
         }
 
-        self.dispatch_action(action, &actor_id)
+        let result = self.dispatch_action(action, &actor_id)?;
+
+        if attached_balance > 0 {
+            self.finalize_unused_deposit(attached_balance, &deposit_owner, &options);
+        }
+
+        Ok(result)
     }
 }

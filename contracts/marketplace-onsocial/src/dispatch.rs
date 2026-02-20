@@ -85,15 +85,6 @@ impl Contract {
                 self.internal_cancel_auction(actor_id, &token_id)?;
                 Ok(Value::Null)
             }
-            // NOTE: ListScarce requires cross-contract verification, so it cannot
-            // be fully resolved in execute(). The actor must still use the
-            // #[payable] list_scarce_for_sale() method with deposit.
-            // We handle the gasless-compatible actions here.
-            Action::ListScarce { .. } => Err(MarketplaceError::InvalidInput(
-                "ListScarce requires cross-contract approval checks. \
-                     Use list_scarce_for_sale() with attached deposit instead."
-                    .into(),
-            )),
             Action::DelistScarce {
                 scarce_contract_id,
                 token_id,
@@ -301,6 +292,7 @@ impl Contract {
 
             // ── Offers ───────────────────────────────────────────────
             Action::AcceptOffer { token_id, buyer_id } => {
+                crate::internal::check_one_yocto()?;
                 self.internal_accept_offer(actor_id, &token_id, &buyer_id)?;
                 Ok(Value::Null)
             }
@@ -313,6 +305,7 @@ impl Contract {
                 token_id,
                 buyer_id,
             } => {
+                crate::internal::check_one_yocto()?;
                 self.internal_accept_collection_offer(
                     actor_id,
                     &collection_id,

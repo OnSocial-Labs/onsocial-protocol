@@ -26,6 +26,11 @@ impl Contract {
                 MAX_TOKEN_ID_LEN
             )));
         }
+        if sale_conditions.0 == 0 {
+            return Err(MarketplaceError::InvalidInput(
+                "Price must be greater than 0".into(),
+            ));
+        }
 
         let owner_id = env::predecessor_account_id();
 
@@ -140,6 +145,12 @@ impl Contract {
             auction: None,
         };
 
+        let sale_id_check = Contract::make_sale_id(&scarce_contract_id, &token_id);
+        if self.sales.contains_key(&sale_id_check) {
+            env::log_str("Listing skipped: sale already exists (concurrent listing)");
+            return;
+        }
+
         let before = env::storage_usage();
         self.internal_add_sale(sale);
         let after = env::storage_usage();
@@ -187,7 +198,10 @@ impl Contract {
         }
 
         let owner_id = sale.owner_id.clone();
+        let before_remove = env::storage_usage();
         self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone())?;
+        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        self.release_storage_waterfall(&owner_id, bytes_freed, None);
 
         events::emit_scarce_delist(&owner_id, &scarce_contract_id, vec![token_id]);
         Ok(())
@@ -267,10 +281,28 @@ impl Contract {
 
         let owner_id = sale.owner_id.clone();
 
+        if let Some(tgas) = scarce_transfer_gas_tgas {
+            if tgas > 300 {
+                return Err(MarketplaceError::InvalidInput(
+                    "scarce_transfer_gas_tgas exceeds maximum of 300".into(),
+                ));
+            }
+        }
+        if let Some(tgas) = resolve_purchase_gas_tgas {
+            if tgas > 300 {
+                return Err(MarketplaceError::InvalidInput(
+                    "resolve_purchase_gas_tgas exceeds maximum of 300".into(),
+                ));
+            }
+        }
+
         // Remove sale BEFORE cross-contract call to prevent race condition.
         // If the NFT transfer fails, resolve_purchase will detect the missing
         // sale and refund the buyer.
+        let before_remove = env::storage_usage();
         self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone())?;
+        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        self.release_storage_waterfall(&owner_id, bytes_freed, None);
 
         let max_payout_recipients = max_len_payout.unwrap_or(10).min(20);
         let transfer_gas = scarce_transfer_gas_tgas.unwrap_or(DEFAULT_SCARCE_TRANSFER_GAS);
@@ -306,19 +338,10 @@ impl Contract {
             ))
     }
 
-    /// Resolve purchase: distribute payments with fee split.
-    /// SAFETY: This is a callback — must NEVER panic. The NFT transfer on the external
-    /// contract has already completed and is irreversible. If we panic here, the buyer
-    /// gets the NFT for free because payment distribution is rolled back.
-    /// Resolve purchase callback.
-    ///
-    /// The sale was already removed in `offer()` before the cross-contract call.
-    /// `seller_id` is passed from the caller so we don't need to look it up.
-    ///
-    /// SAFETY: This is a callback — must NEVER panic. The NFT transfer on the
-    /// external contract has already completed and is irreversible. If we panic
-    /// here, the buyer gets the NFT for free because payment distribution is
-    /// rolled back.
+    /// Distributes sale proceeds after `nft_transfer_payout` completes.
+    /// SAFETY: Must NEVER panic — the NFT transfer is irreversible. A panic here
+    /// forfeits payment distribution, giving the buyer the NFT for free.
+    /// `seller_id` is passed explicitly because the sale is removed before this callback fires.
     #[private]
     pub fn resolve_purchase(
         &mut self,
@@ -332,7 +355,6 @@ impl Contract {
         let payout_option = match env::promise_result_checked(0, 4096) {
             Ok(value) => {
                 if let Ok(payout) = near_sdk::serde_json::from_slice::<Payout>(&value) {
-                    // Validate payout gracefully — never panic after irreversible transfer
                     if payout.payout.is_empty() {
                         env::log_str(
                             "Warning: empty payout from NFT contract, paying seller directly",
@@ -353,7 +375,6 @@ impl Contract {
                 }
             }
             Err(_) => {
-                // Transfer failed → refund buyer
                 events::emit_scarce_purchase_failed(
                     &buyer_id,
                     &seller_id,
@@ -371,18 +392,15 @@ impl Contract {
         };
 
         // Route fee: revenue to platform (no app_id for external scarce sales)
+        let (total_fee, _, _, _) = self.internal_calculate_fee_split(price.0, None);
         let (revenue, app_pool_amount) = self.route_fee(price.0, None);
-        let total_fee = revenue + app_pool_amount;
         let amount_after_fee = price.0.saturating_sub(total_fee);
 
         if let Some(payout) = payout_option {
             self.distribute_payout(&payout, amount_after_fee, &seller_id);
-        } else {
-            // No payout → pay seller directly
-            if amount_after_fee > 0 {
-                let _ = Promise::new(seller_id.clone())
-                    .transfer(NearToken::from_yoctonear(amount_after_fee));
-            }
+        } else if amount_after_fee > 0 {
+            let _ = Promise::new(seller_id.clone())
+                .transfer(NearToken::from_yoctonear(amount_after_fee));
         }
 
         events::emit_scarce_purchase(
@@ -395,7 +413,6 @@ impl Contract {
             app_pool_amount,
         );
 
-        // Refund excess deposit
         crate::internal::refund_excess(&buyer_id, deposit.0, price.0);
 
         price
@@ -418,7 +435,6 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("No sale found".into()))?
             .clone();
 
-        // Verify this is actually a native scarce listing (not an auction)
         match &sale.sale_type {
             SaleType::NativeScarce { .. } => {}
             _ => {
@@ -428,7 +444,6 @@ impl Contract {
             }
         }
 
-        // Block purchase of auction listings — use place_bid() instead
         if sale.auction.is_some() {
             return Err(MarketplaceError::InvalidInput(
                 "This is an auction listing — use place_bid() to bid or wait for settlement".into(),
@@ -460,9 +475,10 @@ impl Contract {
         let seller_id = sale.owner_id.clone();
 
         // Remove sale listing first (reentrancy protection)
+        let before_remove = env::storage_usage();
         self.internal_remove_sale(env::current_account_id(), token_id.clone())?;
+        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
 
-        // Verify token still exists and is valid
         let token = self
             .scarces_by_id
             .get(&token_id)
@@ -479,7 +495,6 @@ impl Contract {
             ));
         }
 
-        // Check if token has expired
         if let Some(expires_at) = token.metadata.expires_at {
             if env::block_timestamp() >= expires_at {
                 return Err(MarketplaceError::InvalidState(
@@ -488,7 +503,12 @@ impl Contract {
             }
         }
 
-        // Transfer the native scarce to buyer
+        let listing_app_id = {
+            let token_app_id = token.app_id.clone();
+            self.resolve_token_app_id(&token_id, token_app_id.as_ref())
+        };
+        self.release_storage_waterfall(&seller_id, bytes_freed, listing_app_id.as_ref());
+
         self.internal_transfer(
             &seller_id,
             &buyer_id,
@@ -500,7 +520,6 @@ impl Contract {
         // Settle secondary sale: fee routing + royalty distribution
         let result = self.settle_secondary_sale(&token_id, price, &seller_id)?;
 
-        // Refund excess
         crate::internal::refund_excess(&buyer_id, deposit, price);
 
         events::emit_scarce_purchase(
@@ -543,8 +562,12 @@ impl Contract {
                 "Cannot list a revoked token for sale".into(),
             ));
         }
+        if price.0 == 0 {
+            return Err(MarketplaceError::InvalidInput(
+                "Price must be greater than 0".into(),
+            ));
+        }
 
-        // Block listing of soulbound (non-transferable) tokens.
         self.check_transferable(token, token_id, "list for sale")?;
 
         // Grab app_id before dropping the immutable borrow.
@@ -580,8 +603,7 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Charge storage via waterfall.
-        // Standalone tokens carry their own app_id; collection tokens inherit.
+        // Standalone tokens carry their own app_id; collection tokens inherit from the collection.
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
         self.charge_storage_waterfall(owner_id, bytes_used as u64, app_id.as_ref())?;
 
@@ -607,14 +629,21 @@ impl Contract {
             ));
         }
 
+        let listing_app_id = {
+            let token_app_id = self.scarces_by_id.get(token_id).and_then(|t| t.app_id.clone());
+            self.resolve_token_app_id(token_id, token_app_id.as_ref())
+        };
+        let before_remove = env::storage_usage();
         self.internal_remove_sale(env::current_account_id(), token_id.to_string())?;
+        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        self.release_storage_waterfall(owner_id, bytes_freed, listing_app_id.as_ref());
 
         events::emit_native_scarce_delisted(owner_id, token_id);
         Ok(())
     }
 }
 
-// ── Sale-listing helpers (moved from lib.rs) ─────────────────────────────────
+// ── Sale-listing helpers ─────────────────────────────────────────────────────
 
 impl Contract {
     /// Delist a scarce (used by execute dispatch and remove_sale)
@@ -635,7 +664,10 @@ impl Contract {
             ));
         }
         let owner_id = sale.owner_id.clone();
+        let before_remove = env::storage_usage();
         self.internal_remove_sale(scarce_contract_id.clone(), token_id.to_string())?;
+        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        self.release_storage_waterfall(&owner_id, bytes_freed, None);
         events::emit_scarce_delist(&owner_id, scarce_contract_id, vec![token_id.to_string()]);
         Ok(())
     }

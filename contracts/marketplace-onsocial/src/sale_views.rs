@@ -1,21 +1,16 @@
-// View/enumeration methods for querying marketplace data
-
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Get a specific sale by Scarce contract and token ID
     pub fn get_sale(&self, scarce_contract_id: AccountId, token_id: String) -> Option<Sale> {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         self.sales.get(&sale_id).cloned()
     }
 
-    /// Get total number of sales on the marketplace
     pub fn get_supply_sales(&self) -> u64 {
         self.sales.len() as u64
     }
 
-    /// Get number of sales by a specific owner
     pub fn get_supply_by_owner_id(&self, account_id: AccountId) -> u64 {
         self.by_owner_id
             .get(&account_id)
@@ -23,7 +18,6 @@ impl Contract {
             .unwrap_or(0)
     }
 
-    /// Get number of sales from a specific Scarce contract
     pub fn get_supply_by_scarce_contract_id(&self, scarce_contract_id: AccountId) -> u64 {
         self.by_scarce_contract_id
             .get(&scarce_contract_id)
@@ -31,7 +25,6 @@ impl Contract {
             .unwrap_or(0)
     }
 
-    /// Get paginated sales by owner
     pub fn get_sales_by_owner_id(
         &self,
         account_id: AccountId,
@@ -47,7 +40,7 @@ impl Contract {
         };
 
         let start = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(50).min(100); // Max 100 per query
+        let limit = limit.unwrap_or(50).min(100);
 
         sales
             .iter()
@@ -57,7 +50,6 @@ impl Contract {
             .collect()
     }
 
-    /// Get paginated sales by Scarce contract
     pub fn get_sales_by_scarce_contract_id(
         &self,
         scarce_contract_id: AccountId,
@@ -73,7 +65,7 @@ impl Contract {
         };
 
         let start = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(50).min(100); // Max 100 per query
+        let limit = limit.unwrap_or(50).min(100);
 
         sales
             .iter()
@@ -83,10 +75,9 @@ impl Contract {
             .collect()
     }
 
-    /// Get all sales with pagination
     pub fn get_sales(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<Sale> {
         let start = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(50).min(100); // Max 100 per query
+        let limit = limit.unwrap_or(50).min(100);
 
         self.sales
             .iter()
@@ -96,41 +87,36 @@ impl Contract {
             .collect()
     }
 
-    /// Check if a sale has expired
-    pub fn is_sale_expired(&self, scarce_contract_id: AccountId, token_id: String) -> bool {
+    /// Returns `None` if no sale exists for this token, `Some(false)` if active or has no
+    /// expiry, `Some(true)` if the expiry timestamp has passed.
+    pub fn is_sale_expired(&self, scarce_contract_id: AccountId, token_id: String) -> Option<bool> {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-        if let Some(sale) = self.sales.get(&sale_id) {
-            if let Some(expiration) = sale.expires_at {
-                let now = env::block_timestamp();
-                return now > expiration;
-            }
-        }
-        false
+        let sale = self.sales.get(&sale_id)?;
+        Some(sale.expires_at.is_some_and(|exp| env::block_timestamp() > exp))
     }
 
-    /// Get all expired sales (for cleanup)
-    /// Note: For large datasets, use Substreams to track expirations
+    /// Scans from `from_index`; for large datasets, index expirations off-chain via Substreams.
     pub fn get_expired_sales(
         &self,
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<(String, Sale)> {
         let start = from_index.unwrap_or(0) as usize;
-        let limit = limit.unwrap_or(50).min(100); // Max 100 per query
+        let limit = limit.unwrap_or(50).min(100);
         let now = env::block_timestamp();
 
         self.sales
             .iter()
-            .filter(|(_, sale)| sale.expires_at.is_some_and(|exp| now > exp))
             .skip(start)
+            .filter(|(_, sale)| sale.expires_at.is_some_and(|exp| now > exp))
             .take(limit as usize)
             .map(|(id, sale)| (id.clone(), sale.clone()))
             .collect()
     }
 
-    // ── Auction view helpers ─────────────────────────────────────────────────
+    // --- Auction view helpers ---
 
-    /// Get auction details for a native scarce. Returns None for fixed-price sales.
+    /// Returns `None` if no auction listing exists for this token.
     pub fn get_auction(&self, token_id: String) -> Option<AuctionView> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
         let sale = self.sales.get(&sale_id)?;
@@ -151,15 +137,14 @@ impl Contract {
         })
     }
 
-    /// Get all active auctions with pagination.
     pub fn get_auctions(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<AuctionView> {
         let start = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(50).min(100);
 
         self.sales
             .iter()
-            .filter(|(_, sale)| sale.auction.is_some())
             .skip(start as usize)
+            .filter(|(_, sale)| sale.auction.is_some())
             .take(limit as usize)
             .filter_map(|(_, sale)| {
                 let auction = sale.auction.as_ref()?;
@@ -187,7 +172,6 @@ impl Contract {
     }
 }
 
-/// Read-only auction information returned by views.
 #[near(serializers = [json])]
 pub struct AuctionView {
     pub token_id: String,

@@ -1,14 +1,11 @@
-// Scarce callback implementations (NEP-178)
-
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Called by Scarce contract when marketplace is approved
-    /// This is part of the NEP-178 approval management standard
-    ///
-    /// Can be used to automatically list a Scarce when approved,
-    /// or just as a notification that approval was granted
+    /// NEP-178 callback invoked by an external NFT contract after it approves the marketplace.
+    /// If `msg` contains `{"sale_conditions": "<yoctoNEAR>"}` and the caller is allowlisted,
+    /// auto-creates a fixed-price listing. Otherwise, acknowledges without side-effects.
+    #[payable]
     #[handle_result]
     pub fn nft_on_approve(
         &mut self,
@@ -20,7 +17,7 @@ impl Contract {
         let scarce_contract_id = env::predecessor_account_id();
         let signer_id = env::signer_account_id();
 
-        if scarce_contract_id == signer_id {
+        if scarce_contract_id == signer_id || scarce_contract_id == env::current_account_id() {
             return Err(MarketplaceError::Unauthorized(
                 "nft_on_approve must be called by an NFT contract".to_string(),
             ));
@@ -33,15 +30,21 @@ impl Contract {
             )));
         }
 
-        // Verify the signer is the owner
         if owner_id != signer_id {
             return Err(MarketplaceError::Unauthorized(
                 "Only the token owner can approve the marketplace".to_string(),
             ));
         }
 
-        // Parse the message to get sale conditions
-        // Message format: {"sale_conditions": "1000000000000000000000000"}
+        // `predecessor_account_id` is the only unforgeable input; all other params are caller-supplied.
+        if !self.approved_nft_contracts.contains(&scarce_contract_id) {
+            env::log_str(&format!(
+                "Marketplace approved for {}.{} by {} (contract not allowlisted — use list_scarce_for_sale to list)",
+                scarce_contract_id, token_id, owner_id
+            ));
+            return Ok(PromiseOrValue::Value("Approval acknowledged".to_string()));
+        }
+
         if !msg.is_empty() {
             if let Ok(sale_data) =
                 near_sdk::serde_json::from_str::<near_sdk::serde_json::Value>(&msg)
@@ -49,8 +52,14 @@ impl Contract {
                 if let Some(sale_conditions) = sale_data.get("sale_conditions") {
                     if let Some(price_str) = sale_conditions.as_str() {
                         if let Ok(price) = price_str.parse::<u128>() {
-                            // Check if a sale already exists (prevent silent overwrite)
-                            let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
+                            if price == 0 {
+                                return Err(MarketplaceError::InvalidInput(
+                                    "Price must be greater than 0".to_string(),
+                                ));
+                            }
+
+                            let sale_id =
+                                Contract::make_sale_id(&scarce_contract_id, &token_id);
                             if self.sales.contains_key(&sale_id) {
                                 env::log_str(&format!(
                                     "Sale already exists for {}.{} — use update_price to change",
@@ -61,7 +70,6 @@ impl Contract {
                                 ));
                             }
 
-                            // Measure storage and charge via waterfall
                             let sale = Sale {
                                 owner_id: owner_id.clone(),
                                 sale_conditions: U128(price),
@@ -88,11 +96,6 @@ impl Contract {
                                 vec![U128(price)],
                             );
 
-                            env::log_str(&format!(
-                                "Scarce auto-listed: {} listed {}.{} for {} yoctoNEAR via approval",
-                                owner_id, scarce_contract_id, token_id, price
-                            ));
-
                             return Ok(PromiseOrValue::Value("Listed successfully".to_string()));
                         }
                     }
@@ -100,7 +103,6 @@ impl Contract {
             }
         }
 
-        // If no valid message, just acknowledge approval
         env::log_str(&format!(
             "Marketplace approved for {}.{} by {}",
             scarce_contract_id, token_id, owner_id

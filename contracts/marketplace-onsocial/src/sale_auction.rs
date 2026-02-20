@@ -4,7 +4,7 @@
 use crate::*;
 use near_sdk::json_types::U128;
 
-// ── Internal auction helpers ─────────────────────────────────────────────────
+// --- Internal auction helpers ---
 
 impl Contract {
     /// List a native scarce for English auction.
@@ -26,7 +26,12 @@ impl Contract {
         let min_bid_increment = min_bid_increment.0;
         let buy_now_price = buy_now_price.map(|p| p.0);
 
-        // Validate the token
+        if min_bid_increment == 0 {
+            return Err(MarketplaceError::InvalidInput(
+                "min_bid_increment must be greater than zero".into(),
+            ));
+        }
+
         let token = self
             .scarces_by_id
             .get(token_id)
@@ -42,7 +47,6 @@ impl Contract {
             ));
         }
 
-        // Block soulbound (non-transferable) tokens.
         self.check_transferable(token, token_id, "auction")?;
 
         // Grab app_id before dropping the immutable borrow.
@@ -55,7 +59,7 @@ impl Contract {
             ));
         }
 
-        // Must have either a fixed expiry or an auction_duration_ns (Foundation-style)
+        // Foundation-style: timer starts on first qualifying bid; fixed-expiry auctions set expires_at directly.
         if expires_at.is_none() && auction_duration_ns.is_none() {
             return Err(MarketplaceError::InvalidInput(
                 "Auction needs either expires_at or auction_duration_ns".into(),
@@ -87,6 +91,8 @@ impl Contract {
             buy_now_price,
         };
 
+        events::emit_auction_created(owner_id, token_id, &auction, expires_at);
+
         let sale = Sale {
             owner_id: owner_id.clone(),
             sale_conditions: U128(reserve_price),
@@ -106,12 +112,10 @@ impl Contract {
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
         self.charge_storage_waterfall(owner_id, bytes_used as u64, app_id.as_ref())?;
 
-        events::emit_auction_created(owner_id, token_id, reserve_price, buy_now_price);
         Ok(())
     }
 
-    /// Settle a completed auction. Anyone may call once the timer has expired.
-    /// When `force_settle` is true, the expiry check is skipped (used by buy-now).
+    /// Settle a completed auction. Callable by anyone once expired.
     pub(crate) fn internal_settle_auction(
         &mut self,
         _actor_id: &AccountId,
@@ -120,7 +124,7 @@ impl Contract {
         self.internal_settle_auction_impl(_actor_id, token_id, false)
     }
 
-    /// Settle an auction immediately (buy-now path). Skips the expiry check.
+    /// Settle immediately; skips expiry check. Used by the buy-now path.
     pub(crate) fn internal_settle_auction_buynow(
         &mut self,
         actor_id: &AccountId,
@@ -147,7 +151,7 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
 
         if !force_settle {
-            // Must be past expiry (for Foundation-style, expires_at is set on first bid)
+            // For Foundation-style auctions expires_at is absent until the first bid.
             let expires = sale.expires_at.ok_or_else(|| {
                 MarketplaceError::InvalidState("Auction has no expiry yet (no bids placed)".into())
             })?;
@@ -162,11 +166,10 @@ impl Contract {
         let winning_bid = auction.highest_bid;
         let winner = auction.highest_bidder.clone();
 
-        // Remove the sale first (reentrancy protection)
+        // Remove before any Promises to prevent reentrancy.
         self.internal_remove_sale(env::current_account_id(), token_id.to_string())?;
 
         if winning_bid >= auction.reserve_price && winning_bid > 0 {
-            // Reserve met → transfer NFT to winner, pay seller
             let winner_id = winner.ok_or_else(|| {
                 MarketplaceError::InternalError("highest_bid > 0 but no bidder".into())
             })?;
@@ -190,7 +193,7 @@ impl Contract {
                 result.app_pool_amount,
             );
         } else {
-            // Reserve not met (or no bids) → refund highest bidder if any
+            // Reserve unmet: refund the highest bidder if one exists.
             if let Some(bidder) = winner {
                 if winning_bid > 0 {
                     let _ = Promise::new(bidder.clone())
@@ -235,7 +238,7 @@ impl Contract {
     }
 }
 
-// ── Place Bid (payable, standalone method) ───────────────────────────────────
+// --- Place Bid ---
 
 #[near]
 impl Contract {
@@ -263,7 +266,7 @@ impl Contract {
             ));
         }
 
-        // If Foundation-style (no initial expires_at), first qualifying bid starts the timer
+        // Foundation-style: first qualifying bid starts the timer.
         if sale.expires_at.is_none() {
             let duration = auction.auction_duration_ns.ok_or_else(|| {
                 MarketplaceError::InvalidState("Auction has no expiry and no duration".into())
@@ -281,9 +284,8 @@ impl Contract {
             return Err(MarketplaceError::InvalidState("Auction has ended".into()));
         }
 
-        // Validate bid amount
+        // First bid must clear reserve and min_bid_increment; subsequent bids must exceed prior by min_bid_increment.
         let min_required = if auction.highest_bid == 0 {
-            // First bid on a timed auction: just needs min_bid_increment (or reserve if set)
             auction.reserve_price.max(auction.min_bid_increment)
         } else {
             auction.highest_bid + auction.min_bid_increment
@@ -295,7 +297,6 @@ impl Contract {
             )));
         }
 
-        // Refund previous highest bidder
         let prev_bidder = auction.highest_bidder.clone();
         let prev_bid = auction.highest_bid;
         if let Some(ref prev) = prev_bidder {
@@ -304,27 +305,27 @@ impl Contract {
             }
         }
 
-        // Update auction state
         auction.highest_bid = bid;
         auction.highest_bidder = Some(bidder.clone());
         auction.bid_count += 1;
 
-        // Anti-snipe extension
+        // Extend deadline if bid arrives in the final window; saturating to prevent u64 overflow.
         if auction.anti_snipe_extension_ns > 0 {
             let time_left = expires.saturating_sub(env::block_timestamp());
             if time_left < auction.anti_snipe_extension_ns {
-                sale.expires_at = Some(expires + auction.anti_snipe_extension_ns);
+                sale.expires_at = Some(expires.saturating_add(auction.anti_snipe_extension_ns));
             }
         }
 
         sale.auction = Some(auction.clone());
 
-        // Persist updated sale
+        let new_expires_at = sale.expires_at;
+
         self.sales.insert(sale_id, sale);
 
-        events::emit_auction_bid(&bidder, &token_id, bid, auction.bid_count);
+        events::emit_auction_bid(&bidder, &token_id, bid, auction.bid_count, new_expires_at);
 
-        // Buy-now: if bid >= buy_now_price, settle immediately (skip expiry check)
+        // Bid at or above buy_now_price triggers immediate settlement.
         if let Some(bnp) = auction.buy_now_price {
             if bid >= bnp {
                 self.internal_settle_auction_buynow(&bidder, &token_id)?;

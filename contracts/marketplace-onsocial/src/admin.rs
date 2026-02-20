@@ -39,6 +39,7 @@ impl Contract {
             lazy_listings: IterableMap::new(StorageKey::LazyListings),
             intents_executors: Vec::new(),
             contract_metadata: contract_metadata.unwrap_or_default(),
+            approved_nft_contracts: IterableSet::new(StorageKey::ApprovedNftContracts),
         }
     }
 
@@ -129,6 +130,41 @@ impl Contract {
         }
         events::emit_contract_metadata_updated(&self.owner_id);
         Ok(())
+    }
+
+    // ── Approved NFT contracts (NEP-178 whitelist) ──────────────────
+
+    /// Allowlist an external NFT contract to use `nft_on_approve` auto-listing.
+    /// Requires 1 yoctoNEAR. Only contract owner.
+    #[payable]
+    #[handle_result]
+    pub fn add_approved_nft_contract(
+        &mut self,
+        nft_contract_id: AccountId,
+    ) -> Result<(), MarketplaceError> {
+        crate::internal::check_one_yocto()?;
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        self.approved_nft_contracts.insert(nft_contract_id);
+        Ok(())
+    }
+
+    /// Remove an external NFT contract from the auto-listing allowlist.
+    /// Requires 1 yoctoNEAR. Only contract owner.
+    #[payable]
+    #[handle_result]
+    pub fn remove_approved_nft_contract(
+        &mut self,
+        nft_contract_id: AccountId,
+    ) -> Result<(), MarketplaceError> {
+        crate::internal::check_one_yocto()?;
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        self.approved_nft_contracts.remove(&nft_contract_id);
+        Ok(())
+    }
+
+    /// View the list of allowlisted external NFT contracts.
+    pub fn get_approved_nft_contracts(&self) -> Vec<&AccountId> {
+        self.approved_nft_contracts.iter().collect()
     }
 
     // ── Fee views ────────────────────────────────────────────────────

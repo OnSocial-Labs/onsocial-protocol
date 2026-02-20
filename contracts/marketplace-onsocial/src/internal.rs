@@ -218,8 +218,8 @@ impl Contract {
             token_clone.as_ref().and_then(|t| t.app_id.as_ref()),
         );
 
+        let (total_fee, _, _, _) = self.internal_calculate_fee_split(sale_price, app_id.as_ref());
         let (revenue, app_pool_amount) = self.route_fee(sale_price, app_id.as_ref());
-        let total_fee = revenue + app_pool_amount;
         let amount_after_fee = sale_price.saturating_sub(total_fee);
 
         if let Some(ref token) = token_clone {

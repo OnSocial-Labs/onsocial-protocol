@@ -33,7 +33,10 @@ pub(crate) fn compute_dutch_price(collection: &LazyCollection) -> u128 {
     let elapsed = (now - start) as u128;
     let duration = (end - start) as u128;
     let diff = start_price - floor;
-    start_price - (diff * elapsed / duration)
+    let price_drop = (primitive_types::U256::from(diff) * primitive_types::U256::from(elapsed)
+        / primitive_types::U256::from(duration))
+    .as_u128();
+    start_price - price_drop
 }
 
 #[near]

@@ -406,23 +406,28 @@ pub fn emit_all_approvals_revoked(owner_id: &AccountId, token_id: &str) {
 pub fn emit_auction_created(
     owner_id: &AccountId,
     token_id: &str,
-    reserve_price: u128,
-    buy_now_price: Option<u128>,
+    auction: &crate::types::AuctionState,
+    expires_at: Option<u64>,
 ) {
     EventBuilder::new(SCARCE, "auction_created", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
-        .field("reserve_price", reserve_price)
-        .field_opt("buy_now_price", buy_now_price)
+        .field("reserve_price", auction.reserve_price)
+        .field_opt("buy_now_price", auction.buy_now_price)
+        .field_opt("expires_at", expires_at)
+        .field_opt("auction_duration_ns", auction.auction_duration_ns)
+        .field("min_bid_increment", auction.min_bid_increment)
+        .field("anti_snipe_extension_ns", auction.anti_snipe_extension_ns)
         .emit();
 }
 
-pub fn emit_auction_bid(bidder: &AccountId, token_id: &str, bid_amount: u128, bid_count: u32) {
+pub fn emit_auction_bid(bidder: &AccountId, token_id: &str, bid_amount: u128, bid_count: u32, new_expires_at: Option<u64>) {
     EventBuilder::new(SCARCE, "auction_bid", bidder)
         .field("bidder", bidder)
         .field("token_id", token_id)
         .field("bid_amount", bid_amount)
         .field("bid_count", bid_count)
+        .field_opt("new_expires_at", new_expires_at)
         .emit();
 }
 
@@ -663,6 +668,13 @@ pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: 
         .emit();
 }
 
+pub fn emit_storage_refund(account_id: &AccountId, amount: u128) {
+    EventBuilder::new(STORAGE, "refund_unused_deposit", account_id)
+        .field("account_id", account_id)
+        .field("amount", amount)
+        .emit();
+}
+
 // ── APP_POOL_UPDATE ──────────────────────────────────────────────────────────
 
 pub fn emit_app_pool_register(owner_id: &AccountId, app_id: &AccountId, initial_balance: u128) {
@@ -803,12 +815,15 @@ pub fn emit_offer_accepted(
     seller_id: &AccountId,
     token_id: &str,
     amount: u128,
+    result: &crate::internal::PrimarySaleResult,
 ) {
     EventBuilder::new(OFFER, "offer_accepted", buyer_id)
         .field("buyer_id", buyer_id)
         .field("seller_id", seller_id)
         .field("token_id", token_id)
         .field("amount", amount)
+        .field("marketplace_fee", result.revenue)
+        .field("app_pool_amount", result.app_pool_amount)
         .emit();
 }
 
@@ -840,6 +855,7 @@ pub fn emit_collection_offer_accepted(
     collection_id: &str,
     token_id: &str,
     amount: u128,
+    result: &crate::internal::PrimarySaleResult,
 ) {
     EventBuilder::new(OFFER, "collection_offer_accepted", buyer_id)
         .field("buyer_id", buyer_id)
@@ -847,6 +863,8 @@ pub fn emit_collection_offer_accepted(
         .field("collection_id", collection_id)
         .field("token_id", token_id)
         .field("amount", amount)
+        .field("marketplace_fee", result.revenue)
+        .field("app_pool_amount", result.app_pool_amount)
         .emit();
 }
 
@@ -854,6 +872,7 @@ pub fn emit_collection_offer_accepted(
 
 pub fn emit_lazy_listing_created(creator_id: &AccountId, listing_id: &str, price: u128) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
+        .field("creator_id", creator_id)
         .field("listing_id", listing_id)
         .field("price", price)
         .emit();
@@ -865,8 +884,7 @@ pub fn emit_lazy_listing_purchased(
     listing_id: &str,
     token_id: &str,
     price: u128,
-    creator_payment: u128,
-    fee: u128,
+    result: &crate::internal::PrimarySaleResult,
 ) {
     EventBuilder::new(LAZY_LISTING, "purchased", buyer_id)
         .field("buyer_id", buyer_id)
@@ -874,8 +892,10 @@ pub fn emit_lazy_listing_purchased(
         .field("listing_id", listing_id)
         .field("token_id", token_id)
         .field("price", price)
-        .field("creator_payment", creator_payment)
-        .field("fee", fee)
+        .field("creator_payment", result.creator_payment)
+        .field("marketplace_fee", result.revenue)
+        .field("app_pool_amount", result.app_pool_amount)
+        .field("app_commission", result.app_commission)
         .emit();
 }
 
