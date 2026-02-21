@@ -39,6 +39,9 @@ mod dispatch;
 mod execute;
 mod upgrade;
 
+#[cfg(test)]
+mod tests;
+
 pub use constants::*;
 pub use errors::MarketplaceError;
 pub use protocol::{Action, Auth, Options, Request};
