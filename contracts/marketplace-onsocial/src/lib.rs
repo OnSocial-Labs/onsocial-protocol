@@ -4,98 +4,56 @@ use near_sdk::json_types::U128;
 use near_sdk::serde_json::Value;
 use near_sdk::store::{IterableMap, IterableSet, LookupMap};
 use near_sdk::{
-    env, near, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue,
+    env, near, AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue,
 };
 
 // --- Modules ---
 
-mod admin;
-mod app_pool;
+// Infrastructure
 pub mod constants;
-mod dispatch;
 mod errors;
+mod guards;
+mod validation;
+
+// Protocol & events
 mod events;
 mod external;
-mod internal;
-mod offer;
 mod protocol;
-mod sale;
-mod sale_auction;
-mod sale_views;
-mod storage;
-pub mod types;
 
-mod external_scarce_views;
-mod scarce_approval;
-mod scarce_approval_callbacks;
-mod scarce_core;
-mod scarce_enumeration;
-mod scarce_lifecycle;
-mod scarce_metadata;
-mod scarce_native_views;
-mod scarce_payout;
-mod scarce_collection_purchase;
-mod scarce_collection_refunds;
-mod scarce_collection_views;
-mod scarce_collections;
+// Domain
+mod collections;
 mod lazy_listing;
+mod offer;
+mod sale;
+mod scarce;
+
+// Cross-cutting
+mod app_pool;
+mod fees;
+mod royalties;
+mod storage;
+
+// Entry points
+mod admin;
+mod dispatch;
+mod execute;
+mod upgrade;
 
 pub use constants::*;
 pub use errors::MarketplaceError;
 pub use protocol::{Action, Auth, Options, Request};
-pub use types::*;
-
-// --- Helpers ---
-
-pub fn default_true() -> bool {
-    true
-}
-
-// Token ID format: `"collection_id:serial"`; returns `""` for standalone tokens.
-pub(crate) fn collection_id_from_token_id(token_id: &str) -> &str {
-    token_id.split_once(':').map_or("", |(prefix, _)| prefix)
-}
-
-pub(crate) fn check_token_in_collection(
-    token_id: &str,
-    collection_id: &str,
-) -> Result<(), MarketplaceError> {
-    if !token_id.starts_with(&format!("{}:", collection_id)) {
-        return Err(MarketplaceError::InvalidInput(
-            "Token does not belong to specified collection".into(),
-        ));
-    }
-    Ok(())
-}
-
-// --- Storage Keys ---
-
-#[near]
-#[derive(BorshStorageKey)]
-pub enum StorageKey {
-    Sales,
-    ByOwnerId,
-    ByOwnerIdInner { account_id_hash: Vec<u8> },
-    ByScarceContractId,
-    ByScarceContractIdInner { account_id_hash: Vec<u8> },
-    ScarcesPerOwner,
-    ScarcesPerOwnerInner { account_id_hash: Vec<u8> },
-    ScarcesById,
-    ScarceMetadataById,
-    ScarceApprovalsById,
-    Collections,
-    CollectionsByCreator,
-    CollectionsByCreatorInner { account_id_hash: Vec<u8> },
-    AppPools,
-    AppUserUsage,
-    UserStorage,
-    CollectionMintCounts,
-    CollectionAllowlist,
-    Offers,
-    CollectionOffers,
-    LazyListings,
-    ApprovedNftContracts,
-}
+// Types re-exported from their owning modules
+pub use sale::{AuctionListing, AuctionState, AuctionView, GasOverrides, Sale, SaleType};
+pub use offer::{CollectionOffer, Offer};
+pub use lazy_listing::{LazyListing, LazyListingRecord};
+pub use fees::FeeConfig;
+pub use app_pool::{AppConfig, AppPool};
+pub use storage::{StorageKey, UserStorageBalance};
+pub use royalties::Payout;
+pub use collections::{AllowlistEntry, CollectionConfig, CollectionProgress, CollectionStats, LazyCollection, MintMode, RevocationMode};
+pub use scarce::types::{MintContext, RedeemInfo, Scarce, ScarceOptions, ScarceOverrides, TokenMetadata, TokenStatus};
+pub use validation::default_true;
+pub(crate) use guards::{check_token_in_collection, collection_id_from_token_id};
 
 // --- Contract State ---
 
@@ -119,10 +77,10 @@ pub struct Contract {
     pub owner_id: AccountId,
     pub fee_recipient: AccountId,
     pub sales: IterableMap<String, Sale>,
-    pub by_owner_id: LookupMap<AccountId, IterableSet<String>>,
-    pub by_scarce_contract_id: LookupMap<AccountId, IterableSet<String>>,
+    pub(crate) by_owner_id: LookupMap<AccountId, IterableSet<String>>,
+    pub(crate) by_scarce_contract_id: LookupMap<AccountId, IterableSet<String>>,
 
-    pub scarces_per_owner: LookupMap<AccountId, IterableSet<String>>,
+    pub(crate) scarces_per_owner: LookupMap<AccountId, IterableSet<String>>,
     pub scarces_by_id: IterableMap<String, Scarce>,
     pub next_approval_id: u64,
     /// Shared by quick-mints and lazy listings.
@@ -136,14 +94,14 @@ pub struct Contract {
     /// T1: per-app pool; key = app_id.
     pub app_pools: LookupMap<AccountId, AppPool>,
     /// T1: per-(user, app) byte usage; key = "user_id:app_id".
-    pub app_user_usage: LookupMap<String, u64>,
+    pub(crate) app_user_usage: LookupMap<String, u64>,
     /// T2: platform pool; funded by `platform_storage_fee_bps` on every sale.
     pub platform_storage_balance: u128,
     /// T3: per-user manual deposits.
     pub user_storage: LookupMap<AccountId, UserStorageBalance>,
 
     /// Key: "collection_id:account_id"; enforces `max_per_wallet` and allowlist quotas.
-    pub collection_mint_counts: LookupMap<String, u32>,
+    pub(crate) collection_mint_counts: LookupMap<String, u32>,
     /// Key: "{collection_id}:al:{account_id}"; non-zero = wallet may mint before `start_time`.
     pub collection_allowlist: LookupMap<String, u32>,
 
@@ -166,60 +124,4 @@ pub struct Contract {
     /// Transient; always 0 at rest; never serialised.
     #[borsh(skip)]
     pub pending_attached_balance: u128,
-}
-
-// --- execute ---
-
-#[near]
-impl Contract {
-    /// Authenticated entry point; accepts Direct, SignedPayload, DelegateAction, and Intent auth.
-    #[payable]
-    #[handle_result]
-    pub fn execute(&mut self, request: Request) -> Result<Value, MarketplaceError> {
-        let Request {
-            target_account,
-            action,
-            auth,
-            options,
-        } = request;
-
-        let auth = auth.unwrap_or_default();
-        let options = options.unwrap_or_default();
-
-        let action_json = near_sdk::serde_json::to_value(&action)
-            .map_err(|_| MarketplaceError::InternalError("Failed to serialize action".into()))?;
-
-        let auth_ctx = onsocial_auth::authenticate(
-            &auth,
-            target_account.as_ref(),
-            &action_json,
-            protocol::NONCE_PREFIX,
-            &self.intents_executors,
-            protocol::DOMAIN_PREFIX,
-        )
-        .map_err(|e| MarketplaceError::Unauthorized(format!("Auth failed: {:?}", e)))?;
-
-        let actor_id = auth_ctx.actor_id.clone();
-        let deposit_owner = auth_ctx.deposit_owner.clone();
-        let mut attached_balance = auth_ctx.attached_balance;
-
-        if let Some((ref owner, ref public_key, nonce)) = auth_ctx.signed_nonce {
-            let new_bytes =
-                onsocial_auth::nonce::record_nonce(protocol::NONCE_PREFIX, owner, public_key, nonce);
-            if new_bytes > 0 {
-                let cost = new_bytes as u128 * env::storage_byte_cost().as_yoctonear();
-                attached_balance = attached_balance.saturating_sub(cost);
-            }
-        }
-
-        self.pending_attached_balance = attached_balance;
-        let result = self.dispatch_action(action, &actor_id)?;
-        attached_balance = core::mem::take(&mut self.pending_attached_balance);
-
-        if attached_balance > 0 {
-            self.finalize_unused_deposit(attached_balance, &deposit_owner, &options);
-        }
-
-        Ok(result)
-    }
 }

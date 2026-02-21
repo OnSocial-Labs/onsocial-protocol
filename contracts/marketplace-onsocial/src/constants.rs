@@ -1,11 +1,5 @@
 use near_sdk::NearToken;
 
-/// Returns storage byte cost in yoctoNEAR, tracking protocol-level changes.
-#[inline]
-pub fn storage_byte_cost() -> u128 {
-    near_sdk::env::storage_byte_cost().as_yoctonear()
-}
-
 pub const MAX_TOKEN_ID_LEN: usize = 256;
 
 pub const DEFAULT_TOTAL_FEE_BPS: u16 = 200;

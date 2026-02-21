@@ -218,10 +218,8 @@ impl Contract {
             // --- Admin ---
             Action::SetFeeRecipient { fee_recipient } => {
                 // Requires 1 yoctoNEAR; owner only.
-                crate::internal::check_one_yocto()?;
-                if actor_id != &self.owner_id {
-                    return Err(MarketplaceError::Unauthorized("Only owner".into()));
-                }
+                crate::guards::check_one_yocto()?;
+                self.check_contract_owner(actor_id)?;
                 let old_recipient = self.fee_recipient.clone();
                 self.fee_recipient = fee_recipient;
                 events::emit_fee_recipient_changed(actor_id, &old_recipient, &self.fee_recipient);
@@ -233,10 +231,8 @@ impl Contract {
                 platform_storage_fee_bps,
             } => {
                 // Requires 1 yoctoNEAR; owner only.
-                crate::internal::check_one_yocto()?;
-                if actor_id != &self.owner_id {
-                    return Err(MarketplaceError::Unauthorized("Only owner".into()));
-                }
+                crate::guards::check_one_yocto()?;
+                self.check_contract_owner(actor_id)?;
                 self.internal_update_fee_config(
                     total_fee_bps,
                     app_pool_fee_bps,
@@ -307,7 +303,7 @@ impl Contract {
             // --- Offers ---
             Action::AcceptOffer { token_id, buyer_id } => {
                 // Requires 1 yoctoNEAR; prevents key-scope abuse on fund-transferring actions.
-                crate::internal::check_one_yocto()?;
+                crate::guards::check_one_yocto()?;
                 self.internal_accept_offer(actor_id, &token_id, &buyer_id)?;
                 Ok(Value::Null)
             }
@@ -321,7 +317,7 @@ impl Contract {
                 buyer_id,
             } => {
                 // Requires 1 yoctoNEAR; prevents key-scope abuse on fund-transferring actions.
-                crate::internal::check_one_yocto()?;
+                crate::guards::check_one_yocto()?;
                 self.internal_accept_collection_offer(
                     actor_id,
                     &collection_id,
