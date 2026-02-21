@@ -1,11 +1,8 @@
-//! Lazy Scarce Collection management.
-//! Create and manage collections that mint on purchase.
+//! Lazy scarce collection management — lazy-minted collections that mint on purchase.
 
 use crate::internal::{check_at_least_one_yocto, check_one_yocto};
 use crate::*;
 use near_sdk::serde_json;
-
-// ── #[payable] public methods (direct transactions) ──────────────────────────
 
 #[near]
 impl Contract {
@@ -15,10 +12,15 @@ impl Contract {
     pub fn create_collection(&mut self, params: CollectionConfig) -> Result<(), MarketplaceError> {
         check_at_least_one_yocto()?;
         let creator_id = env::predecessor_account_id();
-        self.internal_create_collection(&creator_id, params)
+        self.internal_create_collection(&creator_id, params)?;
+        let deposit = env::attached_deposit().as_yoctonear();
+        if deposit > ONE_YOCTO.as_yoctonear() {
+            let _ = Promise::new(creator_id)
+                .transfer(NearToken::from_yoctonear(deposit - ONE_YOCTO.as_yoctonear()));
+        }
+        Ok(())
     }
 
-    /// Update collection price (only creator).
     #[payable]
     #[handle_result]
     pub fn update_collection_price(
@@ -31,7 +33,6 @@ impl Contract {
         self.internal_update_collection_price(&caller, collection_id, new_price_near)
     }
 
-    /// Update collection timing (only creator).
     #[payable]
     #[handle_result]
     pub fn update_collection_timing(
@@ -45,7 +46,6 @@ impl Contract {
         self.internal_update_collection_timing(&caller, collection_id, start_time, end_time)
     }
 
-    /// Delete an empty collection (minted_count == 0). Creator only.
     #[payable]
     #[handle_result]
     pub fn delete_collection(&mut self, collection_id: String) -> Result<(), MarketplaceError> {
@@ -54,8 +54,6 @@ impl Contract {
         self.internal_delete_collection(&caller, &collection_id)
     }
 }
-
-// ── Internal implementations (shared by execute() and #[payable] methods) ────
 
 impl Contract {
     pub(crate) fn internal_create_collection(
@@ -92,10 +90,8 @@ impl Contract {
                 "Collection ID must be 1-64 characters".into(),
             ));
         }
-        // Reject delimiter characters that collide with internal key formats:
-        //   ':'  → token ID format (collection_id:serial)
-        //   '\0' → offer key format (token_id\0buyer_id)
-        //   '.'  → sale ID format (contract.token_id)
+        // These delimiters are used as separators in internal composite keys;
+        // allowing them in a collection_id would create ambiguous key collisions.
         if collection_id.contains(':')
             || collection_id.contains('\0')
             || collection_id.contains('.')
@@ -128,7 +124,6 @@ impl Contract {
             }
         }
 
-        // Merge app default royalty + creator royalty (validates total internally)
         let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
         if let Some(ref r) = merged_royalty {
             if r.is_empty() {
@@ -138,12 +133,10 @@ impl Contract {
             }
         }
 
-        // Validate collection metadata JSON if provided
         if let Some(ref m) = metadata {
             Self::validate_metadata_json(m)?;
         }
 
-        // Validate max_per_wallet
         if let Some(max) = max_per_wallet {
             if max == 0 {
                 return Err(MarketplaceError::InvalidInput(
@@ -152,7 +145,6 @@ impl Contract {
             }
         }
 
-        // Validate Dutch auction start_price
         if let Some(sp) = &start_price {
             if sp.0 <= price_near.0 {
                 return Err(MarketplaceError::InvalidInput(
@@ -166,7 +158,6 @@ impl Contract {
             }
         }
 
-        // Validate allowlist price
         if let Some(alp) = &allowlist_price {
             if start_time.is_none() {
                 return Err(MarketplaceError::InvalidInput(
@@ -180,7 +171,6 @@ impl Contract {
             }
         }
 
-        // Curated-app gate: if the app is curated, only owner/moderator can create.
         if let Some(ref app) = app_id {
             if let Some(pool) = self.app_pools.get(app) {
                 if pool.curated
@@ -255,7 +245,6 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Charge storage via app pool → user balance waterfall
         self.charge_storage_waterfall(creator_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_collection_created(creator_id, &collection_id, total_supply, price_near);
@@ -280,9 +269,18 @@ impl Contract {
             ));
         }
 
+        if let Some(sp) = &collection.start_price {
+            if new_price_near.0 >= sp.0 {
+                return Err(MarketplaceError::InvalidInput(
+                    "price_near must remain below start_price for Dutch auction".into(),
+                ));
+            }
+        }
+
+        let old_price = collection.price_near;
         collection.price_near = new_price_near;
         self.collections.insert(collection_id.clone(), collection);
-        events::emit_collection_price_updated(caller, &collection_id, new_price_near);
+        events::emit_collection_price_updated(caller, &collection_id, old_price, new_price_near);
         Ok(())
     }
 
@@ -310,6 +308,12 @@ impl Contract {
         if &collection.creator_id != caller {
             return Err(MarketplaceError::Unauthorized(
                 "Only collection creator can update timing".into(),
+            ));
+        }
+
+        if collection.start_price.is_some() && (start_time.is_none() || end_time.is_none()) {
+            return Err(MarketplaceError::InvalidInput(
+                "Dutch auction requires both start_time and end_time".into(),
             ));
         }
 
@@ -347,8 +351,7 @@ impl Contract {
         true
     }
 
-    /// Pause minting from a collection. Creator only.
-    /// Unlike cancel, paused collections can be resumed.
+    /// Unlike `cancelled`, a paused collection can be resumed.
     pub(crate) fn internal_pause_collection(
         &mut self,
         actor_id: &AccountId,
@@ -380,7 +383,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Resume minting from a paused collection. Creator only.
     pub(crate) fn internal_resume_collection(
         &mut self,
         actor_id: &AccountId,
@@ -409,9 +411,8 @@ impl Contract {
 
     // ── Allowlist ────────────────────────────────────────────────────────────
 
-    /// Add or update allowlist entries for a collection.
-    /// Each entry specifies a wallet and its max early-access mint allocation.
-    /// Creator only. Max 100 entries per call.
+    /// Add or update allowlist entries (max 100 per call).
+    /// Allocation of 0 removes the entry.
     pub(crate) fn internal_set_allowlist(
         &mut self,
         actor_id: &AccountId,
@@ -455,7 +456,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Remove wallets from the allowlist. Creator only.
     pub(crate) fn internal_remove_from_allowlist(
         &mut self,
         actor_id: &AccountId,
@@ -476,18 +476,23 @@ impl Contract {
 
         self.check_collection_authority(actor_id, &collection)?;
 
+        let before = env::storage_usage();
         for account in &accounts {
             let key = format!("{}:al:{}", collection_id, account);
             self.collection_allowlist.remove(&key);
         }
 
-        events::emit_allowlist_updated(actor_id, collection_id, &accounts, 0);
+        let after = env::storage_usage();
+        let bytes_freed = before.saturating_sub(after);
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(actor_id, bytes_freed as u64, collection.app_id.as_ref());
+        }
+
+        events::emit_allowlist_removed(actor_id, collection_id, &accounts);
         Ok(())
     }
 
-    /// Delete an empty collection (minted_count == 0).
-    /// Only the collection creator can delete.
-    /// Frees up the collection storage.
+    /// Only deletable when `minted_count == 0`; storage is released back through the waterfall.
     pub(crate) fn internal_delete_collection(
         &mut self,
         actor_id: &AccountId,
@@ -507,10 +512,9 @@ impl Contract {
             ));
         }
 
-        // Remove from collections map
+        let before = env::storage_usage();
         self.collections.remove(collection_id);
 
-        // Remove from creator's collection set
         if let Some(creator_set) = self.collections_by_creator.get_mut(&collection.creator_id) {
             creator_set.remove(collection_id);
             if creator_set.is_empty() {
@@ -518,11 +522,20 @@ impl Contract {
             }
         }
 
-        events::emit_collection_deleted(actor_id, collection_id);
+        let after = env::storage_usage();
+        let bytes_freed = before.saturating_sub(after);
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(
+                &collection.creator_id,
+                bytes_freed as u64,
+                collection.app_id.as_ref(),
+            );
+        }
+
+        events::emit_collection_deleted(actor_id, collection_id, &collection.creator_id);
         Ok(())
     }
 
-    /// Set collection-level metadata (only creator).
     pub(crate) fn internal_set_collection_metadata(
         &mut self,
         actor_id: &AccountId,
@@ -535,10 +548,9 @@ impl Contract {
             .cloned()
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
-        // Only creator — app owner uses ban/unban, not metadata edits
         self.check_collection_authority(actor_id, &collection)?;
 
-        // None = no change, Some("") = clear, Some(json) = replace
+        // None = no-op; Some("") = clear; Some(json) = replace
         if let Some(m) = metadata {
             if m.is_empty() {
                 collection.metadata = None;
@@ -547,7 +559,7 @@ impl Contract {
                 collection.metadata = Some(m);
             }
         } else {
-            return Ok(()); // None = no change, skip storage + event
+            return Ok(());
         }
 
         let before = env::storage_usage();
@@ -555,17 +567,21 @@ impl Contract {
             .insert(collection_id.to_string(), collection.clone());
         let after = env::storage_usage();
 
-        // Charge storage delta through the waterfall
-        if after > before {
-            let bytes_added = (after - before) as u64;
-            self.charge_storage_waterfall(actor_id, bytes_added, collection.app_id.as_ref())?;
+        match after.cmp(&before) {
+            std::cmp::Ordering::Greater => {
+                self.charge_storage_waterfall(actor_id, (after - before) as u64, collection.app_id.as_ref())?;
+            }
+            std::cmp::Ordering::Less => {
+                self.release_storage_waterfall(actor_id, (before - after) as u64, collection.app_id.as_ref());
+            }
+            std::cmp::Ordering::Equal => {}
         }
 
         events::emit_collection_metadata_update(actor_id, collection_id);
         Ok(())
     }
 
-    /// Set app-level metadata on a collection. App owner or moderator only.
+    /// App-level metadata is independent of the creator's `metadata` field.
     /// The collection must belong to the given app.
     pub(crate) fn internal_set_collection_app_metadata(
         &mut self,
@@ -599,7 +615,7 @@ impl Contract {
             }
         }
 
-        // None = no change, Some("") = clear, Some(json) = replace
+        // None = no-op; Some("") = clear; Some(json) = replace
         if let Some(m) = metadata {
             if m.is_empty() {
                 collection.app_metadata = None;
@@ -608,7 +624,7 @@ impl Contract {
                 collection.app_metadata = Some(m);
             }
         } else {
-            return Ok(()); // None = no change, skip storage + event
+            return Ok(());
         }
 
         let before = env::storage_usage();
@@ -616,9 +632,14 @@ impl Contract {
             .insert(collection_id.to_string(), collection.clone());
         let after = env::storage_usage();
 
-        if after > before {
-            let bytes_added = (after - before) as u64;
-            self.charge_storage_waterfall(actor_id, bytes_added, collection.app_id.as_ref())?;
+        match after.cmp(&before) {
+            std::cmp::Ordering::Greater => {
+                self.charge_storage_waterfall(actor_id, (after - before) as u64, collection.app_id.as_ref())?;
+            }
+            std::cmp::Ordering::Less => {
+                self.release_storage_waterfall(actor_id, (before - after) as u64, collection.app_id.as_ref());
+            }
+            std::cmp::Ordering::Equal => {}
         }
 
         events::emit_collection_app_metadata_update(actor_id, app_id, collection_id);

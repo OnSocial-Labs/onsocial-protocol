@@ -12,7 +12,7 @@ pub(crate) fn compute_dutch_price(collection: &LazyCollection) -> u128 {
     let floor = collection.price_near.0;
     let start_price = match collection.start_price {
         Some(sp) if sp.0 > floor => sp.0,
-        _ => return floor, // not a Dutch auction
+        _ => return floor,
     };
     let start = match collection.start_time {
         Some(t) => t,
@@ -103,7 +103,6 @@ impl Contract {
                 }
             }
 
-            // Must be on allowlist
             let al_key = format!("{}:al:{}", collection_id, buyer_id);
             let allocation = self.collection_allowlist.get(&al_key).copied().unwrap_or(0);
             if allocation == 0 {
@@ -112,7 +111,6 @@ impl Contract {
                 ));
             }
 
-            // Enforce allowlist allocation
             let mint_key = format!("{}:{}", collection_id, buyer_id);
             let already_minted = self
                 .collection_mint_counts
@@ -125,13 +123,10 @@ impl Contract {
                     already_minted, quantity, allocation
                 )));
             }
-        } else {
-            // Public phase
-            if !self.is_collection_active(&collection) {
-                return Err(MarketplaceError::InvalidState(
-                    "Collection is not active for minting".into(),
-                ));
-            }
+        } else if !self.is_collection_active(&collection) {
+            return Err(MarketplaceError::InvalidState(
+                "Collection is not active for minting".into(),
+            ));
         }
 
         if collection.mint_mode == crate::MintMode::CreatorOnly {
@@ -215,7 +210,6 @@ impl Contract {
         // Measure storage BEFORE minting
         let before = env::storage_usage();
 
-        // Mint tokens (with royalty + paid_price from collection)
         let ctx = crate::MintContext {
             owner_id: buyer_id.clone(),
             creator_id: creator_id.clone(),
@@ -234,6 +228,19 @@ impl Contract {
             Some(ovr),
         )?;
 
+        // Track during allowlist phase regardless of max_per_wallet — allocation enforcement
+        // reads these counts. During public phase, only track when max_per_wallet is set.
+        if is_before_start || collection.max_per_wallet.is_some() {
+            let mint_key = format!("{}:{}", collection_id, buyer_id);
+            let prev = self
+                .collection_mint_counts
+                .get(&mint_key)
+                .copied()
+                .unwrap_or(0);
+            self.collection_mint_counts
+                .insert(mint_key, prev + quantity);
+        }
+
         // Measure storage AFTER minting
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
@@ -246,22 +253,7 @@ impl Contract {
             app_id.as_ref(),
         )?;
 
-        // Refund excess
         crate::internal::refund_excess(&buyer_id, deposit, total_price);
-
-        // Update per-wallet mint count
-        // Always track during allowlist phase (allocation enforcement reads mint counts);
-        // during public phase, only when max_per_wallet is configured.
-        if is_before_start || collection.max_per_wallet.is_some() {
-            let mint_key = format!("{}:{}", collection_id, buyer_id);
-            let prev = self
-                .collection_mint_counts
-                .get(&mint_key)
-                .copied()
-                .unwrap_or(0);
-            self.collection_mint_counts
-                .insert(mint_key, prev + quantity);
-        }
 
         events::emit_collection_purchase(&events::CollectionPurchase {
             buyer_id: &buyer_id,
@@ -271,6 +263,7 @@ impl Contract {
             total_price: U128(total_price),
             marketplace_fee: U128(result.revenue),
             app_pool_amount: U128(result.app_pool_amount),
+            app_commission: U128(result.app_commission),
             token_ids: &token_ids,
         });
         Ok(())
@@ -309,7 +302,6 @@ impl Contract {
             ));
         }
 
-        // Only creator
         self.check_collection_authority(actor_id, &collection)?;
 
         if collection.mint_mode == crate::MintMode::PurchaseOnly {
@@ -346,7 +338,6 @@ impl Contract {
         // Measure storage BEFORE minting
         let before = env::storage_usage();
 
-        // Mint tokens to recipient
         let ctx = crate::MintContext {
             owner_id: recipient.clone(),
             creator_id,
@@ -368,7 +359,7 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Storage charged via waterfall (no payment)
+        // Storage charged via waterfall; creator is not paying a sale price.
         self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_collection_mint(actor_id, recipient, collection_id, quantity, &token_ids);
@@ -434,7 +425,6 @@ impl Contract {
 
         let mut token_ids = Vec::with_capacity(count as usize);
 
-        // Mint one token per receiver
         for (i, receiver) in receivers.iter().enumerate() {
             let token_id = format!("{}:{}", collection_id, start_index + i as u32 + 1);
 
@@ -464,7 +454,7 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Storage charged via waterfall (creator/app pays)
+        // Storage charged via waterfall; creator is not paying a sale price.
         self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_collection_airdrop(actor_id, collection_id, count, &token_ids, &receivers);

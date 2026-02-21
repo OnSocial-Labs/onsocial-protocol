@@ -480,11 +480,12 @@ pub(crate) struct CollectionPurchase<'a> {
     pub total_price: U128,
     pub marketplace_fee: U128,
     pub app_pool_amount: U128,
+    pub app_commission: U128,
     pub token_ids: &'a [String],
 }
 
 pub fn emit_collection_purchase(e: &CollectionPurchase) {
-    EventBuilder::new(COLLECTION, "mint", e.buyer_id)
+    EventBuilder::new(COLLECTION, "purchase", e.buyer_id)
         .field("buyer_id", e.buyer_id)
         .field("creator_id", e.creator_id)
         .field("collection_id", e.collection_id)
@@ -492,6 +493,7 @@ pub fn emit_collection_purchase(e: &CollectionPurchase) {
         .field("total_price", e.total_price)
         .field("marketplace_fee", e.marketplace_fee)
         .field("app_pool_amount", e.app_pool_amount)
+        .field("app_commission", e.app_commission)
         .field("token_ids", e.token_ids)
         .emit();
 }
@@ -586,9 +588,10 @@ pub fn emit_refund_pool_withdrawn(actor_id: &AccountId, collection_id: &str, amo
         .emit();
 }
 
-pub fn emit_collection_deleted(actor_id: &AccountId, collection_id: &str) {
+pub fn emit_collection_deleted(actor_id: &AccountId, collection_id: &str, creator_id: &AccountId) {
     EventBuilder::new(COLLECTION, "delete", actor_id)
         .field("collection_id", collection_id)
+        .field("creator_id", creator_id)
         .emit();
 }
 
@@ -630,9 +633,26 @@ pub fn emit_allowlist_updated(
         .emit();
 }
 
-pub fn emit_collection_price_updated(actor_id: &AccountId, collection_id: &str, new_price: U128) {
+pub fn emit_allowlist_removed(
+    actor_id: &AccountId,
+    collection_id: &str,
+    accounts: &[AccountId],
+) {
+    EventBuilder::new(COLLECTION, "allowlist_remove", actor_id)
+        .field("collection_id", collection_id)
+        .field("accounts", accounts)
+        .emit();
+}
+
+pub fn emit_collection_price_updated(
+    actor_id: &AccountId,
+    collection_id: &str,
+    old_price: U128,
+    new_price: U128,
+) {
     EventBuilder::new(COLLECTION, "price_update", actor_id)
         .field("collection_id", collection_id)
+        .field("old_price", old_price)
         .field("new_price", new_price)
         .emit();
 }

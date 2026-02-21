@@ -6,11 +6,9 @@
 use crate::internal::check_one_yocto;
 use crate::*;
 
-/// Default refund claim window: 90 days in nanoseconds.
 const DEFAULT_REFUND_DEADLINE_NS: u64 = 90 * 24 * 60 * 60 * 1_000_000_000;
 
-/// Minimum refund claim window: 7 days in nanoseconds.
-/// Prevents authorities from setting a near-zero deadline and immediately
+/// Prevents the organizer from setting a near-zero deadline and immediately
 /// withdrawing the refund pool before holders have a chance to claim.
 const MIN_REFUND_DEADLINE_NS: u64 = 7 * 24 * 60 * 60 * 1_000_000_000;
 
@@ -20,12 +18,9 @@ const MIN_REFUND_DEADLINE_NS: u64 = 7 * 24 * 60 * 60 * 1_000_000_000;
 impl Contract {
     /// Cancel a collection and deposit NEAR for refunds.
     ///
-    /// The organizer specifies `refund_per_token` and must attach at least
-    /// `refund_per_token * refundable_count` NEAR.
-    ///
-    /// Refundable tokens = minted - redeemed (already-used tickets don't qualify).
-    /// Each holder calls `claim_refund()` individually (pull-based, gas-safe).
-    /// After `refund_deadline` the organizer can withdraw unclaimed funds.
+    /// Required deposit = `refund_per_token * (minted - fully_redeemed)`.
+    /// Fully-redeemed tokens are excluded; burned tokens are not (see Issue 3 notes).
+    /// After `refund_deadline` the organizer may withdraw unclaimed funds.
     #[payable]
     #[handle_result]
     pub fn cancel_collection(
@@ -54,7 +49,11 @@ impl Contract {
         let refundable_count = collection
             .minted_count
             .saturating_sub(collection.fully_redeemed_count);
-        let required_deposit = refund_per_token.0 * refundable_count as u128;
+        let required_deposit = refund_per_token.0
+            .checked_mul(refundable_count as u128)
+            .ok_or_else(|| MarketplaceError::InvalidInput(
+                "refund_per_token overflow".into(),
+            ))?;
 
         if deposit < required_deposit {
             return Err(MarketplaceError::InsufficientDeposit(format!(
@@ -94,7 +93,6 @@ impl Contract {
         token_id: String,
         collection_id: String,
     ) -> Result<(), MarketplaceError> {
-        check_one_yocto()?;
         let caller = env::predecessor_account_id();
         self.internal_claim_refund(&caller, &token_id, &collection_id)
     }
@@ -122,12 +120,13 @@ impl Contract {
             ));
         }
 
-        if let Some(deadline) = collection.refund_deadline {
-            if env::block_timestamp() < deadline {
-                return Err(MarketplaceError::InvalidState(
-                    "Refund deadline has not passed yet".into(),
-                ));
-            }
+        let deadline = collection.refund_deadline.ok_or_else(|| {
+            MarketplaceError::InvalidState("No refund deadline set".into())
+        })?;
+        if env::block_timestamp() < deadline {
+            return Err(MarketplaceError::InvalidState(
+                "Refund deadline has not passed yet".into(),
+            ));
         }
 
         let remaining = collection.refund_pool;
@@ -156,6 +155,7 @@ impl Contract {
         token_id: &str,
         collection_id: &str,
     ) -> Result<(), MarketplaceError> {
+        check_one_yocto()?;
         check_token_in_collection(token_id, collection_id)?;
 
         let mut collection = self
@@ -168,6 +168,14 @@ impl Contract {
             return Err(MarketplaceError::InvalidState(
                 "Collection is not cancelled".into(),
             ));
+        }
+
+        if let Some(deadline) = collection.refund_deadline {
+            if env::block_timestamp() > deadline {
+                return Err(MarketplaceError::InvalidState(
+                    "Refund claim window has expired".into(),
+                ));
+            }
         }
 
         let mut token = self
@@ -188,7 +196,6 @@ impl Contract {
             ));
         }
 
-        // Block refund for fully-redeemed tokens
         if let Some(max) = collection.max_redeems {
             if token.redeem_count >= max {
                 return Err(MarketplaceError::InvalidState(
@@ -204,17 +211,14 @@ impl Contract {
             ));
         }
 
-        // Mark token as refunded
         token.refunded = true;
         self.scarces_by_id.insert(token_id.to_string(), token);
 
-        // Deduct from pool
         collection.refund_pool -= refund_amount;
         collection.refunded_count += 1;
         self.collections
             .insert(collection_id.to_string(), collection);
 
-        // Transfer refund
         let _ = Promise::new(caller.clone()).transfer(NearToken::from_yoctonear(refund_amount));
 
         events::emit_refund_claimed(caller, token_id, collection_id, refund_amount);

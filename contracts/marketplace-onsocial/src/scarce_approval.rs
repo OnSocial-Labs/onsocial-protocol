@@ -1,13 +1,13 @@
-// NEP-178 Approval Management Implementation
-// Allows marketplace to transfer Scarces on behalf of owners
+// NEP-178 Approval Management
 
 use crate::internal::{check_at_least_one_yocto, check_one_yocto};
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Approve an account to transfer a specific token (NEP-178)
-    /// Optional gas override for callback
+    /// Grant transfer approval to `account_id` for `token_id` (NEP-178).
+    /// If `msg` is provided, calls `nft_on_approve` on the approved account.
+    /// Excess deposit above 1 yocto is refunded.
     #[payable]
     #[handle_result]
     pub fn nft_approve(
@@ -31,38 +31,34 @@ impl Contract {
             ));
         }
 
-        // Generate new approval ID (checked to prevent overflow)
+        self.check_transferable(token, &token_id, "approve")?;
+
         let approval_id = self.next_approval_id;
         self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
             MarketplaceError::InternalError("Approval ID counter overflow".into())
         })?;
 
-        // Measure storage before/after for byte-accurate charging
         let before = env::storage_usage();
-
-        // Clone token, add approval, and save
         let mut token = token.clone();
         token
             .approved_account_ids
             .insert(account_id.clone(), approval_id);
         self.scarces_by_id.insert(token_id.clone(), token);
-
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Charge storage via waterfall (no app_id for direct approvals)
+        // No app_id: direct approvals are always Tier-2/3 subsidised.
         if bytes_used > 0 {
             self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
         }
 
+        internal::refund_excess(&owner_id, env::attached_deposit().as_yoctonear(), 1);
+
         events::emit_approval_granted(&owner_id, &token_id, &account_id, approval_id);
 
-        // If msg provided, call nft_on_approve on approved account (NEP-178)
         if let Some(msg_str) = msg {
-            // Use provided gas or sensible default (50 TGas)
-            let callback_gas = Gas::from_tgas(callback_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
-
-            // Make cross-contract call to approved account
+            // cap caller-supplied gas to prevent scheduling panics
+            let callback_gas = Gas::from_tgas(callback_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS).min(MAX_RESOLVE_PURCHASE_GAS));
             Ok(Some(
                 external::ext_scarce_approval_receiver::ext(account_id)
                     .with_static_gas(callback_gas)
@@ -73,7 +69,7 @@ impl Contract {
         }
     }
 
-    /// Revoke approval for specific account (NEP-178)
+    /// Revoke transfer approval for `account_id` on `token_id` (NEP-178). Frees storage.
     #[payable]
     #[handle_result]
     pub fn nft_revoke(
@@ -96,14 +92,20 @@ impl Contract {
         }
 
         let mut token = token.clone();
+        let before = env::storage_usage();
         token.approved_account_ids.remove(&account_id);
         self.scarces_by_id.insert(token_id.clone(), token);
+        let after = env::storage_usage();
+        let bytes_freed = before.saturating_sub(after);
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(&owner_id, bytes_freed, None);
+        }
 
         events::emit_approval_revoked(&owner_id, &token_id, &account_id);
         Ok(())
     }
 
-    /// Revoke all approvals for a token (NEP-178)
+    /// Revoke all transfer approvals for `token_id` (NEP-178). Frees storage.
     #[payable]
     #[handle_result]
     pub fn nft_revoke_all(&mut self, token_id: String) -> Result<(), MarketplaceError> {
@@ -122,14 +124,21 @@ impl Contract {
         }
 
         let mut token = token.clone();
+        let before = env::storage_usage();
         token.approved_account_ids.clear();
         self.scarces_by_id.insert(token_id.clone(), token);
+        let after = env::storage_usage();
+        let bytes_freed = before.saturating_sub(after);
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(&owner_id, bytes_freed, None);
+        }
 
         events::emit_all_approvals_revoked(&owner_id, &token_id);
         Ok(())
     }
 
-    /// Check if account is approved (NEP-178)
+    /// Returns whether `approved_account_id` holds a valid approval for `token_id`.
+    /// If `approval_id` is supplied, also validates the exact ID.
     pub fn nft_is_approved(
         &self,
         token_id: String,
@@ -154,16 +163,16 @@ impl Contract {
     }
 }
 
-// ── Approval management helpers (moved from lib.rs) ──────────────────────────
+// --- Internal helpers (execute dispatch) ---
 
 impl Contract {
-    /// Internal approve (used by execute dispatch)
+    /// Approve without deposit or XCC gas override; fires `nft_on_approve` if `msg` is provided.
     pub(crate) fn internal_approve(
         &mut self,
         actor_id: &AccountId,
         token_id: &str,
         account_id: &AccountId,
-        _msg: Option<String>,
+        msg: Option<String>,
     ) -> Result<(), MarketplaceError> {
         let mut token = self
             .scarces_by_id
@@ -175,6 +184,7 @@ impl Contract {
                 "Only owner can approve".into(),
             ));
         }
+        self.check_transferable(&token, token_id, "approve")?;
         let approval_id = self.next_approval_id;
         self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
             MarketplaceError::InternalError("Approval ID counter overflow".into())
@@ -192,10 +202,14 @@ impl Contract {
             self.charge_storage_waterfall(actor_id, bytes_used as u64, None)?;
         }
         events::emit_approval_granted(actor_id, token_id, account_id, approval_id);
+        if let Some(msg_str) = msg {
+            let _ = external::ext_scarce_approval_receiver::ext(account_id.clone())
+                .with_static_gas(Gas::from_tgas(DEFAULT_CALLBACK_GAS))
+                .nft_on_approve(token_id.to_string(), actor_id.clone(), approval_id, msg_str);
+        }
         Ok(())
     }
 
-    /// Internal revoke (used by execute dispatch)
     pub(crate) fn internal_revoke(
         &mut self,
         actor_id: &AccountId,
@@ -212,13 +226,18 @@ impl Contract {
                 "Only owner can revoke".into(),
             ));
         }
+        let before = env::storage_usage();
         token.approved_account_ids.remove(account_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
+        let after = env::storage_usage();
+        let bytes_freed = before.saturating_sub(after);
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(actor_id, bytes_freed, None);
+        }
         events::emit_approval_revoked(actor_id, token_id, account_id);
         Ok(())
     }
 
-    /// Internal revoke all (used by execute dispatch)
     pub(crate) fn internal_revoke_all(
         &mut self,
         actor_id: &AccountId,
@@ -234,8 +253,14 @@ impl Contract {
                 "Only owner can revoke all".into(),
             ));
         }
+        let before = env::storage_usage();
         token.approved_account_ids.clear();
         self.scarces_by_id.insert(token_id.to_string(), token);
+        let after = env::storage_usage();
+        let bytes_freed = before.saturating_sub(after);
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(actor_id, bytes_freed, None);
+        }
         events::emit_all_approvals_revoked(actor_id, token_id);
         Ok(())
     }

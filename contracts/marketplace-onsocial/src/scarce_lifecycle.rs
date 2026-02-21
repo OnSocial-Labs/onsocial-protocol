@@ -67,10 +67,11 @@ impl Contract {
         // Validate token belongs to collection
         check_token_in_collection(token_id, collection_id)?;
 
-        let collection = self
+        let mut collection = self
             .collections
             .get(collection_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
 
         if collection.revocation_mode == RevocationMode::None {
             return Err(MarketplaceError::InvalidState(
@@ -78,7 +79,7 @@ impl Contract {
             ));
         }
 
-        self.check_collection_authority(actor_id, collection)?;
+        self.check_collection_authority(actor_id, &collection)?;
 
         match collection.revocation_mode {
             RevocationMode::Invalidate => {
@@ -125,6 +126,9 @@ impl Contract {
 
                 // Remove from any active sale
                 self.internal_remove_sale_listing(token_id, &owner_id, "burned");
+
+                collection.minted_count = collection.minted_count.saturating_sub(1);
+                self.collections.insert(collection_id.to_string(), collection);
 
                 events::emit_token_revoked(
                     actor_id,
@@ -265,10 +269,11 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         check_token_in_collection(token_id, collection_id)?;
 
-        let collection = self
+        let mut collection = self
             .collections
             .get(collection_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
+            .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
+            .clone();
 
         if !collection.burnable {
             return Err(MarketplaceError::InvalidState(
@@ -296,6 +301,9 @@ impl Contract {
 
         // Remove from any active sale
         self.internal_remove_sale_listing(token_id, &owner_id, "burned");
+
+        collection.minted_count = collection.minted_count.saturating_sub(1);
+        self.collections.insert(collection_id.to_string(), collection);
 
         events::emit_scarce_burned(&owner_id, token_id, collection_id);
         Ok(())
