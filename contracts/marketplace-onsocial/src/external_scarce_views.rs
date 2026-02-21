@@ -1,4 +1,4 @@
-// NEP-177 (Metadata) and NEP-181 (Enumeration) cross-contract view helpers.
+// NEP-177 / NEP-181 cross-contract view helpers.
 
 use crate::external::*;
 use crate::*;
@@ -12,7 +12,7 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         ext_scarce_contract::ext(scarce_contract_id)
-            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10)))
+            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10).clamp(1, 300)))
             .nft_token(token_id)
     }
 
@@ -22,13 +22,11 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         ext_scarce_contract::ext(scarce_contract_id)
-            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10)))
+            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10).clamp(1, 300)))
             .nft_metadata()
     }
 
-    /// Dispatches `nft_token` on the external contract and joins the result with
-    /// the on-chain sale record. Panics early if no active sale exists, avoiding
-    /// a wasted cross-contract round-trip.
+    /// Panics if no active sale exists for the token.
     pub fn get_sale_with_scarce_metadata(
         &self,
         scarce_contract_id: AccountId,
@@ -41,7 +39,7 @@ impl Contract {
             "No active sale for this token"
         );
 
-        let gas = Gas::from_tgas(gas_tgas.unwrap_or(10));
+        let gas = Gas::from_tgas(gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS).clamp(1, 150));
 
         ext_scarce_contract::ext(scarce_contract_id.clone())
             .with_static_gas(gas)
@@ -60,10 +58,9 @@ impl Contract {
         token_id: String,
     ) -> Option<SaleWithMetadata> {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-        let sale = self.sales.get(&sale_id)?;
+        let sale = self.sales.get(&sale_id).cloned()?;
 
-        // Returns None on promise failure or oversized response; TooLong is logged
-        // so indexers can detect tokens whose metadata exceeds MAX_METADATA_LEN.
+        // Logs ERR_NFT_TOKEN_RESULT_TOO_LONG so indexers can detect oversized metadata.
         let scarce_token = match env::promise_result_checked(0, MAX_METADATA_LEN) {
             Ok(value) => near_sdk::serde_json::from_slice::<Option<Token>>(&value)
                 .ok()
@@ -76,7 +73,7 @@ impl Contract {
         };
 
         Some(SaleWithMetadata {
-            sale: sale.clone(),
+            sale,
             scarce_token,
         })
     }
@@ -89,7 +86,7 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         ext_scarce_contract::ext(scarce_contract_id)
-            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10)))
+            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10).clamp(1, 300)))
             .nft_tokens(from_index, limit)
     }
 
@@ -102,7 +99,7 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         ext_scarce_contract::ext(scarce_contract_id)
-            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10)))
+            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10).clamp(1, 300)))
             .nft_tokens_for_owner(account_id, from_index, limit)
     }
 
@@ -112,7 +109,7 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         ext_scarce_contract::ext(scarce_contract_id)
-            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10)))
+            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10).clamp(1, 300)))
             .nft_total_supply()
     }
 
@@ -123,7 +120,7 @@ impl Contract {
         gas_tgas: Option<u64>,
     ) -> Promise {
         ext_scarce_contract::ext(scarce_contract_id)
-            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10)))
+            .with_static_gas(Gas::from_tgas(gas_tgas.unwrap_or(10).clamp(1, 300)))
             .nft_supply_for_owner(account_id)
     }
 
@@ -134,7 +131,7 @@ impl Contract {
         limit: Option<u64>,
     ) -> Vec<SaleWithBasicInfo> {
         let sales =
-            self.get_sales_by_scarce_contract_id(scarce_contract_id.clone(), from_index, limit);
+            self.get_sales_by_scarce_contract_id(scarce_contract_id, from_index, limit);
 
         sales
             .into_iter()

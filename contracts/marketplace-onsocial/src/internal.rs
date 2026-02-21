@@ -1,6 +1,6 @@
 use crate::*;
 
-// ── Token ownership set management ───────────────────────────────────────────
+// --- Token ownership ---
 
 impl Contract {
     pub(crate) fn add_token_to_owner(&mut self, owner_id: &AccountId, token_id: &str) {
@@ -28,12 +28,10 @@ impl Contract {
     }
 }
 
-// ── Transferability guard ────────────────────────────────────────────────────
+// --- Transferability ---
 
 impl Contract {
-    /// Check whether a token is transferable. Returns `Err` for revoked or soulbound tokens.
-    /// Revoked tokens are always blocked. Token-level transferable flag takes precedence;
-    /// `None` falls through to collection.
+    // Revoked tokens always blocked; token-level flag takes precedence, `None` falls through to collection.
     pub(crate) fn check_transferable(
         &self,
         token: &Scarce,
@@ -51,24 +49,15 @@ impl Contract {
             Some(true) => Ok(()),
             None => {
                 let cid = collection_id_from_token_id(token_id);
-                if !cid.is_empty() {
-                    if let Some(collection) = self.collections.get(cid) {
-                        if !collection.transferable {
-                            return Err(MarketplaceError::soulbound(action));
-                        }
-                    }
+                if !cid.is_empty() && self.collections.get(cid).is_some_and(|c| !c.transferable) {
+                    return Err(MarketplaceError::soulbound(action));
                 }
                 Ok(())
             }
         }
     }
-}
 
-// ── Resolve effective app_id for a token ─────────────────────────────────────
-
-impl Contract {
-    /// Get the effective `app_id` for a token: standalone tokens carry their own,
-    /// collection tokens inherit from the collection.
+    // Standalone tokens carry their own app_id; collection tokens inherit from the collection.
     pub(crate) fn resolve_token_app_id(
         &self,
         token_id: &str,
@@ -81,10 +70,9 @@ impl Contract {
     }
 }
 
-// ── Royalty validation ───────────────────────────────────────────────────────
+// --- Royalty ---
 
 impl Contract {
-    /// Validate a royalty map: max 10 recipients, each > 0 bps, total <= MAX_ROYALTY_BPS.
     pub(crate) fn validate_royalty(
         royalty: &std::collections::HashMap<AccountId, u32>,
     ) -> Result<(), MarketplaceError> {
@@ -114,7 +102,7 @@ impl Contract {
     }
 }
 
-// ── Authority guards ─────────────────────────────────────────────────────────
+// --- Authority ---
 
 impl Contract {
     pub(crate) fn check_contract_owner(
@@ -128,7 +116,7 @@ impl Contract {
     }
 }
 
-// ── Refund excess deposit ────────────────────────────────────────────────────
+// --- Payment routing ---
 
 pub(crate) fn refund_excess(buyer: &AccountId, deposit: u128, price: u128) {
     let refund = deposit.saturating_sub(price);
@@ -137,9 +125,6 @@ pub(crate) fn refund_excess(buyer: &AccountId, deposit: u128, price: u128) {
     }
 }
 
-// ── Primary sale payment routing ─────────────────────────────────────────────
-
-/// Result from `route_primary_sale`: amounts for event emission and analytics.
 pub(crate) struct PrimarySaleResult {
     pub revenue: u128,
     pub app_pool_amount: u128,
@@ -148,9 +133,7 @@ pub(crate) struct PrimarySaleResult {
 }
 
 impl Contract {
-    /// Route payment for a primary sale (collection purchase, lazy listing purchase).
-    /// Storage is covered by the 3-tier waterfall, never deducted from `price`.
-    /// Distribution order: marketplace fee → app commission → remainder to creator.
+    // Storage covered by 3-tier waterfall, never deducted from `price`.
     pub(crate) fn route_primary_sale(
         &mut self,
         price: u128,
@@ -205,7 +188,7 @@ impl Contract {
         }
     }
 
-    /// Settle a secondary sale. Expiry validation is the caller's responsibility.
+    // Expiry validation is the caller's responsibility.
     pub(crate) fn settle_secondary_sale(
         &mut self,
         token_id: &str,
@@ -330,17 +313,14 @@ pub(crate) fn check_at_least_one_yocto() -> Result<(), MarketplaceError> {
     Ok(())
 }
 
-// ── Fee / utility helpers ───────────────────────────────────────────────────
+// --- Fee helpers ---
 
 impl Contract {
     pub(crate) fn make_sale_id(scarce_contract_id: &AccountId, token_id: &str) -> String {
         format!("{}{}{}", scarce_contract_id, DELIMETER, token_id)
     }
 
-    /// Calculate fee split for a sale price.
-    /// Returns (total_fee, app_pool_amount, platform_storage_amount, revenue_amount).
-    /// - With app_id: app_pool_fee_bps → app pool, 0 → platform pool, rest → revenue.
-    /// - Without app_id: 0 → app pool, platform_storage_fee_bps → platform pool, rest → revenue.
+    // Returns (total_fee, app_pool_amount, platform_storage_amount, revenue_amount).
     pub(crate) fn internal_calculate_fee_split(
         &self,
         price: u128,
@@ -357,19 +337,16 @@ impl Contract {
             }
         }
 
-        // No app → platform storage pool gets platform_storage_fee_bps, rest is revenue
         let platform_amount =
             (price * self.fee_config.platform_storage_fee_bps as u128) / BASIS_POINTS as u128;
         let revenue = total_fee.saturating_sub(platform_amount);
         (total_fee, 0, platform_amount, revenue)
     }
 
-    /// Distributes the fee split: revenue to fee_recipient, remainder to app or platform pool.
-    /// If the app pool disappears between fee calculation and credit, falls back to platform pool.
+    // Falls back to platform pool if app pool is missing at settlement.
     pub(crate) fn route_fee(&mut self, price: u128, app_id: Option<&AccountId>) -> (u128, u128) {
-        let (total_fee, app_amount, platform_amount, revenue) =
+        let (_, app_amount, platform_amount, revenue) =
             self.internal_calculate_fee_split(price, app_id);
-        let _ = total_fee; // suppress unused warning
 
         if app_amount > 0 {
             if let Some(app) = app_id {
@@ -398,7 +375,7 @@ impl Contract {
         (revenue, app_amount)
     }
 
-    /// Validates sub-fees against the effective post-update total to prevent stale-value bugs.
+    // Validates sub-fees against effective post-update total to prevent stale-value bugs.
     pub(crate) fn internal_update_fee_config(
         &mut self,
         total_fee_bps: Option<u16>,
@@ -447,8 +424,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Merges app default royalty with creator royalty; app entries cannot be removed by the creator.
-    /// Shared accounts are summed. Returns `Err` if merged total exceeds `MAX_ROYALTY_BPS`.
+    // App entries cannot be removed by creator; shared accounts are summed.
     pub(crate) fn merge_royalties(
         &self,
         app_id: Option<&AccountId>,
@@ -502,9 +478,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Each recipient's share is scaled proportionally to `amount_after_fee`.
-    /// Rounding dust goes to the platform fee recipient.
-    /// If payout total is 0, the full amount goes to `fallback_recipient`.
+    // Rounding dust goes to fee recipient; if payout total is 0, full amount goes to fallback.
     pub(crate) fn distribute_payout(
         &self,
         payout: &Payout,
@@ -527,7 +501,6 @@ impl Contract {
                     }
                 }
             }
-            // Dust → fee recipient
             let remaining = amount_after_fee.saturating_sub(actual_distributed);
             if remaining > 0 {
                 let _ = Promise::new(self.fee_recipient.clone())

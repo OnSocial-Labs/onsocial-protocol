@@ -4,13 +4,14 @@ use crate::*;
 use near_sdk::serde_json::Value;
 
 impl Contract {
+    // `actor_id` is the pre-resolved caller identity (owner, delegated signer, or gas-relayed account).
     pub(crate) fn dispatch_action(
         &mut self,
         action: Action,
         actor_id: &AccountId,
     ) -> Result<Value, MarketplaceError> {
         match action {
-            // ── Collections ──────────────────────────────────────────
+            // --- Collections ---
             Action::QuickMint { metadata, options } => {
                 let token_id = self.internal_quick_mint(actor_id, metadata, options)?;
                 Ok(Value::String(token_id))
@@ -60,7 +61,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Listing ──────────────────────────────────────────────
+            // --- Listing ---
             Action::ListNativeScarce {
                 token_id,
                 price,
@@ -101,7 +102,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Transfers ────────────────────────────────────────────
+            // --- Transfers ---
             Action::TransferScarce {
                 receiver_id,
                 token_id,
@@ -111,7 +112,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Approvals ────────────────────────────────────────────
+            // --- Approvals ---
             Action::ApproveScarce {
                 token_id,
                 account_id,
@@ -132,7 +133,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Token Lifecycle ───────────────────────────────────────
+            // --- Token Lifecycle ---
             Action::RenewToken {
                 token_id,
                 collection_id,
@@ -169,7 +170,15 @@ impl Contract {
             } => {
                 match collection_id {
                     Some(cid) => self.internal_burn_scarce(actor_id, &token_id, &cid)?,
-                    None => self.internal_burn_standalone(actor_id, &token_id)?,
+                    None => {
+                        // Empty prefix means standalone QuickMint; route to standalone burn path.
+                        let cid = crate::collection_id_from_token_id(&token_id);
+                        if cid.is_empty() {
+                            self.internal_burn_standalone(actor_id, &token_id)?
+                        } else {
+                            self.internal_burn_scarce(actor_id, &token_id, cid)?
+                        }
+                    }
                 }
                 Ok(Value::Null)
             }
@@ -190,7 +199,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Allowlist ────────────────────────────────────────────
+            // --- Allowlist ---
             Action::SetAllowlist {
                 collection_id,
                 entries,
@@ -206,13 +215,16 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Admin ────────────────────────────────────────────────
+            // --- Admin ---
             Action::SetFeeRecipient { fee_recipient } => {
+                // Requires 1 yoctoNEAR; owner only.
+                crate::internal::check_one_yocto()?;
                 if actor_id != &self.owner_id {
                     return Err(MarketplaceError::Unauthorized("Only owner".into()));
                 }
+                let old_recipient = self.fee_recipient.clone();
                 self.fee_recipient = fee_recipient;
-                events::emit_fee_recipient_changed(actor_id, &self.fee_recipient);
+                events::emit_fee_recipient_changed(actor_id, &old_recipient, &self.fee_recipient);
                 Ok(Value::Null)
             }
             Action::UpdateFeeConfig {
@@ -220,6 +232,8 @@ impl Contract {
                 app_pool_fee_bps,
                 platform_storage_fee_bps,
             } => {
+                // Requires 1 yoctoNEAR; owner only.
+                crate::internal::check_one_yocto()?;
                 if actor_id != &self.owner_id {
                     return Err(MarketplaceError::Unauthorized("Only owner".into()));
                 }
@@ -231,7 +245,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── App Pool ─────────────────────────────────────────────
+            // --- App Pool ---
             Action::RegisterApp { app_id, params } => {
                 self.internal_register_app(actor_id, &app_id, params)?;
                 Ok(Value::Null)
@@ -268,7 +282,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Collection Metadata ──────────────────────────────────
+            // --- Collection Metadata ---
             Action::SetCollectionMetadata {
                 collection_id,
                 metadata,
@@ -290,8 +304,9 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Offers ───────────────────────────────────────────────
+            // --- Offers ---
             Action::AcceptOffer { token_id, buyer_id } => {
+                // Requires 1 yoctoNEAR; prevents key-scope abuse on fund-transferring actions.
                 crate::internal::check_one_yocto()?;
                 self.internal_accept_offer(actor_id, &token_id, &buyer_id)?;
                 Ok(Value::Null)
@@ -305,6 +320,7 @@ impl Contract {
                 token_id,
                 buyer_id,
             } => {
+                // Requires 1 yoctoNEAR; prevents key-scope abuse on fund-transferring actions.
                 crate::internal::check_one_yocto()?;
                 self.internal_accept_collection_offer(
                     actor_id,
@@ -319,7 +335,7 @@ impl Contract {
                 Ok(Value::Null)
             }
 
-            // ── Lazy Listings ─────────────────────────────────────────
+            // --- Lazy Listings ---
             Action::CreateLazyListing { params } => {
                 let listing_id = self.internal_create_lazy_listing(actor_id, params)?;
                 Ok(Value::String(listing_id))

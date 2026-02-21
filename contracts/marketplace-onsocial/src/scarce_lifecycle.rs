@@ -291,7 +291,7 @@ impl Contract {
         collection.minted_count = collection.minted_count.saturating_sub(1);
         self.collections.insert(collection_id.to_string(), collection);
 
-        events::emit_scarce_burned(&owner_id, token_id, collection_id);
+        events::emit_scarce_burned(&owner_id, token_id, Some(collection_id));
         Ok(())
     }
 
@@ -328,7 +328,7 @@ impl Contract {
         self.remove_token_from_owner(&owner_id, token_id);
         self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
-        events::emit_scarce_burned(&owner_id, token_id, "");
+        events::emit_scarce_burned(&owner_id, token_id, None);
         Ok(())
     }
 }

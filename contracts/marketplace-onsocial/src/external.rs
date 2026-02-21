@@ -1,12 +1,10 @@
-// `#[ext_contract]` generates helper structs that the compiler flags as dead_code
-// even though they are used at runtime for cross-contract calls.
+// #[ext_contract] generates helper structs flagged as dead_code but used at runtime.
 #![allow(dead_code)]
 
 use crate::Payout;
 use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::{ext_contract, near, AccountId};
 
-/// Scarce Token structure (NEP-171)
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct Token {
@@ -16,7 +14,6 @@ pub struct Token {
     pub approved_account_ids: Option<std::collections::HashMap<AccountId, u64>>,
 }
 
-/// Scarce Contract Metadata (NEP-177)
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct ScarceContractMetadata {
@@ -43,7 +40,6 @@ impl Default for ScarceContractMetadata {
     }
 }
 
-/// External Scarce contract interface
 #[ext_contract(ext_scarce_contract)]
 pub trait ExtScarceContract {
     fn nft_transfer_payout(
@@ -83,7 +79,6 @@ pub struct SaleWithMetadata {
     pub scarce_token: Option<Token>,
 }
 
-/// Self callback interface
 #[ext_contract(ext_self)]
 pub trait ExtSelf {
     fn resolve_purchase(
@@ -112,7 +107,6 @@ pub trait ExtSelf {
         token_id: String,
     ) -> Option<SaleWithMetadata>;
 
-    /// Resolve Scarce transfer (NEP-171 callback)
     fn nft_resolve_transfer(
         &mut self,
         previous_owner_id: AccountId,
@@ -122,7 +116,6 @@ pub trait ExtSelf {
     ) -> bool;
 }
 
-/// NEP-178 Approval receiver interface
 #[ext_contract(ext_scarce_approval_receiver)]
 pub trait ExtScarceApprovalReceiver {
     fn nft_on_approve(
@@ -134,7 +127,6 @@ pub trait ExtScarceApprovalReceiver {
     );
 }
 
-/// NEP-171 Transfer receiver interface
 #[ext_contract(ext_scarce_transfer_receiver)]
 pub trait ExtScarceTransferReceiver {
     /// Returns `true` to revert the transfer, `false` to accept.

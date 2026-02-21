@@ -1,30 +1,17 @@
-//! Typed error handling for the marketplace contract.
-//!
-//! Uses `#[derive(near_sdk::FunctionError)]` from the NEAR SDK to enable
-//! `#[handle_result]` on public methods. When a method returns
-//! `Err(MarketplaceError::Xxx)`, the SDK calls `env::panic_str()`
-//! with the Display message — same on-wire behaviour as raw panics,
-//! but with structured, testable code.
+//! `FunctionError` integration: `Err(MarketplaceError::X)` calls `env::panic_str` with the Display message.
 
 use near_sdk_macros::NearSchema;
 
 #[derive(NearSchema, near_sdk::FunctionError)]
-#[abi(borsh, json)]
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[abi(json)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum MarketplaceError {
-    /// Caller lacks permission (wrong owner, not approved, etc.)
     Unauthorized(String),
-    /// Invalid parameters, IDs, or data from the caller.
     InvalidInput(String),
-    /// Requested entity does not exist.
     NotFound(String),
-    /// Operation not allowed given current contract state.
     InvalidState(String),
-    /// Attached deposit is too low.
     InsufficientDeposit(String),
-    /// Storage balance is too low.
     InsufficientStorage(String),
-    /// Internal invariant violation (should never happen).
     InternalError(String),
 }
 
@@ -42,7 +29,7 @@ impl std::fmt::Display for MarketplaceError {
     }
 }
 
-// ── Factory helpers for common errors ────────────────────────────────────────
+// --- Factory helpers ---
 
 impl MarketplaceError {
     pub fn token_not_found() -> Self {

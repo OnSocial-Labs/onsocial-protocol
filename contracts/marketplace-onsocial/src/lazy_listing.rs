@@ -1,13 +1,9 @@
-//! Lazy Listings — mint-on-purchase for standalone tokens.
-//!
-//! Creator publishes metadata + price without minting. On purchase, the token
-//! is minted directly to the buyer; creator receives payment minus fees. Storage
-//! is covered by the 3-tier waterfall, never deducted from the sale price.
+//! Lazy listings: mint-on-purchase for standalone tokens.
+//! Storage is managed by the 3-tier waterfall and never deducted from the sale price.
 
 use crate::*;
 
 impl Contract {
-    /// Create a lazy listing. Stores metadata + price; no token is minted.
     pub(crate) fn internal_create_lazy_listing(
         &mut self,
         creator_id: &AccountId,
@@ -36,7 +32,7 @@ impl Contract {
             )));
         }
 
-        // Validate before merge so creators get early feedback on invalid royalty before app merging.
+        // Validate royalty before merge so creators get early feedback.
         if let Some(ref r) = royalty {
             Self::validate_royalty(r)?;
         }
@@ -60,7 +56,7 @@ impl Contract {
 
         let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
 
-        // ID counter is shared with QuickMint; prefix "ll:" distinguishes lazy listing IDs.
+        // Shared with QuickMint; prefix "ll:" distinguishes lazy listing IDs.
         let id = self.next_token_id;
         self.next_token_id = self
             .next_token_id
@@ -95,7 +91,7 @@ impl Contract {
         Ok(listing_id)
     }
 
-    /// Cancel a lazy listing (creator only). Releases storage back to the originating tier.
+    // Creator-only; releases storage back to the originating tier.
     pub(crate) fn internal_cancel_lazy_listing(
         &mut self,
         actor_id: &AccountId,
@@ -125,7 +121,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Update listing expiry (creator only). Pass `None` to make the listing permanent.
+    // Creator-only; pass `None` to make the listing permanent.
     pub(crate) fn internal_update_lazy_listing_expiry(
         &mut self,
         actor_id: &AccountId,
@@ -140,21 +136,23 @@ impl Contract {
             }
         }
 
-        let mut listing = self
+        let creator_id = self
             .lazy_listings
-            .remove(listing_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Lazy listing not found".into()))?;
+            .get(listing_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Lazy listing not found".into()))?
+            .creator_id
+            .clone();
 
-        if &listing.creator_id != actor_id {
-            self.lazy_listings.insert(listing_id.to_string(), listing);
+        if &creator_id != actor_id {
             return Err(MarketplaceError::Unauthorized(
                 "Only the creator can update listing expiry".into(),
             ));
         }
 
+        // Safety: existence confirmed above; NEAR transactions are atomic.
+        let mut listing = self.lazy_listings.remove(listing_id).unwrap();
         let old_expires_at = listing.expires_at;
         listing.expires_at = new_expires_at;
-        let creator_id = listing.creator_id.clone();
         self.lazy_listings.insert(listing_id.to_string(), listing);
 
         events::emit_lazy_listing_expiry_updated(
@@ -166,28 +164,29 @@ impl Contract {
         Ok(())
     }
 
-    /// Update listing price (creator only).
     pub(crate) fn internal_update_lazy_listing_price(
         &mut self,
         actor_id: &AccountId,
         listing_id: &str,
         new_price: u128,
     ) -> Result<(), MarketplaceError> {
-        let mut listing = self
+        let creator_id = self
             .lazy_listings
-            .remove(listing_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Lazy listing not found".into()))?;
+            .get(listing_id)
+            .ok_or_else(|| MarketplaceError::NotFound("Lazy listing not found".into()))?
+            .creator_id
+            .clone();
 
-        if &listing.creator_id != actor_id {
-            self.lazy_listings.insert(listing_id.to_string(), listing);
+        if &creator_id != actor_id {
             return Err(MarketplaceError::Unauthorized(
                 "Only the creator can update listing price".into(),
             ));
         }
 
+        // Safety: existence confirmed above; NEAR transactions are atomic.
+        let mut listing = self.lazy_listings.remove(listing_id).unwrap();
         let old_price = listing.price;
         listing.price = new_price;
-        let creator_id = listing.creator_id.clone();
         self.lazy_listings.insert(listing_id.to_string(), listing);
 
         events::emit_lazy_listing_price_updated(&creator_id, listing_id, old_price, new_price);
@@ -197,44 +196,45 @@ impl Contract {
 
 #[near]
 impl Contract {
-    /// Mint and deliver a lazy-listed token to the buyer.
-    ///
-    /// Attached NEAR must cover `listing.price`. Storage is charged via the waterfall
-    /// and never deducted from the payment; creator receives `price` minus marketplace fees.
-    /// On any failure after a state mutation, mutations are reversed and deposit is refunded.
+    /// Panics (returns Err) if deposit < listing.price or listing is expired.
+    /// Creator receives price minus marketplace fees; excess deposit is refunded.
     #[payable]
     #[handle_result]
     pub fn purchase_lazy_listing(
         &mut self,
         listing_id: String,
     ) -> Result<String, MarketplaceError> {
-        let listing = self
-            .lazy_listings
-            .remove(&listing_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Lazy listing not found".into()))?;
-
         let buyer_id = env::predecessor_account_id();
         let deposit = env::attached_deposit().as_yoctonear();
-        let price = listing.price;
 
-        if let Some(exp) = listing.expires_at {
-            if env::block_timestamp() > exp {
-                self.lazy_listings.insert(listing_id.clone(), listing);
+        // Read-only guards before removing the listing to avoid needing a restore on early exits.
+        {
+            let listing = self
+                .lazy_listings
+                .get(&listing_id)
+                .ok_or_else(|| MarketplaceError::NotFound("Lazy listing not found".into()))?;
+
+            if let Some(exp) = listing.expires_at {
+                if env::block_timestamp() > exp {
+                    crate::internal::refund_excess(&buyer_id, deposit, 0);
+                    return Err(MarketplaceError::InvalidState(
+                        "Lazy listing has expired".into(),
+                    ));
+                }
+            }
+
+            if deposit < listing.price {
                 crate::internal::refund_excess(&buyer_id, deposit, 0);
-                return Err(MarketplaceError::InvalidState(
-                    "Lazy listing has expired".into(),
-                ));
+                return Err(MarketplaceError::InsufficientDeposit(format!(
+                    "Insufficient payment: required {}, got {}",
+                    listing.price, deposit
+                )));
             }
         }
 
-        if deposit < price {
-            self.lazy_listings.insert(listing_id.clone(), listing);
-            crate::internal::refund_excess(&buyer_id, deposit, 0);
-            return Err(MarketplaceError::InsufficientDeposit(format!(
-                "Insufficient payment: required {}, got {}",
-                price, deposit
-            )));
-        }
+        // Safety: existence confirmed above; NEAR transactions are atomic.
+        let listing = self.lazy_listings.remove(&listing_id).unwrap();
+        let price = listing.price;
 
         let creator_id = listing.creator_id.clone();
         let app_id = listing.app_id.clone();
@@ -243,7 +243,7 @@ impl Contract {
         let transferable = listing.transferable;
         let burnable = listing.burnable;
 
-        // Counter is shared with QuickMint; prefix "s:" identifies standalone tokens.
+        // Shared with QuickMint; prefix "s:" identifies standalone tokens.
         let token_num = self.next_token_id;
         self.next_token_id = self
             .next_token_id
@@ -306,11 +306,8 @@ impl Contract {
 
 #[near]
 impl Contract {
-    /// Remove up to `limit` (max 50) expired lazy listings and release their storage.
-    ///
-    /// Permissionless; callable by anyone. Emits `expired` (not `cancelled`) per removal
-    /// so indexers can distinguish sweeps from manual cancellations.
-    /// Returns the count of listings actually removed.
+    /// Callable by anyone. Removes up to `limit` (max 50) expired listings and releases their storage.
+    /// Emits `expired` (not `cancelled`) so indexers can distinguish sweeps from manual cancellations.
     pub fn cleanup_expired_lazy_listings(&mut self, limit: Option<u64>) -> u64 {
         let now = env::block_timestamp();
         let limit = limit.unwrap_or(20).min(50) as usize;
@@ -325,7 +322,7 @@ impl Contract {
 
         let mut count = 0u64;
         for (listing_id, listing) in expired {
-            // Guard against running out of gas mid-loop.
+            // Stop early if < 5 TGas remain to avoid mid-loop gas exhaustion.
             if env::prepaid_gas().saturating_sub(env::used_gas()) < near_sdk::Gas::from_tgas(5) {
                 break;
             }

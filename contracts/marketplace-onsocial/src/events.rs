@@ -1,18 +1,4 @@
-//! Event infrastructure for marketplace-onsocial.
-//!
-//! Follows core-onsocial's EventBuilder pattern, simplified for marketplace
-//! (no partition_id, no EventBatch, no path routing).
-//!
-//! Single `onsocial` 1.0.0 standard — NEP-297 compliant envelope.
-//! A single Substreams decoder handles both core and marketplace events.
-//!
-//! Event categories:
-//!   - `SCARCE_UPDATE`     – list, delist, transfer, burn, auction, approval
-//!   - `COLLECTION_UPDATE` – create, mint, pause, cancel, refund
-//!   - `STORAGE_UPDATE`    – deposit, withdraw
-//!   - `APP_POOL_UPDATE`   – register, fund, withdraw, config
-//!   - `CONTRACT_UPDATE`   – upgrade, owner transfer
-//!   - `OFFER_UPDATE`      – make, cancel, accept (token & collection)
+//! NEP-297 compliant event emission (`onsocial` 1.0.0).
 
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
@@ -20,7 +6,7 @@ use near_sdk::serde_json::{self, Map, Value};
 use near_sdk::{env, AccountId};
 use near_sdk_macros::NearSchema;
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// --- Constants ---
 
 const STANDARD: &str = "onsocial";
 const VERSION: &str = "1.0.0";
@@ -34,7 +20,7 @@ const CONTRACT: &str = "CONTRACT_UPDATE";
 const OFFER: &str = "OFFER_UPDATE";
 const LAZY_LISTING: &str = "LAZY_LISTING_UPDATE";
 
-// ── Types (NearSchema → ABI-visible) ────────────────────────────────────────
+// --- Types (NearSchema → ABI-visible) ---
 
 #[derive(NearSchema, Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "near_sdk::serde")]
@@ -54,7 +40,7 @@ pub(crate) struct EventData {
     extra: Map<String, Value>,
 }
 
-// ── Value conversion ─────────────────────────────────────────────────────────
+// --- Value conversion ---
 
 pub(crate) trait IntoEventValue {
     fn into_event_value(self) -> Value;
@@ -138,7 +124,7 @@ impl IntoEventValue for &[AccountId] {
     }
 }
 
-// ── EventBuilder ─────────────────────────────────────────────────────────────
+// --- EventBuilder ---
 
 pub(crate) struct EventBuilder {
     event_type: &'static str,
@@ -180,13 +166,11 @@ impl EventBuilder {
                 extra: self.fields,
             }],
         };
-        if let Ok(json) = serde_json::to_string(&event) {
-            env::log_str(&format!("{PREFIX}{json}"));
-        }
+        env::log_str(&format!("{PREFIX}{}", serde_json::to_string(&event).expect("event serialization failed")));
     }
 }
 
-// ── SCARCE_UPDATE — marketplace ──────────────────────────────────────────────
+// --- SCARCE_UPDATE ---
 
 pub fn emit_scarce_list(
     owner_id: &AccountId,
@@ -283,6 +267,7 @@ pub fn emit_scarce_transfer(
 ) {
     EventBuilder::new(SCARCE, "transfer", sender_id)
         .field("sender_id", sender_id)
+        .field("old_owner_id", old_owner_id)
         .field("receiver_id", receiver_id)
         .field("token_id", token_id)
         .field_opt("memo", memo)
@@ -328,7 +313,7 @@ pub fn emit_auto_delisted(token_id: &str, owner_id: &AccountId, reason: &str) {
         .emit();
 }
 
-// ── SCARCE_UPDATE — lifecycle ────────────────────────────────────────────────
+// --- SCARCE_UPDATE — lifecycle ---
 
 pub fn emit_token_renewed(
     actor_id: &AccountId,
@@ -379,15 +364,15 @@ pub fn emit_token_redeemed(
         .emit();
 }
 
-pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: &str) {
+pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: Option<&str>) {
     EventBuilder::new(SCARCE, "burn", owner_id)
         .field("owner_id", owner_id)
         .field("token_id", token_id)
-        .field("collection_id", collection_id)
+        .field_opt("collection_id", collection_id)
         .emit();
 }
 
-// ── SCARCE_UPDATE — approvals ────────────────────────────────────────────────
+// --- SCARCE_UPDATE — approvals ---
 
 pub fn emit_approval_granted(
     owner_id: &AccountId,
@@ -418,7 +403,7 @@ pub fn emit_all_approvals_revoked(owner_id: &AccountId, token_id: &str) {
         .emit();
 }
 
-// ── SCARCE_UPDATE — auctions ─────────────────────────────────────────────────
+// --- SCARCE_UPDATE — auctions ---
 
 pub fn emit_auction_created(
     owner_id: &AccountId,
@@ -468,12 +453,13 @@ pub fn emit_auction_settled(
 
 pub fn emit_auction_cancelled(actor_id: &AccountId, token_id: &str, reason: &str) {
     EventBuilder::new(SCARCE, "auction_cancelled", actor_id)
+        .field("actor_id", actor_id)
         .field("token_id", token_id)
         .field("reason", reason)
         .emit();
 }
 
-// ── COLLECTION_UPDATE ────────────────────────────────────────────────────────
+// --- COLLECTION_UPDATE ---
 
 pub fn emit_collection_created(
     creator_id: &AccountId,
@@ -542,6 +528,7 @@ pub fn emit_collection_mint(
     token_ids: &[String],
 ) {
     EventBuilder::new(COLLECTION, "creator_mint", actor_id)
+        .field("actor_id", actor_id)
         .field("receiver_id", receiver_id)
         .field("collection_id", collection_id)
         .field("quantity", quantity)
@@ -688,7 +675,7 @@ pub fn emit_collection_timing_updated(
         .emit();
 }
 
-// ── STORAGE_UPDATE ───────────────────────────────────────────────────────────
+// --- STORAGE_UPDATE ---
 
 pub fn emit_storage_deposit(account_id: &AccountId, deposit: u128, new_balance: u128) {
     EventBuilder::new(STORAGE, "storage_deposit", account_id)
@@ -721,7 +708,7 @@ pub fn emit_storage_refund(account_id: &AccountId, amount: u128) {
         .emit();
 }
 
-// ── APP_POOL_UPDATE ──────────────────────────────────────────────────────────
+// --- APP_POOL_UPDATE ---
 
 pub fn emit_app_pool_register(owner_id: &AccountId, app_id: &AccountId, initial_balance: u128) {
     EventBuilder::new(APP_POOL, "register", owner_id)
@@ -787,7 +774,7 @@ pub fn emit_moderator_removed(owner_id: &AccountId, app_id: &AccountId, account_
         .emit();
 }
 
-// ── CONTRACT_UPDATE ──────────────────────────────────────────────────────────
+// --- CONTRACT_UPDATE ---
 
 pub fn emit_contract_upgraded(contract_id: &AccountId, old_version: &str, new_version: &str) {
     EventBuilder::new(CONTRACT, "contract_upgrade", contract_id)
@@ -803,8 +790,9 @@ pub fn emit_owner_transferred(old_owner: &AccountId, new_owner: &AccountId) {
         .emit();
 }
 
-pub fn emit_fee_recipient_changed(owner_id: &AccountId, new_recipient: &AccountId) {
+pub fn emit_fee_recipient_changed(owner_id: &AccountId, old_recipient: &AccountId, new_recipient: &AccountId) {
     EventBuilder::new(CONTRACT, "fee_recipient_changed", owner_id)
+        .field("old_recipient", old_recipient)
         .field("new_recipient", new_recipient)
         .emit();
 }
@@ -822,17 +810,48 @@ pub fn emit_fee_config_updated(
         .emit();
 }
 
-pub fn emit_intents_executors_updated(owner_id: &AccountId, executors: &[AccountId]) {
-    EventBuilder::new(CONTRACT, "intents_executors_updated", owner_id)
-        .field("executors", executors)
+pub fn emit_intents_executor_added(owner_id: &AccountId, executor: &AccountId) {
+    EventBuilder::new(CONTRACT, "add_intents_executor", owner_id)
+        .field("executor", executor)
         .emit();
 }
 
-pub fn emit_contract_metadata_updated(owner_id: &AccountId) {
-    EventBuilder::new(CONTRACT, "contract_metadata_updated", owner_id).emit();
+pub fn emit_intents_executor_removed(owner_id: &AccountId, executor: &AccountId) {
+    EventBuilder::new(CONTRACT, "remove_intents_executor", owner_id)
+        .field("executor", executor)
+        .emit();
 }
 
-// ── OFFER_UPDATE ─────────────────────────────────────────────────────────────
+pub fn emit_contract_metadata_updated(
+    owner_id: &AccountId,
+    name: &str,
+    symbol: &str,
+    icon: Option<&str>,
+    base_uri: Option<&str>,
+    reference: Option<&str>,
+) {
+    EventBuilder::new(CONTRACT, "contract_metadata_updated", owner_id)
+        .field("name", name)
+        .field("symbol", symbol)
+        .field_opt("icon", icon)
+        .field_opt("base_uri", base_uri)
+        .field_opt("reference", reference)
+        .emit();
+}
+
+pub fn emit_approved_nft_contract_added(owner_id: &AccountId, contract_id: &AccountId) {
+    EventBuilder::new(CONTRACT, "approved_nft_contract_added", owner_id)
+        .field("contract_id", contract_id)
+        .emit();
+}
+
+pub fn emit_approved_nft_contract_removed(owner_id: &AccountId, contract_id: &AccountId) {
+    EventBuilder::new(CONTRACT, "approved_nft_contract_removed", owner_id)
+        .field("contract_id", contract_id)
+        .emit();
+}
+
+// --- OFFER_UPDATE ---
 
 pub fn emit_offer_made(
     buyer_id: &AccountId,
@@ -914,7 +933,7 @@ pub fn emit_collection_offer_accepted(
         .emit();
 }
 
-// ── Lazy Listing Events ──────────────────────────────────────────────────────
+// --- LAZY_LISTING_UPDATE ---
 
 pub fn emit_lazy_listing_created(creator_id: &AccountId, listing_id: &str, price: u128) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)
@@ -947,12 +966,14 @@ pub fn emit_lazy_listing_purchased(
 
 pub fn emit_lazy_listing_cancelled(creator_id: &AccountId, listing_id: &str) {
     EventBuilder::new(LAZY_LISTING, "cancelled", creator_id)
+        .field("creator_id", creator_id)
         .field("listing_id", listing_id)
         .emit();
 }
 
 pub fn emit_lazy_listing_expired(creator_id: &AccountId, listing_id: &str) {
     EventBuilder::new(LAZY_LISTING, "expired", creator_id)
+        .field("creator_id", creator_id)
         .field("listing_id", listing_id)
         .emit();
 }

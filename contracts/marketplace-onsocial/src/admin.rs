@@ -1,13 +1,10 @@
-//! Admin methods: fee config, executors, contract metadata, upgrades.
-
 use crate::*;
 
-/// Gas reserved for the `migrate()` callback after code deployment.
 const GAS_MIGRATE: Gas = Gas::from_tgas(200);
 
 #[near]
 impl Contract {
-    // ── Init ─────────────────────────────────────────────────────────
+    // --- Init ---
 
     #[init]
     pub fn new(
@@ -43,69 +40,96 @@ impl Contract {
         }
     }
 
-    // ── Admin ────────────────────────────────────────────────────────
+    // --- Admin ---
 
-    /// Transfer contract ownership to a new account (single-step).
-    /// Requires 1 yoctoNEAR. Only the current owner.
+    /// Owner only.
     #[payable]
     #[handle_result]
     pub fn transfer_ownership(&mut self, new_owner: AccountId) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
+        if new_owner == self.owner_id {
+            return Err(MarketplaceError::InvalidInput(
+                "New owner must differ from current owner".to_string(),
+            ));
+        }
         let old_owner = self.owner_id.clone();
         self.owner_id = new_owner;
         events::emit_owner_transferred(&old_owner, &self.owner_id);
         Ok(())
     }
 
-    /// View: get the current contract owner.
     pub fn get_owner(&self) -> &AccountId {
         &self.owner_id
     }
 
-    /// Set the fee recipient. Requires 1 yoctoNEAR to prevent
-    /// function-call access keys from calling admin methods.
+    /// Owner only.
     #[payable]
     #[handle_result]
     pub fn set_fee_recipient(&mut self, fee_recipient: AccountId) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
+        let old_recipient = self.fee_recipient.clone();
         self.fee_recipient = fee_recipient;
-        events::emit_fee_recipient_changed(&self.owner_id, &self.fee_recipient);
+        events::emit_fee_recipient_changed(&self.owner_id, &old_recipient, &self.fee_recipient);
         Ok(())
     }
 
-    /// Set intent executors. Requires 1 yoctoNEAR to prevent
-    /// function-call access keys from calling admin methods.
+    /// Owner only.
     #[payable]
     #[handle_result]
-    pub fn set_intents_executors(
+    pub fn add_intents_executor(
         &mut self,
-        executors: Vec<AccountId>,
+        executor: AccountId,
     ) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
-        self.intents_executors = executors;
-        events::emit_intents_executors_updated(&self.owner_id, &self.intents_executors);
+        if self.intents_executors.contains(&executor) {
+            return Err(MarketplaceError::InvalidInput(
+                "Executor already exists".into(),
+            ));
+        }
+        if self.intents_executors.len() >= MAX_INTENTS_EXECUTORS {
+            return Err(MarketplaceError::InvalidInput(format!(
+                "Too many intents executors (max {})",
+                MAX_INTENTS_EXECUTORS
+            )));
+        }
+        self.intents_executors.push(executor.clone());
+        events::emit_intents_executor_added(&self.owner_id, &executor);
         Ok(())
     }
 
-    /// Update contract-level NFT metadata (NEP-177): name, symbol, icon, base_uri.
-    /// Requires 1 yoctoNEAR. Only contract owner.
-    ///
-    /// Setting `base_uri` enables relative media paths on tokens (e.g. "42.png"
-    /// instead of "https://arweave.net/abc/42.png"), reducing per-token storage cost.
-    /// Wallets and explorers read `icon` and `name` from this to display branding.
+    /// Owner only.
+    #[payable]
+    #[handle_result]
+    pub fn remove_intents_executor(
+        &mut self,
+        executor: AccountId,
+    ) -> Result<(), MarketplaceError> {
+        crate::internal::check_one_yocto()?;
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        let pos = self
+            .intents_executors
+            .iter()
+            .position(|e| e == &executor)
+            .ok_or_else(|| MarketplaceError::NotFound("Executor not found".into()))?;
+        self.intents_executors.remove(pos);
+        events::emit_intents_executor_removed(&self.owner_id, &executor);
+        Ok(())
+    }
+
+    /// Owner only.
     #[payable]
     #[handle_result]
     pub fn set_contract_metadata(
         &mut self,
         name: Option<String>,
         symbol: Option<String>,
-        icon: Option<String>,
-        base_uri: Option<String>,
-        reference: Option<String>,
-        reference_hash: Option<near_sdk::json_types::Base64VecU8>,
+        icon: Option<Option<String>>,
+        base_uri: Option<Option<String>>,
+        reference: Option<Option<String>>,
+        reference_hash: Option<Option<near_sdk::json_types::Base64VecU8>>,
     ) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
@@ -115,27 +139,32 @@ impl Contract {
         if let Some(s) = symbol {
             self.contract_metadata.symbol = s;
         }
-        // icon and base_uri use nested Option: Some(value) sets, None leaves unchanged
-        if icon.is_some() {
-            self.contract_metadata.icon = icon;
+        if let Some(v) = icon {
+            self.contract_metadata.icon = v;
         }
-        if base_uri.is_some() {
-            self.contract_metadata.base_uri = base_uri;
+        if let Some(v) = base_uri {
+            self.contract_metadata.base_uri = v;
         }
-        if reference.is_some() {
-            self.contract_metadata.reference = reference;
+        if let Some(v) = reference {
+            self.contract_metadata.reference = v;
         }
-        if reference_hash.is_some() {
-            self.contract_metadata.reference_hash = reference_hash;
+        if let Some(v) = reference_hash {
+            self.contract_metadata.reference_hash = v;
         }
-        events::emit_contract_metadata_updated(&self.owner_id);
+        events::emit_contract_metadata_updated(
+            &self.owner_id,
+            &self.contract_metadata.name,
+            &self.contract_metadata.symbol,
+            self.contract_metadata.icon.as_deref(),
+            self.contract_metadata.base_uri.as_deref(),
+            self.contract_metadata.reference.as_deref(),
+        );
         Ok(())
     }
 
-    // ── Approved NFT contracts (NEP-178 whitelist) ──────────────────
+    // --- Approved NFT contracts ---
 
-    /// Allowlist an external NFT contract to use `nft_on_approve` auto-listing.
-    /// Requires 1 yoctoNEAR. Only contract owner.
+    /// Owner only.
     #[payable]
     #[handle_result]
     pub fn add_approved_nft_contract(
@@ -144,12 +173,12 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
-        self.approved_nft_contracts.insert(nft_contract_id);
+        self.approved_nft_contracts.insert(nft_contract_id.clone());
+        events::emit_approved_nft_contract_added(&self.owner_id, &nft_contract_id);
         Ok(())
     }
 
-    /// Remove an external NFT contract from the auto-listing allowlist.
-    /// Requires 1 yoctoNEAR. Only contract owner.
+    /// Owner only.
     #[payable]
     #[handle_result]
     pub fn remove_approved_nft_contract(
@@ -159,15 +188,15 @@ impl Contract {
         crate::internal::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         self.approved_nft_contracts.remove(&nft_contract_id);
+        events::emit_approved_nft_contract_removed(&self.owner_id, &nft_contract_id);
         Ok(())
     }
 
-    /// View the list of allowlisted external NFT contracts.
     pub fn get_approved_nft_contracts(&self) -> Vec<&AccountId> {
         self.approved_nft_contracts.iter().collect()
     }
 
-    // ── Fee views ────────────────────────────────────────────────────
+    // --- Fee views ---
 
     pub fn get_fee_config(&self) -> &FeeConfig {
         &self.fee_config
@@ -177,25 +206,17 @@ impl Contract {
         self.fee_recipient.clone()
     }
 
-    /// Current balance of the platform storage pool (yoctoNEAR).
-    /// Funded by platform_storage_fee_bps on every standalone sale.
-    /// Used to sponsor storage for operations with no app_id.
+    /// Returns balance in yoctoNEAR.
     pub fn get_platform_storage_balance(&self) -> U128 {
         U128(self.platform_storage_balance)
     }
 
-    /// Withdraw excess NEAR from the platform storage pool (owner only).
-    /// Requires 1 yoctoNEAR to ensure Full Access Key.
-    /// A minimum reserve of PLATFORM_STORAGE_MIN_RESERVE (10 NEAR) always stays
-    /// in the pool to keep storage sponsorship operational between sales.
+    /// Owner only. Leaves at least `PLATFORM_STORAGE_MIN_RESERVE` yoctoNEAR in pool.
     #[payable]
     #[handle_result]
     pub fn withdraw_platform_storage(&mut self, amount: U128) -> Result<Promise, MarketplaceError> {
         crate::internal::check_one_yocto()?;
-        let caller = env::predecessor_account_id();
-        if caller != self.owner_id {
-            return Err(MarketplaceError::only_owner("contract owner"));
-        }
+        self.check_contract_owner(&env::predecessor_account_id())?;
         if amount.0 > self.platform_storage_balance {
             return Err(MarketplaceError::InsufficientDeposit(
                 "Amount exceeds platform storage balance".to_string(),
@@ -211,24 +232,16 @@ impl Contract {
             )));
         }
         self.platform_storage_balance -= amount.0;
-        Ok(Promise::new(caller).transfer(NearToken::from_yoctonear(amount.0)))
+        Ok(Promise::new(self.owner_id.clone()).transfer(NearToken::from_yoctonear(amount.0)))
     }
 
-    /// Return the on-chain contract version.
     pub fn get_version(&self) -> &str {
         &self.version
     }
 
-    // ── Upgrade ──────────────────────────────────────────────────────
+    // --- Upgrade ---
 
-    /// Deploy new contract code and run migration.
-    ///
-    /// The new WASM binary is passed as the raw transaction input.
-    /// Only the contract owner may call this. Requires 1 yoctoNEAR.
-    ///
-    /// Creates a single Promise chain that:
-    /// 1. Deploys the new code to this account.
-    /// 2. Calls `migrate()` on the freshly-deployed code (200 TGas).
+    /// Owner only. Panics unless 1 yoctoNEAR attached. Reads WASM from `env::input()`.
     pub fn update_contract(&self) -> Promise {
         near_sdk::require!(
             env::attached_deposit().as_yoctonear() == 1,
@@ -250,13 +263,7 @@ impl Contract {
             .as_return()
     }
 
-    /// State migration — called automatically by `update_contract`.
-    ///
-    /// Reads the old state, bumps the version, emits a contract-upgrade
-    /// event, and writes the updated state back.
-    ///
-    /// Future schema changes go here: add field defaults, transform
-    /// collections, etc.
+    /// Called automatically by `update_contract`; runs state migration on upgrade.
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {

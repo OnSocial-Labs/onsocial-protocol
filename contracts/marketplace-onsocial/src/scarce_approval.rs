@@ -204,7 +204,7 @@ impl Contract {
         events::emit_approval_granted(actor_id, token_id, account_id, approval_id);
         if let Some(msg_str) = msg {
             let _ = external::ext_scarce_approval_receiver::ext(account_id.clone())
-                .with_static_gas(Gas::from_tgas(DEFAULT_CALLBACK_GAS))
+                .with_static_gas(Gas::from_tgas(MAX_RESOLVE_PURCHASE_GAS))
                 .nft_on_approve(token_id.to_string(), actor_id.clone(), approval_id, msg_str);
         }
         Ok(())

@@ -52,6 +52,14 @@ impl Contract {
             }
         }
 
+        if let Some(tgas) = approval_gas_tgas {
+            if tgas > 300 {
+                return Err(MarketplaceError::InvalidInput(
+                    "approval_gas_tgas exceeds maximum of 300".into(),
+                ));
+            }
+        }
+
         let approval_gas = Gas::from_tgas(approval_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
 
         Ok(ext_scarce_contract::ext(scarce_contract_id.clone())
@@ -109,7 +117,7 @@ impl Contract {
             return;
         }
 
-        let token_owner = match env::promise_result_checked(1, 4096) {
+        let token_owner = match env::promise_result_checked(1, MAX_METADATA_LEN) {
             Ok(value) => {
                 match near_sdk::serde_json::from_slice::<Option<crate::external::Token>>(&value) {
                     Ok(Some(token)) => token.owner_id,
