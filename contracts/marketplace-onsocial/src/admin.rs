@@ -37,6 +37,7 @@ impl Contract {
             intents_executors: Vec::new(),
             contract_metadata: contract_metadata.unwrap_or_default(),
             approved_nft_contracts: IterableSet::new(StorageKey::ApprovedNftContracts),
+            pending_attached_balance: 0,
         }
     }
 

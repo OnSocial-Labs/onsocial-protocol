@@ -114,7 +114,6 @@ pub enum StorageKey {
 )]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    /// From Cargo.toml; updated on each migration.
     pub version: String,
 
     pub owner_id: AccountId,
@@ -163,6 +162,10 @@ pub struct Contract {
 
     /// External NFT contracts allowed to call `nft_on_approve`.
     pub approved_nft_contracts: IterableSet<AccountId>,
+
+    /// Transient; always 0 at rest; never serialised.
+    #[borsh(skip)]
+    pub pending_attached_balance: u128,
 }
 
 // --- execute ---
@@ -209,7 +212,9 @@ impl Contract {
             }
         }
 
+        self.pending_attached_balance = attached_balance;
         let result = self.dispatch_action(action, &actor_id)?;
+        attached_balance = core::mem::take(&mut self.pending_attached_balance);
 
         if attached_balance > 0 {
             self.finalize_unused_deposit(attached_balance, &deposit_owner, &options);

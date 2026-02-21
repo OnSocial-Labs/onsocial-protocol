@@ -1,18 +1,14 @@
-//! 3-tier byte-accurate storage management.
+//! 4-tier byte-accurate storage management.
 //!
-//! Tier 1: App pool       — per-app isolated pools fund user storage within per-user limits.
-//! Tier 2: Platform pool  — 0.5% of all sales accumulates here; sponsors individual (no-app) ops.
-//! Tier 3: User balance   — manual storage_deposit(); last resort if both pools are empty.
-//!
-//! Sellers always receive exactly `price - marketplace_fee - app_commission`;
-//! storage overhead is absorbed by the waterfall, never deducted from sale prices.
+//! Tier 1 (app pool) → Tier 2 (platform pool, 0.5% of sales) → Tier 3 (user balance) → Tier 4 (attached NEAR).
+//! Sellers always receive `price - fee - commission`; storage overhead never reduces sale proceeds.
 
 use crate::internal::check_one_yocto;
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Deposit NEAR to cover your own storage costs (Tier 3: user balance).
+    /// Deposit NEAR to cover your own storage costs.
     #[payable]
     #[handle_result]
     pub fn storage_deposit(
@@ -41,8 +37,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Withdraw excess storage balance (balance minus bytes×cost).
-    /// Panics unless exactly 1 yoctoNEAR is attached (Full Access Key guard).
+    /// Withdraw excess storage balance; panics unless exactly 1 yoctoNEAR is attached.
     #[payable]
     #[handle_result]
     pub fn storage_withdraw(&mut self) -> Result<(), MarketplaceError> {
@@ -87,7 +82,7 @@ impl Contract {
 }
 
 impl Contract {
-    // After execute() dispatch, refund or credit any remaining attached deposit.
+    // Routes leftover attached NEAR to refund or user balance after execute() dispatch.
     pub(crate) fn finalize_unused_deposit(
         &mut self,
         amount: u128,
@@ -113,9 +108,7 @@ impl Contract {
 }
 
 impl Contract {
-    // Charge storage after a state mutation: Tier 1 → Tier 2 → Tier 3.
-    // `bytes_used` must be the before/after env::storage_usage() delta; caller is responsible.
-    // Returns error if no tier can cover the cost.
+    // Charges storage via Tier1→2→3→4; `bytes_used` must equal the storage_usage() delta.
     pub(crate) fn charge_storage_waterfall(
         &mut self,
         account_id: &AccountId,
@@ -158,7 +151,6 @@ impl Contract {
         }
 
         // --- Tier 2: Platform Pool ---
-        // Funded by platform_storage_fee_bps on each sale; sponsors no-app ops before user balance.
         if app_id.is_none() {
             let cost = (bytes_used as u128) * storage_byte_cost();
             if self.platform_storage_balance >= cost {
@@ -175,8 +167,7 @@ impl Contract {
         Ok(())
     }
 
-    // Release storage when a state mutation is reverted; mirrors charge_storage_waterfall in reverse.
-    // If the app pool no longer exists, falls back to adjusting Tier 3 user accounting.
+    // Mirrors charge_storage_waterfall in reverse; falls back to Tier 3 if the app pool is gone.
     pub(crate) fn release_storage_waterfall(
         &mut self,
         account_id: &AccountId,
@@ -193,7 +184,7 @@ impl Contract {
             if let Some(mut pool) = self.app_pools.remove(app) {
                 let user_used = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
 
-                // Credit only what was tracked for this user; avoid over-crediting the pool.
+                // Credit only tracked bytes to avoid over-crediting the pool.
                 let returnable = user_used.min(bytes_freed);
                 let return_cost = (returnable as u128) * storage_byte_cost();
                 pool.balance += return_cost;
@@ -202,7 +193,7 @@ impl Contract {
                     .insert(usage_key, user_used.saturating_sub(returnable));
                 self.app_pools.insert(app.clone(), pool);
 
-                // Remainder was charged to Tier 3 during partial app-pool coverage.
+                // Remainder was charged to Tier 3 on partial app-pool coverage.
                 let remainder = bytes_freed.saturating_sub(returnable);
                 if remainder > 0 {
                     if let Some(mut user) = self.user_storage.remove(account_id) {
@@ -243,7 +234,7 @@ impl Contract {
         self.platform_storage_balance += cost;
     }
 
-    // Charge bytes against user's own storage balance. Returns error if insufficient.
+    // Tier 3→4: charges from user balance, then exact shortfall from pending_attached_balance.
     fn charge_user_storage(
         &mut self,
         account_id: &AccountId,
@@ -259,11 +250,17 @@ impl Contract {
         let available = user
             .balance
             .saturating_sub((user.used_bytes as u128) * storage_byte_cost());
+
         if available < cost {
-            return Err(MarketplaceError::InsufficientStorage(format!(
-                "Insufficient storage. Need {} yoctoNEAR ({} bytes). Deposit via storage_deposit()",
-                cost, bytes_used
-            )));
+            let shortfall = cost - available;
+            if self.pending_attached_balance < shortfall {
+                return Err(MarketplaceError::InsufficientStorage(format!(
+                    "Insufficient storage. Need {} yoctoNEAR ({} bytes). Attach NEAR or call storage_deposit().",
+                    cost, bytes_used
+                )));
+            }
+            self.pending_attached_balance -= shortfall;
+            user.balance += shortfall;
         }
 
         user.used_bytes += bytes_used;
