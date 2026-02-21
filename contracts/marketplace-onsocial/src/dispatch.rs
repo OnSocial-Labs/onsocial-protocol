@@ -171,9 +171,10 @@ impl Contract {
                 match collection_id {
                     Some(cid) => self.internal_burn_scarce(actor_id, &token_id, &cid)?,
                     None => {
-                        // Empty prefix means standalone QuickMint; route to standalone burn path.
+                        // "s:" is a reserved prefix for standalone tokens (QuickMint
+                        // and lazy-listing purchases). Route to standalone burn.
                         let cid = crate::collection_id_from_token_id(&token_id);
-                        if cid.is_empty() {
+                        if cid.is_empty() || cid == "s" {
                             self.internal_burn_standalone(actor_id, &token_id)?
                         } else {
                             self.internal_burn_scarce(actor_id, &token_id, cid)?
