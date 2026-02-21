@@ -302,8 +302,6 @@ impl Contract {
 
             // --- Offers ---
             Action::AcceptOffer { token_id, buyer_id } => {
-                // Requires 1 yoctoNEAR; prevents key-scope abuse on fund-transferring actions.
-                crate::guards::check_one_yocto()?;
                 self.internal_accept_offer(actor_id, &token_id, &buyer_id)?;
                 Ok(Value::Null)
             }
@@ -316,8 +314,6 @@ impl Contract {
                 token_id,
                 buyer_id,
             } => {
-                // Requires 1 yoctoNEAR; prevents key-scope abuse on fund-transferring actions.
-                crate::guards::check_one_yocto()?;
                 self.internal_accept_collection_offer(
                     actor_id,
                     &collection_id,
