@@ -251,11 +251,6 @@ impl Contract {
                 token_id,
                 approval_id,
             } => (scarce_contract_id.clone(), token_id.clone(), *approval_id),
-            SaleType::LazyCollection { .. } => {
-                return Err(MarketplaceError::InvalidInput(
-                    "Use purchase_from_collection() for lazy-minted scarces".into(),
-                ));
-            }
             SaleType::NativeScarce { .. } => {
                 return Err(MarketplaceError::InvalidInput(
                     "Use purchase_native_scarce() for native scarce listings".into(),

@@ -1,8 +1,4 @@
-// Native scarce view methods
-//
 // Token validity, revocation, redemption, and status queries.
-// Extracted from scarce_core.rs to separate domain-specific view
-// methods from NEP-171 core token mechanics.
 
 use crate::*;
 
@@ -17,66 +13,49 @@ impl Contract {
         match self.scarces_by_id.get(&token_id) {
             None => false,
             Some(token) => {
-                // Revoked?
                 if token.revoked_at.is_some() {
                     return false;
                 }
-                // Fully redeemed?
                 let cid = collection_id_from_token_id(&token_id);
-                if let Some(collection) = self.collections.get(cid) {
-                    if let Some(max) = collection.max_redeems {
-                        if token.redeem_count >= max {
-                            return false;
-                        }
-                    }
+                if self.collections.get(cid).and_then(|c| c.max_redeems).is_some_and(|max| token.redeem_count >= max) {
+                    return false;
                 }
-                // Expired?
-                if let Some(expires_at) = token.metadata.expires_at {
-                    if env::block_timestamp() >= expires_at {
-                        return false;
-                    }
+                if token.metadata.expires_at.is_some_and(|exp| env::block_timestamp() >= exp) {
+                    return false;
                 }
                 true
             }
         }
     }
 
-    /// Check if a token has been revoked (soft revoke).
-    /// Returns None if token doesn't exist, Some(false) if active, Some(true) if revoked.
+    /// Returns `None` if the token doesn't exist. Reflects soft-revoke only;
+    /// hard-burned tokens are absent from storage and return `None`.
     pub fn is_token_revoked(&self, token_id: String) -> Option<bool> {
         self.scarces_by_id
             .get(&token_id)
             .map(|token| token.revoked_at.is_some())
     }
 
-    /// Check if a token is fully redeemed (all uses consumed).
-    /// Returns None if token doesn't exist.
-    /// Returns Some(false) if unused or partially used.
-    /// Returns Some(true) if all redemptions consumed.
+    /// Returns `None` if the token doesn't exist. Returns `Some(false)` for tokens
+    /// whose collection has no `max_redeems` limit (non-redeemable tokens are never
+    /// considered fully redeemed).
     pub fn is_token_redeemed(&self, token_id: String) -> Option<bool> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);
-        if let Some(collection) = self.collections.get(cid) {
-            if let Some(max) = collection.max_redeems {
-                return Some(token.redeem_count >= max);
-            }
-        }
-        // Not redeemable → not redeemed
-        Some(false)
+        Some(self.collections.get(cid).and_then(|c| c.max_redeems).is_some_and(|max| token.redeem_count >= max))
     }
 
-    /// Get the number of times a token has been redeemed and the max allowed.
-    /// Returns None if token doesn't exist.
-    pub fn get_redeem_info(&self, token_id: String) -> Option<(u32, Option<u32>)> {
+    /// Returns `None` if the token doesn't exist. `max_redeems` is `None` for
+    /// non-redeemable tokens (no collection `max_redeems` set).
+    pub fn get_redeem_info(&self, token_id: String) -> Option<RedeemInfo> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);
         let max_redeems = self.collections.get(cid).and_then(|c| c.max_redeems);
-        Some((token.redeem_count, max_redeems))
+        Some(RedeemInfo { redeem_count: token.redeem_count, max_redeems })
     }
 
-    /// Get full token status in a single view call.
-    /// Returns all ownership, validity, redemption, revocation, expiry,
-    /// and refund info — eliminating the need for multiple separate calls.
+    /// Aggregate view — avoids the need for multiple round-trips.
+    /// Returns `None` if the token doesn't exist.
     pub fn get_token_status(&self, token_id: String) -> Option<TokenStatus> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);

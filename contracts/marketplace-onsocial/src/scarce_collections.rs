@@ -100,6 +100,14 @@ impl Contract {
                 "Collection ID cannot contain ':', '.', or null characters".into(),
             ));
         }
+        // "s" and "ll" are reserved prefixes for standalone token IDs ("s:{N}") and
+        // lazy listing IDs ("ll:{N}"). Blocking them prevents collection_id_from_token_id
+        // from producing false collection matches for standalone tokens.
+        if collection_id == "s" || collection_id == "ll" {
+            return Err(MarketplaceError::InvalidInput(
+                "Collection ID 's' and 'll' are reserved".into(),
+            ));
+        }
         if total_supply == 0 || total_supply > MAX_COLLECTION_SUPPLY {
             return Err(MarketplaceError::InvalidInput(format!(
                 "Total supply must be 1-{}",

@@ -1,13 +1,9 @@
-// NEP-171 Scarce Core Implementation
-// Native Scarce functionality for lazy-minted collections
-
 use crate::internal::check_one_yocto;
 use crate::*;
 use near_sdk::serde_json;
 use std::collections::HashMap;
 
 impl Contract {
-    /// Internal: Mint a new native token with optional overrides.
     pub(crate) fn internal_mint(
         &mut self,
         token_id: String,
@@ -15,7 +11,6 @@ impl Contract {
         metadata: TokenMetadata,
         overrides: Option<crate::ScarceOverrides>,
     ) -> Result<String, MarketplaceError> {
-        // Validate token ID
         if token_id.len() > MAX_TOKEN_ID_LEN {
             return Err(MarketplaceError::InvalidInput(format!(
                 "Token ID exceeds max length of {}",
@@ -23,7 +18,6 @@ impl Contract {
             )));
         }
 
-        // Validate metadata size
         let metadata_json = serde_json::to_string(&metadata)
             .map_err(|_| MarketplaceError::InternalError("Failed to serialize metadata".into()))?;
         let metadata_size = metadata_json.len();
@@ -34,17 +28,14 @@ impl Contract {
             )));
         }
 
-        // Ensure token doesn't already exist
         if self.scarces_by_id.contains_key(&token_id) {
             return Err(MarketplaceError::InvalidState(
                 "Token ID already exists".into(),
             ));
         }
 
-        // Apply overrides (or defaults)
         let ovr = overrides.unwrap_or_default();
 
-        // Create token
         let owner_id = ctx.owner_id.clone();
         let token = Scarce {
             owner_id: ctx.owner_id,
@@ -64,10 +55,7 @@ impl Contract {
             app_id: ovr.app_id,
         };
 
-        // Store token
         self.scarces_by_id.insert(token_id.clone(), token);
-
-        // Add to owner's set
         self.add_token_to_owner(&owner_id, &token_id);
 
         Ok(token_id)
@@ -88,7 +76,6 @@ impl Contract {
             burnable,
         } = options;
 
-        // Validate app exists when specified
         if let Some(ref app) = app_id {
             if !self.app_pools.contains_key(app) {
                 return Err(MarketplaceError::NotFound("App pool not found".into()));
@@ -98,7 +85,7 @@ impl Contract {
         // Merge app default royalty + creator royalty (validates total internally)
         let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
 
-        // Generate unique token ID (checked to prevent overflow)
+        // Counter uses checked_add to guard against overflow.
         let id = self.next_token_id;
         self.next_token_id = self
             .next_token_id
@@ -106,10 +93,8 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let token_id = format!("s:{id}");
 
-        // Measure storage before mint
         let before = env::storage_usage();
 
-        // Mint via core path with overrides
         let ctx = crate::MintContext {
             owner_id: actor_id.clone(),
             creator_id: actor_id.clone(),
@@ -124,7 +109,6 @@ impl Contract {
         };
         self.internal_mint(token_id.clone(), ctx, metadata, Some(ovr))?;
 
-        // Charge storage
         let bytes_used = env::storage_usage().saturating_sub(before);
         self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
 
@@ -132,7 +116,6 @@ impl Contract {
         Ok(token_id)
     }
 
-    /// Internal: Transfer native token
     pub(crate) fn internal_transfer(
         &mut self,
         sender_id: &AccountId,
@@ -147,22 +130,12 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
             .clone();
 
-        // Block transfers of revoked (invalidated) tokens
-        if token.revoked_at.is_some() {
-            return Err(MarketplaceError::InvalidState(
-                "Cannot transfer a revoked token".into(),
-            ));
-        }
-
-        // Block transfers of soulbound (non-transferable) tokens.
         self.check_transferable(&token, token_id, "transfer")?;
 
-        // Capture old owner before any state changes
+        // Captured before mutation; sale index is keyed on the original owner.
         let old_owner_id = token.owner_id.clone();
 
-        // Check authorization
         if sender_id != &token.owner_id {
-            // Check if sender is approved
             if let Some(approved_id) = approval_id {
                 let actual_approval_id = token
                     .approved_account_ids
@@ -172,36 +145,29 @@ impl Contract {
                 if approved_id != *actual_approval_id {
                     return Err(MarketplaceError::Unauthorized("Invalid approval ID".into()));
                 }
-            } else {
+            } else if !token.approved_account_ids.contains_key(sender_id) {
                 return Err(MarketplaceError::Unauthorized(
                     "Sender not authorized to transfer token".into(),
                 ));
             }
         }
 
-        // Remove from sender's tokens
         self.remove_token_from_owner(&token.owner_id, token_id);
 
-        // Update token owner and clear approvals
         token.owner_id = receiver_id.clone();
         token.approved_account_ids.clear();
 
-        // Add to receiver's tokens
         self.add_token_to_owner(receiver_id, token_id);
-
-        // Save updated token
         self.scarces_by_id.insert(token_id.to_string(), token);
 
-        // Auto-delist from any active sale (prevents stale listings)
-        // Uses old_owner_id because the sale is indexed under the original owner
+        // Prevents stale sale listings after ownership change.
         self.internal_remove_sale_listing(token_id, &old_owner_id, "owner_changed");
 
-        events::emit_scarce_transfer(sender_id, receiver_id, token_id, memo.as_deref());
+        events::emit_scarce_transfer(sender_id, &old_owner_id, receiver_id, token_id, memo.as_deref());
 
         Ok(())
     }
 
-    /// Batch mint multiple tokens (for collections)
     pub(crate) fn internal_batch_mint(
         &mut self,
         ctx: &crate::MintContext,
@@ -210,7 +176,12 @@ impl Contract {
         collection_id: &str,
         overrides: Option<crate::ScarceOverrides>,
     ) -> Result<Vec<String>, MarketplaceError> {
-        if token_ids.is_empty() || token_ids.len() as u32 > MAX_BATCH_MINT {
+        if token_ids.is_empty() {
+            return Err(MarketplaceError::InvalidInput(
+                "Batch must contain at least one token".into(),
+            ));
+        }
+        if token_ids.len() as u32 > MAX_BATCH_MINT {
             return Err(MarketplaceError::InvalidInput(format!(
                 "Cannot mint more than {} tokens at once",
                 MAX_BATCH_MINT
@@ -236,7 +207,6 @@ impl Contract {
         Ok(minted_tokens)
     }
 
-    /// Generate metadata from template with placeholder replacement
     pub(crate) fn generate_metadata_from_template(
         &self,
         template: &str,
@@ -245,14 +215,12 @@ impl Contract {
         owner: &AccountId,
         collection_id: &str,
     ) -> Result<TokenMetadata, MarketplaceError> {
-        // Parse template
         let mut metadata: TokenMetadata = serde_json::from_str(template)
             .map_err(|_| MarketplaceError::InvalidInput("Invalid metadata template".into()))?;
 
         let seat_number = index + 1;
         let timestamp = env::block_timestamp();
 
-        // Replace placeholders in title
         if let Some(ref mut title) = metadata.title {
             *title = title
                 .replace("{token_id}", token_id)
@@ -261,7 +229,6 @@ impl Contract {
                 .replace("{collection_id}", collection_id);
         }
 
-        // Replace placeholders in description
         if let Some(ref mut description) = metadata.description {
             *description = description
                 .replace("{token_id}", token_id)
@@ -271,7 +238,6 @@ impl Contract {
                 .replace("{owner}", owner.as_str());
         }
 
-        // Replace placeholders in media URL
         if let Some(ref mut media) = metadata.media {
             *media = media
                 .replace("{token_id}", token_id)
@@ -280,7 +246,6 @@ impl Contract {
                 .replace("{collection_id}", collection_id);
         }
 
-        // Replace placeholders in reference URL
         if let Some(ref mut reference) = metadata.reference {
             *reference = reference
                 .replace("{token_id}", token_id)
@@ -289,7 +254,6 @@ impl Contract {
                 .replace("{collection_id}", collection_id);
         }
 
-        // Replace placeholders in extra JSON
         if let Some(ref mut extra) = metadata.extra {
             *extra = extra
                 .replace("{token_id}", token_id)
@@ -300,7 +264,6 @@ impl Contract {
                 .replace("{minted_at}", &timestamp.to_string());
         }
 
-        // Set timestamps
         metadata.issued_at = Some(timestamp);
 
         // Set `copies` to collection total_supply if not already specified by template.
@@ -315,7 +278,6 @@ impl Contract {
     }
 }
 
-// NEP-171 Public API
 #[near]
 impl Contract {
     /// Owner voluntarily burns their own token.
@@ -335,7 +297,6 @@ impl Contract {
         }
     }
 
-    /// Transfer token to another account
     #[payable]
     #[handle_result]
     pub fn nft_transfer(
@@ -351,8 +312,7 @@ impl Contract {
         self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)
     }
 
-    /// Transfer token and call receiver contract (NEP-171)
-    /// Optional gas overrides via `gas_overrides` parameter.
+    /// Transfer token and call receiver contract (NEP-171).
     #[payable]
     #[handle_result]
     pub fn nft_transfer_call(
@@ -375,18 +335,20 @@ impl Contract {
         let previous_owner_id = token.owner_id.clone();
         let previous_approvals = token.approved_account_ids.clone();
 
-        // Execute transfer
         self.internal_transfer(&sender_id, &receiver_id, &token_id, approval_id, memo)?;
 
-        // Use provided gas or sensible defaults
         let overrides = gas_overrides.unwrap_or(GasOverrides {
             receiver_tgas: None,
             resolve_tgas: None,
         });
+        if overrides.receiver_tgas.unwrap_or(0) > 300 || overrides.resolve_tgas.unwrap_or(0) > 300 {
+            return Err(MarketplaceError::InvalidInput(
+                "Gas override exceeds 300 TGas".into(),
+            ));
+        }
         let receiver_gas = Gas::from_tgas(overrides.receiver_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
         let resolve_gas = Gas::from_tgas(overrides.resolve_tgas.unwrap_or(DEFAULT_CALLBACK_GAS));
 
-        // Call nft_on_transfer on receiver and resolve
         Ok(
             external::ext_scarce_transfer_receiver::ext(receiver_id.clone())
                 .with_static_gas(receiver_gas)
@@ -418,21 +380,14 @@ impl Contract {
         token_id: String,
         approved_account_ids: Option<std::collections::HashMap<AccountId, u64>>,
     ) -> bool {
-        // Check callback result from nft_on_transfer
         let should_revert = match env::promise_result_checked(0, 16) {
-            Ok(value) => {
-                // Deserialize boolean result
-                near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(false)
-            }
-            Err(_) => {
-                // If callback failed or panicked, don't revert the transfer
-                false
-            }
+            Ok(value) => near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(false),
+            // Failed or panicked callback accepts the transfer (NEP-171 spec).
+            Err(_) => false,
         };
 
         if should_revert {
-            // Revert the transfer - move token back to previous owner
-            // SAFETY: callback must not panic — if token was re-transferred or burned
+            // SAFETY: must not panic — if the token was re-transferred or burned
             // during the callback window, log and accept the transfer as final.
             let token_opt = self.scarces_by_id.get(&token_id).cloned();
             let mut token = match token_opt {
@@ -446,41 +401,35 @@ impl Contract {
                 }
             };
 
-            // If the token was re-transferred to a third party, don't revert
+            // Token re-transferred to a third party during callback window; accept as final.
             if token.owner_id != receiver_id {
                 return false;
             }
 
-            // Remove from receiver
             self.remove_token_from_owner(&receiver_id, &token_id);
 
-            // Restore to previous owner
             token.owner_id = previous_owner_id.clone();
             if let Some(approvals) = approved_account_ids {
                 token.approved_account_ids = approvals;
             }
 
-            // Add back to previous owner's tokens
             self.add_token_to_owner(&previous_owner_id, &token_id);
-
-            // Save reverted token
             self.scarces_by_id.insert(token_id.clone(), token);
 
             events::emit_scarce_transfer(
+                &receiver_id,
                 &receiver_id,
                 &previous_owner_id,
                 &token_id,
                 Some("transfer reverted"),
             );
 
-            true // Transfer was reverted
+            true
         } else {
-            // Transfer is confirmed
-            false // Transfer was not reverted
+            false
         }
     }
 
-    /// Get token information
     pub fn nft_token(&self, token_id: String) -> Option<external::Token> {
         self.scarces_by_id
             .get(&token_id)
@@ -493,12 +442,9 @@ impl Contract {
     }
 }
 
-// ── Batch transfer ───────────────────────────────────────────────────────────
-
 impl Contract {
     /// Batch transfer multiple native scarces in one call.
-    /// Each transfer is independent — if one fails, the entire batch panics.
-    /// Max MAX_BATCH_TRANSFER transfers per call.
+    /// If any transfer fails, the entire batch reverts.
     pub(crate) fn internal_batch_transfer(
         &mut self,
         actor_id: &AccountId,

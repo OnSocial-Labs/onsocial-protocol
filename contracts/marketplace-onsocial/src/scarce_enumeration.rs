@@ -1,5 +1,4 @@
 // NEP-181 Enumeration Implementation
-// Query native scarces by owner, pagination support
 
 use crate::*;
 use near_sdk::json_types::U128;
@@ -8,7 +7,6 @@ use near_sdk::json_types::U128;
 impl Contract {
     /// Get total supply of native Scarces (NEP-181)
     pub fn nft_total_supply(&self) -> U128 {
-        // Count all tokens in scarces_by_id
         U128(self.scarces_by_id.len() as u128)
     }
 
@@ -56,7 +54,6 @@ impl Contract {
         tokens_set
             .iter()
             .skip(start)
-            .take(limit)
             .filter_map(|token_id| {
                 self.scarces_by_id
                     .get(token_id.as_str())
@@ -67,18 +64,16 @@ impl Contract {
                         approved_account_ids: Some(token.approved_account_ids.clone()),
                     })
             })
+            .take(limit)
             .collect()
     }
 
     /// Get total supply of tokens in a specific collection.
     pub fn nft_supply_for_collection(&self, collection_id: String) -> U128 {
-        let prefix = format!("{}:", collection_id);
-        let count = self
-            .scarces_by_id
-            .iter()
-            .filter(|(tid, _)| tid.starts_with(&prefix))
-            .count();
-        U128(count as u128)
+        self.collections
+            .get(&collection_id)
+            .map(|c| U128(c.minted_count as u128))
+            .unwrap_or(U128(0))
     }
 
     /// Get paginated list of tokens in a specific collection.
@@ -88,21 +83,27 @@ impl Contract {
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<external::Token> {
-        let prefix = format!("{}:", collection_id);
+        let collection = match self.collections.get(&collection_id) {
+            Some(c) => c,
+            None => return vec![],
+        };
         let start = from_index.map(|i| i.0 as usize).unwrap_or(0);
         let limit = limit.unwrap_or(50).min(100) as usize;
 
-        self.scarces_by_id
-            .iter()
-            .filter(|(tid, _)| tid.starts_with(&prefix))
+        // Token IDs follow the invariant `{collection_id}:{serial}` (1-based, set at mint).
+        // filter_map skips serials whose tokens have been burned (removed from storage).
+        (1..=collection.total_supply)
+            .filter_map(|serial| {
+                let token_id = format!("{}:{}", collection_id, serial);
+                self.scarces_by_id.get(token_id.as_str()).map(|token| external::Token {
+                    token_id: token_id.clone(),
+                    owner_id: token.owner_id.clone(),
+                    metadata: Some(token.metadata.clone()),
+                    approved_account_ids: Some(token.approved_account_ids.clone()),
+                })
+            })
             .skip(start)
             .take(limit)
-            .map(|(token_id, token)| external::Token {
-                token_id: token_id.clone(),
-                owner_id: token.owner_id.clone(),
-                metadata: Some(token.metadata.clone()),
-                approved_account_ids: Some(token.approved_account_ids.clone()),
-            })
             .collect()
     }
 }

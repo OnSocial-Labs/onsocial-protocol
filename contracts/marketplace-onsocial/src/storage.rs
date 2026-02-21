@@ -13,8 +13,6 @@
 use crate::internal::check_one_yocto;
 use crate::*;
 
-// ── Public methods ───────────────────────────────────────────────────────────
-
 #[near]
 impl Contract {
     /// Deposit NEAR to cover your own storage costs (Tier 3: user balance).
@@ -90,8 +88,6 @@ impl Contract {
     }
 }
 
-// ── Unused deposit finalization ───────────────────────────────────────────────
-
 impl Contract {
     /// After a successful `execute()` dispatch, handle any remaining attached deposit.
     /// If `refund_unused_deposit` is true, refund via transfer; otherwise credit user storage.
@@ -114,12 +110,10 @@ impl Contract {
             user.balance += amount;
             let new_balance = user.balance;
             self.user_storage.insert(deposit_owner.clone(), user);
-            events::emit_storage_deposit(deposit_owner, amount, new_balance);
+            events::emit_storage_credit_unused(deposit_owner, amount, new_balance);
         }
     }
 }
-
-// ── Internal helpers ─────────────────────────────────────────────────────────
 
 impl Contract {
     /// Charge storage after a state mutation: Tier 1 (app pool) → Tier 2 (platform pool) → Tier 3 (user balance).
@@ -153,7 +147,7 @@ impl Contract {
                         .insert(usage_key, user_used + can_cover_bytes);
 
                     if can_cover_bytes >= bytes_used {
-                        return Ok(()); // Fully covered by app pool
+                        return Ok(());
                     }
 
                     // Partially covered by app pool — remainder falls to Tier 3 (user balance).
@@ -176,9 +170,11 @@ impl Contract {
             let cost = (bytes_used as u128) * storage_byte_cost();
             if self.platform_storage_balance >= cost {
                 self.platform_storage_balance -= cost;
+                let mut user = self.user_storage.get(account_id).cloned().unwrap_or_default();
+                user.tier2_used_bytes += bytes_used;
+                self.user_storage.insert(account_id.clone(), user);
                 return Ok(());
             }
-            // Platform pool insufficient — fall through to Tier 3 (user balance)
         }
 
         // ── Tier 3: User Balance (last resort) ───────────────────────
@@ -192,7 +188,6 @@ impl Contract {
     /// - Tier 1 (app pool): credits bytes that were tracked in `app_user_usage` back to the pool.
     ///   Any remainder (charged to Tier 3 due to partial coverage) is returned to user tracking.
     /// - Tier 2 (platform pool): credits cost back when no `app_id` is present.
-    /// - Tier 3 (user balance): decrements `used_bytes` so the freed space becomes available.
     ///
     /// If the app pool no longer exists, Tier 3 accounting is adjusted as a fallback.
     /// All operations use `saturating_sub`; no NEAR is transferred (no locked NEAR to return).
@@ -208,8 +203,8 @@ impl Contract {
 
         // Mirror Tier 1: credit back to app pool
         if let Some(app) = app_id {
+            let usage_key = format!("{}:{}", account_id, app);
             if let Some(mut pool) = self.app_pools.remove(app) {
-                let usage_key = format!("{}:{}", account_id, app);
                 let user_used = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
 
                 // Only credit back what was actually tracked against this user in the pool
@@ -231,23 +226,33 @@ impl Contract {
                 }
                 return;
             }
-            // App pool no longer exists — original charge was to Tier 3 (or pool was deleted)
-            if let Some(mut user) = self.user_storage.remove(account_id) {
-                user.used_bytes = user.used_bytes.saturating_sub(bytes_freed);
-                self.user_storage.insert(account_id.clone(), user);
+            // App pool no longer exists — use usage tracking to determine user-charged portion
+            let pool_bytes = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
+            let from_pool = pool_bytes.min(bytes_freed);
+            let from_user = bytes_freed.saturating_sub(from_pool);
+            self.app_user_usage.insert(usage_key, pool_bytes.saturating_sub(from_pool));
+            if from_user > 0 {
+                if let Some(mut user) = self.user_storage.remove(account_id) {
+                    user.used_bytes = user.used_bytes.saturating_sub(from_user);
+                    self.user_storage.insert(account_id.clone(), user);
+                }
             }
             return;
         }
 
-        // Mirror Tier 2/3 in reverse: if Tier 3 was used (user has tracked used_bytes),
-        // release from user balance first; only credit platform pool if user had no bytes.
+        // Mirror Tier 2/3 in reverse: use tier2_used_bytes to correctly attribute
+        // each released byte back to the tier that originally charged it.
         if let Some(mut user) = self.user_storage.remove(account_id) {
-            if user.used_bytes >= bytes_freed {
-                user.used_bytes -= bytes_freed;
-                self.user_storage.insert(account_id.clone(), user);
-                return;
-            }
+            let from_tier2 = user.tier2_used_bytes.min(bytes_freed);
+            let from_tier3 = bytes_freed - from_tier2;
+            user.tier2_used_bytes = user.tier2_used_bytes.saturating_sub(from_tier2);
+            user.used_bytes = user.used_bytes.saturating_sub(from_tier3);
             self.user_storage.insert(account_id.clone(), user);
+            if from_tier2 > 0 {
+                let cost = (from_tier2 as u128) * storage_byte_cost();
+                self.platform_storage_balance += cost;
+            }
+            return;
         }
         let cost = (bytes_freed as u128) * storage_byte_cost();
         self.platform_storage_balance += cost;

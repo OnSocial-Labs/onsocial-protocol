@@ -276,6 +276,7 @@ pub fn emit_scarce_purchase_failed(
 
 pub fn emit_scarce_transfer(
     sender_id: &AccountId,
+    old_owner_id: &AccountId,
     receiver_id: &AccountId,
     token_id: &str,
     memo: Option<&str>,
@@ -286,6 +287,22 @@ pub fn emit_scarce_transfer(
         .field("token_id", token_id)
         .field_opt("memo", memo)
         .emit();
+    let mut nep171_data = Map::new();
+    nep171_data.insert("old_owner_id".to_string(), Value::String(old_owner_id.to_string()));
+    nep171_data.insert("new_owner_id".to_string(), Value::String(receiver_id.to_string()));
+    nep171_data.insert("token_ids".to_string(), Value::Array(vec![Value::String(token_id.to_string())]));
+    if sender_id != old_owner_id {
+        nep171_data.insert("authorized_id".to_string(), Value::String(sender_id.to_string()));
+    }
+    if let Some(m) = memo {
+        nep171_data.insert("memo".to_string(), Value::String(m.to_string()));
+    }
+    let mut nep171_evt = Map::new();
+    nep171_evt.insert("standard".to_string(), Value::String("nep171".to_string()));
+    nep171_evt.insert("version".to_string(), Value::String("1.1.0".to_string()));
+    nep171_evt.insert("event".to_string(), Value::String("nft_transfer".to_string()));
+    nep171_evt.insert("data".to_string(), Value::Array(vec![Value::Object(nep171_data)]));
+    env::log_str(&format!("EVENT_JSON:{}", Value::Object(nep171_evt)));
 }
 
 pub fn emit_native_scarce_listed(owner_id: &AccountId, token_id: &str, price: U128) {
@@ -535,6 +552,7 @@ pub fn emit_collection_mint(
 pub fn emit_quick_mint(actor_id: &AccountId, token_id: &str) {
     EventBuilder::new(SCARCE, "quick_mint", actor_id)
         .field("token_id", token_id)
+        .field("owner_id", actor_id)
         .emit();
 }
 
@@ -682,6 +700,14 @@ pub fn emit_storage_deposit(account_id: &AccountId, deposit: u128, new_balance: 
 
 pub fn emit_storage_withdraw(account_id: &AccountId, amount: u128, new_balance: u128) {
     EventBuilder::new(STORAGE, "storage_withdraw", account_id)
+        .field("account_id", account_id)
+        .field("amount", amount)
+        .field("new_balance", new_balance)
+        .emit();
+}
+
+pub fn emit_storage_credit_unused(account_id: &AccountId, amount: u128, new_balance: u128) {
+    EventBuilder::new(STORAGE, "credit_unused_deposit", account_id)
         .field("account_id", account_id)
         .field("amount", amount)
         .field("new_balance", new_balance)

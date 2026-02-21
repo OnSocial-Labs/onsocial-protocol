@@ -32,7 +32,7 @@ pub struct ScarceContractMetadata {
 impl Default for ScarceContractMetadata {
     fn default() -> Self {
         Self {
-            spec: "nft-1.0.0".to_string(),
+            spec: "nft-2.0.0".to_string(),
             name: "OnSocial Scarces".to_string(),
             symbol: "SCARCE".to_string(),
             icon: None,

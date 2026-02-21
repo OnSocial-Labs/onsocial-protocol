@@ -1,15 +1,10 @@
-// NEP-199 Payout API Implementation
-//
-// Extracted from scarce_core.rs to separate royalty payout logic
-// from NEP-171 core token mechanics.
+// NEP-199 Payout API
 
 use crate::internal::check_one_yocto;
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Calculate payout for a given balance (NEP-199).
-    /// Returns how the balance should be split between owner and royalty recipients.
     #[handle_result]
     pub fn nft_payout(
         &self,
@@ -29,8 +24,6 @@ impl Contract {
         )
     }
 
-    /// Transfer token and return payout (NEP-199).
-    /// Used by marketplaces to distribute sale proceeds with royalties.
     #[payable]
     #[handle_result]
     pub fn nft_transfer_payout(
@@ -64,9 +57,8 @@ impl Contract {
 }
 
 impl Contract {
-    /// Compute payout split: royalty recipients get their bps, seller gets remainder.
-    /// `seller_id` is the account that should receive the owner share — pass
-    /// explicitly because after a transfer `token.owner_id` is the buyer.
+    /// `seller_id` is the pre-transfer owner — must be passed explicitly because
+    /// `token.owner_id` is already the buyer by the time this can be called post-transfer.
     pub(crate) fn internal_compute_payout(
         &self,
         token: &Scarce,
@@ -92,10 +84,8 @@ impl Contract {
             }
         }
 
-        // Seller gets the remainder
         let owner_amount = balance.saturating_sub(total_royalty);
         if owner_amount > 0 {
-            // If seller already in royalty map, add to their share
             payout_map
                 .entry(seller_id.clone())
                 .and_modify(|v| v.0 += owner_amount)

@@ -145,9 +145,6 @@ impl Contract {
                         token_id,
                         ..
                     } => Contract::make_sale_id(scarce_contract_id, token_id),
-                    SaleType::LazyCollection { collection_id } => {
-                        Contract::make_sale_id(&env::current_account_id(), collection_id)
-                    }
                     SaleType::NativeScarce { token_id } => {
                         Contract::make_sale_id(&env::current_account_id(), token_id)
                     }

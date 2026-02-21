@@ -1,14 +1,8 @@
 // Token Lifecycle: Renewal, Revocation, Redemption, and Burn
-//
-// Extracted from scarce_core.rs to separate domain-specific lifecycle
-// operations from NEP-171 core token mechanics.
 
 use crate::*;
 
-// ── Token Lifecycle: Renewal & Revocation ────────────────────────────────────
-
 impl Contract {
-    /// Renew a native scarce's expiry date.
     /// Only the collection creator can renew.
     pub(crate) fn internal_renew_token(
         &mut self,
@@ -17,7 +11,6 @@ impl Contract {
         collection_id: &str,
         new_expires_at: u64,
     ) -> Result<(), MarketplaceError> {
-        // Validate token belongs to collection
         check_token_in_collection(token_id, collection_id)?;
 
         let collection = self
@@ -39,7 +32,8 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
             .clone();
 
-        if new_expires_at <= env::block_timestamp() {
+        let now = env::block_timestamp();
+        if new_expires_at <= now {
             return Err(MarketplaceError::InvalidInput(
                 "New expiry must be in the future".into(),
             ));
@@ -47,16 +41,15 @@ impl Contract {
 
         let owner_id = token.owner_id.clone();
         token.metadata.expires_at = Some(new_expires_at);
+        token.metadata.updated_at = Some(now);
         self.scarces_by_id.insert(token_id.to_string(), token);
 
         events::emit_token_renewed(actor_id, token_id, collection_id, &owner_id, new_expires_at);
         Ok(())
     }
 
-    /// Revoke a native scarce using the collection's revocation mode.
-    /// - `Invalidate`: marks token with `revoked_at` + memo, keeps on-chain.
-    /// - `Burn`: hard-deletes token from storage.
-    ///   Only the collection creator can revoke.
+    /// `Invalidate` keeps the token on-chain with `revoked_at` set; `Burn` hard-deletes it.
+    /// Only the collection creator can revoke.
     pub(crate) fn internal_revoke_token(
         &mut self,
         actor_id: &AccountId,
@@ -64,7 +57,6 @@ impl Contract {
         collection_id: &str,
         memo: Option<String>,
     ) -> Result<(), MarketplaceError> {
-        // Validate token belongs to collection
         check_token_in_collection(token_id, collection_id)?;
 
         let mut collection = self
@@ -98,11 +90,10 @@ impl Contract {
                 let owner_id = token.owner_id.clone();
                 token.revoked_at = Some(env::block_timestamp());
                 token.revocation_memo = memo.clone();
-                // Clear approvals — revoked tokens shouldn't be tradeable
+                // Approved accounts must not be able to transfer a revoked token.
                 token.approved_account_ids.clear();
                 self.scarces_by_id.insert(token_id.to_string(), token);
 
-                // Remove from any active sale
                 self.internal_remove_sale_listing(token_id, &owner_id, "revoked");
 
                 events::emit_token_revoked(
@@ -121,10 +112,7 @@ impl Contract {
                     .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
                 let owner_id = token.owner_id.clone();
 
-                // Remove from owner's set
                 self.remove_token_from_owner(&owner_id, token_id);
-
-                // Remove from any active sale
                 self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
                 collection.minted_count = collection.minted_count.saturating_sub(1);
@@ -144,9 +132,8 @@ impl Contract {
         Ok(())
     }
 
-    /// Remove a native scarce's sale listing (if any).
-    /// Cleans up empty sets to prevent storage leaks.
-    /// Emits an auto-delist event when a sale was actually removed.
+    /// Removes the sale listing, refunds any in-flight auction bid to the current highest bidder,
+    /// and cleans up empty owner/contract index sets to prevent storage leaks.
     pub(crate) fn internal_remove_sale_listing(
         &mut self,
         token_id: &str,
@@ -154,8 +141,15 @@ impl Contract {
         reason: &str,
     ) {
         let sale_id = Self::make_sale_id(&env::current_account_id(), token_id);
-        if self.sales.contains_key(&sale_id) {
-            self.sales.remove(&sale_id);
+        if let Some(sale) = self.sales.remove(&sale_id) {
+            if let Some(ref auction) = sale.auction {
+                if auction.highest_bid > 0 {
+                    if let Some(ref bidder) = auction.highest_bidder {
+                        let _ = Promise::new(bidder.clone())
+                            .transfer(NearToken::from_yoctonear(auction.highest_bid));
+                    }
+                }
+            }
             if let Some(owner_sales) = self.by_owner_id.get_mut(owner_id) {
                 owner_sales.remove(&sale_id);
                 if owner_sales.is_empty() {
@@ -173,11 +167,8 @@ impl Contract {
         }
     }
 
-    /// Redeem (check-in / use) a token.
-    /// Only the collection creator can redeem.
-    /// The token stays on-chain and remains transferable (collectible resale).
-    /// Updates `redeemed_at` and increments `redeem_count`.
-    /// Once `redeem_count >= max_redeems`, `is_token_valid()` returns false.
+    /// Records a redemption (check-in / scan) against the token. Only the collection creator can redeem.
+    /// The token stays on-chain and remains transferable after redemption.
     pub(crate) fn internal_redeem_token(
         &mut self,
         actor_id: &AccountId,
@@ -223,7 +214,6 @@ impl Contract {
         let current_count = token.redeem_count;
         self.scarces_by_id.insert(token_id.to_string(), token);
 
-        // Increment collection-level counters
         collection.redeemed_count += 1;
         if current_count >= max_redeems {
             collection.fully_redeemed_count += 1;
@@ -259,7 +249,6 @@ impl Contract {
         ))
     }
 
-    /// Owner voluntarily burns their own native scarce token.
     /// Requires `collection.burnable == true`. Caller must be the token owner.
     pub(crate) fn internal_burn_scarce(
         &mut self,
@@ -296,10 +285,7 @@ impl Contract {
 
         let owner_id = token.owner_id.clone();
 
-        // Remove from owner's set
         self.remove_token_from_owner(&owner_id, token_id);
-
-        // Remove from any active sale
         self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
         collection.minted_count = collection.minted_count.saturating_sub(1);
@@ -309,7 +295,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Owner burns a standalone (non-collection) token. Checks token.burnable flag.
+    /// Burns a standalone (non-collection) token.
     pub(crate) fn internal_burn_standalone(
         &mut self,
         actor_id: &AccountId,
@@ -339,13 +325,10 @@ impl Contract {
 
         let owner_id = token.owner_id.clone();
 
-        // Remove from owner's set
         self.remove_token_from_owner(&owner_id, token_id);
-
-        // Remove from any active sale
         self.internal_remove_sale_listing(token_id, &owner_id, "burned");
 
-        events::emit_scarce_burned(&owner_id, token_id, "standalone");
+        events::emit_scarce_burned(&owner_id, token_id, "");
         Ok(())
     }
 }

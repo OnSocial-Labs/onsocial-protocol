@@ -307,7 +307,7 @@ impl Contract {
 
         auction.highest_bid = bid;
         auction.highest_bidder = Some(bidder.clone());
-        auction.bid_count += 1;
+        auction.bid_count = auction.bid_count.saturating_add(1);
 
         // Extend deadline if bid arrives in the final window; saturating to prevent u64 overflow.
         if auction.anti_snipe_extension_ns > 0 {

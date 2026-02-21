@@ -279,9 +279,6 @@ impl Contract {
                 token_id,
                 ..
             } => (scarce_contract_id.clone(), token_id.clone()),
-            SaleType::LazyCollection { collection_id } => {
-                (env::current_account_id(), collection_id.clone())
-            }
             SaleType::NativeScarce { token_id } => (env::current_account_id(), token_id.clone()),
         };
 

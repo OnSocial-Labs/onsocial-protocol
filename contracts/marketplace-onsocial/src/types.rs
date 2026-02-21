@@ -1,25 +1,22 @@
 //! Marketplace data types — Sale, Scarce, LazyCollection, metadata, etc.
 
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::{near, AccountId};
 
 use crate::constants::*;
 
 // ── Enums ────────────────────────────────────────────────────────────────────
 
-/// Revocation mode for a collection's tokens.
 /// Immutable after collection creation.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum RevocationMode {
-    /// Tokens cannot be revoked (default for art/collectibles).
+    /// Tokens cannot be revoked.
     None,
     /// Soft revoke: token stays on-chain with `revoked_at` timestamp.
-    /// Provides an audit trail for certificates, licenses, subscriptions.
     Invalidate,
-    /// Hard burn: token is deleted from storage.
-    /// Frees storage. Good for temporary passes, tickets after events.
+    /// Hard burn: token is deleted from storage. Frees storage.
     Burn,
 }
 
@@ -34,13 +31,11 @@ impl Default for RevocationMode {
 #[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MintMode {
-    /// Anyone can purchase; creator can also pre-mint / airdrop. (default)
+    /// Anyone can purchase; creator can also pre-mint / airdrop.
     Open,
     /// Only public purchase allowed — creator cannot pre-mint or airdrop.
-    /// Guarantees a fair launch.
     PurchaseOnly,
     /// Only creator can mint/airdrop — no public purchase.
-    /// Ideal for loyalty tokens, credentials, airdrops.
     CreatorOnly,
 }
 
@@ -50,7 +45,6 @@ impl Default for MintMode {
     }
 }
 
-/// Type of sale listing
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub enum SaleType {
@@ -58,9 +52,6 @@ pub enum SaleType {
         scarce_contract_id: AccountId,
         token_id: String,
         approval_id: u64,
-    },
-    LazyCollection {
-        collection_id: String,
     },
     /// A native marketplace-minted scarce listed for secondary sale.
     NativeScarce {
@@ -83,7 +74,6 @@ pub struct AuctionState {
     pub highest_bid: u128,
     /// Current highest bidder. None if no bids yet.
     pub highest_bidder: Option<AccountId>,
-    /// Number of bids placed.
     pub bid_count: u32,
     /// If set AND Sale.expires_at is initially None → Foundation-style reserve auction:
     /// the timer starts on the first qualifying bid.
@@ -95,7 +85,6 @@ pub struct AuctionState {
     pub buy_now_price: Option<u128>,
 }
 
-/// Information about a sale
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct Sale {
@@ -137,9 +126,6 @@ pub struct ScarceOptions {
 }
 
 /// Identifies the three parties involved at mint time.
-///
-/// Keeps `internal_mint` / `internal_batch_mint` signatures compact
-/// and makes call-sites self-documenting.
 #[derive(Clone)]
 pub struct MintContext {
     /// Who will own the token after mint.
@@ -152,7 +138,6 @@ pub struct MintContext {
 }
 
 /// Optional per-token overrides applied inside `internal_mint`.
-/// Eliminates scattered post-mint field patching.
 #[derive(Clone, Default)]
 pub struct ScarceOverrides {
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
@@ -162,7 +147,6 @@ pub struct ScarceOverrides {
     pub paid_price: u128,
 }
 
-/// Native Scarce token (Scarce)
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct Scarce {
@@ -182,20 +166,17 @@ pub struct Scarce {
     /// None = active. Some = invalidated.
     #[serde(default)]
     pub revoked_at: Option<u64>,
-    /// Human-readable reason for revocation.
     #[serde(default)]
     pub revocation_memo: Option<String>,
     /// Nanosecond timestamp of the most recent redemption (check-in/use).
     /// Redeemed tokens are still transferable (collectibles).
     #[serde(default)]
     pub redeemed_at: Option<u64>,
-    /// Number of times this token has been redeemed.
     #[serde(default)]
     pub redeem_count: u32,
     /// Price the buyer paid for this token (yoctoNEAR). Used for refund claims.
     #[serde(default)]
     pub paid_price: u128,
-    /// Whether this token's refund has been claimed.
     #[serde(default)]
     pub refunded: bool,
     /// Token-level transferable flag. `None` = inherit from collection (default).
@@ -219,7 +200,7 @@ pub struct TokenMetadata {
     pub title: Option<String>,
     pub description: Option<String>,
     pub media: Option<String>,
-    pub media_hash: Option<String>,
+    pub media_hash: Option<Base64VecU8>,
     pub copies: Option<u64>,
     pub issued_at: Option<u64>,
     pub expires_at: Option<u64>,
@@ -227,10 +208,9 @@ pub struct TokenMetadata {
     pub updated_at: Option<u64>,
     pub extra: Option<String>,
     pub reference: Option<String>,
-    pub reference_hash: Option<String>,
+    pub reference_hash: Option<Base64VecU8>,
 }
 
-/// Lazy collection configuration
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct LazyCollection {
@@ -256,12 +236,10 @@ pub struct LazyCollection {
     /// Immutable after creation. Default false.
     #[serde(default)]
     pub renewable: bool,
-    /// How tokens from this collection can be revoked.
-    /// Immutable after creation. Default None (irrevocable).
+    /// How tokens from this collection can be revoked. Immutable after creation. Defaults to irrevocable.
     #[serde(default)]
     pub revocation_mode: RevocationMode,
-    /// Maximum number of redemptions per token. Immutable after creation.
-    /// None = not redeemable, Some(1) = single-use ticket, Some(5) = 5-use meal pass.
+    /// Maximum number of redemptions per token. Immutable after creation. None = not redeemable.
     #[serde(default)]
     pub max_redeems: Option<u32>,
     /// Total number of individual redemptions across this collection.
@@ -324,15 +302,12 @@ pub struct LazyCollection {
     pub banned: bool,
 
     /// Free-form JSON metadata for collection branding & discovery.
-    /// Lets individual creators define their collection identity
-    /// independent of app-level and profile-level metadata.
-    /// Recommended keys: `name`, `icon`, `description`, `base_uri`, `website`.
+    /// Independent of app-level metadata.
     #[serde(default)]
     pub metadata: Option<String>,
 
-    /// App-level metadata attached by the app owner or moderator.
-    /// Independent of the creator's `metadata` — used for app-specific
-    /// branding, category tags, featured status, etc.
+    /// App-level metadata set by the app owner or moderator.
+    /// Independent of the creator's collection `metadata`.
     #[serde(default)]
     pub app_metadata: Option<String>,
 }
@@ -344,8 +319,6 @@ pub struct Payout {
 }
 
 /// Comprehensive token status — single view call for app developers.
-/// Combines ownership, validity, redemption, revocation, and metadata
-/// into one response, eliminating the need for multiple view calls.
 #[near(serializers = [json])]
 pub struct TokenStatus {
     pub token_id: String,
@@ -373,6 +346,12 @@ pub struct TokenStatus {
     // ── Refund ──
     pub is_refunded: bool,
     pub paid_price: U128,
+}
+
+#[near(serializers = [json])]
+pub struct RedeemInfo {
+    pub redeem_count: u32,
+    pub max_redeems: Option<u32>,
 }
 
 // ── Parameter structs ────────────────────────────────────────────────────────
@@ -442,7 +421,6 @@ pub struct AuctionListing {
 }
 
 /// Optional gas overrides for `nft_transfer_call`.
-/// When omitted, sensible defaults are used.
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct GasOverrides {
@@ -454,7 +432,7 @@ pub struct GasOverrides {
     pub resolve_tgas: Option<u64>,
 }
 
-// ── Fee / pool types ─────────────────────────────────────────────────────────
+// ── Offer types ─────────────────────────────────────────────────────────────
 
 /// An offer to buy a specific token that is not currently listed for sale.
 /// NEAR is held in escrow until the offer is accepted, cancelled, or expires.
@@ -465,7 +443,7 @@ pub struct Offer {
     pub buyer_id: AccountId,
     /// NEAR deposited (yoctoNEAR).
     pub amount: u128,
-    /// Optional expiry (nanoseconds). None = no expiry.
+    /// Optional expiry (nanoseconds).
     pub expires_at: Option<u64>,
     pub created_at: u64,
 }
@@ -479,7 +457,7 @@ pub struct CollectionOffer {
     pub buyer_id: AccountId,
     /// NEAR offered per token (yoctoNEAR).
     pub amount: u128,
-    /// Optional expiry (nanoseconds). None = no expiry.
+    /// Optional expiry (nanoseconds).
     pub expires_at: Option<u64>,
     pub created_at: u64,
 }
@@ -618,6 +596,9 @@ pub struct LazyListing {
 pub struct UserStorageBalance {
     /// NEAR deposited by the user
     pub balance: u128,
-    /// Bytes consumed against user's own balance
+    /// Bytes consumed against user's own balance (Tier 3)
     pub used_bytes: u64,
+    /// Bytes consumed against the platform pool (Tier 2) on behalf of this user
+    #[serde(default)]
+    pub tier2_used_bytes: u64,
 }
