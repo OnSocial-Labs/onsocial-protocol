@@ -61,8 +61,6 @@ impl Contract {
         Ok(token_id)
     }
 
-    /// Quick-mint a standalone 1/1 token (no collection).
-    /// Token ID: `s:{next_token_id}`.  Storage charged via waterfall.
     pub(crate) fn internal_quick_mint(
         &mut self,
         actor_id: &AccountId,
@@ -82,10 +80,7 @@ impl Contract {
             }
         }
 
-        // Merge app default royalty + creator royalty (validates total internally)
         let merged_royalty = self.merge_royalties(app_id.as_ref(), royalty)?;
-
-        // Counter uses checked_add to guard against overflow.
         let id = self.next_token_id;
         self.next_token_id = self
             .next_token_id
@@ -160,9 +155,7 @@ impl Contract {
         self.add_token_to_owner(receiver_id, token_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
 
-        // Prevents stale sale listings after ownership change.
         self.internal_remove_sale_listing(token_id, &old_owner_id, "owner_changed");
-
         events::emit_scarce_transfer(sender_id, &old_owner_id, receiver_id, token_id, memo.as_deref());
 
         Ok(())
@@ -221,19 +214,23 @@ impl Contract {
         let seat_number = index + 1;
         let timestamp = env::block_timestamp();
 
+        let index_str = index.to_string();
+        let seat_str = seat_number.to_string();
+        let timestamp_str = timestamp.to_string();
+
         if let Some(ref mut title) = metadata.title {
             *title = title
                 .replace("{token_id}", token_id)
-                .replace("{index}", &index.to_string())
-                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{index}", &index_str)
+                .replace("{seat_number}", &seat_str)
                 .replace("{collection_id}", collection_id);
         }
 
         if let Some(ref mut description) = metadata.description {
             *description = description
                 .replace("{token_id}", token_id)
-                .replace("{index}", &index.to_string())
-                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{index}", &index_str)
+                .replace("{seat_number}", &seat_str)
                 .replace("{collection_id}", collection_id)
                 .replace("{owner}", owner.as_str());
         }
@@ -241,33 +238,32 @@ impl Contract {
         if let Some(ref mut media) = metadata.media {
             *media = media
                 .replace("{token_id}", token_id)
-                .replace("{index}", &index.to_string())
-                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{index}", &index_str)
+                .replace("{seat_number}", &seat_str)
                 .replace("{collection_id}", collection_id);
         }
 
         if let Some(ref mut reference) = metadata.reference {
             *reference = reference
                 .replace("{token_id}", token_id)
-                .replace("{index}", &index.to_string())
-                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{index}", &index_str)
+                .replace("{seat_number}", &seat_str)
                 .replace("{collection_id}", collection_id);
         }
 
         if let Some(ref mut extra) = metadata.extra {
             *extra = extra
                 .replace("{token_id}", token_id)
-                .replace("{index}", &index.to_string())
-                .replace("{seat_number}", &seat_number.to_string())
+                .replace("{index}", &index_str)
+                .replace("{seat_number}", &seat_str)
                 .replace("{collection_id}", collection_id)
                 .replace("{owner}", owner.as_str())
-                .replace("{minted_at}", &timestamp.to_string());
+                .replace("{minted_at}", &timestamp_str);
         }
 
         metadata.issued_at = Some(timestamp);
 
-        // Set `copies` to collection total_supply if not already specified by template.
-        // Wallets display "Edition X of Y" when copies is set (NEP-177).
+        // Enables "Edition X of Y" display in wallets (NEP-177).
         if metadata.copies.is_none() {
             if let Some(collection) = self.collections.get(collection_id) {
                 metadata.copies = Some(collection.total_supply as u64);
@@ -280,8 +276,7 @@ impl Contract {
 
 #[near]
 impl Contract {
-    /// Owner voluntarily burns their own token.
-    /// For collection tokens, supply `collection_id`. For standalone tokens, omit it.
+    /// Owner-only. Panics if not exactly 1 yoctoNEAR attached.
     #[payable]
     #[handle_result]
     pub fn burn_scarce(
@@ -297,6 +292,7 @@ impl Contract {
         }
     }
 
+    /// Panics if not exactly 1 yoctoNEAR attached.
     #[payable]
     #[handle_result]
     pub fn nft_transfer(
@@ -313,6 +309,7 @@ impl Contract {
     }
 
     /// Transfer token and call receiver contract (NEP-171).
+    /// Panics if not exactly 1 yoctoNEAR attached or gas override exceeds 300 TGas.
     #[payable]
     #[handle_result]
     pub fn nft_transfer_call(
@@ -327,7 +324,6 @@ impl Contract {
         check_one_yocto()?;
         let sender_id = env::predecessor_account_id();
 
-        // Store token data before transfer for potential revert
         let token = self
             .scarces_by_id
             .get(&token_id)
@@ -371,7 +367,7 @@ impl Contract {
         )
     }
 
-    /// Resolve transfer after callback (NEP-171)
+    /// Resolve transfer after callback (NEP-171). Only callable by this contract.
     #[private]
     pub fn nft_resolve_transfer(
         &mut self,
@@ -382,52 +378,50 @@ impl Contract {
     ) -> bool {
         let should_revert = match env::promise_result_checked(0, 16) {
             Ok(value) => near_sdk::serde_json::from_slice::<bool>(&value).unwrap_or(false),
-            // Failed or panicked callback accepts the transfer (NEP-171 spec).
-            Err(_) => false,
+            Err(_) => false, // failed/panicked callback = accept transfer (NEP-171)
         };
 
-        if should_revert {
-            // SAFETY: must not panic — if the token was re-transferred or burned
-            // during the callback window, log and accept the transfer as final.
-            let token_opt = self.scarces_by_id.get(&token_id).cloned();
-            let mut token = match token_opt {
-                Some(t) => t,
-                None => {
-                    env::log_str(&format!(
-                        "Cannot revert transfer: token {} no longer exists",
-                        token_id
-                    ));
-                    return false;
-                }
-            };
+        if !should_revert {
+            return false;
+        }
 
-            // Token re-transferred to a third party during callback window; accept as final.
-            if token.owner_id != receiver_id {
+        // Safety: must not panic — token may be re-transferred or burned during callback window.
+        let token_opt = self.scarces_by_id.get(&token_id).cloned();
+        let mut token = match token_opt {
+            Some(t) => t,
+            None => {
+                env::log_str(&format!(
+                    "Cannot revert transfer: token {} no longer exists",
+                    token_id
+                ));
                 return false;
             }
+        };
 
-            self.remove_token_from_owner(&receiver_id, &token_id);
-
-            token.owner_id = previous_owner_id.clone();
-            if let Some(approvals) = approved_account_ids {
-                token.approved_account_ids = approvals;
-            }
-
-            self.add_token_to_owner(&previous_owner_id, &token_id);
-            self.scarces_by_id.insert(token_id.clone(), token);
-
-            events::emit_scarce_transfer(
-                &receiver_id,
-                &receiver_id,
-                &previous_owner_id,
-                &token_id,
-                Some("transfer reverted"),
-            );
-
-            true
-        } else {
-            false
+        // Ownership changed during callback window; accept transfer as final.
+        if token.owner_id != receiver_id {
+            return false;
         }
+
+        self.remove_token_from_owner(&receiver_id, &token_id);
+
+        token.owner_id = previous_owner_id.clone();
+        if let Some(approvals) = approved_account_ids {
+            token.approved_account_ids = approvals;
+        }
+
+        self.add_token_to_owner(&previous_owner_id, &token_id);
+        self.scarces_by_id.insert(token_id.clone(), token);
+
+        events::emit_scarce_transfer(
+            &receiver_id,
+            &receiver_id,
+            &previous_owner_id,
+            &token_id,
+            Some("transfer reverted"),
+        );
+
+        true
     }
 
     pub fn nft_token(&self, token_id: String) -> Option<external::Token> {
@@ -443,8 +437,7 @@ impl Contract {
 }
 
 impl Contract {
-    /// Batch transfer multiple native scarces in one call.
-    /// If any transfer fails, the entire batch reverts.
+    // Transfers all items atomically; fails entirely on first error.
     pub(crate) fn internal_batch_transfer(
         &mut self,
         actor_id: &AccountId,

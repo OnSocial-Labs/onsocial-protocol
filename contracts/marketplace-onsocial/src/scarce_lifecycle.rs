@@ -1,9 +1,6 @@
-// Token Lifecycle: Renewal, Revocation, Redemption, and Burn
-
 use crate::*;
 
 impl Contract {
-    /// Only the collection creator can renew.
     pub(crate) fn internal_renew_token(
         &mut self,
         actor_id: &AccountId,
@@ -48,8 +45,6 @@ impl Contract {
         Ok(())
     }
 
-    /// `Invalidate` keeps the token on-chain with `revoked_at` set; `Burn` hard-deletes it.
-    /// Only the collection creator can revoke.
     pub(crate) fn internal_revoke_token(
         &mut self,
         actor_id: &AccountId,
@@ -132,8 +127,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Removes the sale listing, refunds any in-flight auction bid to the current highest bidder,
-    /// and cleans up empty owner/contract index sets to prevent storage leaks.
     pub(crate) fn internal_remove_sale_listing(
         &mut self,
         token_id: &str,
@@ -167,8 +160,7 @@ impl Contract {
         }
     }
 
-    /// Records a redemption (check-in / scan) against the token. Only the collection creator can redeem.
-    /// The token stays on-chain and remains transferable after redemption.
+    /// Token stays on-chain and transferable after redemption.
     pub(crate) fn internal_redeem_token(
         &mut self,
         actor_id: &AccountId,
@@ -232,10 +224,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Check that actor is the collection creator.
-    ///
-    /// App owners **cannot** manage individual collections — their only
-    /// collection-level power is ban / unban (see `internal_ban_collection`).
+    /// App owners cannot manage collections; their only collection-level power is ban/unban.
     pub(crate) fn check_collection_authority(
         &self,
         actor_id: &AccountId,
@@ -270,20 +259,20 @@ impl Contract {
             ));
         }
 
-        let token = self
-            .scarces_by_id
-            .remove(token_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
+        let owner_id = {
+            let token = self
+                .scarces_by_id
+                .get(token_id)
+                .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
+            if &token.owner_id != actor_id {
+                return Err(MarketplaceError::Unauthorized(
+                    "Only the token owner can burn their token".into(),
+                ));
+            }
+            token.owner_id.clone()
+        };
 
-        if &token.owner_id != actor_id {
-            // Put it back
-            self.scarces_by_id.insert(token_id.to_string(), token);
-            return Err(MarketplaceError::Unauthorized(
-                "Only the token owner can burn their token".into(),
-            ));
-        }
-
-        let owner_id = token.owner_id.clone();
+        self.scarces_by_id.remove(token_id);
 
         self.remove_token_from_owner(&owner_id, token_id);
         self.internal_remove_sale_listing(token_id, &owner_id, "burned");
@@ -295,35 +284,31 @@ impl Contract {
         Ok(())
     }
 
-    /// Burns a standalone (non-collection) token.
     pub(crate) fn internal_burn_standalone(
         &mut self,
         actor_id: &AccountId,
         token_id: &str,
     ) -> Result<(), MarketplaceError> {
-        let token = self
-            .scarces_by_id
-            .remove(token_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
+        let owner_id = {
+            let token = self
+                .scarces_by_id
+                .get(token_id)
+                .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
+            // Check burnable flag (None treated as burnable for backward compat)
+            if token.burnable == Some(false) {
+                return Err(MarketplaceError::InvalidState(
+                    "Token is not burnable".into(),
+                ));
+            }
+            if &token.owner_id != actor_id {
+                return Err(MarketplaceError::Unauthorized(
+                    "Only the token owner can burn their token".into(),
+                ));
+            }
+            token.owner_id.clone()
+        };
 
-        // Check burnable flag (None treated as burnable for backward compat)
-        if token.burnable == Some(false) {
-            // Put it back
-            self.scarces_by_id.insert(token_id.to_string(), token);
-            return Err(MarketplaceError::InvalidState(
-                "Token is not burnable".into(),
-            ));
-        }
-
-        if &token.owner_id != actor_id {
-            // Put it back
-            self.scarces_by_id.insert(token_id.to_string(), token);
-            return Err(MarketplaceError::Unauthorized(
-                "Only the token owner can burn their token".into(),
-            ));
-        }
-
-        let owner_id = token.owner_id.clone();
+        self.scarces_by_id.remove(token_id);
 
         self.remove_token_from_owner(&owner_id, token_id);
         self.internal_remove_sale_listing(token_id, &owner_id, "burned");

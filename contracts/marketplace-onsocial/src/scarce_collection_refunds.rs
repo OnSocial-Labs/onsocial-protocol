@@ -1,26 +1,13 @@
-//! Collection cancellation & refund system.
-//!
-//! Pull-based refund pattern: organizer deposits NEAR on cancel,
-//! each holder calls `claim_refund()` individually.
-
 use crate::internal::check_one_yocto;
 use crate::*;
 
-const DEFAULT_REFUND_DEADLINE_NS: u64 = 90 * 24 * 60 * 60 * 1_000_000_000;
-
-/// Prevents the organizer from setting a near-zero deadline and immediately
-/// withdrawing the refund pool before holders have a chance to claim.
-const MIN_REFUND_DEADLINE_NS: u64 = 7 * 24 * 60 * 60 * 1_000_000_000;
-
-// ── Public payable methods ───────────────────────────────────────────────────
+// --- Public payable methods ---
 
 #[near]
 impl Contract {
-    /// Cancel a collection and deposit NEAR for refunds.
-    ///
-    /// Required deposit = `refund_per_token * (minted - fully_redeemed)`.
-    /// Fully-redeemed tokens are excluded; burned tokens are not (see Issue 3 notes).
-    /// After `refund_deadline` the organizer may withdraw unclaimed funds.
+    /// Caller must be the collection organizer or authority.
+    /// Deposit must equal `refund_per_token * (minted - fully_redeemed)`; burned tokens count.
+    /// Panics if `refund_deadline_ns` < 7 days or deposit is insufficient.
     #[payable]
     #[handle_result]
     pub fn cancel_collection(
@@ -62,9 +49,6 @@ impl Contract {
             )));
         }
 
-        collection.cancelled = true;
-        collection.refund_pool = deposit;
-        collection.refund_per_token = refund_per_token.0;
         let deadline = refund_deadline_ns.unwrap_or(DEFAULT_REFUND_DEADLINE_NS);
         if deadline < MIN_REFUND_DEADLINE_NS {
             return Err(MarketplaceError::InvalidInput(format!(
@@ -72,6 +56,10 @@ impl Contract {
                 MIN_REFUND_DEADLINE_NS, deadline
             )));
         }
+
+        collection.cancelled = true;
+        collection.refund_pool = deposit;
+        collection.refund_per_token = refund_per_token.0;
         collection.refund_deadline = Some(env::block_timestamp().saturating_add(deadline));
 
         self.collections.insert(collection_id.clone(), collection);
@@ -86,6 +74,7 @@ impl Contract {
         Ok(())
     }
 
+    /// Caller must be the token holder. Panics if not exactly 1 yoctoNEAR attached.
     #[payable]
     #[handle_result]
     pub fn claim_refund(
@@ -97,6 +86,7 @@ impl Contract {
         self.internal_claim_refund(&caller, &token_id, &collection_id)
     }
 
+    /// Caller must be the collection organizer or authority. Panics if not exactly 1 yoctoNEAR attached.
     #[payable]
     #[handle_result]
     pub fn withdraw_unclaimed_refunds(
@@ -146,7 +136,7 @@ impl Contract {
     }
 }
 
-// ── Internal refund logic ────────────────────────────────────────────────────
+// --- Internal refund logic ---
 
 impl Contract {
     pub(crate) fn internal_claim_refund(

@@ -1,13 +1,10 @@
-// NEP-178 Approval Management
-
 use crate::internal::{check_at_least_one_yocto, check_one_yocto};
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Grant transfer approval to `account_id` for `token_id` (NEP-178).
+    /// Only the token owner may call. Excess deposit above 1 yocto is refunded.
     /// If `msg` is provided, calls `nft_on_approve` on the approved account.
-    /// Excess deposit above 1 yocto is refunded.
     #[payable]
     #[handle_result]
     pub fn nft_approve(
@@ -47,9 +44,9 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // No app_id: direct approvals are always Tier-2/3 subsidised.
+        // Direct approvals pass None app_id: always Tier-2/3 subsidised.
         if bytes_used > 0 {
-            self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
+            self.charge_storage_waterfall(&owner_id, bytes_used, None)?;
         }
 
         internal::refund_excess(&owner_id, env::attached_deposit().as_yoctonear(), 1);
@@ -57,7 +54,7 @@ impl Contract {
         events::emit_approval_granted(&owner_id, &token_id, &account_id, approval_id);
 
         if let Some(msg_str) = msg {
-            // cap caller-supplied gas to prevent scheduling panics
+            // Cap caller-supplied gas to prevent scheduling panics.
             let callback_gas = Gas::from_tgas(callback_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS).min(MAX_RESOLVE_PURCHASE_GAS));
             Ok(Some(
                 external::ext_scarce_approval_receiver::ext(account_id)
@@ -69,7 +66,7 @@ impl Contract {
         }
     }
 
-    /// Revoke transfer approval for `account_id` on `token_id` (NEP-178). Frees storage.
+    /// Only the token owner may call. Frees approval storage.
     #[payable]
     #[handle_result]
     pub fn nft_revoke(
@@ -105,7 +102,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Revoke all transfer approvals for `token_id` (NEP-178). Frees storage.
+    /// Only the token owner may call. Frees all approval storage.
     #[payable]
     #[handle_result]
     pub fn nft_revoke_all(&mut self, token_id: String) -> Result<(), MarketplaceError> {
@@ -137,7 +134,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Returns whether `approved_account_id` holds a valid approval for `token_id`.
     /// If `approval_id` is supplied, also validates the exact ID.
     pub fn nft_is_approved(
         &self,
@@ -150,23 +146,16 @@ impl Contract {
             None => return false,
         };
 
-        match token.approved_account_ids.get(&approved_account_id) {
-            Some(actual_approval_id) => {
-                if let Some(expected_id) = approval_id {
-                    *actual_approval_id == expected_id
-                } else {
-                    true
-                }
-            }
-            None => false,
-        }
+        token.approved_account_ids
+            .get(&approved_account_id)
+            .is_some_and(|actual| approval_id.is_none_or(|id| *actual == id))
     }
 }
 
-// --- Internal helpers (execute dispatch) ---
+// --- Internal helpers ---
 
 impl Contract {
-    /// Approve without deposit or XCC gas override; fires `nft_on_approve` if `msg` is provided.
+    /// Approve without deposit check or XCC gas override; fires `nft_on_approve` if `msg` is provided.
     pub(crate) fn internal_approve(
         &mut self,
         actor_id: &AccountId,
@@ -199,7 +188,7 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
 
         if bytes_used > 0 {
-            self.charge_storage_waterfall(actor_id, bytes_used as u64, None)?;
+            self.charge_storage_waterfall(actor_id, bytes_used, None)?;
         }
         events::emit_approval_granted(actor_id, token_id, account_id, approval_id);
         if let Some(msg_str) = msg {

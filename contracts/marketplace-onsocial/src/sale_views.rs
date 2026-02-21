@@ -31,11 +31,7 @@ impl Contract {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<Sale> {
-        let by_owner_id = self.by_owner_id.get(&account_id);
-
-        let sales = if let Some(by_owner_id) = by_owner_id {
-            by_owner_id
-        } else {
+        let Some(sales) = self.by_owner_id.get(&account_id) else {
             return vec![];
         };
 
@@ -56,11 +52,7 @@ impl Contract {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<Sale> {
-        let by_scarce_contract_id = self.by_scarce_contract_id.get(&scarce_contract_id);
-
-        let sales = if let Some(by_scarce_contract_id) = by_scarce_contract_id {
-            by_scarce_contract_id
-        } else {
+        let Some(sales) = self.by_scarce_contract_id.get(&scarce_contract_id) else {
             return vec![];
         };
 
@@ -87,8 +79,6 @@ impl Contract {
             .collect()
     }
 
-    /// Returns `None` if no sale exists for this token, `Some(false)` if active or has no
-    /// expiry, `Some(true)` if the expiry timestamp has passed.
     pub fn is_sale_expired(&self, scarce_contract_id: AccountId, token_id: String) -> Option<bool> {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         let sale = self.sales.get(&sale_id)?;
@@ -116,7 +106,6 @@ impl Contract {
 
     // --- Auction view helpers ---
 
-    /// Returns `None` if no auction listing exists for this token.
     pub fn get_auction(&self, token_id: String) -> Option<AuctionView> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
         let sale = self.sales.get(&sale_id)?;
@@ -176,14 +165,14 @@ impl Contract {
 pub struct AuctionView {
     pub token_id: String,
     pub seller_id: AccountId,
-    pub reserve_price: U128,
-    pub min_bid_increment: U128,
-    pub highest_bid: U128,
+    pub reserve_price: U128,       // yoctoNEAR
+    pub min_bid_increment: U128,   // yoctoNEAR
+    pub highest_bid: U128,         // yoctoNEAR
     pub highest_bidder: Option<AccountId>,
     pub bid_count: u32,
-    pub expires_at: Option<u64>,
+    pub expires_at: Option<u64>,   // nanoseconds
     pub anti_snipe_extension_ns: u64,
-    pub buy_now_price: Option<U128>,
+    pub buy_now_price: Option<U128>, // yoctoNEAR
     pub is_ended: bool,
     pub reserve_met: bool,
 }

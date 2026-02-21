@@ -1,12 +1,8 @@
-//! Protocol types for the marketplace unified execute API.
-
 use near_sdk::json_types::U128;
 use near_sdk::{near, AccountId};
 
-/// Re-export the shared Auth enum from onsocial-auth.
 pub use onsocial_auth::Auth;
 
-/// A single transfer within a batch.
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct TransferItem {
@@ -15,7 +11,6 @@ pub struct TransferItem {
     pub memo: Option<String>,
 }
 
-/// Allowlist entry: wallet + max early-access mint allocation.
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct AllowlistEntry {
@@ -23,24 +18,21 @@ pub struct AllowlistEntry {
     pub allocation: u32,
 }
 
-/// Nonce storage prefix — distinct from core-onsocial (0x05).
+// Nonce storage prefix — distinct from core-onsocial (0x05).
 pub const NONCE_PREFIX: u8 = 0x06;
 
-/// Domain prefix for signed-payload verification.
+// Domain prefix for signed-payload verification.
 pub const DOMAIN_PREFIX: &str = "onsocial:marketplace";
 
-/// Marketplace actions dispatched via `execute()`.
-///
-/// Actions requiring attached NEAR (buying, minting) are separate `#[payable]`
-/// methods — incompatible with the gasless relayer flow.
+// Marketplace actions dispatched via `execute()`.
+// Actions requiring attached NEAR (buying, minting) are separate #[payable] methods — incompatible with the gasless relayer flow.
 #[near(serializers = [json])]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[derive(Clone)]
 pub enum Action {
     // --- Collections ---
-    /// Mint a standalone 1/1 token without a collection. Storage charged via waterfall.
+    // Mint a standalone 1/1 token without a collection. Storage charged via waterfall.
     QuickMint {
-        /// NEP-177 token metadata.
         metadata: crate::TokenMetadata,
         #[serde(flatten)]
         options: crate::ScarceOptions,
@@ -58,23 +50,21 @@ pub enum Action {
         start_time: Option<u64>,
         end_time: Option<u64>,
     },
-    /// Mint from own collection to self or a recipient. Storage charged via waterfall.
+    // Storage charged via waterfall.
     MintFromCollection {
         collection_id: String,
         quantity: u32,
-        /// Defaults to the actor (creator) if omitted.
+        // Defaults to the actor (creator) if omitted.
         receiver_id: Option<AccountId>,
     },
-    /// Airdrop one token per recipient. Storage charged via waterfall.
-    /// Duplicates allowed — same wallet receives multiple tokens.
+    // Storage charged via waterfall. Duplicates allowed.
     AirdropFromCollection {
         collection_id: String,
         receivers: Vec<AccountId>,
     },
 
     // --- Listing ---
-    /// List a native scarce for sale. No cross-contract approval required;
-    /// the marketplace contract owns the token data.
+    // No cross-contract approval required; marketplace contract owns token data.
     ListNativeScarce {
         token_id: String,
         price: U128,
@@ -83,17 +73,17 @@ pub enum Action {
     DelistNativeScarce {
         token_id: String,
     },
-    /// List a native scarce as an English auction.
+    // English auction.
     ListNativeScarceAuction {
         token_id: String,
         #[serde(flatten)]
         params: crate::AuctionListing,
     },
-    /// Settle an ended auction. Callable by anyone.
+    // Callable by anyone.
     SettleAuction {
         token_id: String,
     },
-    /// Cancel an auction. Seller only; only valid before any bids are placed.
+    // Seller only; only valid before any bids are placed.
     CancelAuction {
         token_id: String,
     },
@@ -141,51 +131,49 @@ pub enum Action {
     },
 
     // --- Token Lifecycle ---
-    /// Renew a token's expiry date. Collection creator only.
+    // Collection creator only.
     RenewToken {
         token_id: String,
         collection_id: String,
         new_expires_at: u64,
     },
-    /// Revoke a token. Collection creator only.
+    // Collection creator only.
     RevokeToken {
         token_id: String,
         collection_id: String,
         memo: Option<String>,
     },
-    /// Redeem (check-in / use) a token. Token remains on-chain and transferable.
-    /// Collection creator only.
+    // Token remains on-chain and transferable. Collection creator only.
     RedeemToken {
         token_id: String,
         collection_id: String,
     },
-    /// Claim a refund from a cancelled collection. Caller must be the token holder.
+    // Caller must be the token holder.
     ClaimRefund {
         token_id: String,
         collection_id: String,
     },
-    /// Burn a token. Respects the `burnable` flag.
-    /// Supply `collection_id` for collection tokens; omit for standalone tokens.
+    // Respects the `burnable` flag.
     BurnScarce {
         token_id: String,
         #[serde(default)]
         collection_id: Option<String>,
     },
-    /// Delete an empty collection (`minted_count == 0`). Creator only.
+    // Panics if minted_count > 0. Creator only.
     DeleteCollection {
         collection_id: String,
     },
-    /// Pause minting from a collection. Creator only.
+    // Creator only.
     PauseCollection {
         collection_id: String,
     },
-    /// Resume minting from a paused collection. Creator only.
+    // Creator only.
     ResumeCollection {
         collection_id: String,
     },
-    /// Transfer up to 20 native scarces in one call.
+    // Max 20 transfers per call.
     BatchTransfer {
-        transfers: Vec<crate::protocol::TransferItem>,
+        transfers: Vec<TransferItem>,
     },
 
     // --- App Pool ---
@@ -199,45 +187,40 @@ pub enum Action {
         #[serde(flatten)]
         params: crate::AppConfig,
     },
-    /// Transfer app pool ownership to a new account.
     TransferAppOwnership {
         app_id: AccountId,
         new_owner: AccountId,
     },
-    /// Add a moderator. Moderators can ban/unban collections and (in curated mode)
-    /// create collections. Max 20 per app. Owner only.
+    // Moderators can ban/unban collections and (in curated mode) create collections. Max 20 per app. Owner only.
     AddModerator {
         app_id: AccountId,
         account_id: AccountId,
     },
-    /// Remove a moderator from an app pool. Owner only.
+    // Owner only.
     RemoveModerator {
         app_id: AccountId,
         account_id: AccountId,
     },
-    /// Ban a collection from purchases and mints. App owner or moderator only.
-    /// The collection's `app_id` must match `app_id`.
+    // App owner or moderator only. collection.app_id must match app_id.
     BanCollection {
         app_id: AccountId,
         collection_id: String,
-        /// Reason string emitted in the event log.
+        // Emitted in the event log.
         reason: Option<String>,
     },
-    /// Unban a collection. App owner or moderator only.
+    // App owner or moderator only.
     UnbanCollection {
         app_id: AccountId,
         collection_id: String,
     },
 
     // --- Collection Metadata ---
-    /// Update collection branding metadata. Independent of `metadata_template`.
-    /// Creator only. Replaces existing metadata entirely.
+    // Creator only. Replaces existing metadata entirely.
     SetCollectionMetadata {
         collection_id: String,
         metadata: Option<String>,
     },
-    /// Set app-level metadata on a collection. Independent of the creator's
-    /// `metadata`. App owner or moderator only. Replaces existing app_metadata entirely.
+    // App owner or moderator only. Replaces existing app_metadata entirely.
     SetCollectionAppMetadata {
         app_id: AccountId,
         collection_id: String,
@@ -245,48 +228,44 @@ pub enum Action {
     },
 
     // --- Allowlist ---
-    /// Add or update allowlist entries. Before `start_time`, only allowlisted
-    /// wallets can purchase. Creator only.
+    // Before start_time, only allowlisted wallets can purchase. Creator only.
     SetAllowlist {
         collection_id: String,
-        /// Maps each account to its max early-access allocation.
-        /// Allocation of 0 removes the entry.
+        // Allocation of 0 removes the entry.
         entries: Vec<AllowlistEntry>,
     },
-    /// Remove wallets from the allowlist. Creator only.
+    // Creator only.
     RemoveFromAllowlist {
         collection_id: String,
         accounts: Vec<AccountId>,
     },
 
     // --- Offers ---
-    /// Accept an offer on a token you own.
     AcceptOffer {
         token_id: String,
         buyer_id: AccountId,
     },
-    /// Cancel your own offer on a token.
     CancelOffer {
         token_id: String,
     },
-    /// Accept a collection-level floor offer against a specific token you own.
+    // Collection-level floor offer accepted against a specific token.
     AcceptCollectionOffer {
         collection_id: String,
         token_id: String,
         buyer_id: AccountId,
     },
-    /// Cancel your own collection floor offer.
+    // Cancel your own collection floor offer.
     CancelCollectionOffer {
         collection_id: String,
     },
 
     // --- Lazy Listings (mint-on-purchase) ---
-    /// Store metadata and price on-chain without minting. Token is minted on purchase.
+    // Token stored without minting; minted on purchase.
     CreateLazyListing {
         #[serde(flatten)]
         params: crate::LazyListing,
     },
-    /// Cancel a lazy listing you own. No token was minted.
+    // No token was minted.
     CancelLazyListing {
         listing_id: String,
     },
@@ -294,8 +273,7 @@ pub enum Action {
         listing_id: String,
         new_price: U128,
     },
-    /// Update or clear expiry on a lazy listing you own.
-    /// Pass `null` to remove the expiry.
+    // Pass null to remove the expiry.
     UpdateLazyListingExpiry {
         listing_id: String,
         new_expires_at: Option<u64>,
@@ -303,7 +281,6 @@ pub enum Action {
 }
 
 impl Action {
-    /// Returns a string identifier for logging/events.
     pub fn action_type(&self) -> &'static str {
         match self {
             Self::QuickMint { .. } => "quick_mint",
@@ -357,14 +334,14 @@ impl Action {
     }
 }
 
-/// Request envelope for `execute()`.
+// Request envelope for `execute()`.
 #[near(serializers = [json])]
 #[derive(Clone)]
 pub struct Request {
-    /// Defaults to actor for `Auth::Direct`.
+    // Defaults to actor for `Auth::Direct`.
     pub target_account: Option<AccountId>,
     pub action: Action,
-    /// Defaults to `Auth::Direct`.
+    // Defaults to `Auth::Direct`.
     pub auth: Option<Auth>,
     pub options: Option<Options>,
 }
@@ -372,7 +349,7 @@ pub struct Request {
 #[near(serializers = [json])]
 #[derive(Default, Clone)]
 pub struct Options {
-    /// Refund unused deposit to payer instead of crediting actor's storage.
+    // Refund unused deposit to payer instead of crediting actor's storage.
     #[serde(default)]
     pub refund_unused_deposit: bool,
 }

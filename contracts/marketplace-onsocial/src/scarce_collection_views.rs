@@ -42,7 +42,6 @@ impl Contract {
             })
     }
 
-    /// O(from_index + limit) — use the Substreams indexer for large datasets.
     pub fn get_collections_by_creator(
         &self,
         creator_id: AccountId,
@@ -72,7 +71,6 @@ impl Contract {
             .unwrap_or(0)
     }
 
-    /// O(total_collections) scan — use the Substreams indexer for large datasets.
     pub fn get_active_collections(
         &self,
         from_index: Option<u64>,
@@ -94,7 +92,6 @@ impl Contract {
         self.collections.len() as u64
     }
 
-    /// O(from_index + limit) — use the Substreams indexer for large datasets.
     pub fn get_all_collections(
         &self,
         from_index: Option<u64>,
@@ -111,7 +108,6 @@ impl Contract {
             .collect()
     }
 
-    /// `creator_revenue` excludes both the marketplace fee and any app commission.
     pub fn get_collection_stats(&self, collection_id: String) -> Option<CollectionStats> {
         self.collections.get(&collection_id).map(|collection| {
             let current = crate::scarce_collection_purchase::compute_dutch_price(collection);
@@ -161,7 +157,6 @@ impl Contract {
         self.collection_mint_counts.get(&key).copied().unwrap_or(0)
     }
 
-    /// Returns `None` if the collection has no per-wallet limit.
     pub fn get_wallet_mint_remaining(
         &self,
         collection_id: String,
@@ -180,11 +175,10 @@ impl Contract {
     }
 
     pub fn is_allowlisted(&self, collection_id: String, account_id: AccountId) -> bool {
-        let key = format!("{}:al:{}", collection_id, account_id);
-        self.collection_allowlist.get(&key).copied().unwrap_or(0) > 0
+        self.get_allowlist_allocation(collection_id, account_id) > 0
     }
 
-    /// Returns 0 if not allowlisted. Counts all mints, including those during the public phase.
+    /// Counts all mints, including those during the public phase.
     pub fn get_allowlist_remaining(&self, collection_id: String, account_id: AccountId) -> u32 {
         let al_key = format!("{}:al:{}", collection_id, account_id);
         let allocation = self.collection_allowlist.get(&al_key).copied().unwrap_or(0);
@@ -267,6 +261,6 @@ pub struct CollectionStats {
     pub transferable: bool,
     pub paused: bool,
     pub banned: bool,
-    /// Early-access price for allowlisted wallets (None = same as regular price).
+    /// Early-access price for allowlisted wallets; `None` = same as regular price.
     pub allowlist_price: Option<U128>,
 }

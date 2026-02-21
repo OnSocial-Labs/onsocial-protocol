@@ -4,10 +4,6 @@
 
 use crate::*;
 
-/// Compute the current Dutch auction price for a collection.
-/// If `start_price` is set above `price_near`, price decreases linearly
-/// from `start_price` → `price_near` over `start_time` → `end_time`.
-/// Returns `price_near` if not a Dutch auction or the window has ended.
 pub(crate) fn compute_dutch_price(collection: &LazyCollection) -> u128 {
     let floor = collection.price_near.0;
     let start_price = match collection.start_price {
@@ -29,7 +25,6 @@ pub(crate) fn compute_dutch_price(collection: &LazyCollection) -> u128 {
     if now >= end {
         return floor;
     }
-    // Linear interpolation: start_price - (start_price - floor) * elapsed / duration
     let elapsed = (now - start) as u128;
     let duration = (end - start) as u128;
     let diff = start_price - floor;
@@ -42,13 +37,9 @@ pub(crate) fn compute_dutch_price(collection: &LazyCollection) -> u128 {
 #[near]
 impl Contract {
     /// Purchase and mint scarces from a lazy collection.
-    /// Atomic: update count → pay → mint → refund.
-    ///
-    /// **Front-running protection:** When buying from a Dutch auction, pass
-    /// `max_price_per_token` to cap the unit price. If the on-chain price at
-    /// execution time exceeds the cap, the transaction is rejected — this
-    /// prevents validators or mempool observers from delaying the tx to extract
-    /// a higher price.
+    /// Pass `max_price_per_token` on Dutch auctions to reject execution if the
+    /// on-chain price exceeds your cap (guards against tx-delay price extraction).
+    /// Panics if quantity is 0 or exceeds `MAX_BATCH_MINT`.
     #[payable]
     #[handle_result]
     pub fn purchase_from_collection(
@@ -70,13 +61,12 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
             .clone();
 
-        // ── Phase detection: allowlist vs public ──
         let now = env::block_timestamp();
         let is_before_start = collection.start_time.is_some_and(|s| now < s);
         let buyer_id = env::predecessor_account_id();
 
         if is_before_start {
-            // Allowlist early-access phase — base checks (skip start_time)
+            // allowlist phase — start_time check intentionally skipped
             if collection.banned {
                 return Err(MarketplaceError::InvalidState(
                     "Collection is banned".into(),
@@ -144,9 +134,6 @@ impl Contract {
             )));
         }
 
-        // Per-wallet mint limit check (applies in both phases)
-        // During allowlist phase, the WL allocation is capped separately above,
-        // but max_per_wallet is an additional hard ceiling that always applies.
         if let Some(max_per_wallet) = collection.max_per_wallet {
             let mint_key = format!("{}:{}", collection_id, buyer_id);
             let already_minted = self
@@ -162,7 +149,6 @@ impl Contract {
             }
         }
 
-        // ── Price: allowlist_price during WL phase, otherwise Dutch/fixed ──
         let unit_price = if is_before_start {
             collection
                 .allowlist_price
@@ -200,14 +186,13 @@ impl Contract {
             .map(|i| format!("{}:{}", collection_id, i + 1))
             .collect();
 
-        // Update count + revenue FIRST (reentrancy protection)
+        // update count + revenue first (reentrancy guard)
         let mut updated_collection = collection.clone();
         updated_collection.minted_count += quantity;
         updated_collection.total_revenue += total_price;
         self.collections
             .insert(collection_id.clone(), updated_collection);
 
-        // Measure storage BEFORE minting
         let before = env::storage_usage();
 
         let ctx = crate::MintContext {
@@ -228,8 +213,7 @@ impl Contract {
             Some(ovr),
         )?;
 
-        // Track during allowlist phase regardless of max_per_wallet — allocation enforcement
-        // reads these counts. During public phase, only track when max_per_wallet is set.
+        // always track in allowlist phase; allocation checks read these counts
         if is_before_start || collection.max_per_wallet.is_some() {
             let mint_key = format!("{}:{}", collection_id, buyer_id);
             let prev = self
@@ -241,7 +225,6 @@ impl Contract {
                 .insert(mint_key, prev + quantity);
         }
 
-        // Measure storage AFTER minting
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
@@ -273,9 +256,8 @@ impl Contract {
 // ── Creator pre-mint ─────────────────────────────────────────────────────────
 
 impl Contract {
-    /// Mint from own collection to self or a specified recipient.
-    /// No payment — storage charged via app-pool → user-balance waterfall.
-    /// Only the collection creator may call this.
+    // Mint quantity tokens from collection to recipient (defaults to actor_id).
+    // Only the collection creator may call this.
     pub(crate) fn internal_mint_from_collection(
         &mut self,
         actor_id: &AccountId,
@@ -329,13 +311,12 @@ impl Contract {
             .map(|i| format!("{}:{}", collection_id, i + 1))
             .collect();
 
-        // Update count FIRST (reentrancy protection)
+        // update count first (reentrancy guard)
         let mut updated_collection = collection;
         updated_collection.minted_count += quantity;
         self.collections
             .insert(collection_id.to_string(), updated_collection);
 
-        // Measure storage BEFORE minting
         let before = env::storage_usage();
 
         let ctx = crate::MintContext {
@@ -355,17 +336,16 @@ impl Contract {
             Some(ovr),
         )?;
 
-        // Measure storage AFTER minting
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Storage charged via waterfall; creator is not paying a sale price.
         self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_collection_mint(actor_id, recipient, collection_id, quantity, &token_ids);
         Ok(())
     }
 
+    // Airdrop one token per receiver from collection. Only the collection creator may call this.
     pub(crate) fn internal_airdrop_from_collection(
         &mut self,
         actor_id: &AccountId,
@@ -414,13 +394,12 @@ impl Contract {
         let app_id = collection.app_id.clone();
         let creator_id = collection.creator_id.clone();
 
-        // Update count FIRST (reentrancy protection)
+        // update count first (reentrancy guard)
         let mut updated_collection = collection;
         updated_collection.minted_count += count;
         self.collections
             .insert(collection_id.to_string(), updated_collection);
 
-        // Measure storage BEFORE minting
         let before = env::storage_usage();
 
         let mut token_ids = Vec::with_capacity(count as usize);
@@ -450,11 +429,9 @@ impl Contract {
             token_ids.push(minted_id);
         }
 
-        // Measure storage AFTER minting
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Storage charged via waterfall; creator is not paying a sale price.
         self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
 
         events::emit_collection_airdrop(actor_id, collection_id, count, &token_ids, &receivers);

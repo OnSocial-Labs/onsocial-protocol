@@ -1,16 +1,14 @@
-// NEP-181 Enumeration Implementation
+// --- NEP-181 Enumeration ---
 
 use crate::*;
 use near_sdk::json_types::U128;
 
 #[near]
 impl Contract {
-    /// Get total supply of native Scarces (NEP-181)
     pub fn nft_total_supply(&self) -> U128 {
         U128(self.scarces_by_id.len() as u128)
     }
 
-    /// Get paginated list of all native Scarces (NEP-181)
     pub fn nft_tokens(&self, from_index: Option<U128>, limit: Option<u64>) -> Vec<external::Token> {
         let start = from_index.map(|i| i.0 as usize).unwrap_or(0);
         let limit = limit.unwrap_or(50).min(100) as usize;
@@ -28,7 +26,6 @@ impl Contract {
             .collect()
     }
 
-    /// Get number of tokens owned by account (NEP-181)
     pub fn nft_supply_for_owner(&self, account_id: AccountId) -> U128 {
         self.scarces_per_owner
             .get(&account_id)
@@ -36,16 +33,14 @@ impl Contract {
             .unwrap_or(U128(0))
     }
 
-    /// Get paginated list of tokens for an owner (NEP-181)
     pub fn nft_tokens_for_owner(
         &self,
         account_id: AccountId,
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<external::Token> {
-        let tokens_set = match self.scarces_per_owner.get(&account_id) {
-            Some(set) => set,
-            None => return vec![],
+        let Some(tokens_set) = self.scarces_per_owner.get(&account_id) else {
+            return vec![];
         };
 
         let start = from_index.map(|i| i.0 as usize).unwrap_or(0);
@@ -68,7 +63,6 @@ impl Contract {
             .collect()
     }
 
-    /// Get total supply of tokens in a specific collection.
     pub fn nft_supply_for_collection(&self, collection_id: String) -> U128 {
         self.collections
             .get(&collection_id)
@@ -76,22 +70,19 @@ impl Contract {
             .unwrap_or(U128(0))
     }
 
-    /// Get paginated list of tokens in a specific collection.
     pub fn nft_tokens_for_collection(
         &self,
         collection_id: String,
         from_index: Option<U128>,
         limit: Option<u64>,
     ) -> Vec<external::Token> {
-        let collection = match self.collections.get(&collection_id) {
-            Some(c) => c,
-            None => return vec![],
+        let Some(collection) = self.collections.get(&collection_id) else {
+            return vec![];
         };
         let start = from_index.map(|i| i.0 as usize).unwrap_or(0);
         let limit = limit.unwrap_or(50).min(100) as usize;
 
-        // Token IDs follow the invariant `{collection_id}:{serial}` (1-based, set at mint).
-        // filter_map skips serials whose tokens have been burned (removed from storage).
+        // Token IDs use `{collection_id}:{serial}` (1-based); missing entries are burned tokens.
         (1..=collection.total_supply)
             .filter_map(|serial| {
                 let token_id = format!("{}:{}", collection_id, serial);

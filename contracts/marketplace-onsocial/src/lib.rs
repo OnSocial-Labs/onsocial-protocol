@@ -1,6 +1,4 @@
-//! OnSocial Marketplace — Scarce marketplace with relayer-compatible auth,
-//! 3-tier byte-accurate storage (app pool [T1] → platform pool [T2] → user balance [T3]),
-//! and JSON events.
+//! OnSocial Marketplace — 3-tier storage (T1 app pool, T2 platform pool, T3 user balance), relayer-compatible auth, JSON events.
 
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::Value;
@@ -9,7 +7,7 @@ use near_sdk::{
     env, near, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue,
 };
 
-// ── Modules ──────────────────────────────────────────────────────────────────
+// --- Modules ---
 
 mod admin;
 mod app_pool;
@@ -27,7 +25,6 @@ mod sale_views;
 mod storage;
 pub mod types;
 
-// Scarce modules (native scarces)
 mod external_scarce_views;
 mod scarce_approval;
 mod scarce_approval_callbacks;
@@ -37,14 +34,10 @@ mod scarce_lifecycle;
 mod scarce_metadata;
 mod scarce_native_views;
 mod scarce_payout;
-
-// Scarce collection modules
 mod scarce_collection_purchase;
 mod scarce_collection_refunds;
 mod scarce_collection_views;
 mod scarce_collections;
-
-// Lazy listing (mint-on-purchase)
 mod lazy_listing;
 
 pub use constants::*;
@@ -52,24 +45,17 @@ pub use errors::MarketplaceError;
 pub use protocol::{Action, Auth, Options, Request};
 pub use types::*;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ---
 
-/// Serde helper – returns `true` for `#[serde(default = "default_true")]`.
 pub fn default_true() -> bool {
     true
 }
 
-/// Extract collection ID from a token ID (format: "collection_id:serial").
-/// Returns `""` for standalone tokens (no `:` separator), which safely
-/// produces no-match on collection lookups.
+// Token ID format: `"collection_id:serial"`; returns `""` for standalone tokens.
 pub(crate) fn collection_id_from_token_id(token_id: &str) -> &str {
-    match token_id.find(':') {
-        Some(pos) => &token_id[..pos],
-        None => "",
-    }
+    token_id.split_once(':').map_or("", |(prefix, _)| prefix)
 }
 
-/// Check that a token ID belongs to the specified collection.
 pub(crate) fn check_token_in_collection(
     token_id: &str,
     collection_id: &str,
@@ -82,7 +68,7 @@ pub(crate) fn check_token_in_collection(
     Ok(())
 }
 
-// ── Storage Keys ─────────────────────────────────────────────────────────────
+// --- Storage Keys ---
 
 #[near]
 #[derive(BorshStorageKey)]
@@ -111,7 +97,7 @@ pub enum StorageKey {
     ApprovedNftContracts,
 }
 
-// ── Contract State ───────────────────────────────────────────────────────────
+// --- Contract State ---
 
 #[near(
     contract_state,
@@ -128,7 +114,7 @@ pub enum StorageKey {
 )]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    /// Semantic version from Cargo.toml, updated on each migration.
+    /// From Cargo.toml; updated on each migration.
     pub version: String,
 
     pub owner_id: AccountId,
@@ -140,7 +126,7 @@ pub struct Contract {
     pub scarces_per_owner: LookupMap<AccountId, IterableSet<String>>,
     pub scarces_by_id: IterableMap<String, Scarce>,
     pub next_approval_id: u64,
-    /// Shared counter for standalone quick-mints and lazy listings.
+    /// Shared by quick-mints and lazy listings.
     pub next_token_id: u64,
 
     pub collections: IterableMap<String, LazyCollection>,
@@ -148,50 +134,42 @@ pub struct Contract {
 
     pub fee_config: FeeConfig,
 
-    /// T1: Per-app isolated storage pool. Key: app_id.
+    /// T1: per-app pool; key = app_id.
     pub app_pools: LookupMap<AccountId, AppPool>,
-    /// T1: Per-(user, app) byte usage. Key: "user_id:app_id".
+    /// T1: per-(user, app) byte usage; key = "user_id:app_id".
     pub app_user_usage: LookupMap<String, u64>,
-    /// T2: Platform pool funded by `platform_storage_fee_bps` on every sale.
-    /// Sponsors storage for no-app operations.
+    /// T2: platform pool; funded by `platform_storage_fee_bps` on every sale.
     pub platform_storage_balance: u128,
-    /// T3: Per-user manual storage deposits.
+    /// T3: per-user manual deposits.
     pub user_storage: LookupMap<AccountId, UserStorageBalance>,
 
-    /// Key: "collection_id:account_id". Enforces `max_per_wallet` and allowlist quotas.
+    /// Key: "collection_id:account_id"; enforces `max_per_wallet` and allowlist quotas.
     pub collection_mint_counts: LookupMap<String, u32>,
-
-    /// Key: "{collection_id}:al:{account_id}". Non-zero value = wallet may mint before `start_time`.
+    /// Key: "{collection_id}:al:{account_id}"; non-zero = wallet may mint before `start_time`.
     pub collection_allowlist: LookupMap<String, u32>,
 
-    /// Per-token offers. Key: "{token_id}\0{buyer_id}". NEAR held in escrow.
+    /// Per-token offers; key = "{token_id}\0{buyer_id}"; NEAR held in escrow.
     pub offers: IterableMap<String, Offer>,
-    /// Per-collection floor offers. Key: "{collection_id}\0{buyer_id}".
+    /// Per-collection floor offers; key = "{collection_id}\0{buyer_id}".
     pub collection_offers: IterableMap<String, CollectionOffer>,
 
-    /// Key: "ll:{next_token_id}". Token minted on purchase; counter shared with QuickMint.
+    /// Key: "ll:{next_token_id}"; minted on purchase; counter shared with QuickMint.
     pub lazy_listings: IterableMap<String, LazyListingRecord>,
 
     pub intents_executors: Vec<AccountId>,
 
-    /// Contract-level NEP-177 metadata (name, symbol, icon, base_uri). Updatable by owner.
+    /// NEP-177 contract metadata; updatable by owner.
     pub contract_metadata: external::ScarceContractMetadata,
 
-    /// Allowlisted external NFT contracts trusted to call `nft_on_approve`.
+    /// External NFT contracts allowed to call `nft_on_approve`.
     pub approved_nft_contracts: IterableSet<AccountId>,
 }
 
-// ── Unified execute() entry point ────────────────────────────────────────────
+// --- execute ---
 
 #[near]
 impl Contract {
-    /// Unified entry point for all authenticated operations.
-    ///
-    /// Supports all 4 auth models via `onsocial-auth`:
-    /// - `Direct`: User signs transaction directly
-    /// - `SignedPayload`: Off-chain signed payload (for relayer)
-    /// - `DelegateAction`: NEP-366 meta-transactions
-    /// - `Intent`: Intent executor pattern
+    /// Authenticated entry point; accepts Direct, SignedPayload, DelegateAction, and Intent auth.
     #[payable]
     #[handle_result]
     pub fn execute(&mut self, request: Request) -> Result<Value, MarketplaceError> {

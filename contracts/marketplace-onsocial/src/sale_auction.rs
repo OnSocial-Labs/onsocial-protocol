@@ -1,5 +1,4 @@
-//! English auction subsystem — list, bid, settle, cancel auctions
-//! for native scarce tokens.
+//! English auction: list, bid, settle, and cancel auctions for native scarce tokens.
 
 use crate::*;
 use near_sdk::json_types::U128;
@@ -7,7 +6,6 @@ use near_sdk::json_types::U128;
 // --- Internal auction helpers ---
 
 impl Contract {
-    /// List a native scarce for English auction.
     pub(crate) fn internal_list_native_scarce_auction(
         &mut self,
         owner_id: &AccountId,
@@ -115,7 +113,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Settle a completed auction. Callable by anyone once expired.
     pub(crate) fn internal_settle_auction(
         &mut self,
         _actor_id: &AccountId,
@@ -124,7 +121,6 @@ impl Contract {
         self.internal_settle_auction_impl(_actor_id, token_id, false)
     }
 
-    /// Settle immediately; skips expiry check. Used by the buy-now path.
     pub(crate) fn internal_settle_auction_buynow(
         &mut self,
         actor_id: &AccountId,
@@ -193,7 +189,6 @@ impl Contract {
                 result.app_pool_amount,
             );
         } else {
-            // Reserve unmet: refund the highest bidder if one exists.
             if let Some(bidder) = winner {
                 if winning_bid > 0 {
                     let _ = Promise::new(bidder.clone())
@@ -205,7 +200,6 @@ impl Contract {
         Ok(())
     }
 
-    /// Cancel an auction. Seller only, only if no bids have been placed.
     pub(crate) fn internal_cancel_auction(
         &mut self,
         actor_id: &AccountId,
@@ -284,7 +278,6 @@ impl Contract {
             return Err(MarketplaceError::InvalidState("Auction has ended".into()));
         }
 
-        // First bid must clear reserve and min_bid_increment; subsequent bids must exceed prior by min_bid_increment.
         let min_required = if auction.highest_bid == 0 {
             auction.reserve_price.max(auction.min_bid_increment)
         } else {
@@ -309,7 +302,7 @@ impl Contract {
         auction.highest_bidder = Some(bidder.clone());
         auction.bid_count = auction.bid_count.saturating_add(1);
 
-        // Extend deadline if bid arrives in the final window; saturating to prevent u64 overflow.
+        // Saturating add prevents u64 overflow on anti-snipe extension.
         if auction.anti_snipe_extension_ns > 0 {
             let time_left = expires.saturating_sub(env::block_timestamp());
             if time_left < auction.anti_snipe_extension_ns {
@@ -325,7 +318,6 @@ impl Contract {
 
         events::emit_auction_bid(&bidder, &token_id, bid, auction.bid_count, new_expires_at);
 
-        // Bid at or above buy_now_price triggers immediate settlement.
         if let Some(bnp) = auction.buy_now_price {
             if bid >= bnp {
                 self.internal_settle_auction_buynow(&bidder, &token_id)?;

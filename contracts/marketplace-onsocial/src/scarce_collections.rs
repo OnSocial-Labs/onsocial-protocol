@@ -1,4 +1,4 @@
-//! Lazy scarce collection management — lazy-minted collections that mint on purchase.
+//! Lazy scarce collection management.
 
 use crate::internal::{check_at_least_one_yocto, check_one_yocto};
 use crate::*;
@@ -6,7 +6,6 @@ use near_sdk::serde_json;
 
 #[near]
 impl Contract {
-    /// Create a new lazy-minted scarce collection.
     #[payable]
     #[handle_result]
     pub fn create_collection(&mut self, params: CollectionConfig) -> Result<(), MarketplaceError> {
@@ -90,8 +89,7 @@ impl Contract {
                 "Collection ID must be 1-64 characters".into(),
             ));
         }
-        // These delimiters are used as separators in internal composite keys;
-        // allowing them in a collection_id would create ambiguous key collisions.
+        // ':', '.', '\0' are composite-key separators — allowing them causes ambiguous key collisions.
         if collection_id.contains(':')
             || collection_id.contains('\0')
             || collection_id.contains('.')
@@ -100,9 +98,7 @@ impl Contract {
                 "Collection ID cannot contain ':', '.', or null characters".into(),
             ));
         }
-        // "s" and "ll" are reserved prefixes for standalone token IDs ("s:{N}") and
-        // lazy listing IDs ("ll:{N}"). Blocking them prevents collection_id_from_token_id
-        // from producing false collection matches for standalone tokens.
+        // "s" and "ll" are reserved: standalone ("s:{N}") and lazy-listing ("ll:{N}") prefixes.
         if collection_id == "s" || collection_id == "ll" {
             return Err(MarketplaceError::InvalidInput(
                 "Collection ID 's' and 'll' are reserved".into(),
@@ -333,13 +329,7 @@ impl Contract {
     }
 
     pub(crate) fn is_collection_active(&self, collection: &LazyCollection) -> bool {
-        if collection.banned {
-            return false;
-        }
-        if collection.cancelled {
-            return false;
-        }
-        if collection.paused {
+        if collection.banned || collection.cancelled || collection.paused {
             return false;
         }
         let now = env::block_timestamp();
@@ -359,7 +349,7 @@ impl Contract {
         true
     }
 
-    /// Unlike `cancelled`, a paused collection can be resumed.
+    // Unlike `cancelled`, a paused collection can be resumed.
     pub(crate) fn internal_pause_collection(
         &mut self,
         actor_id: &AccountId,
@@ -417,10 +407,9 @@ impl Contract {
         Ok(())
     }
 
-    // ── Allowlist ────────────────────────────────────────────────────────────
+    // --- Allowlist ---
 
-    /// Add or update allowlist entries (max 100 per call).
-    /// Allocation of 0 removes the entry.
+    // Add or update allowlist entries (max 100 per call). Allocation of 0 removes the entry.
     pub(crate) fn internal_set_allowlist(
         &mut self,
         actor_id: &AccountId,
@@ -500,7 +489,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Only deletable when `minted_count == 0`; storage is released back through the waterfall.
+    // Panics if `minted_count != 0`; storage is released through the waterfall on success.
     pub(crate) fn internal_delete_collection(
         &mut self,
         actor_id: &AccountId,
@@ -589,8 +578,7 @@ impl Contract {
         Ok(())
     }
 
-    /// App-level metadata is independent of the creator's `metadata` field.
-    /// The collection must belong to the given app.
+    // App-level metadata is separate from the creator's `metadata` field; collection must belong to the given app.
     pub(crate) fn internal_set_collection_app_metadata(
         &mut self,
         actor_id: &AccountId,
@@ -614,13 +602,10 @@ impl Contract {
             .cloned()
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?;
 
-        match collection.app_id {
-            Some(ref coll_app) if coll_app == app_id => {}
-            _ => {
-                return Err(MarketplaceError::Unauthorized(
-                    "Collection does not belong to this app".into(),
-                ));
-            }
+        if collection.app_id.as_ref() != Some(app_id) {
+            return Err(MarketplaceError::Unauthorized(
+                "Collection does not belong to this app".into(),
+            ));
         }
 
         // None = no-op; Some("") = clear; Some(json) = replace

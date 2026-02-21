@@ -7,7 +7,7 @@ use near_sdk::json_types::U128;
 
 #[near]
 impl Contract {
-    /// List a Scarce for sale (requires cross-contract approval verification).
+    /// Panics if attached deposit < 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn list_scarce_for_sale(
@@ -34,10 +34,8 @@ impl Contract {
 
         let owner_id = env::predecessor_account_id();
 
-        // Storage is measured after listing is confirmed in process_listing callback
-
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
-        if self.sales.get(&sale_id).is_some() {
+        if self.sales.contains_key(&sale_id) {
             return Err(MarketplaceError::InvalidState(
                 "Sale already exists for this scarce".into(),
             ));
@@ -88,8 +86,7 @@ impl Contract {
             ))
     }
 
-    /// Callback to process listing after verification.
-    /// SAFETY: This is a callback — must NEVER panic. Failures are logged and returned gracefully.
+    /// Only callable by this contract. Safety: must not panic; failures are logged.
     #[private]
     pub fn process_listing(
         &mut self,
@@ -164,9 +161,7 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_used = after.saturating_sub(before);
 
-        // Charge storage via waterfall (no app_id for external listings → Tier 2 platform pool → Tier 3)
         if let Err(e) = self.charge_storage_waterfall(&owner_id, bytes_used as u64, None) {
-            // Rollback the listing to prevent unpaid storage leak
             let _ = self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone());
             env::log_str(&format!(
                 "Listing storage charge failed (rolled back): {}",
@@ -183,7 +178,7 @@ impl Contract {
         );
     }
 
-    /// Remove a scarce from sale.
+    /// Panics if attached deposit != 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn remove_sale(
@@ -215,7 +210,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Update the price of a listing.
+    /// Panics if attached deposit != 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn update_price(
@@ -230,7 +225,6 @@ impl Contract {
         self.internal_update_price(&caller, &scarce_contract_id, &token_id, price)
     }
 
-    /// Purchase an external Scarce.
     #[payable]
     #[handle_result]
     pub fn offer(
@@ -299,9 +293,7 @@ impl Contract {
             }
         }
 
-        // Remove sale BEFORE cross-contract call to prevent race condition.
-        // If the NFT transfer fails, resolve_purchase will detect the missing
-        // sale and refund the buyer.
+        // Sale removed before XCC to prevent race condition; resolve_purchase refunds buyer on failure.
         let before_remove = env::storage_usage();
         self.internal_remove_sale(scarce_contract_id.clone(), token_id.clone())?;
         let bytes_freed = before_remove.saturating_sub(env::storage_usage());
@@ -341,10 +333,7 @@ impl Contract {
             ))
     }
 
-    /// Distributes sale proceeds after `nft_transfer_payout` completes.
-    /// SAFETY: Must NEVER panic — the NFT transfer is irreversible. A panic here
-    /// forfeits payment distribution, giving the buyer the NFT for free.
-    /// `seller_id` is passed explicitly because the sale is removed before this callback fires.
+    /// Only callable by this contract. Safety: must not panic — NFT transfer is irreversible; panic forfeits payment. `seller_id` passed explicitly because the sale is removed before this fires.
     #[private]
     pub fn resolve_purchase(
         &mut self,
@@ -394,7 +383,6 @@ impl Contract {
             }
         };
 
-        // Route fee: revenue to platform (no app_id for external scarce sales)
         let (total_fee, _, _, _) = self.internal_calculate_fee_split(price.0, None);
         let (revenue, app_pool_amount) = self.route_fee(price.0, None);
         let amount_after_fee = price.0.saturating_sub(total_fee);
@@ -426,8 +414,6 @@ impl Contract {
 
 #[near]
 impl Contract {
-    /// Purchase a listed native scarce (marketplace-minted token).
-    /// The marketplace handles the transfer internally — no cross-contract call needed.
     #[payable]
     #[handle_result]
     pub fn purchase_native_scarce(&mut self, token_id: String) -> Result<(), MarketplaceError> {
@@ -477,7 +463,7 @@ impl Contract {
 
         let seller_id = sale.owner_id.clone();
 
-        // Remove sale listing first (reentrancy protection)
+        // Remove sale first (reentrancy protection).
         let before_remove = env::storage_usage();
         self.internal_remove_sale(env::current_account_id(), token_id.clone())?;
         let bytes_freed = before_remove.saturating_sub(env::storage_usage());
@@ -520,7 +506,6 @@ impl Contract {
             Some("Purchased on OnSocial Marketplace".to_string()),
         )?;
 
-        // Settle secondary sale: fee routing + royalty distribution
         let result = self.settle_secondary_sale(&token_id, price, &seller_id)?;
 
         crate::internal::refund_excess(&buyer_id, deposit, price);
@@ -541,8 +526,7 @@ impl Contract {
 // ── Internal native listing helpers ──────────────────────────────────────────
 
 impl Contract {
-    /// List a native scarce for sale.
-    /// Caller must be the token owner. No cross-contract approval needed.
+    // Caller: token owner only.
     pub(crate) fn internal_list_native_scarce(
         &mut self,
         owner_id: &AccountId,
@@ -573,7 +557,6 @@ impl Contract {
 
         self.check_transferable(token, token_id, "list for sale")?;
 
-        // Grab app_id before dropping the immutable borrow.
         let token_app_id = token.app_id.clone();
 
         let sale_id = Contract::make_sale_id(&env::current_account_id(), token_id);
@@ -614,7 +597,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Delist a native scarce from sale. Caller must be the owner.
+    // Caller: owner only.
     pub(crate) fn internal_delist_native_scarce(
         &mut self,
         owner_id: &AccountId,
@@ -649,7 +632,7 @@ impl Contract {
 // ── Sale-listing helpers ─────────────────────────────────────────────────────
 
 impl Contract {
-    /// Delist a scarce (used by execute dispatch and remove_sale)
+    // Used by execute dispatch and remove_sale.
     pub(crate) fn internal_delist_scarce(
         &mut self,
         actor_id: &AccountId,
@@ -675,7 +658,7 @@ impl Contract {
         Ok(())
     }
 
-    /// Update listing price (used by execute dispatch and update_price)
+    // Used by execute dispatch and update_price.
     pub(crate) fn internal_update_price(
         &mut self,
         actor_id: &AccountId,
@@ -699,11 +682,12 @@ impl Contract {
             ));
         }
         let old_price = sale.sale_conditions;
+        let owner_id = sale.owner_id.clone();
         let mut sale = sale.clone();
         sale.sale_conditions = price;
-        self.sales.insert(sale_id, sale.clone());
+        self.sales.insert(sale_id, sale);
         events::emit_scarce_update_price(
-            &sale.owner_id,
+            &owner_id,
             scarce_contract_id,
             token_id,
             old_price,

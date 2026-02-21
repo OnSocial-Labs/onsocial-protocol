@@ -1,52 +1,40 @@
-// Token validity, revocation, redemption, and status queries.
-
 use crate::*;
 
 #[near]
 impl Contract {
-    /// Check if a token is currently valid:
-    /// - Exists on-chain
-    /// - Not revoked (soft-revoked tokens return false)
-    /// - Not redeemed (used tokens return false)
-    /// - Not expired (if expires_at is set)
     pub fn is_token_valid(&self, token_id: String) -> bool {
-        match self.scarces_by_id.get(&token_id) {
-            None => false,
-            Some(token) => {
-                if token.revoked_at.is_some() {
-                    return false;
-                }
-                let cid = collection_id_from_token_id(&token_id);
-                if self.collections.get(cid).and_then(|c| c.max_redeems).is_some_and(|max| token.redeem_count >= max) {
-                    return false;
-                }
-                if token.metadata.expires_at.is_some_and(|exp| env::block_timestamp() >= exp) {
-                    return false;
-                }
-                true
-            }
+        let Some(token) = self.scarces_by_id.get(&token_id) else {
+            return false;
+        };
+        if token.revoked_at.is_some() {
+            return false;
         }
+        let cid = collection_id_from_token_id(&token_id);
+        if self.collections.get(cid).and_then(|c| c.max_redeems).is_some_and(|max| token.redeem_count >= max) {
+            return false;
+        }
+        if token.metadata.expires_at.is_some_and(|exp| env::block_timestamp() >= exp) {
+            return false;
+        }
+        true
     }
 
-    /// Returns `None` if the token doesn't exist. Reflects soft-revoke only;
-    /// hard-burned tokens are absent from storage and return `None`.
+    /// `None` for hard-burned tokens (removed from storage); `Some(true)` only for soft-revoked tokens.
     pub fn is_token_revoked(&self, token_id: String) -> Option<bool> {
         self.scarces_by_id
             .get(&token_id)
             .map(|token| token.revoked_at.is_some())
     }
 
-    /// Returns `None` if the token doesn't exist. Returns `Some(false)` for tokens
-    /// whose collection has no `max_redeems` limit (non-redeemable tokens are never
-    /// considered fully redeemed).
+    /// Returns `Some(false)` when the collection has no `max_redeems` limit.
     pub fn is_token_redeemed(&self, token_id: String) -> Option<bool> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);
-        Some(self.collections.get(cid).and_then(|c| c.max_redeems).is_some_and(|max| token.redeem_count >= max))
+        let max_redeems = self.collections.get(cid).and_then(|c| c.max_redeems);
+        Some(max_redeems.is_some_and(|max| token.redeem_count >= max))
     }
 
-    /// Returns `None` if the token doesn't exist. `max_redeems` is `None` for
-    /// non-redeemable tokens (no collection `max_redeems` set).
+    /// `max_redeems` is `None` for collections without a redemption cap.
     pub fn get_redeem_info(&self, token_id: String) -> Option<RedeemInfo> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);
@@ -54,8 +42,6 @@ impl Contract {
         Some(RedeemInfo { redeem_count: token.redeem_count, max_redeems })
     }
 
-    /// Aggregate view — avoids the need for multiple round-trips.
-    /// Returns `None` if the token doesn't exist.
     pub fn get_token_status(&self, token_id: String) -> Option<TokenStatus> {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);

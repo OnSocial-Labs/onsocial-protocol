@@ -1,14 +1,7 @@
-//! Offer/bid system for unlisted tokens and collection-level floor bids.
-//!
-//! Token offers:   buyer deposits NEAR → owner accepts → token transfers + payment
-//! Collection offers: buyer deposits NEAR → any holder in collection accepts
-//!
-//! NEAR is held in escrow until accepted, cancelled, or expired.
+//! Offer system; NEAR is held in escrow until accepted, cancelled, or expired.
 
 use crate::internal::check_at_least_one_yocto;
 use crate::*;
-
-// ── Offer key helpers ────────────────────────────────────────────────────────
 
 fn offer_key(token_id: &str, buyer_id: &AccountId) -> String {
     format!("{}\0{}", token_id, buyer_id)
@@ -18,13 +11,11 @@ fn collection_offer_key(collection_id: &str, buyer_id: &AccountId) -> String {
     format!("{}\0{}", collection_id, buyer_id)
 }
 
-// ── Token Offers ─────────────────────────────────────────────────────────────
+// --- Token Offers ---
 
 #[near]
 impl Contract {
-    /// Place an offer on a specific token (listed or unlisted).
-    /// Attached NEAR is the offer amount and is held in escrow.
-    /// Replaces any existing offer from the same buyer on the same token.
+    /// Replaces any prior offer from the caller. Panics if deposit < 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn make_offer(
@@ -39,15 +30,14 @@ impl Contract {
         self.internal_make_offer(&buyer_id, &token_id, amount, expires_at)
     }
 
-    /// Cancel an existing offer and reclaim escrowed NEAR.
+    /// Refunds escrowed NEAR to the caller.
     #[handle_result]
     pub fn cancel_offer(&mut self, token_id: String) -> Result<(), MarketplaceError> {
         let buyer_id = env::predecessor_account_id();
         self.internal_cancel_offer(&buyer_id, &token_id)
     }
 
-    /// Accept an offer on your token. Transfers the token and pays the seller.
-    /// Requires 1 yoctoNEAR. Only the token owner can accept.
+    /// Only the token owner can call. Panics if deposit != 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn accept_offer(
@@ -60,14 +50,12 @@ impl Contract {
         self.internal_accept_offer(&owner_id, &token_id, &buyer_id)
     }
 
-    // ── Views ────────────────────────────────────────────────────────
-
     pub fn get_offer(&self, token_id: String, buyer_id: AccountId) -> Option<Offer> {
         let key = offer_key(&token_id, &buyer_id);
         self.offers.get(&key).cloned()
     }
 
-    /// Returns offers on a token (paginated). Expired offers are not proactively removed.
+    /// Expired offers are included until explicitly cancelled.
     pub fn get_offers_for_token(
         &self,
         token_id: String,
@@ -88,13 +76,11 @@ impl Contract {
     }
 }
 
-// ── Collection Offers ────────────────────────────────────────────────────────
+// --- Collection Offers ---
 
 #[near]
 impl Contract {
-    /// Place a floor offer on any token from a collection.
-    /// Attached NEAR is the per-token offer amount, held in escrow.
-    /// Replaces any existing collection offer from the same buyer.
+    /// Replaces any prior collection offer from the caller. Panics if deposit < 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn make_collection_offer(
@@ -109,7 +95,7 @@ impl Contract {
         self.internal_make_collection_offer(&buyer_id, &collection_id, amount, expires_at)
     }
 
-    /// Cancel an existing collection offer and reclaim escrowed NEAR.
+    /// Refunds escrowed NEAR to the caller.
     #[handle_result]
     pub fn cancel_collection_offer(
         &mut self,
@@ -119,8 +105,7 @@ impl Contract {
         self.internal_cancel_collection_offer(&buyer_id, &collection_id)
     }
 
-    /// Accept a collection offer against a specific token you own.
-    /// Requires 1 yoctoNEAR. Only the token owner can accept.
+    /// Only the token owner can call. Panics if deposit != 1 yoctoNEAR.
     #[payable]
     #[handle_result]
     pub fn accept_collection_offer(
@@ -134,8 +119,6 @@ impl Contract {
         self.internal_accept_collection_offer(&owner_id, &collection_id, &token_id, &buyer_id)
     }
 
-    // ── Views ────────────────────────────────────────────────────────
-
     pub fn get_collection_offer(
         &self,
         collection_id: String,
@@ -145,7 +128,7 @@ impl Contract {
         self.collection_offers.get(&key).cloned()
     }
 
-    /// Returns collection offers (paginated). Expired offers are not proactively removed.
+    /// Expired offers are included until explicitly cancelled.
     pub fn get_collection_offers(
         &self,
         collection_id: String,
@@ -166,7 +149,7 @@ impl Contract {
     }
 }
 
-// ── Internal implementations ─────────────────────────────────────────────────
+// --- Internal ---
 
 impl Contract {
     pub(crate) fn internal_make_offer(
@@ -203,7 +186,6 @@ impl Contract {
 
         let key = offer_key(token_id, buyer_id);
 
-        // Replacing an existing offer: refund old escrow and emit a cancel event before overwrite.
         if let Some(old_offer) = self.offers.remove(&key) {
             events::emit_offer_cancelled(buyer_id, token_id, old_offer.amount);
             let _ = Promise::new(old_offer.buyer_id)
@@ -217,8 +199,7 @@ impl Contract {
             created_at: env::block_timestamp(),
         };
 
-        // Storage cost is measured post-insert. `amount` must exceed it so the
-        // escrowed deposit is economically meaningful after storage is accounted for.
+        // post-insert: amount must exceed storage cost
         let before = env::storage_usage();
         self.offers.insert(key.clone(), offer);
         let bytes_used = env::storage_usage().saturating_sub(before);
@@ -250,7 +231,7 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Offer not found".into()))?;
 
         let _ =
-            Promise::new(offer.buyer_id.clone()).transfer(NearToken::from_yoctonear(offer.amount));
+            Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount));
 
         events::emit_offer_cancelled(buyer_id, token_id, offer.amount);
         Ok(())
@@ -280,7 +261,7 @@ impl Contract {
 
         if let Some(exp) = offer.expires_at {
             if env::block_timestamp() > exp {
-                let _ = Promise::new(offer.buyer_id.clone())
+                let _ = Promise::new(offer.buyer_id)
                     .transfer(NearToken::from_yoctonear(offer.amount));
                 return Err(MarketplaceError::InvalidState("Offer has expired".into()));
             }
@@ -323,7 +304,6 @@ impl Contract {
 
         let key = collection_offer_key(collection_id, buyer_id);
 
-        // Replacing an existing offer: refund old escrow and emit a cancel event before overwrite.
         if let Some(old_offer) = self.collection_offers.remove(&key) {
             events::emit_collection_offer_cancelled(buyer_id, collection_id, old_offer.amount);
             let _ = Promise::new(old_offer.buyer_id)
@@ -337,8 +317,7 @@ impl Contract {
             created_at: env::block_timestamp(),
         };
 
-        // Storage cost is measured post-insert. `amount` must exceed it so the
-        // escrowed deposit is economically meaningful after storage is accounted for.
+        // post-insert: amount must exceed storage cost
         let before = env::storage_usage();
         self.collection_offers.insert(key.clone(), offer);
         let bytes_used = env::storage_usage().saturating_sub(before);
@@ -370,7 +349,7 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection offer not found".into()))?;
 
         let _ =
-            Promise::new(offer.buyer_id.clone()).transfer(NearToken::from_yoctonear(offer.amount));
+            Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount));
 
         events::emit_collection_offer_cancelled(buyer_id, collection_id, offer.amount);
         Ok(())
@@ -409,7 +388,7 @@ impl Contract {
 
         if let Some(exp) = offer.expires_at {
             if env::block_timestamp() > exp {
-                let _ = Promise::new(offer.buyer_id.clone())
+                let _ = Promise::new(offer.buyer_id)
                     .transfer(NearToken::from_yoctonear(offer.amount));
                 return Err(MarketplaceError::InvalidState(
                     "Collection offer has expired".into(),

@@ -2,9 +2,8 @@ use crate::*;
 
 #[near]
 impl Contract {
-    /// NEP-178 callback invoked by an external NFT contract after it approves the marketplace.
-    /// If `msg` contains `{"sale_conditions": "<yoctoNEAR>"}` and the caller is allowlisted,
-    /// auto-creates a fixed-price listing. Otherwise, acknowledges without side-effects.
+    /// NEP-178 approval callback; `predecessor` (the NFT contract) is the only unforgeable input.
+    /// Parses `msg` for `{"sale_conditions":"<yoctoNEAR>"}` to auto-list if the NFT is allowlisted.
     #[payable]
     #[handle_result]
     pub fn nft_on_approve(
@@ -36,7 +35,6 @@ impl Contract {
             ));
         }
 
-        // `predecessor_account_id` is the only unforgeable input; all other params are caller-supplied.
         if !self.approved_nft_contracts.contains(&scarce_contract_id) {
             env::log_str(&format!(
                 "Marketplace approved for {}.{} by {} (contract not allowlisted — use list_scarce_for_sale to list)",
@@ -45,62 +43,57 @@ impl Contract {
             return Ok(PromiseOrValue::Value("Approval acknowledged".to_string()));
         }
 
-        if !msg.is_empty() {
-            if let Ok(sale_data) =
-                near_sdk::serde_json::from_str::<near_sdk::serde_json::Value>(&msg)
-            {
-                if let Some(sale_conditions) = sale_data.get("sale_conditions") {
-                    if let Some(price_str) = sale_conditions.as_str() {
-                        if let Ok(price) = price_str.parse::<u128>() {
-                            if price == 0 {
-                                return Err(MarketplaceError::InvalidInput(
-                                    "Price must be greater than 0".to_string(),
-                                ));
-                            }
+        let price_opt = near_sdk::serde_json::from_str::<near_sdk::serde_json::Value>(&msg)
+            .ok()
+            .and_then(|v| {
+                v.get("sale_conditions")?
+                    .as_str()?
+                    .parse::<u128>()
+                    .ok()
+            });
 
-                            let sale_id =
-                                Contract::make_sale_id(&scarce_contract_id, &token_id);
-                            if self.sales.contains_key(&sale_id) {
-                                env::log_str(&format!(
-                                    "Sale already exists for {}.{} — use update_price to change",
-                                    scarce_contract_id, token_id
-                                ));
-                                return Ok(PromiseOrValue::Value(
-                                    "Sale already exists".to_string(),
-                                ));
-                            }
-
-                            let sale = Sale {
-                                owner_id: owner_id.clone(),
-                                sale_conditions: U128(price),
-                                sale_type: SaleType::External {
-                                    scarce_contract_id: scarce_contract_id.clone(),
-                                    token_id: token_id.clone(),
-                                    approval_id,
-                                },
-                                expires_at: None,
-                                auction: None,
-                            };
-
-                            let before = env::storage_usage();
-                            self.internal_add_sale(sale);
-                            let after = env::storage_usage();
-                            let bytes_used = after.saturating_sub(before);
-
-                            self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
-
-                            crate::events::emit_scarce_list(
-                                &owner_id,
-                                &scarce_contract_id,
-                                vec![token_id.clone()],
-                                vec![U128(price)],
-                            );
-
-                            return Ok(PromiseOrValue::Value("Listed successfully".to_string()));
-                        }
-                    }
-                }
+        if let Some(price) = price_opt {
+            if price == 0 {
+                return Err(MarketplaceError::InvalidInput(
+                    "Price must be greater than 0".to_string(),
+                ));
             }
+
+            let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
+            if self.sales.contains_key(&sale_id) {
+                env::log_str(&format!(
+                    "Sale already exists for {}.{} — use update_price to change",
+                    scarce_contract_id, token_id
+                ));
+                return Ok(PromiseOrValue::Value("Sale already exists".to_string()));
+            }
+
+            let sale = Sale {
+                owner_id: owner_id.clone(),
+                sale_conditions: U128(price),
+                sale_type: SaleType::External {
+                    scarce_contract_id: scarce_contract_id.clone(),
+                    token_id: token_id.clone(),
+                    approval_id,
+                },
+                expires_at: None,
+                auction: None,
+            };
+
+            let before = env::storage_usage();
+            self.internal_add_sale(sale);
+            let bytes_used = env::storage_usage().saturating_sub(before);
+
+            self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
+
+            crate::events::emit_scarce_list(
+                &owner_id,
+                &scarce_contract_id,
+                vec![token_id.clone()],
+                vec![U128(price)],
+            );
+
+            return Ok(PromiseOrValue::Value("Listed successfully".to_string()));
         }
 
         env::log_str(&format!(

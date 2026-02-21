@@ -1,7 +1,8 @@
-// NEP-199 Payout API
+// --- NEP-199 Payout API ---
 
 use crate::internal::check_one_yocto;
 use crate::*;
+use std::collections::HashMap;
 
 #[near]
 impl Contract {
@@ -26,6 +27,7 @@ impl Contract {
 
     #[payable]
     #[handle_result]
+    /// Caller must be the token owner or an approved account; requires exactly 1 yoctoNEAR attached.
     pub fn nft_transfer_payout(
         &mut self,
         receiver_id: AccountId,
@@ -57,8 +59,7 @@ impl Contract {
 }
 
 impl Contract {
-    /// `seller_id` is the pre-transfer owner — must be passed explicitly because
-    /// `token.owner_id` is already the buyer by the time this can be called post-transfer.
+    // seller_id must be the pre-transfer owner; token.owner_id may already be the buyer post-transfer.
     pub(crate) fn internal_compute_payout(
         &self,
         token: &Scarce,
@@ -66,7 +67,7 @@ impl Contract {
         balance: u128,
         max_len: u32,
     ) -> Result<Payout, MarketplaceError> {
-        let mut payout_map = std::collections::HashMap::new();
+        let mut payout_map = HashMap::new();
         let mut total_royalty: u128 = 0;
 
         if let Some(ref royalty) = token.royalty {
