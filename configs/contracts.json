@@ -1,7 +1,7 @@
 [
     {
-        "name": "marketplace-onsocial",
-        "id": "marketplace.${AUTH_ACCOUNT}",
+        "name": "scarces-onsocial",
+        "id": "scarces.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
         "init": "new '{}'"
     },

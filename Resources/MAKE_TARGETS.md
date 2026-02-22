@@ -177,7 +177,7 @@ make test-all-contracts  # Run all tests
 | `start-redis` | Start Redis container for development |
 | `stop-redis` | Stop and remove Redis container |
 
-**Valid contract names:** `core-onsocial`, `marketplace-onsocial`, `staking-onsocial`, `manager-proxy-onsocial`
+**Valid contract names:** `core-onsocial`, `scarces-onsocial`, `staking-onsocial`, `manager-proxy-onsocial`
 
 ### 🏖️ **NEAR Sandbox**
 

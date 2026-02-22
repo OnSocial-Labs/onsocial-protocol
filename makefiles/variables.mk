@@ -48,7 +48,7 @@ CODE_DIR        := $(shell pwd)
 # Contract/package lists - read from JSON config file with fallback
 VALID_CONTRACTS := $(shell jq -r '.[].name' configs/contracts.json 2>/dev/null | tr '\n' ' ' | sed 's/ $$//')
 ifeq ($(strip $(VALID_CONTRACTS)),)
-  VALID_CONTRACTS := core-onsocial marketplace-onsocial staking-onsocial
+  VALID_CONTRACTS := core-onsocial scarces-onsocial staking-onsocial
 endif
 JS_PACKAGES     := onsocial-client onsocial-app onsocial-backend
 RS_PACKAGES     := relayer

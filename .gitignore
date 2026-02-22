@@ -72,10 +72,10 @@ dist/
 .prettierignore
 
 # Ignore temp documentation files for contract code
-contracts/marketplace-onsocial/marketplace-rs_code.md
+contracts/scarces-onsocial/marketplace-rs_code.md
 contracts/core-onsocial/social-rs_code.md
 contracts/auth-onsocial/auth-rs_code.md
-contracts/marketplace-onsocial/marketplace-rs_code.md
+contracts/scarces-onsocial/marketplace-rs_code.md
 contracts/rewards-onsocial/
 
 # Ignore temp prompts folder

@@ -37,7 +37,7 @@ make deploy-contract-core-onsocial NETWORK=sandbox
 
 **Available contracts:**
 - `core-onsocial` — Core social graph and storage
-- `marketplace-onsocial` — Marketplace for digital assets
+- `scarces-onsocial` — Marketplace for digital assets
 - `staking-onsocial` — Staking and rewards
 
 **Deployment options:**
@@ -76,7 +76,7 @@ Or check the contract state manually via NEAR CLI.
 Contracts are deployed to these subaccounts:
 
 - `core.$NETWORK` — core-onsocial
-- `marketplace.$NETWORK` — marketplace-onsocial
+- `marketplace.$NETWORK` — scarces-onsocial
 - `staking.$NETWORK` — staking-onsocial
 
 Where `$NETWORK` is `sandbox`, `testnet`, or `mainnet`.

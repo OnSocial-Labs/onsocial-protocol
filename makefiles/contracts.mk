@@ -49,7 +49,7 @@ test-all-contract-%: build-docker-contracts ensure-scripts-executable
 test-unit-contract-%: build-docker-contracts ensure-scripts-executable
 	@$(call log_start,Running Unit Tests for Contract $*)
 	@$(call log_progress,Executing unit test suite)
-	@$(call docker_run_contracts,./scripts/test.sh unit $*) || exit 0
+	@$(call docker_run_contracts,./scripts/test.sh unit $* $(TEST)) || exit 0
 	@$(call log_success,Unit tests for contract $* completed)
 
 .PHONY: test-integration-contract-%

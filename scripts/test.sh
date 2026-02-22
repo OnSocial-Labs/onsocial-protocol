@@ -20,7 +20,7 @@ WARNING="⚠️  \033[0;33m"
 RESET="\033[0m"
 
 # List of contracts to test and report on
-CONTRACT_LIST=("marketplace-onsocial" "staking-onsocial" "core-onsocial" "token-onsocial" "cross-contract")
+CONTRACT_LIST=("scarces-onsocial" "staking-onsocial" "core-onsocial" "token-onsocial" "cross-contract")
 
 # List of JS/TS/RS packages to test and report on
 PACKAGES_LIST=("onsocial-client" "app" "relayer")
@@ -128,7 +128,7 @@ test_integration() {
     # Build contract in release mode if a specific contract is being tested
     if [ -n "$module" ]; then
         case $module in
-            marketplace-onsocial|staking-onsocial|core-onsocial|token-onsocial)
+            scarces-onsocial|staking-onsocial|core-onsocial|token-onsocial)
                 echo "Building $module in release mode for integration test..."
                 cd "$BASE_DIR/$module" || { echo -e "${ERROR}Directory $module not found${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 cargo near build non-reproducible-wasm || { echo -e "${ERROR}Release build failed for $module${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }

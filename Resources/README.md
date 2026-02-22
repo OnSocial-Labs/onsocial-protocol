@@ -10,7 +10,7 @@ Guides for AI-assisted development:
 - **General Project**: [project.md](prompts/project.md)
 - **Contracts**:
   - [auth-onsocial](prompts/contracts/auth-onsocial.md)
-  - [marketplace-onsocial](prompts/contracts/marketplace-onsocial.md)
+  - [scarces-onsocial](prompts/contracts/scarces-onsocial.md)
   - [core-onsocial](prompts/contracts/core-onsocial.md)
   - [staking-onsocial](prompts/contracts/staking-onsocial.md)
 - [App](prompts/app.md)

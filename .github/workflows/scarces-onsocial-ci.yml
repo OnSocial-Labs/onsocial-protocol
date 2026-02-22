@@ -1,0 +1,51 @@
+name: Scarces CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/scarces-onsocial/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/scarces-onsocial-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'contracts/scarces-onsocial/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/scarces-onsocial-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: Check, Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Check
+        run: make check-contract-scarces-onsocial
+
+      - name: Lint
+        run: make lint-contract-scarces-onsocial
+
+      - name: Format
+        run: make format-contract-scarces-onsocial
+
+      - name: Build
+        run: make build-contract-scarces-onsocial
+
+      - name: Test
+        run: make test-unit-contract-scarces-onsocial
+
+      - name: Upload WASM
+        uses: actions/upload-artifact@v4
+        with:
+          name: scarces-onsocial.wasm
+          path: target/near/scarces_onsocial/scarces_onsocial.wasm
+          retention-days: 7

@@ -2674,7 +2674,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "marketplace-onsocial"
+name = "scarces-onsocial"
 version = "0.1.0"
 dependencies = [
  "borsh",
