@@ -473,3 +473,208 @@ fn dispatch_update_price() {
     let sale_id = Contract::make_sale_id(&mkt, &tid);
     assert_eq!(contract.sales.get(&sale_id).unwrap().sale_conditions.0, 8_000);
 }
+
+// --- PurchaseNativeScarce via execute() ---
+
+#[test]
+fn execute_purchase_native_scarce_happy() {
+    let mut contract = setup_contract();
+    testing_env!(context(buyer()).build());
+
+    let metadata = scarce::types::TokenMetadata {
+        title: Some("Buy me".into()),
+        description: None,
+        media: None,
+        media_hash: None,
+        copies: None,
+        issued_at: None,
+        expires_at: None,
+        starts_at: None,
+        updated_at: None,
+        extra: None,
+        reference: None,
+        reference_hash: None,
+    };
+    let options = scarce::types::ScarceOptions {
+        royalty: None,
+        app_id: None,
+        transferable: true,
+        burnable: true,
+    };
+    let tid = contract.internal_quick_mint(&buyer(), metadata, options).unwrap();
+    contract
+        .internal_list_native_scarce(&buyer(), &tid, U128(5_000), None)
+        .unwrap();
+
+    // Purchase as creator via execute()
+    testing_env!(context_with_deposit(creator(), 10_000).build());
+    contract
+        .execute(make_request(Action::PurchaseNativeScarce {
+            token_id: tid.clone(),
+        }))
+        .unwrap();
+
+    // Token transferred to creator
+    let token = contract.scarces_by_id.get(&tid).unwrap();
+    assert_eq!(token.owner_id, creator());
+    // Sale removed
+    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
+    assert!(!contract.sales.contains_key(&sale_id));
+}
+
+// --- PurchaseLazyListing via execute() ---
+
+#[test]
+fn execute_purchase_lazy_listing_happy() {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+
+    let params = LazyListing {
+        metadata: scarce::types::TokenMetadata {
+            title: Some("Lazy buy".into()),
+            description: None,
+            media: None,
+            media_hash: None,
+            copies: None,
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: None,
+            reference: None,
+            reference_hash: None,
+        },
+        price: U128(3_000),
+        options: scarce::types::ScarceOptions {
+            royalty: None,
+            app_id: None,
+            transferable: true,
+            burnable: true,
+        },
+        expires_at: None,
+    };
+    let listing_id = contract
+        .internal_create_lazy_listing(&creator(), params)
+        .unwrap();
+
+    // Purchase via execute()
+    testing_env!(context_with_deposit(buyer(), 10_000).build());
+    let result = contract
+        .execute(make_request(Action::PurchaseLazyListing {
+            listing_id: listing_id.clone(),
+        }))
+        .unwrap();
+
+    // Returns the minted token ID
+    assert!(result.is_string());
+    let token_id = result.as_str().unwrap();
+    let token = contract.scarces_by_id.get(token_id).unwrap();
+    assert_eq!(token.owner_id, buyer());
+    // Listing consumed
+    assert!(!contract.lazy_listings.contains_key(&listing_id));
+}
+
+// --- PlaceBid via execute() ---
+
+#[test]
+fn execute_place_bid_happy() {
+    let mut contract = setup_contract();
+    testing_env!(context(buyer()).build());
+
+    let metadata = scarce::types::TokenMetadata {
+        title: Some("Auction me".into()),
+        description: None,
+        media: None,
+        media_hash: None,
+        copies: None,
+        issued_at: None,
+        expires_at: None,
+        starts_at: None,
+        updated_at: None,
+        extra: None,
+        reference: None,
+        reference_hash: None,
+    };
+    let options = scarce::types::ScarceOptions {
+        royalty: None,
+        app_id: None,
+        transferable: true,
+        burnable: true,
+    };
+    let tid = contract.internal_quick_mint(&buyer(), metadata, options).unwrap();
+    let auction_params = AuctionListing {
+        reserve_price: U128(1_000),
+        min_bid_increment: U128(100),
+        expires_at: Some(2_000_000_000_000_000_000),
+        auction_duration_ns: None,
+        anti_snipe_extension_ns: 0,
+        buy_now_price: None,
+    };
+    contract
+        .internal_list_native_scarce_auction(&buyer(), &tid, auction_params)
+        .unwrap();
+
+    // Bid via execute()
+    testing_env!(context_with_deposit(creator(), 5_000).build());
+    contract
+        .execute(make_request(Action::PlaceBid {
+            token_id: tid.clone(),
+            amount: U128(2_000),
+        }))
+        .unwrap();
+
+    let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
+    let sale = contract.sales.get(&sale_id).unwrap();
+    let auction = sale.auction.as_ref().unwrap();
+    assert_eq!(auction.highest_bid, 2_000);
+}
+
+// --- MakeCollectionOffer via execute() ---
+
+#[test]
+fn execute_make_collection_offer_happy() {
+    let mut contract = setup_contract();
+    testing_env!(context(creator()).build());
+
+    let params = CollectionConfig {
+        collection_id: "ocol".to_string(),
+        total_supply: 10,
+        metadata_template: r#"{"title":"T"}"#.to_string(),
+        price_near: U128(0),
+        start_time: None,
+        end_time: None,
+        options: scarce::types::ScarceOptions {
+            royalty: None,
+            app_id: None,
+            transferable: true,
+            burnable: true,
+        },
+        renewable: false,
+        revocation_mode: RevocationMode::None,
+        max_redeems: None,
+        mint_mode: MintMode::Open,
+        metadata: None,
+        max_per_wallet: None,
+        start_price: None,
+        allowlist_price: None,
+    };
+    contract
+        .internal_create_collection(&creator(), params)
+        .unwrap();
+
+    // Make collection offer via execute()
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
+    contract
+        .execute(make_request(Action::MakeCollectionOffer {
+            collection_id: "ocol".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
+        .unwrap();
+
+    let offer = contract
+        .get_collection_offer("ocol".to_string(), buyer())
+        .expect("Collection offer should exist");
+    assert_eq!(offer.buyer_id, buyer());
+    assert_eq!(offer.amount, 1_000_000_000_000_000_000_000_000);
+}

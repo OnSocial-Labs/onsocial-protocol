@@ -234,12 +234,14 @@ impl Contract {
 
 // --- Place Bid ---
 
-#[near]
 impl Contract {
-    /// Place a bid on an active English auction. Attached deposit = bid amount.
-    #[payable]
-    #[handle_result]
-    pub fn place_bid(&mut self, token_id: String) -> Result<(), MarketplaceError> {
+    /// Core bid logic for `execute()` dispatch.
+    pub(crate) fn place_bid(
+        &mut self,
+        bidder: &AccountId,
+        token_id: String,
+        bid: u128,
+    ) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
         let mut sale = self
             .sales
@@ -251,10 +253,7 @@ impl Contract {
             .clone()
             .ok_or_else(|| MarketplaceError::InvalidState("Not an auction listing".into()))?;
 
-        let bidder = env::predecessor_account_id();
-        let bid = env::attached_deposit().as_yoctonear();
-
-        if bidder == sale.owner_id {
+        if bidder == &sale.owner_id {
             return Err(MarketplaceError::InvalidInput(
                 "Seller cannot bid on own auction".into(),
             ));
@@ -316,11 +315,11 @@ impl Contract {
 
         self.sales.insert(sale_id, sale);
 
-        events::emit_auction_bid(&bidder, &token_id, bid, auction.bid_count, new_expires_at);
+        events::emit_auction_bid(bidder, &token_id, bid, auction.bid_count, new_expires_at);
 
         if let Some(bnp) = auction.buy_now_price {
             if bid >= bnp {
-                self.internal_settle_auction_buynow(&bidder, &token_id)?;
+                self.internal_settle_auction_buynow(bidder, &token_id)?;
             }
         }
         Ok(())

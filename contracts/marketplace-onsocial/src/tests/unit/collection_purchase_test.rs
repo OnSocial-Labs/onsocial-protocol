@@ -45,7 +45,11 @@ fn purchase_quantity_zero_fails() {
     testing_env!(context_with_deposit(buyer(), 10_000).build());
 
     let err = contract
-        .purchase_from_collection(col, 0, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col,
+            quantity: 0,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -56,7 +60,11 @@ fn purchase_quantity_exceeds_max_batch_fails() {
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
 
     let err = contract
-        .purchase_from_collection(col, MAX_BATCH_MINT + 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col,
+            quantity: MAX_BATCH_MINT + 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -69,7 +77,11 @@ fn purchase_nonexistent_collection_fails() {
     testing_env!(context_with_deposit(buyer(), 100_000).build());
 
     let err = contract
-        .purchase_from_collection("nope".to_string(), 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "nope".to_string(),
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -109,7 +121,11 @@ fn purchase_creator_only_mode_fails() {
     testing_env!(context_with_deposit(buyer(), 100_000).build());
 
     let err = contract
-        .purchase_from_collection("locked".to_string(), 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "locked".to_string(),
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -149,7 +165,11 @@ fn purchase_exceeds_supply_fails() {
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
 
     let err = contract
-        .purchase_from_collection("tiny".to_string(), 3, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "tiny".to_string(),
+            quantity: 3,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
@@ -190,13 +210,21 @@ fn purchase_exceeds_per_wallet_limit_fails() {
     // First purchase of 2 succeeds
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     contract
-        .purchase_from_collection("limited".to_string(), 2, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "limited".to_string(),
+            quantity: 2,
+            max_price_per_token: None,
+        }))
         .unwrap();
 
     // Third exceeds per-wallet limit
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     let err = contract
-        .purchase_from_collection("limited".to_string(), 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "limited".to_string(),
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -209,7 +237,11 @@ fn purchase_slippage_guard_rejects_high_price() {
     testing_env!(context_with_deposit(buyer(), 100_000).build());
 
     let err = contract
-        .purchase_from_collection(col, 1, Some(U128(5_000)))
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col,
+            quantity: 1,
+            max_price_per_token: Some(U128(5_000)),
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -222,7 +254,11 @@ fn purchase_insufficient_deposit_fails() {
     testing_env!(context_with_deposit(buyer(), 5_000).build());
 
     let err = contract
-        .purchase_from_collection(col, 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col,
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
@@ -235,7 +271,11 @@ fn purchase_single_happy() {
     testing_env!(context_with_deposit(buyer(), 100_000).build());
 
     contract
-        .purchase_from_collection(col.clone(), 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col.clone(),
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap();
 
     let collection = contract.collections.get(&col).unwrap();
@@ -248,7 +288,11 @@ fn purchase_batch_happy() {
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
 
     contract
-        .purchase_from_collection(col.clone(), 5, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col.clone(),
+            quantity: 5,
+            max_price_per_token: None,
+        }))
         .unwrap();
 
     let collection = contract.collections.get(&col).unwrap();
@@ -261,7 +305,11 @@ fn purchase_tracks_revenue() {
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
 
     contract
-        .purchase_from_collection(col.clone(), 3, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col.clone(),
+            quantity: 3,
+            max_price_per_token: None,
+        }))
         .unwrap();
 
     let collection = contract.collections.get(&col).unwrap();
@@ -278,7 +326,11 @@ fn purchase_paused_collection_fails() {
 
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     let err = contract
-        .purchase_from_collection(col, 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: col,
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
@@ -319,7 +371,11 @@ fn purchase_before_start_without_allowlist_fails() {
 
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     let err = contract
-        .purchase_from_collection("al".to_string(), 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "al".to_string(),
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -368,7 +424,11 @@ fn purchase_before_start_with_allowlist_succeeds() {
 
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     contract
-        .purchase_from_collection("al2".to_string(), 1, None)
+        .execute(make_request(Action::PurchaseFromCollection {
+            collection_id: "al2".to_string(),
+            quantity: 1,
+            max_price_per_token: None,
+        }))
         .unwrap();
 
     let collection = contract.collections.get("al2").unwrap();

@@ -1,52 +1,13 @@
-//! Collection-level floor offer entry points and internal logic.
+//! Collection-level floor offer internal logic and view methods.
 
-use crate::guards::check_at_least_one_yocto;
 use crate::storage::storage_byte_cost;
 use crate::*;
 use super::{collection_offer_key, CollectionOffer};
 
-// --- Public entry points ---
+// --- View methods ---
 
 #[near]
 impl Contract {
-    /// Replaces any prior collection offer from the caller. Panics if deposit < 1 yoctoNEAR.
-    #[payable]
-    #[handle_result]
-    pub fn make_collection_offer(
-        &mut self,
-        collection_id: String,
-        expires_at: Option<u64>,
-    ) -> Result<(), MarketplaceError> {
-        check_at_least_one_yocto()?;
-        let buyer_id = env::predecessor_account_id();
-        let amount = env::attached_deposit().as_yoctonear();
-
-        self.internal_make_collection_offer(&buyer_id, &collection_id, amount, expires_at)
-    }
-
-    #[handle_result]
-    pub fn cancel_collection_offer(
-        &mut self,
-        collection_id: String,
-    ) -> Result<(), MarketplaceError> {
-        let buyer_id = env::predecessor_account_id();
-        self.internal_cancel_collection_offer(&buyer_id, &collection_id)
-    }
-
-    /// Only the token owner can call. Panics if deposit != 1 yoctoNEAR.
-    #[payable]
-    #[handle_result]
-    pub fn accept_collection_offer(
-        &mut self,
-        collection_id: String,
-        token_id: String,
-        buyer_id: AccountId,
-    ) -> Result<(), MarketplaceError> {
-        crate::guards::check_one_yocto()?;
-        let owner_id = env::predecessor_account_id();
-        self.internal_accept_collection_offer(&owner_id, &collection_id, &token_id, &buyer_id)
-    }
-
     pub fn get_collection_offer(
         &self,
         collection_id: String,
@@ -80,7 +41,7 @@ impl Contract {
 // --- Internal implementations ---
 
 impl Contract {
-    pub(crate) fn internal_make_collection_offer(
+    pub(crate) fn make_collection_offer(
         &mut self,
         buyer_id: &AccountId,
         collection_id: &str,
@@ -134,7 +95,7 @@ impl Contract {
         Ok(())
     }
 
-    pub(crate) fn internal_cancel_collection_offer(
+    pub(crate) fn cancel_collection_offer(
         &mut self,
         buyer_id: &AccountId,
         collection_id: &str,
@@ -152,7 +113,7 @@ impl Contract {
         Ok(())
     }
 
-    pub(crate) fn internal_accept_collection_offer(
+    pub(crate) fn accept_collection_offer(
         &mut self,
         owner_id: &AccountId,
         collection_id: &str,

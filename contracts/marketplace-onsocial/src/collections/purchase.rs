@@ -1,17 +1,20 @@
 //! Collection purchase — mint scarces from lazy collections.
+//!
+//! All purchases route through `execute()` → `dispatch_action()` → `purchase_from_collection()`.
+//! Excess deposit is returned to `pending_attached_balance` for `finalize_unused_deposit` to handle.
 
 use crate::*;
 
-#[near]
 impl Contract {
-    /// `max_price_per_token` guards Dutch auctions against tx-delay slippage. Panics if quantity is 0 or exceeds `MAX_BATCH_MINT`.
-    #[payable]
-    #[handle_result]
-    pub fn purchase_from_collection(
+    /// `max_price_per_token` guards Dutch auctions against tx-delay slippage.
+    /// Panics if quantity is 0 or exceeds `MAX_BATCH_MINT`.
+    pub(crate) fn purchase_from_collection(
         &mut self,
+        buyer_id: &AccountId,
         collection_id: String,
         quantity: u32,
         max_price_per_token: Option<U128>,
+        deposit: u128,
     ) -> Result<(), MarketplaceError> {
         if quantity == 0 || quantity > MAX_BATCH_MINT {
             return Err(MarketplaceError::InvalidInput(format!(
@@ -28,7 +31,6 @@ impl Contract {
 
         let now = env::block_timestamp();
         let is_before_start = collection.start_time.is_some_and(|s| now < s);
-        let buyer_id = env::predecessor_account_id();
 
         if is_before_start {
             // allowlist phase — start_time check intentionally skipped
@@ -133,7 +135,6 @@ impl Contract {
         }
 
         let total_price = unit_price * quantity as u128;
-        let deposit = env::attached_deposit().as_yoctonear();
         if deposit < total_price {
             return Err(MarketplaceError::InsufficientDeposit(format!(
                 "Insufficient payment: required {}, got {}",
@@ -197,14 +198,15 @@ impl Contract {
             total_price,
             bytes_used as u64,
             &creator_id,
-            &buyer_id,
+            buyer_id,
             app_id.as_ref(),
         )?;
 
-        crate::fees::refund_excess(&buyer_id, deposit, total_price);
+        // Return excess to pending_attached_balance for finalize_unused_deposit.
+        self.pending_attached_balance += deposit.saturating_sub(total_price);
 
         events::emit_collection_purchase(&events::CollectionPurchase {
-            buyer_id: &buyer_id,
+            buyer_id,
             creator_id: &creator_id,
             collection_id: &collection_id,
             quantity,

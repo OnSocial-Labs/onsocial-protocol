@@ -9,7 +9,8 @@ use super::TransferItem;
 use onsocial_auth::Auth;
 
 // Marketplace actions dispatched via `execute()`.
-// Actions requiring attached NEAR (buying, minting) are separate #[payable] methods — incompatible with the gasless relayer flow.
+// All operations — including purchases, bids, and offers — route through the unified execute() entry point.
+// Standalone #[payable] endpoints remain as thin wrappers for backward compatibility.
 #[near(serializers = [json])]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[derive(Clone)]
@@ -262,6 +263,39 @@ pub enum Action {
         listing_id: String,
         new_expires_at: Option<u64>,
     },
+
+    // --- Payment Actions (consume from pending_attached_balance) ---
+    // Mint from a lazy collection. Deposit >= unit_price × quantity.
+    PurchaseFromCollection {
+        collection_id: String,
+        quantity: u32,
+        max_price_per_token: Option<U128>,
+    },
+    // Buy a lazy listing; mints the token on purchase. Deposit >= listing price.
+    PurchaseLazyListing {
+        listing_id: String,
+    },
+    // Buy a native scarce listed for fixed-price sale. Deposit >= sale price.
+    PurchaseNativeScarce {
+        token_id: String,
+    },
+    // Bid on an active English auction. Deposit = bid amount.
+    PlaceBid {
+        token_id: String,
+        amount: U128,
+    },
+    // Escrow offer on a specific token. Deposit = offer amount (must exceed storage cost).
+    MakeOffer {
+        token_id: String,
+        amount: U128,
+        expires_at: Option<u64>,
+    },
+    // Escrow floor offer on a collection. Deposit = offer amount (must exceed storage cost).
+    MakeCollectionOffer {
+        collection_id: String,
+        amount: U128,
+        expires_at: Option<u64>,
+    },
 }
 
 impl Action {
@@ -314,6 +348,12 @@ impl Action {
             Self::CancelLazyListing { .. } => "cancel_lazy_listing",
             Self::UpdateLazyListingPrice { .. } => "update_lazy_listing_price",
             Self::UpdateLazyListingExpiry { .. } => "update_lazy_listing_expiry",
+            Self::PurchaseFromCollection { .. } => "purchase_from_collection",
+            Self::PurchaseLazyListing { .. } => "purchase_lazy_listing",
+            Self::PurchaseNativeScarce { .. } => "purchase_native_scarce",
+            Self::PlaceBid { .. } => "place_bid",
+            Self::MakeOffer { .. } => "make_offer",
+            Self::MakeCollectionOffer { .. } => "make_collection_offer",
         }
     }
 }

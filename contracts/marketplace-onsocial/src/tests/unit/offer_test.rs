@@ -1,5 +1,6 @@
 use crate::tests::test_utils::*;
 use crate::*;
+use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
 fn mint_for_offer(contract: &mut Contract, token_owner: &AccountId, token_id: &str) {
@@ -34,8 +35,13 @@ fn make_offer_stores_in_map() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap();
 
     let offer = contract
@@ -50,8 +56,13 @@ fn make_offer_on_own_token_fails() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context_with_deposit(owner(), 1_000_000_000_000_000_000_000_000).build());
     let err = contract
-        .internal_make_offer(&owner(), "t1", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -60,8 +71,13 @@ fn make_offer_on_own_token_fails() {
 fn make_offer_on_nonexistent_token_fails() {
     let mut contract = new_contract();
 
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     let err = contract
-        .internal_make_offer(&buyer(), "nope", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "nope".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -72,8 +88,13 @@ fn make_offer_expired_fails() {
     mint_for_offer(&mut contract, &owner(), "t1");
 
     // Expiry in the past (block_timestamp from context is ~1.7e18)
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     let err = contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, Some(1))
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: Some(1),
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
@@ -85,12 +106,22 @@ fn cancel_offer_removes_from_map() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap();
     assert!(contract.get_offer("t1".to_string(), buyer()).is_some());
 
-    contract.internal_cancel_offer(&buyer(), "t1").unwrap();
+    testing_env!(context(buyer()).build());
+    contract
+        .execute(make_request(Action::CancelOffer {
+            token_id: "t1".to_string(),
+        }))
+        .unwrap();
     assert!(contract.get_offer("t1".to_string(), buyer()).is_none());
 }
 
@@ -98,8 +129,11 @@ fn cancel_offer_removes_from_map() {
 fn cancel_nonexistent_offer_fails() {
     let mut contract = new_contract();
 
+    testing_env!(context(buyer()).build());
     let err = contract
-        .internal_cancel_offer(&buyer(), "t1")
+        .execute(make_request(Action::CancelOffer {
+            token_id: "t1".to_string(),
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -111,12 +145,21 @@ fn accept_offer_transfers_token() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap();
 
+    testing_env!(context(owner()).build());
     contract
-        .internal_accept_offer(&owner(), "t1", &buyer())
+        .execute(make_request(Action::AcceptOffer {
+            token_id: "t1".to_string(),
+            buyer_id: buyer(),
+        }))
         .unwrap();
 
     // Token transferred to buyer
@@ -131,12 +174,21 @@ fn accept_offer_wrong_owner_fails() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap();
 
+    testing_env!(context(creator()).build()); // creator is not owner
     let err = contract
-        .internal_accept_offer(&creator(), "t1", &buyer()) // creator is not owner
+        .execute(make_request(Action::AcceptOffer {
+            token_id: "t1".to_string(),
+            buyer_id: buyer(),
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
@@ -146,8 +198,12 @@ fn accept_nonexistent_offer_fails() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context(owner()).build());
     let err = contract
-        .internal_accept_offer(&owner(), "t1", &buyer())
+        .execute(make_request(Action::AcceptOffer {
+            token_id: "t1".to_string(),
+            buyer_id: buyer(),
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
@@ -159,8 +215,13 @@ fn accept_expired_offer_fails() {
 
     // Set expires_at far in the future so make_offer succeeds
     let future = 2_000_000_000_000_000_000u64;
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, Some(future))
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: Some(future),
+        }))
         .unwrap();
 
     // Now advance time past expiry
@@ -169,7 +230,10 @@ fn accept_expired_offer_fails() {
     testing_env!(ctx.build());
 
     let err = contract
-        .internal_accept_offer(&owner(), "t1", &buyer())
+        .execute(make_request(Action::AcceptOffer {
+            token_id: "t1".to_string(),
+            buyer_id: buyer(),
+        }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
@@ -181,11 +245,22 @@ fn new_offer_replaces_old() {
     let mut contract = new_contract();
     mint_for_offer(&mut contract, &owner(), "t1");
 
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 1_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(1_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap();
+
+    testing_env!(context_with_deposit(buyer(), 2_000_000_000_000_000_000_000_000).build());
     contract
-        .internal_make_offer(&buyer(), "t1", 2_000_000_000_000_000_000_000_000, None)
+        .execute(make_request(Action::MakeOffer {
+            token_id: "t1".to_string(),
+            amount: U128(2_000_000_000_000_000_000_000_000),
+            expires_at: None,
+        }))
         .unwrap();
 
     let offer = contract.get_offer("t1".to_string(), buyer()).unwrap();

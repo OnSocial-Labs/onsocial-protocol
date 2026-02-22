@@ -1,19 +1,18 @@
 //! Lazy listing purchase and expired-listing cleanup.
+//!
+//! All purchases route through `execute()` → `dispatch_action()` → `purchase_lazy_listing()`.
+//! Excess deposit is returned to `pending_attached_balance` for `finalize_unused_deposit` to handle.
 
 use crate::*;
 
-#[near]
 impl Contract {
-    /// Errors if deposit < listing price or listing is expired. Excess deposit is refunded.
-    #[payable]
-    #[handle_result]
-    pub fn purchase_lazy_listing(
+    /// Errors if deposit < listing price or listing is expired.
+    pub(crate) fn purchase_lazy_listing(
         &mut self,
+        buyer_id: &AccountId,
         listing_id: String,
+        deposit: u128,
     ) -> Result<String, MarketplaceError> {
-        let buyer_id = env::predecessor_account_id();
-        let deposit = env::attached_deposit().as_yoctonear();
-
         // Read-only guards before removing the listing to avoid needing a restore on early exits.
         {
             let listing = self
@@ -23,7 +22,7 @@ impl Contract {
 
             if let Some(exp) = listing.expires_at {
                 if env::block_timestamp() > exp {
-                    crate::fees::refund_excess(&buyer_id, deposit, 0);
+                    self.pending_attached_balance += deposit;
                     return Err(MarketplaceError::InvalidState(
                         "Lazy listing has expired".into(),
                     ));
@@ -31,7 +30,7 @@ impl Contract {
             }
 
             if deposit < listing.price {
-                crate::fees::refund_excess(&buyer_id, deposit, 0);
+                self.pending_attached_balance += deposit;
                 return Err(MarketplaceError::InsufficientDeposit(format!(
                     "Insufficient payment: required {}, got {}",
                     listing.price, deposit
@@ -73,7 +72,7 @@ impl Contract {
             paid_price: price,
         };
         if let Err(e) = self.internal_mint(token_id.clone(), ctx, metadata, Some(ovr)) {
-            crate::fees::refund_excess(&buyer_id, deposit, 0);
+            self.pending_attached_balance += deposit;
             return Err(e);
         }
 
@@ -84,22 +83,22 @@ impl Contract {
             price,
             bytes_used,
             &creator_id,
-            &buyer_id,
+            buyer_id,
             app_id.as_ref(),
         ) {
             Ok(r) => r,
             Err(e) => {
                 self.scarces_by_id.remove(&token_id);
-                self.remove_token_from_owner(&buyer_id, &token_id);
-                crate::fees::refund_excess(&buyer_id, deposit, 0);
+                self.remove_token_from_owner(buyer_id, &token_id);
+                self.pending_attached_balance += deposit;
                 return Err(e);
             }
         };
 
-        crate::fees::refund_excess(&buyer_id, deposit, price);
+        self.pending_attached_balance += deposit.saturating_sub(price);
 
         events::emit_lazy_listing_purchased(
-            &buyer_id,
+            buyer_id,
             &creator_id,
             &listing_id,
             &token_id,

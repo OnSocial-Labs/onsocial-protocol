@@ -1,48 +1,13 @@
-//! Per-token offer entry points and internal logic.
+//! Per-token offer internal logic and view methods.
 
-use crate::guards::check_at_least_one_yocto;
 use crate::storage::storage_byte_cost;
 use crate::*;
 use super::{offer_key, Offer};
 
-// --- Public entry points ---
+// --- View methods ---
 
 #[near]
 impl Contract {
-    /// Replaces any prior offer from the caller. Panics if deposit < 1 yoctoNEAR.
-    #[payable]
-    #[handle_result]
-    pub fn make_offer(
-        &mut self,
-        token_id: String,
-        expires_at: Option<u64>,
-    ) -> Result<(), MarketplaceError> {
-        check_at_least_one_yocto()?;
-        let buyer_id = env::predecessor_account_id();
-        let amount = env::attached_deposit().as_yoctonear();
-
-        self.internal_make_offer(&buyer_id, &token_id, amount, expires_at)
-    }
-
-    #[handle_result]
-    pub fn cancel_offer(&mut self, token_id: String) -> Result<(), MarketplaceError> {
-        let buyer_id = env::predecessor_account_id();
-        self.internal_cancel_offer(&buyer_id, &token_id)
-    }
-
-    /// Only the token owner can call. Panics if deposit != 1 yoctoNEAR.
-    #[payable]
-    #[handle_result]
-    pub fn accept_offer(
-        &mut self,
-        token_id: String,
-        buyer_id: AccountId,
-    ) -> Result<(), MarketplaceError> {
-        crate::guards::check_one_yocto()?;
-        let owner_id = env::predecessor_account_id();
-        self.internal_accept_offer(&owner_id, &token_id, &buyer_id)
-    }
-
     pub fn get_offer(&self, token_id: String, buyer_id: AccountId) -> Option<Offer> {
         let key = offer_key(&token_id, &buyer_id);
         self.offers.get(&key).cloned()
@@ -72,7 +37,7 @@ impl Contract {
 // --- Internal implementations ---
 
 impl Contract {
-    pub(crate) fn internal_make_offer(
+    pub(crate) fn make_offer(
         &mut self,
         buyer_id: &AccountId,
         token_id: &str,
@@ -139,7 +104,7 @@ impl Contract {
         Ok(())
     }
 
-    pub(crate) fn internal_cancel_offer(
+    pub(crate) fn cancel_offer(
         &mut self,
         buyer_id: &AccountId,
         token_id: &str,
@@ -157,7 +122,7 @@ impl Contract {
         Ok(())
     }
 
-    pub(crate) fn internal_accept_offer(
+    pub(crate) fn accept_offer(
         &mut self,
         owner_id: &AccountId,
         token_id: &str,

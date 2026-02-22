@@ -193,11 +193,16 @@ impl Contract {
 
 // ── Native scarce purchase ───────────────────────────────────────────────────
 
-#[near]
 impl Contract {
-    #[payable]
-    #[handle_result]
-    pub fn purchase_native_scarce(&mut self, token_id: String) -> Result<(), MarketplaceError> {
+    /// Core native scarce purchase logic for `execute()` dispatch.
+    ///
+    /// Excess deposit is returned to `pending_attached_balance` for `finalize_unused_deposit`.
+    pub(crate) fn purchase_native_scarce(
+        &mut self,
+        buyer_id: &AccountId,
+        token_id: String,
+        deposit: u128,
+    ) -> Result<(), MarketplaceError> {
         let sale_id = Contract::make_sale_id(&env::current_account_id(), &token_id);
         let sale = self
             .sales
@@ -226,9 +231,7 @@ impl Contract {
             }
         }
 
-        let buyer_id = env::predecessor_account_id();
         let price = sale.sale_conditions.0;
-        let deposit = env::attached_deposit().as_yoctonear();
 
         if deposit < price {
             return Err(MarketplaceError::InsufficientDeposit(format!(
@@ -236,7 +239,7 @@ impl Contract {
                 price, deposit
             )));
         }
-        if buyer_id == sale.owner_id {
+        if buyer_id == &sale.owner_id {
             return Err(MarketplaceError::InvalidInput(
                 "Cannot purchase your own listing".into(),
             ));
@@ -281,7 +284,7 @@ impl Contract {
 
         self.internal_transfer(
             &seller_id,
-            &buyer_id,
+            buyer_id,
             &token_id,
             None,
             Some("Purchased on OnSocial Marketplace".to_string()),
@@ -289,10 +292,10 @@ impl Contract {
 
         let result = self.settle_secondary_sale(&token_id, price, &seller_id)?;
 
-        crate::fees::refund_excess(&buyer_id, deposit, price);
+        self.pending_attached_balance += deposit.saturating_sub(price);
 
         events::emit_scarce_purchase(
-            &buyer_id,
+            buyer_id,
             &seller_id,
             &env::current_account_id(),
             &token_id,

@@ -51,3 +51,15 @@ pub fn new_contract() -> Contract {
     testing_env!(ctx.build());
     Contract::new(owner(), None)
 }
+
+/// Build a Request envelope for `execute()` with the given Action and Direct auth.
+/// Mirrors core-onsocial's `set_request()` pattern.
+#[cfg(test)]
+pub fn make_request(action: crate::Action) -> crate::Request {
+    crate::Request {
+        target_account: None,
+        action,
+        auth: None,
+        options: None,
+    }
+}
