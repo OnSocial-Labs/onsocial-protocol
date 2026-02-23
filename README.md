@@ -1,4 +1,4 @@
-# Social, the way it should be. Ready to build yours?
+# Social, the way it should be. What will you build?
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
