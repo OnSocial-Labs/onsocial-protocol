@@ -99,7 +99,7 @@ fn get_lazy_listing_returns_created() {
 
     testing_env!(context(owner()).build());
     let listing = contract.get_lazy_listing(id).unwrap();
-    assert_eq!(listing.price, 5_000);
+    assert_eq!(listing.price, U128(5_000));
     assert_eq!(listing.creator_id, creator());
 }
 

@@ -48,8 +48,8 @@ impl Contract {
         }
 
         collection.cancelled = true;
-        collection.refund_pool = deposit;
-        collection.refund_per_token = refund_per_token.0;
+        collection.refund_pool = U128(deposit);
+        collection.refund_per_token = refund_per_token;
         collection.refund_deadline = Some(env::block_timestamp().saturating_add(deadline));
 
         self.collections.insert(collection_id.to_string(), collection);
@@ -92,14 +92,14 @@ impl Contract {
             ));
         }
 
-        let remaining = collection.refund_pool;
+        let remaining = collection.refund_pool.0;
         if remaining == 0 {
             return Err(MarketplaceError::InvalidState(
                 "No funds remaining in refund pool".into(),
             ));
         }
 
-        collection.refund_pool = 0;
+        collection.refund_pool = U128(0);
         self.collections.insert(collection_id.to_string(), collection);
 
         let _ = Promise::new(actor_id.clone()).transfer(NearToken::from_yoctonear(remaining));
@@ -162,8 +162,8 @@ impl Contract {
             }
         }
 
-        let refund_amount = collection.refund_per_token;
-        if collection.refund_pool < refund_amount {
+        let refund_amount = collection.refund_per_token.0;
+        if collection.refund_pool.0 < refund_amount {
             return Err(MarketplaceError::InvalidState(
                 "Refund pool exhausted — contact the organizer".into(),
             ));
@@ -172,7 +172,7 @@ impl Contract {
         token.refunded = true;
         self.scarces_by_id.insert(token_id.to_string(), token);
 
-        collection.refund_pool -= refund_amount;
+        collection.refund_pool.0 -= refund_amount;
         collection.refunded_count += 1;
         self.collections
             .insert(collection_id.to_string(), collection);

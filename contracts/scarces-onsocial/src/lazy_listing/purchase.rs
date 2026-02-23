@@ -22,17 +22,17 @@ impl Contract {
                 }
             }
 
-            if deposit < listing.price {
+            if deposit < listing.price.0 {
                 self.pending_attached_balance += deposit;
                 return Err(MarketplaceError::InsufficientDeposit(format!(
                     "Insufficient payment: required {}, got {}",
-                    listing.price, deposit
+                    listing.price.0, deposit
                 )));
             }
         }
 
         let listing = self.lazy_listings.remove(&listing_id).unwrap();
-        let price = listing.price;
+        let price = listing.price.0;
 
         let creator_id = listing.creator_id.clone();
         let app_id = listing.app_id.clone();

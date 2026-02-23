@@ -1,5 +1,6 @@
 use crate::storage::storage_byte_cost;
 use crate::*;
+use near_sdk::json_types::U128;
 use super::{collection_offer_key, CollectionOffer};
 
 #[near]
@@ -57,14 +58,14 @@ impl Contract {
         let key = collection_offer_key(collection_id, buyer_id);
 
         if let Some(old_offer) = self.collection_offers.remove(&key) {
-            events::emit_collection_offer_cancelled(buyer_id, collection_id, old_offer.amount);
+            events::emit_collection_offer_cancelled(buyer_id, collection_id, old_offer.amount.0);
             let _ = Promise::new(old_offer.buyer_id)
-                .transfer(NearToken::from_yoctonear(old_offer.amount));
+                .transfer(NearToken::from_yoctonear(old_offer.amount.0));
         }
 
         let offer = CollectionOffer {
             buyer_id: buyer_id.clone(),
-            amount,
+            amount: U128(amount),
             expires_at,
             created_at: env::block_timestamp(),
         };
@@ -77,7 +78,7 @@ impl Contract {
         if amount <= storage_cost {
             let removed = self.collection_offers.remove(&key);
             if let Some(o) = removed {
-                let _ = Promise::new(o.buyer_id).transfer(NearToken::from_yoctonear(o.amount));
+                let _ = Promise::new(o.buyer_id).transfer(NearToken::from_yoctonear(o.amount.0));
             }
             return Err(MarketplaceError::InsufficientDeposit(format!(
                 "Offer amount must exceed storage cost of {} yoctoNEAR",
@@ -101,9 +102,9 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::NotFound("Collection offer not found".into()))?;
 
         let _ =
-            Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount));
+            Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount.0));
 
-        events::emit_collection_offer_cancelled(buyer_id, collection_id, offer.amount);
+        events::emit_collection_offer_cancelled(buyer_id, collection_id, offer.amount.0);
         Ok(())
     }
 
@@ -141,14 +142,14 @@ impl Contract {
         if let Some(exp) = offer.expires_at {
             if env::block_timestamp() > exp {
                 let _ = Promise::new(offer.buyer_id)
-                    .transfer(NearToken::from_yoctonear(offer.amount));
+                    .transfer(NearToken::from_yoctonear(offer.amount.0));
                 return Err(MarketplaceError::InvalidState(
                     "Collection offer has expired".into(),
                 ));
             }
         }
 
-        let amount = offer.amount;
+        let amount = offer.amount.0;
 
         self.transfer(
             owner_id,

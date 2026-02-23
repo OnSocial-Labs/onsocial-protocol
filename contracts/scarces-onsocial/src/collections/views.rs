@@ -111,7 +111,7 @@ impl Contract {
     pub fn get_collection_stats(&self, collection_id: String) -> Option<CollectionStats> {
         self.collections.get(&collection_id).map(|collection| {
             let current = crate::fees::compute_dutch_price(collection);
-            let total_revenue = collection.total_revenue;
+            let total_revenue = collection.total_revenue.0;
             let marketplace_fees =
                 (total_revenue * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
             let app_commission = self.calculate_app_commission(total_revenue, collection.app_id.as_ref());

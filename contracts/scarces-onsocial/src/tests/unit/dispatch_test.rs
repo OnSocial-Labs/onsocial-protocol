@@ -618,7 +618,7 @@ fn execute_place_bid_happy() {
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     let sale = contract.sales.get(&sale_id).unwrap();
     let auction = sale.auction.as_ref().unwrap();
-    assert_eq!(auction.highest_bid, 2_000);
+    assert_eq!(auction.highest_bid, U128(2_000));
 }
 
 // --- MakeCollectionOffer via execute() ---
@@ -668,5 +668,5 @@ fn execute_make_collection_offer_happy() {
         .get_collection_offer("ocol".to_string(), buyer())
         .expect("Collection offer should exist");
     assert_eq!(offer.buyer_id, buyer());
-    assert_eq!(offer.amount, 1_000_000_000_000_000_000_000_000);
+    assert_eq!(offer.amount, U128(1_000_000_000_000_000_000_000_000));
 }

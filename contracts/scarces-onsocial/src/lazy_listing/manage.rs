@@ -62,7 +62,7 @@ impl Contract {
         let listing = LazyListingRecord {
             creator_id: creator_id.clone(),
             metadata,
-            price,
+            price: near_sdk::json_types::U128(price),
             royalty: merged_royalty,
             app_id,
             transferable,
@@ -176,8 +176,8 @@ impl Contract {
         }
 
         let mut listing = self.lazy_listings.remove(listing_id).unwrap();
-        let old_price = listing.price;
-        listing.price = new_price;
+        let old_price = listing.price.0;
+        listing.price = near_sdk::json_types::U128(new_price);
         self.lazy_listings.insert(listing_id.to_string(), listing);
 
         events::emit_lazy_listing_price_updated(&creator_id, listing_id, old_price, new_price);

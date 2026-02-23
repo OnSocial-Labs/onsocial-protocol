@@ -9,7 +9,7 @@ use crate::{ScarceOptions, TokenMetadata};
 pub struct LazyListingRecord {
     pub creator_id: AccountId,
     pub metadata: TokenMetadata,
-    pub price: u128,
+    pub price: U128,
     #[serde(default)]
     pub royalty: Option<std::collections::HashMap<AccountId, u32>>,
     #[serde(default)]

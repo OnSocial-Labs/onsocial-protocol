@@ -1,3 +1,4 @@
+use near_sdk::json_types::U128;
 use near_sdk::near;
 use near_sdk::AccountId;
 
@@ -5,7 +6,7 @@ use near_sdk::AccountId;
 #[derive(Clone)]
 pub struct AppPool {
     pub owner_id: AccountId,
-    pub balance: u128,
+    pub balance: U128,
     pub used_bytes: u64,
     pub max_user_bytes: u64,
     pub default_royalty: Option<std::collections::HashMap<AccountId, u32>>,

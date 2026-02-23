@@ -136,10 +136,10 @@ impl Contract {
         let contract_id = env::current_account_id();
         if let Ok(sale) = self.remove_sale(contract_id, token_id.to_string()) {
             if let Some(ref auction) = sale.auction {
-                if auction.highest_bid > 0 {
+                if auction.highest_bid.0 > 0 {
                     if let Some(ref bidder) = auction.highest_bidder {
                         let _ = Promise::new(bidder.clone())
-                            .transfer(NearToken::from_yoctonear(auction.highest_bid));
+                            .transfer(NearToken::from_yoctonear(auction.highest_bid.0));
                     }
                 }
             }

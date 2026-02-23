@@ -28,7 +28,7 @@ fn fee_split_with_app_pool() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: None,
@@ -97,7 +97,7 @@ fn route_fee_with_app_funds_pool() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: None,
@@ -113,7 +113,7 @@ fn route_fee_with_app_funds_pool() {
 
     assert!(app_amt > 0);
     let pool = contract.app_pools.get(&app).unwrap();
-    assert_eq!(pool.balance, app_amt, "pool credited with app share");
+    assert_eq!(pool.balance.0, app_amt, "pool credited with app share");
 }
 
 #[test]
@@ -272,7 +272,7 @@ fn app_commission_pool_zero_bps() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: None,
@@ -293,7 +293,7 @@ fn app_commission_computed() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: None,

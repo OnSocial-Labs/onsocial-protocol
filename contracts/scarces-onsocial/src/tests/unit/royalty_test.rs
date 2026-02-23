@@ -23,7 +23,7 @@ fn merge_app_only() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: Some(app_royalty.clone()),
@@ -65,7 +65,7 @@ fn merge_disjoint_accounts() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: Some(app_royalty),
@@ -101,7 +101,7 @@ fn merge_shared_account_summed() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: Some(app_royalty),
@@ -135,7 +135,7 @@ fn merge_exceeds_max_royalty_bps_fails() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: Some(app_royalty),
@@ -168,7 +168,7 @@ fn merge_exactly_max_royalty_bps_ok() {
         app.clone(),
         AppPool {
             owner_id: owner(),
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             max_user_bytes: 50_000,
             default_royalty: Some(app_royalty),
@@ -217,7 +217,7 @@ fn make_token(royalty: Option<HashMap<AccountId, u32>>) -> Scarce {
         revocation_memo: None,
         redeemed_at: None,
         redeem_count: 0,
-        paid_price: 0,
+        paid_price: U128(0),
         refunded: false,
         transferable: None,
         burnable: None,

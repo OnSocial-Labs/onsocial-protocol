@@ -110,16 +110,16 @@ impl Contract {
         Some(AuctionView {
             token_id,
             seller_id: sale.owner_id.clone(),
-            reserve_price: U128(auction.reserve_price),
-            min_bid_increment: U128(auction.min_bid_increment),
-            highest_bid: U128(auction.highest_bid),
+            reserve_price: auction.reserve_price,
+            min_bid_increment: auction.min_bid_increment,
+            highest_bid: auction.highest_bid,
             highest_bidder: auction.highest_bidder.clone(),
             bid_count: auction.bid_count,
             expires_at: sale.expires_at,
             anti_snipe_extension_ns: auction.anti_snipe_extension_ns,
-            buy_now_price: auction.buy_now_price.map(U128),
+            buy_now_price: auction.buy_now_price,
             is_ended: sale.expires_at.is_some_and(|e| env::block_timestamp() >= e),
-            reserve_met: auction.highest_bid >= auction.reserve_price && auction.highest_bid > 0,
+            reserve_met: auction.highest_bid.0 >= auction.reserve_price.0 && auction.highest_bid.0 > 0,
         })
     }
 
@@ -141,17 +141,17 @@ impl Contract {
                 Some(AuctionView {
                     token_id,
                     seller_id: sale.owner_id.clone(),
-                    reserve_price: U128(auction.reserve_price),
-                    min_bid_increment: U128(auction.min_bid_increment),
-                    highest_bid: U128(auction.highest_bid),
+                    reserve_price: auction.reserve_price,
+                    min_bid_increment: auction.min_bid_increment,
+                    highest_bid: auction.highest_bid,
                     highest_bidder: auction.highest_bidder.clone(),
                     bid_count: auction.bid_count,
                     expires_at: sale.expires_at,
                     anti_snipe_extension_ns: auction.anti_snipe_extension_ns,
-                    buy_now_price: auction.buy_now_price.map(U128),
+                    buy_now_price: auction.buy_now_price,
                     is_ended: sale.expires_at.is_some_and(|e| env::block_timestamp() >= e),
-                    reserve_met: auction.highest_bid >= auction.reserve_price
-                        && auction.highest_bid > 0,
+                    reserve_met: auction.highest_bid.0 >= auction.reserve_price.0
+                        && auction.highest_bid.0 > 0,
                 })
             })
             .collect()

@@ -74,14 +74,14 @@ impl Contract {
         }
 
         let auction = AuctionState {
-            reserve_price,
-            min_bid_increment,
-            highest_bid: 0,
+            reserve_price: U128(reserve_price),
+            min_bid_increment: U128(min_bid_increment),
+            highest_bid: U128(0),
             highest_bidder: None,
             bid_count: 0,
             auction_duration_ns,
             anti_snipe_extension_ns,
-            buy_now_price,
+            buy_now_price: buy_now_price.map(U128),
         };
 
         events::emit_auction_created(owner_id, token_id, &auction, expires_at);
@@ -153,13 +153,13 @@ impl Contract {
         }
 
         let seller_id = sale.owner_id.clone();
-        let winning_bid = auction.highest_bid;
+        let winning_bid = auction.highest_bid.0;
         let winner = auction.highest_bidder.clone();
 
         // Security boundary: remove sale state before external Promise side effects.
         self.remove_sale(env::current_account_id(), token_id.to_string())?;
 
-        if winning_bid >= auction.reserve_price && winning_bid > 0 {
+        if winning_bid >= auction.reserve_price.0 && winning_bid > 0 {
             let winner_id = winner.ok_or_else(|| {
                 MarketplaceError::InternalError("highest_bid > 0 but no bidder".into())
             })?;
@@ -255,7 +255,7 @@ impl Contract {
             let duration = auction.auction_duration_ns.ok_or_else(|| {
                 MarketplaceError::InvalidState("Auction has no expiry and no duration".into())
             })?;
-            if bid < auction.reserve_price {
+            if bid < auction.reserve_price.0 {
                 return Err(MarketplaceError::InsufficientDeposit(
                     "First bid must meet the reserve price".into(),
                 ));
@@ -268,10 +268,10 @@ impl Contract {
             return Err(MarketplaceError::InvalidState("Auction has ended".into()));
         }
 
-        let min_required = if auction.highest_bid == 0 {
-            auction.reserve_price.max(auction.min_bid_increment)
+        let min_required = if auction.highest_bid.0 == 0 {
+            auction.reserve_price.0.max(auction.min_bid_increment.0)
         } else {
-            auction.highest_bid + auction.min_bid_increment
+            auction.highest_bid.0 + auction.min_bid_increment.0
         };
         if bid < min_required {
             return Err(MarketplaceError::InsufficientDeposit(format!(
@@ -281,14 +281,14 @@ impl Contract {
         }
 
         let prev_bidder = auction.highest_bidder.clone();
-        let prev_bid = auction.highest_bid;
+        let prev_bid = auction.highest_bid.0;
         if let Some(ref prev) = prev_bidder {
             if prev_bid > 0 {
                 let _ = Promise::new(prev.clone()).transfer(NearToken::from_yoctonear(prev_bid));
             }
         }
 
-        auction.highest_bid = bid;
+        auction.highest_bid = U128(bid);
         auction.highest_bidder = Some(bidder.clone());
         auction.bid_count = auction.bid_count.saturating_add(1);
 
@@ -309,7 +309,7 @@ impl Contract {
         events::emit_auction_bid(bidder, &token_id, bid, auction.bid_count, new_expires_at);
 
         if let Some(bnp) = auction.buy_now_price {
-            if bid >= bnp {
+            if bid >= bnp.0 {
                 self.settle_auction_buynow(bidder, &token_id)?;
             }
         }

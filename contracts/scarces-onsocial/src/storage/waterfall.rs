@@ -24,8 +24,8 @@ impl Contract {
                 let can_cover_bytes = remaining_allowance.min(bytes_used);
                 let can_cover_cost = (can_cover_bytes as u128) * storage_byte_cost();
 
-                if can_cover_cost > 0 && pool.balance >= can_cover_cost {
-                    pool.balance -= can_cover_cost;
+                if can_cover_cost > 0 && pool.balance.0 >= can_cover_cost {
+                    pool.balance.0 -= can_cover_cost;
                     pool.used_bytes += can_cover_bytes;
                     self.app_pools.insert(app.clone(), pool);
                     self.app_user_usage
@@ -81,7 +81,7 @@ impl Contract {
 
                 let returnable = user_used.min(bytes_freed);
                 let return_cost = (returnable as u128) * storage_byte_cost();
-                pool.balance += return_cost;
+                pool.balance.0 += return_cost;
                 pool.used_bytes = pool.used_bytes.saturating_sub(returnable);
                 self.app_user_usage
                     .insert(usage_key, user_used.saturating_sub(returnable));

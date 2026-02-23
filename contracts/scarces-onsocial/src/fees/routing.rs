@@ -120,7 +120,7 @@ impl Contract {
         if app_amount > 0 {
             if let Some(app) = app_id {
                 if let Some(mut pool) = self.app_pools.remove(app) {
-                    pool.balance += app_amount;
+                    pool.balance.0 += app_amount;
                     self.app_pools.insert(app.clone(), pool);
                 } else {
                     env::log_str(&format!(

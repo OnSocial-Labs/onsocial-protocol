@@ -71,8 +71,8 @@ fn cancel_collection_happy() {
 
     let col = contract.get_collection("refcol".into()).unwrap();
     assert!(col.cancelled);
-    assert_eq!(col.refund_pool, 500_000);
-    assert_eq!(col.refund_per_token, 500_000);
+    assert_eq!(col.refund_pool.0, 500_000);
+    assert_eq!(col.refund_per_token.0, 500_000);
 }
 
 #[test]
@@ -148,7 +148,7 @@ fn claim_refund_happy() {
     assert!(token.refunded);
 
     let col = contract.get_collection("refcol".into()).unwrap();
-    assert_eq!(col.refund_pool, 0);
+    assert_eq!(col.refund_pool.0, 0);
 }
 
 #[test]

@@ -146,7 +146,7 @@ impl Contract {
         // State transition invariant: persist supply/revenue before mint side effects.
         let mut updated_collection = collection.clone();
         updated_collection.minted_count += quantity;
-        updated_collection.total_revenue += total_price;
+        updated_collection.total_revenue.0 += total_price;
         self.collections
             .insert(collection_id.clone(), updated_collection);
 

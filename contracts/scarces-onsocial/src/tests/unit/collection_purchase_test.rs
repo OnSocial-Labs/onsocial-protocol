@@ -313,7 +313,7 @@ fn purchase_tracks_revenue() {
         .unwrap();
 
     let collection = contract.collections.get(&col).unwrap();
-    assert_eq!(collection.total_revenue, 3_000);
+    assert_eq!(collection.total_revenue.0, 3_000);
 }
 
 // --- Paused collection ---

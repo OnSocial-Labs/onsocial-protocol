@@ -97,7 +97,7 @@ fn tier1_app_pool_covers_storage() {
         app.clone(),
         AppPool {
             owner_id: creator(),
-            balance: byte_cost * 200,
+            balance: U128(byte_cost * 200),
             used_bytes: 0,
             max_user_bytes: 1000,
             moderators: vec![],
@@ -113,7 +113,7 @@ fn tier1_app_pool_covers_storage() {
         .unwrap();
 
     let pool = contract.app_pools.get(&app).unwrap();
-    assert_eq!(pool.balance, byte_cost * 160);
+    assert_eq!(pool.balance.0, byte_cost * 160);
     assert_eq!(pool.used_bytes, 40);
 
     // Check per-user usage
@@ -133,7 +133,7 @@ fn tier1_per_user_cap_falls_to_tier3() {
         app.clone(),
         AppPool {
             owner_id: creator(),
-            balance: byte_cost * 1000,
+            balance: U128(byte_cost * 1000),
             used_bytes: 0,
             max_user_bytes: 10, // Only 10 bytes per user
             moderators: vec![],
@@ -194,7 +194,7 @@ fn release_tier1_credits_app_pool() {
         app.clone(),
         AppPool {
             owner_id: creator(),
-            balance: byte_cost * 100,
+            balance: U128(byte_cost * 100),
             used_bytes: 40,
             max_user_bytes: 1000,
             moderators: vec![],
@@ -211,7 +211,7 @@ fn release_tier1_credits_app_pool() {
 
     let pool = contract.app_pools.get(&app).unwrap();
     assert_eq!(pool.used_bytes, 20);
-    assert_eq!(pool.balance, byte_cost * 120);
+    assert_eq!(pool.balance.0, byte_cost * 120);
     assert_eq!(contract.app_user_usage.get(&usage_key).copied().unwrap(), 20);
 }
 

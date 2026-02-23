@@ -91,7 +91,7 @@ fn make_collection_offer_happy() {
     let offer = contract
         .get_collection_offer("offers".to_string(), buyer())
         .unwrap();
-    assert_eq!(offer.amount, OFFER_AMOUNT);
+    assert_eq!(offer.amount, U128(OFFER_AMOUNT));
     assert_eq!(offer.buyer_id, buyer());
 }
 

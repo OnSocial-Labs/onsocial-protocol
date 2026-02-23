@@ -48,7 +48,7 @@ fn make_offer_stores_in_map() {
         .get_offer("t1".to_string(), buyer())
         .expect("Offer should exist");
     assert_eq!(offer.buyer_id, buyer());
-    assert_eq!(offer.amount, 1_000_000_000_000_000_000_000_000);
+    assert_eq!(offer.amount, U128(1_000_000_000_000_000_000_000_000));
 }
 
 #[test]
@@ -264,5 +264,5 @@ fn new_offer_replaces_old() {
         .unwrap();
 
     let offer = contract.get_offer("t1".to_string(), buyer()).unwrap();
-    assert_eq!(offer.amount, 2_000_000_000_000_000_000_000_000);
+    assert_eq!(offer.amount, U128(2_000_000_000_000_000_000_000_000));
 }

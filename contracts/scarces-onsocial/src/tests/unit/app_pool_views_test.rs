@@ -199,7 +199,7 @@ fn fund_app_pool_happy() {
     contract.fund_app_pool(&buyer(), &app_id(), 5_000_000).unwrap();
 
     let pool = contract.get_app_pool(app_id()).unwrap();
-    assert_eq!(pool.balance, 5_000_000);
+    assert_eq!(pool.balance.0, 5_000_000);
 }
 
 #[test]
@@ -239,7 +239,7 @@ fn withdraw_app_pool_happy() {
         .unwrap();
 
     let pool = contract.get_app_pool(app_id()).unwrap();
-    assert_eq!(pool.balance, 5_000_000);
+    assert_eq!(pool.balance.0, 5_000_000);
 }
 
 #[test]

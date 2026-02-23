@@ -17,8 +17,8 @@ impl Contract {
             .app_pools
             .remove(app_id)
             .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
-        pool.balance += deposit;
-        let new_balance = pool.balance;
+        pool.balance.0 += deposit;
+        let new_balance = pool.balance.0;
         self.app_pools.insert(app_id.clone(), pool);
 
         events::emit_app_pool_fund(actor_id, app_id, deposit, new_balance);
@@ -39,14 +39,14 @@ impl Contract {
             self.app_pools.insert(app_id.clone(), pool);
             return Err(MarketplaceError::only_owner("pool owner"));
         }
-        if amount.0 > pool.balance {
+        if amount.0 > pool.balance.0 {
             return Err(MarketplaceError::InsufficientDeposit(
                 "Insufficient pool balance".to_string(),
             ));
         }
 
-        pool.balance -= amount.0;
-        let new_balance = pool.balance;
+        pool.balance.0 -= amount.0;
+        let new_balance = pool.balance.0;
         self.app_pools.insert(app_id.clone(), pool);
 
         let _ = Promise::new(actor_id.clone()).transfer(NearToken::from_yoctonear(amount.0));
@@ -104,7 +104,7 @@ impl Contract {
 
         let pool = AppPool {
             owner_id: actor_id.clone(),
-            balance: initial_balance,
+            balance: U128(initial_balance),
             used_bytes: 0,
             max_user_bytes: max_user_bytes.unwrap_or(DEFAULT_APP_MAX_USER_BYTES),
             default_royalty,

@@ -73,7 +73,7 @@ impl Contract {
             is_fully_redeemed,
             redeemed_at: token.redeemed_at,
             is_refunded: token.refunded,
-            paid_price: U128(token.paid_price),
+            paid_price: token.paid_price,
         })
     }
 }

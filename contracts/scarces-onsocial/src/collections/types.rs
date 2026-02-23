@@ -74,17 +74,17 @@ pub struct LazyCollection {
     pub cancelled: bool,
     // Token accounting guarantee: remaining refundable balance.
     #[serde(default)]
-    pub refund_pool: u128,
+    pub refund_pool: U128,
     // Token accounting guarantee: fixed refund amount per eligible token after cancellation.
     #[serde(default)]
-    pub refund_per_token: u128,
+    pub refund_per_token: U128,
     #[serde(default)]
     pub refunded_count: u32,
     #[serde(default)]
     pub refund_deadline: Option<u64>,
     // Token accounting guarantee: cumulative primary-sale revenue.
     #[serde(default)]
-    pub total_revenue: u128,
+    pub total_revenue: U128,
     #[serde(default)]
     pub allowlist_price: Option<U128>,
     #[serde(default)]

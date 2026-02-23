@@ -18,14 +18,14 @@ pub enum SaleType {
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]
 pub struct AuctionState {
-    pub reserve_price: u128,
-    pub min_bid_increment: u128,
-    pub highest_bid: u128,
+    pub reserve_price: U128,
+    pub min_bid_increment: U128,
+    pub highest_bid: U128,
     pub highest_bidder: Option<AccountId>,
     pub bid_count: u32,
     pub auction_duration_ns: Option<u64>,
     pub anti_snipe_extension_ns: u64,
-    pub buy_now_price: Option<u128>,
+    pub buy_now_price: Option<U128>,
 }
 
 #[near(serializers = [borsh, json])]

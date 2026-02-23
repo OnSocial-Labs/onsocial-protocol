@@ -47,7 +47,7 @@ impl Contract {
             revocation_memo: None,
             redeemed_at: None,
             redeem_count: 0,
-            paid_price: ovr.paid_price,
+            paid_price: U128(ovr.paid_price),
             refunded: false,
             transferable: ovr.transferable,
             burnable: ovr.burnable,

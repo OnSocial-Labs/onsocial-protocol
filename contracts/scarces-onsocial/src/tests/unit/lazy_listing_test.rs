@@ -205,7 +205,7 @@ fn update_price_happy() {
     contract
         .update_lazy_listing_price(&creator(), &id, 5_000)
         .unwrap();
-    assert_eq!(contract.lazy_listings.get(&id).unwrap().price, 5_000);
+    assert_eq!(contract.lazy_listings.get(&id).unwrap().price, U128(5_000));
 }
 
 #[test]

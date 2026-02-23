@@ -66,7 +66,7 @@ pub struct Scarce {
     #[serde(default)]
     pub redeem_count: u32,
     #[serde(default)]
-    pub paid_price: u128,
+    pub paid_price: U128,
     #[serde(default)]
     pub refunded: bool,
     #[serde(default)]
