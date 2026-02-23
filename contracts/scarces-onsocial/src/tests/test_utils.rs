@@ -45,9 +45,10 @@ pub fn context_with_deposit(predecessor: AccountId, deposit_yocto: u128) -> VMCo
 }
 
 /// Create a fresh Contract for testing, owned by `accounts(0)`.
+/// Attaches 5 NEAR to satisfy the mandatory platform storage deposit.
 #[cfg(test)]
 pub fn new_contract() -> Contract {
-    let ctx = context(owner());
+    let ctx = context_with_deposit(owner(), 5_000_000_000_000_000_000_000_000);
     testing_env!(ctx.build());
     Contract::new(owner(), None)
 }

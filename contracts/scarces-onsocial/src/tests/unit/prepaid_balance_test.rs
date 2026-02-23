@@ -223,7 +223,6 @@ fn uses_prepaid_balance_excluded_actions() {
 #[test]
 fn execute_purchase_native_scarce_from_prepaid_balance() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let (tid, price) = setup_listed_scarce(&mut contract);
 
     // Fund creator's (buyer = accounts(1)) storage with 10 NEAR
@@ -263,7 +262,6 @@ fn execute_purchase_native_scarce_from_prepaid_balance() {
 #[test]
 fn execute_purchase_insufficient_prepaid_balance_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let (tid, _price) = setup_listed_scarce(&mut contract);
 
     // Fund creator's balance with less than price
@@ -293,7 +291,6 @@ fn execute_purchase_insufficient_prepaid_balance_fails() {
 #[test]
 fn execute_purchase_no_prepaid_no_deposit_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let (tid, _price) = setup_listed_scarce(&mut contract);
 
     // No user balance, no attached deposit
@@ -307,7 +304,6 @@ fn execute_purchase_no_prepaid_no_deposit_fails() {
 #[test]
 fn execute_purchase_with_deposit_skips_prepaid() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let (tid, price) = setup_listed_scarce(&mut contract);
 
     // User has prepaid balance AND attaches deposit
@@ -338,7 +334,6 @@ fn execute_purchase_with_deposit_skips_prepaid() {
 #[test]
 fn execute_purchase_reserves_storage_bytes() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let (tid, price) = setup_listed_scarce(&mut contract);
     let byte_cost = storage::storage_byte_cost();
 

@@ -86,3 +86,10 @@ pub fn emit_wnear_account_set(owner_id: &AccountId, wnear_account_id: Option<&Ac
         .field_opt("wnear_account_id", wnear_account_id)
         .emit();
 }
+
+pub fn emit_platform_storage_funded(owner_id: &AccountId, amount: u128, new_balance: u128) {
+    EventBuilder::new(CONTRACT, "platform_storage_funded", owner_id)
+        .field("amount", amount)
+        .field("new_balance", new_balance)
+        .emit();
+}

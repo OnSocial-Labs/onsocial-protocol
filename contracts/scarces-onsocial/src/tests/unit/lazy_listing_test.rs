@@ -33,9 +33,7 @@ fn make_lazy_listing_params(price: u128) -> LazyListing {
 }
 
 fn setup_contract() -> Contract {
-    let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
-    contract
+    new_contract()
 }
 
 // --- create_lazy_listing ---

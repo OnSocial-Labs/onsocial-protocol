@@ -6,9 +6,7 @@ use near_sdk::testing_env;
 // --- Helpers ---
 
 fn setup_contract() -> Contract {
-    let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
-    contract
+    new_contract()
 }
 
 fn create_listing_with_expiry(contract: &mut Contract, expires_at: Option<u64>) -> String {

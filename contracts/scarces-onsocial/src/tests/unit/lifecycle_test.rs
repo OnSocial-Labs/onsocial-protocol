@@ -11,7 +11,6 @@ fn setup_with_token(
     max_redeems: Option<u32>,
 ) -> (Contract, String) {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "col".to_string(),

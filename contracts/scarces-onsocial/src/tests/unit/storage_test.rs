@@ -28,6 +28,9 @@ fn tier3_user_balance_covers_storage() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
 
+    // Drain platform pool to force Tier 3 fallback
+    contract.platform_storage_balance = 0;
+
     // Seed user balance (enough for 100 bytes)
     contract.user_storage.insert(
         buyer(),
@@ -56,6 +59,9 @@ fn tier4_pending_balance_covers_shortfall() {
     let mut contract = new_contract();
     let byte_cost = storage::storage_byte_cost();
 
+    // Drain platform pool to force Tier 4 fallback
+    contract.platform_storage_balance = 0;
+
     // No user balance, no platform pool
     contract.pending_attached_balance = byte_cost * 50;
 
@@ -77,7 +83,8 @@ fn tier4_pending_balance_covers_shortfall() {
 #[test]
 fn all_tiers_empty_fails() {
     let mut contract = new_contract();
-    // No platform pool, no user balance, no pending balance
+    // Drain platform pool — no user balance, no pending balance
+    contract.platform_storage_balance = 0;
     let err = contract
         .charge_storage_waterfall(&buyer(), 10, None)
         .unwrap_err();

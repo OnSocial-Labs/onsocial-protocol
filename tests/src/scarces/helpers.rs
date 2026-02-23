@@ -116,6 +116,7 @@ pub struct Payout {
 // =============================================================================
 
 /// Deploy the scarces-onsocial contract and call `new` with the given owner.
+/// Attaches 5 NEAR to seed the mandatory platform storage pool.
 pub async fn deploy_scarces(
     worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
     owner: &Account,
@@ -124,11 +125,12 @@ pub async fn deploy_scarces(
     let wasm = std::fs::read(&wasm_path)?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    contract
-        .call("new")
+    owner
+        .call(contract.id(), "new")
         .args_json(json!({
             "owner_id": owner.id().to_string(),
         }))
+        .deposit(NearToken::from_near(5))
         .transact()
         .await?
         .into_result()?;
@@ -147,8 +149,8 @@ pub async fn deploy_scarces_with_metadata(
     let wasm = std::fs::read(&wasm_path)?;
     let contract = worker.dev_deploy(&wasm).await?;
 
-    contract
-        .call("new")
+    owner
+        .call(contract.id(), "new")
         .args_json(json!({
             "owner_id": owner.id().to_string(),
             "contract_metadata": {
@@ -157,6 +159,7 @@ pub async fn deploy_scarces_with_metadata(
                 "symbol": symbol,
             }
         }))
+        .deposit(NearToken::from_near(5))
         .transact()
         .await?
         .into_result()?;
@@ -1730,4 +1733,37 @@ pub async fn get_platform_storage_balance(contract: &Contract) -> Result<String>
     let result = contract.view("get_platform_storage_balance").await?;
     let balance: String = serde_json::from_slice(&result.result)?;
     Ok(balance)
+}
+
+/// Fund platform storage pool (owner-only, payable).
+pub async fn fund_platform_storage(
+    contract: &Contract,
+    owner: &Account,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    owner
+        .call(contract.id(), "fund_platform_storage")
+        .deposit(deposit)
+        .transact()
+        .await
+        .map_err(Into::into)
+}
+
+/// Withdraw from platform storage pool (dispatched via execute).
+pub async fn withdraw_platform_storage(
+    contract: &Contract,
+    caller: &Account,
+    amount: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "withdraw_platform_storage",
+            "amount": amount,
+        }),
+        deposit,
+    )
+    .await
 }

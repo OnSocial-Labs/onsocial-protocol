@@ -32,8 +32,6 @@ fn minimal_config(id: &str) -> CollectionConfig {
 #[test]
 fn create_collection_happy_path() {
     let mut contract = new_contract();
-    // Fund platform pool to cover storage
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000; // 10 NEAR
 
     contract
         .create_collection(&creator(), minimal_config("event-2026"))
@@ -49,7 +47,6 @@ fn create_collection_happy_path() {
 #[test]
 fn create_collection_duplicate_id_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     contract
         .create_collection(&creator(), minimal_config("dup"))
@@ -202,7 +199,6 @@ fn create_collection_zero_max_per_wallet_fails() {
 #[test]
 fn collection_tracked_by_creator() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     contract
         .create_collection(&creator(), minimal_config("c1"))
@@ -221,7 +217,6 @@ fn collection_tracked_by_creator() {
 #[test]
 fn pause_and_resume_collection() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     contract
         .create_collection(&creator(), minimal_config("pausable"))
@@ -241,7 +236,6 @@ fn pause_and_resume_collection() {
 #[test]
 fn pause_wrong_creator_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     contract
         .create_collection(&creator(), minimal_config("owned"))

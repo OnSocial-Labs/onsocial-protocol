@@ -103,7 +103,6 @@ fn setup_collection(contract: &mut Contract, price: u128) -> String {
 #[test]
 fn max_price_collection_allows_at_price() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let price = 1_000u128;
     let col = setup_collection(&mut contract, price);
 
@@ -123,7 +122,6 @@ fn max_price_collection_allows_at_price() {
 #[test]
 fn max_price_collection_rejects_over_price() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let price = 1_000u128;
     let col = setup_collection(&mut contract, price);
 
@@ -147,7 +145,6 @@ fn max_price_collection_rejects_over_price() {
 #[test]
 fn set_spending_cap_via_execute() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     // Deposit some balance first
     testing_env!(context_with_deposit(buyer(), 100_000).build());
@@ -170,7 +167,6 @@ fn set_spending_cap_via_execute() {
 #[test]
 fn clear_spending_cap_via_execute() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     // Set a cap directly
     contract.user_storage.insert(
@@ -264,7 +260,6 @@ fn draw_user_balance_no_cap_draws_all() {
 #[test]
 fn spending_cap_allows_purchase_within_cap() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let price = 5_000u128;
     let tid = setup_listed_scarce(&mut contract, price);
 
@@ -293,7 +288,6 @@ fn spending_cap_allows_purchase_within_cap() {
 #[test]
 fn spending_cap_blocks_purchase_exceeding_cap() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let price = 5_000u128;
     let tid = setup_listed_scarce(&mut contract, price);
 
@@ -324,7 +318,6 @@ fn spending_cap_blocks_purchase_exceeding_cap() {
 #[test]
 fn spending_cap_does_not_affect_direct_deposit() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let price = 5_000u128;
     let tid = setup_listed_scarce(&mut contract, price);
 
@@ -360,7 +353,6 @@ fn spending_cap_does_not_affect_direct_deposit() {
 #[test]
 fn spending_cap_with_exact_price_succeeds() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     let price = 5_000u128;
     let tid = setup_listed_scarce(&mut contract, price);
 

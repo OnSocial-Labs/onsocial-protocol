@@ -30,7 +30,7 @@ impl Contract {
         let remaining = self.platform_storage_balance - amount.0;
         if remaining < PLATFORM_STORAGE_MIN_RESERVE {
             return Err(MarketplaceError::InvalidInput(format!(
-                "Must keep at least {} yoctoNEAR (10 NEAR) as reserve. Max withdrawable: {}",
+                "Must keep at least {} yoctoNEAR (5 NEAR) as reserve. Max withdrawable: {}",
                 PLATFORM_STORAGE_MIN_RESERVE,
                 self.platform_storage_balance
                     .saturating_sub(PLATFORM_STORAGE_MIN_RESERVE),

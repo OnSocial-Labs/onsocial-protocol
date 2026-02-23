@@ -7,9 +7,7 @@ use std::collections::HashMap;
 // --- Helpers ---
 
 fn setup_contract() -> Contract {
-    let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
-    contract
+    new_contract()
 }
 
 fn default_metadata() -> scarce::types::TokenMetadata {

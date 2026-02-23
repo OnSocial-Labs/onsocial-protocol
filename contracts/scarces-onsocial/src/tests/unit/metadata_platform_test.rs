@@ -6,9 +6,7 @@ use near_sdk::testing_env;
 // --- Helpers ---
 
 fn setup_contract() -> Contract {
-    let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
-    contract
+    new_contract()
 }
 
 // ===== nft_metadata =====
@@ -82,10 +80,10 @@ fn get_fee_recipient_after_change() {
 fn get_platform_storage_balance_returns_value() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
-    // We set it to 10 NEAR in setup
+    // Init seeds 5 NEAR
     assert_eq!(
         contract.get_platform_storage_balance().0,
-        10_000_000_000_000_000_000_000_000
+        5_000_000_000_000_000_000_000_000
     );
 }
 
@@ -112,7 +110,20 @@ fn withdraw_platform_storage_exceeds_balance_fails() {
 #[test]
 fn withdraw_platform_storage_below_reserve_fails() {
     let mut contract = setup_contract();
-    // Platform balance = 10 NEAR, reserve = 10 NEAR, so withdrawing anything fails
+    // Platform balance = 15 NEAR, reserve = 5 NEAR, max withdrawable = 10 NEAR
+    // Requesting 11 NEAR should fail
+    contract.platform_storage_balance = 15_000_000_000_000_000_000_000_000;
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    let result = contract.withdraw_platform_storage(&owner(), U128(11_000_000_000_000_000_000_000_000));
+    assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
+}
+
+#[test]
+fn withdraw_platform_storage_at_reserve_boundary_fails() {
+    let mut contract = setup_contract();
+    // Platform balance = 5 NEAR (exactly the reserve), any withdrawal fails
+    contract.platform_storage_balance = 5_000_000_000_000_000_000_000_000;
     testing_env!(context_with_deposit(owner(), 1).build());
 
     let result = contract.withdraw_platform_storage(&owner(), U128(1));
@@ -132,4 +143,44 @@ fn withdraw_platform_storage_happy() {
         contract.platform_storage_balance,
         20_000_000_000_000_000_000_000_000
     );
+}
+
+// ===== fund_platform_storage =====
+
+#[test]
+fn fund_platform_storage_happy() {
+    let mut contract = new_contract();
+    // Init seeds 5 NEAR; fund another 5 NEAR
+    testing_env!(context_with_deposit(owner(), 5_000_000_000_000_000_000_000_000).build());
+    let result = contract.fund_platform_storage();
+    assert!(result.is_ok());
+    assert_eq!(contract.platform_storage_balance, 10_000_000_000_000_000_000_000_000);
+}
+
+#[test]
+fn fund_platform_storage_accumulates() {
+    let mut contract = new_contract();
+    // Init seeds 5 NEAR; fund another 2 NEAR
+    testing_env!(context_with_deposit(owner(), 2_000_000_000_000_000_000_000_000).build());
+    let result = contract.fund_platform_storage();
+    assert!(result.is_ok());
+    assert_eq!(contract.platform_storage_balance, 7_000_000_000_000_000_000_000_000);
+}
+
+#[test]
+fn fund_platform_storage_non_owner_fails() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());
+
+    let result = contract.fund_platform_storage();
+    assert!(matches!(result, Err(MarketplaceError::Unauthorized(_))));
+}
+
+#[test]
+fn fund_platform_storage_zero_deposit_fails() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(owner(), 0).build());
+
+    let result = contract.fund_platform_storage();
+    assert!(matches!(result, Err(MarketplaceError::InsufficientDeposit(_))));
 }

@@ -6,9 +6,7 @@ use near_sdk::testing_env;
 // --- Helpers ---
 
 fn setup_contract() -> Contract {
-    let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
-    contract
+    new_contract()
 }
 
 fn minimal_config(id: &str) -> CollectionConfig {

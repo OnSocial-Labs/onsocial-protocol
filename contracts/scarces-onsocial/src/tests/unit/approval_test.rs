@@ -5,9 +5,7 @@ use near_sdk::testing_env;
 // --- Helpers ---
 
 fn setup_contract() -> Contract {
-    let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
-    contract
+    new_contract()
 }
 
 fn mint_token_via_execute(contract: &mut Contract, token_owner: &AccountId) -> String {

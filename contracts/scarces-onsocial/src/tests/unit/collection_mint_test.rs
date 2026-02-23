@@ -30,7 +30,6 @@ fn mint_config(id: &str, supply: u32, mint_mode: MintMode) -> CollectionConfig {
 
 fn setup_with_collection(supply: u32, mint_mode: MintMode) -> Contract {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     contract
         .create_collection(&creator(), mint_config("col", supply, mint_mode))
         .unwrap();

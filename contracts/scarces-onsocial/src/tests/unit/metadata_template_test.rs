@@ -4,7 +4,6 @@ use near_sdk::json_types::U128;
 
 fn setup_contract_with_collection(template: &str) -> Contract {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "col-1".to_string(),

@@ -1,526 +1,271 @@
-# Skarces - Scarce by Design
+# scarces-onsocial
 
-# NFT Marketplace Contract (scarces-onsocial)
+NFT marketplace and minting contract for the OnSocial protocol. Supports standalone mints, lazy collections, fixed-price sales, auctions, offers, and gasless execution via `onsocial-auth`.
 
-A fully-featured NFT marketplace smart contract for NEAR Protocol that enables users to buy and sell Non-Fungible Tokens (NFTs) with support for royalty payments, storage management, and comprehensive enumeration.
+## Standards
+
+| Standard | Version | Purpose |
+|----------|---------|---------|
+| NEP-171  | 1.2.0   | Non-fungible token core |
+| NEP-177  | 2.0.0   | Token metadata |
+| NEP-178  | 1.0.0   | Approval management |
+| NEP-181  | 1.0.0   | Token enumeration |
+| NEP-199  | 2.1.0   | Royalties / payouts |
+| NEP-297  | 1.0.0   | Event standard |
 
 ## Features
 
-##```rust
-// Event structure (Borsh-serialized, then base64-encoded)
-pub struct MarketplaceEvent {
-    pub evt_standard: String,      // "onsocial" (unified across all OnSocial contracts)
-    pub version: String,             // "1.0.0"
-    pub evt_type: String,            // Event type (e.g., "nft_list", "nft_purchase")
-    pub evt_id: String,              // Unique event identifier
-    pub log_index: u32,              // Log index within transaction
-    pub block_height: u64,           // Block height
-    pub timestamp: u64,              // Block timestamp
-    pub data: MarketplaceEventData,  // Event-specific data
-}
-```ionality
-- **List NFTs for Sale**: Put your NFTs up for sale at a fixed price
-- **Purchase NFTs**: Buy listed NFTs with automatic royalty distribution
-- **Update Listings**: Change the price of your listed NFTs
-- **Remove Listings**: Delist your NFTs from the marketplace
-- **Auto-listing**: List NFTs directly when approving the marketplace (NEP-178)
+- **Standalone minting** — `QuickMint` creates a one-off NFT with metadata and optional royalties
+- **Lazy collections** — Creator defines supply, price, timing; buyers mint on purchase
+- **Fixed-price sales** — List native scarces with optional expiry
+- **Auctions** — Reserve price, anti-snipe extension, buy-now support
+- **Offers** — Per-token and per-collection offers with expiry
+- **Lazy listings** — Off-chain metadata, minted on first purchase
+- **Token lifecycle** — Renewable, revocable, redeemable, burnable, refundable tokens
+- **App pools** — Per-app storage sponsorship with moderators and spending caps
+- **Gasless auth** — All actions routed through `execute()` with NEAR Intents support
+- **Configurable fees** — Platform + app pool fee split in basis points
 
-### 💰 Storage Management
-- **Deposit-based Model**: Pre-deposit storage to cover listing costs (~0.01 NEAR per sale)
-- **Withdraw Excess**: Reclaim unused storage deposits
-- **Transparent Costs**: Query minimum balance and your current storage balance
+## Build
 
-### 🎨 NFT Standards Support
-- **NEP-171**: Core NFT standard compliance
-- **NEP-177**: NFT metadata queries for displaying token information
-- **NEP-178**: Approval management for secure transfers
-- **NEP-181**: NFT enumeration for browsing collections
-- **NEP-199**: Automatic royalty distribution to creators
-- **Multi-contract**: Support NFTs from any compatible contract
+```bash
+make build-contract-scarces-onsocial
+```
 
-### 🔍 Comprehensive Queries
-- Get sales by owner, NFT contract, or specific token
-- Query NFT metadata and contract information
-- Browse NFT collections with pagination
-- Paginated results for efficient data fetching
-- Supply statistics and analytics
-- Standardized events for indexers and explorers
+## Test
+
+```bash
+# Unit tests
+make test-unit-contract-scarces-onsocial
+
+# Integration tests
+make test-integration-contract-scarces-onsocial
+```
+
+## Deploy
+
+```bash
+near deploy <account> ./target/near/scarces_onsocial/scarces_onsocial.wasm
+```
+
+## Initialize
+
+```bash
+near call <contract> new '{"owner_id": "owner.near"}' \
+  --accountId <deployer> --deposit 5
+```
+
+Requires 5 NEAR minimum deposit to seed the platform storage pool.
 
 ## Architecture
 
-```
-scarces-onsocial/
-├── src/
-│   ├── lib.rs           # Contract state, data structures, initialization
-│   ├── storage.rs       # Storage deposit/withdrawal management
-│   ├── sale.rs          # Listing, purchasing, price updates
-│   ├── sale_views.rs    # Marketplace view/enumeration methods
-│   ├── nft_callbacks.rs # NEP-178 approval callbacks
-│   ├── nft_views.rs     # NEP-177/181 NFT metadata & enumeration
-│   ├── events.rs        # Borsh-encoded event emission (onsocial standard)
-│   ├── internal.rs      # Internal helper functions
-│   └── external.rs      # External contract interfaces
-└── Cargo.toml
-```
-
-## Usage
-
-### Initialize the Contract
-
-```bash
-near call scarces.near new '{"owner_id": "owner.near"}' --accountId owner.near
-```
-
-### Storage Management
-
-Before listing NFTs, deposit storage:
-
-```bash
-# Deposit storage for 1 listing (0.01 NEAR)
-near call scarces.near storage_deposit '' \
-  --accountId seller.near \
-  --deposit 0.01
-
-# Deposit storage for 10 listings
-near call scarces.near storage_deposit '' \
-  --accountId seller.near \
-  --deposit 0.1
-
-# Check your storage balance
-near view scarces.near storage_balance_of '{"account_id": "seller.near"}'
-
-# Withdraw excess storage
-near call scarces.near storage_withdraw '' \
-  --accountId seller.near
-```
-
-### List an NFT
-
-**Method 1: Two-step process (Approve + List)**
-
-```bash
-# Step 1: Approve the marketplace on the NFT contract
-near call nft.near nft_approve '{
-  "token_id": "token-1",
-  "account_id": "scarces.near"
-}' --accountId seller.near --deposit 0.01
-
-# Step 2: List on the marketplace
-near call scarces.near list_nft_for_sale '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1",
-  "approval_id": 0,
-  "sale_conditions": "1000000000000000000000000"
-}' --accountId seller.near --depositYocto 1
-```
-
-**Method 2: Auto-list via approval message**
-
-```bash
-# Approve and list in one call
-near call nft.near nft_approve '{
-  "token_id": "token-1",
-  "account_id": "scarces.near",
-  "msg": "{\"sale_conditions\": \"1000000000000000000000000\"}"
-}' --accountId seller.near --deposit 0.01
-```
-
-### Purchase an NFT
-
-```bash
-# Buy an NFT (attach the sale price)
-near call scarces.near offer '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1"
-}' --accountId buyer.near --deposit 1
-```
-
-The marketplace will:
-1. Transfer the NFT to the buyer
-2. Distribute royalties to creators
-3. Pay the seller
-4. Refund any excess deposit
-
-### Update Listing Price
-
-```bash
-near call scarces.near update_price '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1",
-  "price": "2000000000000000000000000"
-}' --accountId seller.near --depositYocto 1
-```
-
-### Remove a Listing
-
-```bash
-near call scarces.near remove_sale '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1"
-}' --accountId seller.near --depositYocto 1
-```
-
-### Query Sales
-
-```bash
-# Get a specific sale
-near view scarces.near get_sale '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1"
-}'
-
-# Get all sales (paginated)
-near view scarces.near get_sales '{
-  "from_index": 0,
-  "limit": 10
-}'
-
-# Get sales by owner
-near view scarces.near get_sales_by_owner_id '{
-  "account_id": "seller.near",
-  "from_index": 0,
-  "limit": 10
-}'
-
-# Get sales by NFT contract
-near view scarces.near get_sales_by_nft_contract_id '{
-  "nft_contract_id": "nft.near",
-  "from_index": 0,
-  "limit": 10
-}'
-
-# Get supply statistics
-near view scarces.near get_supply_sales '{}'
-near view scarces.near get_supply_by_owner_id '{"account_id": "seller.near"}'
-near view scarces.near get_supply_by_nft_contract_id '{"nft_contract_id": "nft.near"}'
-```
-
-### Query NFT Metadata (NEP-177)
-
-```bash
-# Get NFT token with metadata
-near view scarces.near get_nft_token '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1"
-}'
-
-# Get NFT contract metadata
-near view scarces.near get_nft_contract_metadata '{
-  "nft_contract_id": "nft.near"
-}'
-
-# Get sale with NFT metadata combined
-near view scarces.near get_sale_with_nft_metadata '{
-  "nft_contract_id": "nft.near",
-  "token_id": "token-1"
-}'
-```
-
-### Browse NFT Collections (NEP-181)
-
-```bash
-# Get all NFTs from a collection
-near view scarces.near get_nft_tokens '{
-  "nft_contract_id": "nft.near",
-  "from_index": "0",
-  "limit": 10
-}'
-
-# Get NFTs owned by an account
-near view scarces.near get_nft_tokens_for_owner '{
-  "nft_contract_id": "nft.near",
-  "account_id": "seller.near",
-  "from_index": "0",
-  "limit": 10
-}'
-
-# Get total supply of NFTs
-near view scarces.near get_nft_total_supply '{
-  "nft_contract_id": "nft.near"
-}'
-
-# Get supply for an owner
-near view scarces.near get_nft_supply_for_owner '{
-  "nft_contract_id": "nft.near",
-  "account_id": "seller.near"
-}'
-```
-
-## Data Structures
-
-### Sale Object
-
-```rust
-pub struct Sale {
-    pub owner_id: AccountId,        // Who listed the NFT
-    pub approval_id: u64,            // Approval ID from NFT contract
-    pub nft_contract_id: AccountId,  // Which NFT contract
-    pub token_id: String,            // Specific token ID
-    pub sale_conditions: U128,       // Price in yoctoNEAR
-}
-```
-
-### Payout Object (from NFT contract)
-
-```rust
-pub struct Payout {
-    pub payout: HashMap<AccountId, U128>, // Beneficiary -> Amount
-}
-```
-
-### Token Metadata (NEP-177)
-
-```rust
-pub struct TokenMetadata {
-    pub title: Option<String>,
-    pub description: Option<String>,
-    pub media: Option<String>,
-    pub media_hash: Option<String>,
-    pub copies: Option<u64>,
-    pub issued_at: Option<u64>,
-    pub expires_at: Option<u64>,
-    pub starts_at: Option<u64>,
-    pub updated_at: Option<u64>,
-    pub extra: Option<String>,
-    pub reference: Option<String>,
-    pub reference_hash: Option<String>,
-}
-```
-
-## Events (Substreams-Optimized)
-
-The marketplace emits Borsh-encoded events optimized for Substreams indexing. Events are serialized using Borsh and base64-encoded with the prefix `EVENT:`.
-
-### Event Format
-
-```rust
-// Event structure (Borsh-serialized, then base64-encoded)
-pub struct MarketplaceEvent {
-    pub evt_standard: String,      // "onsocial" (unified across all OnSocial contracts)
-    pub version: String,             // "1.0.0"
-    pub evt_type: String,            // Event type (e.g., "nft_list", "nft_purchase")
-    pub evt_id: String,              // Unique event ID
-    pub tx_hash: String,             // Transaction hash
-    pub log_index: u32,              // Log index within transaction
-    pub block_height: u64,           // Block height
-    pub timestamp: u64,              // Block timestamp
-    pub data: MarketplaceEventData,  // Event-specific data
-}
-```
-
-### Event Types
-
-**nft_list** - Emitted when NFTs are listed for sale
-```
-Log format: EVENT:{base64_encoded_borsh_data}
+All state-changing operations go through a single entry point:
 
 ```
-Decoded structure:
-{
-  evt_standard: "onsocial",
-  version: "1.0.0",
-  evt_type: "nft_list",
-  evt_id: "nft_list-seller.near-12345678-1234567890000-0",
-  log_index: 0,
-  block_height: 12345678,
-  timestamp: 1234567890000,
-  data: NftList {
-    owner_id: "seller.near",
-    nft_contract_id: "nft.near",
-    token_ids: ["token-1", "token-2"],
-    prices: ["1000000000000000000000000", "2000000000000000000000000"]
-  }
-}
+execute(Request { target_account, action, auth, options })
 ```
 
-**nft_purchase** - Emitted when an NFT is successfully purchased
-```
-Decoded structure:
-{
-  evt_standard: "onsocial",
-  version: "1.0.0",
-  evt_type: "nft_purchase",
-  evt_id: "nft_purchase-buyer.near-12345678-1234567890000-0",
-  tx_hash: "tx:aGFzaAo=",
-  log_index: 0,
-  block_height: 12345678,
-  timestamp: 1234567890000,
-  data: NftPurchase {
-    buyer_id: "buyer.near",
-    seller_id: "seller.near",
-    nft_contract_id: "nft.near",
-    token_id: "token-1",
-    price: "1000000000000000000000000"
-  }
-}
-```
-```
+The `action` enum is dispatched internally. Auth supports direct calls, signed payloads, and NEAR Intents executors.
 
-**Other Event Types:**
-- `nft_delist` - When NFT is removed from sale
-- `nft_update_price` - When listing price is changed
-- `nft_purchase_failed` - When purchase attempt fails
-- `storage_deposit` - When storage is deposited
-- `storage_withdraw` - When storage is withdrawn
+## API
 
-### Why Borsh Encoding?
+### Entry Point
 
-**Borsh binary encoding provides optimal Substreams performance:**
+| Method | Description |
+|--------|-------------|
+| `execute(request)` | Single entry point for all actions (see Action table below) |
 
-- **Gas efficient**: ~1,900 gas per event emission
-- **Fast parsing**: Rust Substreams modules parse Borsh directly (zero-copy deserialization)
-- **Compact logs**: Binary format is 40-60% smaller than JSON
-- **Type-safe**: Compile-time schema validation
-- **Consistent**: Matches core-onsocial contract architecture
+### Actions — Scarce Lifecycle
 
-### Event Fields
+| Action | Description |
+|--------|-------------|
+| `QuickMint` | Mint a standalone NFT with metadata and optional royalties |
+| `TransferScarce` | Transfer a token to another account |
+| `BatchTransfer` | Transfer multiple tokens in one call |
+| `ApproveScarce` | Approve an account for a token |
+| `RevokeScarce` | Revoke approval for one account |
+| `RevokeAllScarce` | Revoke all approvals on a token |
+| `BurnScarce` | Permanently burn a token |
+| `RenewToken` | Extend a renewable token's expiry |
+| `RevokeToken` | Soft-revoke a collection token |
+| `RedeemToken` | Mark a token as redeemed |
+| `ClaimRefund` | Claim refund for a cancelled collection token |
 
-All events include these Substreams-compatible fields:
+### Actions — Collections
 
-- **`evt_id`**: Unique event identifier: `{event_type}-{account}-{block_height}-{timestamp}-{log_index}`
-- **`log_index`**: Sequential index of the event within the transaction
-- **`block_height`**: Block number when event was emitted
-- **`timestamp`**: Block timestamp in nanoseconds
+| Action | Description |
+|--------|-------------|
+| `CreateCollection` | Create a lazy mint collection |
+| `UpdateCollectionPrice` | Update mint price |
+| `UpdateCollectionTiming` | Update start/end time |
+| `MintFromCollection` | Creator-mint tokens |
+| `AirdropFromCollection` | Airdrop to multiple accounts |
+| `DeleteCollection` | Delete an unminted collection |
+| `PauseCollection` / `ResumeCollection` | Toggle minting |
+| `SetAllowlist` / `RemoveFromAllowlist` | Manage allowlist |
+| `SetCollectionMetadata` | Update collection metadata |
+| `SetCollectionAppMetadata` | Update app-specific metadata |
+| `CancelCollection` | Cancel with refund pool |
+| `WithdrawUnclaimedRefunds` | Withdraw unclaimed refunds after deadline |
 
-**Note:** Transaction hash is available in the blockchain receipt data when indexing with Substreams.
+### Actions — Sales & Auctions
 
-### Unified Event Standard
+| Action | Description |
+|--------|-------------|
+| `ListNativeScarce` | List a token for fixed-price sale |
+| `DelistNativeScarce` | Remove from sale |
+| `UpdatePrice` | Update listing price |
+| `PurchaseNativeScarce` | Buy a listed token |
+| `ListNativeScarceAuction` | Create an auction |
+| `PlaceBid` | Bid on an auction |
+| `SettleAuction` | Finalize ended auction |
+| `CancelAuction` | Cancel an auction |
 
-All OnSocial Protocol contracts use `evt_standard: "onsocial"` for consistency:
-- **Social contract**: Events like `set`, `delete`, `follow`
-- **Marketplace contract**: Events like `nft_list`, `nft_purchase`
-- **Future contracts**: Tokens, DAO, etc. will use the same standard
+### Actions — Offers
 
-This unified approach simplifies Substreams filtering and indexing across the entire protocol.
+| Action | Description |
+|--------|-------------|
+| `MakeOffer` | Make an offer on a token |
+| `AcceptOffer` | Accept a token offer |
+| `CancelOffer` | Cancel own token offer |
+| `MakeCollectionOffer` | Make an offer on a collection |
+| `AcceptCollectionOffer` | Accept a collection offer |
+| `CancelCollectionOffer` | Cancel own collection offer |
 
-### Substreams Integration
+### Actions — Lazy Listings
 
-```rust
-// Example Substreams Rust module for parsing ALL OnSocial events
-use substreams_near::pb::near::Block;
-use borsh::BorshDeserialize;
+| Action | Description |
+|--------|-------------|
+| `CreateLazyListing` | Create an off-chain metadata listing |
+| `PurchaseLazyListing` | Buy and mint a lazy listing |
+| `UpdateLazyListingPrice` | Update listing price |
+| `UpdateLazyListingExpiry` | Update listing expiry |
+| `CancelLazyListing` | Cancel a lazy listing |
 
-#[substreams::handlers::map]
-pub fn map_onsocial_events(block: Block) -> Result<Events, Error> {
-    let mut marketplace_events = vec![];
-    let mut social_events = vec![];
-    
-    for chunk in block.shards {
-        for receipt in chunk.receipt_execution_outcomes {
-            for log in receipt.execution_outcome.logs {
-                if log.starts_with("EVENT:") {
-                    let bytes = base64::decode(&log[6..])?;
-                    
-                    // Try to parse as marketplace event
-                    if let Ok(event) = MarketplaceEvent::try_from_slice(&bytes) {
-                        if event.evt_standard == "onsocial" {
-                            marketplace_events.push(event);
-                        }
-                        continue;
-                    }
-                    
-                    // Try to parse as social event
-                    if let Ok(event) = SocialEvent::try_from_slice(&bytes) {
-                        if event.evt_standard == "onsocial" {
-                            social_events.push(event);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    Ok(Events { marketplace_events, social_events })
-}
-```
+### Actions — Payments & Storage
 
-### Hash Function
+| Action | Description |
+|--------|-------------|
+| `PurchaseFromCollection` | Buy from a collection |
+| `StorageDeposit` | Deposit storage for an account |
+| `StorageWithdraw` | Withdraw excess storage |
+| `SetSpendingCap` | Set prepaid balance spending cap |
+| `FundAppPool` | Fund an app pool |
+| `WithdrawAppPool` | Withdraw from app pool |
+| `WithdrawPlatformStorage` | Owner withdraw from platform pool |
+| `RegisterApp` | Register an app with config |
 
-The contract uses **xxhash (fast_hash)** for generating event identifiers:
-- **Gas efficient**: Optimized for on-chain use
-- **Consistent**: Matches core-onsocial contract architecture
-- **Non-cryptographic**: Appropriate for event IDs (not security-critical)
-- **Deterministic**: Same inputs always produce same outputs
+### Actions — Admin
 
-## Security Features
+| Action | Description |
+|--------|-------------|
+| `SetAppConfig` | Update app configuration |
+| `TransferAppOwnership` | Transfer app to new owner |
+| `AddModerator` / `RemoveModerator` | Manage app moderators |
+| `BanCollection` / `UnbanCollection` | Moderate collections |
 
-✅ **Approval Verification**: Validates marketplace approval before listing  
-✅ **Owner Verification**: Ensures only token owner can list/remove/update  
-✅ **One yoctoNEAR**: Required for state-changing operations (prevents unauthorized calls)  
-✅ **Payout Validation**: Checks royalty payouts don't exceed sale price  
-✅ **Storage Checks**: Ensures sufficient storage before listing  
-✅ **Promise Validation**: Verifies cross-contract call results  
+### View Methods — Tokens
 
-## Storage Costs
+| Method | Description |
+|--------|-------------|
+| `nft_token(token_id)` | Get token by ID (NEP-171) |
+| `nft_total_supply()` | Total minted tokens |
+| `nft_tokens(from_index, limit)` | Paginated token list |
+| `nft_supply_for_owner(account_id)` | Token count for owner |
+| `nft_tokens_for_owner(account_id, from_index, limit)` | Tokens owned by account |
+| `nft_metadata()` | Contract-level metadata (NEP-177) |
+| `nft_payout(token_id, balance, max_len_payout)` | Royalty payout (NEP-199) |
+| `is_token_valid(token_id)` | Check token not revoked/expired/redeemed |
+| `is_token_revoked(token_id)` | Check revocation status |
+| `is_token_redeemed(token_id)` | Check redemption status |
+| `get_redeem_info(token_id)` | Redeem count and max |
+| `get_token_status(token_id)` | Full token lifecycle status |
 
-- **Per Sale**: ~0.01 NEAR (10^22 yoctoNEAR)
-- **Minimum Deposit**: 0.01 NEAR for 1 listing
-- **Recommended**: Deposit more to avoid frequent deposits
+### View Methods — Collections
 
-## Gas Costs
+| Method | Description |
+|--------|-------------|
+| `get_collection(collection_id)` | Collection details |
+| `get_collection_availability(collection_id)` | Remaining supply |
+| `is_collection_sold_out(collection_id)` | Sold out check |
+| `is_collection_mintable(collection_id)` | Active + in window + supply remaining |
+| `get_collection_progress(collection_id)` | Minted / total / remaining / percentage |
+| `get_collections_by_creator(creator_id, from_index, limit)` | Creator's collections |
+| `get_collections_count_by_creator(creator_id)` | Creator collection count |
+| `get_active_collections(from_index, limit)` | Currently mintable collections |
+| `get_total_collections()` | Total collection count |
+| `get_all_collections(from_index, limit)` | Paginated all collections |
 
-- **List NFT**: ~35 TGas (with cross-contract calls)
-- **Purchase NFT**: ~70 TGas (transfer + royalty distribution)
-- **Update/Remove**: ~5 TGas
-- **View Methods**: <1 TGas
-- **Event Emission**: ~2 TGas per event
+### View Methods — Sales & Auctions
 
-## Building
+| Method | Description |
+|--------|-------------|
+| `get_sale(scarce_contract_id, token_id)` | Sale details |
+| `get_supply_sales()` | Total active sales |
+| `get_supply_by_owner_id(account_id)` | Sales count by owner |
+| `get_sales_by_owner_id(account_id, from_index, limit)` | Owner's sales |
+| `get_sales_by_scarce_contract_id(scarce_contract_id, from_index, limit)` | Sales by contract |
+| `get_sales(from_index, limit)` | Paginated all sales |
+| `is_sale_expired(scarce_contract_id, token_id)` | Expiry check |
+| `get_expired_sales(from_index, limit)` | Expired sales list |
+| `get_auction(token_id)` | Auction details |
+| `get_auctions(from_index, limit)` | Paginated auctions |
 
-```bash
-cd contracts/scarces-onsocial
-cargo near build
-```
+### View Methods — Fees & Platform
 
-## Testing
+| Method | Description |
+|--------|-------------|
+| `get_fee_config()` | Current fee configuration |
+| `get_fee_recipient()` | Fee recipient account |
+| `get_platform_storage_balance()` | Platform storage pool balance |
 
-```bash
-cargo test
-```
+### Owner Methods
 
-## Deployment
+| Method | Description |
+|--------|-------------|
+| `transfer_ownership(new_owner)` | Transfer contract ownership (1 yocto) |
+| `set_fee_recipient(account_id)` | Change fee recipient (1 yocto) |
+| `update_fee_config(patch)` | Update fee basis points (1 yocto) |
+| `add_intents_executor(executor)` | Authorize an intents executor |
+| `remove_intents_executor(executor)` | Remove an intents executor |
+| `update_contract()` | Deploy new WASM (self-upgrade) |
 
-```bash
-# Deploy to testnet
-near deploy scarces.testnet \
-  --wasmFile target/near/scarces_onsocial.wasm \
-  --initFunction new \
-  --initArgs '{"owner_id": "owner.testnet"}'
-```
+## Fee Structure
 
-## NEP Standards Compliance
+| Parameter | Default | Range |
+|-----------|---------|-------|
+| Total fee | 200 bps (2%) | 100–300 bps |
+| App pool fee | 50 bps | 25–100 bps |
+| Platform storage fee | 50 bps | 25–100 bps |
+| Max royalty | 5000 bps (50%) | — |
 
-| Standard | Description | Status |
-|----------|-------------|--------|
-| NEP-171 | Core NFT | ✅ Fully Supported |
-| NEP-177 | NFT Metadata | ✅ Query Support |
-| NEP-178 | Approval Management | ✅ Fully Implemented |
-| NEP-181 | NFT Enumeration | ✅ Query Support |
-| NEP-199 | Royalties & Payouts | ✅ Fully Implemented |
+## Constants
 
-## Event System
+| Constant | Value |
+|----------|-------|
+| Max collection supply | 100,000 |
+| Max batch mint | 10 |
+| Max airdrop recipients | 50 |
+| Max batch transfer | 20 |
+| Default refund deadline | 90 days |
+| Min refund deadline | 7 days |
+| Platform storage reserve | 5 NEAR |
+| Max metadata length | 16,384 bytes |
 
-The marketplace uses a custom **"onsocial" event standard** optimized for Substreams indexing:
-- **Format**: Borsh-encoded binary events (not NEP-297 JSON)
-- **Standard**: `evt_standard: "onsocial"` (unified across all OnSocial contracts)
-- **Encoding**: Borsh serialization + base64 with `EVENT:` prefix
-- **Performance**: ~1,900 gas per event, 40-60% smaller logs than JSON
+## Events
 
-## Integration with OnSocial Protocol
+All events follow NEP-297 with `onsocial` standard prefix:
 
-This marketplace is part of the OnSocial Protocol ecosystem and can be used to trade NFTs from:
-- `core-onsocial` (social graph NFTs)
-- Any NEP-171 compatible NFT contract
+- **Token**: `mint`, `transfer`, `burn`, `metadata_update`, `contract_metadata_update`
+- **Scarce**: `list`, `delist`, `purchase`, `price_update`, `renewed`, `revoked`, `redeemed`, `burned`, `approval`, `auto_delist`
+- **Auction**: `created`, `bid`, `settled`, `cancelled`
+- **Collection**: `created`, `purchase`, `mint`, `airdrop`, `cancelled`, `paused`, `resumed`, `deleted`, `banned`, `metadata_update`
+- **Offer**: `made`, `accepted`, `cancelled` (token + collection variants)
+- **Lazy listing**: `created`, `purchased`, `cancelled`
+- **Storage**: `deposit`, `withdraw`, `credit_unused`, `refund`, `prepaid_drawn`, `prepaid_restored`, `spending_cap_set`
+- **App pool**: `register`, `fund`, `withdraw`, `config_update`, `owner_transferred`, `moderator_added`, `moderator_removed`
+- **Contract**: `upgraded`, `owner_transferred`, `fee_recipient_changed`, `fee_config_updated`, `intents_executor_added/removed`
 
 ## License
 
-See [LICENSE.md](../../LICENSE.md)
-
-## Resources
-
-- [NEAR NFT Standards](https://nomicon.io/Standards/Tokens/NonFungibleToken)
-- [NEAR Marketplace Tutorial](https://docs.near.org/tutorials/nfts/marketplace)
-- [OnSocial Protocol Docs](../../README.md)
-
-
-
+See [LICENSE.md](../../LICENSE.md) in repository root.

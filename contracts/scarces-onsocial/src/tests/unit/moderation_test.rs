@@ -15,7 +15,6 @@ fn moderator() -> AccountId {
 
 fn setup_with_app_collection(col_id: &str) -> Contract {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     testing_env!(context(owner()).build());
 
     contract

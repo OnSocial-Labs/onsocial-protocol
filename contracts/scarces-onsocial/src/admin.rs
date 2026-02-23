@@ -3,10 +3,18 @@ use crate::*;
 #[near]
 impl Contract {
     #[init]
+    #[payable]
     pub fn new(
         owner_id: AccountId,
         contract_metadata: Option<external::ScarceContractMetadata>,
     ) -> Self {
+        let deposit = env::attached_deposit().as_yoctonear();
+        assert!(
+            deposit >= PLATFORM_STORAGE_MIN_RESERVE,
+            "Init requires at least {} yoctoNEAR ({} NEAR) to seed the platform storage pool",
+            PLATFORM_STORAGE_MIN_RESERVE,
+            PLATFORM_STORAGE_MIN_RESERVE / 1_000_000_000_000_000_000_000_000,
+        );
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
             fee_recipient: owner_id.clone(),
@@ -23,7 +31,7 @@ impl Contract {
             fee_config: FeeConfig::default(),
             app_pools: LookupMap::new(StorageKey::AppPools),
             app_user_usage: LookupMap::new(StorageKey::AppUserUsage),
-            platform_storage_balance: 0,
+            platform_storage_balance: deposit,
             user_storage: LookupMap::new(StorageKey::UserStorage),
             collection_mint_counts: LookupMap::new(StorageKey::CollectionMintCounts),
             collection_allowlist: LookupMap::new(StorageKey::CollectionAllowlist),
@@ -212,6 +220,21 @@ impl Contract {
         );
         Ok(())
     }
+    #[payable]
+    #[handle_result]
+    pub fn fund_platform_storage(&mut self) -> Result<(), MarketplaceError> {
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        let deposit = env::attached_deposit().as_yoctonear();
+        if deposit == 0 {
+            return Err(MarketplaceError::InsufficientDeposit(
+                "Must attach NEAR to fund platform storage".into(),
+            ));
+        }
+        self.platform_storage_balance += deposit;
+        events::emit_platform_storage_funded(&self.owner_id, deposit, self.platform_storage_balance);
+        Ok(())
+    }
+
     pub fn get_approved_nft_contracts(&self) -> Vec<&AccountId> {
         self.approved_nft_contracts.iter().collect()
     }

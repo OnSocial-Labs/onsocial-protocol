@@ -16,5 +16,8 @@ getrandom = { version = "0.2", features = ["custom"] }
 onsocial-types = { path = "../../crates/onsocial-types" }
 onsocial-auth = { path = "../../crates/onsocial-auth" }
 
+[features]
+sandbox = []
+
 [dev-dependencies]
 near-sdk = { version = "5.24.0", features = ["unit-testing"] }

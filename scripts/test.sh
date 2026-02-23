@@ -131,7 +131,9 @@ test_integration() {
             scarces-onsocial|staking-onsocial|core-onsocial|token-onsocial)
                 echo "Building $module in release mode for integration test..."
                 cd "$BASE_DIR/$module" || { echo -e "${ERROR}Directory $module not found${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
-                cargo near build non-reproducible-wasm || { echo -e "${ERROR}Release build failed for $module${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                local features_flag=""
+                [ "$module" = "scarces-onsocial" ] && features_flag="--features sandbox"
+                cargo near build non-reproducible-wasm $features_flag || { echo -e "${ERROR}Release build failed for $module${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 ;;
             *)

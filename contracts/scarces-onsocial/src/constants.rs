@@ -9,7 +9,7 @@ pub const MAX_TOTAL_FEE_BPS: u16 = 300;
 pub const MIN_TOTAL_FEE_BPS: u16 = 100;
 pub const MIN_POOL_FEE_BPS: u16 = 25;
 pub const MAX_POOL_FEE_BPS: u16 = 100;
-pub const PLATFORM_STORAGE_MIN_RESERVE: u128 = 10_000_000_000_000_000_000_000_000; // 10 NEAR
+pub const PLATFORM_STORAGE_MIN_RESERVE: u128 = 5_000_000_000_000_000_000_000_000; // 5 NEAR
 pub const DEFAULT_APP_MAX_USER_BYTES: u64 = 50_000;
 
 pub const BASIS_POINTS: u16 = 10_000; // 100%
@@ -21,7 +21,10 @@ pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const MAX_COLLECTION_SUPPLY: u32 = 100_000;
 pub const DEFAULT_REFUND_DEADLINE_NS: u64 = 90 * 24 * 60 * 60 * 1_000_000_000;
 // Refund safety invariant: minimum deadline prevents immediate organizer withdrawal before holder claims.
+#[cfg(not(feature = "sandbox"))]
 pub const MIN_REFUND_DEADLINE_NS: u64 = 7 * 24 * 60 * 60 * 1_000_000_000;
+#[cfg(feature = "sandbox")]
+pub const MIN_REFUND_DEADLINE_NS: u64 = 5 * 1_000_000_000; // 5 seconds for integration tests
 pub const MAX_METADATA_LEN: usize = 16_384;
 pub const MAX_BATCH_MINT: u32 = 10;
 pub const MAX_AIRDROP_RECIPIENTS: u32 = 50;

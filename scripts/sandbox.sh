@@ -103,10 +103,29 @@ case "$1" in
   stop)
     echo "Stopping NEAR Sandbox..."
     log_verbose "Running: docker stop/rm near-sandbox"
-    lsof -i :$NEAR_SANDBOX_PORT | grep LISTEN | awk '{print $2}' | xargs -r kill -9 || true
+
+    # Stop and remove the Docker container first (this releases the docker-proxy port binding)
     docker stop near-sandbox 2>/dev/null || true
-    docker rm near-sandbox 2>/dev/null || true
-    echo -e "${SUCCESS}Sandbox stopped successfully${RESET}"
+    docker rm -f near-sandbox 2>/dev/null || true
+
+    # Give the OS a moment to release the port
+    sleep 1
+
+    # Kill any remaining processes still holding the port
+    if lsof -i :"$NEAR_SANDBOX_PORT" -t > /dev/null 2>&1; then
+      echo -e "${WARNING}Port $NEAR_SANDBOX_PORT still in use after container stop, force-killing...${RESET}"
+      lsof -i :"$NEAR_SANDBOX_PORT" -t 2>/dev/null | xargs -r kill -9 || true
+      sleep 1
+    fi
+
+    # Final verification
+    if lsof -i :"$NEAR_SANDBOX_PORT" -t > /dev/null 2>&1; then
+      echo -e "${ERROR}Port $NEAR_SANDBOX_PORT is still in use after cleanup:${RESET}"
+      lsof -i :"$NEAR_SANDBOX_PORT"
+      echo -e "${WARNING}You may need to manually free the port: sudo kill -9 \$(lsof -t -i :$NEAR_SANDBOX_PORT)${RESET}"
+    else
+      echo -e "${SUCCESS}Sandbox stopped and port $NEAR_SANDBOX_PORT is free${RESET}"
+    fi
     ;;
   clean)
     echo "Cleaning NEAR Sandbox..."

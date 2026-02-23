@@ -7,7 +7,6 @@ use near_sdk::testing_env;
 
 fn setup_contract_with_collection(price: u128) -> (Contract, String) {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "col".to_string(),
@@ -91,7 +90,6 @@ fn purchase_nonexistent_collection_fails() {
 #[test]
 fn purchase_creator_only_mode_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "locked".to_string(),
@@ -135,7 +133,6 @@ fn purchase_creator_only_mode_fails() {
 #[test]
 fn purchase_exceeds_supply_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "tiny".to_string(),
@@ -179,7 +176,6 @@ fn purchase_exceeds_supply_fails() {
 #[test]
 fn purchase_exceeds_per_wallet_limit_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "limited".to_string(),
@@ -340,7 +336,6 @@ fn purchase_paused_collection_fails() {
 #[test]
 fn purchase_before_start_without_allowlist_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let future = 2_000_000_000_000_000_000u64;
     let config = CollectionConfig {
@@ -383,7 +378,6 @@ fn purchase_before_start_without_allowlist_fails() {
 #[test]
 fn purchase_before_start_with_allowlist_succeeds() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let future = 2_000_000_000_000_000_000u64;
     let config = CollectionConfig {

@@ -32,3 +32,7 @@ pub mod test_refunds;
 pub mod test_revocation;
 
 pub mod test_app_pools;
+
+pub mod test_approvals;
+
+pub mod test_withdrawals;

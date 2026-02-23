@@ -8,7 +8,6 @@ use near_sdk::testing_env;
 
 /// Standalone token (quick-mint style) for listing tests outside collections.
 fn make_standalone_token(contract: &mut Contract, owner_account: &AccountId) -> String {
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     testing_env!(context(owner_account.clone()).build());
     let metadata = scarce::types::TokenMetadata {
         title: Some("Standalone".into()),
@@ -379,7 +378,6 @@ fn add_then_remove_sale_cleans_indexes() {
 #[test]
 fn list_soulbound_token_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     // Create a soulbound collection
     let config = CollectionConfig {
@@ -425,7 +423,6 @@ fn list_soulbound_token_fails() {
 #[test]
 fn list_revoked_token_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
 
     let config = CollectionConfig {
         collection_id: "rev".to_string(),

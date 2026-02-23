@@ -105,7 +105,7 @@ test-integration-contract-staking-onsocial-no-run: build-docker-contracts ensure
 test-integration-contract-scarces-onsocial-no-run: build-docker-contracts ensure-scripts-executable
 	$(call docker_run_contracts,set -euo pipefail; \
 		cd /code/contracts/scarces-onsocial; \
-		cargo build --release --target wasm32-unknown-unknown; \
+		cargo build --release --target wasm32-unknown-unknown --features sandbox; \
 		cd /code; \
 		cargo test -p onsocial-integration-tests --release --color always --no-run)
 	@echo "✅ Integration tests compiled for contract scarces-onsocial (no-run)"

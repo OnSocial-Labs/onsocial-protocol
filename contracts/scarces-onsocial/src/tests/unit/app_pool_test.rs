@@ -14,7 +14,6 @@ fn moderator() -> AccountId {
 
 fn setup_with_app() -> Contract {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     testing_env!(context(owner()).build());
     contract
         .execute(make_request(Action::RegisterApp {
@@ -33,7 +32,6 @@ fn setup_with_app() -> Contract {
 #[test]
 fn register_app_happy() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     testing_env!(context(owner()).build());
 
     contract
@@ -64,7 +62,6 @@ fn register_app_duplicate_fails() {
 #[test]
 fn register_app_unauthorized_fails() {
     let mut contract = new_contract();
-    contract.platform_storage_balance = 10_000_000_000_000_000_000_000_000;
     testing_env!(context(buyer()).build());
 
     let foreign_app: AccountId = "someone_else.near".parse().unwrap();
