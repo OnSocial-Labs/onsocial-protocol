@@ -1,0 +1,1335 @@
+// =============================================================================
+// Scarces Integration Test Helpers
+// =============================================================================
+// Shared setup, deploy, and call helpers used across all scarces test files.
+//
+// CONVENTIONS:
+// - Every test gets a fresh sandbox via `setup_sandbox()`
+// - `deploy_scarces()` deploys the WASM and calls `new`
+// - Action helpers wrap the `execute` entry point for readability
+// - View helpers provide typed deserialization of common queries
+
+use anyhow::Result;
+use near_workspaces::types::NearToken;
+use near_workspaces::{Account, Contract};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
+use crate::utils::get_wasm_path;
+
+// =============================================================================
+// Re-export sandbox setup so test files only need `use super::helpers::*`
+// =============================================================================
+pub use crate::utils::setup_sandbox as create_sandbox;
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+/// 1 yoctoNEAR — required for owner-gated state-change calls
+pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
+
+/// A generous deposit for storage / minting (0.1 NEAR)
+pub const DEPOSIT_STORAGE: NearToken = NearToken::from_millinear(100);
+
+/// A larger deposit for operations that need more gas (0.5 NEAR)
+pub const DEPOSIT_LARGE: NearToken = NearToken::from_millinear(500);
+
+/// Minimum storage deposit to register (0.01 NEAR)
+pub const DEPOSIT_REGISTER: NearToken = NearToken::from_millinear(10);
+
+// =============================================================================
+// View Structs (mirror contract return types for typed deserialization)
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScarceContractMetadata {
+    pub spec: String,
+    pub name: String,
+    pub symbol: String,
+    pub icon: Option<String>,
+    pub base_uri: Option<String>,
+    pub reference: Option<String>,
+    pub reference_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Token {
+    pub token_id: String,
+    pub owner_id: String,
+    pub metadata: Option<TokenMetadata>,
+    pub approved_account_ids: Option<std::collections::HashMap<String, u64>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenMetadata {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub media: Option<String>,
+    pub media_hash: Option<String>,
+    pub copies: Option<u64>,
+    pub issued_at: Option<u64>,
+    pub expires_at: Option<u64>,
+    pub starts_at: Option<u64>,
+    pub updated_at: Option<u64>,
+    pub extra: Option<String>,
+    pub reference: Option<String>,
+    pub reference_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenStatus {
+    pub token_id: String,
+    pub owner_id: String,
+    pub creator_id: String,
+    pub minter_id: String,
+    pub collection_id: Option<String>,
+    pub metadata: TokenMetadata,
+    pub royalty: Option<std::collections::HashMap<String, u32>>,
+    pub is_valid: bool,
+    pub is_revoked: bool,
+    pub revoked_at: Option<u64>,
+    pub revocation_memo: Option<String>,
+    pub is_expired: bool,
+    pub redeem_count: u32,
+    pub max_redeems: Option<u32>,
+    pub is_fully_redeemed: bool,
+    pub redeemed_at: Option<u64>,
+    pub is_refunded: bool,
+    pub paid_price: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeeConfig {
+    pub total_fee_bps: u16,
+    pub app_pool_fee_bps: u16,
+    pub platform_storage_fee_bps: u16,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Payout {
+    pub payout: std::collections::HashMap<String, String>,
+}
+
+// =============================================================================
+// Deploy & Init
+// =============================================================================
+
+/// Deploy the scarces-onsocial contract and call `new` with the given owner.
+pub async fn deploy_scarces(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    owner: &Account,
+) -> Result<Contract> {
+    let wasm_path = get_wasm_path("scarces-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    contract
+        .call("new")
+        .args_json(json!({
+            "owner_id": owner.id().to_string(),
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    Ok(contract)
+}
+
+/// Deploy with custom contract metadata.
+pub async fn deploy_scarces_with_metadata(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    owner: &Account,
+    name: &str,
+    symbol: &str,
+) -> Result<Contract> {
+    let wasm_path = get_wasm_path("scarces-onsocial");
+    let wasm = std::fs::read(&wasm_path)?;
+    let contract = worker.dev_deploy(&wasm).await?;
+
+    contract
+        .call("new")
+        .args_json(json!({
+            "owner_id": owner.id().to_string(),
+            "contract_metadata": {
+                "spec": "nft-2.0.0",
+                "name": name,
+                "symbol": symbol,
+            }
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    Ok(contract)
+}
+
+// =============================================================================
+// Execute Helper — wraps the single `execute` entry point
+// =============================================================================
+
+/// Call `execute` on the scarces contract as `caller` with the given action JSON.
+/// Attaches `deposit` NEAR. Returns the raw JSON result.
+pub async fn execute_action(
+    contract: &Contract,
+    caller: &Account,
+    action: Value,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = caller
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "action": action,
+            }
+        }))
+        .deposit(deposit)
+        .max_gas()
+        .transact()
+        .await?;
+
+    Ok(result)
+}
+
+/// Same as `execute_action` but with `target_account` set.
+pub async fn execute_action_with_target(
+    contract: &Contract,
+    caller: &Account,
+    action: Value,
+    target_account: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = caller
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": target_account,
+                "action": action,
+            }
+        }))
+        .deposit(deposit)
+        .max_gas()
+        .transact()
+        .await?;
+
+    Ok(result)
+}
+
+// =============================================================================
+// Storage Helpers
+// =============================================================================
+
+/// Deposit storage for `account_id` (or the caller if None).
+pub async fn storage_deposit(
+    contract: &Contract,
+    caller: &Account,
+    account_id: Option<&str>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({ "type": "storage_deposit" });
+    if let Some(id) = account_id {
+        action["account_id"] = json!(id);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+/// View the storage balance of an account.
+pub async fn storage_balance_of(
+    contract: &Contract,
+    account_id: &str,
+) -> Result<String> {
+    let result = contract
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": account_id }))
+        .await?;
+    let balance: String = serde_json::from_slice(&result.result)?;
+    Ok(balance)
+}
+
+// =============================================================================
+// QuickMint Helper
+// =============================================================================
+
+/// Mint a single NFT via QuickMint action. Returns the execute result.
+pub async fn quick_mint(
+    contract: &Contract,
+    caller: &Account,
+    title: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "quick_mint",
+            "metadata": {
+                "title": title,
+            },
+            "transferable": true,
+            "burnable": true,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Mint with full metadata + options.
+pub async fn quick_mint_full(
+    contract: &Contract,
+    caller: &Account,
+    metadata: Value,
+    royalty: Option<Value>,
+    app_id: Option<&str>,
+    transferable: bool,
+    burnable: bool,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "quick_mint",
+        "metadata": metadata,
+        "transferable": transferable,
+        "burnable": burnable,
+    });
+    if let Some(r) = royalty {
+        action["royalty"] = r;
+    }
+    if let Some(app) = app_id {
+        action["app_id"] = json!(app);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+// =============================================================================
+// NFT View Helpers
+// =============================================================================
+
+/// View `nft_token` for a given token_id.
+pub async fn nft_token(contract: &Contract, token_id: &str) -> Result<Option<Token>> {
+    let result = contract
+        .view("nft_token")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let token: Option<Token> = serde_json::from_slice(&result.result)?;
+    Ok(token)
+}
+
+/// View `nft_total_supply`.
+pub async fn nft_total_supply(contract: &Contract) -> Result<String> {
+    let result = contract.view("nft_total_supply").await?;
+    let supply: String = serde_json::from_slice(&result.result)?;
+    Ok(supply)
+}
+
+/// View `nft_supply_for_owner`.
+pub async fn nft_supply_for_owner(contract: &Contract, account_id: &str) -> Result<String> {
+    let result = contract
+        .view("nft_supply_for_owner")
+        .args_json(json!({ "account_id": account_id }))
+        .await?;
+    let supply: String = serde_json::from_slice(&result.result)?;
+    Ok(supply)
+}
+
+/// View `nft_tokens_for_owner`.
+pub async fn nft_tokens_for_owner(
+    contract: &Contract,
+    account_id: &str,
+    from_index: Option<&str>,
+    limit: Option<u64>,
+) -> Result<Vec<Token>> {
+    let mut args = json!({ "account_id": account_id });
+    if let Some(idx) = from_index {
+        args["from_index"] = json!(idx);
+    }
+    if let Some(l) = limit {
+        args["limit"] = json!(l);
+    }
+    let result = contract
+        .view("nft_tokens_for_owner")
+        .args_json(args)
+        .await?;
+    let tokens: Vec<Token> = serde_json::from_slice(&result.result)?;
+    Ok(tokens)
+}
+
+/// View `nft_metadata` (contract-level metadata).
+pub async fn nft_metadata(contract: &Contract) -> Result<ScarceContractMetadata> {
+    let result = contract.view("nft_metadata").await?;
+    let meta: ScarceContractMetadata = serde_json::from_slice(&result.result)?;
+    Ok(meta)
+}
+
+/// View `get_token_status`.
+pub async fn get_token_status(contract: &Contract, token_id: &str) -> Result<Option<TokenStatus>> {
+    let result = contract
+        .view("get_token_status")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let status: Option<TokenStatus> = serde_json::from_slice(&result.result)?;
+    Ok(status)
+}
+
+/// View `get_fee_config`.
+pub async fn get_fee_config(contract: &Contract) -> Result<FeeConfig> {
+    let result = contract.view("get_fee_config").await?;
+    let config: FeeConfig = serde_json::from_slice(&result.result)?;
+    Ok(config)
+}
+
+/// View `get_fee_recipient`.
+pub async fn get_fee_recipient(contract: &Contract) -> Result<String> {
+    let result = contract.view("get_fee_recipient").await?;
+    let recipient: String = serde_json::from_slice(&result.result)?;
+    Ok(recipient)
+}
+
+// =============================================================================
+// Admin View Helpers
+// =============================================================================
+
+/// View `get_owner`.
+pub async fn get_owner(contract: &Contract) -> Result<String> {
+    let result = contract.view("get_owner").await?;
+    let owner: String = serde_json::from_slice(&result.result)?;
+    Ok(owner)
+}
+
+/// View `get_version`.
+pub async fn get_version(contract: &Contract) -> Result<String> {
+    let result = contract.view("get_version").await?;
+    let version: String = serde_json::from_slice(&result.result)?;
+    Ok(version)
+}
+
+/// View `get_approved_nft_contracts`.
+pub async fn get_approved_nft_contracts(contract: &Contract) -> Result<Vec<String>> {
+    let result = contract.view("get_approved_nft_contracts").await?;
+    let contracts: Vec<String> = serde_json::from_slice(&result.result)?;
+    Ok(contracts)
+}
+
+// =============================================================================
+// Collection View Structs
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LazyCollection {
+    pub creator_id: String,
+    pub collection_id: String,
+    pub total_supply: u32,
+    pub minted_count: u32,
+    pub metadata_template: String,
+    pub price_near: String,
+    pub start_price: Option<String>,
+    pub start_time: Option<u64>,
+    pub end_time: Option<u64>,
+    pub created_at: u64,
+    pub app_id: Option<String>,
+    pub royalty: Option<std::collections::HashMap<String, u32>>,
+    pub renewable: bool,
+    pub burnable: bool,
+    pub transferable: bool,
+    pub paused: bool,
+    pub cancelled: bool,
+    pub mint_mode: String,
+    pub max_per_wallet: Option<u32>,
+    pub banned: bool,
+    pub metadata: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionStats {
+    pub collection_id: String,
+    pub creator_id: String,
+    pub total_supply: u32,
+    pub minted_count: u32,
+    pub remaining: u32,
+    pub price_near: String,
+    pub current_price: String,
+    pub total_revenue: String,
+    pub is_active: bool,
+    pub is_sold_out: bool,
+    pub cancelled: bool,
+    pub paused: bool,
+    pub banned: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionProgress {
+    pub minted: u32,
+    pub total: u32,
+    pub remaining: u32,
+    pub percentage: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Sale {
+    pub owner_id: String,
+    pub sale_conditions: String,
+    pub sale_type: Value,
+    pub expires_at: Option<u64>,
+    pub auction: Option<Value>,
+}
+
+// =============================================================================
+// Collection Helpers
+// =============================================================================
+
+/// Create a collection via the execute action.
+pub async fn create_collection(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    total_supply: u32,
+    price_near: &str,
+    metadata_template: Value,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "create_collection",
+            "collection_id": collection_id,
+            "total_supply": total_supply,
+            "metadata_template": metadata_template.to_string(),
+            "price_near": price_near,
+            "transferable": true,
+            "burnable": true,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Mint from collection via execute action (creator mint).
+pub async fn mint_from_collection(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    quantity: u32,
+    receiver_id: Option<&str>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "mint_from_collection",
+        "collection_id": collection_id,
+        "quantity": quantity,
+    });
+    if let Some(recv) = receiver_id {
+        action["receiver_id"] = json!(recv);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+/// Purchase from collection via execute action.
+pub async fn purchase_from_collection(
+    contract: &Contract,
+    buyer: &Account,
+    collection_id: &str,
+    quantity: u32,
+    max_price_per_token: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        buyer,
+        json!({
+            "type": "purchase_from_collection",
+            "collection_id": collection_id,
+            "quantity": quantity,
+            "max_price_per_token": max_price_per_token,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Airdrop from collection.
+pub async fn airdrop_from_collection(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    receivers: Vec<String>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "airdrop_from_collection",
+            "collection_id": collection_id,
+            "receivers": receivers,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// List a native scarce for sale via execute action.
+pub async fn list_native_scarce(
+    contract: &Contract,
+    caller: &Account,
+    token_id: &str,
+    price: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "list_native_scarce",
+            "token_id": token_id,
+            "price": price,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Delist a native scarce from sale.
+pub async fn delist_native_scarce(
+    contract: &Contract,
+    caller: &Account,
+    token_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "delist_native_scarce",
+            "token_id": token_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Purchase a native scarce listing.
+pub async fn purchase_native_scarce(
+    contract: &Contract,
+    buyer: &Account,
+    token_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        buyer,
+        json!({
+            "type": "purchase_native_scarce",
+            "token_id": token_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Update the price of a listed native scarce.
+pub async fn update_native_price(
+    contract: &Contract,
+    caller: &Account,
+    token_id: &str,
+    new_price: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    // update_price uses scarce_contract_id = the contract itself for native scarces
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "update_price",
+            "scarce_contract_id": contract.id().to_string(),
+            "token_id": token_id,
+            "price": new_price,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// Collection View Helpers
+// =============================================================================
+
+/// View `get_collection`.
+pub async fn get_collection(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<Option<LazyCollection>> {
+    let result = contract
+        .view("get_collection")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let col: Option<LazyCollection> = serde_json::from_slice(&result.result)?;
+    Ok(col)
+}
+
+/// View `get_collection_availability`.
+pub async fn get_collection_availability(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<u32> {
+    let result = contract
+        .view("get_collection_availability")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let avail: u32 = serde_json::from_slice(&result.result)?;
+    Ok(avail)
+}
+
+/// View `is_collection_sold_out`.
+pub async fn is_collection_sold_out(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<bool> {
+    let result = contract
+        .view("is_collection_sold_out")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let sold_out: bool = serde_json::from_slice(&result.result)?;
+    Ok(sold_out)
+}
+
+/// View `is_collection_mintable`.
+pub async fn is_collection_mintable(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<bool> {
+    let result = contract
+        .view("is_collection_mintable")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let mintable: bool = serde_json::from_slice(&result.result)?;
+    Ok(mintable)
+}
+
+/// View `get_collection_progress`.
+pub async fn get_collection_progress(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<Option<CollectionProgress>> {
+    let result = contract
+        .view("get_collection_progress")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let progress: Option<CollectionProgress> = serde_json::from_slice(&result.result)?;
+    Ok(progress)
+}
+
+/// View `get_total_collections`.
+pub async fn get_total_collections(contract: &Contract) -> Result<u64> {
+    let result = contract.view("get_total_collections").await?;
+    let count: u64 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+/// View `get_collections_by_creator`.
+pub async fn get_collections_by_creator(
+    contract: &Contract,
+    creator_id: &str,
+) -> Result<Vec<LazyCollection>> {
+    let result = contract
+        .view("get_collections_by_creator")
+        .args_json(json!({ "creator_id": creator_id }))
+        .await?;
+    let cols: Vec<LazyCollection> = serde_json::from_slice(&result.result)?;
+    Ok(cols)
+}
+
+// =============================================================================
+// Sale View Helpers
+// =============================================================================
+
+/// View `get_sale` for a native scarce (contract_id = the scarces contract itself).
+pub async fn get_sale(
+    contract: &Contract,
+    token_id: &str,
+) -> Result<Option<Sale>> {
+    let result = contract
+        .view("get_sale")
+        .args_json(json!({
+            "scarce_contract_id": contract.id().to_string(),
+            "token_id": token_id,
+        }))
+        .await?;
+    let sale: Option<Sale> = serde_json::from_slice(&result.result)?;
+    Ok(sale)
+}
+
+/// View `get_supply_sales`.
+pub async fn get_supply_sales(contract: &Contract) -> Result<u64> {
+    let result = contract.view("get_supply_sales").await?;
+    let count: u64 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+/// View `get_supply_by_owner_id`.
+pub async fn get_supply_by_owner_id(
+    contract: &Contract,
+    account_id: &str,
+) -> Result<u64> {
+    let result = contract
+        .view("get_supply_by_owner_id")
+        .args_json(json!({ "account_id": account_id }))
+        .await?;
+    let count: u64 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+/// View `get_sales_by_owner_id`.
+pub async fn get_sales_by_owner_id(
+    contract: &Contract,
+    account_id: &str,
+) -> Result<Vec<Sale>> {
+    let result = contract
+        .view("get_sales_by_owner_id")
+        .args_json(json!({ "account_id": account_id }))
+        .await?;
+    let sales: Vec<Sale> = serde_json::from_slice(&result.result)?;
+    Ok(sales)
+}
+
+// =============================================================================
+// Auction View Structs
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuctionView {
+    pub token_id: String,
+    pub seller_id: String,
+    pub reserve_price: String,
+    pub min_bid_increment: String,
+    pub highest_bid: String,
+    pub highest_bidder: Option<String>,
+    pub bid_count: u32,
+    pub expires_at: Option<u64>,
+    pub anti_snipe_extension_ns: u64,
+    pub buy_now_price: Option<String>,
+    pub is_ended: bool,
+    pub reserve_met: bool,
+}
+
+// =============================================================================
+// Offer View Structs
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfferView {
+    pub buyer_id: String,
+    pub amount: String,
+    pub expires_at: Option<u64>,
+    pub created_at: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollectionOfferView {
+    pub buyer_id: String,
+    pub amount: String,
+    pub expires_at: Option<u64>,
+    pub created_at: u64,
+}
+
+// =============================================================================
+// Lazy Listing View Structs
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LazyListingRecord {
+    pub creator_id: String,
+    pub metadata: TokenMetadata,
+    pub price: String,
+    pub royalty: Option<std::collections::HashMap<String, u32>>,
+    pub app_id: Option<String>,
+    pub transferable: bool,
+    pub burnable: bool,
+    pub expires_at: Option<u64>,
+    pub created_at: u64,
+}
+
+// =============================================================================
+// Auction Action Helpers
+// =============================================================================
+
+/// List a native scarce as an auction. Uses deferred-start (`auction_duration_ns`)
+/// or fixed-end (`expires_at`).
+pub async fn list_native_scarce_auction(
+    contract: &Contract,
+    caller: &Account,
+    token_id: &str,
+    reserve_price: &str,
+    min_bid_increment: &str,
+    auction_duration_ns: Option<u64>,
+    expires_at: Option<u64>,
+    buy_now_price: Option<&str>,
+    anti_snipe_extension_ns: u64,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "list_native_scarce_auction",
+        "token_id": token_id,
+        "reserve_price": reserve_price,
+        "min_bid_increment": min_bid_increment,
+        "anti_snipe_extension_ns": anti_snipe_extension_ns,
+    });
+    if let Some(dur) = auction_duration_ns {
+        action["auction_duration_ns"] = json!(dur);
+    }
+    if let Some(exp) = expires_at {
+        action["expires_at"] = json!(exp);
+    }
+    if let Some(bnp) = buy_now_price {
+        action["buy_now_price"] = json!(bnp);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+/// Place a bid on an auction. Attached deposit must be >= amount.
+pub async fn place_bid(
+    contract: &Contract,
+    bidder: &Account,
+    token_id: &str,
+    amount: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        bidder,
+        json!({
+            "type": "place_bid",
+            "token_id": token_id,
+            "amount": amount,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Settle an ended auction. Anyone can call.
+pub async fn settle_auction(
+    contract: &Contract,
+    caller: &Account,
+    token_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "settle_auction",
+            "token_id": token_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Cancel an auction with zero bids. Requires 1 yoctoNEAR.
+pub async fn cancel_auction(
+    contract: &Contract,
+    caller: &Account,
+    token_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "cancel_auction",
+            "token_id": token_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// Offer Action Helpers
+// =============================================================================
+
+/// Make an offer on a specific token. Attached deposit must be >= amount.
+pub async fn make_offer(
+    contract: &Contract,
+    buyer: &Account,
+    token_id: &str,
+    amount: &str,
+    expires_at: Option<u64>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "make_offer",
+        "token_id": token_id,
+        "amount": amount,
+    });
+    if let Some(exp) = expires_at {
+        action["expires_at"] = json!(exp);
+    }
+    execute_action(contract, buyer, action, deposit).await
+}
+
+/// Accept an offer — transfers token to buyer. Requires 1 yoctoNEAR.
+pub async fn accept_offer(
+    contract: &Contract,
+    owner: &Account,
+    token_id: &str,
+    buyer_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        owner,
+        json!({
+            "type": "accept_offer",
+            "token_id": token_id,
+            "buyer_id": buyer_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Cancel an offer — refunds buyer. Requires 1 yoctoNEAR.
+pub async fn cancel_offer(
+    contract: &Contract,
+    buyer: &Account,
+    token_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        buyer,
+        json!({
+            "type": "cancel_offer",
+            "token_id": token_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Make a collection offer. Attached deposit must be >= amount.
+pub async fn make_collection_offer(
+    contract: &Contract,
+    buyer: &Account,
+    collection_id: &str,
+    amount: &str,
+    expires_at: Option<u64>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "make_collection_offer",
+        "collection_id": collection_id,
+        "amount": amount,
+    });
+    if let Some(exp) = expires_at {
+        action["expires_at"] = json!(exp);
+    }
+    execute_action(contract, buyer, action, deposit).await
+}
+
+/// Accept a collection offer with a specific token. Requires 1 yoctoNEAR.
+pub async fn accept_collection_offer(
+    contract: &Contract,
+    owner: &Account,
+    collection_id: &str,
+    token_id: &str,
+    buyer_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        owner,
+        json!({
+            "type": "accept_collection_offer",
+            "collection_id": collection_id,
+            "token_id": token_id,
+            "buyer_id": buyer_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Cancel a collection offer. Requires 1 yoctoNEAR.
+pub async fn cancel_collection_offer(
+    contract: &Contract,
+    buyer: &Account,
+    collection_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        buyer,
+        json!({
+            "type": "cancel_collection_offer",
+            "collection_id": collection_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// Lazy Listing Action Helpers
+// =============================================================================
+
+/// Create a lazy listing (mint-on-demand). Metadata fields are flattened.
+pub async fn create_lazy_listing(
+    contract: &Contract,
+    creator: &Account,
+    metadata: Value,
+    price: &str,
+    transferable: bool,
+    burnable: bool,
+    expires_at: Option<u64>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "create_lazy_listing",
+        "metadata": metadata,
+        "price": price,
+        "transferable": transferable,
+        "burnable": burnable,
+    });
+    if let Some(exp) = expires_at {
+        action["expires_at"] = json!(exp);
+    }
+    execute_action(contract, creator, action, deposit).await
+}
+
+/// Cancel a lazy listing. Requires 1 yoctoNEAR.
+pub async fn cancel_lazy_listing(
+    contract: &Contract,
+    creator: &Account,
+    listing_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "cancel_lazy_listing",
+            "listing_id": listing_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Update the price of a lazy listing. Requires 1 yoctoNEAR.
+pub async fn update_lazy_listing_price(
+    contract: &Contract,
+    creator: &Account,
+    listing_id: &str,
+    new_price: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "update_lazy_listing_price",
+            "listing_id": listing_id,
+            "new_price": new_price,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Update the expiry of a lazy listing. Requires 1 yoctoNEAR.
+pub async fn update_lazy_listing_expiry(
+    contract: &Contract,
+    creator: &Account,
+    listing_id: &str,
+    new_expires_at: Option<u64>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "update_lazy_listing_expiry",
+            "listing_id": listing_id,
+            "new_expires_at": new_expires_at,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Purchase a lazy listing — mints the token to buyer. Deposit must be >= price.
+pub async fn purchase_lazy_listing(
+    contract: &Contract,
+    buyer: &Account,
+    listing_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        buyer,
+        json!({
+            "type": "purchase_lazy_listing",
+            "listing_id": listing_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// Auction View Helpers
+// =============================================================================
+
+/// View `get_auction` for a token.
+pub async fn get_auction(
+    contract: &Contract,
+    token_id: &str,
+) -> Result<Option<AuctionView>> {
+    let result = contract
+        .view("get_auction")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let auction: Option<AuctionView> = serde_json::from_slice(&result.result)?;
+    Ok(auction)
+}
+
+/// View `get_auctions` — paginated list of active auctions.
+pub async fn get_auctions(
+    contract: &Contract,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<AuctionView>> {
+    let mut args = json!({});
+    if let Some(idx) = from_index {
+        args["from_index"] = json!(idx);
+    }
+    if let Some(l) = limit {
+        args["limit"] = json!(l);
+    }
+    let result = contract
+        .view("get_auctions")
+        .args_json(args)
+        .await?;
+    let auctions: Vec<AuctionView> = serde_json::from_slice(&result.result)?;
+    Ok(auctions)
+}
+
+// =============================================================================
+// Offer View Helpers
+// =============================================================================
+
+/// View `get_offer` for a specific token + buyer.
+pub async fn get_offer(
+    contract: &Contract,
+    token_id: &str,
+    buyer_id: &str,
+) -> Result<Option<OfferView>> {
+    let result = contract
+        .view("get_offer")
+        .args_json(json!({
+            "token_id": token_id,
+            "buyer_id": buyer_id,
+        }))
+        .await?;
+    let offer: Option<OfferView> = serde_json::from_slice(&result.result)?;
+    Ok(offer)
+}
+
+/// View `get_offers_for_token` — all offers on a token.
+pub async fn get_offers_for_token(
+    contract: &Contract,
+    token_id: &str,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<OfferView>> {
+    let mut args = json!({ "token_id": token_id });
+    if let Some(idx) = from_index {
+        args["from_index"] = json!(idx);
+    }
+    if let Some(l) = limit {
+        args["limit"] = json!(l);
+    }
+    let result = contract
+        .view("get_offers_for_token")
+        .args_json(args)
+        .await?;
+    let offers: Vec<OfferView> = serde_json::from_slice(&result.result)?;
+    Ok(offers)
+}
+
+/// View `get_collection_offer` for a specific collection + buyer.
+pub async fn get_collection_offer(
+    contract: &Contract,
+    collection_id: &str,
+    buyer_id: &str,
+) -> Result<Option<CollectionOfferView>> {
+    let result = contract
+        .view("get_collection_offer")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "buyer_id": buyer_id,
+        }))
+        .await?;
+    let offer: Option<CollectionOfferView> = serde_json::from_slice(&result.result)?;
+    Ok(offer)
+}
+
+/// View `get_collection_offers` — all offers on a collection.
+pub async fn get_collection_offers(
+    contract: &Contract,
+    collection_id: &str,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<CollectionOfferView>> {
+    let mut args = json!({ "collection_id": collection_id });
+    if let Some(idx) = from_index {
+        args["from_index"] = json!(idx);
+    }
+    if let Some(l) = limit {
+        args["limit"] = json!(l);
+    }
+    let result = contract
+        .view("get_collection_offers")
+        .args_json(args)
+        .await?;
+    let offers: Vec<CollectionOfferView> = serde_json::from_slice(&result.result)?;
+    Ok(offers)
+}
+
+// =============================================================================
+// Lazy Listing View Helpers
+// =============================================================================
+
+/// View `get_lazy_listing` by listing_id.
+pub async fn get_lazy_listing(
+    contract: &Contract,
+    listing_id: &str,
+) -> Result<Option<LazyListingRecord>> {
+    let result = contract
+        .view("get_lazy_listing")
+        .args_json(json!({ "listing_id": listing_id }))
+        .await?;
+    let listing: Option<LazyListingRecord> = serde_json::from_slice(&result.result)?;
+    Ok(listing)
+}
+
+/// View `get_lazy_listings_by_creator` — returns Vec<(listing_id, record)>.
+pub async fn get_lazy_listings_by_creator(
+    contract: &Contract,
+    creator_id: &str,
+) -> Result<Vec<(String, LazyListingRecord)>> {
+    let result = contract
+        .view("get_lazy_listings_by_creator")
+        .args_json(json!({ "creator_id": creator_id }))
+        .await?;
+    let listings: Vec<(String, LazyListingRecord)> = serde_json::from_slice(&result.result)?;
+    Ok(listings)
+}
+
+/// View `get_lazy_listings_count`.
+pub async fn get_lazy_listings_count(contract: &Contract) -> Result<u64> {
+    let result = contract.view("get_lazy_listings_count").await?;
+    let count: u64 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}

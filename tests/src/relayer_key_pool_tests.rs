@@ -34,7 +34,7 @@ fn build_pool(
     account_id: &str,
     contract_id: &str,
     admin_secret: &SecretKey,
-    config: relayer::config::ScalingConfig,
+    config: onsocial_relayer::config::ScalingConfig,
 ) -> KeyPool {
     let account: near_primitives::types::AccountId = account_id.parse().unwrap();
     let admin_signer =
@@ -80,7 +80,7 @@ async fn test_scale_up_local_registers_keys_on_chain() -> Result<()> {
         .await?
         .into_result()?;
 
-    let config = relayer::config::ScalingConfig {
+    let config = onsocial_relayer::config::ScalingConfig {
         min_keys: 1,
         max_keys: 10,
         batch_size: 3,
@@ -150,7 +150,7 @@ async fn test_scale_down_removes_keys_on_chain() -> Result<()> {
         .await?
         .into_result()?;
 
-    let config = relayer::config::ScalingConfig {
+    let config = onsocial_relayer::config::ScalingConfig {
         min_keys: 1,
         max_keys: 10,
         batch_size: 5,
@@ -213,7 +213,7 @@ async fn test_handle_nonce_error_resyncs_from_chain() -> Result<()> {
         .await?
         .into_result()?;
 
-    let config = relayer::config::ScalingConfig {
+    let config = onsocial_relayer::config::ScalingConfig {
         min_keys: 1,
         max_keys: 10,
         batch_size: 2,
@@ -273,7 +273,7 @@ async fn test_full_scale_up_then_scale_down_cycle() -> Result<()> {
         .await?
         .into_result()?;
 
-    let config = relayer::config::ScalingConfig {
+    let config = onsocial_relayer::config::ScalingConfig {
         min_keys: 1,
         max_keys: 10,
         batch_size: 3,
@@ -344,7 +344,7 @@ async fn test_scale_up_multiple_batches() -> Result<()> {
         .await?
         .into_result()?;
 
-    let config = relayer::config::ScalingConfig {
+    let config = onsocial_relayer::config::ScalingConfig {
         min_keys: 1,
         max_keys: 20,
         batch_size: 5,

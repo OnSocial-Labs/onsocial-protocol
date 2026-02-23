@@ -198,8 +198,8 @@ test_integration() {
                 if [ -n "$test_filter" ]; then
                     run_integration_test "$test_filter"
                 else
-                    # Run core-onsocial tests only: skip cross-contract, token, and staking test modules
-                    run_integration_test "" "--skip cross_contract_tests --skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests"
+                    # Run core-onsocial tests only: skip cross-contract, token, staking, and scarces test modules
+                    run_integration_test "" "--skip cross_contract_tests --skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests --skip scarces::"
                 fi
                 local test_exit_code=$?
                 
@@ -251,6 +251,29 @@ test_integration() {
                 rm -rf /tmp/.tmp* 2>/dev/null || true
                 
                 local test_filter="token_onsocial_tests"
+                if [ -n "$test_name" ]; then
+                    test_filter="$test_name"
+                    echo "Running specific integration test: $test_name"
+                fi
+                
+                run_integration_test "$test_filter"
+                local test_exit_code=$?
+                
+                if [ $test_exit_code -ne 0 ]; then
+                    echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"
+                    INTEGRATION_RESULTS["$module"]="Failed"
+                    ((INTEGRATION_FAILURES++))
+                    return 1
+                else
+                    echo -e "${SUCCESS}Integration tests passed for $module${test_name:+ (test: $test_name)}${RESET}"
+                    INTEGRATION_RESULTS["$module"]="Passed"
+                fi
+                ;;
+            scarces-onsocial)
+                # Run near-workspaces integration tests for scarces-onsocial
+                rm -rf /tmp/.tmp* 2>/dev/null || true
+                
+                local test_filter="scarces::"
                 if [ -n "$test_name" ]; then
                     test_filter="$test_name"
                     echo "Running specific integration test: $test_name"
