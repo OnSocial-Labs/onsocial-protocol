@@ -1,8 +1,9 @@
 use near_sdk::json_types::U128;
-use near_sdk::serde_json::{Map, Value};
-use near_sdk::{env, AccountId};
+use near_sdk::serde_json::Value;
+use near_sdk::AccountId;
 
 use super::builder::EventBuilder;
+use super::nep171;
 use super::SCARCE;
 
 pub fn emit_scarce_list(
@@ -105,22 +106,14 @@ pub fn emit_scarce_transfer(
         .field("token_id", token_id)
         .field_opt("memo", memo)
         .emit();
-    let mut nep171_data = Map::new();
-    nep171_data.insert("old_owner_id".to_string(), Value::String(old_owner_id.to_string()));
-    nep171_data.insert("new_owner_id".to_string(), Value::String(receiver_id.to_string()));
-    nep171_data.insert("token_ids".to_string(), Value::Array(vec![Value::String(token_id.to_string())]));
-    if sender_id != old_owner_id {
-        nep171_data.insert("authorized_id".to_string(), Value::String(sender_id.to_string()));
-    }
-    if let Some(m) = memo {
-        nep171_data.insert("memo".to_string(), Value::String(m.to_string()));
-    }
-    let mut nep171_evt = Map::new();
-    nep171_evt.insert("standard".to_string(), Value::String("nep171".to_string()));
-    nep171_evt.insert("version".to_string(), Value::String("1.1.0".to_string()));
-    nep171_evt.insert("event".to_string(), Value::String("nft_transfer".to_string()));
-    nep171_evt.insert("data".to_string(), Value::Array(vec![Value::Object(nep171_data)]));
-    env::log_str(&format!("EVENT_JSON:{}", Value::Object(nep171_evt)));
+    let authorized = if sender_id != old_owner_id { Some(sender_id.as_str()) } else { None };
+    nep171::emit_transfer(
+        old_owner_id.as_str(),
+        receiver_id.as_str(),
+        &[token_id],
+        authorized,
+        memo,
+    );
 }
 
 pub fn emit_native_scarce_listed(owner_id: &AccountId, token_id: &str, price: U128) {
@@ -161,6 +154,7 @@ pub fn emit_token_renewed(
         .field("owner_id", owner_id)
         .field("new_expires_at", new_expires_at)
         .emit();
+    nep171::emit_metadata_update(&[token_id]);
 }
 
 pub fn emit_token_revoked(
@@ -178,6 +172,12 @@ pub fn emit_token_revoked(
         .field("mode", mode)
         .field_opt("memo", memo)
         .emit();
+    // Invalidate mutates metadata; burn destroys the token.
+    match mode {
+        "invalidate" => nep171::emit_metadata_update(&[token_id]),
+        "burn" => nep171::emit_burn(owner_id.as_str(), &[token_id], None, memo),
+        _ => {}
+    }
 }
 
 pub fn emit_token_redeemed(
@@ -195,6 +195,7 @@ pub fn emit_token_redeemed(
         .field("redeem_count", redeem_count)
         .field("max_redeems", max_redeems)
         .emit();
+    nep171::emit_metadata_update(&[token_id]);
 }
 
 pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: Option<&str>) {
@@ -203,6 +204,7 @@ pub fn emit_scarce_burned(owner_id: &AccountId, token_id: &str, collection_id: O
         .field("token_id", token_id)
         .field_opt("collection_id", collection_id)
         .emit();
+    nep171::emit_burn(owner_id.as_str(), &[token_id], None, None);
 }
 
 // --- SCARCE_UPDATE — approvals ---
@@ -299,4 +301,5 @@ pub fn emit_quick_mint(actor_id: &AccountId, token_id: &str) {
         .field("token_id", token_id)
         .field("owner_id", actor_id)
         .emit();
+    nep171::emit_mint(actor_id.as_str(), &[token_id.to_string()], None);
 }

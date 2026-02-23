@@ -2,6 +2,7 @@ use near_sdk::json_types::U128;
 use near_sdk::AccountId;
 
 use super::builder::EventBuilder;
+use super::nep171;
 use super::COLLECTION;
 
 pub fn emit_collection_created(
@@ -42,6 +43,7 @@ pub fn emit_collection_purchase(e: &CollectionPurchase) {
         .field("app_commission", e.app_commission)
         .field("token_ids", e.token_ids)
         .emit();
+    nep171::emit_mint(e.buyer_id.as_str(), e.token_ids, None);
 }
 
 pub fn emit_collection_metadata_update(actor_id: &AccountId, collection_id: &str) {
@@ -77,6 +79,7 @@ pub fn emit_collection_mint(
         .field("quantity", quantity)
         .field("token_ids", token_ids)
         .emit();
+    nep171::emit_mint(receiver_id.as_str(), token_ids, None);
 }
 
 pub fn emit_collection_airdrop(
@@ -92,6 +95,10 @@ pub fn emit_collection_airdrop(
         .field("token_ids", token_ids)
         .field("receivers", receivers)
         .emit();
+    // Emission invariant: NEP-171 `nft_mint` is owner-scoped; airdrops emit per recipient.
+    for (token_id, receiver) in token_ids.iter().zip(receivers.iter()) {
+        nep171::emit_mint(receiver.as_str(), &[token_id.clone()], None);
+    }
 }
 
 pub fn emit_collection_cancelled(

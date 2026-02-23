@@ -2,7 +2,7 @@ use crate::*;
 use std::collections::HashMap;
 
 impl Contract {
-    // App entries cannot be removed by creator; shared accounts are summed.
+    // Invariant: app default royalty is always included; overlapping recipients are additive.
     pub(crate) fn merge_royalties(
         &self,
         app_id: Option<&AccountId>,
@@ -33,7 +33,7 @@ impl Contract {
         Ok(result)
     }
 
-    // seller_id must be the pre-transfer owner; token.owner_id may already be the buyer post-transfer.
+    // Token accounting invariant: seller_id is the payout sink for residual value.
     pub(crate) fn compute_payout(
         &self,
         token: &Scarce,
@@ -45,14 +45,26 @@ impl Contract {
         let mut total_royalty: u128 = 0;
 
         if let Some(royalty) = &token.royalty {
-            let royalty_len = royalty.len() as u32;
-            if royalty_len + 1 > max_len {
+            let seller_in_royalty = royalty.contains_key(seller_id);
+            let distinct_entries = if seller_in_royalty {
+                royalty.len() as u32
+            } else {
+                royalty.len() as u32 + 1
+            };
+            if distinct_entries > max_len {
                 return Err(MarketplaceError::InvalidInput(
                     "Royalty recipients + owner exceed max_len_payout".to_string(),
                 ));
             }
             for (account, bps) in royalty.iter() {
-                let amount = (balance * (*bps as u128)) / 10_000;
+                let amount = balance
+                    .checked_mul(*bps as u128)
+                    .ok_or_else(|| {
+                        MarketplaceError::InternalError(
+                            "Royalty payout overflow".to_string(),
+                        )
+                    })?
+                    / 10_000;
                 if amount > 0 {
                     payout_map.insert(account.clone(), U128(amount));
                     total_royalty += amount;

@@ -1,6 +1,7 @@
 use near_sdk::AccountId;
 
 use super::builder::EventBuilder;
+use super::nep171;
 use super::CONTRACT;
 
 pub fn emit_contract_upgraded(contract_id: &AccountId, old_version: &str, new_version: &str) {
@@ -64,6 +65,7 @@ pub fn emit_contract_metadata_updated(
         .field_opt("base_uri", base_uri)
         .field_opt("reference", reference)
         .emit();
+    nep171::emit_contract_metadata_update();
 }
 
 pub fn emit_approved_nft_contract_added(owner_id: &AccountId, contract_id: &AccountId) {

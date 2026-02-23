@@ -45,10 +45,10 @@ pub trait ExtScarceContract {
         &mut self,
         receiver_id: AccountId,
         token_id: String,
-        approval_id: u64,
+        approval_id: Option<u64>,
         memo: Option<String>,
         balance: U128,
-        max_len_payout: u32,
+        max_len_payout: Option<u32>,
     ) -> Payout;
 
     fn nft_is_approved(

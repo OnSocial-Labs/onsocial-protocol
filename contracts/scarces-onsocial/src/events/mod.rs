@@ -5,6 +5,7 @@ mod app_pool;
 mod collection;
 mod contract;
 mod lazy_listing;
+pub(crate) mod nep171;
 mod offer;
 mod scarce;
 mod storage;

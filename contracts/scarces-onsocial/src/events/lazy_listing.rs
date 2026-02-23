@@ -1,6 +1,7 @@
 use near_sdk::AccountId;
 
 use super::builder::EventBuilder;
+use super::nep171;
 use super::LAZY_LISTING;
 
 pub fn emit_lazy_listing_created(creator_id: &AccountId, listing_id: &str, price: u128) {
@@ -30,6 +31,7 @@ pub fn emit_lazy_listing_purchased(
         .field("app_pool_amount", result.app_pool_amount)
         .field("app_commission", result.app_commission)
         .emit();
+    nep171::emit_mint(buyer_id.as_str(), &[token_id.to_string()], None);
 }
 
 pub fn emit_lazy_listing_cancelled(creator_id: &AccountId, listing_id: &str) {

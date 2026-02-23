@@ -93,10 +93,10 @@ impl Contract {
             .nft_transfer_payout(
                 buyer_id.clone(),
                 tok_id.clone(),
-                approval_id,
+                Some(approval_id),
                 Some("Purchased from OnSocial Marketplace".to_string()),
                 U128(price),
-                max_payout_recipients,
+                Some(max_payout_recipients),
             )
             .then(
                 ext_self::ext(env::current_account_id())

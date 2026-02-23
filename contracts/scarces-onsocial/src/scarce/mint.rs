@@ -35,6 +35,11 @@ impl Contract {
 
         let ovr = overrides.unwrap_or_default();
 
+        // Defense-in-depth: validate royalties even if callers already validated.
+        if let Some(ref royalty) = ovr.royalty {
+            crate::validation::validate_royalty(royalty)?;
+        }
+
         let owner_id = ctx.owner_id.clone();
         let token = Scarce {
             owner_id: ctx.owner_id,

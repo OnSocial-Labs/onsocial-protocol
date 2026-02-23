@@ -81,6 +81,12 @@ impl IntoEventValue for &[String] {
     }
 }
 
+impl IntoEventValue for &[&str] {
+    fn into_event_value(self) -> Value {
+        Value::Array(self.iter().map(|s| Value::String((*s).into())).collect())
+    }
+}
+
 impl IntoEventValue for &[AccountId] {
     fn into_event_value(self) -> Value {
         Value::Array(self.iter().map(|a| Value::String(a.to_string())).collect())
@@ -117,6 +123,7 @@ impl EventBuilder {
     }
 
     pub(crate) fn emit(self) {
+        // Emission invariant: preserve OnSocial event envelope for indexer compatibility.
         let event = Event {
             standard: STANDARD.into(),
             version: VERSION.into(),
@@ -128,5 +135,43 @@ impl EventBuilder {
             }],
         };
         env::log_str(&format!("{PREFIX}{}", serde_json::to_string(&event).expect("event serialization failed")));
+    }
+}
+
+pub(crate) struct Nep171Event {
+    event_name: &'static str,
+    version: &'static str,
+    fields: Map<String, Value>,
+}
+
+impl Nep171Event {
+    pub(crate) fn new(event_name: &'static str, version: &'static str) -> Self {
+        Self {
+            event_name,
+            version,
+            fields: Map::new(),
+        }
+    }
+
+    pub(crate) fn field(mut self, key: &str, value: impl IntoEventValue) -> Self {
+        self.fields.insert(key.into(), value.into_event_value());
+        self
+    }
+
+    pub(crate) fn field_opt(mut self, key: &str, value: Option<impl IntoEventValue>) -> Self {
+        if let Some(v) = value {
+            self.fields.insert(key.into(), v.into_event_value());
+        }
+        self
+    }
+
+    pub(crate) fn emit(self) {
+        // Emission invariant: NEP-171 payload must exclude custom operation/author fields.
+        let mut evt = Map::new();
+        evt.insert("standard".into(), Value::String("nep171".into()));
+        evt.insert("version".into(), Value::String(self.version.into()));
+        evt.insert("event".into(), Value::String(self.event_name.into()));
+        evt.insert("data".into(), Value::Array(vec![Value::Object(self.fields)]));
+        env::log_str(&format!("{PREFIX}{}", Value::Object(evt)));
     }
 }

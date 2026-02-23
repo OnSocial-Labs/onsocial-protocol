@@ -427,6 +427,14 @@ pub struct LazyCollection {
     pub app_id: Option<String>,
     pub royalty: Option<std::collections::HashMap<String, u32>>,
     pub renewable: bool,
+    #[serde(default)]
+    pub revocation_mode: String,
+    #[serde(default)]
+    pub max_redeems: Option<u32>,
+    #[serde(default)]
+    pub redeemed_count: u32,
+    #[serde(default)]
+    pub fully_redeemed_count: u32,
     pub burnable: bool,
     pub transferable: bool,
     pub paused: bool,
@@ -435,6 +443,20 @@ pub struct LazyCollection {
     pub max_per_wallet: Option<u32>,
     pub banned: bool,
     pub metadata: Option<String>,
+    #[serde(default)]
+    pub app_metadata: Option<String>,
+    #[serde(default)]
+    pub refund_pool: String,
+    #[serde(default)]
+    pub refund_per_token: String,
+    #[serde(default)]
+    pub refunded_count: u32,
+    #[serde(default)]
+    pub refund_deadline: Option<u64>,
+    #[serde(default)]
+    pub total_revenue: String,
+    #[serde(default)]
+    pub allowlist_price: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1332,4 +1354,380 @@ pub async fn get_lazy_listings_count(contract: &Contract) -> Result<u64> {
     let result = contract.view("get_lazy_listings_count").await?;
     let count: u64 = serde_json::from_slice(&result.result)?;
     Ok(count)
+}
+
+// =============================================================================
+// P4: Refund Action Helpers
+// =============================================================================
+
+/// Cancel a collection — creator deposits refund pool.
+pub async fn cancel_collection(
+    contract: &Contract,
+    creator: &Account,
+    collection_id: &str,
+    refund_per_token: &str,
+    refund_deadline_ns: Option<u64>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "cancel_collection",
+        "collection_id": collection_id,
+        "refund_per_token": refund_per_token,
+    });
+    if let Some(deadline) = refund_deadline_ns {
+        action["refund_deadline_ns"] = json!(deadline);
+    }
+    execute_action(contract, creator, action, deposit).await
+}
+
+/// Claim a refund for a token from a cancelled collection.
+pub async fn claim_refund(
+    contract: &Contract,
+    holder: &Account,
+    token_id: &str,
+    collection_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        holder,
+        json!({
+            "type": "claim_refund",
+            "token_id": token_id,
+            "collection_id": collection_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Withdraw unclaimed refunds after deadline.
+pub async fn withdraw_unclaimed_refunds(
+    contract: &Contract,
+    creator: &Account,
+    collection_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "withdraw_unclaimed_refunds",
+            "collection_id": collection_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// P4: Revocation & Lifecycle Action Helpers
+// =============================================================================
+
+/// Revoke a token (invalidate or burn depending on collection mode).
+pub async fn revoke_token(
+    contract: &Contract,
+    creator: &Account,
+    token_id: &str,
+    collection_id: &str,
+    memo: Option<&str>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "revoke_token",
+        "token_id": token_id,
+        "collection_id": collection_id,
+    });
+    if let Some(m) = memo {
+        action["memo"] = json!(m);
+    }
+    execute_action(contract, creator, action, deposit).await
+}
+
+/// Redeem a token (increment redeem_count).
+pub async fn redeem_token(
+    contract: &Contract,
+    creator: &Account,
+    token_id: &str,
+    collection_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "redeem_token",
+            "token_id": token_id,
+            "collection_id": collection_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Renew a token (extend expiry).
+pub async fn renew_token(
+    contract: &Contract,
+    creator: &Account,
+    token_id: &str,
+    collection_id: &str,
+    new_expires_at: u64,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        creator,
+        json!({
+            "type": "renew_token",
+            "token_id": token_id,
+            "collection_id": collection_id,
+            "new_expires_at": new_expires_at,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Burn a scarce token (standalone or collection).
+pub async fn burn_scarce(
+    contract: &Contract,
+    owner: &Account,
+    token_id: &str,
+    collection_id: Option<&str>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "burn_scarce",
+        "token_id": token_id,
+    });
+    if let Some(cid) = collection_id {
+        action["collection_id"] = json!(cid);
+    }
+    execute_action(contract, owner, action, deposit).await
+}
+
+/// Create a collection with revocation mode and redeemable options.
+pub async fn create_collection_with_options(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    total_supply: u32,
+    price_near: &str,
+    metadata_template: Value,
+    revocation_mode: &str,
+    max_redeems: Option<u32>,
+    renewable: bool,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "create_collection",
+        "collection_id": collection_id,
+        "total_supply": total_supply,
+        "metadata_template": metadata_template.to_string(),
+        "price_near": price_near,
+        "transferable": true,
+        "burnable": true,
+        "revocation_mode": revocation_mode,
+        "renewable": renewable,
+    });
+    if let Some(mr) = max_redeems {
+        action["max_redeems"] = json!(mr);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+// =============================================================================
+// P4: Revocation View Helpers
+// =============================================================================
+
+/// View `is_token_valid`.
+pub async fn is_token_valid(contract: &Contract, token_id: &str) -> Result<bool> {
+    let result = contract
+        .view("is_token_valid")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let valid: bool = serde_json::from_slice(&result.result)?;
+    Ok(valid)
+}
+
+/// View `is_token_revoked`.
+pub async fn is_token_revoked(contract: &Contract, token_id: &str) -> Result<Option<bool>> {
+    let result = contract
+        .view("is_token_revoked")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let revoked: Option<bool> = serde_json::from_slice(&result.result)?;
+    Ok(revoked)
+}
+
+/// View `is_token_redeemed` (fully redeemed).
+pub async fn is_token_redeemed(contract: &Contract, token_id: &str) -> Result<Option<bool>> {
+    let result = contract
+        .view("is_token_redeemed")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let redeemed: Option<bool> = serde_json::from_slice(&result.result)?;
+    Ok(redeemed)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RedeemInfo {
+    pub redeem_count: u32,
+    pub max_redeems: Option<u32>,
+}
+
+/// View `get_redeem_info`.
+pub async fn get_redeem_info(contract: &Contract, token_id: &str) -> Result<Option<RedeemInfo>> {
+    let result = contract
+        .view("get_redeem_info")
+        .args_json(json!({ "token_id": token_id }))
+        .await?;
+    let info: Option<RedeemInfo> = serde_json::from_slice(&result.result)?;
+    Ok(info)
+}
+
+// =============================================================================
+// P4: App Pool Action Helpers
+// =============================================================================
+
+/// Register an app pool.
+pub async fn register_app(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "register_app",
+            "app_id": app_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Fund an app pool with attached NEAR.
+pub async fn fund_app_pool(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "fund_app_pool",
+            "app_id": app_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Withdraw from an app pool.
+pub async fn withdraw_app_pool(
+    contract: &Contract,
+    owner: &Account,
+    app_id: &str,
+    amount: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        owner,
+        json!({
+            "type": "withdraw_app_pool",
+            "app_id": app_id,
+            "amount": amount,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Set app config (metadata, royalty, etc.).
+pub async fn set_app_config(
+    contract: &Contract,
+    owner: &Account,
+    app_id: &str,
+    params: Value,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "set_app_config",
+        "app_id": app_id,
+    });
+    // Merge params into the action
+    if let Some(obj) = params.as_object() {
+        for (k, v) in obj {
+            action[k] = v.clone();
+        }
+    }
+    execute_action(contract, owner, action, deposit).await
+}
+
+/// Transfer app ownership.
+pub async fn transfer_app_ownership(
+    contract: &Contract,
+    owner: &Account,
+    app_id: &str,
+    new_owner: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        owner,
+        json!({
+            "type": "transfer_app_ownership",
+            "app_id": app_id,
+            "new_owner": new_owner,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// P4: App Pool View Helpers
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppPool {
+    pub owner_id: String,
+    pub balance: String,
+    #[serde(default)]
+    pub used_bytes: u64,
+    #[serde(default)]
+    pub max_user_bytes: Option<u64>,
+    #[serde(default)]
+    pub default_royalty: Option<std::collections::HashMap<String, u32>>,
+    #[serde(default)]
+    pub primary_sale_bps: Option<u16>,
+    #[serde(default)]
+    pub moderators: Vec<String>,
+    #[serde(default)]
+    pub curated: bool,
+    #[serde(default)]
+    pub metadata: Option<String>,
+}
+
+/// View `get_app_pool`.
+pub async fn get_app_pool(contract: &Contract, app_id: &str) -> Result<Option<AppPool>> {
+    let result = contract
+        .view("get_app_pool")
+        .args_json(json!({ "app_id": app_id }))
+        .await?;
+    let pool: Option<AppPool> = serde_json::from_slice(&result.result)?;
+    Ok(pool)
+}
+
+/// View `get_platform_storage_balance`.
+pub async fn get_platform_storage_balance(contract: &Contract) -> Result<String> {
+    let result = contract.view("get_platform_storage_balance").await?;
+    let balance: String = serde_json::from_slice(&result.result)?;
+    Ok(balance)
 }

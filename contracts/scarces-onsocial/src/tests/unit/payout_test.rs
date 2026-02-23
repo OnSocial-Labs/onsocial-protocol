@@ -123,7 +123,7 @@ fn nft_payout_max_len_respected() {
     let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
 
     testing_env!(context(owner()).build());
-    // max_len_payout = 1 should still succeed (it caps at max_len_payout)
+    // max_len_payout = Some(10) should succeed
     let payout = contract
         .nft_payout(token_id, U128(10_000), Some(10))
         .unwrap();

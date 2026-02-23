@@ -26,3 +26,9 @@ pub mod test_auctions;
 pub mod test_offers;
 #[cfg(test)]
 pub mod test_lazy_listings;
+
+pub mod test_refunds;
+
+pub mod test_revocation;
+
+pub mod test_app_pools;
