@@ -527,6 +527,35 @@ pub async fn create_collection(
     .await
 }
 
+/// Create a collection associated with an app_id.
+pub async fn create_collection_for_app(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    total_supply: u32,
+    price_near: &str,
+    metadata_template: Value,
+    app_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "create_collection",
+            "collection_id": collection_id,
+            "total_supply": total_supply,
+            "metadata_template": metadata_template.to_string(),
+            "price_near": price_near,
+            "transferable": true,
+            "burnable": true,
+            "app_id": app_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
 /// Mint from collection via execute action (creator mint).
 pub async fn mint_from_collection(
     contract: &Contract,
@@ -747,6 +776,27 @@ pub async fn get_total_collections(contract: &Contract) -> Result<u64> {
     let result = contract.view("get_total_collections").await?;
     let count: u64 = serde_json::from_slice(&result.result)?;
     Ok(count)
+}
+
+/// View `get_app_count`.
+pub async fn get_app_count(contract: &Contract) -> Result<u32> {
+    let result = contract.view("get_app_count").await?;
+    let count: u32 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+/// View `get_all_app_ids` with optional pagination.
+pub async fn get_all_app_ids(
+    contract: &Contract,
+    from_index: Option<u32>,
+    limit: Option<u32>,
+) -> Result<Vec<String>> {
+    let result = contract
+        .view("get_all_app_ids")
+        .args_json(json!({ "from_index": from_index, "limit": limit }))
+        .await?;
+    let ids: Vec<String> = serde_json::from_slice(&result.result)?;
+    Ok(ids)
 }
 
 /// View `get_collections_by_creator`.
@@ -1766,4 +1816,450 @@ pub async fn withdraw_platform_storage(
         deposit,
     )
     .await
+}
+
+// =============================================================================
+// P1: NEP-171 nft_transfer_call
+// =============================================================================
+
+/// Direct NEP-171 `nft_transfer_call` (cross-contract).
+pub async fn nft_transfer_call(
+    contract: &Contract,
+    caller: &Account,
+    receiver_id: &str,
+    token_id: &str,
+    msg: &str,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    caller
+        .call(contract.id(), "nft_transfer_call")
+        .args_json(json!({
+            "receiver_id": receiver_id,
+            "token_id": token_id,
+            "msg": msg,
+        }))
+        .deposit(ONE_YOCTO)
+        .max_gas()
+        .transact()
+        .await
+        .map_err(Into::into)
+}
+
+// =============================================================================
+// P1: NEP-199 Payout Helpers
+// =============================================================================
+
+/// View `nft_payout` — compute royalty split without transferring.
+pub async fn nft_payout(
+    contract: &Contract,
+    token_id: &str,
+    balance: &str,
+    max_len_payout: Option<u32>,
+) -> Result<Payout> {
+    let mut args = json!({
+        "token_id": token_id,
+        "balance": balance,
+    });
+    if let Some(max_len) = max_len_payout {
+        args["max_len_payout"] = json!(max_len);
+    }
+    let result = contract.view("nft_payout").args_json(args).await?;
+    let payout: Payout = serde_json::from_slice(&result.result)?;
+    Ok(payout)
+}
+
+/// Direct NEP-199 `nft_transfer_payout` — transfer token and return payout.
+pub async fn nft_transfer_payout(
+    contract: &Contract,
+    caller: &Account,
+    receiver_id: &str,
+    token_id: &str,
+    balance: &str,
+    max_len_payout: Option<u32>,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut args = json!({
+        "receiver_id": receiver_id,
+        "token_id": token_id,
+        "balance": balance,
+    });
+    if let Some(max_len) = max_len_payout {
+        args["max_len_payout"] = json!(max_len);
+    }
+    caller
+        .call(contract.id(), "nft_transfer_payout")
+        .args_json(args)
+        .deposit(ONE_YOCTO)
+        .max_gas()
+        .transact()
+        .await
+        .map_err(Into::into)
+}
+
+// =============================================================================
+// P2: Moderation Helpers
+// =============================================================================
+
+/// Add a moderator to an app.
+pub async fn add_moderator(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    account_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "add_moderator",
+            "app_id": app_id,
+            "account_id": account_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Remove a moderator from an app.
+pub async fn remove_moderator(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    account_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "remove_moderator",
+            "app_id": app_id,
+            "account_id": account_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Ban a collection from an app.
+pub async fn ban_collection(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    collection_id: &str,
+    reason: Option<&str>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "ban_collection",
+        "app_id": app_id,
+        "collection_id": collection_id,
+    });
+    if let Some(r) = reason {
+        action["reason"] = json!(r);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+/// Unban a collection from an app.
+pub async fn unban_collection(
+    contract: &Contract,
+    caller: &Account,
+    app_id: &str,
+    collection_id: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "unban_collection",
+            "app_id": app_id,
+            "collection_id": collection_id,
+        }),
+        deposit,
+    )
+    .await
+}
+
+// =============================================================================
+// P3: Allowlist Helpers
+// =============================================================================
+
+/// Set allowlist entries on a collection.
+pub async fn set_allowlist(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    entries: Value,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "set_allowlist",
+            "collection_id": collection_id,
+            "entries": entries,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Remove accounts from a collection's allowlist.
+pub async fn remove_from_allowlist(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    accounts: Vec<&str>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    execute_action(
+        contract,
+        caller,
+        json!({
+            "type": "remove_from_allowlist",
+            "collection_id": collection_id,
+            "accounts": accounts,
+        }),
+        deposit,
+    )
+    .await
+}
+
+/// Update collection timing (start_time and/or end_time).
+pub async fn update_collection_timing(
+    contract: &Contract,
+    caller: &Account,
+    collection_id: &str,
+    start_time: Option<u64>,
+    end_time: Option<u64>,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let mut action = json!({
+        "type": "update_collection_timing",
+        "collection_id": collection_id,
+    });
+    if let Some(s) = start_time {
+        action["start_time"] = json!(s);
+    }
+    if let Some(e) = end_time {
+        action["end_time"] = json!(e);
+    }
+    execute_action(contract, caller, action, deposit).await
+}
+
+// =============================================================================
+// P4+: Collection View Helpers (untested)
+// =============================================================================
+
+/// View `get_collection_stats`.
+pub async fn get_collection_stats(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<Option<CollectionStats>> {
+    let result = contract
+        .view("get_collection_stats")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let stats: Option<CollectionStats> = serde_json::from_slice(&result.result)?;
+    Ok(stats)
+}
+
+/// View `get_active_collections`.
+pub async fn get_active_collections(
+    contract: &Contract,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<LazyCollection>> {
+    let result = contract
+        .view("get_active_collections")
+        .args_json(json!({
+            "from_index": from_index,
+            "limit": limit,
+        }))
+        .await?;
+    let cols: Vec<LazyCollection> = serde_json::from_slice(&result.result)?;
+    Ok(cols)
+}
+
+/// View `get_all_collections`.
+pub async fn get_all_collections(
+    contract: &Contract,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<LazyCollection>> {
+    let result = contract
+        .view("get_all_collections")
+        .args_json(json!({
+            "from_index": from_index,
+            "limit": limit,
+        }))
+        .await?;
+    let cols: Vec<LazyCollection> = serde_json::from_slice(&result.result)?;
+    Ok(cols)
+}
+
+/// View `get_collections_count_by_creator`.
+pub async fn get_collections_count_by_creator(
+    contract: &Contract,
+    creator_id: &str,
+) -> Result<u64> {
+    let result = contract
+        .view("get_collections_count_by_creator")
+        .args_json(json!({ "creator_id": creator_id }))
+        .await?;
+    let count: u64 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+/// View `get_wallet_mint_count`.
+pub async fn get_wallet_mint_count(
+    contract: &Contract,
+    collection_id: &str,
+    account_id: &str,
+) -> Result<u32> {
+    let result = contract
+        .view("get_wallet_mint_count")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "account_id": account_id,
+        }))
+        .await?;
+    let count: u32 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+/// View `get_wallet_mint_remaining`.
+pub async fn get_wallet_mint_remaining(
+    contract: &Contract,
+    collection_id: &str,
+    account_id: &str,
+) -> Result<Option<u32>> {
+    let result = contract
+        .view("get_wallet_mint_remaining")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "account_id": account_id,
+        }))
+        .await?;
+    let remaining: Option<u32> = serde_json::from_slice(&result.result)?;
+    Ok(remaining)
+}
+
+/// View `is_allowlisted`.
+pub async fn is_allowlisted(
+    contract: &Contract,
+    collection_id: &str,
+    account_id: &str,
+) -> Result<bool> {
+    let result = contract
+        .view("is_allowlisted")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "account_id": account_id,
+        }))
+        .await?;
+    let allowed: bool = serde_json::from_slice(&result.result)?;
+    Ok(allowed)
+}
+
+/// View `get_allowlist_remaining`.
+pub async fn get_allowlist_remaining(
+    contract: &Contract,
+    collection_id: &str,
+    account_id: &str,
+) -> Result<u32> {
+    let result = contract
+        .view("get_allowlist_remaining")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "account_id": account_id,
+        }))
+        .await?;
+    let remaining: u32 = serde_json::from_slice(&result.result)?;
+    Ok(remaining)
+}
+
+/// View `get_collection_price`.
+pub async fn get_collection_price(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<String> {
+    let result = contract
+        .view("get_collection_price")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let price: String = serde_json::from_slice(&result.result)?;
+    Ok(price)
+}
+
+/// View `calculate_collection_purchase_price`.
+pub async fn calculate_collection_purchase_price(
+    contract: &Contract,
+    collection_id: &str,
+    quantity: u32,
+) -> Result<String> {
+    let result = contract
+        .view("calculate_collection_purchase_price")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "quantity": quantity,
+        }))
+        .await?;
+    let price: String = serde_json::from_slice(&result.result)?;
+    Ok(price)
+}
+
+// =============================================================================
+// P5: Enumeration Helpers (untested)
+// =============================================================================
+
+/// View `nft_supply_for_collection`.
+pub async fn nft_supply_for_collection(
+    contract: &Contract,
+    collection_id: &str,
+) -> Result<String> {
+    let result = contract
+        .view("nft_supply_for_collection")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let supply: String = serde_json::from_slice(&result.result)?;
+    Ok(supply)
+}
+
+/// View `nft_tokens_for_collection`.
+pub async fn nft_tokens_for_collection(
+    contract: &Contract,
+    collection_id: &str,
+    from_index: Option<&str>,
+    limit: Option<u64>,
+) -> Result<Vec<Token>> {
+    let result = contract
+        .view("nft_tokens_for_collection")
+        .args_json(json!({
+            "collection_id": collection_id,
+            "from_index": from_index,
+            "limit": limit,
+        }))
+        .await?;
+    let tokens: Vec<Token> = serde_json::from_slice(&result.result)?;
+    Ok(tokens)
+}
+
+/// View `nft_tokens` (all tokens, paginated).
+pub async fn nft_tokens(
+    contract: &Contract,
+    from_index: Option<&str>,
+    limit: Option<u64>,
+) -> Result<Vec<Token>> {
+    let result = contract
+        .view("nft_tokens")
+        .args_json(json!({
+            "from_index": from_index,
+            "limit": limit,
+        }))
+        .await?;
+    let tokens: Vec<Token> = serde_json::from_slice(&result.result)?;
+    Ok(tokens)
 }

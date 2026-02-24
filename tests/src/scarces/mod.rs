@@ -36,3 +36,15 @@ pub mod test_app_pools;
 pub mod test_approvals;
 
 pub mod test_withdrawals;
+
+pub mod test_transfer_call;
+
+pub mod test_payout;
+
+pub mod test_moderation;
+
+pub mod test_allowlists;
+
+pub mod test_collection_views;
+
+pub mod test_enumeration;
