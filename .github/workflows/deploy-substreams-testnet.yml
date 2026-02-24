@@ -183,6 +183,7 @@ jobs:
           SHA="${{ steps.sha.outputs.short }}"
           TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
           CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
+          TOPIC_ID="${{ secrets.TELEGRAM_OPS_TOPIC_ID }}"
           [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
 
           if [ "$STATUS" = "success" ]; then
@@ -194,6 +195,12 @@ jobs:
           TEXT="$EMOJI *$MSG* — \`$SHA\`
           [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
+          PAYLOAD="{\"chat_id\":\"$CHAT_ID\",\"text\":\"$TEXT\",\"parse_mode\":\"Markdown\""
+          if [ -n "$TOPIC_ID" ]; then
+            PAYLOAD="$PAYLOAD,\"message_thread_id\":$TOPIC_ID"
+          fi
+          PAYLOAD="$PAYLOAD}"
+
           curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
             -H 'Content-Type: application/json' \
-            -d "{\"chat_id\":\"$CHAT_ID\",\"text\":\"$TEXT\",\"parse_mode\":\"Markdown\"}" || true
+            -d "$PAYLOAD" || true
