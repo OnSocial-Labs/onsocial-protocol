@@ -2439,3 +2439,116 @@ pub async fn get_allowlist_allocation(
     let allocation: u32 = serde_json::from_slice(&result.result)?;
     Ok(allocation)
 }
+
+// =============================================================================
+// wNEAR / FT Receiver Helpers
+// =============================================================================
+
+/// Deploy mock-ft as a wNEAR stand-in. Mints `initial_supply` to `owner`.
+pub async fn deploy_mock_wnear(
+    worker: &near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    owner: &Account,
+    initial_supply: u128,
+) -> Result<Contract> {
+    let wasm_path = get_wasm_path("mock-ft");
+    let wasm = std::fs::read(&wasm_path)?;
+    let wnear = worker.dev_deploy(&wasm).await?;
+
+    wnear
+        .call("new")
+        .args_json(json!({
+            "owner_id": owner.id().to_string(),
+            "total_supply": initial_supply.to_string(),
+            "decimals": 24
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+
+    Ok(wnear)
+}
+
+/// Admin: configure the scarces contract to accept wNEAR from `wnear_contract`.
+pub async fn set_wnear_account(
+    contract: &Contract,
+    owner: &Account,
+    wnear_contract: &Contract,
+) -> Result<()> {
+    owner
+        .call(contract.id(), "set_wnear_account")
+        .args_json(json!({ "wnear_account_id": wnear_contract.id().to_string() }))
+        .deposit(ONE_YOCTO)
+        .transact()
+        .await?
+        .into_result()?;
+    Ok(())
+}
+
+/// Mint mock wNEAR tokens to `recipient`.
+pub async fn mint_wnear(
+    wnear: &Contract,
+    recipient: &Account,
+    amount: u128,
+) -> Result<()> {
+    wnear
+        .call("mint")
+        .args_json(json!({
+            "account_id": recipient.id().to_string(),
+            "amount": amount.to_string()
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+    Ok(())
+}
+
+/// Register `account` for storage on the mock-ft contract.
+pub async fn ft_storage_deposit(
+    ft_contract: &Contract,
+    account: &Account,
+) -> Result<()> {
+    account
+        .call(ft_contract.id(), "storage_deposit")
+        .args_json(json!({ "account_id": account.id().to_string() }))
+        .deposit(NearToken::from_millinear(50))
+        .transact()
+        .await?
+        .into_result()?;
+    Ok(())
+}
+
+/// Call `ft_transfer_call` on `wnear` as `sender`, sending `amount` to `receiver`
+/// with `msg` (account_id to credit, or empty for sender).
+pub async fn ft_transfer_call(
+    wnear: &Contract,
+    sender: &Account,
+    receiver: &Contract,
+    amount: u128,
+    msg: &str,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = sender
+        .call(wnear.id(), "ft_transfer_call")
+        .args_json(json!({
+            "receiver_id": receiver.id().to_string(),
+            "amount": amount.to_string(),
+            "msg": msg
+        }))
+        .deposit(ONE_YOCTO)
+        .gas(near_workspaces::types::Gas::from_tgas(200))
+        .transact()
+        .await?;
+    Ok(result)
+}
+
+/// View `ft_balance_of` on a fungible token contract.
+pub async fn ft_balance_of(
+    ft_contract: &Contract,
+    account_id: &str,
+) -> Result<u128> {
+    let result = ft_contract
+        .view("ft_balance_of")
+        .args_json(json!({ "account_id": account_id }))
+        .await?;
+    let balance: String = serde_json::from_slice(&result.result)?;
+    Ok(balance.parse()?)
+}

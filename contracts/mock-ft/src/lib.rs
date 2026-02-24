@@ -161,6 +161,16 @@ impl MockFT {
         self.fail_next_transfer
     }
 
+    /// Mock wNEAR `near_withdraw` — accepts 1 yoctoNEAR, does nothing.
+    /// Allows scarces-onsocial's `ft_on_transfer` → `near_withdraw` → `on_wnear_unwrapped`
+    /// callback chain to succeed in sandbox tests.
+    #[payable]
+    pub fn near_withdraw(&mut self, amount: U128) {
+        // Real wNEAR burns tokens and sends native NEAR.
+        // Mock just succeeds so the callback registers as successful.
+        let _ = amount;
+    }
+
     // =========================================================================
     // Internal
     // =========================================================================

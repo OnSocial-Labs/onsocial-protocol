@@ -275,6 +275,14 @@ test_integration() {
                 # Run near-workspaces integration tests for scarces-onsocial
                 rm -rf /tmp/.tmp* 2>/dev/null || true
                 
+                # Build mock-ft for wNEAR integration tests
+                echo "Building mock-ft contract for scarces integration tests..."
+                if [ -d "$BASE_DIR/mock-ft" ]; then
+                    cd "$BASE_DIR/mock-ft" || { echo -e "${WARNING}mock-ft contract not found, FT tests will be skipped${RESET}"; }
+                    cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build mock-ft${RESET}"; }
+                fi
+                cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                
                 local test_filter="scarces::"
                 if [ -n "$test_name" ]; then
                     test_filter="$test_name"
