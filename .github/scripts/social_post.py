@@ -51,6 +51,61 @@ REPO_URL = os.environ.get(
 DISCUSSIONS_URL = "https://github.com/orgs/OnSocial-Labs/discussions"
 
 # =============================================================================
+# Auto-detect which contracts/packages changed
+# =============================================================================
+
+# Map top-level directories to human-readable component names
+COMPONENT_MAP = {
+    "contracts/scarces-onsocial": "NFT marketplace contract (scarces-onsocial)",
+    "contracts/core-onsocial": "social data contract (core-onsocial)",
+    "contracts/token-onsocial": "SOCIAL token contract (token-onsocial)",
+    "contracts/staking-onsocial": "staking contract (staking-onsocial)",
+    "contracts/rewards.onsocial": "rewards contract (rewards.onsocial)",
+    "contracts/manager-proxy-onsocial": "manager proxy contract",
+    "packages/onsocial-relayer": "gasless transaction relayer",
+    "packages/onsocial-gateway": "API gateway",
+    "packages/onsocial-portal": "React frontend (portal)",
+    "packages/onsocial-app": "web app",
+    "packages/onsocial-rpc": "RPC package",
+    "packages/onsocial-intents": "NEAR Intents integration",
+    "indexers/substreams": "Substreams indexer",
+    "indexers/subgraph": "Subgraph indexer",
+    "crates/onsocial-types": "shared types crate",
+    "crates/onsocial-auth": "auth crate",
+    "tests": "integration tests",
+}
+
+
+def detect_changed_components() -> str:
+    """Run git diff to find which components were touched in this commit."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return "(could not detect changed files)"
+        files = result.stdout.strip().splitlines()
+    except Exception:
+        return "(could not detect changed files)"
+
+    components = set()
+    for f in files:
+        for prefix, label in COMPONENT_MAP.items():
+            if f.startswith(prefix):
+                components.add(label)
+                break
+
+    if not components:
+        return "misc / repo-level changes"
+    return ", ".join(sorted(components))
+
+
+CHANGED_COMPONENTS = detect_changed_components()
+
+# =============================================================================
 # Generate posts via NEAR AI
 # =============================================================================
 
@@ -63,6 +118,12 @@ Commit message: {COMMIT_MESSAGE}
 Commit: {COMMIT_SHA}
 Repo: {REPO_URL}
 Discussions: {DISCUSSIONS_URL}
+Changed components: {CHANGED_COMPONENTS}
+
+This is a monorepo with multiple contracts and packages. The "Changed components" line \
+above tells you exactly which parts of the codebase were modified. Always mention the \
+specific component in both the tweet and telegram post — followers need to know which \
+part of the system changed. Use the friendly name, not the directory path.
 
 Tech stack: Rust smart contracts on NEAR, TypeScript relayer/gateway, React portal, \
 gasless transactions via meta-transactions and session keys, NEAR AI integration, \
