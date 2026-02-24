@@ -40,6 +40,7 @@ X_ACCESS_TOKEN_SECRET = os.environ.get("X_ACCESS_TOKEN_SECRET", "")
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+TELEGRAM_TOPIC_ID = os.environ.get("TELEGRAM_TOPIC_ID", "")
 
 # Strip the [post] tag from the message — it's a trigger, not content
 COMMIT_MESSAGE = os.environ.get("COMMIT_MESSAGE", "").replace("[post]", "").strip()
@@ -217,13 +218,16 @@ def post_to_telegram(text: str) -> bool:
         return False
 
     try:
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": text,
+            "disable_web_page_preview": False,
+        }
+        if TELEGRAM_TOPIC_ID:
+            payload["message_thread_id"] = int(TELEGRAM_TOPIC_ID)
         resp = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "text": text,
-                "disable_web_page_preview": False,
-            },
+            json=payload,
             timeout=10,
         )
         if resp.status_code == 200:
