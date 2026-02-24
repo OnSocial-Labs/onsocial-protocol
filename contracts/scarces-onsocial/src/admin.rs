@@ -30,6 +30,7 @@ impl Contract {
             collections_by_creator: LookupMap::new(StorageKey::CollectionsByCreator),
             fee_config: FeeConfig::default(),
             app_pools: LookupMap::new(StorageKey::AppPools),
+            app_pool_ids: IterableSet::new(StorageKey::AppPoolIds),
             app_user_usage: LookupMap::new(StorageKey::AppUserUsage),
             platform_storage_balance: deposit,
             user_storage: LookupMap::new(StorageKey::UserStorage),

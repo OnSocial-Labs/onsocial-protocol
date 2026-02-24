@@ -84,6 +84,7 @@ pub struct Contract {
     pub fee_config: FeeConfig,
 
     pub app_pools: LookupMap<AccountId, AppPool>,
+    pub app_pool_ids: IterableSet<AccountId>,
     // Storage/accounting invariant: tracks per-(user, app) byte attribution for tiered storage reversal.
     pub(crate) app_user_usage: LookupMap<String, u64>,
     pub platform_storage_balance: u128,

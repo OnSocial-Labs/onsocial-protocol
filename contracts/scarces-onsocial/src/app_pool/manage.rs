@@ -115,6 +115,7 @@ impl Contract {
         };
 
         self.app_pools.insert(app_id.clone(), pool);
+        self.app_pool_ids.insert(app_id.clone());
 
         events::emit_app_pool_register(actor_id, app_id, initial_balance);
         Ok(())

@@ -115,6 +115,90 @@ fn get_app_metadata_none_for_missing() {
     assert!(contract.get_app_metadata(app_id()).is_none());
 }
 
+// --- get_app_count ---
+
+#[test]
+fn get_app_count_zero_initially() {
+    let contract = setup_contract();
+    testing_env!(context(owner()).build());
+    assert_eq!(contract.get_app_count(), 0);
+}
+
+#[test]
+fn get_app_count_after_register() {
+    let mut contract = setup_contract();
+    register_app(&mut contract);
+    testing_env!(context(owner()).build());
+    assert_eq!(contract.get_app_count(), 1);
+}
+
+// --- get_all_app_ids ---
+
+#[test]
+fn get_all_app_ids_empty() {
+    let contract = setup_contract();
+    testing_env!(context(owner()).build());
+    assert!(contract.get_all_app_ids(None, None).is_empty());
+}
+
+#[test]
+fn get_all_app_ids_returns_registered() {
+    let mut contract = setup_contract();
+    register_app(&mut contract);
+    testing_env!(context(owner()).build());
+    let ids = contract.get_all_app_ids(None, None);
+    assert_eq!(ids.len(), 1);
+    assert_eq!(ids[0], app_id());
+}
+
+#[test]
+fn get_all_app_ids_pagination() {
+    let mut contract = setup_contract();
+    register_app(&mut contract);
+
+    // Register a second app
+    testing_env!(context(owner()).build());
+    contract
+        .execute(make_request(Action::RegisterApp {
+            app_id: "app2.near".parse().unwrap(),
+            params: AppConfig {
+                max_user_bytes: None,
+                default_royalty: None,
+                primary_sale_bps: None,
+                curated: None,
+                metadata: None,
+            },
+        }))
+        .unwrap();
+
+    testing_env!(context(owner()).build());
+    assert_eq!(contract.get_app_count(), 2);
+
+    // Page 1: limit 1
+    let page1 = contract.get_all_app_ids(Some(0), Some(1));
+    assert_eq!(page1.len(), 1);
+
+    // Page 2: from_index 1, limit 1
+    let page2 = contract.get_all_app_ids(Some(1), Some(1));
+    assert_eq!(page2.len(), 1);
+
+    // Pages should be different
+    assert_ne!(page1[0], page2[0]);
+
+    // All at once
+    let all = contract.get_all_app_ids(None, None);
+    assert_eq!(all.len(), 2);
+}
+
+#[test]
+fn get_all_app_ids_limit_capped_at_100() {
+    let contract = setup_contract();
+    testing_env!(context(owner()).build());
+    // Requesting 200 should work without panic (capped internally)
+    let ids = contract.get_all_app_ids(None, Some(200));
+    assert!(ids.is_empty());
+}
+
 // --- resolve_base_uri ---
 
 #[test]

@@ -35,6 +35,21 @@ impl Contract {
             .and_then(|json_str| near_sdk::serde_json::from_str(json_str).ok())
     }
 
+    pub fn get_app_count(&self) -> u32 {
+        self.app_pool_ids.len()
+    }
+
+    pub fn get_all_app_ids(&self, from_index: Option<u32>, limit: Option<u32>) -> Vec<AccountId> {
+        let start = from_index.unwrap_or(0) as usize;
+        let limit = limit.unwrap_or(50).min(100) as usize;
+        self.app_pool_ids
+            .iter()
+            .skip(start)
+            .take(limit)
+            .cloned()
+            .collect()
+    }
+
     /// Resolution order: collection metadata → app metadata → contract base_uri.
     pub fn resolve_base_uri(&self, collection_id: String) -> Option<String> {
         if let Some(collection) = self.collections.get(&collection_id) {

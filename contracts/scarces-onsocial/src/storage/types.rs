@@ -23,6 +23,7 @@ pub enum StorageKey {
     CollectionsByCreator,
     CollectionsByCreatorInner { account_id_hash: Vec<u8> },
     AppPools,
+    AppPoolIds,
     AppUserUsage,
     UserStorage,
     CollectionMintCounts,
