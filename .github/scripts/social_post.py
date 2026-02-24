@@ -100,13 +100,25 @@ If the message is self-contained, skip the link.
 
 Examples of tone:
   Bad: "Huge update just dropped! We're thrilled to ship gasless auth!"
-  Good: "Added gasless auth via NEAR meta-transactions. Keys are session-scoped, 30 min TTL."
-  Good (wit): "Fixed sandbox ports not freeing on stop. The 'stop' part is apparently important."
-  Good (wit): "Comment audit complete. Turns out past code had opinions about the future. Updated accordingly."
+  Bad (jargon): "New IterableSet index on app_pool_ids with paginated view capped at 100."
+  Bad (repetitive opener): "Added app discovery views. Added test coverage. Added..."
+  Good: "Gasless auth now works via NEAR meta-transactions. Keys are session-scoped, 30 min TTL."
+  Good: "NFT marketplace apps can now be discovered on-chain — app listing and count views are live."
+  Good: "The scarces contract now covers 6 more modules with integration tests. Transfer, payouts, moderation, and more."
+  Good (wit): "Sandbox ports weren't freeing on stop. The 'stop' part is apparently important."
+  Good (wit): "Comment audit complete. Turns out past code had opinions about the future."
 
 Write TWO versions:
 
-1. TWEET: — max 240 characters, hard limit. Specific, calm, developer-focused. \
+1. TWEET: — max 240 characters, hard limit. Must be understandable by someone who has \
+never seen the repo. Lead with WHAT changed (the feature or fix), not HOW (implementation \
+details like struct names or storage keys). Avoid internal jargon — translate it to what \
+the user or developer gains. If the commit is about tests, emphasize what's now covered, \
+not the test count. One clear sentence is better than two cramped ones. \
+IMPORTANT: Vary the sentence structure. Do NOT start with "Added", "Updated", "Fixed", \
+or any past-tense verb every time. Mix it up — use noun phrases ("App discovery is now \
+on-chain"), present tense ("The scarces contract now exposes..."), or context-first \
+structure ("For frontend devs: ..."). Never start two consecutive posts the same way. \
 If you include a URL, count it as ~50 characters.
 
 2. TELEGRAM: — 2-3 sentences. A bit more detail on what changed and why. \
