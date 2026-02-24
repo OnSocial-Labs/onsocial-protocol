@@ -1,5 +1,6 @@
 use crate::tests::test_utils::*;
 use crate::*;
+use near_sdk::json_types::U128;
 
 // --- Waterfall: Tier 2 (platform pool) ---
 
@@ -35,7 +36,7 @@ fn tier3_user_balance_covers_storage() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: byte_cost * 100,
+            balance: U128(byte_cost * 100),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -49,7 +50,7 @@ fn tier3_user_balance_covers_storage() {
 
     let user = contract.user_storage.get(&buyer()).unwrap();
     assert_eq!(user.used_bytes, 30);
-    assert_eq!(user.balance, byte_cost * 100); // Balance unchanged; used_bytes tracks usage
+    assert_eq!(user.balance, U128(byte_cost * 100)); // Balance unchanged; used_bytes tracks usage
 }
 
 // --- Waterfall: Tier 4 (pending_attached_balance) ---
@@ -125,7 +126,10 @@ fn tier1_app_pool_covers_storage() {
 
     // Check per-user usage
     let usage_key = format!("{}:{}", buyer(), app);
-    assert_eq!(contract.app_user_usage.get(&usage_key).copied().unwrap(), 40);
+    assert_eq!(
+        contract.app_user_usage.get(&usage_key).copied().unwrap(),
+        40
+    );
 }
 
 // --- Tier 1: per-user cap enforced ---
@@ -175,7 +179,7 @@ fn release_tier2_credits_platform_pool() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             tier2_used_bytes: 50,
             spending_cap: None,
@@ -219,7 +223,10 @@ fn release_tier1_credits_app_pool() {
     let pool = contract.app_pools.get(&app).unwrap();
     assert_eq!(pool.used_bytes, 20);
     assert_eq!(pool.balance.0, byte_cost * 120);
-    assert_eq!(contract.app_user_usage.get(&usage_key).copied().unwrap(), 20);
+    assert_eq!(
+        contract.app_user_usage.get(&usage_key).copied().unwrap(),
+        20
+    );
 }
 
 // --- Zero bytes is a no-op ---

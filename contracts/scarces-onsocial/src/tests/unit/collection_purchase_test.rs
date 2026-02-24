@@ -30,9 +30,7 @@ fn setup_contract_with_collection(price: u128) -> (Contract, String) {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
     (contract, "col".to_string())
 }
 
@@ -113,9 +111,7 @@ fn purchase_creator_only_mode_fails() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 100_000).build());
 
     let err = contract
@@ -156,9 +152,7 @@ fn purchase_exceeds_supply_fails() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
     testing_env!(context_with_deposit(buyer(), 1_000_000).build());
 
     let err = contract
@@ -199,9 +193,7 @@ fn purchase_exceeds_per_wallet_limit_fails() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 
     // First purchase of 2 succeeds
     testing_env!(context_with_deposit(buyer(), 100_000).build());
@@ -360,9 +352,7 @@ fn purchase_before_start_without_allowlist_fails() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     let err = contract
@@ -402,9 +392,7 @@ fn purchase_before_start_with_allowlist_succeeds() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 
     // Add buyer to allowlist with allocation of 5
     testing_env!(context(creator()).build());
@@ -412,9 +400,7 @@ fn purchase_before_start_with_allowlist_succeeds() {
         account_id: buyer(),
         allocation: 5,
     }];
-    contract
-        .set_allowlist(&creator(), "al2", entries)
-        .unwrap();
+    contract.set_allowlist(&creator(), "al2", entries).unwrap();
 
     testing_env!(context_with_deposit(buyer(), 100_000).build());
     contract

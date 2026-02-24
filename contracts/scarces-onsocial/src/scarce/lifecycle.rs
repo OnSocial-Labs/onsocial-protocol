@@ -111,7 +111,8 @@ impl Contract {
                 self.remove_sale_listing(token_id, &owner_id, "burned");
 
                 collection.minted_count = collection.minted_count.saturating_sub(1);
-                self.collections.insert(collection_id.to_string(), collection);
+                self.collections
+                    .insert(collection_id.to_string(), collection);
 
                 events::emit_token_revoked(
                     actor_id,
@@ -263,7 +264,8 @@ impl Contract {
         self.remove_sale_listing(token_id, &owner_id, "burned");
 
         collection.minted_count = collection.minted_count.saturating_sub(1);
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
         events::emit_scarce_burned(&owner_id, token_id, Some(collection_id));
         Ok(())

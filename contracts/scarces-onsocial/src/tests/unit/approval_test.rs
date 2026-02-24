@@ -231,9 +231,7 @@ fn revoke_all_scarce_not_owner_fails() {
     testing_env!(context_with_deposit(buyer(), 1).build());
 
     let err = contract
-        .execute(make_request(Action::RevokeAllScarce {
-            token_id: tid,
-        }))
+        .execute(make_request(Action::RevokeAllScarce { token_id: tid }))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }

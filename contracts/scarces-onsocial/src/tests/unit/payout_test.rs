@@ -94,9 +94,7 @@ fn nft_payout_with_royalty() {
     let token_id = quick_mint_with_royalty(&mut contract, &buyer(), royalty);
 
     testing_env!(context(owner()).build());
-    let payout = contract
-        .nft_payout(token_id, U128(10_000), None)
-        .unwrap();
+    let payout = contract.nft_payout(token_id, U128(10_000), None).unwrap();
 
     // Creator gets 10%, buyer (owner) gets 90%
     assert_eq!(payout.payout[&creator()].0, 1_000);
@@ -138,14 +136,7 @@ fn nft_transfer_payout_happy() {
     // Must be called by owner with 1 yocto
     testing_env!(context_with_deposit(buyer(), 1).build());
     let payout = contract
-        .nft_transfer_payout(
-            creator(),
-            token_id.clone(),
-            None,
-            None,
-            U128(1_000),
-            None,
-        )
+        .nft_transfer_payout(creator(), token_id.clone(), None, None, U128(1_000), None)
         .unwrap();
 
     assert_eq!(payout.payout.len(), 1);
@@ -162,9 +153,11 @@ fn nft_transfer_payout_no_yocto_fails() {
     let token_id = quick_mint(&mut contract, &buyer());
 
     testing_env!(context(buyer()).build());
-    let result = contract
-        .nft_transfer_payout(creator(), token_id, None, None, U128(1_000), None);
-    assert!(matches!(result, Err(MarketplaceError::InsufficientDeposit(_))));
+    let result = contract.nft_transfer_payout(creator(), token_id, None, None, U128(1_000), None);
+    assert!(matches!(
+        result,
+        Err(MarketplaceError::InsufficientDeposit(_))
+    ));
 }
 
 #[test]
@@ -173,8 +166,7 @@ fn nft_transfer_payout_wrong_owner_fails() {
     let token_id = quick_mint(&mut contract, &buyer());
 
     testing_env!(context_with_deposit(creator(), 1).build());
-    let result = contract
-        .nft_transfer_payout(owner(), token_id, None, None, U128(1_000), None);
+    let result = contract.nft_transfer_payout(owner(), token_id, None, None, U128(1_000), None);
     assert!(matches!(result, Err(MarketplaceError::Unauthorized(_))));
 }
 
@@ -183,7 +175,13 @@ fn nft_transfer_payout_not_found_fails() {
     let mut contract = setup_contract();
     testing_env!(context_with_deposit(buyer(), 1).build());
 
-    let result = contract
-        .nft_transfer_payout(creator(), "bad_id".to_string(), None, None, U128(1_000), None);
+    let result = contract.nft_transfer_payout(
+        creator(),
+        "bad_id".to_string(),
+        None,
+        None,
+        U128(1_000),
+        None,
+    );
     assert!(matches!(result, Err(MarketplaceError::NotFound(_))));
 }

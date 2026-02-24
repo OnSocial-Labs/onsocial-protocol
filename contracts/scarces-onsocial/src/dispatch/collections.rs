@@ -24,12 +24,7 @@ impl Contract {
                 start_time,
                 end_time,
             } => {
-                self.update_collection_timing(
-                    actor_id,
-                    collection_id,
-                    start_time,
-                    end_time,
-                )?;
+                self.update_collection_timing(actor_id, collection_id, start_time, end_time)?;
                 Ok(Value::Null)
             }
             Action::MintFromCollection {
@@ -90,12 +85,7 @@ impl Contract {
                 collection_id,
                 metadata,
             } => {
-                self.set_collection_app_metadata(
-                    actor_id,
-                    &app_id,
-                    &collection_id,
-                    metadata,
-                )?;
+                self.set_collection_app_metadata(actor_id, &app_id, &collection_id, metadata)?;
                 Ok(Value::Null)
             }
             Action::WithdrawUnclaimedRefunds { collection_id } => {

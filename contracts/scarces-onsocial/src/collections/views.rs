@@ -8,7 +8,9 @@ impl Contract {
 
     pub fn get_collection_availability(&self, collection_id: String) -> u32 {
         match self.collections.get(&collection_id) {
-            Some(collection) => collection.total_supply.saturating_sub(collection.minted_count),
+            Some(collection) => collection
+                .total_supply
+                .saturating_sub(collection.minted_count),
             None => 0,
         }
     }
@@ -33,7 +35,9 @@ impl Contract {
             .map(|collection| CollectionProgress {
                 minted: collection.minted_count,
                 total: collection.total_supply,
-                remaining: collection.total_supply.saturating_sub(collection.minted_count),
+                remaining: collection
+                    .total_supply
+                    .saturating_sub(collection.minted_count),
                 percentage: if collection.total_supply > 0 {
                     (collection.minted_count as f64 / collection.total_supply as f64 * 100.0) as u32
                 } else {
@@ -114,8 +118,11 @@ impl Contract {
             let total_revenue = collection.total_revenue.0;
             let marketplace_fees =
                 (total_revenue * self.fee_config.total_fee_bps as u128) / BASIS_POINTS as u128;
-            let app_commission = self.calculate_app_commission(total_revenue, collection.app_id.as_ref());
-            let creator_revenue = total_revenue.saturating_sub(marketplace_fees).saturating_sub(app_commission);
+            let app_commission =
+                self.calculate_app_commission(total_revenue, collection.app_id.as_ref());
+            let creator_revenue = total_revenue
+                .saturating_sub(marketplace_fees)
+                .saturating_sub(app_commission);
 
             let is_active = self.is_collection_active(collection);
 
@@ -125,7 +132,9 @@ impl Contract {
                 app_id: collection.app_id.clone(),
                 total_supply: collection.total_supply,
                 minted_count: collection.minted_count,
-                remaining: collection.total_supply.saturating_sub(collection.minted_count),
+                remaining: collection
+                    .total_supply
+                    .saturating_sub(collection.minted_count),
                 price_near: collection.price_near,
                 start_price: collection.start_price,
                 current_price: U128(current),
@@ -199,9 +208,7 @@ impl Contract {
         let collection = self.collections.get(&collection_id).ok_or_else(|| {
             MarketplaceError::NotFound(format!("Collection not found: {}", collection_id))
         })?;
-        Ok(U128(
-            crate::fees::compute_dutch_price(collection),
-        ))
+        Ok(U128(crate::fees::compute_dutch_price(collection)))
     }
 
     #[handle_result]
@@ -216,7 +223,9 @@ impl Contract {
         Ok(U128(
             crate::fees::compute_dutch_price(collection)
                 .checked_mul(quantity as u128)
-                .ok_or_else(|| MarketplaceError::InvalidInput("Price calculation overflow".into()))?,
+                .ok_or_else(|| {
+                    MarketplaceError::InvalidInput("Price calculation overflow".into())
+                })?,
         ))
     }
 }

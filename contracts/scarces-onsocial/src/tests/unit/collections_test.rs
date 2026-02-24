@@ -121,9 +121,7 @@ fn create_collection_zero_supply_fails() {
     let mut contract = new_contract();
     let mut cfg = minimal_config("zero");
     cfg.total_supply = 0;
-    let err = contract
-        .create_collection(&creator(), cfg)
-        .unwrap_err();
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -132,9 +130,7 @@ fn create_collection_over_max_supply_fails() {
     let mut contract = new_contract();
     let mut cfg = minimal_config("huge");
     cfg.total_supply = MAX_COLLECTION_SUPPLY + 1;
-    let err = contract
-        .create_collection(&creator(), cfg)
-        .unwrap_err();
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -146,9 +142,7 @@ fn create_collection_end_before_start_fails() {
     let mut cfg = minimal_config("time");
     cfg.start_time = Some(2000);
     cfg.end_time = Some(1000);
-    let err = contract
-        .create_collection(&creator(), cfg)
-        .unwrap_err();
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -161,9 +155,7 @@ fn create_collection_dutch_without_times_fails() {
     cfg.price_near = U128(100);
     cfg.start_price = Some(U128(1000));
     // No start_time/end_time
-    let err = contract
-        .create_collection(&creator(), cfg)
-        .unwrap_err();
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -175,9 +167,7 @@ fn create_collection_dutch_start_price_le_floor_fails() {
     cfg.start_price = Some(U128(500)); // less than floor
     cfg.start_time = Some(1000);
     cfg.end_time = Some(2000);
-    let err = contract
-        .create_collection(&creator(), cfg)
-        .unwrap_err();
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -188,9 +178,7 @@ fn create_collection_zero_max_per_wallet_fails() {
     let mut contract = new_contract();
     let mut cfg = minimal_config("mpw");
     cfg.max_per_wallet = Some(0);
-    let err = contract
-        .create_collection(&creator(), cfg)
-        .unwrap_err();
+    let err = contract.create_collection(&creator(), cfg).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -222,14 +210,10 @@ fn pause_and_resume_collection() {
         .create_collection(&creator(), minimal_config("pausable"))
         .unwrap();
 
-    contract
-        .pause_collection(&creator(), "pausable")
-        .unwrap();
+    contract.pause_collection(&creator(), "pausable").unwrap();
     assert!(contract.collections.get("pausable").unwrap().paused);
 
-    contract
-        .resume_collection(&creator(), "pausable")
-        .unwrap();
+    contract.resume_collection(&creator(), "pausable").unwrap();
     assert!(!contract.collections.get("pausable").unwrap().paused);
 }
 
@@ -241,8 +225,6 @@ fn pause_wrong_creator_fails() {
         .create_collection(&creator(), minimal_config("owned"))
         .unwrap();
 
-    let err = contract
-        .pause_collection(&buyer(), "owned")
-        .unwrap_err();
+    let err = contract.pause_collection(&buyer(), "owned").unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }

@@ -21,12 +21,7 @@ impl Contract {
                 token_id,
                 buyer_id,
             } => {
-                self.accept_collection_offer(
-                    actor_id,
-                    &collection_id,
-                    &token_id,
-                    &buyer_id,
-                )?;
+                self.accept_collection_offer(actor_id, &collection_id, &token_id, &buyer_id)?;
                 Ok(Value::Null)
             }
             Action::CancelCollectionOffer { collection_id } => {

@@ -1,8 +1,8 @@
 use near_sdk::AccountId;
 
+use super::CONTRACT;
 use super::builder::EventBuilder;
 use super::nep171;
-use super::CONTRACT;
 
 pub fn emit_contract_upgraded(contract_id: &AccountId, old_version: &str, new_version: &str) {
     EventBuilder::new(CONTRACT, "contract_upgrade", contract_id)
@@ -18,7 +18,11 @@ pub fn emit_owner_transferred(old_owner: &AccountId, new_owner: &AccountId) {
         .emit();
 }
 
-pub fn emit_fee_recipient_changed(owner_id: &AccountId, old_recipient: &AccountId, new_recipient: &AccountId) {
+pub fn emit_fee_recipient_changed(
+    owner_id: &AccountId,
+    old_recipient: &AccountId,
+    new_recipient: &AccountId,
+) {
     EventBuilder::new(CONTRACT, "fee_recipient_changed", owner_id)
         .field("old_recipient", old_recipient)
         .field("new_recipient", new_recipient)

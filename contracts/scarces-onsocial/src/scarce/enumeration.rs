@@ -84,12 +84,14 @@ impl Contract {
         (1..=collection.total_supply)
             .filter_map(|serial| {
                 let token_id = format!("{}:{}", collection_id, serial);
-                self.scarces_by_id.get(token_id.as_str()).map(|token| external::Token {
-                    token_id: token_id.clone(),
-                    owner_id: token.owner_id.clone(),
-                    metadata: Some(token.metadata.clone()),
-                    approved_account_ids: Some(token.approved_account_ids.clone()),
-                })
+                self.scarces_by_id
+                    .get(token_id.as_str())
+                    .map(|token| external::Token {
+                        token_id: token_id.clone(),
+                        owner_id: token.owner_id.clone(),
+                        metadata: Some(token.metadata.clone()),
+                        approved_account_ids: Some(token.approved_account_ids.clone()),
+                    })
             })
             .skip(start)
             .take(limit)

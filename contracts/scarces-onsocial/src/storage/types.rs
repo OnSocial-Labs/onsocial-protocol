@@ -1,4 +1,5 @@
 use near_sdk::BorshStorageKey;
+use near_sdk::json_types::U128;
 use near_sdk::near;
 
 #[inline]
@@ -37,10 +38,10 @@ pub enum StorageKey {
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Default)]
 pub struct UserStorageBalance {
-    pub balance: u128,
+    pub balance: U128,
     pub used_bytes: u64,
     #[serde(default)]
     pub tier2_used_bytes: u64,
     #[serde(default)]
-    pub spending_cap: Option<u128>,
+    pub spending_cap: Option<U128>,
 }

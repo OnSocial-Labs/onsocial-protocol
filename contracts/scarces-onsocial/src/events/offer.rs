@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 
-use super::builder::EventBuilder;
 use super::OFFER;
+use super::builder::EventBuilder;
 
 pub fn emit_offer_made(
     buyer_id: &AccountId,

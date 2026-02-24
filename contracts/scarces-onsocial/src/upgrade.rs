@@ -1,5 +1,5 @@
-use crate::*;
 use crate::constants::GAS_MIGRATE_TGAS;
+use crate::*;
 
 #[near]
 impl Contract {

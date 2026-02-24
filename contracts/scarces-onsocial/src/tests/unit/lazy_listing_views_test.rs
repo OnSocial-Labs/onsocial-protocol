@@ -114,9 +114,11 @@ fn get_lazy_listing_none_for_missing() {
 fn get_lazy_listings_by_creator_empty() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
-    assert!(contract
-        .get_lazy_listings_by_creator(buyer(), None, None)
-        .is_empty());
+    assert!(
+        contract
+            .get_lazy_listings_by_creator(buyer(), None, None)
+            .is_empty()
+    );
 }
 
 #[test]

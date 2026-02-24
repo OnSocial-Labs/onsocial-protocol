@@ -36,7 +36,12 @@ fn merge_app_only() {
 
     let result = contract.merge_royalties(Some(&app), None).unwrap().unwrap();
     assert_eq!(result.len(), 1);
-    assert_eq!(*result.get(&"artist.near".parse::<AccountId>().unwrap()).unwrap(), 500);
+    assert_eq!(
+        *result
+            .get(&"artist.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        500
+    );
 }
 
 #[test]
@@ -50,7 +55,12 @@ fn merge_creator_only() {
         .unwrap()
         .unwrap();
     assert_eq!(result.len(), 1);
-    assert_eq!(*result.get(&"band.near".parse::<AccountId>().unwrap()).unwrap(), 1000);
+    assert_eq!(
+        *result
+            .get(&"band.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        1000
+    );
 }
 
 #[test]
@@ -84,8 +94,18 @@ fn merge_disjoint_accounts() {
         .unwrap()
         .unwrap();
     assert_eq!(result.len(), 2);
-    assert_eq!(*result.get(&"platform.near".parse::<AccountId>().unwrap()).unwrap(), 200);
-    assert_eq!(*result.get(&"creator.near".parse::<AccountId>().unwrap()).unwrap(), 300);
+    assert_eq!(
+        *result
+            .get(&"platform.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        200
+    );
+    assert_eq!(
+        *result
+            .get(&"creator.near".parse::<AccountId>().unwrap())
+            .unwrap(),
+        300
+    );
 }
 
 #[test]
@@ -231,7 +251,9 @@ fn payout_no_royalty_all_to_seller() {
     let seller: AccountId = "seller.near".parse().unwrap();
     let token = make_token(None);
 
-    let payout = contract.compute_payout(&token, &seller, 1_000_000, 10).unwrap();
+    let payout = contract
+        .compute_payout(&token, &seller, 1_000_000, 10)
+        .unwrap();
     assert_eq!(payout.payout.len(), 1);
     assert_eq!(payout.payout.get(&seller).unwrap().0, 1_000_000);
 }
@@ -247,7 +269,9 @@ fn payout_single_royalty_recipient() {
 
     let token = make_token(Some(royalty));
     let balance: u128 = 10_000;
-    let payout = contract.compute_payout(&token, &seller, balance, 10).unwrap();
+    let payout = contract
+        .compute_payout(&token, &seller, balance, 10)
+        .unwrap();
 
     let royalty_amt = balance * 1000 / 10_000; // 1000
     assert_eq!(payout.payout.get(&recipient).unwrap().0, royalty_amt);
@@ -265,12 +289,17 @@ fn payout_seller_is_also_royalty_recipient() {
 
     let token = make_token(Some(royalty));
     let balance: u128 = 10_000;
-    let payout = contract.compute_payout(&token, &seller, balance, 10).unwrap();
+    let payout = contract
+        .compute_payout(&token, &seller, balance, 10)
+        .unwrap();
 
     // Seller's royalty share + remainder combined into one entry
     let royalty_amt = balance * 500 / 10_000; // 500
     let remainder = balance - royalty_amt; // 9500
-    assert_eq!(payout.payout.get(&seller).unwrap().0, royalty_amt + remainder);
+    assert_eq!(
+        payout.payout.get(&seller).unwrap().0,
+        royalty_amt + remainder
+    );
 }
 
 #[test]
@@ -285,8 +314,7 @@ fn payout_too_many_recipients_fails() {
     }
 
     let token = make_token(Some(royalty));
-    let result = contract
-        .compute_payout(&token, &seller, 10_000, 3);
+    let result = contract.compute_payout(&token, &seller, 10_000, 3);
     assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
 }
 

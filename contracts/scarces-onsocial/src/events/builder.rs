@@ -1,6 +1,6 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::{self, Map, Value};
-use near_sdk::{env, AccountId};
+use near_sdk::{AccountId, env};
 
 use super::types::{Event, EventData};
 use super::{PREFIX, STANDARD, VERSION};
@@ -101,7 +101,11 @@ pub(crate) struct EventBuilder {
 }
 
 impl EventBuilder {
-    pub(crate) fn new(event_type: &'static str, operation: &'static str, author: &AccountId) -> Self {
+    pub(crate) fn new(
+        event_type: &'static str,
+        operation: &'static str,
+        author: &AccountId,
+    ) -> Self {
         Self {
             event_type,
             operation,
@@ -134,7 +138,10 @@ impl EventBuilder {
                 extra: self.fields,
             }],
         };
-        env::log_str(&format!("{PREFIX}{}", serde_json::to_string(&event).expect("event serialization failed")));
+        env::log_str(&format!(
+            "{PREFIX}{}",
+            serde_json::to_string(&event).expect("event serialization failed")
+        ));
     }
 }
 
@@ -171,7 +178,10 @@ impl Nep171Event {
         evt.insert("standard".into(), Value::String("nep171".into()));
         evt.insert("version".into(), Value::String(self.version.into()));
         evt.insert("event".into(), Value::String(self.event_name.into()));
-        evt.insert("data".into(), Value::Array(vec![Value::Object(self.fields)]));
+        evt.insert(
+            "data".into(),
+            Value::Array(vec![Value::Object(self.fields)]),
+        );
         env::log_str(&format!("{PREFIX}{}", Value::Object(evt)));
     }
 }

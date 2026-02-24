@@ -1,6 +1,6 @@
+use near_sdk::AccountId;
 use near_sdk::json_types::U128;
 use near_sdk::near;
-use near_sdk::AccountId;
 
 use super::AllowlistEntry;
 use super::TransferItem;
@@ -261,23 +261,23 @@ impl Action {
         !matches!(
             self,
             Self::PurchaseFromCollection { .. }
-            | Self::PurchaseLazyListing { .. }
-            | Self::PurchaseNativeScarce { .. }
-            | Self::PlaceBid { .. }
-            | Self::MakeOffer { .. }
-            | Self::MakeCollectionOffer { .. }
-            | Self::CancelCollection { .. }
-            | Self::FundAppPool { .. }
-            | Self::StorageDeposit { .. }
-            | Self::RegisterApp { .. }
-            | Self::QuickMint { .. }
-            | Self::CreateCollection { .. }
-            | Self::MintFromCollection { .. }
-            | Self::AirdropFromCollection { .. }
-            | Self::ListNativeScarce { .. }
-            | Self::ListNativeScarceAuction { .. }
-            | Self::CreateLazyListing { .. }
-            | Self::SettleAuction { .. }
+                | Self::PurchaseLazyListing { .. }
+                | Self::PurchaseNativeScarce { .. }
+                | Self::PlaceBid { .. }
+                | Self::MakeOffer { .. }
+                | Self::MakeCollectionOffer { .. }
+                | Self::CancelCollection { .. }
+                | Self::FundAppPool { .. }
+                | Self::StorageDeposit { .. }
+                | Self::RegisterApp { .. }
+                | Self::QuickMint { .. }
+                | Self::CreateCollection { .. }
+                | Self::MintFromCollection { .. }
+                | Self::AirdropFromCollection { .. }
+                | Self::ListNativeScarce { .. }
+                | Self::ListNativeScarceAuction { .. }
+                | Self::CreateLazyListing { .. }
+                | Self::SettleAuction { .. }
         )
     }
 
@@ -286,11 +286,11 @@ impl Action {
         matches!(
             self,
             Self::PurchaseFromCollection { .. }
-            | Self::PurchaseLazyListing { .. }
-            | Self::PurchaseNativeScarce { .. }
-            | Self::PlaceBid { .. }
-            | Self::MakeOffer { .. }
-            | Self::MakeCollectionOffer { .. }
+                | Self::PurchaseLazyListing { .. }
+                | Self::PurchaseNativeScarce { .. }
+                | Self::PlaceBid { .. }
+                | Self::MakeOffer { .. }
+                | Self::MakeCollectionOffer { .. }
         )
     }
 }

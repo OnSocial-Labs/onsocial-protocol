@@ -27,9 +27,7 @@ fn setup_contract_with_collection(template: &str) -> Contract {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
     contract
 }
 
@@ -37,9 +35,7 @@ fn setup_contract_with_collection(template: &str) -> Contract {
 
 #[test]
 fn template_title_token_id() {
-    let contract = setup_contract_with_collection(
-        r#"{"title":"Token {token_id}"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"title":"Token {token_id}"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"title":"Token {token_id}"}"#,
@@ -54,9 +50,7 @@ fn template_title_token_id() {
 
 #[test]
 fn template_title_seat_number() {
-    let contract = setup_contract_with_collection(
-        r#"{"title":"Seat #{seat_number}"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"title":"Seat #{seat_number}"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"title":"Seat #{seat_number}"}"#,
@@ -71,9 +65,7 @@ fn template_title_seat_number() {
 
 #[test]
 fn template_title_index() {
-    let contract = setup_contract_with_collection(
-        r#"{"title":"Item {index}"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"title":"Item {index}"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"title":"Item {index}"}"#,
@@ -88,9 +80,7 @@ fn template_title_index() {
 
 #[test]
 fn template_title_collection_id() {
-    let contract = setup_contract_with_collection(
-        r#"{"title":"{collection_id} pass"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"title":"{collection_id} pass"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"title":"{collection_id} pass"}"#,
@@ -107,9 +97,7 @@ fn template_title_collection_id() {
 
 #[test]
 fn template_description_owner() {
-    let contract = setup_contract_with_collection(
-        r#"{"description":"Owned by {owner}"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"description":"Owned by {owner}"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"description":"Owned by {owner}"}"#,
@@ -119,10 +107,7 @@ fn template_description_owner() {
             "col-1",
         )
         .unwrap();
-    assert_eq!(
-        meta.description.unwrap(),
-        format!("Owned by {}", buyer())
-    );
+    assert_eq!(meta.description.unwrap(), format!("Owned by {}", buyer()));
 }
 
 // --- Media / Reference substitution ---
@@ -146,9 +131,7 @@ fn template_media_substitution() {
 
 #[test]
 fn template_reference_substitution() {
-    let contract = setup_contract_with_collection(
-        r#"{"reference":"https://api.io/{token_id}"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"reference":"https://api.io/{token_id}"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"reference":"https://api.io/{token_id}"}"#,
@@ -165,9 +148,7 @@ fn template_reference_substitution() {
 
 #[test]
 fn template_extra_minted_at() {
-    let contract = setup_contract_with_collection(
-        r#"{"extra":"{\"minted_at\":\"{minted_at}\"}"}"#,
-    );
+    let contract = setup_contract_with_collection(r#"{"extra":"{\"minted_at\":\"{minted_at}\"}"}"#);
     let meta = contract
         .generate_metadata_from_template(
             r#"{"extra":"{\"minted_at\":\"{minted_at}\"}"}"#,
@@ -226,8 +207,8 @@ fn template_copies_not_overridden_when_set() {
 #[test]
 fn template_invalid_json_fails() {
     let contract = setup_contract_with_collection(r#"{"title":"t"}"#);
-    let result = contract
-        .generate_metadata_from_template("not json", "col-1:1", 0, &buyer(), "col-1");
+    let result =
+        contract.generate_metadata_from_template("not json", "col-1:1", 0, &buyer(), "col-1");
     assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
 }
 

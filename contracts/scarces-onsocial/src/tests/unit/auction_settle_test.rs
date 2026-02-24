@@ -73,9 +73,11 @@ fn settle_auction_after_expiry_happy() {
         .unwrap();
 
     // Advance time past auction end
-    testing_env!(context_with_deposit(buyer(), 0)
-        .block_timestamp(1_700_000_000_000_000_000 + 120_000_000_000) // well past 60s
-        .build());
+    testing_env!(
+        context_with_deposit(buyer(), 0)
+            .block_timestamp(1_700_000_000_000_000_000 + 120_000_000_000) // well past 60s
+            .build()
+    );
 
     contract
         .execute(make_request(Action::SettleAuction {

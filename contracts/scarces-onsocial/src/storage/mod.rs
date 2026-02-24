@@ -1,5 +1,5 @@
-pub mod types;
 mod deposit;
+pub mod types;
 mod waterfall;
 
 pub use types::*;

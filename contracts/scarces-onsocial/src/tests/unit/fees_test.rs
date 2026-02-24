@@ -7,7 +7,10 @@ fn default_fee_config_values() {
     let cfg = FeeConfig::default();
     assert_eq!(cfg.total_fee_bps, DEFAULT_TOTAL_FEE_BPS);
     assert_eq!(cfg.app_pool_fee_bps, DEFAULT_APP_POOL_FEE_BPS);
-    assert_eq!(cfg.platform_storage_fee_bps, DEFAULT_PLATFORM_STORAGE_FEE_BPS);
+    assert_eq!(
+        cfg.platform_storage_fee_bps,
+        DEFAULT_PLATFORM_STORAGE_FEE_BPS
+    );
 }
 
 #[test]

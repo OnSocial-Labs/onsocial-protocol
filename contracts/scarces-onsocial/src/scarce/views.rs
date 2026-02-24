@@ -10,10 +10,19 @@ impl Contract {
             return false;
         }
         let cid = collection_id_from_token_id(&token_id);
-        if self.collections.get(cid).and_then(|c| c.max_redeems).is_some_and(|max| token.redeem_count >= max) {
+        if self
+            .collections
+            .get(cid)
+            .and_then(|c| c.max_redeems)
+            .is_some_and(|max| token.redeem_count >= max)
+        {
             return false;
         }
-        if token.metadata.expires_at.is_some_and(|exp| env::block_timestamp() >= exp) {
+        if token
+            .metadata
+            .expires_at
+            .is_some_and(|exp| env::block_timestamp() >= exp)
+        {
             return false;
         }
         true
@@ -39,7 +48,10 @@ impl Contract {
         let token = self.scarces_by_id.get(&token_id)?;
         let cid = collection_id_from_token_id(&token_id);
         let max_redeems = self.collections.get(cid).and_then(|c| c.max_redeems);
-        Some(RedeemInfo { redeem_count: token.redeem_count, max_redeems })
+        Some(RedeemInfo {
+            redeem_count: token.redeem_count,
+            max_redeems,
+        })
     }
 
     pub fn get_token_status(&self, token_id: String) -> Option<TokenStatus> {

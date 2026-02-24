@@ -57,14 +57,9 @@ impl Contract {
                 ));
             }
             for (account, bps) in royalty.iter() {
-                let amount = balance
-                    .checked_mul(*bps as u128)
-                    .ok_or_else(|| {
-                        MarketplaceError::InternalError(
-                            "Royalty payout overflow".to_string(),
-                        )
-                    })?
-                    / 10_000;
+                let amount = balance.checked_mul(*bps as u128).ok_or_else(|| {
+                    MarketplaceError::InternalError("Royalty payout overflow".to_string())
+                })? / 10_000;
                 if amount > 0 {
                     payout_map.insert(account.clone(), U128(amount));
                     total_royalty += amount;

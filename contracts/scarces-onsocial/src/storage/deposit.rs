@@ -8,7 +8,7 @@ impl Contract {
         U128(
             self.user_storage
                 .get(&account_id)
-                .map(|u| u.balance)
+                .map(|u| u.balance.0)
                 .unwrap_or(0),
         )
     }
@@ -31,8 +31,8 @@ impl Contract {
             .get(account_id)
             .cloned()
             .unwrap_or_default();
-        user.balance += deposit;
-        let new_balance = user.balance;
+        user.balance.0 += deposit;
+        let new_balance = user.balance.0;
         self.user_storage.insert(account_id.clone(), user);
 
         events::emit_storage_deposit(account_id, deposit, new_balance);
@@ -43,14 +43,10 @@ impl Contract {
         &mut self,
         actor_id: &AccountId,
     ) -> Result<(), MarketplaceError> {
-        let user = self
-            .user_storage
-            .get(actor_id)
-            .cloned()
-            .unwrap_or_default();
+        let user = self.user_storage.get(actor_id).cloned().unwrap_or_default();
 
         let used_cost = (user.used_bytes as u128) * storage_byte_cost();
-        let available = user.balance.saturating_sub(used_cost);
+        let available = user.balance.0.saturating_sub(used_cost);
         if available == 0 {
             return Err(MarketplaceError::InvalidState(
                 "No storage available to withdraw".to_string(),
@@ -62,7 +58,7 @@ impl Contract {
             self.user_storage.remove(actor_id);
         } else {
             let mut updated = user;
-            updated.balance = new_balance;
+            updated.balance = U128(new_balance);
             self.user_storage.insert(actor_id.clone(), updated);
         }
 
@@ -77,14 +73,14 @@ impl Contract {
     pub(crate) fn draw_user_balance(&mut self, actor_id: &AccountId) -> u128 {
         if let Some(user) = self.user_storage.get(actor_id).cloned() {
             let used_cost = (user.used_bytes as u128) * storage_byte_cost();
-            let mut available = user.balance.saturating_sub(used_cost);
+            let mut available = user.balance.0.saturating_sub(used_cost);
             if let Some(cap) = user.spending_cap {
-                available = available.min(cap);
+                available = available.min(cap.0);
             }
             if available > 0 {
                 let mut updated = user;
-                updated.balance -= available;
-                let new_balance = updated.balance;
+                updated.balance.0 -= available;
+                let new_balance = updated.balance.0;
                 self.user_storage.insert(actor_id.clone(), updated);
                 self.pending_attached_balance += available;
                 events::emit_prepaid_balance_drawn(actor_id, available, new_balance);
@@ -103,13 +99,9 @@ impl Contract {
     ) -> u128 {
         let refund = remaining.min(drawn);
         if refund > 0 {
-            let mut user = self
-                .user_storage
-                .get(actor_id)
-                .cloned()
-                .unwrap_or_default();
-            user.balance += refund;
-            let new_balance = user.balance;
+            let mut user = self.user_storage.get(actor_id).cloned().unwrap_or_default();
+            user.balance.0 += refund;
+            let new_balance = user.balance.0;
             self.user_storage.insert(actor_id.clone(), user);
             events::emit_prepaid_balance_restored(actor_id, refund, new_balance);
         }
@@ -117,12 +109,8 @@ impl Contract {
     }
 
     pub(crate) fn set_spending_cap(&mut self, actor_id: &AccountId, cap: Option<u128>) {
-        let mut user = self
-            .user_storage
-            .get(actor_id)
-            .cloned()
-            .unwrap_or_default();
-        user.spending_cap = cap;
+        let mut user = self.user_storage.get(actor_id).cloned().unwrap_or_default();
+        user.spending_cap = cap.map(U128);
         self.user_storage.insert(actor_id.clone(), user);
         events::emit_spending_cap_set(actor_id, cap);
     }
@@ -135,8 +123,7 @@ impl Contract {
         options: &crate::Options,
     ) {
         if options.refund_unused_deposit {
-            let _ = Promise::new(deposit_owner.clone())
-                .transfer(NearToken::from_yoctonear(amount));
+            let _ = Promise::new(deposit_owner.clone()).transfer(NearToken::from_yoctonear(amount));
             events::emit_storage_refund(deposit_owner, amount);
         } else {
             let mut user = self
@@ -144,8 +131,8 @@ impl Contract {
                 .get(deposit_owner)
                 .cloned()
                 .unwrap_or_default();
-            user.balance += amount;
-            let new_balance = user.balance;
+            user.balance.0 += amount;
+            let new_balance = user.balance.0;
             self.user_storage.insert(deposit_owner.clone(), user);
             events::emit_storage_credit_unused(deposit_owner, amount, new_balance);
         }

@@ -82,7 +82,10 @@ impl Contract {
     pub fn is_sale_expired(&self, scarce_contract_id: AccountId, token_id: String) -> Option<bool> {
         let sale_id = Contract::make_sale_id(&scarce_contract_id, &token_id);
         let sale = self.sales.get(&sale_id)?;
-        Some(sale.expires_at.is_some_and(|exp| env::block_timestamp() > exp))
+        Some(
+            sale.expires_at
+                .is_some_and(|exp| env::block_timestamp() > exp),
+        )
     }
 
     pub fn get_expired_sales(
@@ -119,7 +122,8 @@ impl Contract {
             anti_snipe_extension_ns: auction.anti_snipe_extension_ns,
             buy_now_price: auction.buy_now_price,
             is_ended: sale.expires_at.is_some_and(|e| env::block_timestamp() >= e),
-            reserve_met: auction.highest_bid.0 >= auction.reserve_price.0 && auction.highest_bid.0 > 0,
+            reserve_met: auction.highest_bid.0 >= auction.reserve_price.0
+                && auction.highest_bid.0 > 0,
         })
     }
 

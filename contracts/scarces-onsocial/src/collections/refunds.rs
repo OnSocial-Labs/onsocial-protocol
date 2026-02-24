@@ -26,11 +26,10 @@ impl Contract {
         let refundable_count = collection
             .minted_count
             .saturating_sub(collection.fully_redeemed_count);
-        let required_deposit = refund_per_token.0
+        let required_deposit = refund_per_token
+            .0
             .checked_mul(refundable_count as u128)
-            .ok_or_else(|| MarketplaceError::InvalidInput(
-                "refund_per_token overflow".into(),
-            ))?;
+            .ok_or_else(|| MarketplaceError::InvalidInput("refund_per_token overflow".into()))?;
 
         if deposit < required_deposit {
             return Err(MarketplaceError::InsufficientDeposit(format!(
@@ -52,7 +51,8 @@ impl Contract {
         collection.refund_per_token = refund_per_token;
         collection.refund_deadline = Some(env::block_timestamp().saturating_add(deadline));
 
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
         events::emit_collection_cancelled(
             actor_id,
@@ -83,9 +83,9 @@ impl Contract {
             ));
         }
 
-        let deadline = collection.refund_deadline.ok_or_else(|| {
-            MarketplaceError::InvalidState("No refund deadline set".into())
-        })?;
+        let deadline = collection
+            .refund_deadline
+            .ok_or_else(|| MarketplaceError::InvalidState("No refund deadline set".into()))?;
         if env::block_timestamp() < deadline {
             return Err(MarketplaceError::InvalidState(
                 "Refund deadline has not passed yet".into(),
@@ -100,7 +100,8 @@ impl Contract {
         }
 
         collection.refund_pool = U128(0);
-        self.collections.insert(collection_id.to_string(), collection);
+        self.collections
+            .insert(collection_id.to_string(), collection);
 
         let _ = Promise::new(actor_id.clone()).transfer(NearToken::from_yoctonear(remaining));
 

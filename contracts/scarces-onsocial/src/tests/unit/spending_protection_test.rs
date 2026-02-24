@@ -161,7 +161,7 @@ fn set_spending_cap_via_execute() {
         .unwrap();
 
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.spending_cap, Some(5_000));
+    assert_eq!(user.spending_cap, Some(U128(5_000)));
 }
 
 #[test]
@@ -172,10 +172,10 @@ fn clear_spending_cap_via_execute() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: 100_000,
+            balance: U128(100_000),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(5_000),
+            spending_cap: Some(U128(5_000)),
         },
     );
 
@@ -200,10 +200,10 @@ fn draw_user_balance_capped() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance,
+            balance: U128(balance),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(cap),
+            spending_cap: Some(U128(cap)),
         },
     );
 
@@ -212,7 +212,7 @@ fn draw_user_balance_capped() {
     assert_eq!(contract.pending_attached_balance, cap);
 
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.balance, balance - cap);
+    assert_eq!(user.balance, U128(balance - cap));
 }
 
 #[test]
@@ -225,10 +225,10 @@ fn draw_user_balance_cap_exceeds_available() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance,
+            balance: U128(balance),
             used_bytes: 50,
             tier2_used_bytes: 0,
-            spending_cap: Some(cap),
+            spending_cap: Some(U128(cap)),
         },
     );
 
@@ -244,7 +244,7 @@ fn draw_user_balance_no_cap_draws_all() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance,
+            balance: U128(balance),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -267,10 +267,10 @@ fn spending_cap_allows_purchase_within_cap() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: 100_000,
+            balance: U128(100_000),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(price),
+            spending_cap: Some(U128(price)),
         },
     );
 
@@ -295,10 +295,10 @@ fn spending_cap_blocks_purchase_exceeding_cap() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: 100_000,
+            balance: U128(100_000),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(price - 1),
+            spending_cap: Some(U128(price - 1)),
         },
     );
 
@@ -312,7 +312,7 @@ fn spending_cap_blocks_purchase_exceeding_cap() {
 
     // Balance fully restored (drawn cap amount, then restored)
     let user = contract.user_storage.get(&creator()).unwrap();
-    assert_eq!(user.balance, 100_000);
+    assert_eq!(user.balance, U128(100_000));
 }
 
 #[test]
@@ -325,10 +325,10 @@ fn spending_cap_does_not_affect_direct_deposit() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: 100_000,
+            balance: U128(100_000),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(1), // Extremely low cap
+            spending_cap: Some(U128(1)), // Extremely low cap
         },
     );
 
@@ -345,7 +345,7 @@ fn spending_cap_does_not_affect_direct_deposit() {
 
     // Prepaid balance untouched; excess deposit (10_000 - 5_000) credited back
     let user = contract.user_storage.get(&creator()).unwrap();
-    assert_eq!(user.balance, 100_000 + (10_000 - price));
+    assert_eq!(user.balance, U128(100_000 + (10_000 - price)));
 }
 
 // --- Spending cap with fixed-price purchase ---
@@ -360,10 +360,10 @@ fn spending_cap_with_exact_price_succeeds() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: 100_000,
+            balance: U128(100_000),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(price),
+            spending_cap: Some(U128(price)),
         },
     );
 

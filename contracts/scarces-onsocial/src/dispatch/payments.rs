@@ -25,8 +25,7 @@ impl Contract {
             }
             Action::PurchaseLazyListing { listing_id } => {
                 let deposit = core::mem::take(&mut self.pending_attached_balance);
-                let token_id =
-                    self.purchase_lazy_listing(actor_id, listing_id, deposit)?;
+                let token_id = self.purchase_lazy_listing(actor_id, listing_id, deposit)?;
                 Ok(Value::String(token_id))
             }
             Action::PurchaseNativeScarce { token_id } => {
@@ -75,12 +74,7 @@ impl Contract {
                     )));
                 }
                 self.pending_attached_balance -= offer_amount;
-                self.make_collection_offer(
-                    actor_id,
-                    &collection_id,
-                    offer_amount,
-                    expires_at,
-                )?;
+                self.make_collection_offer(actor_id, &collection_id, offer_amount, expires_at)?;
                 Ok(Value::Null)
             }
             Action::CancelCollection {

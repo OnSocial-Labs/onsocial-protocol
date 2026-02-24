@@ -200,7 +200,8 @@ impl Contract {
     pub(crate) fn set_collection_banned(&mut self, collection_id: &str, banned: bool) {
         if let Some(mut collection) = self.collections.get(collection_id).cloned() {
             collection.banned = banned;
-            self.collections.insert(collection_id.to_string(), collection);
+            self.collections
+                .insert(collection_id.to_string(), collection);
         }
     }
 }

@@ -73,7 +73,11 @@ impl Contract {
         let after = env::storage_usage();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
-            self.release_storage_waterfall(actor_id, bytes_freed as u64, collection.app_id.as_ref());
+            self.release_storage_waterfall(
+                actor_id,
+                bytes_freed as u64,
+                collection.app_id.as_ref(),
+            );
         }
 
         events::emit_allowlist_removed(actor_id, collection_id, &accounts);

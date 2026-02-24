@@ -1,6 +1,6 @@
+use near_sdk::AccountId;
 use near_sdk::json_types::{Base64VecU8, U128};
 use near_sdk::near;
-use near_sdk::AccountId;
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone)]

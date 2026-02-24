@@ -168,9 +168,11 @@ fn get_collection_progress_values() {
 fn get_collections_by_creator_empty() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
-    assert!(contract
-        .get_collections_by_creator(buyer(), None, None)
-        .is_empty());
+    assert!(
+        contract
+            .get_collections_by_creator(buyer(), None, None)
+            .is_empty()
+    );
 }
 
 #[test]
@@ -313,10 +315,7 @@ fn allowlist_views_default() {
         0
     );
     assert!(!contract.is_allowlisted("vcal1".into(), buyer()));
-    assert_eq!(
-        contract.get_allowlist_remaining("vcal1".into(), buyer()),
-        0
-    );
+    assert_eq!(contract.get_allowlist_remaining("vcal1".into(), buyer()), 0);
 }
 
 #[test]
@@ -342,10 +341,7 @@ fn allowlist_views_after_set() {
         5
     );
     assert!(contract.is_allowlisted("vcal2".into(), buyer()));
-    assert_eq!(
-        contract.get_allowlist_remaining("vcal2".into(), buyer()),
-        5
-    );
+    assert_eq!(contract.get_allowlist_remaining("vcal2".into(), buyer()), 5);
 }
 
 // --- get_collection_price ---

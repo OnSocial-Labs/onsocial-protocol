@@ -2,7 +2,7 @@
 
 use crate::Payout;
 use near_sdk::json_types::{Base64VecU8, U128};
-use near_sdk::{ext_contract, near, AccountId};
+use near_sdk::{AccountId, ext_contract, near};
 
 #[near(serializers = [json])]
 #[derive(Clone)]

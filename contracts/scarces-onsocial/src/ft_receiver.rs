@@ -1,5 +1,5 @@
-use crate::*;
 use crate::constants::{GAS_NEAR_WITHDRAW_TGAS, GAS_UNWRAP_CALLBACK_TGAS};
+use crate::*;
 
 #[near]
 impl Contract {
@@ -42,7 +42,7 @@ impl Contract {
             .into()
     }
 
-            // Cross-contract guarantee: success consumes all and credits storage balance; failure returns full amount for refund.
+    // Cross-contract guarantee: success consumes all and credits storage balance; failure returns full amount for refund.
     #[private]
     pub fn on_wnear_unwrapped(&mut self, account_id: AccountId, amount: U128) -> U128 {
         if env::promise_results_count() == 1 && env::promise_result_checked(0, 64).is_ok() {
@@ -51,8 +51,8 @@ impl Contract {
                 .get(&account_id)
                 .cloned()
                 .unwrap_or_default();
-            user.balance += amount.0;
-            let new_balance = user.balance;
+            user.balance.0 += amount.0;
+            let new_balance = user.balance.0;
             self.user_storage.insert(account_id.clone(), user);
 
             events::emit_wnear_deposit(&account_id, amount.0, new_balance);

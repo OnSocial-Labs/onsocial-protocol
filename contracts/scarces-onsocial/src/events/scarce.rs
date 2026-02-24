@@ -1,10 +1,10 @@
+use near_sdk::AccountId;
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::Value;
-use near_sdk::AccountId;
 
+use super::SCARCE;
 use super::builder::EventBuilder;
 use super::nep171;
-use super::SCARCE;
 
 pub fn emit_scarce_list(
     owner_id: &AccountId,
@@ -106,7 +106,11 @@ pub fn emit_scarce_transfer(
         .field("token_id", token_id)
         .field_opt("memo", memo)
         .emit();
-    let authorized = if sender_id != old_owner_id { Some(sender_id.as_str()) } else { None };
+    let authorized = if sender_id != old_owner_id {
+        Some(sender_id.as_str())
+    } else {
+        None
+    };
     nep171::emit_transfer(
         old_owner_id.as_str(),
         receiver_id.as_str(),
@@ -258,7 +262,13 @@ pub fn emit_auction_created(
         .emit();
 }
 
-pub fn emit_auction_bid(bidder: &AccountId, token_id: &str, bid_amount: u128, bid_count: u32, new_expires_at: Option<u64>) {
+pub fn emit_auction_bid(
+    bidder: &AccountId,
+    token_id: &str,
+    bid_amount: u128,
+    bid_count: u32,
+    new_expires_at: Option<u64>,
+) {
     EventBuilder::new(SCARCE, "auction_bid", bidder)
         .field("bidder", bidder)
         .field("token_id", token_id)

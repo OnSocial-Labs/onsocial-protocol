@@ -230,9 +230,7 @@ fn dispatch_burn_scarce() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), params)
-        .unwrap();
+    contract.create_collection(&creator(), params).unwrap();
     contract
         .mint_from_collection(&creator(), "bcol", 1, Some(&buyer()))
         .unwrap();
@@ -313,9 +311,7 @@ fn dispatch_pause_and_resume_collection() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), params)
-        .unwrap();
+    contract.create_collection(&creator(), params).unwrap();
 
     let pause = Action::PauseCollection {
         collection_id: "pcol".to_string(),
@@ -357,10 +353,12 @@ fn standalone_update_fee_config_without_yocto_fails() {
     let mut contract = setup_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.update_fee_config(FeeConfigUpdate {
-        total_fee_bps: Some(300),
-        ..Default::default()
-    }).unwrap_err();
+    let err = contract
+        .update_fee_config(FeeConfigUpdate {
+            total_fee_bps: Some(300),
+            ..Default::default()
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }
 
@@ -461,7 +459,10 @@ fn dispatch_update_price() {
     contract.dispatch_action(action, &buyer()).unwrap();
 
     let sale_id = Contract::make_sale_id(&mkt, &tid);
-    assert_eq!(contract.sales.get(&sale_id).unwrap().sale_conditions.0, 8_000);
+    assert_eq!(
+        contract.sales.get(&sale_id).unwrap().sale_conditions.0,
+        8_000
+    );
 }
 
 // --- PurchaseNativeScarce via execute() ---
@@ -543,9 +544,7 @@ fn execute_purchase_lazy_listing_happy() {
         },
         expires_at: None,
     };
-    let listing_id = contract
-        .create_lazy_listing(&creator(), params)
-        .unwrap();
+    let listing_id = contract.create_lazy_listing(&creator(), params).unwrap();
 
     // Purchase via execute()
     testing_env!(context_with_deposit(buyer(), 10_000).build());
@@ -648,9 +647,7 @@ fn execute_make_collection_offer_happy() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), params)
-        .unwrap();
+    contract.create_collection(&creator(), params).unwrap();
 
     // Make collection offer via execute()
     testing_env!(context_with_deposit(buyer(), 1_000_000_000_000_000_000_000_000).build());

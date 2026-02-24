@@ -53,7 +53,11 @@ impl Contract {
 
         if let Some(msg_str) = msg {
             // Security boundary: cap caller-supplied gas to bounded callback execution.
-            let callback_gas = Gas::from_tgas(callback_gas_tgas.unwrap_or(DEFAULT_CALLBACK_GAS).min(MAX_RESOLVE_PURCHASE_GAS));
+            let callback_gas = Gas::from_tgas(
+                callback_gas_tgas
+                    .unwrap_or(DEFAULT_CALLBACK_GAS)
+                    .min(MAX_RESOLVE_PURCHASE_GAS),
+            );
             Ok(Some(
                 external::ext_scarce_approval_receiver::ext(account_id)
                     .with_static_gas(callback_gas)
@@ -142,7 +146,8 @@ impl Contract {
             None => return false,
         };
 
-        token.approved_account_ids
+        token
+            .approved_account_ids
             .get(&approved_account_id)
             .is_some_and(|actual| approval_id.is_none_or(|id| *actual == id))
     }
@@ -292,12 +297,7 @@ impl Contract {
 
         let price_opt = near_sdk::serde_json::from_str::<near_sdk::serde_json::Value>(&msg)
             .ok()
-            .and_then(|v| {
-                v.get("sale_conditions")?
-                    .as_str()?
-                    .parse::<u128>()
-                    .ok()
-            });
+            .and_then(|v| v.get("sale_conditions")?.as_str()?.parse::<u128>().ok());
 
         if let Some(price) = price_opt {
             if price == 0 {

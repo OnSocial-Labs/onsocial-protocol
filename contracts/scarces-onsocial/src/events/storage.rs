@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 
-use super::builder::EventBuilder;
 use super::STORAGE;
+use super::builder::EventBuilder;
 
 pub fn emit_storage_deposit(account_id: &AccountId, deposit: u128, new_balance: u128) {
     EventBuilder::new(STORAGE, "storage_deposit", account_id)
@@ -42,11 +42,7 @@ pub fn emit_prepaid_balance_drawn(account_id: &AccountId, amount: u128, remainin
         .emit();
 }
 
-pub fn emit_prepaid_balance_restored(
-    account_id: &AccountId,
-    amount: u128,
-    new_balance: u128,
-) {
+pub fn emit_prepaid_balance_restored(account_id: &AccountId, amount: u128, new_balance: u128) {
     EventBuilder::new(STORAGE, "prepaid_balance_restored", account_id)
         .field("account_id", account_id)
         .field("amount", amount)

@@ -157,7 +157,11 @@ fn is_sale_expired_none_for_missing() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
     let contract_id: AccountId = "marketplace.near".parse().unwrap();
-    assert!(contract.is_sale_expired(contract_id, "bad".into()).is_none());
+    assert!(
+        contract
+            .is_sale_expired(contract_id, "bad".into())
+            .is_none()
+    );
 }
 
 #[test]

@@ -80,10 +80,7 @@ impl Contract {
 
     #[payable]
     #[handle_result]
-    pub fn add_intents_executor(
-        &mut self,
-        executor: AccountId,
-    ) -> Result<(), MarketplaceError> {
+    pub fn add_intents_executor(&mut self, executor: AccountId) -> Result<(), MarketplaceError> {
         crate::guards::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         if self.intents_executors.contains(&executor) {
@@ -104,10 +101,7 @@ impl Contract {
 
     #[payable]
     #[handle_result]
-    pub fn remove_intents_executor(
-        &mut self,
-        executor: AccountId,
-    ) -> Result<(), MarketplaceError> {
+    pub fn remove_intents_executor(&mut self, executor: AccountId) -> Result<(), MarketplaceError> {
         crate::guards::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         let pos = self
@@ -205,10 +199,7 @@ impl Contract {
     }
     #[payable]
     #[handle_result]
-    pub fn update_fee_config(
-        &mut self,
-        update: FeeConfigUpdate,
-    ) -> Result<(), MarketplaceError> {
+    pub fn update_fee_config(&mut self, update: FeeConfigUpdate) -> Result<(), MarketplaceError> {
         crate::guards::check_one_yocto()?;
         self.check_contract_owner(&env::predecessor_account_id())?;
         self.fee_config.validate_patch(&update)?;
@@ -232,7 +223,11 @@ impl Contract {
             ));
         }
         self.platform_storage_balance += deposit;
-        events::emit_platform_storage_funded(&self.owner_id, deposit, self.platform_storage_balance);
+        events::emit_platform_storage_funded(
+            &self.owner_id,
+            deposit,
+            self.platform_storage_balance,
+        );
         Ok(())
     }
 

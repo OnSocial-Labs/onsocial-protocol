@@ -133,11 +133,11 @@ fn set_contract_metadata_partial_update() {
     contract
         .set_contract_metadata(
             Some("My Marketplace".into()),
-            None,     // keep symbol
-            None,     // keep icon
-            None,     // keep base_uri
-            None,     // keep reference
-            None,     // keep reference_hash
+            None, // keep symbol
+            None, // keep icon
+            None, // keep base_uri
+            None, // keep reference
+            None, // keep reference_hash
         )
         .unwrap();
 
@@ -153,7 +153,10 @@ fn set_contract_metadata_icon_to_none() {
     contract
         .set_contract_metadata(None, None, Some(Some("icon_data".into())), None, None, None)
         .unwrap();
-    assert_eq!(contract.contract_metadata.icon, Some("icon_data".to_string()));
+    assert_eq!(
+        contract.contract_metadata.icon,
+        Some("icon_data".to_string())
+    );
 
     // Clear icon
     contract
@@ -214,10 +217,13 @@ fn admin_update_fee_config_below_minimum_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(0),
-        app_pool_fee_bps: Some(0),
-        platform_storage_fee_bps: Some(0),
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(0),
+            app_pool_fee_bps: Some(0),
+            platform_storage_fee_bps: Some(0),
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }

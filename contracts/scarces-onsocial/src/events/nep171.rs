@@ -26,7 +26,12 @@ pub fn emit_transfer(
         .emit();
 }
 
-pub fn emit_burn(owner_id: &str, token_ids: &[&str], authorized_id: Option<&str>, memo: Option<&str>) {
+pub fn emit_burn(
+    owner_id: &str,
+    token_ids: &[&str],
+    authorized_id: Option<&str>,
+    memo: Option<&str>,
+) {
     Nep171Event::new("nft_burn", VERSION)
         .field("owner_id", owner_id)
         .field("token_ids", token_ids)
@@ -43,6 +48,5 @@ pub fn emit_metadata_update(token_ids: &[&str]) {
 
 // Interop invariant: emit NEP-171 envelope without custom fields.
 pub fn emit_contract_metadata_update() {
-    Nep171Event::new("contract_metadata_update", VERSION)
-        .emit();
+    Nep171Event::new("contract_metadata_update", VERSION).emit();
 }

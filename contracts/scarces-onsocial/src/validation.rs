@@ -1,8 +1,6 @@
 use crate::*;
 use std::collections::HashMap;
-pub(crate) fn validate_royalty(
-    royalty: &HashMap<AccountId, u32>,
-) -> Result<(), MarketplaceError> {
+pub(crate) fn validate_royalty(royalty: &HashMap<AccountId, u32>) -> Result<(), MarketplaceError> {
     if royalty.is_empty() {
         return Ok(());
     }

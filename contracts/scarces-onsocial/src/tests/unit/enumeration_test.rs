@@ -184,7 +184,10 @@ fn nft_tokens_for_owner_pagination() {
 fn nft_supply_for_collection_zero() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
-    assert_eq!(contract.nft_supply_for_collection("nonexistent".into()).0, 0);
+    assert_eq!(
+        contract.nft_supply_for_collection("nonexistent".into()).0,
+        0
+    );
 }
 
 #[test]

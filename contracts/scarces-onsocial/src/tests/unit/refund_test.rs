@@ -37,9 +37,7 @@ fn create_refundable_collection(contract: &mut Contract) {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 }
 
 fn mint_and_get_token(contract: &mut Contract) -> String {

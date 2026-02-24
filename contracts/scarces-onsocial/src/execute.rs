@@ -34,8 +34,12 @@ impl Contract {
         let mut attached_balance = auth_ctx.attached_balance;
 
         if let Some((ref owner, ref public_key, nonce)) = auth_ctx.signed_nonce {
-            let new_bytes =
-                onsocial_auth::nonce::record_nonce(protocol::NONCE_PREFIX, owner, public_key, nonce);
+            let new_bytes = onsocial_auth::nonce::record_nonce(
+                protocol::NONCE_PREFIX,
+                owner,
+                public_key,
+                nonce,
+            );
             if new_bytes > 0 {
                 let cost = new_bytes as u128 * env::storage_byte_cost().as_yoctonear();
                 attached_balance = attached_balance.saturating_sub(cost);
@@ -47,8 +51,7 @@ impl Contract {
             let deposit = env::attached_deposit().as_yoctonear();
             if deposit == 0 {
                 return Err(MarketplaceError::InsufficientDeposit(
-                    "Direct auth requires 1 yoctoNEAR confirmation deposit for this action"
-                        .into(),
+                    "Direct auth requires 1 yoctoNEAR confirmation deposit for this action".into(),
                 ));
             }
         }

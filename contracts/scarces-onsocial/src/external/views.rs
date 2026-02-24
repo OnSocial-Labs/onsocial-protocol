@@ -100,8 +100,7 @@ impl Contract {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> Vec<SaleWithBasicInfo> {
-        let sales =
-            self.get_sales_by_scarce_contract_id(scarce_contract_id, from_index, limit);
+        let sales = self.get_sales_by_scarce_contract_id(scarce_contract_id, from_index, limit);
 
         sales
             .into_iter()

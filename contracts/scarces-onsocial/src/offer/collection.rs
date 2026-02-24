@@ -1,7 +1,7 @@
+use super::{CollectionOffer, collection_offer_key};
 use crate::storage::storage_byte_cost;
 use crate::*;
 use near_sdk::json_types::U128;
-use super::{collection_offer_key, CollectionOffer};
 
 #[near]
 impl Contract {
@@ -101,8 +101,7 @@ impl Contract {
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Collection offer not found".into()))?;
 
-        let _ =
-            Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount.0));
+        let _ = Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount.0));
 
         events::emit_collection_offer_cancelled(buyer_id, collection_id, offer.amount.0);
         Ok(())
@@ -161,7 +160,14 @@ impl Contract {
 
         let result = self.settle_secondary_sale(token_id, amount, owner_id)?;
 
-        events::emit_collection_offer_accepted(buyer_id, owner_id, collection_id, token_id, amount, &result);
+        events::emit_collection_offer_accepted(
+            buyer_id,
+            owner_id,
+            collection_id,
+            token_id,
+            amount,
+            &result,
+        );
         Ok(())
     }
 }

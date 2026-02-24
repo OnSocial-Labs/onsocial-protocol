@@ -235,8 +235,14 @@ fn airdrop_from_collection_happy() {
     // Tokens exist and are owned by the right accounts
     assert!(contract.scarces_by_id.contains_key("airdrop:1"));
     assert!(contract.scarces_by_id.contains_key("airdrop:2"));
-    assert_eq!(contract.scarces_by_id.get("airdrop:1").unwrap().owner_id, buyer());
-    assert_eq!(contract.scarces_by_id.get("airdrop:2").unwrap().owner_id, owner());
+    assert_eq!(
+        contract.scarces_by_id.get("airdrop:1").unwrap().owner_id,
+        buyer()
+    );
+    assert_eq!(
+        contract.scarces_by_id.get("airdrop:2").unwrap().owner_id,
+        owner()
+    );
 }
 
 #[test]
@@ -440,10 +446,7 @@ fn set_collection_metadata_happy() {
         .unwrap();
 
     let col = contract.collections.get("meta").unwrap();
-    assert_eq!(
-        col.metadata.as_deref(),
-        Some(r#"{"name":"My Collection"}"#)
-    );
+    assert_eq!(col.metadata.as_deref(), Some(r#"{"name":"My Collection"}"#));
 }
 
 #[test]
@@ -522,10 +525,7 @@ fn set_collection_app_metadata_happy() {
         .unwrap();
 
     let col = contract.collections.get("appcol").unwrap();
-    assert_eq!(
-        col.app_metadata.as_deref(),
-        Some(r#"{"featured":true}"#)
-    );
+    assert_eq!(col.app_metadata.as_deref(), Some(r#"{"featured":true}"#));
 }
 
 #[test]

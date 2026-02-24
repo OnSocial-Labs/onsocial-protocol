@@ -95,9 +95,7 @@ fn mint_token_id_too_long() {
         reference: None,
         reference_hash: None,
     };
-    let err = contract
-        .mint(long_id, ctx, metadata, None)
-        .unwrap_err();
+    let err = contract.mint(long_id, ctx, metadata, None).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -117,7 +115,13 @@ fn transfer_changes_owner() {
     // Old owner no longer has token
     assert!(contract.scarces_per_owner.get(&owner()).is_none());
     // New owner has token
-    assert!(contract.scarces_per_owner.get(&buyer()).unwrap().contains("t1"));
+    assert!(
+        contract
+            .scarces_per_owner
+            .get(&buyer())
+            .unwrap()
+            .contains("t1")
+    );
 }
 
 #[test]
@@ -146,9 +150,7 @@ fn transfer_clears_approvals() {
     mint_token(&mut contract, &owner(), "t1");
 
     // Give buyer an approval
-    contract
-        .approve(&owner(), "t1", &buyer(), None)
-        .unwrap();
+    contract.approve(&owner(), "t1", &buyer(), None).unwrap();
     let token = contract.scarces_by_id.get("t1").unwrap();
     assert!(!token.approved_account_ids.is_empty());
 
@@ -205,9 +207,7 @@ fn approved_account_can_transfer() {
     let mut contract = new_contract();
     mint_token(&mut contract, &owner(), "t1");
 
-    contract
-        .approve(&owner(), "t1", &buyer(), None)
-        .unwrap();
+    contract.approve(&owner(), "t1", &buyer(), None).unwrap();
     let approval_id = *contract
         .scarces_by_id
         .get("t1")
@@ -228,9 +228,7 @@ fn invalid_approval_id_fails() {
     let mut contract = new_contract();
     mint_token(&mut contract, &owner(), "t1");
 
-    contract
-        .approve(&owner(), "t1", &buyer(), None)
-        .unwrap();
+    contract.approve(&owner(), "t1", &buyer(), None).unwrap();
 
     let err = contract
         .transfer(&buyer(), &creator(), "t1", Some(999), None)
@@ -267,9 +265,7 @@ fn batch_transfer_moves_all() {
 #[test]
 fn batch_transfer_empty_fails() {
     let mut contract = new_contract();
-    let err = contract
-        .batch_transfer(&owner(), vec![])
-        .unwrap_err();
+    let err = contract.batch_transfer(&owner(), vec![]).unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 

@@ -34,10 +34,18 @@ impl Contract {
 
         match after.cmp(&before) {
             std::cmp::Ordering::Greater => {
-                self.charge_storage_waterfall(actor_id, (after - before) as u64, collection.app_id.as_ref())?;
+                self.charge_storage_waterfall(
+                    actor_id,
+                    (after - before) as u64,
+                    collection.app_id.as_ref(),
+                )?;
             }
             std::cmp::Ordering::Less => {
-                self.release_storage_waterfall(actor_id, (before - after) as u64, collection.app_id.as_ref());
+                self.release_storage_waterfall(
+                    actor_id,
+                    (before - after) as u64,
+                    collection.app_id.as_ref(),
+                );
             }
             std::cmp::Ordering::Equal => {}
         }
@@ -95,10 +103,18 @@ impl Contract {
 
         match after.cmp(&before) {
             std::cmp::Ordering::Greater => {
-                self.charge_storage_waterfall(actor_id, (after - before) as u64, collection.app_id.as_ref())?;
+                self.charge_storage_waterfall(
+                    actor_id,
+                    (after - before) as u64,
+                    collection.app_id.as_ref(),
+                )?;
             }
             std::cmp::Ordering::Less => {
-                self.release_storage_waterfall(actor_id, (before - after) as u64, collection.app_id.as_ref());
+                self.release_storage_waterfall(
+                    actor_id,
+                    (before - after) as u64,
+                    collection.app_id.as_ref(),
+                );
             }
             std::cmp::Ordering::Equal => {}
         }

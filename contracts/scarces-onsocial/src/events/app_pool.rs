@@ -1,7 +1,7 @@
 use near_sdk::AccountId;
 
-use super::builder::EventBuilder;
 use super::APP_POOL;
+use super::builder::EventBuilder;
 
 pub fn emit_app_pool_register(owner_id: &AccountId, app_id: &AccountId, initial_balance: u128) {
     EventBuilder::new(APP_POOL, "register", owner_id)

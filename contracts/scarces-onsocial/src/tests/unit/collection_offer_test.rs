@@ -158,9 +158,11 @@ fn cancel_collection_offer_happy() {
         }))
         .unwrap();
 
-    assert!(contract
-        .get_collection_offer("canc".to_string(), buyer())
-        .is_none());
+    assert!(
+        contract
+            .get_collection_offer("canc".to_string(), buyer())
+            .is_none()
+    );
 }
 
 #[test]
@@ -207,9 +209,11 @@ fn accept_collection_offer_happy() {
     let token = contract.scarces_by_id.get(&tid).unwrap();
     assert_eq!(token.owner_id, buyer());
     // Offer removed
-    assert!(contract
-        .get_collection_offer("accol".to_string(), buyer())
-        .is_none());
+    assert!(
+        contract
+            .get_collection_offer("accol".to_string(), buyer())
+            .is_none()
+    );
 }
 
 #[test]
@@ -281,9 +285,11 @@ fn accept_collection_offer_expired_refunds() {
         .unwrap();
 
     // Advance time past expiry
-    testing_env!(context_with_deposit(owner(), 1)
-        .block_timestamp(1_700_000_000_000_000_000 + 10_000_000_000) // 10 seconds later
-        .build());
+    testing_env!(
+        context_with_deposit(owner(), 1)
+            .block_timestamp(1_700_000_000_000_000_000 + 10_000_000_000) // 10 seconds later
+            .build()
+    );
 
     let err = contract
         .execute(make_request(Action::AcceptCollectionOffer {

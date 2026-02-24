@@ -1,9 +1,9 @@
-use near_sdk::json_types::U128;
 use near_sdk::AccountId;
+use near_sdk::json_types::U128;
 
+use super::COLLECTION;
 use super::builder::EventBuilder;
 use super::nep171;
-use super::COLLECTION;
 
 pub fn emit_collection_created(
     creator_id: &AccountId,
@@ -181,11 +181,7 @@ pub fn emit_allowlist_updated(
         .emit();
 }
 
-pub fn emit_allowlist_removed(
-    actor_id: &AccountId,
-    collection_id: &str,
-    accounts: &[AccountId],
-) {
+pub fn emit_allowlist_removed(actor_id: &AccountId, collection_id: &str, accounts: &[AccountId]) {
     EventBuilder::new(COLLECTION, "allowlist_remove", actor_id)
         .field("collection_id", collection_id)
         .field("accounts", accounts)

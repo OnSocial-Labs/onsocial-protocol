@@ -48,3 +48,9 @@ pub mod test_allowlists;
 pub mod test_collection_views;
 
 pub mod test_enumeration;
+
+pub mod test_sale_views;
+
+pub mod test_app_pool_views;
+
+pub mod test_lazy_listing_views;

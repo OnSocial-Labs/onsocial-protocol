@@ -1,4 +1,3 @@
-pub mod types;
 mod approval;
 mod enumeration;
 mod lifecycle;
@@ -7,4 +6,5 @@ mod mint;
 mod ownership;
 mod payout;
 mod transfer;
+pub mod types;
 mod views;

@@ -50,7 +50,11 @@ impl Contract {
             let cost = (bytes_used as u128) * storage_byte_cost();
             if self.platform_storage_balance >= cost {
                 self.platform_storage_balance -= cost;
-                let mut user = self.user_storage.get(account_id).cloned().unwrap_or_default();
+                let mut user = self
+                    .user_storage
+                    .get(account_id)
+                    .cloned()
+                    .unwrap_or_default();
                 user.tier2_used_bytes += bytes_used;
                 self.user_storage.insert(account_id.clone(), user);
                 return Ok(());
@@ -100,7 +104,8 @@ impl Contract {
             let pool_bytes = self.app_user_usage.get(&usage_key).copied().unwrap_or(0);
             let from_pool = pool_bytes.min(bytes_freed);
             let from_user = bytes_freed.saturating_sub(from_pool);
-            self.app_user_usage.insert(usage_key, pool_bytes.saturating_sub(from_pool));
+            self.app_user_usage
+                .insert(usage_key, pool_bytes.saturating_sub(from_pool));
             if from_user > 0 {
                 if let Some(mut user) = self.user_storage.remove(account_id) {
                     user.used_bytes = user.used_bytes.saturating_sub(from_user);
@@ -142,6 +147,7 @@ impl Contract {
 
         let available = user
             .balance
+            .0
             .saturating_sub((user.used_bytes as u128) * storage_byte_cost());
 
         if available < cost {
@@ -153,7 +159,7 @@ impl Contract {
                 )));
             }
             self.pending_attached_balance -= shortfall;
-            user.balance += shortfall;
+            user.balance.0 += shortfall;
         }
 
         user.used_bytes += bytes_used;

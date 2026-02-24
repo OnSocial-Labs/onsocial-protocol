@@ -29,18 +29,18 @@ pub mod unit {
     pub mod validation_test;
 
     // --- View & entrypoint coverage ---
-    pub mod enumeration_test;
-    pub mod payout_test;
-    pub mod scarce_views_test;
-    pub mod sale_views_test;
-    pub mod collection_views_test;
     pub mod app_pool_views_test;
-    pub mod lazy_listing_views_test;
-    pub mod storage_deposit_test;
-    pub mod refund_test;
-    pub mod metadata_platform_test;
-    pub mod lazy_listing_cleanup_test;
-    pub mod prepaid_balance_test;
-    pub mod spending_protection_test;
+    pub mod collection_views_test;
+    pub mod enumeration_test;
     pub mod ft_receiver_test;
+    pub mod lazy_listing_cleanup_test;
+    pub mod lazy_listing_views_test;
+    pub mod metadata_platform_test;
+    pub mod payout_test;
+    pub mod prepaid_balance_test;
+    pub mod refund_test;
+    pub mod sale_views_test;
+    pub mod scarce_views_test;
+    pub mod spending_protection_test;
+    pub mod storage_deposit_test;
 }

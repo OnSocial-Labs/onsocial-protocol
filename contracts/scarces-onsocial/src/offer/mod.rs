@@ -1,6 +1,6 @@
-pub mod types;
 mod collection;
 mod token;
+pub mod types;
 
 pub use types::*;
 

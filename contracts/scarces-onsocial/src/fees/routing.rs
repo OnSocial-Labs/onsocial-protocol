@@ -1,5 +1,5 @@
-use crate::*;
 use super::PrimarySaleResult;
+use crate::*;
 
 impl Contract {
     // Token accounting guarantee: storage charges are settled via storage waterfall, not deducted from sale price.
@@ -114,8 +114,7 @@ impl Contract {
 
     // Token accounting guarantee: if app pool is unavailable at settlement, its fee share is redirected to platform storage.
     pub(crate) fn route_fee(&mut self, price: u128, app_id: Option<&AccountId>) -> (u128, u128) {
-        let (_, app_amount, platform_amount, revenue) =
-            self.calculate_fee_split(price, app_id);
+        let (_, app_amount, platform_amount, revenue) = self.calculate_fee_split(price, app_id);
 
         if app_amount > 0 {
             if let Some(app) = app_id {

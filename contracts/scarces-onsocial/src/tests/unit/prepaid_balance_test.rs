@@ -46,7 +46,7 @@ fn draw_user_balance_full_available() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: 10 * byte_cost * 1000,
+            balance: U128(10 * byte_cost * 1000),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -59,7 +59,7 @@ fn draw_user_balance_full_available() {
 
     // User storage reduced to 0
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.balance, 0);
+    assert_eq!(user.balance, U128(0));
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn draw_user_balance_reserves_storage_cost() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: total,
+            balance: U128(total),
             used_bytes,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -86,7 +86,7 @@ fn draw_user_balance_reserves_storage_cost() {
 
     // Reserved amount stays
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.balance, reserved);
+    assert_eq!(user.balance, U128(reserved));
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn draw_user_balance_all_reserved_returns_zero() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: byte_cost * 50,
+            balance: U128(byte_cost * 50),
             used_bytes: 50,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -129,7 +129,7 @@ fn restore_user_balance_partial_use() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: 0,
+            balance: U128(0),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -140,7 +140,7 @@ fn restore_user_balance_partial_use() {
     assert_eq!(external_remaining, 0); // 4_000 < 10_000 drawn → all goes to user
 
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.balance, 4_000);
+    assert_eq!(user.balance, U128(4_000));
 }
 
 #[test]
@@ -162,60 +162,76 @@ fn restore_user_balance_with_external_deposit() {
     assert_eq!(external_remaining, 10_000);
 
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.balance, 5_000);
+    assert_eq!(user.balance, U128(5_000));
 }
 
 // ── uses_prepaid_balance ─────────────────────────────────────────────────────
 
 #[test]
 fn uses_prepaid_balance_purchase_actions() {
-    assert!(Action::PurchaseNativeScarce {
-        token_id: "s:1".into(),
-    }
-    .uses_prepaid_balance());
-    assert!(Action::PurchaseLazyListing {
-        listing_id: "l:1".into(),
-    }
-    .uses_prepaid_balance());
-    assert!(Action::PurchaseFromCollection {
-        collection_id: "c:1".into(),
-        quantity: 1,
-        max_price_per_token: U128(u128::MAX),
-    }
-    .uses_prepaid_balance());
-    assert!(Action::PlaceBid {
-        token_id: "s:1".into(),
-        amount: U128(100),
-    }
-    .uses_prepaid_balance());
-    assert!(Action::MakeOffer {
-        token_id: "s:1".into(),
-        amount: U128(100),
-        expires_at: None,
-    }
-    .uses_prepaid_balance());
-    assert!(Action::MakeCollectionOffer {
-        collection_id: "c:1".into(),
-        amount: U128(100),
-        expires_at: None,
-    }
-    .uses_prepaid_balance());
+    assert!(
+        Action::PurchaseNativeScarce {
+            token_id: "s:1".into(),
+        }
+        .uses_prepaid_balance()
+    );
+    assert!(
+        Action::PurchaseLazyListing {
+            listing_id: "l:1".into(),
+        }
+        .uses_prepaid_balance()
+    );
+    assert!(
+        Action::PurchaseFromCollection {
+            collection_id: "c:1".into(),
+            quantity: 1,
+            max_price_per_token: U128(u128::MAX),
+        }
+        .uses_prepaid_balance()
+    );
+    assert!(
+        Action::PlaceBid {
+            token_id: "s:1".into(),
+            amount: U128(100),
+        }
+        .uses_prepaid_balance()
+    );
+    assert!(
+        Action::MakeOffer {
+            token_id: "s:1".into(),
+            amount: U128(100),
+            expires_at: None,
+        }
+        .uses_prepaid_balance()
+    );
+    assert!(
+        Action::MakeCollectionOffer {
+            collection_id: "c:1".into(),
+            amount: U128(100),
+            expires_at: None,
+        }
+        .uses_prepaid_balance()
+    );
 }
 
 #[test]
 fn uses_prepaid_balance_excluded_actions() {
     // StorageDeposit and FundAppPool should NOT draw from prepaid balance
     assert!(!Action::StorageDeposit { account_id: None }.uses_prepaid_balance());
-    assert!(!Action::FundAppPool {
-        app_id: "app.near".parse().unwrap()
-    }
-    .uses_prepaid_balance());
-    assert!(!Action::TransferScarce {
-        receiver_id: buyer(),
-        token_id: "s:1".into(),
-        memo: None,
-    }
-    .uses_prepaid_balance());
+    assert!(
+        !Action::FundAppPool {
+            app_id: "app.near".parse().unwrap()
+        }
+        .uses_prepaid_balance()
+    );
+    assert!(
+        !Action::TransferScarce {
+            receiver_id: buyer(),
+            token_id: "s:1".into(),
+            memo: None,
+        }
+        .uses_prepaid_balance()
+    );
 }
 
 // ── Integration: prepaid purchase via execute() ──────────────────────────────
@@ -230,7 +246,7 @@ fn execute_purchase_native_scarce_from_prepaid_balance() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: deposit_amount,
+            balance: U128(deposit_amount),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -255,7 +271,7 @@ fn execute_purchase_native_scarce_from_prepaid_balance() {
 
     // User balance decreased by price (fees deducted from price, not from user)
     let user = contract.user_storage.get(&creator()).unwrap();
-    let change = deposit_amount - user.balance;
+    let change = deposit_amount - user.balance.0;
     assert_eq!(change, price);
 }
 
@@ -269,7 +285,7 @@ fn execute_purchase_insufficient_prepaid_balance_fails() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: small_amount,
+            balance: U128(small_amount),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -279,13 +295,13 @@ fn execute_purchase_insufficient_prepaid_balance_fails() {
     // Purchase should fail
     testing_env!(context(creator()).build());
     let result = contract.execute(make_request(Action::PurchaseNativeScarce {
-            token_id: tid.clone(),
+        token_id: tid.clone(),
     }));
     assert!(result.is_err());
 
     // User balance fully restored (drawn then returned on failure)
     let user = contract.user_storage.get(&creator()).unwrap();
-    assert_eq!(user.balance, small_amount);
+    assert_eq!(user.balance, U128(small_amount));
 }
 
 #[test]
@@ -296,7 +312,7 @@ fn execute_purchase_no_prepaid_no_deposit_fails() {
     // No user balance, no attached deposit
     testing_env!(context(creator()).build());
     let result = contract.execute(make_request(Action::PurchaseNativeScarce {
-            token_id: tid.clone(),
+        token_id: tid.clone(),
     }));
     assert!(result.is_err());
 }
@@ -311,7 +327,7 @@ fn execute_purchase_with_deposit_skips_prepaid() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: prepaid,
+            balance: U128(prepaid),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -328,7 +344,7 @@ fn execute_purchase_with_deposit_skips_prepaid() {
 
     // Prepaid balance untouched
     let user = contract.user_storage.get(&creator()).unwrap();
-    assert_eq!(user.balance, prepaid);
+    assert_eq!(user.balance, U128(prepaid));
 }
 
 #[test]
@@ -344,7 +360,7 @@ fn execute_purchase_reserves_storage_bytes() {
     contract.user_storage.insert(
         creator(),
         UserStorageBalance {
-            balance: total,
+            balance: U128(total),
             used_bytes,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -360,6 +376,6 @@ fn execute_purchase_reserves_storage_bytes() {
 
     // Storage reservation preserved
     let user = contract.user_storage.get(&creator()).unwrap();
-    assert!(user.balance >= reserved);
+    assert!(user.balance.0 >= reserved);
     assert_eq!(user.used_bytes, used_bytes); // unchanged
 }

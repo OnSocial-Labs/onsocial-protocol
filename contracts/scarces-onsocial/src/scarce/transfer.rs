@@ -189,7 +189,13 @@ impl Contract {
         self.scarces_by_id.insert(token_id.to_string(), token);
 
         self.remove_sale_listing(token_id, &old_owner_id, "owner_changed");
-        events::emit_scarce_transfer(sender_id, &old_owner_id, receiver_id, token_id, memo.as_deref());
+        events::emit_scarce_transfer(
+            sender_id,
+            &old_owner_id,
+            receiver_id,
+            token_id,
+            memo.as_deref(),
+        );
 
         Ok(())
     }

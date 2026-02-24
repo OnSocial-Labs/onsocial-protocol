@@ -34,9 +34,7 @@ fn setup_with_token(
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 
     testing_env!(context(creator()).build());
     contract
@@ -167,9 +165,7 @@ fn redeem_happy_path() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, Some(3));
     testing_env!(context(creator()).build());
 
-    contract
-        .redeem_token(&creator(), &tid, "col")
-        .unwrap();
+    contract.redeem_token(&creator(), &tid, "col").unwrap();
 
     let token = contract.scarces_by_id.get(&tid).unwrap();
     assert_eq!(token.redeem_count, 1);
@@ -181,12 +177,8 @@ fn redeem_max_reached_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
     testing_env!(context(creator()).build());
 
-    contract
-        .redeem_token(&creator(), &tid, "col")
-        .unwrap();
-    let err = contract
-        .redeem_token(&creator(), &tid, "col")
-        .unwrap_err();
+    contract.redeem_token(&creator(), &tid, "col").unwrap();
+    let err = contract.redeem_token(&creator(), &tid, "col").unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
@@ -195,9 +187,7 @@ fn redeem_non_redeemable_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, None);
     testing_env!(context(creator()).build());
 
-    let err = contract
-        .redeem_token(&creator(), &tid, "col")
-        .unwrap_err();
+    let err = contract.redeem_token(&creator(), &tid, "col").unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
@@ -210,9 +200,7 @@ fn redeem_revoked_token_fails() {
     contract
         .revoke_token(&creator(), &tid, "col", None)
         .unwrap();
-    let err = contract
-        .redeem_token(&creator(), &tid, "col")
-        .unwrap_err();
+    let err = contract.redeem_token(&creator(), &tid, "col").unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
@@ -221,9 +209,7 @@ fn redeem_increments_collection_counters() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, Some(1));
     testing_env!(context(creator()).build());
 
-    contract
-        .redeem_token(&creator(), &tid, "col")
-        .unwrap();
+    contract.redeem_token(&creator(), &tid, "col").unwrap();
 
     let col = contract.collections.get("col").unwrap();
     assert_eq!(col.redeemed_count, 1);
@@ -237,9 +223,7 @@ fn burn_happy_path() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, None);
     testing_env!(context(buyer()).build());
 
-    contract
-        .burn_scarce(&buyer(), &tid, "col")
-        .unwrap();
+    contract.burn_scarce(&buyer(), &tid, "col").unwrap();
 
     assert!(!contract.scarces_by_id.contains_key(&tid));
     assert_eq!(contract.collections.get("col").unwrap().minted_count, 0);
@@ -250,9 +234,7 @@ fn burn_non_burnable_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, false, None);
     testing_env!(context(buyer()).build());
 
-    let err = contract
-        .burn_scarce(&buyer(), &tid, "col")
-        .unwrap_err();
+    let err = contract.burn_scarce(&buyer(), &tid, "col").unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidState(_)));
 }
 
@@ -261,9 +243,7 @@ fn burn_not_owner_fails() {
     let (mut contract, tid) = setup_with_token(false, RevocationMode::None, true, None);
     testing_env!(context(creator()).build());
 
-    let err = contract
-        .burn_scarce(&creator(), &tid, "col")
-        .unwrap_err();
+    let err = contract.burn_scarce(&creator(), &tid, "col").unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 

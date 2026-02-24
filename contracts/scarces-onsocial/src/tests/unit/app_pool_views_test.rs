@@ -92,7 +92,7 @@ fn get_user_storage_default() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
     let storage = contract.get_user_storage(buyer());
-    assert_eq!(storage.balance, 0);
+    assert_eq!(storage.balance, U128(0));
     assert_eq!(storage.used_bytes, 0);
 }
 
@@ -230,9 +230,7 @@ fn resolve_base_uri_from_app_metadata() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 
     testing_env!(context(owner()).build());
     let uri = contract.resolve_base_uri("appcol".into());
@@ -261,9 +259,7 @@ fn resolve_base_uri_none_when_no_uri() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
 
     testing_env!(context(owner()).build());
     // No app, no collection metadata, no contract base_uri => None
@@ -278,7 +274,9 @@ fn fund_app_pool_happy() {
     register_app(&mut contract);
 
     testing_env!(context_with_deposit(buyer(), 5_000_000).build());
-    contract.fund_app_pool(&buyer(), &app_id(), 5_000_000).unwrap();
+    contract
+        .fund_app_pool(&buyer(), &app_id(), 5_000_000)
+        .unwrap();
 
     let pool = contract.get_app_pool(app_id()).unwrap();
     assert_eq!(pool.balance.0, 5_000_000);
@@ -299,7 +297,9 @@ fn fund_app_pool_not_found_fails() {
     let mut contract = setup_contract();
     testing_env!(context_with_deposit(buyer(), 1_000).build());
 
-    let err = contract.fund_app_pool(&buyer(), &app_id(), 1_000).unwrap_err();
+    let err = contract
+        .fund_app_pool(&buyer(), &app_id(), 1_000)
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::NotFound(_)));
 }
 
@@ -312,7 +312,9 @@ fn withdraw_app_pool_happy() {
 
     // Fund it
     testing_env!(context_with_deposit(buyer(), 10_000_000).build());
-    contract.fund_app_pool(&buyer(), &app_id(), 10_000_000).unwrap();
+    contract
+        .fund_app_pool(&buyer(), &app_id(), 10_000_000)
+        .unwrap();
 
     // Withdraw (owner only, 1 yocto)
     testing_env!(context_with_deposit(owner(), 1).build());
@@ -330,7 +332,9 @@ fn withdraw_app_pool_not_owner_fails() {
     register_app(&mut contract);
 
     testing_env!(context_with_deposit(buyer(), 10_000_000).build());
-    contract.fund_app_pool(&buyer(), &app_id(), 10_000_000).unwrap();
+    contract
+        .fund_app_pool(&buyer(), &app_id(), 10_000_000)
+        .unwrap();
 
     testing_env!(context_with_deposit(buyer(), 1).build());
     let err = contract

@@ -265,7 +265,10 @@ impl Contract {
         }
 
         let listing_app_id = {
-            let token_app_id = self.scarces_by_id.get(token_id).and_then(|t| t.app_id.clone());
+            let token_app_id = self
+                .scarces_by_id
+                .get(token_id)
+                .and_then(|t| t.app_id.clone());
             self.resolve_token_app_id(token_id, token_app_id.as_ref())
         };
         let before_remove = env::storage_usage();
@@ -331,13 +334,7 @@ impl Contract {
         let mut sale = sale.clone();
         sale.sale_conditions = price;
         self.sales.insert(sale_id, sale);
-        events::emit_scarce_update_price(
-            &owner_id,
-            scarce_contract_id,
-            token_id,
-            old_price,
-            price,
-        );
+        events::emit_scarce_update_price(&owner_id, scarce_contract_id, token_id, old_price, price);
         Ok(())
     }
 }

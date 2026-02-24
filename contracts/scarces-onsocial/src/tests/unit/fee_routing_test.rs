@@ -40,8 +40,7 @@ fn fee_split_with_app_pool() {
     );
 
     let price: u128 = 10_000_000_000_000_000_000_000_000; // 10 NEAR
-    let (total, app_amt, platform, revenue) =
-        contract.calculate_fee_split(price, Some(&app));
+    let (total, app_amt, platform, revenue) = contract.calculate_fee_split(price, Some(&app));
 
     assert_eq!(total, price * 200 / 10_000);
     assert_eq!(app_amt, price * 50 / 10_000);
@@ -54,8 +53,7 @@ fn fee_split_missing_app_pool_falls_to_platform() {
     let contract = new_contract();
     let app: AccountId = "app.near".parse().unwrap();
     // app_pool not registered
-    let (total, app_amt, platform, revenue) =
-        contract.calculate_fee_split(1_000_000, Some(&app));
+    let (total, app_amt, platform, revenue) = contract.calculate_fee_split(1_000_000, Some(&app));
 
     assert_eq!(app_amt, 0, "pool not found → no app share");
     assert!(platform > 0, "falls back to platform");
@@ -84,7 +82,10 @@ fn route_fee_no_app_funds_platform() {
     assert_eq!(app_amt, 0);
     // platform_storage_balance increased by platform_storage split
     let expected_platform = price * 50 / 10_000;
-    assert_eq!(contract.platform_storage_balance, before + expected_platform);
+    assert_eq!(
+        contract.platform_storage_balance,
+        before + expected_platform
+    );
 }
 
 #[test]
@@ -154,10 +155,13 @@ fn update_fee_config_total_above_max_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(301),
-        ..Default::default()
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(301),
+            ..Default::default()
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -166,11 +170,14 @@ fn update_fee_config_app_exceeds_total_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(200),
-        app_pool_fee_bps: Some(100),
-        platform_storage_fee_bps: Some(101),
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(200),
+            app_pool_fee_bps: Some(100),
+            platform_storage_fee_bps: Some(101),
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -179,11 +186,14 @@ fn update_fee_config_platform_exceeds_total_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(150),
-        app_pool_fee_bps: Some(100),
-        platform_storage_fee_bps: Some(51),
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(150),
+            app_pool_fee_bps: Some(100),
+            platform_storage_fee_bps: Some(51),
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -192,11 +202,14 @@ fn update_fee_config_sum_exceeds_total_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(150),
-        app_pool_fee_bps: Some(80),
-        platform_storage_fee_bps: Some(80),
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(150),
+            app_pool_fee_bps: Some(80),
+            platform_storage_fee_bps: Some(80),
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -212,8 +225,14 @@ fn update_fee_config_partial_update() {
     contract.fee_config.validate_patch(&patch).unwrap();
     contract.fee_config.apply_patch(&patch);
     assert_eq!(contract.fee_config.total_fee_bps, 300);
-    assert_eq!(contract.fee_config.app_pool_fee_bps, DEFAULT_APP_POOL_FEE_BPS);
-    assert_eq!(contract.fee_config.platform_storage_fee_bps, DEFAULT_PLATFORM_STORAGE_FEE_BPS);
+    assert_eq!(
+        contract.fee_config.app_pool_fee_bps,
+        DEFAULT_APP_POOL_FEE_BPS
+    );
+    assert_eq!(
+        contract.fee_config.platform_storage_fee_bps,
+        DEFAULT_PLATFORM_STORAGE_FEE_BPS
+    );
 }
 
 #[test]
@@ -236,11 +255,14 @@ fn update_fee_config_pool_above_max_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(300),
-        app_pool_fee_bps: Some(101),
-        ..Default::default()
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(300),
+            app_pool_fee_bps: Some(101),
+            ..Default::default()
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 
@@ -249,10 +271,13 @@ fn update_fee_config_total_below_min_fails() {
     let contract = new_contract();
     testing_env!(context(owner()).build());
 
-    let err = contract.fee_config.validate_patch(&FeeConfigUpdate {
-        total_fee_bps: Some(99),
-        ..Default::default()
-    }).unwrap_err();
+    let err = contract
+        .fee_config
+        .validate_patch(&FeeConfigUpdate {
+            total_fee_bps: Some(99),
+            ..Default::default()
+        })
+        .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
 

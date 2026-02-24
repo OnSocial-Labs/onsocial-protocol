@@ -245,7 +245,7 @@ impl Contract {
 
         let seller_id = sale.owner_id.clone();
 
-    // Security boundary: remove listing state before token transfer side effects.
+        // Security boundary: remove listing state before token transfer side effects.
         let before_remove = env::storage_usage();
         self.remove_sale(env::current_account_id(), token_id.clone())?;
         let bytes_freed = before_remove.saturating_sub(env::storage_usage());
@@ -329,9 +329,6 @@ impl Contract {
             Err(_) => None,
         };
 
-        Some(crate::external::SaleWithMetadata {
-            sale,
-            scarce_token,
-        })
+        Some(crate::external::SaleWithMetadata { sale, scarce_token })
     }
 }

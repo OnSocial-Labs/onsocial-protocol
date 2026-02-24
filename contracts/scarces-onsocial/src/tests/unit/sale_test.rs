@@ -3,7 +3,6 @@ use crate::*;
 use near_sdk::json_types::U128;
 use near_sdk::testing_env;
 
-
 // --- Helpers ---
 
 /// Standalone token (quick-mint style) for listing tests outside collections.
@@ -29,7 +28,9 @@ fn make_standalone_token(contract: &mut Contract, owner_account: &AccountId) -> 
         transferable: true,
         burnable: true,
     };
-    contract.quick_mint(owner_account, metadata, options).unwrap()
+    contract
+        .quick_mint(owner_account, metadata, options)
+        .unwrap()
 }
 
 // --- list_native_scarce ---
@@ -122,9 +123,7 @@ fn delist_native_scarce_happy() {
     contract
         .list_native_scarce(&buyer(), &tid, U128(1_000), None)
         .unwrap();
-    contract
-        .delist_native_scarce(&buyer(), &tid)
-        .unwrap();
+    contract.delist_native_scarce(&buyer(), &tid).unwrap();
 
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     assert!(!contract.sales.contains_key(&sale_id));
@@ -139,9 +138,7 @@ fn delist_native_scarce_wrong_owner_fails() {
     contract
         .list_native_scarce(&buyer(), &tid, U128(1_000), None)
         .unwrap();
-    let err = contract
-        .delist_native_scarce(&creator(), &tid)
-        .unwrap_err();
+    let err = contract.delist_native_scarce(&creator(), &tid).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
@@ -173,7 +170,10 @@ fn update_price_happy() {
         .unwrap();
 
     let sale_id = Contract::make_sale_id(&mkt, &tid);
-    assert_eq!(contract.sales.get(&sale_id).unwrap().sale_conditions.0, 2_000);
+    assert_eq!(
+        contract.sales.get(&sale_id).unwrap().sale_conditions.0,
+        2_000
+    );
 }
 
 #[test]
@@ -335,9 +335,7 @@ fn cancel_auction_wrong_owner_fails() {
     contract
         .list_native_scarce_auction(&buyer(), &tid, params)
         .unwrap();
-    let err = contract
-        .cancel_auction(&creator(), &tid)
-        .unwrap_err();
+    let err = contract.cancel_auction(&creator(), &tid).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
@@ -365,9 +363,7 @@ fn add_then_remove_sale_cleans_indexes() {
     let owner_set = contract.by_owner_id.get(&buyer());
     assert!(owner_set.is_some());
 
-    contract
-        .delist_native_scarce(&buyer(), &tid)
-        .unwrap();
+    contract.delist_native_scarce(&buyer(), &tid).unwrap();
 
     let sale_id = Contract::make_sale_id(&"marketplace.near".parse().unwrap(), &tid);
     assert!(!contract.sales.contains_key(&sale_id));
@@ -402,9 +398,7 @@ fn list_soulbound_token_fails() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
     testing_env!(context(creator()).build());
     contract
         .mint_from_collection(&creator(), "soul", 1, Some(&buyer()))
@@ -446,9 +440,7 @@ fn list_revoked_token_fails() {
         start_price: None,
         allowlist_price: None,
     };
-    contract
-        .create_collection(&creator(), config)
-        .unwrap();
+    contract.create_collection(&creator(), config).unwrap();
     testing_env!(context(creator()).build());
     contract
         .mint_from_collection(&creator(), "rev", 1, Some(&buyer()))

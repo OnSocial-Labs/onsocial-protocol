@@ -108,13 +108,13 @@ fn on_wnear_unwrapped_credits_balance_on_success() {
         .get(&buyer())
         .cloned()
         .unwrap_or_default();
-    user.balance += amount;
+    user.balance.0 += amount;
     let new_balance = user.balance;
     contract.user_storage.insert(buyer(), user);
 
-    assert_eq!(new_balance, amount);
+    assert_eq!(new_balance, U128(amount));
     let stored = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(stored.balance, amount);
+    assert_eq!(stored.balance, U128(amount));
 }
 
 #[test]
@@ -131,7 +131,7 @@ fn on_wnear_unwrapped_returns_refund_on_failure() {
 
     // Balance should NOT be credited
     let user = contract.user_storage.get(&buyer());
-    assert!(user.is_none() || user.unwrap().balance == 0);
+    assert!(user.is_none() || user.unwrap().balance == U128(0));
 }
 
 #[test]
@@ -148,11 +148,11 @@ fn on_wnear_unwrapped_creates_new_user_storage_entry() {
         .get(&buyer())
         .cloned()
         .unwrap_or_default();
-    user.balance += amount;
+    user.balance.0 += amount;
     contract.user_storage.insert(buyer(), user);
 
     let stored = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(stored.balance, amount);
+    assert_eq!(stored.balance, U128(amount));
     assert_eq!(stored.used_bytes, 0);
     assert_eq!(stored.tier2_used_bytes, 0);
     assert_eq!(stored.spending_cap, None);
@@ -168,7 +168,7 @@ fn on_wnear_unwrapped_adds_to_existing_balance() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: existing,
+            balance: U128(existing),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -177,11 +177,11 @@ fn on_wnear_unwrapped_adds_to_existing_balance() {
 
     // Simulate successful callback credit
     let mut user = contract.user_storage.get(&buyer()).cloned().unwrap();
-    user.balance += deposit;
+    user.balance.0 += deposit;
     contract.user_storage.insert(buyer(), user);
 
     let stored = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(stored.balance, existing + deposit);
+    assert_eq!(stored.balance, U128(existing + deposit));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -197,7 +197,7 @@ fn wnear_deposit_enables_prepaid_purchase() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: price * 2,
+            balance: U128(price * 2),
             used_bytes: 0,
             tier2_used_bytes: 0,
             spending_cap: None,
@@ -226,9 +226,7 @@ fn wnear_deposit_enables_prepaid_purchase() {
         transferable: true,
         burnable: true,
     };
-    let token_id = contract
-        .quick_mint(&creator(), metadata, options)
-        .unwrap();
+    let token_id = contract.quick_mint(&creator(), metadata, options).unwrap();
     contract
         .list_native_scarce(&creator(), &token_id, U128(price), None)
         .unwrap();
@@ -262,10 +260,10 @@ fn wnear_deposit_respects_spending_cap() {
     contract.user_storage.insert(
         buyer(),
         UserStorageBalance {
-            balance: deposit,
+            balance: U128(deposit),
             used_bytes: 0,
             tier2_used_bytes: 0,
-            spending_cap: Some(cap),
+            spending_cap: Some(U128(cap)),
         },
     );
 
@@ -278,7 +276,7 @@ fn wnear_deposit_respects_spending_cap() {
     assert_eq!(contract.pending_attached_balance, cap);
     // Remaining balance = deposit - cap
     let user = contract.user_storage.get(&buyer()).unwrap();
-    assert_eq!(user.balance, deposit - cap);
+    assert_eq!(user.balance, U128(deposit - cap));
 }
 
 #[test]
@@ -300,9 +298,9 @@ fn wnear_deposit_credits_different_account_via_msg() {
         .get(&alice)
         .cloned()
         .unwrap_or_default();
-    user.balance += amount;
+    user.balance.0 += amount;
     contract.user_storage.insert(alice.clone(), user);
 
     let stored = contract.user_storage.get(&alice).unwrap();
-    assert_eq!(stored.balance, amount);
+    assert_eq!(stored.balance, U128(amount));
 }

@@ -1,8 +1,8 @@
 use near_sdk::AccountId;
 
+use super::LAZY_LISTING;
 use super::builder::EventBuilder;
 use super::nep171;
-use super::LAZY_LISTING;
 
 pub fn emit_lazy_listing_created(creator_id: &AccountId, listing_id: &str, price: u128) {
     EventBuilder::new(LAZY_LISTING, "created", creator_id)

@@ -113,9 +113,7 @@ fn cancel_lazy_listing_happy() {
     let id = contract
         .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
         .unwrap();
-    contract
-        .cancel_lazy_listing(&creator(), &id)
-        .unwrap();
+    contract.cancel_lazy_listing(&creator(), &id).unwrap();
     assert!(!contract.lazy_listings.contains_key(&id));
 }
 
@@ -127,9 +125,7 @@ fn cancel_lazy_listing_wrong_creator_fails() {
     let id = contract
         .create_lazy_listing(&creator(), make_lazy_listing_params(1_000))
         .unwrap();
-    let err = contract
-        .cancel_lazy_listing(&buyer(), &id)
-        .unwrap_err();
+    let err = contract.cancel_lazy_listing(&buyer(), &id).unwrap_err();
     assert!(matches!(err, MarketplaceError::Unauthorized(_)));
 }
 
@@ -158,7 +154,10 @@ fn update_expiry_happy() {
     contract
         .update_lazy_listing_expiry(&creator(), &id, Some(future))
         .unwrap();
-    assert_eq!(contract.lazy_listings.get(&id).unwrap().expires_at, Some(future));
+    assert_eq!(
+        contract.lazy_listings.get(&id).unwrap().expires_at,
+        Some(future)
+    );
 }
 
 #[test]

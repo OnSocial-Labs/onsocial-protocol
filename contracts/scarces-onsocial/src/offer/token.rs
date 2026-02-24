@@ -1,7 +1,7 @@
+use super::{Offer, offer_key};
 use crate::storage::storage_byte_cost;
 use crate::*;
 use near_sdk::json_types::U128;
-use super::{offer_key, Offer};
 
 #[near]
 impl Contract {
@@ -110,8 +110,7 @@ impl Contract {
             .remove(&key)
             .ok_or_else(|| MarketplaceError::NotFound("Offer not found".into()))?;
 
-        let _ =
-            Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount.0));
+        let _ = Promise::new(offer.buyer_id).transfer(NearToken::from_yoctonear(offer.amount.0));
 
         events::emit_offer_cancelled(buyer_id, token_id, offer.amount.0);
         Ok(())

@@ -31,14 +31,16 @@ fn nft_metadata_after_update() {
     contract.set_fee_recipient(buyer()).unwrap();
 
     // Update contract metadata via admin
-    contract.set_contract_metadata(
-        Some("Updated Marketplace".into()),
-        Some("UPD".into()),
-        None, // icon
-        None, // base_uri
-        None, // reference
-        None, // reference_hash
-    ).unwrap();
+    contract
+        .set_contract_metadata(
+            Some("Updated Marketplace".into()),
+            Some("UPD".into()),
+            None, // icon
+            None, // base_uri
+            None, // reference
+            None, // reference_hash
+        )
+        .unwrap();
 
     let meta = contract.nft_metadata();
     assert_eq!(meta.name, "Updated Marketplace");
@@ -104,7 +106,10 @@ fn withdraw_platform_storage_exceeds_balance_fails() {
     testing_env!(context_with_deposit(owner(), 1).build());
 
     let result = contract.withdraw_platform_storage(&owner(), U128(u128::MAX));
-    assert!(matches!(result, Err(MarketplaceError::InsufficientDeposit(_))));
+    assert!(matches!(
+        result,
+        Err(MarketplaceError::InsufficientDeposit(_))
+    ));
 }
 
 #[test]
@@ -115,7 +120,8 @@ fn withdraw_platform_storage_below_reserve_fails() {
     contract.platform_storage_balance = 15_000_000_000_000_000_000_000_000;
     testing_env!(context_with_deposit(owner(), 1).build());
 
-    let result = contract.withdraw_platform_storage(&owner(), U128(11_000_000_000_000_000_000_000_000));
+    let result =
+        contract.withdraw_platform_storage(&owner(), U128(11_000_000_000_000_000_000_000_000));
     assert!(matches!(result, Err(MarketplaceError::InvalidInput(_))));
 }
 
@@ -137,7 +143,8 @@ fn withdraw_platform_storage_happy() {
     contract.platform_storage_balance = 30_000_000_000_000_000_000_000_000; // 30 NEAR
 
     testing_env!(context_with_deposit(owner(), 1).build());
-    let result = contract.withdraw_platform_storage(&owner(), U128(10_000_000_000_000_000_000_000_000));
+    let result =
+        contract.withdraw_platform_storage(&owner(), U128(10_000_000_000_000_000_000_000_000));
     assert!(result.is_ok());
     assert_eq!(
         contract.platform_storage_balance,
@@ -154,7 +161,10 @@ fn fund_platform_storage_happy() {
     testing_env!(context_with_deposit(owner(), 5_000_000_000_000_000_000_000_000).build());
     let result = contract.fund_platform_storage();
     assert!(result.is_ok());
-    assert_eq!(contract.platform_storage_balance, 10_000_000_000_000_000_000_000_000);
+    assert_eq!(
+        contract.platform_storage_balance,
+        10_000_000_000_000_000_000_000_000
+    );
 }
 
 #[test]
@@ -164,7 +174,10 @@ fn fund_platform_storage_accumulates() {
     testing_env!(context_with_deposit(owner(), 2_000_000_000_000_000_000_000_000).build());
     let result = contract.fund_platform_storage();
     assert!(result.is_ok());
-    assert_eq!(contract.platform_storage_balance, 7_000_000_000_000_000_000_000_000);
+    assert_eq!(
+        contract.platform_storage_balance,
+        7_000_000_000_000_000_000_000_000
+    );
 }
 
 #[test]
@@ -182,5 +195,8 @@ fn fund_platform_storage_zero_deposit_fails() {
     testing_env!(context_with_deposit(owner(), 0).build());
 
     let result = contract.fund_platform_storage();
-    assert!(matches!(result, Err(MarketplaceError::InsufficientDeposit(_))));
+    assert!(matches!(
+        result,
+        Err(MarketplaceError::InsufficientDeposit(_))
+    ));
 }

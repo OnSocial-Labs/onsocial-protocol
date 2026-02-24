@@ -2263,3 +2263,179 @@ pub async fn nft_tokens(
     let tokens: Vec<Token> = serde_json::from_slice(&result.result)?;
     Ok(tokens)
 }
+
+// =============================================================================
+// Sale View Helpers (P1 coverage)
+// =============================================================================
+
+/// View `get_sales` — paginated global sales list.
+pub async fn get_sales(
+    contract: &Contract,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<Value>> {
+    let result = contract
+        .view("get_sales")
+        .args_json(json!({ "from_index": from_index, "limit": limit }))
+        .await?;
+    let sales: Vec<Value> = serde_json::from_slice(&result.result)?;
+    Ok(sales)
+}
+
+/// View `is_sale_expired`.
+pub async fn is_sale_expired(
+    contract: &Contract,
+    scarce_contract_id: &str,
+    token_id: &str,
+) -> Result<Option<bool>> {
+    let result = contract
+        .view("is_sale_expired")
+        .args_json(json!({
+            "scarce_contract_id": scarce_contract_id,
+            "token_id": token_id,
+        }))
+        .await?;
+    let expired: Option<bool> = serde_json::from_slice(&result.result)?;
+    Ok(expired)
+}
+
+/// View `get_expired_sales`.
+pub async fn get_expired_sales(
+    contract: &Contract,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<Value>> {
+    let result = contract
+        .view("get_expired_sales")
+        .args_json(json!({ "from_index": from_index, "limit": limit }))
+        .await?;
+    let sales: Vec<Value> = serde_json::from_slice(&result.result)?;
+    Ok(sales)
+}
+
+/// View `get_supply_by_scarce_contract_id`.
+pub async fn get_supply_by_scarce_contract_id(
+    contract: &Contract,
+    scarce_contract_id: &str,
+) -> Result<u64> {
+    let result = contract
+        .view("get_supply_by_scarce_contract_id")
+        .args_json(json!({ "scarce_contract_id": scarce_contract_id }))
+        .await?;
+    let count: u64 = serde_json::from_slice(&result.result)?;
+    Ok(count)
+}
+
+// =============================================================================
+// App Pool View Helpers (P1 coverage)
+// =============================================================================
+
+/// View `get_app_user_usage`.
+pub async fn get_app_user_usage(
+    contract: &Contract,
+    account_id: &str,
+    app_id: &str,
+) -> Result<u64> {
+    let result = contract
+        .view("get_app_user_usage")
+        .args_json(json!({ "account_id": account_id, "app_id": app_id }))
+        .await?;
+    let usage: u64 = serde_json::from_slice(&result.result)?;
+    Ok(usage)
+}
+
+/// View `get_app_user_remaining`.
+pub async fn get_app_user_remaining(
+    contract: &Contract,
+    account_id: &str,
+    app_id: &str,
+) -> Result<u64> {
+    let result = contract
+        .view("get_app_user_remaining")
+        .args_json(json!({ "account_id": account_id, "app_id": app_id }))
+        .await?;
+    let remaining: u64 = serde_json::from_slice(&result.result)?;
+    Ok(remaining)
+}
+
+/// View `get_user_storage`.
+pub async fn get_user_storage(contract: &Contract, account_id: &str) -> Result<Value> {
+    let result = contract
+        .view("get_user_storage")
+        .args_json(json!({ "account_id": account_id }))
+        .await?;
+    let storage: Value = serde_json::from_slice(&result.result)?;
+    Ok(storage)
+}
+
+/// View `get_app_metadata`.
+pub async fn get_app_metadata(contract: &Contract, app_id: &str) -> Result<Option<Value>> {
+    let result = contract
+        .view("get_app_metadata")
+        .args_json(json!({ "app_id": app_id }))
+        .await?;
+    let meta: Option<Value> = serde_json::from_slice(&result.result)?;
+    Ok(meta)
+}
+
+/// View `resolve_base_uri`.
+pub async fn resolve_base_uri(contract: &Contract, collection_id: &str) -> Result<Option<String>> {
+    let result = contract
+        .view("resolve_base_uri")
+        .args_json(json!({ "collection_id": collection_id }))
+        .await?;
+    let uri: Option<String> = serde_json::from_slice(&result.result)?;
+    Ok(uri)
+}
+
+// =============================================================================
+// Lazy Listing View Helpers (P1 coverage)
+// =============================================================================
+
+/// View `get_lazy_listings_by_app`.
+pub async fn get_lazy_listings_by_app(
+    contract: &Contract,
+    app_id: &str,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> Result<Vec<(String, Value)>> {
+    let result = contract
+        .view("get_lazy_listings_by_app")
+        .args_json(json!({ "app_id": app_id, "from_index": from_index, "limit": limit }))
+        .await?;
+    let listings: Vec<(String, Value)> = serde_json::from_slice(&result.result)?;
+    Ok(listings)
+}
+
+/// Call `cleanup_expired_lazy_listings`.
+pub async fn cleanup_expired_lazy_listings(
+    caller: &Account,
+    contract: &Contract,
+    limit: Option<u64>,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = caller
+        .call(contract.id(), "cleanup_expired_lazy_listings")
+        .args_json(json!({ "limit": limit }))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    Ok(result)
+}
+
+// =============================================================================
+// Collection Metadata Helpers (P1 coverage)
+// =============================================================================
+
+/// View `get_allowlist_allocation`.
+pub async fn get_allowlist_allocation(
+    contract: &Contract,
+    collection_id: &str,
+    account_id: &str,
+) -> Result<u32> {
+    let result = contract
+        .view("get_allowlist_allocation")
+        .args_json(json!({ "collection_id": collection_id, "account_id": account_id }))
+        .await?;
+    let allocation: u32 = serde_json::from_slice(&result.result)?;
+    Ok(allocation)
+}
