@@ -25,6 +25,14 @@ jobs:
   check-balance:
     runs-on: ubuntu-latest
     steps:
+      - name: Restore previous balances
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .relayer-balances
+          key: relayer-balances-${{ github.run_id }}
+          restore-keys: relayer-balances-
+
       - name: Query relayer balances
         id: balance
         run: |
@@ -45,23 +53,53 @@ jobs:
           echo "testnet_balance=$TESTNET_BAL" >> "$GITHUB_OUTPUT"
           echo "mainnet_balance=$MAINNET_BAL" >> "$GITHUB_OUTPUT"
 
-          echo "### Relayer Balances" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Network | Account | Balance | Threshold |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---------|---------|---------|-----------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Testnet | \`$RELAYER_TESTNET\` | $TESTNET_BAL NEAR | $MIN_BALANCE_TESTNET NEAR |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Mainnet | \`$RELAYER_MAINNET\` | $MAINNET_BAL NEAR | $MIN_BALANCE_MAINNET NEAR |" >> "$GITHUB_STEP_SUMMARY"
+          # Load previous balances (if cached)
+          PREV_TESTNET="unknown"
+          PREV_MAINNET="unknown"
+          if [ -f .relayer-balances ]; then
+            PREV_TESTNET=$(grep '^testnet=' .relayer-balances | cut -d= -f2 || echo "unknown")
+            PREV_MAINNET=$(grep '^mainnet=' .relayer-balances | cut -d= -f2 || echo "unknown")
+          fi
+          echo "prev_testnet=$PREV_TESTNET" >> "$GITHUB_OUTPUT"
+          echo "prev_mainnet=$PREV_MAINNET" >> "$GITHUB_OUTPUT"
 
+          # Save current balances for next run
+          echo "testnet=$TESTNET_BAL" > .relayer-balances
+          echo "mainnet=$MAINNET_BAL" >> .relayer-balances
+
+          echo "### Relayer Balances" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Network | Account | Balance | Previous | Threshold |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|---------|----------|-----------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Testnet | \`$RELAYER_TESTNET\` | $TESTNET_BAL NEAR | $PREV_TESTNET NEAR | $MIN_BALANCE_TESTNET NEAR |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Mainnet | \`$RELAYER_MAINNET\` | $MAINNET_BAL NEAR | $PREV_MAINNET NEAR | $MIN_BALANCE_MAINNET NEAR |" >> "$GITHUB_STEP_SUMMARY"
+
+          # Only alert when balance is low AND has changed since last check
           ALERTS=""
+          balance_changed() {
+            local curr=$1 prev=$2
+            [ "$prev" = "unknown" ] && return 0  # first run — always alert
+            [ "$curr" = "ERROR" ] && return 0     # query error — always alert
+            [ "$curr" != "$prev" ]                # changed?
+          }
+
           if [ "$TESTNET_BAL" = "ERROR" ]; then
-            ALERTS="${ALERTS}❓ Could not query testnet relayer balance\n"
+            if balance_changed "$TESTNET_BAL" "$PREV_TESTNET"; then
+              ALERTS="${ALERTS}❓ Could not query testnet relayer balance\n"
+            fi
           elif python3 -c "exit(0 if float('$TESTNET_BAL') < float('$MIN_BALANCE_TESTNET') else 1)"; then
-            ALERTS="${ALERTS}⚠️ Testnet relayer: $TESTNET_BAL NEAR (< $MIN_BALANCE_TESTNET threshold)\n"
+            if balance_changed "$TESTNET_BAL" "$PREV_TESTNET"; then
+              ALERTS="${ALERTS}⚠️ Testnet relayer: $TESTNET_BAL NEAR (was $PREV_TESTNET, threshold $MIN_BALANCE_TESTNET)\n"
+            fi
           fi
 
           if [ "$MAINNET_BAL" = "ERROR" ]; then
-            ALERTS="${ALERTS}❓ Could not query mainnet relayer balance\n"
+            if balance_changed "$MAINNET_BAL" "$PREV_MAINNET"; then
+              ALERTS="${ALERTS}❓ Could not query mainnet relayer balance\n"
+            fi
           elif python3 -c "exit(0 if float('$MAINNET_BAL') < float('$MIN_BALANCE_MAINNET') else 1)"; then
-            ALERTS="${ALERTS}⚠️ Mainnet relayer: $MAINNET_BAL NEAR (< $MIN_BALANCE_MAINNET threshold)\n"
+            if balance_changed "$MAINNET_BAL" "$PREV_MAINNET"; then
+              ALERTS="${ALERTS}⚠️ Mainnet relayer: $MAINNET_BAL NEAR (was $PREV_MAINNET, threshold $MIN_BALANCE_MAINNET)\n"
+            fi
           fi
 
           if [ -n "$ALERTS" ]; then
@@ -73,7 +111,13 @@ jobs:
             echo -e "$ALERTS" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Notify Telegram (low balance)
+      - name: Save current balances
+        uses: actions/cache/save@v4
+        with:
+          path: .relayer-balances
+          key: relayer-balances-${{ github.run_id }}
+
+      - name: Notify Telegram (balance changed & low)
         if: steps.balance.outputs.alerts != ''
         run: |
           TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
