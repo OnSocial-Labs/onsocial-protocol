@@ -141,7 +141,7 @@ fn get_lazy_listings_by_creator_returns_owned() {
 fn get_lazy_listings_by_app_filters() {
     let mut contract = setup_contract();
     // Register the app first
-    testing_env!(context(owner()).build());
+    testing_env!(context_with_deposit(owner(), 1_000_000_000_000_000_000_000_000).build());
     let register_action = Action::RegisterApp {
         app_id: app_id(),
         params: AppConfig {

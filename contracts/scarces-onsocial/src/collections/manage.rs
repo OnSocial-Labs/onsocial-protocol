@@ -173,7 +173,7 @@ impl Contract {
             ));
         }
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.collections.remove(collection_id);
 
         if let Some(creator_set) = self.collections_by_creator.get_mut(&collection.creator_id) {
@@ -183,12 +183,12 @@ impl Contract {
             }
         }
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(
                 &collection.creator_id,
-                bytes_freed as u64,
+                bytes_freed,
                 collection.app_id.as_ref(),
             );
         }

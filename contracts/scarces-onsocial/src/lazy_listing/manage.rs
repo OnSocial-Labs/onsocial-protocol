@@ -72,9 +72,9 @@ impl Contract {
         };
 
         // Storage/accounting invariant: rollback listing insert if storage charge fails.
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.lazy_listings.insert(listing_id.clone(), listing);
-        let bytes_used = env::storage_usage().saturating_sub(before);
+        let bytes_used = self.storage_usage_flushed().saturating_sub(before);
         if let Err(e) =
             self.charge_storage_waterfall(creator_id, bytes_used, listing_app_id.as_ref())
         {
@@ -106,9 +106,9 @@ impl Contract {
         let creator_id = listing.creator_id.clone();
         let app_id = listing.app_id.clone();
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.lazy_listings.remove(listing_id);
-        let bytes_freed = before.saturating_sub(env::storage_usage());
+        let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
         self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_ref());
 
         events::emit_lazy_listing_cancelled(&creator_id, listing_id);

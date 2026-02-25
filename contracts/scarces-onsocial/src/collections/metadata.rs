@@ -27,23 +27,23 @@ impl Contract {
             return Ok(());
         }
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.collections
             .insert(collection_id.to_string(), collection.clone());
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
 
         match after.cmp(&before) {
             std::cmp::Ordering::Greater => {
                 self.charge_storage_waterfall(
                     actor_id,
-                    (after - before) as u64,
+                    after - before,
                     collection.app_id.as_ref(),
                 )?;
             }
             std::cmp::Ordering::Less => {
                 self.release_storage_waterfall(
                     actor_id,
-                    (before - after) as u64,
+                    before - after,
                     collection.app_id.as_ref(),
                 );
             }
@@ -96,23 +96,23 @@ impl Contract {
             return Ok(());
         }
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.collections
             .insert(collection_id.to_string(), collection.clone());
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
 
         match after.cmp(&before) {
             std::cmp::Ordering::Greater => {
                 self.charge_storage_waterfall(
                     actor_id,
-                    (after - before) as u64,
+                    after - before,
                     collection.app_id.as_ref(),
                 )?;
             }
             std::cmp::Ordering::Less => {
                 self.release_storage_waterfall(
                     actor_id,
-                    (before - after) as u64,
+                    before - after,
                     collection.app_id.as_ref(),
                 );
             }

@@ -21,7 +21,7 @@ impl Contract {
 
         self.check_collection_authority(actor_id, &collection)?;
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         let mut accounts = Vec::with_capacity(entries.len());
         for entry in &entries {
@@ -34,10 +34,10 @@ impl Contract {
             accounts.push(entry.account_id.clone());
         }
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
         if bytes_used > 0 {
-            self.charge_storage_waterfall(actor_id, bytes_used as u64, collection.app_id.as_ref())?;
+            self.charge_storage_waterfall(actor_id, bytes_used, collection.app_id.as_ref())?;
         }
 
         events::emit_allowlist_updated(actor_id, collection_id, &accounts, entries.len() as u32);
@@ -64,18 +64,18 @@ impl Contract {
 
         self.check_collection_authority(actor_id, &collection)?;
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         for account in &accounts {
             let key = format!("{}:al:{}", collection_id, account);
             self.collection_allowlist.remove(&key);
         }
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(
                 actor_id,
-                bytes_freed as u64,
+                bytes_freed,
                 collection.app_id.as_ref(),
             );
         }

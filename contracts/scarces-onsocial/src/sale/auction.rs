@@ -96,13 +96,13 @@ impl Contract {
             auction: Some(auction),
         };
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.add_sale(sale);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
-        self.charge_storage_waterfall(owner_id, bytes_used as u64, app_id.as_ref())?;
+        self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref())?;
 
         Ok(())
     }

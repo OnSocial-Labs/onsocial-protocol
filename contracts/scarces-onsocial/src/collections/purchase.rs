@@ -150,7 +150,7 @@ impl Contract {
         self.collections
             .insert(collection_id.clone(), updated_collection);
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         let ctx = crate::MintContext {
             owner_id: buyer_id.clone(),
@@ -182,12 +182,12 @@ impl Contract {
                 .insert(mint_key, prev + quantity);
         }
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
         let result = self.route_primary_sale(
             total_price,
-            bytes_used as u64,
+            bytes_used,
             &creator_id,
             buyer_id,
             app_id.as_ref(),
@@ -271,7 +271,7 @@ impl Contract {
         self.collections
             .insert(collection_id.to_string(), updated_collection);
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         let ctx = crate::MintContext {
             owner_id: recipient.clone(),
@@ -290,10 +290,10 @@ impl Contract {
             Some(ovr),
         )?;
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
+        self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
 
         events::emit_collection_mint(actor_id, recipient, collection_id, quantity, &token_ids);
         Ok(())
@@ -353,7 +353,7 @@ impl Contract {
         self.collections
             .insert(collection_id.to_string(), updated_collection);
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         let mut token_ids = Vec::with_capacity(count as usize);
 
@@ -382,10 +382,10 @@ impl Contract {
             token_ids.push(minted_id);
         }
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        self.charge_storage_waterfall(actor_id, bytes_used as u64, app_id.as_ref())?;
+        self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
 
         events::emit_collection_airdrop(actor_id, collection_id, count, &token_ids, &receivers);
         Ok(())

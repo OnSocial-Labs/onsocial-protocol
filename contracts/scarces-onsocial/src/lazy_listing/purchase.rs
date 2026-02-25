@@ -49,7 +49,7 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let token_id = format!("s:{token_num}");
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         let ctx = crate::MintContext {
             owner_id: buyer_id.clone(),
@@ -68,7 +68,7 @@ impl Contract {
             return Err(e);
         }
 
-        let bytes_used = env::storage_usage().saturating_sub(before);
+        let bytes_used = self.storage_usage_flushed().saturating_sub(before);
 
         // State/accounting invariant: rollback mint state if payment routing fails.
         let result = match self.route_primary_sale(
@@ -124,9 +124,9 @@ impl Contract {
             }
             let creator_id = listing.creator_id.clone();
             let app_id = listing.app_id.clone();
-            let before = env::storage_usage();
+            let before = self.storage_usage_flushed();
             self.lazy_listings.remove(&listing_id);
-            let bytes_freed = before.saturating_sub(env::storage_usage());
+            let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
             self.release_storage_waterfall(&creator_id, bytes_freed, app_id.as_ref());
             events::emit_lazy_listing_expired(&creator_id, &listing_id);
             count += 1;

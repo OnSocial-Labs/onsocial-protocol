@@ -245,7 +245,7 @@ impl Contract {
             ));
         }
 
-        let owner_id = {
+        let (owner_id, token_app_id) = {
             let token = self
                 .scarces_by_id
                 .get(token_id)
@@ -255,8 +255,11 @@ impl Contract {
                     "Only the token owner can burn their token".into(),
                 ));
             }
-            token.owner_id.clone()
+            (token.owner_id.clone(), token.app_id.clone())
         };
+
+        // Accounting invariant: measure storage freed by burn for waterfall release.
+        let before = self.storage_usage_flushed();
 
         self.scarces_by_id.remove(token_id);
 
@@ -267,6 +270,11 @@ impl Contract {
         self.collections
             .insert(collection_id.to_string(), collection);
 
+        let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_ref());
+        }
+
         events::emit_scarce_burned(&owner_id, token_id, Some(collection_id));
         Ok(())
     }
@@ -276,7 +284,7 @@ impl Contract {
         actor_id: &AccountId,
         token_id: &str,
     ) -> Result<(), MarketplaceError> {
-        let owner_id = {
+        let (owner_id, token_app_id) = {
             let token = self
                 .scarces_by_id
                 .get(token_id)
@@ -292,13 +300,21 @@ impl Contract {
                     "Only the token owner can burn their token".into(),
                 ));
             }
-            token.owner_id.clone()
+            (token.owner_id.clone(), token.app_id.clone())
         };
+
+        // Accounting invariant: measure storage freed by burn for waterfall release.
+        let before = self.storage_usage_flushed();
 
         self.scarces_by_id.remove(token_id);
 
         self.remove_token_from_owner(&owner_id, token_id);
         self.remove_sale_listing(token_id, &owner_id, "burned");
+
+        let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
+        if bytes_freed > 0 {
+            self.release_storage_waterfall(&owner_id, bytes_freed, token_app_id.as_ref());
+        }
 
         events::emit_scarce_burned(&owner_id, token_id, None);
         Ok(())

@@ -23,7 +23,7 @@ fn default_options() -> scarce::types::ScarceOptions {
 }
 
 fn register_app(contract: &mut Contract) {
-    testing_env!(context(owner()).build());
+    testing_env!(context_with_deposit(owner(), 1_000_000_000_000_000_000_000_000).build());
     let action = Action::RegisterApp {
         app_id: app_id(),
         params: AppConfig {
@@ -273,13 +273,15 @@ fn fund_app_pool_happy() {
     let mut contract = setup_contract();
     register_app(&mut contract);
 
+    let initial_balance = contract.get_app_pool(app_id()).unwrap().balance.0;
+
     testing_env!(context_with_deposit(buyer(), 5_000_000).build());
     contract
         .fund_app_pool(&buyer(), &app_id(), 5_000_000)
         .unwrap();
 
     let pool = contract.get_app_pool(app_id()).unwrap();
-    assert_eq!(pool.balance.0, 5_000_000);
+    assert_eq!(pool.balance.0, initial_balance + 5_000_000);
 }
 
 #[test]
@@ -310,6 +312,8 @@ fn withdraw_app_pool_happy() {
     let mut contract = setup_contract();
     register_app(&mut contract);
 
+    let initial_balance = contract.get_app_pool(app_id()).unwrap().balance.0;
+
     // Fund it
     testing_env!(context_with_deposit(buyer(), 10_000_000).build());
     contract
@@ -323,7 +327,7 @@ fn withdraw_app_pool_happy() {
         .unwrap();
 
     let pool = contract.get_app_pool(app_id()).unwrap();
-    assert_eq!(pool.balance.0, 5_000_000);
+    assert_eq!(pool.balance.0, initial_balance + 5_000_000);
 }
 
 #[test]
@@ -351,9 +355,11 @@ fn withdraw_app_pool_exceeds_balance_fails() {
     testing_env!(context_with_deposit(buyer(), 1_000).build());
     contract.fund_app_pool(&buyer(), &app_id(), 1_000).unwrap();
 
+    let total_balance = contract.get_app_pool(app_id()).unwrap().balance.0;
+
     testing_env!(context_with_deposit(owner(), 1).build());
     let err = contract
-        .withdraw_app_pool(&owner(), &app_id(), U128(99_999))
+        .withdraw_app_pool(&owner(), &app_id(), U128(total_balance + 1))
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InsufficientDeposit(_)));
 }

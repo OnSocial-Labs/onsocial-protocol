@@ -73,9 +73,9 @@ impl Contract {
         }
 
         // Security boundary: remove sale before XCC; failed resolution refunds buyer.
-        let before_remove = env::storage_usage();
+        let before_remove = self.storage_usage_flushed();
         self.remove_sale(scarce_contract_id.clone(), token_id.clone())?;
-        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
         self.release_storage_waterfall(&owner_id, bytes_freed, None);
 
         let max_payout_recipients = max_len_payout.unwrap_or(10).min(20);
@@ -246,9 +246,9 @@ impl Contract {
         let seller_id = sale.owner_id.clone();
 
         // Security boundary: remove listing state before token transfer side effects.
-        let before_remove = env::storage_usage();
+        let before_remove = self.storage_usage_flushed();
         self.remove_sale(env::current_account_id(), token_id.clone())?;
-        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
 
         let token = self
             .scarces_by_id

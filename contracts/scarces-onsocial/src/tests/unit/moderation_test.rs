@@ -15,7 +15,7 @@ fn moderator() -> AccountId {
 
 fn setup_with_app_collection(col_id: &str) -> Contract {
     let mut contract = new_contract();
-    testing_env!(context(owner()).build());
+    testing_env!(context_with_deposit(owner(), 1_000_000_000_000_000_000_000_000).build());
 
     contract
         .execute(make_request(Action::RegisterApp {

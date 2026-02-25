@@ -17,7 +17,8 @@ impl Contract {
         let token = self
             .scarces_by_id
             .get(&token_id)
-            .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
+            .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?
+            .clone();
 
         let owner_id = env::predecessor_account_id();
         if token.owner_id != owner_id {
@@ -26,20 +27,20 @@ impl Contract {
             ));
         }
 
-        self.check_transferable(token, &token_id, "approve")?;
+        self.check_transferable(&token, &token_id, "approve")?;
 
         let approval_id = self.next_approval_id;
         self.next_approval_id = self.next_approval_id.checked_add(1).ok_or_else(|| {
             MarketplaceError::InternalError("Approval ID counter overflow".into())
         })?;
 
-        let before = env::storage_usage();
-        let mut token = token.clone();
+        let before = self.storage_usage_flushed();
+        let mut token = token;
         token
             .approved_account_ids
             .insert(account_id.clone(), approval_id);
         self.scarces_by_id.insert(token_id.clone(), token);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
         // Storage/accounting invariant: direct approvals charge storage without app context.
@@ -90,10 +91,10 @@ impl Contract {
         }
 
         let mut token = token.clone();
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         token.approved_account_ids.remove(&account_id);
         self.scarces_by_id.insert(token_id.clone(), token);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(&owner_id, bytes_freed, None);
@@ -121,10 +122,10 @@ impl Contract {
         }
 
         let mut token = token.clone();
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         token.approved_account_ids.clear();
         self.scarces_by_id.insert(token_id.clone(), token);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(&owner_id, bytes_freed, None);
@@ -177,12 +178,12 @@ impl Contract {
             MarketplaceError::InternalError("Approval ID counter overflow".into())
         })?;
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         token
             .approved_account_ids
             .insert(account_id.clone(), approval_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
         if bytes_used > 0 {
@@ -213,10 +214,10 @@ impl Contract {
                 "Only owner can revoke".into(),
             ));
         }
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         token.approved_account_ids.remove(account_id);
         self.scarces_by_id.insert(token_id.to_string(), token);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(actor_id, bytes_freed, None);
@@ -240,10 +241,10 @@ impl Contract {
                 "Only owner can revoke all".into(),
             ));
         }
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         token.approved_account_ids.clear();
         self.scarces_by_id.insert(token_id.to_string(), token);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
             self.release_storage_waterfall(actor_id, bytes_freed, None);
@@ -327,11 +328,11 @@ impl Contract {
                 auction: None,
             };
 
-            let before = env::storage_usage();
+            let before = self.storage_usage_flushed();
             self.add_sale(sale);
-            let bytes_used = env::storage_usage().saturating_sub(before);
+            let bytes_used = self.storage_usage_flushed().saturating_sub(before);
 
-            self.charge_storage_waterfall(&owner_id, bytes_used as u64, None)?;
+            self.charge_storage_waterfall(&owner_id, bytes_used, None)?;
 
             crate::events::emit_scarce_list(
                 &owner_id,

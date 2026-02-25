@@ -92,7 +92,7 @@ impl Contract {
             .ok_or_else(|| MarketplaceError::InternalError("Token ID counter overflow".into()))?;
         let token_id = format!("s:{id}");
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         let ctx = crate::MintContext {
             owner_id: actor_id.clone(),
@@ -108,7 +108,7 @@ impl Contract {
         };
         self.mint(token_id.clone(), ctx, metadata, Some(ovr))?;
 
-        let bytes_used = env::storage_usage().saturating_sub(before);
+        let bytes_used = self.storage_usage_flushed().saturating_sub(before);
         self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
 
         crate::events::emit_quick_mint(actor_id, &token_id);

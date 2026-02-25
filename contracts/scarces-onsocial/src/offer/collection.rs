@@ -71,9 +71,9 @@ impl Contract {
         };
 
         // Token accounting invariant: offer amount must exceed its storage footprint.
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.collection_offers.insert(key.clone(), offer);
-        let bytes_used = env::storage_usage().saturating_sub(before);
+        let bytes_used = self.storage_usage_flushed().saturating_sub(before);
         let storage_cost = (bytes_used as u128) * storage_byte_cost();
         if amount <= storage_cost {
             let removed = self.collection_offers.remove(&key);

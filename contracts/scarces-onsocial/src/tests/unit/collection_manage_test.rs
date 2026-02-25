@@ -51,7 +51,7 @@ fn setup_with_collection(id: &str) -> Contract {
 
 fn setup_with_app_collection(col_id: &str) -> Contract {
     let mut contract = setup_contract();
-    testing_env!(context(owner()).build());
+    testing_env!(context_with_deposit(owner(), 1_000_000_000_000_000_000_000_000).build());
     contract
         .execute(make_request(Action::RegisterApp {
             app_id: app_id(),

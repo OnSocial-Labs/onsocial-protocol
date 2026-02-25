@@ -176,7 +176,7 @@ impl Contract {
             app_metadata: None,
         };
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
 
         self.collections.insert(collection_id.clone(), collection);
 
@@ -193,10 +193,10 @@ impl Contract {
             .unwrap()
             .insert(collection_id.clone());
 
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        self.charge_storage_waterfall(creator_id, bytes_used as u64, app_id.as_ref())?;
+        self.charge_storage_waterfall(creator_id, bytes_used, app_id.as_ref())?;
 
         events::emit_collection_created(creator_id, &collection_id, total_supply, price_near);
         Ok(())

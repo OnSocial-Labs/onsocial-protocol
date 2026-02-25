@@ -152,13 +152,13 @@ impl Contract {
             return;
         }
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.add_sale(sale);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
         // Storage/accounting invariant: rollback sale insertion if storage charge fails.
-        if let Err(e) = self.charge_storage_waterfall(&owner_id, bytes_used as u64, None) {
+        if let Err(e) = self.charge_storage_waterfall(&owner_id, bytes_used, None) {
             let _ = self.remove_sale(scarce_contract_id.clone(), token_id.clone());
             env::log_str(&format!(
                 "Listing storage charge failed (rolled back): {}",
@@ -234,14 +234,14 @@ impl Contract {
             auction: None,
         };
 
-        let before = env::storage_usage();
+        let before = self.storage_usage_flushed();
         self.add_sale(sale);
-        let after = env::storage_usage();
+        let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
         // Accounting invariant: resolve token app context before storage charge routing.
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
-        self.charge_storage_waterfall(owner_id, bytes_used as u64, app_id.as_ref())?;
+        self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref())?;
 
         events::emit_native_scarce_listed(owner_id, token_id, price);
         Ok(())
@@ -271,9 +271,9 @@ impl Contract {
                 .and_then(|t| t.app_id.clone());
             self.resolve_token_app_id(token_id, token_app_id.as_ref())
         };
-        let before_remove = env::storage_usage();
+        let before_remove = self.storage_usage_flushed();
         self.remove_sale(env::current_account_id(), token_id.to_string())?;
-        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
         self.release_storage_waterfall(owner_id, bytes_freed, listing_app_id.as_ref());
 
         events::emit_native_scarce_delisted(owner_id, token_id);
@@ -299,9 +299,9 @@ impl Contract {
             ));
         }
         let owner_id = sale.owner_id.clone();
-        let before_remove = env::storage_usage();
+        let before_remove = self.storage_usage_flushed();
         self.remove_sale(scarce_contract_id.clone(), token_id.to_string())?;
-        let bytes_freed = before_remove.saturating_sub(env::storage_usage());
+        let bytes_freed = before_remove.saturating_sub(self.storage_usage_flushed());
         self.release_storage_waterfall(&owner_id, bytes_freed, None);
         events::emit_scarce_delist(&owner_id, scarce_contract_id, vec![token_id.to_string()]);
         Ok(())
