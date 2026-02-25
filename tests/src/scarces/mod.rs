@@ -60,3 +60,5 @@ pub mod test_ft_receiver;
 pub mod test_upgrade;
 
 pub mod test_waterfall;
+
+pub mod test_lifecycle;
