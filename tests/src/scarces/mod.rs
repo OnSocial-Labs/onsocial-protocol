@@ -62,3 +62,5 @@ pub mod test_upgrade;
 pub mod test_waterfall;
 
 pub mod test_lifecycle;
+
+pub mod test_external_nft;
