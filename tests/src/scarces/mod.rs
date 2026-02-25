@@ -66,3 +66,5 @@ pub mod test_lifecycle;
 pub mod test_external_nft;
 
 pub mod test_edge_cases;
+
+pub mod test_hardening;
