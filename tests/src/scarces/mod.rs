@@ -58,3 +58,5 @@ pub mod test_lazy_listing_views;
 pub mod test_ft_receiver;
 
 pub mod test_upgrade;
+
+pub mod test_waterfall;
