@@ -215,7 +215,7 @@ async fn test_wnear_deposit_from_wrong_ft_contract_rejected() -> Result<()> {
 
     // ft_transfer_call succeeds at top level (ft_resolve_transfer refunds),
     // but the receiver's ft_on_transfer panics so no balance is credited.
-    ft_transfer_call(&fake_ft, &user, &contract, ONE_NEAR, "").await?;
+    let _ = ft_transfer_call(&fake_ft, &user, &contract, ONE_NEAR, "").await?;
 
     // Verify user's storage balance was NOT credited
     let storage = get_user_storage(&contract, user.id().as_str()).await?;
@@ -243,7 +243,7 @@ async fn test_wnear_deposit_without_config_rejected() -> Result<()> {
 
     // ft_transfer_call succeeds at top level (ft_resolve_transfer refunds),
     // but ft_on_transfer panics because wNEAR not configured.
-    ft_transfer_call(&wnear, &user, &contract, ONE_NEAR, "").await?;
+    let _ = ft_transfer_call(&wnear, &user, &contract, ONE_NEAR, "").await?;
 
     // Verify user's storage balance was NOT credited
     let storage = get_user_storage(&contract, user.id().as_str()).await?;

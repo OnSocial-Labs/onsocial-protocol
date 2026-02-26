@@ -188,12 +188,12 @@ async fn test_cleanup_with_limit() -> Result<()> {
     worker.fast_forward(100).await?;
 
     // Cleanup with limit=1
-    cleanup_expired_lazy_listings(&creator, &contract, Some(1)).await?;
+    let _ = cleanup_expired_lazy_listings(&creator, &contract, Some(1)).await?;
     let after_first = get_lazy_listings_count(&contract).await?;
     assert_eq!(after_first, 2, "only 1 should be cleaned per round");
 
     // Another round
-    cleanup_expired_lazy_listings(&creator, &contract, Some(1)).await?;
+    let _ = cleanup_expired_lazy_listings(&creator, &contract, Some(1)).await?;
     assert_eq!(
         get_lazy_listings_count(&contract).await?,
         1,
@@ -201,7 +201,7 @@ async fn test_cleanup_with_limit() -> Result<()> {
     );
 
     // Final round
-    cleanup_expired_lazy_listings(&creator, &contract, None).await?;
+    let _ = cleanup_expired_lazy_listings(&creator, &contract, None).await?;
     assert_eq!(
         get_lazy_listings_count(&contract).await?,
         0,
@@ -491,7 +491,7 @@ async fn test_storage_drain_then_mint_uses_platform_pool() -> Result<()> {
 
     // User balance should NOT have increased (proving platform paid, not user)
     let balance_after = storage_balance_of(&contract, &user.id().to_string()).await?;
-    let b_after: u128 = balance_after.parse().unwrap_or(0);
+    let _b_after: u128 = balance_after.parse().unwrap_or(0);
     // The unused portion of DEPOSIT_STORAGE gets credited to user's balance,
     // but NO storage bytes are charged to user tier.
     // Verify user didn't pay for the token storage itself.
@@ -634,7 +634,7 @@ async fn test_cleanup_preserves_active_listings() -> Result<()> {
 
     worker.fast_forward(100).await?;
 
-    cleanup_expired_lazy_listings(&creator, &contract, None).await?;
+    let _ = cleanup_expired_lazy_listings(&creator, &contract, None).await?;
 
     // Only the short-expiry listing should be removed
     let remaining = get_lazy_listings_count(&contract).await?;
@@ -759,7 +759,7 @@ async fn test_cleanup_then_purchase_fails() -> Result<()> {
     worker.fast_forward(100).await?;
 
     // Cleanup first
-    cleanup_expired_lazy_listings(&creator, &contract, None).await?;
+    let _ = cleanup_expired_lazy_listings(&creator, &contract, None).await?;
 
     // Then try to purchase — listing no longer exists
     let result = purchase_lazy_listing(

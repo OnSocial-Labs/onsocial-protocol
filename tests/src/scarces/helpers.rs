@@ -2552,3 +2552,299 @@ pub async fn ft_balance_of(
     let balance: String = serde_json::from_slice(&result.result)?;
     Ok(balance.parse()?)
 }
+
+// =============================================================================
+// Auth Helpers — SignedPayload, DelegateAction, Intent
+// =============================================================================
+
+use base64::engine::general_purpose::STANDARD as BASE64_ENGINE;
+use base64::Engine;
+use ed25519_dalek::{Signer, SigningKey};
+use sha2::{Digest, Sha256};
+
+/// Scarces domain prefix (must match `protocol::DOMAIN_PREFIX` in the contract).
+pub const SCARCES_DOMAIN_PREFIX: &str = "onsocial:marketplace";
+
+// ---------------------------------------------------------------------------
+// Action JSON builders — produce the exact JSON that the contract yields
+// after its deserialize→`serde_json::to_value` round-trip.
+// All `Option` fields become `null`, `#[serde(default = "…")]` fields get
+// their defaults, and `#[serde(flatten)]` fields are inlined.
+// The signing payload MUST use these full representations.
+// ---------------------------------------------------------------------------
+
+/// Build a `quick_mint` action JSON matching the on-chain round-trip.
+pub fn action_quick_mint(title: &str) -> Value {
+    json!({
+        "type": "quick_mint",
+        "metadata": {
+            "title": title,
+            "description": null,
+            "media": null,
+            "media_hash": null,
+            "copies": null,
+            "issued_at": null,
+            "expires_at": null,
+            "starts_at": null,
+            "updated_at": null,
+            "extra": null,
+            "reference": null,
+            "reference_hash": null
+        },
+        "royalty": null,
+        "app_id": null,
+        "transferable": true,
+        "burnable": true
+    })
+}
+
+/// Build a `transfer_scarce` action JSON matching the on-chain round-trip.
+pub fn action_transfer_scarce(token_id: &str, receiver_id: &str) -> Value {
+    json!({
+        "type": "transfer_scarce",
+        "receiver_id": receiver_id,
+        "token_id": token_id,
+        "memo": null
+    })
+}
+
+/// Build a `storage_deposit` action JSON matching the on-chain round-trip.
+pub fn action_storage_deposit() -> Value {
+    json!({
+        "type": "storage_deposit",
+        "account_id": null
+    })
+}
+
+/// Build a `purchase_from_collection` action JSON matching the on-chain round-trip.
+pub fn action_purchase_from_collection(
+    collection_id: &str,
+    quantity: u32,
+    max_price_per_token: &str,
+) -> Value {
+    json!({
+        "type": "purchase_from_collection",
+        "collection_id": collection_id,
+        "quantity": quantity,
+        "max_price_per_token": max_price_per_token
+    })
+}
+
+/// Create a deterministic ed25519 keypair from a seed byte.
+pub fn make_ed25519_keypair(seed: u8) -> (SigningKey, String) {
+    let sk = SigningKey::from_bytes(&[seed; 32]);
+    let pk_bytes = sk.verifying_key().to_bytes();
+    let pk_str = format!("ed25519:{}", bs58::encode(pk_bytes).into_string());
+    (sk, pk_str)
+}
+
+/// Canonicalize a JSON value (sort object keys recursively) for deterministic signing.
+fn canonicalize_json(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            let mut keys: Vec<_> = map.keys().cloned().collect();
+            keys.sort();
+            let mut out = serde_json::Map::with_capacity(map.len());
+            for k in keys {
+                out.insert(k.clone(), canonicalize_json(map.get(&k).unwrap()));
+            }
+            Value::Object(out)
+        }
+        Value::Array(arr) => Value::Array(arr.iter().map(canonicalize_json).collect()),
+        other => other.clone(),
+    }
+}
+
+/// Signing payload struct with field order matching the on-chain
+/// `onsocial_types::build_signing_payload` insertion order.
+/// Required because the on-chain `serde_json` uses `preserve_order` (IndexMap)
+/// while the test crate uses standard `serde_json` (BTreeMap / alphabetical).
+/// Using `#[derive(Serialize)]` guarantees struct-declaration field order.
+#[derive(Debug, Clone, Serialize)]
+struct SigningPayload {
+    target_account: String,
+    public_key: String,
+    nonce: String,
+    expires_at_ms: String,
+    action: Value,
+    delegate_action: Option<Value>,
+}
+
+/// Build the signing message and sign it with ed25519.
+fn sign_message(domain: &str, payload: &SigningPayload, sk: &SigningKey) -> String {
+    let canonical = SigningPayload {
+        action: canonicalize_json(&payload.action),
+        delegate_action: payload.delegate_action.as_ref().map(canonicalize_json),
+        ..payload.clone()
+    };
+    let payload_bytes = serde_json::to_vec(&canonical).unwrap();
+    let mut message = domain.as_bytes().to_vec();
+    message.push(0);
+    message.extend_from_slice(&payload_bytes);
+    let hash: [u8; 32] = Sha256::digest(&message).into();
+    let sig = sk.sign(&hash);
+    BASE64_ENGINE.encode(sig.to_bytes())
+}
+
+/// Sign a payload for `Auth::SignedPayload` against the scarces contract.
+///
+/// Domain: `"onsocial:marketplace:v1:{contract_id}"`.
+/// Message: `domain \0 json(payload)` → SHA-256 → ed25519 sign.
+pub fn sign_scarces_payload(
+    contract_id: &str,
+    target_account: &str,
+    public_key: &str,
+    nonce: u64,
+    expires_at_ms: u64,
+    action: &Value,
+    sk: &SigningKey,
+) -> String {
+    let domain = format!("{SCARCES_DOMAIN_PREFIX}:v1:{contract_id}");
+    let payload = SigningPayload {
+        target_account: target_account.to_string(),
+        public_key: public_key.to_string(),
+        nonce: nonce.to_string(),
+        expires_at_ms: expires_at_ms.to_string(),
+        action: action.clone(),
+        delegate_action: None,
+    };
+    sign_message(&domain, &payload, sk)
+}
+
+/// Sign a payload for `Auth::DelegateAction` against the scarces contract.
+///
+/// Domain: `"onsocial:marketplace:delegate:v1:{contract_id}"`.
+pub fn sign_scarces_delegate(
+    contract_id: &str,
+    target_account: &str,
+    public_key: &str,
+    nonce: u64,
+    expires_at_ms: u64,
+    action: &Value,
+    delegate_action: &Value,
+    sk: &SigningKey,
+) -> String {
+    let domain = format!("{SCARCES_DOMAIN_PREFIX}:delegate:v1:{contract_id}");
+    let payload = SigningPayload {
+        target_account: target_account.to_string(),
+        public_key: public_key.to_string(),
+        nonce: nonce.to_string(),
+        expires_at_ms: expires_at_ms.to_string(),
+        action: action.clone(),
+        delegate_action: Some(delegate_action.clone()),
+    };
+    sign_message(&domain, &payload, sk)
+}
+
+/// Execute an action via `Auth::SignedPayload` (relayer submits on behalf of target).
+pub async fn execute_with_signed_payload(
+    contract: &Contract,
+    relayer: &Account,
+    target_account: &str,
+    action: Value,
+    public_key: &str,
+    nonce: u64,
+    expires_at_ms: u64,
+    signature: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": target_account,
+                "action": action,
+                "auth": {
+                    "type": "signed_payload",
+                    "public_key": public_key,
+                    "nonce": nonce.to_string(),
+                    "expires_at_ms": expires_at_ms.to_string(),
+                    "signature": signature
+                }
+            }
+        }))
+        .deposit(deposit)
+        .max_gas()
+        .transact()
+        .await?;
+    Ok(result)
+}
+
+/// Execute an action via `Auth::DelegateAction` (relayer submits with nested delegation).
+pub async fn execute_with_delegate_action(
+    contract: &Contract,
+    relayer: &Account,
+    target_account: &str,
+    action: Value,
+    delegate_action: Value,
+    public_key: &str,
+    nonce: u64,
+    expires_at_ms: u64,
+    signature: &str,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = relayer
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": target_account,
+                "action": action,
+                "auth": {
+                    "type": "delegate_action",
+                    "public_key": public_key,
+                    "nonce": nonce.to_string(),
+                    "expires_at_ms": expires_at_ms.to_string(),
+                    "signature": signature,
+                    "action": delegate_action
+                }
+            }
+        }))
+        .deposit(deposit)
+        .max_gas()
+        .transact()
+        .await?;
+    Ok(result)
+}
+
+/// Execute an action via `Auth::Intent` (allowlisted executor acts on behalf of actor).
+pub async fn execute_with_intent(
+    contract: &Contract,
+    executor: &Account,
+    actor_id: &str,
+    action: Value,
+    deposit: NearToken,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = executor
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": actor_id,
+                "action": action,
+                "auth": {
+                    "type": "intent",
+                    "actor_id": actor_id,
+                    "intent": { "source": "test_solver" }
+                }
+            }
+        }))
+        .deposit(deposit)
+        .max_gas()
+        .transact()
+        .await?;
+    Ok(result)
+}
+
+/// Add an intents executor to the contract allowlist.
+pub async fn add_intents_executor(
+    contract: &Contract,
+    owner: &Account,
+    executor: &Account,
+) -> Result<near_workspaces::result::ExecutionFinalResult> {
+    let result = owner
+        .call(contract.id(), "add_intents_executor")
+        .args_json(json!({ "executor": executor.id().to_string() }))
+        .deposit(ONE_YOCTO)
+        .transact()
+        .await?;
+    Ok(result)
+}

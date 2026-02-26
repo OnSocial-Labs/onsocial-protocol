@@ -383,7 +383,7 @@ async fn test_app_count_zero_initially() -> Result<()> {
 
 #[tokio::test]
 async fn test_app_count_after_register() -> Result<()> {
-    let (worker, owner, contract) = setup().await?;
+    let (worker, _owner, contract) = setup().await?;
     let app_owner = worker.dev_create_account().await?;
 
     setup_app(&app_owner, &contract).await?;
@@ -421,7 +421,7 @@ async fn test_get_all_app_ids_returns_registered() -> Result<()> {
 
 #[tokio::test]
 async fn test_get_all_app_ids_pagination() -> Result<()> {
-    let (worker, owner, contract) = setup().await?;
+    let (worker, _owner, contract) = setup().await?;
 
     // Register two apps
     let app_owner1 = worker.dev_create_account().await?;

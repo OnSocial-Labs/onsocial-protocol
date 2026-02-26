@@ -604,7 +604,7 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     assert!(sale.is_some(), "sale should be listed");
 
     // Buyer purchases
-    let creator_balance_before = creator.view_account().await?.balance;
+    let _creator_balance_before = creator.view_account().await?.balance;
     purchase_native_scarce(
         &contract,
         &buyer,
