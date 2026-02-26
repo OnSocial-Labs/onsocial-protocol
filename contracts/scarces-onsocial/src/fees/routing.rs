@@ -119,20 +119,20 @@ impl Contract {
         if app_amount > 0 {
             if let Some(app) = app_id {
                 if let Some(mut pool) = self.app_pools.remove(app) {
-                    pool.balance.0 += app_amount;
+                    pool.balance.0 = pool.balance.0.saturating_add(app_amount);
                     self.app_pools.insert(app.clone(), pool);
                 } else {
                     env::log_str(&format!(
                         "WARN: app pool '{}' missing during route_fee; {} yN → platform pool",
                         app, app_amount
                     ));
-                    self.platform_storage_balance += app_amount;
+                    self.platform_storage_balance = self.platform_storage_balance.saturating_add(app_amount);
                 }
             }
         }
 
         if platform_amount > 0 {
-            self.platform_storage_balance += platform_amount;
+            self.platform_storage_balance = self.platform_storage_balance.saturating_add(platform_amount);
         }
 
         if revenue > 0 {
