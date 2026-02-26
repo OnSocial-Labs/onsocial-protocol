@@ -125,7 +125,9 @@ impl Contract {
             )));
         }
 
-        let total_price = unit_price * quantity as u128;
+        let total_price = unit_price
+            .checked_mul(quantity as u128)
+            .ok_or_else(|| MarketplaceError::InternalError("Price overflow".into()))?;
         if deposit < total_price {
             return Err(MarketplaceError::InsufficientDeposit(format!(
                 "Insufficient payment: required {}, got {}",
@@ -185,13 +187,40 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        let result = self.route_primary_sale(
+        // State/accounting invariant: rollback minted tokens if payment routing fails.
+        let result = match self.route_primary_sale(
             total_price,
             bytes_used,
             &creator_id,
             buyer_id,
             app_id.as_ref(),
-        )?;
+        ) {
+            Ok(r) => r,
+            Err(e) => {
+                // Rollback: remove minted tokens
+                for tid in &token_ids {
+                    self.scarces_by_id.remove(tid);
+                    self.remove_token_from_owner(buyer_id, tid);
+                }
+                // Rollback: restore collection counts
+                let mut restored = self.collections.get(&collection_id).unwrap().clone();
+                restored.minted_count -= quantity;
+                restored.total_revenue.0 -= total_price;
+                self.collections.insert(collection_id.clone(), restored);
+                // Rollback: restore mint counts
+                if is_before_start || collection.max_per_wallet.is_some() {
+                    let mint_key = format!("{}:{}", collection_id, buyer_id);
+                    let cur = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+                    if cur <= quantity {
+                        self.collection_mint_counts.remove(&mint_key);
+                    } else {
+                        self.collection_mint_counts.insert(mint_key, cur - quantity);
+                    }
+                }
+                self.pending_attached_balance += deposit;
+                return Err(e);
+            }
+        };
 
         // Token accounting guarantee: credit overpayment to pending_attached_balance for final settlement.
         self.pending_attached_balance += deposit.saturating_sub(total_price);
@@ -293,7 +322,17 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
+        // Storage/accounting invariant: rollback minted tokens if storage charge fails.
+        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
+            for tid in &token_ids {
+                self.scarces_by_id.remove(tid);
+                self.remove_token_from_owner(recipient, tid);
+            }
+            let mut restored = self.collections.get(collection_id).unwrap().clone();
+            restored.minted_count -= quantity;
+            self.collections.insert(collection_id.to_string(), restored);
+            return Err(e);
+        }
 
         events::emit_collection_mint(actor_id, recipient, collection_id, quantity, &token_ids);
         Ok(())
@@ -385,7 +424,17 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
+        // Storage/accounting invariant: rollback all airdropped tokens if storage charge fails.
+        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
+            for (i, tid) in token_ids.iter().enumerate() {
+                self.scarces_by_id.remove(tid);
+                self.remove_token_from_owner(&receivers[i], tid);
+            }
+            let mut restored = self.collections.get(collection_id).unwrap().clone();
+            restored.minted_count -= count;
+            self.collections.insert(collection_id.to_string(), restored);
+            return Err(e);
+        }
 
         events::emit_collection_airdrop(actor_id, collection_id, count, &token_ids, &receivers);
         Ok(())

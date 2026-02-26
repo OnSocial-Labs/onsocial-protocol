@@ -124,12 +124,12 @@ impl Contract {
             self.user_storage.insert(account_id.clone(), user);
             if from_tier2 > 0 {
                 let cost = (from_tier2 as u128) * storage_byte_cost();
-                self.platform_storage_balance += cost;
+                self.platform_storage_balance = self.platform_storage_balance.saturating_add(cost);
             }
             return;
         }
         let cost = (bytes_freed as u128) * storage_byte_cost();
-        self.platform_storage_balance += cost;
+        self.platform_storage_balance = self.platform_storage_balance.saturating_add(cost);
     }
 
     // Accounting invariant: charge exact shortfall from pending_attached_balance after consuming free user balance.

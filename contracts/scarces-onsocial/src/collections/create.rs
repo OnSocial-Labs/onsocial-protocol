@@ -196,7 +196,14 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_used = after.saturating_sub(before);
 
-        self.charge_storage_waterfall(creator_id, bytes_used, app_id.as_ref())?;
+        // Storage/accounting invariant: rollback collection if storage charge fails.
+        if let Err(e) = self.charge_storage_waterfall(creator_id, bytes_used, app_id.as_ref()) {
+            if let Some(set) = self.collections_by_creator.get_mut(creator_id) {
+                set.remove(&collection_id);
+            }
+            self.collections.remove(&collection_id);
+            return Err(e);
+        }
 
         events::emit_collection_created(creator_id, &collection_id, total_supply, price_near);
         Ok(())

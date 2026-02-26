@@ -51,7 +51,7 @@ impl Contract {
                 .get(&account_id)
                 .cloned()
                 .unwrap_or_default();
-            user.balance.0 += amount.0;
+            user.balance.0 = user.balance.0.saturating_add(amount.0);
             let new_balance = user.balance.0;
             self.user_storage.insert(account_id.clone(), user);
 

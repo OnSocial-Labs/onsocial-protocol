@@ -222,7 +222,7 @@ impl Contract {
                 "Must attach NEAR to fund platform storage".into(),
             ));
         }
-        self.platform_storage_balance += deposit;
+        self.platform_storage_balance = self.platform_storage_balance.saturating_add(deposit);
         events::emit_platform_storage_funded(
             &self.owner_id,
             deposit,

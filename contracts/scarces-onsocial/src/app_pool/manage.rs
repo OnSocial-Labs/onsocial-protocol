@@ -17,7 +17,7 @@ impl Contract {
             .app_pools
             .remove(app_id)
             .ok_or_else(|| MarketplaceError::NotFound(format!("App pool not found: {}", app_id)))?;
-        pool.balance.0 += deposit;
+        pool.balance.0 = pool.balance.0.saturating_add(deposit);
         let new_balance = pool.balance.0;
         self.app_pools.insert(app_id.clone(), pool);
 

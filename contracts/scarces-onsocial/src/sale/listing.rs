@@ -241,7 +241,11 @@ impl Contract {
 
         // Accounting invariant: resolve token app context before storage charge routing.
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
-        self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref())?;
+        // Storage/accounting invariant: rollback sale if storage charge fails.
+        if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref()) {
+            let _ = self.remove_sale(env::current_account_id(), token_id.to_string());
+            return Err(e);
+        }
 
         events::emit_native_scarce_listed(owner_id, token_id, price);
         Ok(())

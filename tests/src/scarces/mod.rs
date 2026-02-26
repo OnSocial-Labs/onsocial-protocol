@@ -70,3 +70,5 @@ pub mod test_edge_cases;
 pub mod test_hardening;
 
 pub mod test_auth;
+
+pub mod test_rollback;

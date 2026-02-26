@@ -102,7 +102,11 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
 
         let app_id = self.resolve_token_app_id(token_id, token_app_id.as_ref());
-        self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref())?;
+        // Storage/accounting invariant: rollback auction sale if storage charge fails.
+        if let Err(e) = self.charge_storage_waterfall(owner_id, bytes_used, app_id.as_ref()) {
+            let _ = self.remove_sale(env::current_account_id(), token_id.to_string());
+            return Err(e);
+        }
 
         Ok(())
     }

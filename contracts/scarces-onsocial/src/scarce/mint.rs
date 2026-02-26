@@ -109,7 +109,12 @@ impl Contract {
         self.mint(token_id.clone(), ctx, metadata, Some(ovr))?;
 
         let bytes_used = self.storage_usage_flushed().saturating_sub(before);
-        self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref())?;
+        // Storage/accounting invariant: rollback token if storage charge fails.
+        if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, app_id.as_ref()) {
+            self.scarces_by_id.remove(&token_id);
+            self.remove_token_from_owner(actor_id, &token_id);
+            return Err(e);
+        }
 
         crate::events::emit_quick_mint(actor_id, &token_id);
         Ok(token_id)
