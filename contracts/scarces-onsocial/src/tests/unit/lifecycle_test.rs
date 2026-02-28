@@ -142,7 +142,7 @@ fn revoke_burn_removes_token() {
 
     assert!(!contract.scarces_by_id.contains_key(&tid));
     let col = contract.collections.get("col").unwrap();
-    assert_eq!(col.minted_count, 0, "minted_count decremented");
+    assert_eq!(col.minted_count, 1, "minted_count is high-water mark, not decremented");
 }
 
 // --- Revoke (None) ---
@@ -226,7 +226,7 @@ fn burn_happy_path() {
     contract.burn_scarce(&buyer(), &tid, "col").unwrap();
 
     assert!(!contract.scarces_by_id.contains_key(&tid));
-    assert_eq!(contract.collections.get("col").unwrap().minted_count, 0);
+    assert_eq!(contract.collections.get("col").unwrap().minted_count, 1);
 }
 
 #[test]

@@ -54,7 +54,7 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         check_token_in_collection(token_id, collection_id)?;
 
-        let mut collection = self
+        let collection = self
             .collections
             .get(collection_id)
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
@@ -85,7 +85,7 @@ impl Contract {
                 let owner_id = token.owner_id.clone();
                 token.revoked_at = Some(env::block_timestamp());
                 token.revocation_memo = memo.clone();
-                // Security invariant: revocation clears delegated transfer approvals.
+                // Invariant: revocation clears all delegated approvals.
                 token.approved_account_ids.clear();
                 self.scarces_by_id.insert(token_id.to_string(), token);
 
@@ -110,9 +110,8 @@ impl Contract {
                 self.remove_token_from_owner(&owner_id, token_id);
                 self.remove_sale_listing(token_id, &owner_id, "burned");
 
-                collection.minted_count = collection.minted_count.saturating_sub(1);
-                self.collections
-                    .insert(collection_id.to_string(), collection);
+                // Invariant: minted_count is a monotonic high-water mark for token ID generation.
+                // Decrementing causes ID collisions on next mint.
 
                 events::emit_token_revoked(
                     actor_id,
@@ -211,7 +210,7 @@ impl Contract {
         Ok(())
     }
 
-    // Security boundary: only collection creator has lifecycle authority in this path.
+    // Security boundary: lifecycle authority restricted to collection creator.
     pub(crate) fn check_collection_authority(
         &self,
         actor_id: &AccountId,
@@ -233,7 +232,7 @@ impl Contract {
     ) -> Result<(), MarketplaceError> {
         check_token_in_collection(token_id, collection_id)?;
 
-        let mut collection = self
+        let collection = self
             .collections
             .get(collection_id)
             .ok_or_else(|| MarketplaceError::NotFound("Collection not found".into()))?
@@ -258,7 +257,6 @@ impl Contract {
             (token.owner_id.clone(), token.app_id.clone())
         };
 
-        // Accounting invariant: measure storage freed by burn for waterfall release.
         let before = self.storage_usage_flushed();
 
         self.scarces_by_id.remove(token_id);
@@ -266,9 +264,8 @@ impl Contract {
         self.remove_token_from_owner(&owner_id, token_id);
         self.remove_sale_listing(token_id, &owner_id, "burned");
 
-        collection.minted_count = collection.minted_count.saturating_sub(1);
-        self.collections
-            .insert(collection_id.to_string(), collection);
+        // Invariant: minted_count is a monotonic high-water mark for token ID generation.
+        // Decrementing causes ID collisions on next mint.
 
         let bytes_freed = before.saturating_sub(self.storage_usage_flushed());
         if bytes_freed > 0 {
@@ -289,7 +286,7 @@ impl Contract {
                 .scarces_by_id
                 .get(token_id)
                 .ok_or_else(|| MarketplaceError::NotFound("Token not found".into()))?;
-            // State compatibility invariant: absent burnable flag is treated as burnable.
+            // Invariant: absent burnable flag defaults to burnable.
             if token.burnable == Some(false) {
                 return Err(MarketplaceError::InvalidState(
                     "Token is not burnable".into(),
@@ -303,7 +300,6 @@ impl Contract {
             (token.owner_id.clone(), token.app_id.clone())
         };
 
-        // Accounting invariant: measure storage freed by burn for waterfall release.
         let before = self.storage_usage_flushed();
 
         self.scarces_by_id.remove(token_id);
