@@ -181,6 +181,7 @@ $(CONTRACTS_IMAGE_STAMP): $(CONTRACTS_DEPS)
 	@$(call log_progress,Building optimized Rust environment)
 	@mkdir -p $(DOCKER_CACHE_DIR)
 	@docker build -f docker/Dockerfile.contracts -t $(CONTRACTS_DOCKER_IMAGE) .
+	@docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
 	@touch $@
 	@$(call log_success,Contracts Docker image built successfully)
 
@@ -189,6 +190,7 @@ $(JS_IMAGE_STAMP): $(JS_DEPS)
 	@$(call log_progress,Building Node.js environment with dependencies only (fast build))
 	@mkdir -p $(DOCKER_CACHE_DIR)
 	@docker build --target builder -f docker/Dockerfile.nodejs --build-arg BUILD_PACKAGES=skip-build -t $(JS_DOCKER_IMAGE) .
+	@docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
 	@touch $@
 	@$(call log_success,Dependencies-only JavaScript Docker image built successfully)
 
@@ -197,6 +199,7 @@ $(RELAYER_IMAGE_STAMP): $(RELAYER_DEPS)
 	@$(call log_progress,Building Rust relayer environment)
 	@mkdir -p $(DOCKER_CACHE_DIR)
 	@docker build -f docker/Dockerfile.relayer -t $(RS_DOCKER_IMAGE) .
+	@docker image prune -f --filter "dangling=true" >/dev/null 2>&1 || true
 	@touch $@
 	@$(call log_success,Relayer Docker image built successfully)
 
