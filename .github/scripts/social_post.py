@@ -105,6 +105,45 @@ def detect_changed_components() -> str:
 
 CHANGED_COMPONENTS = detect_changed_components()
 
+# Map contract directories to their nearblocks URLs (testnet + mainnet)
+CONTRACT_NEARBLOCKS = {
+    "contracts/scarces-onsocial": "https://testnet.nearblocks.io/address/scarces.onsocial.testnet",
+    "contracts/core-onsocial": "https://testnet.nearblocks.io/address/core.onsocial.testnet",
+    "contracts/staking-onsocial": "https://testnet.nearblocks.io/address/staking.onsocial.testnet",
+    "contracts/token-onsocial": "https://testnet.nearblocks.io/address/token.onsocial.testnet",
+    "contracts/rewards.onsocial": "https://testnet.nearblocks.io/address/rewards.onsocial.testnet",
+}
+
+
+def detect_nearblocks_links() -> str:
+    """Return nearblocks explorer links for any contracts changed in this commit."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return ""
+        files = result.stdout.strip().splitlines()
+    except Exception:
+        return ""
+
+    links = set()
+    for f in files:
+        for prefix, url in CONTRACT_NEARBLOCKS.items():
+            if f.startswith(prefix):
+                links.add(url)
+                break
+
+    if not links:
+        return ""
+    return "\n".join(sorted(links))
+
+
+NEARBLOCKS_LINKS = detect_nearblocks_links()
+
 # =============================================================================
 # Generate posts via NEAR AI
 # =============================================================================
@@ -119,6 +158,7 @@ Commit: {COMMIT_SHA}
 Repo: {REPO_URL}
 Discussions: {DISCUSSIONS_URL}
 Changed components: {CHANGED_COMPONENTS}
+Nearblocks explorer links: {NEARBLOCKS_LINKS if NEARBLOCKS_LINKS else "none (no contract changes)"}
 
 This is a monorepo with multiple contracts and packages. The "Changed components" line \
 above tells you exactly which parts of the codebase were modified. Always mention the \
@@ -150,13 +190,17 @@ Never force it, never use puns, memes, or try-hard jokes. \
 About half the posts should have a touch of wit; the other half can be straight.
 
 Link rules:
-- You have two URLs available: the repo URL and the discussions URL.
+- You have several URLs available: the repo URL, the discussions URL, and nearblocks \
+explorer links for any contracts that changed.
 - For the TWEET: do NOT include a URL by default. Only include one if the post \
 references something the reader would specifically want to click (a new release, \
-a specific feature, a discussion thread). Most tweets should have NO link — \
-the profile bio links to the repo.
+a specific feature, a discussion thread). When the commit is about a contract \
+deployment, upgrade, testnet/mainnet activity, or on-chain verification, include \
+the relevant nearblocks explorer link so devs can inspect the contract. \
+Most tweets should have NO link — the profile bio links to the repo.
 - For TELEGRAM: include one URL only if it adds context. Use the repo URL for code changes, \
-the discussions URL for feature or community-facing updates. \
+the discussions URL for feature or community-facing updates, or the nearblocks link \
+for contract deployments and on-chain activity. \
 If the message is self-contained, skip the link.
 
 Examples of tone:
