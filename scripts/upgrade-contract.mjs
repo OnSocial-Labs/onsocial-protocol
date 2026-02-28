@@ -106,8 +106,9 @@ async function main() {
     process.exit(0);
   }
 
-  // core-onsocial requires 1 yoctoNEAR deposit, staking-onsocial requires 0
-  const deposit = contractName === 'core-onsocial' ? BigInt(1) : BigInt(0);
+  // core-onsocial and scarces-onsocial require 1 yoctoNEAR deposit
+  const needsDeposit = ['core-onsocial', 'scarces-onsocial'].includes(contractName);
+  const deposit = needsDeposit ? BigInt(1) : BigInt(0);
   console.log('Deposit:', deposit.toString(), 'yoctoNEAR');
 
   try {
@@ -141,7 +142,8 @@ async function main() {
     // Query new version — core uses get_version, staking uses get_stats
     console.log('');
     console.log('Querying contract version...');
-    const versionMethod = contractName === 'core-onsocial' ? 'get_version' : 'get_stats';
+    const usesGetVersion = ['core-onsocial', 'scarces-onsocial'].includes(contractName);
+    const versionMethod = usesGetVersion ? 'get_version' : 'get_stats';
     const viewResult = await provider.query({
       request_type: 'call_function',
       account_id: contractId,
