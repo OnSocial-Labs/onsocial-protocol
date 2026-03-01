@@ -424,6 +424,7 @@ fn extract_contract_update(
     let extra_keys: Vec<&str> = vec![
         "old_config", "new_config", "old_manager", "new_manager",
         "executor", "previous", "new", "public_key", "nonce",
+        "wnear_account_id",
     ];
     let extra_data = {
         let mut map = serde_json::Map::new();
