@@ -14,10 +14,10 @@ jobs:
   post:
     name: Generate & Publish Social Posts
     runs-on: ubuntu-latest
-    # Only run when commit message contains [post] or manually triggered
+    # Post by default on every push; skip with [no-post] in commit message
     if: >
       github.event_name == 'workflow_dispatch' ||
-      contains(github.event.head_commit.message, '[post]')
+      !contains(github.event.head_commit.message, '[no-post]')
 
     steps:
       - name: Checkout
