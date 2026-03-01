@@ -26,7 +26,7 @@ mod tests;
 )]
 #[serde(crate = "near_sdk::serde")]
 pub struct PlatformPoolInfo {
-    pub storage_balance: u128,
+    pub storage_balance: near_sdk::json_types::U128,
     pub total_bytes: u64,
     pub used_bytes: u64,
     pub shared_bytes: u64,

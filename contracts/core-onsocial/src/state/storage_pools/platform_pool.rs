@@ -32,7 +32,7 @@ impl SocialPlatform {
         self.platform_pool_deposit_internal(amount, account_id, ctx.event_batch)
     }
 
-    fn platform_pool_deposit_internal(
+    pub(crate) fn platform_pool_deposit_internal(
         &mut self,
         amount: u128,
         donor: &AccountId,

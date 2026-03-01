@@ -27,7 +27,7 @@ impl Contract {
                     pool.storage_balance / near_sdk::env::storage_byte_cost().as_yoctonear();
                 let total_capacity_bytes = u64::try_from(total_capacity_u128).unwrap_or(u64::MAX);
                 PlatformPoolInfo {
-                    storage_balance: pool.storage_balance,
+                    storage_balance: near_sdk::json_types::U128(pool.storage_balance),
                     total_bytes: total_capacity_bytes,
                     used_bytes: pool.used_bytes,
                     shared_bytes: pool.shared_bytes,

@@ -416,7 +416,7 @@ mod comprehensive_integration_tests {
             .unwrap();
         let balance_1 = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(
-            balance_1.balance >= 3_000_000_000_000_000_000_000_000u128,
+            balance_1.balance.0 >= 3_000_000_000_000_000_000_000_000u128,
             "Initial deposit should be recorded"
         );
         // Write data (consumes storage)
@@ -481,7 +481,7 @@ mod comprehensive_integration_tests {
         // Verify storage tracking works
         let user1_balance = contract.get_storage_balance(user1.clone()).unwrap();
         assert!(
-            user1_balance.balance > 0,
+            user1_balance.balance.0 > 0,
             "User should have storage balance"
         );
         println!("✓ Shared storage pool workflow test passed");
@@ -514,7 +514,7 @@ mod comprehensive_integration_tests {
         // Alice's storage balance should remain unchanged (refunded)
         let final_balance = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(
-            initial_balance.balance, final_balance.balance,
+            initial_balance.balance.0, final_balance.balance.0,
             "Storage should be refunded on failure"
         );
         println!("✓ Storage refunds on failed operations test passed");
@@ -1073,7 +1073,7 @@ mod comprehensive_integration_tests {
         match result {
             Ok(_) => {
                 let balance = contract.get_storage_balance(alice.clone()).unwrap();
-                let storage_bytes_available = balance.balance / 10_000_000_000_000_000; // Convert balance to bytes
+                let storage_bytes_available = balance.balance.0 / 10_000_000_000_000_000; // Convert balance to bytes
                 assert!(
                     (balance.used_bytes as u128) <= storage_bytes_available,
                     "Used storage should not exceed balance"

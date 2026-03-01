@@ -1104,7 +1104,7 @@ mod signer_validation_core_tests {
         let storage = contract.get_storage_balance(alice.clone());
         assert!(storage.is_some(), "Storage balance should exist");
         assert!(
-            storage.unwrap().balance > 0,
+            storage.unwrap().balance.0 > 0,
             "Storage balance should be positive"
         );
     }
@@ -1117,7 +1117,7 @@ mod signer_validation_core_tests {
         let service = test_account(1);
         // Service has NO pre-deposited storage
         let service_storage_before = contract.get_storage_balance(service.clone());
-        assert!(service_storage_before.is_none() || service_storage_before.unwrap().balance == 0);
+        assert!(service_storage_before.is_none() || service_storage_before.unwrap().balance.0 == 0);
         // Alice grants permission to service
         let context = get_context_with_deposit(alice.clone(), test_deposits::legacy_10_near());
         testing_env!(context.build());
@@ -1137,7 +1137,11 @@ mod signer_validation_core_tests {
                 None,
             ))
             .unwrap();
-        let alice_storage_before = contract.get_storage_balance(alice.clone()).unwrap().balance;
+        let alice_storage_before = contract
+            .get_storage_balance(alice.clone())
+            .unwrap()
+            .balance
+            .0;
         // Service writes to alice WITH attached deposit
         let attached = NearToken::from_near(2).as_yoctonear();
         let context = get_context_with_deposit(service.clone(), attached);
@@ -1153,7 +1157,11 @@ mod signer_validation_core_tests {
             "set_for with attached deposit should succeed"
         );
         // Alice's storage is used for the write operation (charged to target_account)
-        let alice_storage_after = contract.get_storage_balance(alice.clone()).unwrap().balance;
+        let alice_storage_after = contract
+            .get_storage_balance(alice.clone())
+            .unwrap()
+            .balance
+            .0;
         // Alice's pre-deposited balance may decrease slightly for the write
         assert!(
             alice_storage_after <= alice_storage_before,
@@ -1163,7 +1171,7 @@ mod signer_validation_core_tests {
         // because default is refund_unused_deposit: false
         let service_storage_after = contract.get_storage_balance(service.clone());
         assert!(
-            service_storage_after.is_some() && service_storage_after.unwrap().balance > 0,
+            service_storage_after.is_some() && service_storage_after.unwrap().balance.0 > 0,
             "✅ Unused attached deposit credited to service (payer)"
         );
     }
@@ -1184,9 +1192,9 @@ mod signer_validation_core_tests {
             })))
             .unwrap();
         let storage_after_deposit = contract.get_storage_balance(alice.clone()).unwrap();
-        let initial_balance = storage_after_deposit.balance;
+        let initial_balance = storage_after_deposit.balance.0;
         assert_eq!(
-            storage_after_deposit.balance, predeposit,
+            storage_after_deposit.balance.0, predeposit,
             "Should have pre-deposited amount"
         );
         // Step 2: Alice writes data with additional attached deposit
@@ -1207,11 +1215,11 @@ mod signer_validation_core_tests {
         // Storage should be >= initial_balance (because additional was credited)
         // and <= initial_balance + additional (because some storage may be consumed for write)
         assert!(
-            storage_final.balance >= initial_balance,
+            storage_final.balance.0 >= initial_balance,
             "✅ Unused attached deposit credited to storage"
         );
         assert!(
-            storage_final.balance <= initial_balance + additional,
+            storage_final.balance.0 <= initial_balance + additional,
             "✅ Storage balance is within expected range"
         );
     }
@@ -1264,7 +1272,7 @@ mod signer_validation_core_tests {
         let bob_storage = contract.get_storage_balance(bob.clone()).unwrap();
         // Both should have similar storage patterns (deposit was added, then used)
         assert!(
-            alice_storage.balance > 0 && bob_storage.balance > 0,
+            alice_storage.balance.0 > 0 && bob_storage.balance.0 > 0,
             "✅ Both set() and set_for() handle storage consistently"
         );
     }

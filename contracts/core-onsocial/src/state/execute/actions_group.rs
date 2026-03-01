@@ -183,14 +183,20 @@ impl SocialPlatform {
         auto_vote: Option<bool>,
         ctx: &mut ExecuteContext,
     ) -> Result<String, SocialError> {
-        let deposit = ctx.attached_balance;
-        if deposit < crate::constants::MIN_PROPOSAL_DEPOSIT {
+        self.prepare_group_storage(ctx);
+
+        let available = self
+            .user_storage
+            .get(&ctx.actor_id)
+            .map(|s| s.available_balance())
+            .unwrap_or(0);
+
+        if available < crate::constants::MIN_PROPOSAL_DEPOSIT {
             return Err(crate::invalid_input!(
-                "Minimum 0.1 NEAR deposit required to create a proposal"
+                "Minimum 0.1 NEAR in storage balance required to create a proposal"
             ));
         }
 
-        self.prepare_group_storage(ctx);
         let result = self.create_group_proposal(
             group_id.to_string(),
             proposal_type.to_string(),

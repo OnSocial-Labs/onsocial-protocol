@@ -1,5 +1,6 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use near_sdk::AccountId;
+use near_sdk::json_types::U128;
 use near_sdk_macros::NearSchema;
 
 /// Account storage balance and usage tracking.
@@ -24,7 +25,7 @@ use near_sdk_macros::NearSchema;
 )]
 #[abi(json, borsh)]
 pub struct Storage {
-    pub balance: u128,
+    pub balance: U128,
     pub used_bytes: u64,
     pub shared_storage: Option<AccountSharedStorage>,
     #[serde(default)]
@@ -39,9 +40,8 @@ pub struct Storage {
     pub platform_allowance: u64,
     #[serde(default)]
     pub platform_last_refill_ns: u64,
-    /// Reserved for pending proposal execution.
     #[serde(default)]
-    pub locked_balance: u128,
+    pub locked_balance: U128,
     #[serde(skip)]
     #[borsh(skip)]
     pub storage_tracker: crate::storage::tracker::StorageTracker,
@@ -62,21 +62,26 @@ impl Storage {
 
     #[inline(always)]
     pub fn available_balance(&self) -> u128 {
-        self.balance.saturating_sub(self.locked_balance)
+        self.balance.0.saturating_sub(self.locked_balance.0)
+    }
+
+    /// Returns the balance needed to cover effective storage usage.
+    #[inline(always)]
+    pub fn storage_balance_needed(&self) -> u128 {
+        let effective_bytes =
+            crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
+        crate::storage::calculate_storage_balance_needed(effective_bytes)
     }
 
     /// Returns error if available balance cannot cover effective storage usage.
     #[inline(always)]
     pub fn assert_storage_covered(&self) -> Result<(), crate::errors::SocialError> {
-        let effective_bytes =
-            crate::storage::calculate_effective_bytes(self.used_bytes, self.covered_bytes());
-        let storage_balance_needed =
-            crate::storage::calculate_storage_balance_needed(effective_bytes);
+        let needed = self.storage_balance_needed();
         let available = self.available_balance();
-        if storage_balance_needed > available {
+        if needed > available {
             return Err(crate::errors::SocialError::InsufficientStorage(format!(
                 "Required: {}, available: {} (locked: {})",
-                storage_balance_needed, available, self.locked_balance
+                needed, available, self.locked_balance.0
             )));
         }
         Ok(())
@@ -88,16 +93,16 @@ impl Storage {
         if amount > available {
             return Err(crate::errors::SocialError::InsufficientStorage(format!(
                 "Cannot lock {}: only {} available (locked: {})",
-                amount, available, self.locked_balance
+                amount, available, self.locked_balance.0
             )));
         }
-        self.locked_balance = self.locked_balance.saturating_add(amount);
+        self.locked_balance.0 = self.locked_balance.0.saturating_add(amount);
         Ok(())
     }
 
     /// Release locked balance.
     pub fn unlock_balance(&mut self, amount: u128) {
-        self.locked_balance = self.locked_balance.saturating_sub(amount);
+        self.locked_balance.0 = self.locked_balance.0.saturating_sub(amount);
     }
 
     pub fn refill_platform_allowance(&mut self, config: &crate::config::GovernanceConfig) {

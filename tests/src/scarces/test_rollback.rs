@@ -16,7 +16,6 @@
 // Then assert zero state leakage.
 
 use anyhow::Result;
-use near_workspaces::types::NearToken;
 use serde_json::json;
 
 use super::helpers::*;

@@ -203,7 +203,7 @@ async fn test_batch_storage_deposit_with_data_real_balance() -> anyhow::Result<(
 
     // The total deposited should be ~1 NEAR (0.5 explicit + 0.5 auto for data)
     // NOT 1.5 NEAR (which would indicate double-counting)
-    if let Some(balance) = storage_balance.get("balance").and_then(|b| b.as_u64()) {
+    if let Some(balance) = storage_balance.get("balance").and_then(|b| b.as_str()).and_then(|s| s.parse::<u128>().ok()).or_else(|| storage_balance.get("balance").and_then(|b| b.as_u64()).map(|n| n as u128)) {
         let balance_near = balance as f64 / 1e24;
         println!("   Storage balance: {} NEAR", balance_near);
         assert!(
@@ -1656,7 +1656,7 @@ async fn test_storage_withdraw_all() -> anyhow::Result<()> {
                 "auth": null
             }
         }))
-        .deposit(NearToken::from_yoctonear(1))
+        .deposit(NearToken::from_yoctonear(0))
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
@@ -6676,6 +6676,27 @@ async fn test_refund_unused_deposit_true_returns_to_wallet() -> anyhow::Result<(
 
     let alice = worker.dev_create_account().await?;
     let alice_id = alice.id().to_string();
+
+    // Pre-register Alice's storage with a tiny deposit.
+    // This prevents the auto-deposit path in handle_api_data_operation
+    // which credits the FULL attached balance to storage for unregistered users.
+    let register = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/deposit": {"amount": "1"}
+                } },
+                "options": null,
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(register.is_success(), "Pre-register should succeed: {:?}", register.failures());
 
     // Get Alice's wallet balance before
     let wallet_before = alice.view_account().await?.balance;

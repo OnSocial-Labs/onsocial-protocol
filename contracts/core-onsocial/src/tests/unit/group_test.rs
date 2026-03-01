@@ -63,7 +63,7 @@ mod group_creation_tests {
         // Storage should have been allocated from the 100 NEAR deposit
         let storage_info = balance.unwrap();
         assert!(
-            storage_info.balance > 0,
+            storage_info.balance.0 > 0,
             "Storage balance should be positive"
         );
         assert!(

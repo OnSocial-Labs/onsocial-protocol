@@ -163,7 +163,7 @@ impl SocialPlatform {
             .get(account_id)
             .cloned()
             .unwrap_or_default();
-        storage.balance = storage.balance.saturating_add(amount);
+        storage.balance.0 = storage.balance.0.saturating_add(amount);
         self.user_storage.insert(account_id.clone(), storage);
     }
 
@@ -232,9 +232,9 @@ impl SocialPlatform {
                 .cloned()
                 .unwrap_or_default();
 
-            let previous_balance = storage.balance;
-            storage.balance = storage.balance.saturating_add(amount);
-            let new_balance = storage.balance;
+            let previous_balance = storage.balance.0;
+            storage.balance.0 = storage.balance.0.saturating_add(amount);
+            let new_balance = storage.balance.0;
 
             self.user_storage.insert(deposit_owner.clone(), storage);
 

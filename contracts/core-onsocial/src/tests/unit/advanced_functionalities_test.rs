@@ -13,7 +13,7 @@ mod test_advanced_functionalities {
 
         // Initial storage balance should be 0
         let initial_balance = contract.get_storage_balance(alice.clone());
-        assert!(initial_balance.is_none() || initial_balance.unwrap().balance == 0);
+        assert!(initial_balance.is_none() || initial_balance.unwrap().balance.0 == 0);
 
         // Deposit storage funds
         let deposit_amount = 2_000_000_000_000_000_000_000_000u128; // 2 NEAR
@@ -37,7 +37,7 @@ mod test_advanced_functionalities {
             "Storage balance should exist after deposit"
         );
         assert_eq!(
-            balance.unwrap().balance,
+            balance.unwrap().balance.0,
             deposit_amount,
             "Storage balance should match deposit amount"
         );
@@ -64,7 +64,7 @@ mod test_advanced_functionalities {
             "Storage usage should be greater than 0 after adding data"
         );
         assert!(
-            storage_info.balance >= deposit_amount,
+            storage_info.balance.0 >= deposit_amount,
             "Storage balance should still cover deposits"
         );
 
@@ -128,7 +128,7 @@ mod test_advanced_functionalities {
         // Verify balance decreased
         let balance = contract.get_storage_balance(bob.clone());
         assert!(balance.is_some());
-        assert_eq!(balance.unwrap().balance, deposit_amount - withdraw_amount);
+        assert_eq!(balance.unwrap().balance.0, deposit_amount - withdraw_amount);
 
         println!("✓ Storage withdrawal and insufficient balance test passed");
     }
@@ -461,7 +461,7 @@ mod test_advanced_functionalities {
             .get(&owner)
             .cloned()
             .unwrap_or_default();
-        storage.balance = 1_000_000_000_000_000_000_000_000u128; // 1 NEAR
+        storage.balance = near_sdk::json_types::U128(1_000_000_000_000_000_000_000_000u128); // 1 NEAR
         contract
             .platform
             .user_storage
@@ -659,7 +659,12 @@ mod test_advanced_functionalities {
         // Simulate a new user with no storage balance
         assert!(
             contract.get_storage_balance(alice.clone()).is_none()
-                || contract.get_storage_balance(alice.clone()).unwrap().balance == 0
+                || contract
+                    .get_storage_balance(alice.clone())
+                    .unwrap()
+                    .balance
+                    .0
+                    == 0
         );
 
         // User creates a profile and posts content in one transaction
@@ -744,7 +749,7 @@ mod test_advanced_functionalities {
 
         // Verify storage balance
         let initial_storage = contract.get_storage_balance(bob.clone()).unwrap();
-        assert!(initial_storage.balance >= 2_000_000_000_000_000_000_000_000);
+        assert!(initial_storage.balance.0 >= 2_000_000_000_000_000_000_000_000);
 
         // User posts content without additional deposit (using existing storage)
         let post_context = get_context(bob.clone());
@@ -781,11 +786,11 @@ mod test_advanced_functionalities {
             "Storage should be consumed"
         );
         assert!(
-            final_storage.balance == initial_storage.balance,
+            final_storage.balance.0 == initial_storage.balance.0,
             "Storage balance should remain the same"
         );
         assert!(
-            final_storage.balance > 0,
+            final_storage.balance.0 > 0,
             "User should still have storage balance"
         );
 
@@ -872,7 +877,7 @@ mod test_advanced_functionalities {
         let balance_after_post = contract.get_storage_balance(charlie.clone()).unwrap();
         // Balance should be higher than initial (explicit deposit was made)
         assert!(
-            balance_after_post.balance >= balance_before_post.balance,
+            balance_after_post.balance.0 >= balance_before_post.balance.0,
             "Storage should be available after explicit deposit"
         );
 

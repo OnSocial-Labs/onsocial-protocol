@@ -26,7 +26,7 @@ impl SocialPlatform {
             .cloned()
             .ok_or_else(|| crate::invalid_input!("Account not registered"))?;
 
-        let previous_balance = storage.balance;
+        let previous_balance = storage.balance.0;
 
         let covered_bytes = storage
             .shared_storage
@@ -57,7 +57,7 @@ impl SocialPlatform {
             ));
         }
 
-        storage.balance = storage.balance.saturating_sub(withdraw_amount);
+        storage.balance.0 = storage.balance.0.saturating_sub(withdraw_amount);
 
         self.user_storage.insert(account_id.clone(), storage);
 

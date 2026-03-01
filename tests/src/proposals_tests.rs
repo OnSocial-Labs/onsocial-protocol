@@ -14,6 +14,19 @@ use crate::utils::entry_value;
 const ONE_NEAR: NearToken = NearToken::from_near(1);
 const TEN_NEAR: NearToken = NearToken::from_near(10);
 
+/// Parse a U128 (string-wrapped) or numeric balance field from JSON
+fn parse_balance_f64(storage: &Value, field: &str) -> f64 {
+    storage
+        .get(field)
+        .and_then(|v| {
+            v.as_str()
+                .and_then(|s| s.parse::<u128>().ok())
+                .map(|n| n as f64)
+                .or_else(|| v.as_f64())
+        })
+        .unwrap_or(0.0)
+}
+
 /// Helper to load the core-onsocial wasm
 fn load_core_onsocial_wasm() -> anyhow::Result<Vec<u8>> {
     let paths = [
@@ -6297,6 +6310,29 @@ async fn test_proposer_deposit_requirements_and_locking() -> anyhow::Result<()> 
     assert!(vote_charlie.is_success(), "Vote for Charlie should succeed");
     println!("   ✓ Added Charlie as member (now 3 members)");
 
+    // Withdraw all of Alice's storage balance so she starts fresh
+    // (previous group operations auto-deposited NEAR to her storage)
+    let withdraw_all = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {}
+                } },
+                "options": { "refund_unused_deposit": true },
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    // Withdraw may succeed or fail (if nothing to withdraw) - either is fine
+    if withdraw_all.is_success() {
+        println!("   ✓ Withdrew Alice's storage balance");
+    }
+
     // =========================================================================
     // TEST 1: Proposal with insufficient deposit (0.01 NEAR < 0.1 NEAR minimum)
     // =========================================================================
@@ -6647,10 +6683,7 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let balance_before: f64 = alice_storage_before
-        .get("balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let balance_before: f64 = parse_balance_f64(&alice_storage_before, "balance");
 
     println!(
         "   Alice balance before proposal: {:.4} NEAR",
@@ -6683,14 +6716,8 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let balance_after: f64 = alice_storage_after
-        .get("balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
-    let locked: f64 = alice_storage_after
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let balance_after: f64 = parse_balance_f64(&alice_storage_after, "balance");
+    let locked: f64 = parse_balance_f64(&alice_storage_after, "locked_balance");
 
     println!(
         "   Balance: {:.4} NEAR, Locked: {:.4} NEAR",
@@ -6777,10 +6804,7 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_after_partial: f64 = alice_storage_after_partial
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let locked_after_partial: f64 = parse_balance_f64(&alice_storage_after_partial, "locked_balance");
     assert!(
         locked_after_partial > 0.0,
         "Locked balance should still be intact after partial withdrawal"
@@ -6817,10 +6841,7 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_after: f64 = alice_storage_unlocked
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let locked_after: f64 = parse_balance_f64(&alice_storage_unlocked, "locked_balance");
     assert_eq!(
         locked_after, 0.0,
         "Locked balance should be 0 after execution"
@@ -6909,14 +6930,8 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let initial_balance: f64 = alice_storage_initial
-        .get("balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
-    let initial_locked: f64 = alice_storage_initial
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let initial_balance: f64 = parse_balance_f64(&alice_storage_initial, "balance");
+    let initial_locked: f64 = parse_balance_f64(&alice_storage_initial, "locked_balance");
 
     println!(
         "   Initial: balance={:.4} NEAR, locked={:.4} NEAR",
@@ -6954,10 +6969,7 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_after_proposal: f64 = alice_storage_after_proposal
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let locked_after_proposal: f64 = parse_balance_f64(&alice_storage_after_proposal, "locked_balance");
 
     assert!(
         locked_after_proposal > initial_locked,
@@ -7007,10 +7019,7 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_after_write: f64 = alice_storage_after_write
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let locked_after_write: f64 = parse_balance_f64(&alice_storage_after_write, "locked_balance");
 
     assert_eq!(
         locked_after_proposal, locked_after_write,
@@ -7048,10 +7057,7 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_final: f64 = alice_storage_final
-        .get("locked_balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+    let locked_final: f64 = parse_balance_f64(&alice_storage_final, "locked_balance");
 
     assert_eq!(
         locked_final, 0.0,

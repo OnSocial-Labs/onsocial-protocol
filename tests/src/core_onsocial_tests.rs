@@ -2644,8 +2644,10 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let balance_before_withdraw: u128 = if let Some(n) = storage_before_withdraw["balance"].as_f64()
+    let balance_before_withdraw: u128 = if let Some(s) = storage_before_withdraw["balance"].as_str()
     {
+        s.parse().unwrap_or(0)
+    } else if let Some(n) = storage_before_withdraw["balance"].as_f64() {
         n as u128
     } else {
         0
@@ -2712,7 +2714,9 @@ async fn test_batch_operations_multiple_keys() -> anyhow::Result<()> {
             .json()?;
 
         let balance_after_withdraw: u128 =
-            if let Some(n) = storage_after_withdraw["balance"].as_f64() {
+            if let Some(s) = storage_after_withdraw["balance"].as_str() {
+                s.parse().unwrap_or(0)
+            } else if let Some(n) = storage_after_withdraw["balance"].as_f64() {
                 n as u128
             } else {
                 0

@@ -41,7 +41,7 @@ mod accounting_tests {
             .unwrap();
 
         let storage_before = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(storage_before.balance, initial_deposit);
+        assert_eq!(storage_before.balance.0, initial_deposit);
 
         // Now perform a small write with attached deposit
         // Since storage is already covered, the attached deposit should NOT be consumed
@@ -69,8 +69,8 @@ mod accounting_tests {
         let storage_after = contract.get_storage_balance(alice.clone()).unwrap();
 
         println!("✅ Storage already covered path tested");
-        println!("   Balance before: {}", storage_before.balance);
-        println!("   Balance after: {}", storage_after.balance);
+        println!("   Balance before: {}", storage_before.balance.0);
+        println!("   Balance after: {}", storage_after.balance.0);
         println!("   Remaining attached: {}", remaining_balance);
     }
 
@@ -110,21 +110,23 @@ mod accounting_tests {
             result.err()
         );
 
-        // CRITICAL: The attached balance should be zeroed after auto-deposit
-        assert_eq!(
-            remaining_balance, 0,
-            "Attached balance should be consumed (zeroed) by auto-deposit fallback"
+        // The auto-deposit now only consumes the minimum shortfall, not the full balance
+        assert!(
+            remaining_balance < attached,
+            "Some attached balance should be consumed by auto-deposit"
         );
 
-        // Verify storage balance was credited
+        // Verify storage balance was credited with only the shortfall amount
         let storage = contract.get_storage_balance(alice.clone()).unwrap();
         assert!(
-            storage.balance > 0,
+            storage.balance.0 > 0,
             "Storage balance should be credited from auto-deposit"
         );
+        // Balance should be exactly the shortfall (minimum needed), not the full deposit
+        let deposited = attached - remaining_balance;
         assert_eq!(
-            storage.balance, attached,
-            "Storage balance should equal the attached deposit amount"
+            storage.balance.0, deposited,
+            "Storage balance should equal only the shortfall deposited"
         );
 
         println!("✅ Auto-deposit fallback correctly consumed attached balance");
@@ -132,7 +134,7 @@ mod accounting_tests {
             "   Attached deposit: {} -> Remaining: {}",
             attached, remaining_balance
         );
-        println!("   Storage balance: {}", storage.balance);
+        println!("   Storage balance: {}", storage.balance.0);
     }
 
     // ========================================================================
@@ -290,9 +292,9 @@ mod accounting_tests {
             Some(&mut remaining_balance),
         );
         assert!(result1.is_ok(), "First insert should succeed");
-        assert_eq!(
-            remaining_balance, 0,
-            "Balance should be consumed after first write"
+        assert!(
+            remaining_balance < attached,
+            "Some balance should be consumed after first write"
         );
 
         // The balance is now zeroed - second write with same mutable reference should fail
@@ -334,7 +336,7 @@ mod accounting_tests {
 
         // Verify no storage initially
         let storage_before = contract.get_storage_balance(alice.clone());
-        assert!(storage_before.is_none() || storage_before.unwrap().balance == 0);
+        assert!(storage_before.is_none() || storage_before.unwrap().balance.0 == 0);
 
         let entry = DataEntry {
             value: DataValue::Value(b"test data".to_vec()),
@@ -351,11 +353,12 @@ mod accounting_tests {
             )
             .unwrap();
 
-        // Verify storage balance is exactly the attached amount
+        // Storage balance should be the shortfall deposited (not the full attached amount)
         let storage_after = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(
-            storage_after.balance, attached,
-            "Storage balance should equal attached deposit after auto-deposit"
+        assert!(
+            storage_after.balance.0 > 0 && storage_after.balance.0 <= attached,
+            "Storage balance should be between 0 and attached deposit after auto-deposit, got: {}",
+            storage_after.balance.0
         );
 
         // Verify used_bytes increased
@@ -365,7 +368,7 @@ mod accounting_tests {
         );
 
         println!("✅ Storage balance correctly updated after auto-deposit");
-        println!("   Balance: {}", storage_after.balance);
+        println!("   Balance: {}", storage_after.balance.0);
         println!("   Used bytes: {}", storage_after.used_bytes);
     }
 

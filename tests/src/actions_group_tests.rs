@@ -115,6 +115,27 @@ async fn test_create_proposal_zero_deposit_fails() -> anyhow::Result<()> {
     assert!(create_group.is_success(), "Create group should succeed");
     println!("   ✓ Created member-driven group");
 
+    // Withdraw all storage so alice has 0 available balance
+    // (group creation auto-deposits 1 NEAR to storage via prepare_group_storage)
+    let withdraw_all = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {}
+                } },
+                "options": { "refund_unused_deposit": true },
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(withdraw_all.is_success(), "Withdraw should succeed: {:?}", withdraw_all.failures());
+    println!("   ✓ Withdrew all storage balance");
+
     // Attempt to create proposal with ZERO deposit (should fail)
     let zero_deposit_proposal = alice
         .call(contract.id(), "execute")
@@ -185,6 +206,27 @@ async fn test_create_proposal_insufficient_deposit_fails() -> anyhow::Result<()>
         .await?;
     assert!(create_group.is_success(), "Create group should succeed");
     println!("   ✓ Created member-driven group");
+
+    // Withdraw all storage so alice has 0 available balance
+    // (group creation auto-deposits 1 NEAR to storage via prepare_group_storage)
+    let withdraw_all = alice
+        .call(contract.id(), "execute")
+        .args_json(json!({
+            "request": {
+                "target_account": null,
+                "action": { "type": "set", "data": {
+                    "storage/withdraw": {}
+                } },
+                "options": { "refund_unused_deposit": true },
+                "auth": null
+            }
+        }))
+        .deposit(NearToken::from_yoctonear(0))
+        .gas(near_workspaces::types::Gas::from_tgas(50))
+        .transact()
+        .await?;
+    assert!(withdraw_all.is_success(), "Withdraw should succeed: {:?}", withdraw_all.failures());
+    println!("   ✓ Withdrew all storage balance");
 
     // Attempt to create proposal with 0.05 NEAR (below 0.1 NEAR minimum)
     let insufficient_deposit = NearToken::from_millinear(50); // 0.05 NEAR

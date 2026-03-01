@@ -66,3 +66,9 @@ pub const MIN_PROPOSAL_DEPOSIT: u128 = 100_000_000_000_000_000_000_000;
 /// Amount locked from proposer's balance during proposal lifecycle (0.05 NEAR).
 /// Invariant: PROPOSAL_EXECUTION_LOCK < MIN_PROPOSAL_DEPOSIT.
 pub const PROPOSAL_EXECUTION_LOCK: u128 = 50_000_000_000_000_000_000_000;
+
+// --- wNEAR ---
+
+pub const WNEAR_STORAGE_KEY: &[u8] = b"w";
+pub const GAS_NEAR_WITHDRAW_TGAS: u64 = 15;
+pub const GAS_UNWRAP_CALLBACK_TGAS: u64 = 20;

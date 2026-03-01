@@ -148,7 +148,7 @@ impl SocialPlatform {
 
             let already_sponsored = storage.platform_sponsored;
             let has_shared = storage.shared_storage.is_some();
-            let has_personal_balance = storage.balance > 0;
+            let has_personal_balance = storage.balance.0 > 0;
 
             let platform_account = Self::platform_pool_account();
             let pool_has_funds = self
@@ -173,9 +173,9 @@ impl SocialPlatform {
                 && *ctx.attached_balance > 0
             {
                 let deposit_amount = *ctx.attached_balance;
-                let previous_balance = storage.balance;
-                storage.balance = storage.balance.saturating_add(deposit_amount);
-                let new_balance = storage.balance;
+                let previous_balance = storage.balance.0;
+                storage.balance.0 = storage.balance.0.saturating_add(deposit_amount);
+                let new_balance = storage.balance.0;
                 storage.storage_tracker.reset();
                 self.user_storage.insert(account_id.clone(), storage);
                 *ctx.attached_balance = 0;

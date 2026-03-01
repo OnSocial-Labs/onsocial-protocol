@@ -63,7 +63,7 @@ fn test_simple_storage_operations() {
     let balance = contract.get_storage_balance(bob.clone());
     assert!(balance.is_some(), "Storage balance should exist");
     assert!(
-        balance.unwrap().balance > 0,
+        balance.unwrap().balance.0 > 0,
         "Storage balance should be positive"
     );
 
@@ -95,7 +95,7 @@ fn test_simple_permission_operations() {
         .get(&alice)
         .cloned()
         .unwrap_or_default();
-    storage.balance = 1_000_000_000_000_000_000_000_000u128; // 1 NEAR
+    storage.balance = near_sdk::json_types::U128(1_000_000_000_000_000_000_000_000u128); // 1 NEAR
     contract
         .platform
         .user_storage

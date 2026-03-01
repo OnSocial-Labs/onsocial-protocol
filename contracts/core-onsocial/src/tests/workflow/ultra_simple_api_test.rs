@@ -77,7 +77,7 @@ mod ultra_simple_api_tests {
         assert!(balance.is_some(), "Storage balance should exist");
         let balance_val = balance.unwrap();
         assert!(
-            balance_val.balance > 0,
+            balance_val.balance.0 > 0,
             "Storage balance should be positive"
         );
 

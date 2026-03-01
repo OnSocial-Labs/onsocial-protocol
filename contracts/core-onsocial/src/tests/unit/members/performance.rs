@@ -581,7 +581,7 @@ mod member_performance_tests {
         // Get baseline after group creation
         let initial_balance = contract.get_storage_balance(owner.clone()).unwrap();
         let initial_used = initial_balance.used_bytes;
-        let initial_total_balance = initial_balance.balance;
+        let initial_total_balance = initial_balance.balance.0;
 
         // Test single member addition with cost tracking
         let member_id: near_sdk::AccountId = "cost_test_member.testnet".parse().unwrap();
@@ -596,10 +596,10 @@ mod member_performance_tests {
         let storage_used_for_member = post_add_balance.used_bytes - initial_used;
 
         // Handle potential balance changes (could increase due to deposits)
-        let balance_change = if post_add_balance.balance >= initial_total_balance {
-            post_add_balance.balance - initial_total_balance // Balance increased
+        let balance_change = if post_add_balance.balance.0 >= initial_total_balance {
+            post_add_balance.balance.0 - initial_total_balance // Balance increased
         } else {
-            initial_total_balance - post_add_balance.balance // Balance decreased
+            initial_total_balance - post_add_balance.balance.0 // Balance decreased
         };
 
         // NEAR storage economics validation (based on official documentation)

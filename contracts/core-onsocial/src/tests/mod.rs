@@ -33,6 +33,7 @@ pub mod unit {
     pub mod voting_edge_cases; // Voting edge case tests
     pub mod voting_group_updates; // Voting group update tests
     pub mod voting_proposal_types; // Voting proposal type tests
+    pub mod wnear_test;
 }
 
 // --- Workflow Tests (mocked environment, end-to-end flows) ---

@@ -337,11 +337,13 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .args_json(json!({"account_id": alice.id()}))
         .await?
         .json()?;
-    // balance is u128 serialized as f64 number
+    // balance is U128 serialized as string
     let balance_f64: f64 = storage
         .get("balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .or_else(|| storage.get("balance").and_then(|v| v.as_f64()).map(|f| f as u128))
+        .unwrap_or(0) as f64;
     let deposit_f64 = deposit_amount.as_yoctonear() as f64;
     assert!(
         balance_f64 >= deposit_f64,
@@ -633,8 +635,10 @@ async fn test_session_key_multiple_operations_consume_pre_deposited_storage() ->
     // Step 5: Verify balance is still positive (can continue operating)
     let balance_f64: f64 = final_storage
         .get("balance")
-        .and_then(|v| v.as_f64())
-        .unwrap_or(0.0);
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .or_else(|| final_storage.get("balance").and_then(|v| v.as_f64()).map(|f| f as u128))
+        .unwrap_or(0) as f64;
     assert!(
         balance_f64 > 0.0,
         "Storage balance should still be positive (got {:.4} NEAR)",

@@ -47,7 +47,7 @@ mod storage_tracking_tests {
         // Verify no storage was allocated
         let balance = contract.get_storage_balance(alice.clone());
         assert!(
-            balance.is_none() || balance.unwrap().balance == 0,
+            balance.is_none() || balance.unwrap().balance.0 == 0,
             "No storage should be allocated on validation failure"
         );
 
@@ -116,7 +116,7 @@ mod storage_tracking_tests {
         // Verify only requested amount was stored
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(
-            balance.balance, requested,
+            balance.balance.0, requested,
             "Storage balance should be requested amount (excess refunded)"
         );
 
@@ -255,7 +255,7 @@ mod storage_tracking_tests {
 
         // Verify storage was allocated and tracker properly reset
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
-        assert_eq!(balance.balance, deposit_amount);
+        assert_eq!(balance.balance.0, deposit_amount);
         // used_bytes should be 0 after proper reset (no data stored yet)
         assert_eq!(
             balance.used_bytes, 0,
@@ -305,7 +305,7 @@ mod storage_tracking_tests {
         // (in real blockchain, if transfer fails, state is consistent and user can retry)
         let balance_after = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(
-            balance_after.balance,
+            balance_after.balance.0,
             deposit_amount - withdraw_amount,
             "✅ State updated BEFORE transfer (atomic pattern)"
         );
@@ -376,7 +376,7 @@ mod storage_tracking_tests {
         if result.is_ok() {
             let balance = contract.get_storage_balance(bob.clone()).unwrap();
             assert!(
-                balance.balance < deposit_amount,
+                balance.balance.0 < deposit_amount,
                 "Some or all balance should be withdrawn"
             );
         }
@@ -452,7 +452,7 @@ mod storage_tracking_tests {
         // Verify total accumulation
         let balance = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(
-            balance.balance,
+            balance.balance.0,
             deposit1 + deposit2,
             "Multiple deposits should accumulate correctly"
         );
@@ -849,7 +849,7 @@ mod storage_tracking_tests {
         // Should succeed (no-op) or reject gracefully
         if result.is_ok() {
             let balance = contract.get_storage_balance(bob.clone()).unwrap();
-            assert_eq!(balance.balance, deposit_amount, "Balance unchanged");
+            assert_eq!(balance.balance.0, deposit_amount, "Balance unchanged");
             println!("✅ Zero withdrawal handled as no-op");
         } else {
             println!("✅ Zero withdrawal properly rejected");
@@ -890,7 +890,7 @@ mod storage_tracking_tests {
 
         let final_balance = contract.get_storage_balance(alice.clone()).unwrap();
         assert_eq!(
-            final_balance.balance, total_deposited,
+            final_balance.balance.0, total_deposited,
             "All deposits should accumulate correctly"
         );
 
@@ -1042,7 +1042,7 @@ mod storage_tracking_tests {
             let balance = contract.get_storage_balance(charlie.clone()).unwrap();
             assert!(balance.used_bytes > 0, "Should have used storage");
             assert!(
-                balance.balance < deposit_amount,
+                balance.balance.0 < deposit_amount,
                 "Balance should be reduced"
             );
         }
@@ -1366,7 +1366,7 @@ mod storage_tracking_tests {
         // After deletion, storage is released, making more available for withdrawal
         let storage_after_delete = contract.get_storage_balance(eve.clone()).unwrap();
         assert!(
-            storage_after_delete.balance > 0,
+            storage_after_delete.balance.0 > 0,
             "Should have storage balance"
         );
 
@@ -1466,7 +1466,7 @@ mod storage_tracking_tests {
 
         // The explicit deposit of 0.5 NEAR + auto-deposit of remaining 0.5 NEAR for data
         // Total should be ~1 NEAR (minus any gas/overhead)
-        assert!(storage.balance > 0, "Storage balance should be positive");
+        assert!(storage.balance.0 > 0, "Storage balance should be positive");
 
         // Verify data was stored
         let keys = vec![
@@ -1501,7 +1501,7 @@ mod storage_tracking_tests {
         // Verify exactly the deposited amount is in storage
         let storage = contract.get_storage_balance(user.clone()).unwrap();
         assert_eq!(
-            storage.balance, attached,
+            storage.balance.0, attached,
             "Storage balance should equal deposited amount"
         );
 
@@ -1570,7 +1570,7 @@ mod storage_tracking_tests {
         // Storage should have exactly 0.6 NEAR (not more due to double-counting)
         let storage = contract.get_storage_balance(user.clone()).unwrap();
         assert_eq!(
-            storage.balance, deposit_amount,
+            storage.balance.0, deposit_amount,
             "Storage should have exactly the deposited amount, not double-counted"
         );
 
