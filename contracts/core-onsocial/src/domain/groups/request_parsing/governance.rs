@@ -14,6 +14,7 @@ impl SocialPlatform {
         changes: Value,
         caller: &AccountId,
         auto_vote: Option<bool>,
+        description: Option<String>,
     ) -> Result<String, SocialError> {
         crate::validation::validate_group_id(&group_id)?;
         let proposal_type_enum = match proposal_type.as_str() {
@@ -88,6 +89,7 @@ impl SocialPlatform {
             caller,
             proposal_type_enum,
             auto_vote,
+            description,
         )
     }
 

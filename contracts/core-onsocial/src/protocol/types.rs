@@ -69,6 +69,8 @@ pub enum Action {
         proposal_type: String,
         changes: Value,
         auto_vote: Option<bool>,
+        /// Optional free-text description explaining the rationale for any proposal type.
+        description: Option<String>,
     },
     VoteOnProposal {
         group_id: String,

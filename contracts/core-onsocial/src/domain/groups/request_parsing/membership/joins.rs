@@ -22,6 +22,7 @@ impl SocialPlatform {
                     caller,
                     proposal_type,
                     None,
+                    None,
                 )?;
                 Ok(())
             },

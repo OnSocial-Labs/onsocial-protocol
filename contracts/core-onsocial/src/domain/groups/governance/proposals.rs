@@ -17,6 +17,7 @@ impl GroupGovernance {
         proposer: &AccountId,
         proposal_type: ProposalType,
         auto_vote: Option<bool>,
+        description: Option<String>,
     ) -> Result<String, SocialError> {
         proposal_type.validate(platform, group_id, proposer)?;
 
@@ -49,6 +50,8 @@ impl GroupGovernance {
         let proposal_data = json!({
             "id": proposal_id.clone(),
             "sequence_number": sequence_number,
+            "title": proposal_type.title(),
+            "description": description.unwrap_or_default(),
             "type": proposal_type.name(),
             "proposer": proposer,
             "target": proposal_type.target(proposer),

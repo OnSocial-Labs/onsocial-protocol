@@ -375,6 +375,7 @@ fn extract_group_update(
         proposal_type: get_string(&data.extra, "proposal_type").unwrap_or_default(),
         status: get_string(&data.extra, "status").unwrap_or_default(),
         sequence_number: get_u64(&data.extra, "sequence_number").unwrap_or(0),
+        title: get_string(&data.extra, "title").unwrap_or_default(),
         description: get_string(&data.extra, "description").unwrap_or_default(),
         auto_vote: get_bool(&data.extra, "auto_vote").unwrap_or(false),
         created_at: get_u64(&data.extra, "created_at").unwrap_or(0),

@@ -74,6 +74,41 @@ impl ProposalType {
         matches!(self, Self::JoinRequest { .. } | Self::MemberInvite { .. })
     }
 
+    /// Human-readable title auto-derived from proposal data for consistent UI display.
+    pub fn title(&self) -> String {
+        match self {
+            Self::GroupUpdate { update_type, .. } => {
+                let label = match update_type.as_str() {
+                    "metadata" => "Metadata",
+                    "permissions" => "Permissions",
+                    "remove_member" => "Remove Member",
+                    "ban" => "Ban Member",
+                    "unban" => "Unban Member",
+                    "transfer_ownership" => "Transfer Ownership",
+                    other => return format!("Update Group: {}", other),
+                };
+                format!("Update Group: {}", label)
+            }
+            Self::PermissionChange {
+                target_user, level, ..
+            } => format!("Change Permission for {} to level {}", target_user, level),
+            Self::PathPermissionGrant {
+                target_user, path, ..
+            } => format!("Grant Path Permission on {} to {}", path, target_user),
+            Self::PathPermissionRevoke {
+                target_user, path, ..
+            } => format!("Revoke Path Permission on {} from {}", path, target_user),
+            Self::MemberInvite { target_user, .. } => {
+                format!("Invite Member {}", target_user)
+            }
+            Self::JoinRequest { requester, .. } => {
+                format!("Join Request from {}", requester)
+            }
+            Self::VotingConfigChange { .. } => "Change Voting Configuration".to_string(),
+            Self::CustomProposal { title, .. } => title.clone(),
+        }
+    }
+
     pub fn target(&self, proposer: &AccountId) -> AccountId {
         match self {
             Self::GroupUpdate { .. } => proposer.clone(),

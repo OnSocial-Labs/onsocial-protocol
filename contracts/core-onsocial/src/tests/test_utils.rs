@@ -362,6 +362,17 @@ pub fn create_proposal_request(
     changes: near_sdk::serde_json::Value,
     auto_vote: Option<bool>,
 ) -> crate::protocol::Request {
+    create_proposal_request_with_description(group_id, proposal_type, changes, auto_vote, None)
+}
+
+#[cfg(test)]
+pub fn create_proposal_request_with_description(
+    group_id: String,
+    proposal_type: String,
+    changes: near_sdk::serde_json::Value,
+    auto_vote: Option<bool>,
+    description: Option<String>,
+) -> crate::protocol::Request {
     use crate::protocol::{Action, Request};
     Request {
         target_account: None,
@@ -370,6 +381,7 @@ pub fn create_proposal_request(
             proposal_type,
             changes,
             auto_vote,
+            description,
         },
         auth: None,
         options: None,

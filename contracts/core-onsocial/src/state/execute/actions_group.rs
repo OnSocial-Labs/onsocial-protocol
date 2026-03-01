@@ -181,6 +181,7 @@ impl SocialPlatform {
         proposal_type: &str,
         changes: Value,
         auto_vote: Option<bool>,
+        description: Option<String>,
         ctx: &mut ExecuteContext,
     ) -> Result<String, SocialError> {
         self.prepare_group_storage(ctx);
@@ -203,6 +204,7 @@ impl SocialPlatform {
             changes,
             &ctx.actor_id,
             auto_vote,
+            description,
         );
         self.cleanup_group_storage();
         result

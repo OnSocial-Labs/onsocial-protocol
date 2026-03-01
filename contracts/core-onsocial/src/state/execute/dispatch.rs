@@ -121,12 +121,14 @@ impl SocialPlatform {
                 proposal_type,
                 changes,
                 auto_vote,
+                description,
             } => {
                 let proposal_id = self.execute_action_create_proposal(
                     group_id,
                     proposal_type,
                     changes.clone(),
                     *auto_vote,
+                    description.clone(),
                     ctx,
                 )?;
                 Ok(json!(proposal_id))

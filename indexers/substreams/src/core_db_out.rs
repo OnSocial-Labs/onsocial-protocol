@@ -88,12 +88,23 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
         row.set("proposal_id", &update.proposal_id);
         row.set("proposal_type", &update.proposal_type);
         row.set("status", &update.status);
+        row.set("sequence_number", update.sequence_number);
+        row.set("title", &update.title);
         row.set("description", &update.description);
+        row.set("auto_vote", update.auto_vote);
+        row.set("created_at", update.created_at);
+        row.set("locked_member_count", update.locked_member_count);
+        row.set("locked_deposit", &update.locked_deposit);
+        row.set("expires_at", update.expires_at);
         row.set("voter", &update.voter);
         row.set("approve", update.approve);
         row.set("total_votes", update.total_votes);
         row.set("yes_votes", update.yes_votes);
         row.set("no_votes", update.no_votes);
+        row.set("should_execute", update.should_execute);
+        row.set("should_reject", update.should_reject);
+        row.set("voted_at", update.voted_at);
+        row.set("member_nonce", update.member_nonce);
         row.set("extra_data", &update.extra_data);
     }
 

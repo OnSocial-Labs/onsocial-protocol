@@ -47,6 +47,7 @@ impl SocialPlatform {
                     caller,
                     proposal_type,
                     None,
+                    None,
                 )?;
                 Ok(())
             },
@@ -83,6 +84,7 @@ impl SocialPlatform {
                     caller,
                     proposal_type,
                     None,
+                    None,
                 )?;
                 Ok(())
             },
@@ -118,6 +120,7 @@ impl SocialPlatform {
                     &group_id,
                     caller,
                     proposal_type,
+                    None,
                     None,
                 )?;
                 Ok(())
@@ -156,6 +159,7 @@ impl SocialPlatform {
                     &group_id,
                     caller,
                     proposal_type,
+                    None,
                     None,
                 )?;
                 Ok(())

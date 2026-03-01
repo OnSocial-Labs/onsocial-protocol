@@ -72,12 +72,23 @@ CREATE TABLE IF NOT EXISTS group_updates (
   proposal_id TEXT,
   proposal_type TEXT,
   status TEXT,
+  sequence_number BIGINT,
+  title TEXT,
   description TEXT,
+  auto_vote BOOLEAN,
+  created_at BIGINT,
+  locked_member_count INTEGER,
+  locked_deposit TEXT,
+  expires_at BIGINT,
   voter TEXT,
   approve BOOLEAN,
   total_votes INTEGER,
   yes_votes INTEGER,
   no_votes INTEGER,
+  should_execute BOOLEAN,
+  should_reject BOOLEAN,
+  voted_at BIGINT,
+  member_nonce BIGINT,
   extra_data TEXT
 );
 
@@ -128,4 +139,10 @@ CREATE INDEX IF NOT EXISTS idx_storage_updates_author ON storage_updates(author)
 CREATE INDEX IF NOT EXISTS idx_storage_updates_block_height ON storage_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_group_updates_group_id ON group_updates(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_updates_author ON group_updates(author);
+CREATE INDEX IF NOT EXISTS idx_group_updates_operation ON group_updates(operation);
+CREATE INDEX IF NOT EXISTS idx_group_updates_proposal_id ON group_updates(proposal_id);
+CREATE INDEX IF NOT EXISTS idx_group_updates_sequence_number ON group_updates(sequence_number);
+CREATE INDEX IF NOT EXISTS idx_group_updates_status ON group_updates(status);
+CREATE INDEX IF NOT EXISTS idx_group_updates_voter ON group_updates(voter);
+CREATE INDEX IF NOT EXISTS idx_group_updates_block_height ON group_updates(block_height);
 CREATE INDEX IF NOT EXISTS idx_permission_updates_author ON permission_updates(author);

@@ -212,6 +212,9 @@ message GroupUpdate {
   
   // Full event data as JSON (nothing lost)
   string extra_data = 54;
+  
+  // Proposal title (auto-derived from proposal type)
+  string title = 55;
 }
 
 // =============================================================================
