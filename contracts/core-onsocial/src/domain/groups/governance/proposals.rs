@@ -84,6 +84,9 @@ impl GroupGovernance {
         let tally_value = json!(tally);
         platform.storage_set(&tally_path, &tally_value)?;
 
+        let index_path = format!("groups/{}/proposal_index/{}", group_id, sequence_number);
+        platform.storage_set(&index_path, &json!(proposal_id))?;
+
         let should_execute = tally.meets_thresholds(
             voting_config.participation_quorum_bps,
             voting_config.majority_threshold_bps,

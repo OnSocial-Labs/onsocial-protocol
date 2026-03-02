@@ -24,6 +24,7 @@ pub mod unit {
     pub mod kv_types_test; // Unit tests for domain/groups/permissions/kv/types.rs helpers
     pub mod members; // Group membership tests
     pub mod membership_test; // Unit tests for domain/groups/permissions/kv/membership.rs
+    pub mod proposal_index_test; // Proposal sequence index view methods
     pub mod set_permission_signer_test; // Security test: set_permission uses signer not predecessor
     pub mod stats_test; // Group stats counter tests (underflow protection, timestamps)
     pub mod storage_tracker_helpers_test;
