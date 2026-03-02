@@ -91,11 +91,11 @@ jobs:
         env:
           VER: ${{ steps.ver.outputs.version }}
         run: |
-          mkdir -p /tmp/spkg-upload
-          cp onsocial-events-${VER}-*.spkg /tmp/spkg-upload/
-          cp *_schema.sql /tmp/spkg-upload/
+          mkdir -p $GITHUB_WORKSPACE/spkg-upload
+          cp onsocial-events-${VER}-*.spkg $GITHUB_WORKSPACE/spkg-upload/
+          cp *_schema.sql $GITHUB_WORKSPACE/spkg-upload/
           echo "Upload contents:"
-          ls -la /tmp/spkg-upload/
+          ls -la $GITHUB_WORKSPACE/spkg-upload/
 
       - name: Upload spkgs and schemas
         uses: appleboy/scp-action@v0.1.7
@@ -103,9 +103,9 @@ jobs:
           host: 135.181.110.183
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          source: /tmp/spkg-upload/*
+          source: spkg-upload/*
           target: /tmp/onsocial-spkg-upload/
-          strip_components: 2
+          strip_components: 1
           overwrite: true
 
       # Step 2: Stop sinks, swap spkgs, restart, health-check with rollback
