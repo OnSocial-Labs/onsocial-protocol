@@ -50,8 +50,19 @@ CREATE TABLE IF NOT EXISTS storage_updates (
   actor_id TEXT,
   payer_id TEXT,
   target_id TEXT,
+  available_balance TEXT,
   donor TEXT,
   payer TEXT,
+  previous_pool_balance TEXT,
+  new_pool_balance TEXT,
+  bytes TEXT,
+  remaining_allowance TEXT,
+  pool_account TEXT,
+  max_bytes TEXT,
+  new_shared_bytes TEXT,
+  new_used_bytes TEXT,
+  pool_available_bytes TEXT,
+  used_bytes TEXT,
   extra_data TEXT
 );
 

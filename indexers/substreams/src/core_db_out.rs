@@ -64,8 +64,19 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
         row.set("actor_id", &update.actor_id);
         row.set("payer_id", &update.payer_id);
         row.set("target_id", &update.target_id);
+        row.set("available_balance", &update.available_balance);
         row.set("donor", &update.donor);
         row.set("payer", &update.payer);
+        row.set("previous_pool_balance", &update.previous_pool_balance);
+        row.set("new_pool_balance", &update.new_pool_balance);
+        row.set("bytes", &update.bytes);
+        row.set("remaining_allowance", &update.remaining_allowance);
+        row.set("pool_account", &update.pool_account);
+        row.set("max_bytes", &update.max_bytes);
+        row.set("new_shared_bytes", &update.new_shared_bytes);
+        row.set("new_used_bytes", &update.new_used_bytes);
+        row.set("pool_available_bytes", &update.pool_available_bytes);
+        row.set("used_bytes", &update.used_bytes);
         row.set("extra_data", &update.extra_data);
     }
 
