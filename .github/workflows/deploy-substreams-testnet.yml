@@ -126,18 +126,25 @@ jobs:
 
             echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} (${VER}) ==="
 
-            # Verify uploaded files exist
-            for variant in core staking token scarces; do
-              SRC="${UPLOAD_DIR}/onsocial-events-${VER}-${variant}.spkg"
-              if [ ! -f "$SRC" ]; then
-                echo "❌ Upload missing: $SRC"
-                exit 1
-              fi
+            # Discover contract variants dynamically from uploaded spkg filenames
+            CONTRACTS=()
+            for f in ${UPLOAD_DIR}/onsocial-events-${VER}-*.spkg; do
+              [ -f "$f" ] || continue
+              variant=$(basename "$f" .spkg | sed "s/onsocial-events-${VER}-//")
+              CONTRACTS+=("$variant")
             done
-            echo "✓ All spkgs uploaded"
+            if [ ${#CONTRACTS[@]} -eq 0 ]; then
+              echo "❌ No spkg files found in ${UPLOAD_DIR}"
+              exit 1
+            fi
+            echo "✓ Discovered ${#CONTRACTS[@]} contracts: ${CONTRACTS[*]}"
 
-            # Stop sinks
-            systemctl stop onsocial-sink-core onsocial-sink-staking onsocial-sink-token onsocial-sink-scarces || true
+            # Build space-separated service names for systemctl
+            SERVICES=""
+            for c in "${CONTRACTS[@]}"; do SERVICES+=" onsocial-sink-$c"; done
+
+            # Stop sinks (ignore errors for services that don't exist yet)
+            systemctl stop $SERVICES 2>/dev/null || true
             echo "✓ Sinks stopped"
 
             # Clean deploy: drop all tables and re-apply schema
@@ -149,24 +156,22 @@ jobs:
                 DB_URL="${DATABASE_URL:-}"
               fi
               if [ -n "$DB_URL" ]; then
+                # Drop all known tables (safe if they don't exist)
                 psql "$DB_URL" -c "
-                  DROP TABLE IF EXISTS data_updates CASCADE;
-                  DROP TABLE IF EXISTS storage_updates CASCADE;
-                  DROP TABLE IF EXISTS group_updates CASCADE;
-                  DROP TABLE IF EXISTS contract_updates CASCADE;
-                  DROP TABLE IF EXISTS permission_updates CASCADE;
-                  DROP TABLE IF EXISTS staking_updates CASCADE;
-                  DROP TABLE IF EXISTS token_updates CASCADE;
-                  DROP TABLE IF EXISTS scarces_events CASCADE;
-                  DROP TABLE IF EXISTS cursors CASCADE;
+                  DO \$\$ DECLARE t TEXT;
+                  BEGIN
+                    FOR t IN SELECT tablename FROM pg_tables
+                      WHERE schemaname = 'public' AND tablename != 'schema_migrations'
+                    LOOP EXECUTE 'DROP TABLE IF EXISTS ' || t || ' CASCADE'; END LOOP;
+                  END \$\$;
                 "
                 echo "✓ Tables dropped"
                 # Re-apply schemas
-                for schema in core staking token scarces; do
-                  SCHEMA_FILE="${UPLOAD_DIR}/${schema}_schema.sql"
+                for variant in "${CONTRACTS[@]}"; do
+                  SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
                   if [ -f "$SCHEMA_FILE" ]; then
                     psql "$DB_URL" -f "$SCHEMA_FILE"
-                    echo "✓ Applied ${schema}_schema.sql"
+                    echo "✓ Applied ${variant}_schema.sql"
                   fi
                 done
               else
@@ -178,16 +183,18 @@ jobs:
             find "$SPKG_DIR" -name 'onsocial-events-v*-*.spkg' ! -name "*-${VER}-*" -delete 2>/dev/null || true
 
             # Backup current spkgs
-            for variant in core staking token scarces; do
+            for variant in "${CONTRACTS[@]}"; do
               CURRENT="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
               [ -f "$CURRENT" ] && cp "$CURRENT" "${CURRENT}.prev"
             done
 
-            # Move uploaded spkgs into place
-            for variant in core staking token scarces; do
+            # Move uploaded spkgs + schemas into place
+            for variant in "${CONTRACTS[@]}"; do
               mv "${UPLOAD_DIR}/onsocial-events-${VER}-${variant}.spkg" \
                  "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
             done
+            # Copy schemas for reference
+            cp "${UPLOAD_DIR}"/*_schema.sql "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkgs swapped"
 
@@ -196,7 +203,7 @@ jobs:
             [ -f /root/.onsocial-sink-db-url ] && DB_URL=$(cat /root/.onsocial-sink-db-url)
             ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
 
-            for variant in core staking token scarces; do
+            for variant in "${CONTRACTS[@]}"; do
               UNIT="/etc/systemd/system/onsocial-sink-${variant}.service"
               if [ -f "$UNIT" ]; then
                 # Existing unit — just update spkg version
@@ -230,14 +237,14 @@ jobs:
             echo "✓ Systemd units updated to ${VER}"
 
             # Restart sinks
-            systemctl start onsocial-sink-core onsocial-sink-staking onsocial-sink-token onsocial-sink-scarces
+            systemctl start $SERVICES
             echo "✓ Sinks started"
 
-            # Health check — wait 20s then verify at least 2/3 active
-            # (FREE StreamingFast plan allows only 2 concurrent streams)
+            # Health check — wait 20s then verify at least half are active
             sleep 20
             ACTIVE=0
-            for s in core staking token scarces; do
+            TOTAL=${#CONTRACTS[@]}
+            for s in "${CONTRACTS[@]}"; do
               if systemctl is-active --quiet "onsocial-sink-$s"; then
                 ACTIVE=$((ACTIVE + 1))
                 echo "  ✅ $s: active"
@@ -246,14 +253,15 @@ jobs:
               fi
             done
 
-            if [ "$ACTIVE" -lt 2 ]; then
+            MIN_ACTIVE=$(( (TOTAL + 1) / 2 ))  # at least half (rounded up)
+            if [ "$ACTIVE" -lt "$MIN_ACTIVE" ]; then
               echo ""
-              echo "❌ Only $ACTIVE/4 sinks active after 20s — rolling back"
-              for variant in core staking token scarces; do
+              echo "❌ Only $ACTIVE/$TOTAL sinks active after 20s — rolling back"
+              for variant in "${CONTRACTS[@]}"; do
                 PREV="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg.prev"
                 [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
               done
-              systemctl restart onsocial-sink-core onsocial-sink-staking onsocial-sink-token onsocial-sink-scarces || true
+              systemctl restart $SERVICES || true
               exit 1
             fi
 
@@ -261,7 +269,7 @@ jobs:
             rm -f ${SPKG_DIR}/*.spkg.prev
 
             echo ""
-            echo "✅ Deploy complete — $ACTIVE/4 sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
+            echo "✅ Deploy complete — $ACTIVE/$TOTAL sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
 
       - name: Notify Telegram
         if: always()
