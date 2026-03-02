@@ -56,27 +56,9 @@ jobs:
           curl -sL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
           substreams --version
 
-      - name: Pack all 3 spkgs
+      - name: Pack all spkgs
         working-directory: indexers/substreams
-        env:
-          VER: ${{ steps.ver.outputs.version }}
-        run: |
-          # Core (default sink.module: core_db_out)
-          substreams pack -o "onsocial-events-${VER}-core.spkg"
-
-          # Staking
-          sed -i 's/module: core_db_out/module: staking_db_out/' substreams.yaml
-          substreams pack -o "onsocial-events-${VER}-staking.spkg"
-
-          # Token
-          sed -i 's/module: staking_db_out/module: token_db_out/' substreams.yaml
-          substreams pack -o "onsocial-events-${VER}-token.spkg"
-
-          # Restore original
-          sed -i 's/module: token_db_out/module: core_db_out/' substreams.yaml
-
-          echo "Built spkgs:"
-          ls -la onsocial-events-${VER}-*.spkg
+        run: ./pack.sh
 
       - name: Get short SHA
         id: sha
@@ -104,19 +86,24 @@ jobs:
           echo "SSHEOF" >> "$GITHUB_OUTPUT"
           rm -f /tmp/deploy_key
 
+      - name: Prepare upload directory
+        working-directory: indexers/substreams
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          mkdir -p /tmp/spkg-upload
+          cp onsocial-events-${VER}-*.spkg /tmp/spkg-upload/
+          cp *_schema.sql /tmp/spkg-upload/
+          echo "Upload contents:"
+          ls -la /tmp/spkg-upload/
+
       - name: Upload spkgs and schemas
         uses: appleboy/scp-action@v0.1.7
         with:
           host: 135.181.110.183
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          source: >-
-            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-core.spkg,
-            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-staking.spkg,
-            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-token.spkg,
-            indexers/substreams/core_schema.sql,
-            indexers/substreams/staking_schema.sql,
-            indexers/substreams/token_schema.sql
+          source: /tmp/spkg-upload/*
           target: /tmp/onsocial-spkg-upload/
           strip_components: 2
           overwrite: true

@@ -56,30 +56,13 @@ jobs:
           VER=$(grep -m1 'version:' substreams.yaml | awk '{print $2}')
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
-      - name: Pack spkg (core)
-        run: substreams pack -o "onsocial-events-${{ steps.ver.outputs.version }}-core.spkg"
-
-      - name: Pack spkg (staking)
-        run: |
-          sed -i 's/module: core_db_out/module: staking_db_out/' substreams.yaml
-          substreams pack -o "onsocial-events-${{ steps.ver.outputs.version }}-staking.spkg"
-
-      - name: Pack spkg (token)
-        run: |
-          sed -i 's/module: staking_db_out/module: token_db_out/' substreams.yaml
-          substreams pack -o "onsocial-events-${{ steps.ver.outputs.version }}-token.spkg"
-
-      - name: Restore substreams.yaml
-        run: |
-          sed -i 's/module: token_db_out/module: core_db_out/' substreams.yaml
+      - name: Pack all spkgs
+        run: ./pack.sh
 
       - name: Upload spkg artifacts
         if: "github.ref == 'refs/heads/main'"
         uses: actions/upload-artifact@v4
         with:
           name: substreams-spkg
-          path: |
-            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-core.spkg
-            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-staking.spkg
-            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-token.spkg
+          path: indexers/substreams/onsocial-events-*.spkg
           retention-days: 30

@@ -126,37 +126,24 @@ params:
 # ---------------------------------------------------------------------------
 # SINK DEPLOYMENT
 # ---------------------------------------------------------------------------
-# Each sink module requires its own spkg (sink module is embedded in the
-# package). Pack with `substreams pack` after setting `sink.module` below.
+# Each contract has its own spkg with the correct sink module + schema.
+# Build with: ./pack.sh          (all contracts)
+#             ./pack.sh core     (just core)
 #
-#   # Core (sink.module = core_db_out)
+# Run a sink:
 #   substreams-sink-sql run "$DATABASE_URL" \
 #     onsocial-events-v0.8.0-core.spkg \
 #     -e "$SUBSTREAMS_ENDPOINT" \
 #     -p map_core_output=contract_id=core.onsocial.testnet \
 #     --development-mode --infinite-retry
 #
-#   # Staking (sink.module = staking_db_out)
-#   substreams-sink-sql run "$DATABASE_URL" \
-#     onsocial-events-v0.8.0-staking.spkg \
-#     -e "$SUBSTREAMS_ENDPOINT" \
-#     -p map_staking_output=contract_id=staking.onsocial.testnet \
-#     --development-mode --infinite-retry
-#
-#   # Token (sink.module = token_db_out)
-#   substreams-sink-sql run "$DATABASE_URL" \
-#     onsocial-events-v0.8.0-token.spkg \
-#     -e "$SUBSTREAMS_ENDPOINT" \
-#     -p map_token_output=contract_id=token.onsocial.testnet \
-#     --development-mode --infinite-retry
-#
 # Deployment blocks (from NEAR archival RPC):
-#   staking.onsocial.testnet  → block 235546389 (Feb 6 2026, contract deploy)
 #   core.onsocial.testnet     → block 233084800 (Jan 2026)
 #   token.onsocial.testnet    → block 234337349 (Jan 2026)
+#   staking.onsocial.testnet  → block 235546389 (Feb 2026)
+#
+# Contract registry for pack.sh:
+#   core    → core_db_out    → core_schema.sql
+#   staking → staking_db_out → staking_schema.sql
+#   token   → token_db_out   → token_schema.sql
 # ---------------------------------------------------------------------------
-sink:
-  module: core_db_out
-  type: sf.substreams.sink.sql.v1.Service
-  config:
-    schema: "./core_schema.sql"
