@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { developerRouter } from './routes/developer.js';
 import { graphRouter } from './routes/graph.js';
 import { relayRouter } from './routes/relay.js';
+import { composeRouter } from './routes/compose.js';
 import { storageRouter } from './services/storage/index.js';
 
 const app = express();
@@ -36,7 +37,7 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     version: '0.4.0',
-    services: ['auth', 'developer', 'graph', 'storage', 'relay'],
+    services: ['auth', 'developer', 'graph', 'storage', 'relay', 'compose'],
   });
 });
 
@@ -83,6 +84,7 @@ app.use('/developer', developerRouter);
 app.use('/graph', graphRouter);
 app.use('/storage', storageRouter);
 app.use('/relay', relayRouter);
+app.use('/compose', composeRouter);
 
 // 404 handler
 app.use((_req, res) => {
