@@ -20,6 +20,7 @@ pub mod unit {
     pub mod group_sponsor_quota_test;
     pub mod group_test;
     pub mod io_operations_test; // IO operations tests (get_entry, insert_entry, path resolution)
+    pub mod key_index_test;
     pub mod kv_eval_test; // Unit tests for domain/groups/permissions/kv/eval.rs
     pub mod kv_types_test; // Unit tests for domain/groups/permissions/kv/types.rs helpers
     pub mod members; // Group membership tests

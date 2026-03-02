@@ -55,6 +55,7 @@ impl GroupContentManager {
                     crate::storage::soft_delete_entry(platform, &user_storage_path, entry)?;
 
                 if deleted {
+                    platform.key_index_remove(&user_storage_path);
                     EventBuilder::new(
                         crate::constants::EVENT_TYPE_GROUP_UPDATE,
                         "delete",
@@ -87,6 +88,8 @@ impl GroupContentManager {
         let sponsor_outcome = platform
             .insert_entry_with_fallback(&user_storage_path, data_entry, attached_balance)?
             .1;
+
+        platform.key_index_insert(&user_storage_path, near_sdk::env::block_height());
 
         if let Some(crate::state::operations::SponsorOutcome::GroupSpend {
             group_id,

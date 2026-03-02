@@ -79,8 +79,7 @@ impl Contract {
             let index_path = format!("groups/{}/proposal_index/{}", group_id, seq);
             if let Some(proposal_id_val) = self.platform.storage_get(&index_path) {
                 if let Some(proposal_id) = proposal_id_val.as_str() {
-                    let proposal_path =
-                        format!("groups/{}/proposals/{}", group_id, proposal_id);
+                    let proposal_path = format!("groups/{}/proposals/{}", group_id, proposal_id);
                     if let Some(proposal) = self.platform.storage_get(&proposal_path) {
                         results.push(proposal);
                     }

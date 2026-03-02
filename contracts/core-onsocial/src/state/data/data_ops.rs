@@ -74,6 +74,7 @@ impl SocialPlatform {
             };
 
             if deleted {
+                self.key_index_remove(data_ctx.full_path);
                 crate::events::EventBuilder::new(
                     crate::constants::EVENT_TYPE_DATA_UPDATE,
                     "remove",
@@ -84,6 +85,7 @@ impl SocialPlatform {
                 .emit(ctx.event_batch);
             }
         } else {
+            self.key_index_insert(data_ctx.full_path, near_sdk::env::block_height());
             crate::events::EventBuilder::new(
                 crate::constants::EVENT_TYPE_DATA_UPDATE,
                 "set",

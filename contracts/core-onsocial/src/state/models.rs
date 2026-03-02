@@ -1,5 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::store::LookupMap;
+use near_sdk::store::{LookupMap, TreeMap};
 use near_sdk::{AccountId, env};
 use near_sdk_macros::NearSchema;
 
@@ -214,6 +214,7 @@ pub struct SocialPlatform {
     pub group_pool_usage: LookupMap<String, u64>,
     pub group_sponsor_quotas: LookupMap<String, GroupSponsorAccount>,
     pub group_sponsor_defaults: LookupMap<String, GroupSponsorDefault>,
+    pub key_index: TreeMap<String, u64>,
     /// Temporary override for storage payer during proposal execution.
     /// When set, group path storage is charged to this account instead of predecessor.
     /// This ensures proposers pay for execution costs from their deposited balance.

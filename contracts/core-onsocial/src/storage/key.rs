@@ -8,4 +8,5 @@ pub enum StorageKey {
     GroupPoolUsage,
     GroupSponsorQuotas,
     GroupSponsorDefaults,
+    KeyIndex,
 }

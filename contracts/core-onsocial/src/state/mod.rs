@@ -2,6 +2,7 @@ pub(crate) mod models;
 pub(crate) mod operations;
 pub(crate) mod platform;
 
+pub(crate) mod key_index;
 pub(crate) mod set_context;
 
 pub(crate) mod data;

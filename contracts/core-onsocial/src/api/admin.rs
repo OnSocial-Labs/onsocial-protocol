@@ -249,7 +249,6 @@ impl Contract {
         .with_field("old_version", old_version.as_str())
         .with_field("new_version", contract.platform.version.as_str())
         .emit(&mut batch);
-        // Best-effort emit during migration; ignore errors
         let _ = batch.emit();
 
         contract

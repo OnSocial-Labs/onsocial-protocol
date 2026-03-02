@@ -43,7 +43,12 @@ mod proposal_index_tests {
         let bob = test_account(1);
         let charlie = test_account(2);
 
-        setup_group_with_members(&mut contract, "idx1", &owner, &[bob.clone(), charlie.clone()]);
+        setup_group_with_members(
+            &mut contract,
+            "idx1",
+            &owner,
+            &[bob.clone(), charlie.clone()],
+        );
 
         // Create a proposal
         testing_env!(
@@ -68,7 +73,12 @@ mod proposal_index_tests {
         let bob = test_account(1);
         let charlie = test_account(2);
 
-        setup_group_with_members(&mut contract, "idx2", &owner, &[bob.clone(), charlie.clone()]);
+        setup_group_with_members(
+            &mut contract,
+            "idx2",
+            &owner,
+            &[bob.clone(), charlie.clone()],
+        );
 
         testing_env!(
             get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build()
@@ -93,9 +103,11 @@ mod proposal_index_tests {
     #[test]
     fn test_get_proposal_by_sequence_not_found() {
         let contract = init_live_contract();
-        assert!(contract
-            .get_proposal_by_sequence("nogroup".to_string(), 1)
-            .is_none());
+        assert!(
+            contract
+                .get_proposal_by_sequence("nogroup".to_string(), 1)
+                .is_none()
+        );
     }
 
     #[test]
@@ -105,7 +117,12 @@ mod proposal_index_tests {
         let bob = test_account(1);
         let charlie = test_account(2);
 
-        setup_group_with_members(&mut contract, "idx3", &owner, &[bob.clone(), charlie.clone()]);
+        setup_group_with_members(
+            &mut contract,
+            "idx3",
+            &owner,
+            &[bob.clone(), charlie.clone()],
+        );
 
         testing_env!(
             get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build()
@@ -140,7 +157,12 @@ mod proposal_index_tests {
         let bob = test_account(1);
         let charlie = test_account(2);
 
-        setup_group_with_members(&mut contract, "idx4", &owner, &[bob.clone(), charlie.clone()]);
+        setup_group_with_members(
+            &mut contract,
+            "idx4",
+            &owner,
+            &[bob.clone(), charlie.clone()],
+        );
 
         testing_env!(
             get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build()
@@ -189,7 +211,12 @@ mod proposal_index_tests {
         let bob = test_account(1);
         let charlie = test_account(2);
 
-        setup_group_with_members(&mut contract, "idx5", &owner, &[bob.clone(), charlie.clone()]);
+        setup_group_with_members(
+            &mut contract,
+            "idx5",
+            &owner,
+            &[bob.clone(), charlie.clone()],
+        );
 
         testing_env!(
             get_context_with_deposit(owner.clone(), 10_000_000_000_000_000_000_000_000).build()

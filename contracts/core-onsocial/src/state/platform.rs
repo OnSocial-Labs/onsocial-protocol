@@ -3,6 +3,7 @@ use crate::state::models::{ContractStatus, DataEntry, SocialPlatform};
 use crate::{
     config::GovernanceConfig, errors::*, invalid_input, storage::StorageKey, unauthorized,
 };
+use near_sdk::store::TreeMap;
 use near_sdk::{AccountId, NearToken, Promise, env, serde_json::Value, store::LookupMap};
 
 pub struct UnusedDepositEventMeta<'a> {
@@ -37,6 +38,7 @@ impl SocialPlatform {
             group_pool_usage: LookupMap::new(StorageKey::GroupPoolUsage),
             group_sponsor_quotas: LookupMap::new(StorageKey::GroupSponsorQuotas),
             group_sponsor_defaults: LookupMap::new(StorageKey::GroupSponsorDefaults),
+            key_index: TreeMap::new(StorageKey::KeyIndex),
             execution_payer: None,
         }
     }
