@@ -204,7 +204,7 @@ export async function composeSet(
 
   // 3. Relay to core contract
   const action = {
-    type: 'Set',
+    type: 'set',
     data: { [req.path]: value },
   };
 
@@ -262,13 +262,13 @@ export async function composeMint(
   // 4. Build mint action
   const action: Record<string, unknown> = req.collectionId
     ? {
-        type: 'MintFromCollection',
+        type: 'mint_from_collection',
         collection_id: req.collectionId,
         metadata: tokenMetadata,
         ...(req.price && { price: req.price }),
       }
     : {
-        type: 'QuickMint',
+        type: 'quick_mint',
         metadata: tokenMetadata,
         options: {
           ...(req.price && { price: req.price }),

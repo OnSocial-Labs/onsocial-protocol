@@ -170,7 +170,7 @@ describe('composeSet', () => {
     expect(mockFetch).toHaveBeenCalledOnce();
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action).toEqual({
-      type: 'Set',
+      type: 'set',
       data: { 'profile/bio': { text: 'Developer' } },
     });
     expect(body.auth.actor_id).toBe('alice.testnet');
@@ -351,7 +351,7 @@ describe('composeMint', () => {
 
     // Verify relay action
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.action.type).toBe('QuickMint');
+    expect(body.action.type).toBe('quick_mint');
     expect(body.action.metadata.title).toBe('Sunset Art');
     expect(body.action.metadata.description).toBe('A sunset');
     expect(body.action.metadata.media).toBe('ipfs://QmArtCid');
@@ -404,7 +404,7 @@ describe('composeMint', () => {
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.action.type).toBe('MintFromCollection');
+    expect(body.action.type).toBe('mint_from_collection');
     expect(body.action.collection_id).toBe('col-001');
     expect(body.action.price).toBe('500');
   });
