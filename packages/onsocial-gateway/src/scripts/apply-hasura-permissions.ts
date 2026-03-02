@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Apply Hasura permissions for production gateway
- * 
+ *
  * Usage:
  *   ./scripts/apply-hasura-permissions.ts [create|drop|check]
- * 
+ *
  * Environment:
  *   HASURA_URL - Hasura GraphQL endpoint (default: http://localhost:8080)
  *   HASURA_ADMIN_SECRET - Admin secret for Hasura
@@ -15,67 +15,214 @@ import { config } from '../config/index.js';
 // Tables and their columns (actual Hasura schema - snake_case)
 const TABLES = [
   // ── Core contract ──
-  { 
-    name: 'data_updates', 
-    columns: ['id', 'account_id', 'author', 'block_height', 'block_timestamp', 'data_id', 'data_type', 
-              'derived_id', 'derived_type', 'group_id', 'group_path', 'is_group_content', 'operation',
-              'parent_author', 'parent_path', 'parent_type', 'partition_id', 'path', 'receipt_id',
-              'ref_author', 'ref_authors', 'ref_path', 'ref_type', 'refs', 'target_account', 'value', 'writes'] 
+  {
+    name: 'data_updates',
+    columns: [
+      'id',
+      'account_id',
+      'author',
+      'block_height',
+      'block_timestamp',
+      'data_id',
+      'data_type',
+      'derived_id',
+      'derived_type',
+      'group_id',
+      'group_path',
+      'is_group_content',
+      'operation',
+      'parent_author',
+      'parent_path',
+      'parent_type',
+      'partition_id',
+      'path',
+      'receipt_id',
+      'ref_author',
+      'ref_authors',
+      'ref_path',
+      'ref_type',
+      'refs',
+      'target_account',
+      'value',
+      'writes',
+    ],
   },
-  { 
-    name: 'storage_updates', 
-    columns: ['id', 'actor_id', 'amount', 'auth_type', 'author', 'block_height', 'block_timestamp',
-              'donor', 'group_id', 'new_balance', 'operation', 'partition_id', 'payer', 'payer_id',
-              'pool_id', 'pool_key', 'previous_balance', 'reason', 'receipt_id', 'target_id'] 
+  {
+    name: 'storage_updates',
+    columns: [
+      'id',
+      'actor_id',
+      'amount',
+      'auth_type',
+      'author',
+      'block_height',
+      'block_timestamp',
+      'donor',
+      'group_id',
+      'new_balance',
+      'operation',
+      'partition_id',
+      'payer',
+      'payer_id',
+      'pool_id',
+      'pool_key',
+      'previous_balance',
+      'reason',
+      'receipt_id',
+      'target_id',
+    ],
   },
-  { 
-    name: 'group_updates', 
-    columns: ['id', 'approve', 'author', 'block_height', 'block_timestamp', 'description', 'group_id',
-              'level', 'member_id', 'no_votes', 'operation', 'partition_id', 'path', 'proposal_id',
-              'proposal_type', 'receipt_id', 'role', 'status', 'total_votes', 'value', 'voter', 'yes_votes'] 
+  {
+    name: 'group_updates',
+    columns: [
+      'id',
+      'approve',
+      'author',
+      'block_height',
+      'block_timestamp',
+      'description',
+      'group_id',
+      'level',
+      'member_id',
+      'no_votes',
+      'operation',
+      'partition_id',
+      'path',
+      'proposal_id',
+      'proposal_type',
+      'receipt_id',
+      'role',
+      'status',
+      'total_votes',
+      'value',
+      'voter',
+      'yes_votes',
+    ],
   },
-  { 
-    name: 'permission_updates', 
-    columns: ['id', 'account_id', 'author', 'block_height', 'block_timestamp', 'granted', 'operation',
-              'partition_id', 'path', 'permission_key', 'permission_type', 'receipt_id', 'target_path', 'value'] 
+  {
+    name: 'permission_updates',
+    columns: [
+      'id',
+      'account_id',
+      'author',
+      'block_height',
+      'block_timestamp',
+      'granted',
+      'operation',
+      'partition_id',
+      'path',
+      'permission_key',
+      'permission_type',
+      'receipt_id',
+      'target_path',
+      'value',
+    ],
   },
-  { 
-    name: 'contract_updates', 
-    columns: ['id', 'actor_id', 'auth_type', 'author', 'block_height', 'block_timestamp', 'derived_id',
-              'derived_type', 'operation', 'partition_id', 'path', 'payer_id', 'receipt_id', 'target_id'] 
+  {
+    name: 'contract_updates',
+    columns: [
+      'id',
+      'actor_id',
+      'auth_type',
+      'author',
+      'block_height',
+      'block_timestamp',
+      'derived_id',
+      'derived_type',
+      'operation',
+      'partition_id',
+      'path',
+      'payer_id',
+      'receipt_id',
+      'target_id',
+    ],
   },
   // ── Token contract (NEP-141) ──
   {
     name: 'token_events',
-    columns: ['id', 'block_height', 'block_timestamp', 'receipt_id', 'event_type',
-              'owner_id', 'amount', 'memo', 'old_owner_id', 'new_owner_id']
+    columns: [
+      'id',
+      'block_height',
+      'block_timestamp',
+      'receipt_id',
+      'event_type',
+      'owner_id',
+      'amount',
+      'memo',
+      'old_owner_id',
+      'new_owner_id',
+    ],
   },
   {
     name: 'token_balances',
-    columns: ['account_id', 'last_event_type', 'last_event_block', 'updated_at']
+    columns: [
+      'account_id',
+      'last_event_type',
+      'last_event_block',
+      'updated_at',
+    ],
   },
   // ── Staking contract ──
   {
     name: 'staking_events',
-    columns: ['id', 'block_height', 'block_timestamp', 'receipt_id', 'account_id', 'event_type',
-              'success', 'amount', 'effective_stake', 'months', 'new_months', 'new_effective',
-              'elapsed_ns', 'total_released', 'remaining_pool', 'infra_share', 'rewards_share',
-              'total_pool', 'receiver_id', 'old_owner', 'new_owner', 'old_version', 'new_version', 'deposit']
+    columns: [
+      'id',
+      'block_height',
+      'block_timestamp',
+      'receipt_id',
+      'account_id',
+      'event_type',
+      'success',
+      'amount',
+      'effective_stake',
+      'months',
+      'new_months',
+      'new_effective',
+      'elapsed_ns',
+      'total_released',
+      'remaining_pool',
+      'infra_share',
+      'rewards_share',
+      'total_pool',
+      'receiver_id',
+      'old_owner',
+      'new_owner',
+      'old_version',
+      'new_version',
+      'deposit',
+    ],
   },
   {
     name: 'staker_state',
-    columns: ['account_id', 'locked_amount', 'effective_stake', 'lock_months',
-              'total_claimed', 'total_credits_purchased', 'last_event_type', 'last_event_block', 'updated_at']
+    columns: [
+      'account_id',
+      'locked_amount',
+      'effective_stake',
+      'lock_months',
+      'total_claimed',
+      'total_credits_purchased',
+      'last_event_type',
+      'last_event_block',
+      'updated_at',
+    ],
   },
   {
     name: 'credit_purchases',
-    columns: ['id', 'block_height', 'block_timestamp', 'receipt_id', 'account_id',
-              'amount', 'infra_share', 'rewards_share']
+    columns: [
+      'id',
+      'block_height',
+      'block_timestamp',
+      'receipt_id',
+      'account_id',
+      'amount',
+      'infra_share',
+      'rewards_share',
+    ],
   },
   // ── Substreams cursor ──
-  { 
-    name: 'cursors', 
-    columns: ['id', 'cursor', 'block_num', 'block_id'] 
+  {
+    name: 'cursors',
+    columns: ['id', 'cursor', 'block_num', 'block_id'],
   },
 ];
 
@@ -86,9 +233,12 @@ const TIERS = {
   scale: { limit: 10000, allow_aggregations: true },
 };
 
-const HASURA_METADATA_URL = config.hasuraUrl.replace('/v1/graphql', '/v1/metadata');
+const HASURA_METADATA_URL = config.hasuraUrl.replace(
+  '/v1/graphql',
+  '/v1/metadata'
+);
 
-async function hasuraMetadata(body: object): Promise<any> {
+async function hasuraMetadata(body: object): Promise<unknown> {
   const response = await fetch(HASURA_METADATA_URL, {
     method: 'POST',
     headers: {
@@ -97,48 +247,51 @@ async function hasuraMetadata(body: object): Promise<any> {
     },
     body: JSON.stringify(body),
   });
-  
+
   const data = await response.json();
-  
+
   if (!response.ok) {
     throw new Error(`Hasura error: ${JSON.stringify(data)}`);
   }
-  
+
   return data;
 }
 
 async function checkExistingPermissions(): Promise<void> {
   console.log('📋 Checking existing permissions...\n');
-  
-  const result = await hasuraMetadata({
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hasura metadata is deeply nested and untyped
+  const result: any = await hasuraMetadata({
     type: 'export_metadata',
     version: 2,
     args: {},
   });
-  
+
   const tables = result.metadata?.sources?.[0]?.tables || [];
-  
+
   for (const table of tables) {
     const tableName = table.table?.name;
     const permissions = table.select_permissions || [];
-    
+
     if (permissions.length > 0) {
       console.log(`📊 ${tableName}:`);
       for (const perm of permissions) {
-        console.log(`   - ${perm.role}: limit=${perm.permission?.limit || 'none'}, aggregations=${perm.permission?.allow_aggregations || false}`);
+        console.log(
+          `   - ${perm.role}: limit=${perm.permission?.limit || 'none'}, aggregations=${perm.permission?.allow_aggregations || false}`
+        );
       }
     }
   }
-  
+
   console.log('\n✅ Permission check complete');
 }
 
 async function dropPermissions(): Promise<void> {
   console.log('🗑️  Dropping existing permissions...\n');
-  
+
   const roles = Object.keys(TIERS);
   let dropped = 0;
-  
+
   for (const role of roles) {
     for (const table of TABLES) {
       try {
@@ -152,27 +305,30 @@ async function dropPermissions(): Promise<void> {
         });
         console.log(`   ✓ Dropped ${role} permission on ${table.name}`);
         dropped++;
-      } catch (e: any) {
+      } catch (e: unknown) {
         // Permission might not exist, that's OK
-        if (!e.message.includes('does not exist')) {
-          console.log(`   ⚠ ${role}@${table.name}: ${e.message}`);
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!msg.includes('does not exist')) {
+          console.log(`   ⚠ ${role}@${table.name}: ${msg}`);
         }
       }
     }
   }
-  
+
   console.log(`\n✅ Dropped ${dropped} permissions`);
 }
 
 async function createPermissions(): Promise<void> {
   console.log('🔧 Creating tier-based permissions...\n');
-  
+
   let created = 0;
   let skipped = 0;
-  
+
   for (const [role, limits] of Object.entries(TIERS)) {
-    console.log(`\n📊 Role: ${role} (limit: ${limits.limit}, aggregations: ${limits.allow_aggregations})`);
-    
+    console.log(
+      `\n📊 Role: ${role} (limit: ${limits.limit}, aggregations: ${limits.allow_aggregations})`
+    );
+
     for (const table of TABLES) {
       try {
         await hasuraMetadata({
@@ -191,30 +347,40 @@ async function createPermissions(): Promise<void> {
         });
         console.log(`   ✓ Created permission on ${table.name}`);
         created++;
-      } catch (e: any) {
-        if (e.message.includes('already defined') || e.message.includes('already-exists') || e.message.includes('already exists')) {
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (
+          msg.includes('already defined') ||
+          msg.includes('already-exists') ||
+          msg.includes('already exists')
+        ) {
           console.log(`   ⏭ ${table.name} (already exists)`);
           skipped++;
-        } else if (e.message.includes('table') && e.message.includes('does not exist')) {
-          console.log(`   ⚠ ${table.name} (table not found - might not be tracked yet)`);
+        } else if (
+          msg.includes('table') &&
+          msg.includes('does not exist')
+        ) {
+          console.log(
+            `   ⚠ ${table.name} (table not found - might not be tracked yet)`
+          );
           skipped++;
         } else {
-          console.error(`   ✗ ${table.name}: ${e.message}`);
+          console.error(`   ✗ ${table.name}: ${msg}`);
         }
       }
     }
   }
-  
+
   console.log(`\n✅ Created ${created} permissions (${skipped} skipped)`);
 }
 
 async function main(): Promise<void> {
   const action = process.argv[2] || 'create';
-  
+
   console.log('🚀 Hasura Permission Manager');
   console.log(`   Hasura URL: ${HASURA_METADATA_URL}`);
   console.log(`   Action: ${action}\n`);
-  
+
   try {
     switch (action) {
       case 'check':
@@ -232,11 +398,13 @@ async function main(): Promise<void> {
         break;
       default:
         console.error(`Unknown action: ${action}`);
-        console.log('Usage: apply-hasura-permissions.ts [check|create|drop|reset]');
+        console.log(
+          'Usage: apply-hasura-permissions.ts [check|create|drop|reset]'
+        );
         process.exit(1);
     }
-  } catch (error: any) {
-    console.error(`\n❌ Error: ${error.message}`);
+  } catch (error: unknown) {
+    console.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
 }
