@@ -32,7 +32,9 @@ function requireJwtAuth(req: Request, res: Response, next: () => void): void {
     return;
   }
   if (req.auth.method === 'apikey') {
-    res.status(403).json({ error: 'API keys cannot manage keys. Use JWT (wallet login).' });
+    res
+      .status(403)
+      .json({ error: 'API keys cannot manage keys. Use JWT (wallet login).' });
     return;
   }
   next();

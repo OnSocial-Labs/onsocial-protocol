@@ -24,7 +24,11 @@ const network = (config.nearNetwork as Network) || 'testnet';
 export const nearRpc: NearRpc = createNearRpc({
   primaryUrl: config.nearRpcUrl,
   network,
-  onLog: (level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) => {
+  onLog: (
+    level: 'info' | 'warn' | 'error',
+    msg: string,
+    meta?: Record<string, unknown>
+  ) => {
     logger[level]({ ...meta, component: 'rpc' }, msg);
   },
 });
@@ -36,7 +40,7 @@ export const nearRpc: NearRpc = createNearRpc({
  * @throws Error if both providers fail or the RPC returns an error.
  */
 export async function rpcQuery<T = unknown>(
-  params: Record<string, unknown>,
+  params: Record<string, unknown>
 ): Promise<T> {
   const response: NearRpcResponse<T> = await nearRpc.call<T>('query', params);
   if (response.error) {

@@ -21,8 +21,8 @@ app.use(
   cors(
     config.corsOrigins === '*'
       ? undefined // default open CORS for dev
-      : { origin: config.corsOrigins.split(',').map((s) => s.trim()) },
-  ),
+      : { origin: config.corsOrigins.split(',').map((s) => s.trim()) }
+  )
 );
 app.use(express.json({ limit: '10mb' }));
 
@@ -113,7 +113,7 @@ const server = app.listen(config.port, () => {
       network: config.nearNetwork,
       hasura: config.hasuraUrl,
     },
-    'onsocial-gateway started',
+    'onsocial-gateway started'
   );
 });
 

@@ -1,4 +1,11 @@
-import { parse, visit, DocumentNode, Kind, type ASTNode, type IntValueNode } from 'graphql';
+import {
+  parse,
+  visit,
+  DocumentNode,
+  Kind,
+  type ASTNode,
+  type IntValueNode,
+} from 'graphql';
 import type { Request, Response, NextFunction } from 'express';
 import type { Tier } from '../types/index.js';
 
@@ -15,21 +22,21 @@ interface TierLimits {
  */
 export const QUERY_LIMITS: Record<Tier, TierLimits> = {
   free: {
-    maxDepth: 3,           // Shallow queries only
-    maxComplexity: 50,     // Simple queries
-    maxRowLimit: 100,      // Small result sets
+    maxDepth: 3, // Shallow queries only
+    maxComplexity: 50, // Simple queries
+    maxRowLimit: 100, // Small result sets
     allowAggregations: false,
   },
   pro: {
-    maxDepth: 8,           // Deep nesting allowed
-    maxComplexity: 1000,   // Complex queries allowed
-    maxRowLimit: 10000,    // Large result sets
+    maxDepth: 8, // Deep nesting allowed
+    maxComplexity: 1000, // Complex queries allowed
+    maxRowLimit: 10000, // Large result sets
     allowAggregations: true,
   },
   scale: {
-    maxDepth: 12,          // Deepest nesting
-    maxComplexity: 5000,   // Heavy analytics
-    maxRowLimit: 50000,    // Bulk exports
+    maxDepth: 12, // Deepest nesting
+    maxComplexity: 5000, // Heavy analytics
+    maxRowLimit: 50000, // Bulk exports
     allowAggregations: true,
   },
 };
@@ -42,20 +49,23 @@ export const QUERY_LIMITS: Record<Tier, TierLimits> = {
  */
 function calculateComplexity(ast: DocumentNode): number {
   let complexity = 0;
-  
+
   visit(ast, {
     Field: {
       enter(node) {
         complexity += 1;
-        
+
         // Aggregation fields are more expensive
         const fieldName = node.name.value;
         if (fieldName.endsWith('_aggregate') || fieldName === 'aggregate') {
           complexity += 10;
         }
-        
+
         // Connection fields (pagination) add complexity
-        if (fieldName.includes('connection') || fieldName.includes('Connection')) {
+        if (
+          fieldName.includes('connection') ||
+          fieldName.includes('Connection')
+        ) {
           complexity += 5;
         }
       },
@@ -67,7 +77,7 @@ function calculateComplexity(ast: DocumentNode): number {
       },
     },
   });
-  
+
   return Math.ceil(complexity);
 }
 
@@ -76,25 +86,33 @@ function calculateComplexity(ast: DocumentNode): number {
  */
 function calculateDepth(ast: DocumentNode): number {
   let maxDepth = 0;
-  
-  function traverse(node: ASTNode & { selectionSet?: { selections: readonly ASTNode[] } }, currentDepth: number) {
+
+  function traverse(
+    node: ASTNode & { selectionSet?: { selections: readonly ASTNode[] } },
+    currentDepth: number
+  ) {
     if (node.kind === Kind.FIELD) {
       maxDepth = Math.max(maxDepth, currentDepth);
     }
-    
+
     if (node.selectionSet?.selections) {
       for (const selection of node.selectionSet.selections) {
-        traverse(selection as ASTNode & { selectionSet?: { selections: readonly ASTNode[] } }, currentDepth + 1);
+        traverse(
+          selection as ASTNode & {
+            selectionSet?: { selections: readonly ASTNode[] };
+          },
+          currentDepth + 1
+        );
       }
     }
   }
-  
+
   for (const definition of ast.definitions) {
     if (definition.kind === Kind.OPERATION_DEFINITION) {
       traverse(definition, 0);
     }
   }
-  
+
   return maxDepth;
 }
 
@@ -103,7 +121,7 @@ function calculateDepth(ast: DocumentNode): number {
  */
 function hasAggregations(ast: DocumentNode): boolean {
   let found = false;
-  
+
   visit(ast, {
     Field: {
       enter(node) {
@@ -114,7 +132,7 @@ function hasAggregations(ast: DocumentNode): boolean {
       },
     },
   });
-  
+
   return found;
 }
 
@@ -123,7 +141,7 @@ function hasAggregations(ast: DocumentNode): boolean {
  */
 function extractLimit(ast: DocumentNode): number | null {
   let limit: number | null = null;
-  
+
   visit(ast, {
     Argument: {
       enter(node) {
@@ -133,7 +151,7 @@ function extractLimit(ast: DocumentNode): number | null {
       },
     },
   });
-  
+
   return limit;
 }
 
@@ -151,24 +169,27 @@ export interface QueryValidationResult {
 /**
  * Validate a GraphQL query against tier limits
  */
-export function validateQuery(query: string, tier: Tier): QueryValidationResult {
+export function validateQuery(
+  query: string,
+  tier: Tier
+): QueryValidationResult {
   const limits = QUERY_LIMITS[tier];
-  
+
   try {
     const ast = parse(query);
-    
+
     const depth = calculateDepth(ast);
     const complexity = calculateComplexity(ast);
     const queryHasAggregations = hasAggregations(ast);
     const requestedLimit = extractLimit(ast);
-    
+
     const details = {
       depth,
       complexity,
       hasAggregations: queryHasAggregations,
       requestedLimit,
     };
-    
+
     // Check depth
     if (depth > limits.maxDepth) {
       return {
@@ -177,7 +198,7 @@ export function validateQuery(query: string, tier: Tier): QueryValidationResult 
         details,
       };
     }
-    
+
     // Check complexity
     if (complexity > limits.maxComplexity) {
       return {
@@ -186,7 +207,7 @@ export function validateQuery(query: string, tier: Tier): QueryValidationResult 
         details,
       };
     }
-    
+
     // Check aggregations
     if (queryHasAggregations && !limits.allowAggregations) {
       return {
@@ -195,7 +216,7 @@ export function validateQuery(query: string, tier: Tier): QueryValidationResult 
         details,
       };
     }
-    
+
     // Check row limit
     if (requestedLimit && requestedLimit > limits.maxRowLimit) {
       return {
@@ -204,11 +225,11 @@ export function validateQuery(query: string, tier: Tier): QueryValidationResult 
         details,
       };
     }
-    
+
     return { valid: true, details };
-    
   } catch (parseError: unknown) {
-    const message = parseError instanceof Error ? parseError.message : String(parseError);
+    const message =
+      parseError instanceof Error ? parseError.message : String(parseError);
     return {
       valid: false,
       error: `Invalid GraphQL query: ${message}`,
@@ -229,24 +250,24 @@ export function queryValidationMiddleware(
     next();
     return;
   }
-  
+
   const query = req.body?.query;
-  
+
   // Skip validation for introspection queries (needed for tools)
   if (query && query.includes('__schema')) {
     next();
     return;
   }
-  
+
   if (!query) {
     next();
     return;
   }
-  
+
   // Auth is guaranteed by requireAuth upstream on all graph routes
   const tier: Tier = req.auth!.tier || 'free';
   const result = validateQuery(query, tier);
-  
+
   if (!result.valid) {
     res.status(400).json({
       error: 'Query validation failed',
@@ -257,9 +278,11 @@ export function queryValidationMiddleware(
     });
     return;
   }
-  
+
   // Attach validation details to request for logging
-  (req as Request & { queryValidation?: QueryValidationResult['details'] }).queryValidation = result.details;
-  
+  (
+    req as Request & { queryValidation?: QueryValidationResult['details'] }
+  ).queryValidation = result.details;
+
   next();
 }

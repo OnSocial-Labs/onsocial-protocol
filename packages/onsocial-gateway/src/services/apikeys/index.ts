@@ -26,16 +26,16 @@ const API_KEY_REGEX = /^onsocial_[A-Za-z0-9_-]{32}$/;
 
 export interface ApiKeyRecord {
   keyHash: string;
-  keyPrefix: string;   // first 20 chars, safe for display
-  accountId: string;   // NEAR account that owns it
-  label: string;       // developer-chosen label
+  keyPrefix: string; // first 20 chars, safe for display
+  accountId: string; // NEAR account that owns it
+  label: string; // developer-chosen label
   tier: Tier;
   createdAt: number;
   revokedAt: number | null;
 }
 
 export interface CreateKeyResult {
-  rawKey: string;  // returned once, never stored
+  rawKey: string; // returned once, never stored
   prefix: string;
   label: string;
   tier: Tier;
@@ -164,7 +164,10 @@ class HasuraStore implements ApiKeyStore {
     this.secret = adminSecret;
   }
 
-  private async gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  private async gql<T>(
+    query: string,
+    variables: Record<string, unknown> = {}
+  ): Promise<T> {
     const res = await fetch(this.url, {
       method: 'POST',
       headers: {
@@ -173,7 +176,10 @@ class HasuraStore implements ApiKeyStore {
       },
       body: JSON.stringify({ query, variables }),
     });
-    const json = (await res.json()) as { data?: T; errors?: Array<{ message: string }> };
+    const json = (await res.json()) as {
+      data?: T;
+      errors?: Array<{ message: string }>;
+    };
     if (json.errors?.length) {
       throw new Error(`Hasura: ${json.errors[0].message}`);
     }
@@ -188,7 +194,9 @@ class HasuraStore implements ApiKeyStore {
       label: (row.label as string) || 'default',
       tier: (row.tier as Tier) || 'free',
       createdAt: new Date(row.created_at as string).getTime(),
-      revokedAt: row.revoked_at ? new Date(row.revoked_at as string).getTime() : null,
+      revokedAt: row.revoked_at
+        ? new Date(row.revoked_at as string).getTime()
+        : null,
     };
   }
 
@@ -205,7 +213,7 @@ class HasuraStore implements ApiKeyStore {
           label: record.label,
           tier: record.tier,
         },
-      },
+      }
     );
   }
 
@@ -218,7 +226,7 @@ class HasuraStore implements ApiKeyStore {
           key_hash key_prefix account_id label tier created_at revoked_at
         }
       }`,
-      { hash },
+      { hash }
     );
     const row = data.api_keys_by_pk;
     if (!row || row.revoked_at) return null;
@@ -234,7 +242,7 @@ class HasuraStore implements ApiKeyStore {
           key_hash key_prefix account_id label tier created_at revoked_at
         }
       }`,
-      { acct: accountId },
+      { acct: accountId }
     );
     return data.api_keys.map((r) => this.toRecord(r));
   }
@@ -249,7 +257,7 @@ class HasuraStore implements ApiKeyStore {
           _set: { revoked_at: $now }
         ) { affected_rows }
       }`,
-      { acct: accountId, prefix, now: new Date().toISOString() },
+      { acct: accountId, prefix, now: new Date().toISOString() }
     );
     return data.update_api_keys.affected_rows > 0;
   }
@@ -262,7 +270,7 @@ class HasuraStore implements ApiKeyStore {
           _set: { tier: $tier }
         ) { affected_rows }
       }`,
-      { acct: accountId, tier },
+      { acct: accountId, tier }
     );
   }
 
@@ -275,7 +283,7 @@ class HasuraStore implements ApiKeyStore {
           aggregate { count }
         }
       }`,
-      { acct: accountId },
+      { acct: accountId }
     );
     return data.api_keys_aggregate.aggregate.count;
   }
@@ -291,7 +299,9 @@ function createStore(): ApiKeyStore {
     return new HasuraStore(config.hasuraUrl, config.hasuraAdminSecret);
   }
   if (config.nodeEnv === 'production') {
-    logger.warn('HASURA_ADMIN_SECRET not set — API keys will NOT survive restarts!');
+    logger.warn(
+      'HASURA_ADMIN_SECRET not set — API keys will NOT survive restarts!'
+    );
   }
   logger.info('API key store: in-memory');
   return new MemoryStore();
@@ -309,7 +319,7 @@ const store = createStore();
  */
 export async function createApiKey(
   accountId: string,
-  label = 'default',
+  label = 'default'
 ): Promise<CreateKeyResult | ApiKeyError> {
   const count = await store.countActive(accountId);
   if (count >= MAX_KEYS_PER_ACCOUNT) {
@@ -354,8 +364,10 @@ export async function lookupApiKey(raw: string): Promise<ApiKeyRecord | null> {
  * List all active keys for an account (masked — prefix + label only).
  */
 export async function listApiKeys(
-  accountId: string,
-): Promise<Array<{ prefix: string; label: string; tier: Tier; createdAt: number }>> {
+  accountId: string
+): Promise<
+  Array<{ prefix: string; label: string; tier: Tier; createdAt: number }>
+> {
   const records = await store.listByAccount(accountId);
   return records.map((r) => ({
     prefix: r.keyPrefix,
@@ -368,7 +380,10 @@ export async function listApiKeys(
 /**
  * Revoke a key by its prefix. Only the owning account can revoke.
  */
-export async function revokeApiKey(accountId: string, prefix: string): Promise<boolean> {
+export async function revokeApiKey(
+  accountId: string,
+  prefix: string
+): Promise<boolean> {
   const revoked = await store.revokeByPrefix(accountId, prefix);
   if (revoked) logger.info({ accountId, prefix }, 'API key revoked');
   return revoked;
@@ -378,7 +393,10 @@ export async function revokeApiKey(accountId: string, prefix: string): Promise<b
  * Update the tier for all active keys belonging to an account.
  * Called when the indexer detects a CREDITS_PURCHASE event.
  */
-export async function updateAccountTier(accountId: string, tier: Tier): Promise<void> {
+export async function updateAccountTier(
+  accountId: string,
+  tier: Tier
+): Promise<void> {
   await store.updateTier(accountId, tier);
   logger.info({ accountId, tier }, 'Account tier updated');
 }

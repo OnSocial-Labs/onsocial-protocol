@@ -17,12 +17,14 @@ function isValidCid(cid: string): boolean {
 describe('CID validation', () => {
   // Valid CIDs
   it('accepts CIDv0 (Qm…)', () => {
-    expect(isValidCid('QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB')).toBe(true);
+    expect(isValidCid('QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB')).toBe(
+      true
+    );
   });
 
   it('accepts CIDv1 (bafy…)', () => {
     expect(
-      isValidCid('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi'),
+      isValidCid('bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')
     ).toBe(true);
   });
 
@@ -45,12 +47,16 @@ describe('CID validation', () => {
   });
 
   it('rejects non-alphanumeric injection', () => {
-    expect(isValidCid('QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB/../../etc/passwd')).toBe(
-      false,
-    );
+    expect(
+      isValidCid(
+        'QmPK1s3pNYLi9ERiq3BDxKa4XosgWwFRQUydHUtz4YgpqB/../../etc/passwd'
+      )
+    ).toBe(false);
   });
 
   it('rejects null bytes', () => {
-    expect(isValidCid('QmPK1s3pNYLi9ERiq3B\x00xKa4XosgWwFRQUydHUtz4YgpqB')).toBe(false);
+    expect(
+      isValidCid('QmPK1s3pNYLi9ERiq3B\x00xKa4XosgWwFRQUydHUtz4YgpqB')
+    ).toBe(false);
   });
 });

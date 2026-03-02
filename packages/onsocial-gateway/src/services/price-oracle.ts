@@ -66,7 +66,9 @@ export const priceOracle = {
       request_type: 'call_function',
       account_id: 'v2.ref-finance.near',
       method_name: 'get_pool',
-      args_base64: Buffer.from(JSON.stringify({ pool_id: poolId })).toString('base64'),
+      args_base64: Buffer.from(JSON.stringify({ pool_id: poolId })).toString(
+        'base64'
+      ),
       finality: 'final',
     });
 
@@ -82,7 +84,7 @@ export const priceOracle = {
     if (!amountSocial || !amountUsdc) throw new Error('Empty pool');
 
     // USDC has 6 decimals, SOCIAL has 24 decimals
-    const price = (amountUsdc / 1e6) / (amountSocial / 1e24);
+    const price = amountUsdc / 1e6 / (amountSocial / 1e24);
     return price;
   },
 

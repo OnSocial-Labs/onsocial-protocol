@@ -24,7 +24,7 @@ describe('NEAR Signature Verification', () => {
     it('should accept valid message format', () => {
       const now = new Date().toISOString();
       const message = `OnSocial Auth: ${now}`;
-      
+
       expect(message.startsWith('OnSocial Auth: ')).toBe(true);
       expect(!isNaN(Date.parse(now))).toBe(true);
     });
@@ -73,7 +73,7 @@ describe('NEAR Signature Verification', () => {
       const originalMessage = `OnSocial Auth: ${new Date().toISOString()}`;
       const signature = signMessage(originalMessage);
       const tamperedMessage = originalMessage + ' tampered';
-      
+
       const signatureBytes = Uint8Array.from(Buffer.from(signature, 'base64'));
       const messageBytes = new TextEncoder().encode(tamperedMessage);
 
@@ -89,7 +89,7 @@ describe('NEAR Signature Verification', () => {
     it('should reject signature from different key', () => {
       const message = `OnSocial Auth: ${new Date().toISOString()}`;
       const signature = signMessage(message);
-      
+
       // Use a different keypair for verification
       const otherKeyPair = nacl.sign.keyPair();
       const signatureBytes = Uint8Array.from(Buffer.from(signature, 'base64'));
@@ -108,7 +108,7 @@ describe('NEAR Signature Verification', () => {
       const message = `OnSocial Auth: ${new Date().toISOString()}`;
       const signature = signMessage(message);
       const signatureBytes = Uint8Array.from(Buffer.from(signature, 'base64'));
-      
+
       expect(signatureBytes.length).toBe(64);
     });
 
@@ -165,17 +165,17 @@ describe('NEAR Signature Verification', () => {
       // Simulates what the client would do:
       // 1. Generate message with timestamp
       const message = `OnSocial Auth: ${new Date().toISOString()}`;
-      
+
       // 2. Sign with NEAR private key (simulated here with test keypair)
       const messageBytes = new TextEncoder().encode(message);
       const signature = nacl.sign.detached(messageBytes, keyPair.secretKey);
-      
+
       // 3. Base64 encode signature for transport
       const signatureBase64 = encodeBase64(signature);
-      
+
       // 4. Format public key with curve prefix
       const publicKey = `ed25519:${encodeBase64(keyPair.publicKey)}`;
-      
+
       // Verify the format is correct
       expect(typeof signatureBase64).toBe('string');
       expect(publicKey.startsWith('ed25519:')).toBe(true);
@@ -195,7 +195,7 @@ describe('Error Cases', () => {
     expect(() => {
       Buffer.from(malformed, 'base64');
     }).not.toThrow(); // Buffer.from doesn't throw, just returns empty/corrupted
-    
+
     const decoded = Buffer.from(malformed, 'base64');
     expect(decoded.length).not.toBe(64); // Won't be valid signature length
   });

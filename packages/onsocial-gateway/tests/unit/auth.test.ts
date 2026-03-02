@@ -34,7 +34,11 @@ vi.mock('../../src/logger.js', () => ({
   },
 }));
 
-import { verifyNearSignature, generateToken, verifyToken } from '../../src/auth/index.js';
+import {
+  verifyNearSignature,
+  generateToken,
+  verifyToken,
+} from '../../src/auth/index.js';
 import { rpcQuery } from '../../src/rpc/index.js';
 
 describe('verifyNearSignature', () => {
@@ -56,7 +60,7 @@ describe('verifyNearSignature', () => {
       'alice.testnet',
       'wrong prefix',
       signMessage('wrong prefix'),
-      publicKeyBase64,
+      publicKeyBase64
     );
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Invalid message format');
@@ -69,7 +73,7 @@ describe('verifyNearSignature', () => {
       'alice.testnet',
       message,
       signMessage(message),
-      publicKeyBase64,
+      publicKeyBase64
     );
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Message has expired');
@@ -83,7 +87,7 @@ describe('verifyNearSignature', () => {
       'alice.testnet',
       message,
       fakeSignature,
-      publicKeyBase64,
+      publicKeyBase64
     );
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Invalid signature');
@@ -100,7 +104,7 @@ describe('verifyNearSignature', () => {
       'alice.testnet',
       message,
       signMessage(message),
-      publicKeyBase64,
+      publicKeyBase64
     );
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Public key does not belong to account');
@@ -117,7 +121,7 @@ describe('verifyNearSignature', () => {
       'alice.testnet',
       message,
       signMessage(message),
-      publicKeyBase64,
+      publicKeyBase64
     );
     expect(result.valid).toBe(true);
     expect(result.error).toBeUndefined();
@@ -130,7 +134,7 @@ describe('verifyNearSignature', () => {
       'alice.testnet',
       'OnSocial Auth: invalid-timestamp',
       'invalid-signature',
-      'ed25519:invalid',
+      'ed25519:invalid'
     );
     expect(result.valid).toBe(false);
   });

@@ -1,5 +1,9 @@
 import type { Request, Response, NextFunction } from 'express';
-import { RateLimiterMemory, RateLimiterRedis, type RateLimiterRes } from 'rate-limiter-flexible';
+import {
+  RateLimiterMemory,
+  RateLimiterRedis,
+  type RateLimiterRes,
+} from 'rate-limiter-flexible';
 import { verifyToken } from '../auth/index.js';
 import { lookupApiKey } from '../services/apikeys/index.js';
 import { config } from '../config/index.js';
@@ -23,14 +27,22 @@ type RateLimiter = RateLimiterMemory | RateLimiterRedis;
 function createRateLimiters(): Record<Tier, RateLimiter> {
   // Memory-based insurance limiter (fallback if Redis is down)
   const memoryFallbacks: Record<Tier, RateLimiterMemory> = {
-    free: new RateLimiterMemory({ points: config.rateLimits.free, duration: 60 }),
+    free: new RateLimiterMemory({
+      points: config.rateLimits.free,
+      duration: 60,
+    }),
     pro: new RateLimiterMemory({ points: config.rateLimits.pro, duration: 60 }),
-    scale: new RateLimiterMemory({ points: config.rateLimits.scale, duration: 60 }),
+    scale: new RateLimiterMemory({
+      points: config.rateLimits.scale,
+      duration: 60,
+    }),
   };
 
   if (!config.redisUrl) {
     if (config.nodeEnv === 'production') {
-      logger.warn('REDIS_URL not set \u2014 rate limits are per-process only (not shared across replicas)');
+      logger.warn(
+        'REDIS_URL not set \u2014 rate limits are per-process only (not shared across replicas)'
+      );
     }
     return memoryFallbacks;
   }
@@ -46,7 +58,10 @@ function createRateLimiters(): Record<Tier, RateLimiter> {
     });
 
     redisClient.connect().catch((err: Error) => {
-      logger.error({ err }, 'Redis connection failed \u2014 falling back to in-memory rate limits');
+      logger.error(
+        { err },
+        'Redis connection failed \u2014 falling back to in-memory rate limits'
+      );
     });
 
     logger.info('Rate limiter: using Redis');

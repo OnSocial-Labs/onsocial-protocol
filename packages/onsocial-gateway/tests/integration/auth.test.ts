@@ -35,7 +35,7 @@ describe('Gateway Auth Integration', () => {
       }),
     });
     const data = await res.json();
-    
+
     expect(res.status).toBe(400);
     expect(data.error).toBe('Missing required fields');
   });
@@ -65,20 +65,23 @@ describe('JWT Security', () => {
     const res = await fetch(`${GATEWAY_URL}/auth/me`, {
       headers: { Authorization: 'Bearer not-a-valid-jwt' },
     });
-    
+
     expect(res.status).toBe(401);
     const data = await res.json();
-    expect(data.error).toMatch(/invalid|malformed|token|authentication|required/i);
+    expect(data.error).toMatch(
+      /invalid|malformed|token|authentication|required/i
+    );
   });
 
   it('should reject JWT with invalid signature', async () => {
     // Valid format but wrong signature (tampered)
-    const tamperedJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiJoYWNrZXIubmVhciIsInRpZXIiOiJidWlsZGVyIiwiaWF0IjoxNzA2MDAwMDAwfQ.INVALID_SIGNATURE_HERE';
-    
+    const tamperedJwt =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiJoYWNrZXIubmVhciIsInRpZXIiOiJidWlsZGVyIiwiaWF0IjoxNzA2MDAwMDAwfQ.INVALID_SIGNATURE_HERE';
+
     const res = await fetch(`${GATEWAY_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${tamperedJwt}` },
     });
-    
+
     expect(res.status).toBe(401);
   });
 
@@ -87,12 +90,13 @@ describe('JWT Security', () => {
     // For now, verify the endpoint properly validates
     const res = await fetch(`${GATEWAY_URL}/auth/refresh`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiJ0ZXN0Lm5lYXIiLCJ0aWVyIjoiZnJlZSIsImlhdCI6MTYwMDAwMDAwMCwiZXhwIjoxNjAwMDAwMDAxfQ.invalid',
+        Authorization:
+          'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiJ0ZXN0Lm5lYXIiLCJ0aWVyIjoiZnJlZSIsImlhdCI6MTYwMDAwMDAwMCwiZXhwIjoxNjAwMDAwMDAxfQ.invalid',
       },
     });
-    
+
     expect(res.status).toBe(401);
   });
 
@@ -117,7 +121,7 @@ describe('JWT Security', () => {
 
   it('should reject /me without Authorization header', async () => {
     const res = await fetch(`${GATEWAY_URL}/auth/me`);
-    
+
     expect(res.status).toBe(401);
     const data = await res.json();
     expect(data.error).toMatch(/token|unauthorized|required/i);

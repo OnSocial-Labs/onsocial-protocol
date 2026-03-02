@@ -3,7 +3,10 @@ import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import { requireAuth } from '../middleware/index.js';
-import { queryValidationMiddleware, QUERY_LIMITS } from '../middleware/queryValidation.js';
+import {
+  queryValidationMiddleware,
+  QUERY_LIMITS,
+} from '../middleware/queryValidation.js';
 import type { Tier } from '../types/index.js';
 
 export const graphRouter = Router();
@@ -11,7 +14,9 @@ export const graphRouter = Router();
 // Health check registered BEFORE auth middleware — must stay public for Docker/Caddy probes
 graphRouter.get('/health', async (_req: Request, res: Response) => {
   try {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
     if (config.hasuraAdminSecret) {
       headers['x-hasura-admin-secret'] = config.hasuraAdminSecret;
     }

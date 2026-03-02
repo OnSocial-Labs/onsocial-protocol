@@ -27,44 +27,44 @@ pnpm dev
 
 ### Auth
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/login` | POST | Authenticate with NEAR signature |
-| `/auth/refresh` | POST | Refresh JWT token |
-| `/auth/me` | GET | Get current user info |
-| `/auth/tier/:accountId` | GET | Get tier for any account |
+| Endpoint                | Method | Description                      |
+| ----------------------- | ------ | -------------------------------- |
+| `/auth/login`           | POST   | Authenticate with NEAR signature |
+| `/auth/refresh`         | POST   | Refresh JWT token                |
+| `/auth/me`              | GET    | Get current user info            |
+| `/auth/tier/:accountId` | GET    | Get tier for any account         |
 
 ### Graph (Hasura Proxy)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/graph/query` | POST | GraphQL query |
-| `/graph/health` | GET | Hasura health check |
+| Endpoint        | Method | Description         |
+| --------------- | ------ | ------------------- |
+| `/graph/query`  | POST   | GraphQL query       |
+| `/graph/health` | GET    | Hasura health check |
 
 ### Storage (Lighthouse/IPFS)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/storage/upload` | POST | Upload file to IPFS |
-| `/storage/upload-json` | POST | Upload JSON to IPFS |
-| `/storage/:cid` | GET | Get file by CID |
+| Endpoint               | Method | Description         |
+| ---------------------- | ------ | ------------------- |
+| `/storage/upload`      | POST   | Upload file to IPFS |
+| `/storage/upload-json` | POST   | Upload JSON to IPFS |
+| `/storage/:cid`        | GET    | Get file by CID     |
 
 ### Relay
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/relay/submit` | POST | Submit signed transaction |
-| `/relay/meta-tx` | POST | Submit meta-transaction (Staker+) |
-| `/relay/status/:txHash` | GET | Get transaction status |
-| `/relay/health` | GET | Relay health check |
+| Endpoint                | Method | Description                       |
+| ----------------------- | ------ | --------------------------------- |
+| `/relay/submit`         | POST   | Submit signed transaction         |
+| `/relay/meta-tx`        | POST   | Submit meta-transaction (Staker+) |
+| `/relay/status/:txHash` | GET    | Get transaction status            |
+| `/relay/health`         | GET    | Relay health check                |
 
 ## Tiers
 
-| Tier | Rate Limit | Requirements |
-|------|------------|--------------|
-| Free | 60/min | None |
-| Staker | 600/min | Stake SOCIAL tokens (tier based on USD value at stake time) |
-| Builder | 6000/min | Stake more SOCIAL tokens |
+| Tier    | Rate Limit | Requirements                                                |
+| ------- | ---------- | ----------------------------------------------------------- |
+| Free    | 60/min     | None                                                        |
+| Staker  | 600/min    | Stake SOCIAL tokens (tier based on USD value at stake time) |
+| Builder | 6000/min   | Stake more SOCIAL tokens                                    |
 
 ### Tier Architecture
 
@@ -94,6 +94,7 @@ See `.env.example` for all options.
 ### CI/CD Secrets Required
 
 The GitHub Actions workflow requires these secrets:
+
 - `LIGHTHOUSE_API_KEY`: Lighthouse storage API key
 - `HASURA_ADMIN_SECRET`: Hasura admin secret for GraphQL access
 

@@ -8,7 +8,7 @@ describe('Gateway Graph Integration', () => {
   it('should return healthy status', async () => {
     const res = await fetchWithRetry(`${GATEWAY_URL}/health`);
     const data = await res.json();
-    
+
     expect(res.ok).toBe(true);
     expect(data.status).toBe('ok');
     expect(data.services).toContain('graph');
@@ -17,7 +17,7 @@ describe('Gateway Graph Integration', () => {
   it('should report Hasura connected', async () => {
     const res = await fetch(`${GATEWAY_URL}/graph/health`);
     const data = await res.json();
-    
+
     expect(res.ok).toBe(true);
     expect(data.status).toBe('ok');
     expect(data.hasura).toBe('connected');
@@ -56,7 +56,7 @@ describe('Gateway Graph Integration', () => {
       body: JSON.stringify({}),
     });
     const data = await res.json();
-    
+
     expect(res.status).toBe(400);
     expect(data.error).toBe('Missing query');
   });

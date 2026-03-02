@@ -72,7 +72,8 @@ function validateMessage(message: string): { valid: boolean; error?: string } {
 
   const timestampStr = message.slice(MESSAGE_PREFIX.length);
   const timestamp = parseAuthTimestamp(timestampStr);
-  if (timestamp === null) return { valid: false, error: 'Invalid timestamp in message' };
+  if (timestamp === null)
+    return { valid: false, error: 'Invalid timestamp in message' };
 
   const now = Date.now();
   const age = now - timestamp;
@@ -125,29 +126,29 @@ function parsePublicKey(publicKey: string): Uint8Array | null {
 function base58Decode(str: string): Uint8Array {
   const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   const bytes: number[] = [];
-  
+
   for (const char of str) {
     let carry = ALPHABET.indexOf(char);
     if (carry < 0) throw new Error('Invalid base58 character');
-    
+
     for (let j = 0; j < bytes.length; j++) {
       carry += bytes[j] * 58;
       bytes[j] = carry & 0xff;
       carry >>= 8;
     }
-    
+
     while (carry > 0) {
       bytes.push(carry & 0xff);
       carry >>= 8;
     }
   }
-  
+
   // Handle leading zeros
   for (const char of str) {
     if (char !== '1') break;
     bytes.push(0);
   }
-  
+
   return new Uint8Array(bytes.reverse());
 }
 
@@ -233,7 +234,10 @@ export async function verifyNearSignature(
   }
 
   // Step 4: Verify public key belongs to account
-  const keyBelongsToAccount = await verifyKeyBelongsToAccount(accountId, publicKey);
+  const keyBelongsToAccount = await verifyKeyBelongsToAccount(
+    accountId,
+    publicKey
+  );
   if (!keyBelongsToAccount) {
     return { valid: false, error: 'Public key does not belong to account' };
   }
@@ -244,7 +248,9 @@ export async function verifyNearSignature(
 /**
  * Get tier from token or default to 'free'
  */
-export function getTierFromToken(token: string | undefined): JwtPayload['tier'] {
+export function getTierFromToken(
+  token: string | undefined
+): JwtPayload['tier'] {
   if (!token) return 'free';
 
   const payload = verifyToken(token);

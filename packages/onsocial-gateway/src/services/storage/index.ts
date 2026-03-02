@@ -9,7 +9,10 @@ const router = Router();
 
 // Default 1GB, configurable via env (Lighthouse max: 24GB)
 const maxFileSize = parseInt(process.env.MAX_FILE_SIZE || '1073741824', 10);
-const upload = multer({ limits: { fileSize: maxFileSize }, storage: multer.memoryStorage() });
+const upload = multer({
+  limits: { fileSize: maxFileSize },
+  storage: multer.memoryStorage(),
+});
 
 const getApiKey = (): string => {
   const key = config.lighthouseApiKey;
@@ -28,36 +31,52 @@ function isValidCid(cid: string): boolean {
 }
 
 // POST /storage/upload  — requires authentication
-router.post('/upload', requireAuth, upload.single('file'), async (req: Request, res: Response) => {
-  if (!req.file) {
-    res.status(400).json({ error: 'No file provided' });
-    return;
-  }
+router.post(
+  '/upload',
+  requireAuth,
+  upload.single('file'),
+  async (req: Request, res: Response) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file provided' });
+      return;
+    }
 
-  try {
-    const result = await lighthouse.uploadBuffer(req.file.buffer, getApiKey());
-    res.json({ cid: result.data.Hash, size: result.data.Size });
-  } catch (error) {
-    logger.error({ error }, 'Upload error');
-    res.status(500).json({ error: 'Upload failed' });
+    try {
+      const result = await lighthouse.uploadBuffer(
+        req.file.buffer,
+        getApiKey()
+      );
+      res.json({ cid: result.data.Hash, size: result.data.Size });
+    } catch (error) {
+      logger.error({ error }, 'Upload error');
+      res.status(500).json({ error: 'Upload failed' });
+    }
   }
-});
+);
 
 // POST /storage/upload-json  — requires authentication
-router.post('/upload-json', requireAuth, async (req: Request, res: Response) => {
-  if (!req.body || Object.keys(req.body).length === 0) {
-    res.status(400).json({ error: 'No JSON provided' });
-    return;
-  }
+router.post(
+  '/upload-json',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    if (!req.body || Object.keys(req.body).length === 0) {
+      res.status(400).json({ error: 'No JSON provided' });
+      return;
+    }
 
-  try {
-    const result = await lighthouse.uploadText(JSON.stringify(req.body), getApiKey(), 'data.json');
-    res.json({ cid: result.data.Hash, size: result.data.Size });
-  } catch (error) {
-    logger.error({ error }, 'Upload JSON error');
-    res.status(500).json({ error: 'Upload failed' });
+    try {
+      const result = await lighthouse.uploadText(
+        JSON.stringify(req.body),
+        getApiKey(),
+        'data.json'
+      );
+      res.json({ cid: result.data.Hash, size: result.data.Size });
+    } catch (error) {
+      logger.error({ error }, 'Upload JSON error');
+      res.status(500).json({ error: 'Upload failed' });
+    }
   }
-});
+);
 
 // GET /storage/health
 router.get('/health', (_req: Request, res: Response) => {
@@ -121,9 +140,10 @@ router.get('/:cid', async (req: Request, res: Response) => {
       return;
     }
 
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    const contentType =
+      response.headers.get('content-type') || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
-    
+
     const buffer = await response.arrayBuffer();
     res.send(Buffer.from(buffer));
   } catch (error) {

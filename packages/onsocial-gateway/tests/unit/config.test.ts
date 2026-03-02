@@ -15,7 +15,9 @@ describe('config production guards', () => {
 
     expect(() => makeJwtSecret('production', undefined)).toThrow(/JWT_SECRET/);
     expect(() => makeJwtSecret('development', undefined)).not.toThrow();
-    expect(makeJwtSecret('development', undefined)).toBe('dev-secret-change-in-production');
+    expect(makeJwtSecret('development', undefined)).toBe(
+      'dev-secret-change-in-production'
+    );
     expect(makeJwtSecret('production', 'real-secret')).toBe('real-secret');
   });
 
@@ -27,9 +29,13 @@ describe('config production guards', () => {
       return secret || '';
     };
 
-    expect(() => makeHasuraSecret('production', undefined)).toThrow(/HASURA_ADMIN_SECRET/);
+    expect(() => makeHasuraSecret('production', undefined)).toThrow(
+      /HASURA_ADMIN_SECRET/
+    );
     expect(() => makeHasuraSecret('development', undefined)).not.toThrow();
     expect(makeHasuraSecret('development', undefined)).toBe('');
-    expect(makeHasuraSecret('production', 'hasura-secret')).toBe('hasura-secret');
+    expect(makeHasuraSecret('production', 'hasura-secret')).toBe(
+      'hasura-secret'
+    );
   });
 });

@@ -22,8 +22,10 @@ function gsmSecret(name: string): string {
     const project = process.env.GCP_PROJECT || 'onsocial-protocol';
     return execSync(
       `gcloud secrets versions access latest --secret="${name}" --project="${project}"`,
-      { timeout: 5_000, stdio: ['pipe', 'pipe', 'pipe'] },
-    ).toString().trim();
+      { timeout: 5_000, stdio: ['pipe', 'pipe', 'pipe'] }
+    )
+      .toString()
+      .trim();
   } catch {
     return '';
   }
@@ -63,7 +65,7 @@ export const config = {
   nearNetwork: process.env.NEAR_NETWORK || 'testnet',
   nearRpcUrl: resolveNearRpcUrl(
     (process.env.NEAR_NETWORK || 'testnet') as Network,
-    { lavaApiKey: env('LAVA_API_KEY') },
+    { lavaApiKey: env('LAVA_API_KEY') }
   ),
   socialTokenContract:
     process.env.SOCIAL_TOKEN_CONTRACT ||
@@ -96,7 +98,8 @@ export const config = {
   lighthouseApiKey: env('LIGHTHOUSE_API_KEY'),
 
   // Relay
-  relayUrl: process.env.RELAYER_URL || process.env.RELAY_URL || 'http://localhost:3040',
+  relayUrl:
+    process.env.RELAYER_URL || process.env.RELAY_URL || 'http://localhost:3040',
   relayApiKey: env('RELAYER_API_KEY'),
 
   // Redis (optional — enables shared rate limits across replicas)
@@ -111,7 +114,7 @@ export const config = {
 
   // Flat tier pricing (USD/month via SOCIAL tokens)
   tierPricing: {
-    pro: 49,   // $49/month in SOCIAL
+    pro: 49, // $49/month in SOCIAL
     scale: 199, // $199/month in SOCIAL
   },
 

@@ -31,7 +31,12 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   }
 
   try {
-    const verification = await verifyNearSignature(accountId, message, signature, publicKey);
+    const verification = await verifyNearSignature(
+      accountId,
+      message,
+      signature,
+      publicKey
+    );
     if (!verification.valid) {
       res.status(401).json({
         error: 'Authentication failed',

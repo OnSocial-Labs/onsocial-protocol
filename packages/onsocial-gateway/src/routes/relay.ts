@@ -8,7 +8,9 @@ export const relayRouter = Router();
 
 /** Build headers for relayer requests, including API key if configured. */
 function relayHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
   if (config.relayApiKey) {
     headers['X-Api-Key'] = config.relayApiKey;
   }
@@ -24,44 +26,51 @@ function relayHeaders(): Record<string, string> {
 //
 // Body: { action: { type: "set", data: {...} }, options?: {...} }
 // ---------------------------------------------------------------------------
-relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) => {
-  const { action, options, target_account } = req.body;
-  const accountId = req.auth!.accountId;
+relayRouter.post(
+  '/execute',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const { action, options, target_account } = req.body;
+    const accountId = req.auth!.accountId;
 
-  if (!action || !action.type) {
-    res.status(400).json({ error: 'Missing action or action.type' });
-    return;
+    if (!action || !action.type) {
+      res.status(400).json({ error: 'Missing action or action.type' });
+      return;
+    }
+
+    // target_account defaults to JWT user; callers may override for cross-account
+    // writes (e.g. grantee writing to owner's path). actor_id always stays locked
+    // to the JWT identity — the contract enforces permission checks.
+    const contractRequest = {
+      target_account: target_account || accountId,
+      action,
+      auth: {
+        type: 'intent',
+        actor_id: accountId,
+        intent: {},
+      },
+      ...(options && { options }),
+    };
+
+    try {
+      const response = await fetch(`${config.relayUrl}/execute`, {
+        method: 'POST',
+        headers: relayHeaders(),
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify(contractRequest),
+      });
+
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error) {
+      logger.error(
+        { error, accountId, action: action.type },
+        'Intent relay failed'
+      );
+      res.status(502).json({ error: 'Failed to relay transaction' });
+    }
   }
-
-  // target_account defaults to JWT user; callers may override for cross-account
-  // writes (e.g. grantee writing to owner's path). actor_id always stays locked
-  // to the JWT identity — the contract enforces permission checks.
-  const contractRequest = {
-    target_account: target_account || accountId,
-    action,
-    auth: {
-      type: 'intent',
-      actor_id: accountId,
-      intent: {},
-    },
-    ...(options && { options }),
-  };
-
-  try {
-    const response = await fetch(`${config.relayUrl}/execute`, {
-      method: 'POST',
-      headers: relayHeaders(),
-      signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify(contractRequest),
-    });
-
-    const data = await response.json();
-    res.status(response.status).json(data);
-  } catch (error) {
-    logger.error({ error, accountId, action: action.type }, 'Intent relay failed');
-    res.status(502).json({ error: 'Failed to relay transaction' });
-  }
-});
+);
 
 // ---------------------------------------------------------------------------
 // POST /relay/signed  — SignedPayload auth (user signs with NEAR key)
@@ -83,46 +92,63 @@ relayRouter.post('/execute', requireAuth, async (req: Request, res: Response) =>
 //   options?: {...}
 // }
 // ---------------------------------------------------------------------------
-relayRouter.post('/signed', requireAuth, async (req: Request, res: Response) => {
-  const { target_account, action, auth, options } = req.body;
+relayRouter.post(
+  '/signed',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const { target_account, action, auth, options } = req.body;
 
-  if (!target_account) {
-    res.status(400).json({ error: 'Missing target_account' });
-    return;
-  }
-  if (!action || !action.type) {
-    res.status(400).json({ error: 'Missing action or action.type' });
-    return;
-  }
-  if (!auth || auth.type !== 'signed_payload') {
-    res.status(400).json({ error: 'auth.type must be "signed_payload"' });
-    return;
-  }
-  if (!auth.public_key || !auth.nonce || !auth.expires_at_ms || !auth.signature) {
-    res.status(400).json({
-      error: 'Missing required auth fields',
-      required: ['public_key', 'nonce', 'expires_at_ms', 'signature'],
-    });
-    return;
-  }
+    if (!target_account) {
+      res.status(400).json({ error: 'Missing target_account' });
+      return;
+    }
+    if (!action || !action.type) {
+      res.status(400).json({ error: 'Missing action or action.type' });
+      return;
+    }
+    if (!auth || auth.type !== 'signed_payload') {
+      res.status(400).json({ error: 'auth.type must be "signed_payload"' });
+      return;
+    }
+    if (
+      !auth.public_key ||
+      !auth.nonce ||
+      !auth.expires_at_ms ||
+      !auth.signature
+    ) {
+      res.status(400).json({
+        error: 'Missing required auth fields',
+        required: ['public_key', 'nonce', 'expires_at_ms', 'signature'],
+      });
+      return;
+    }
 
-  const contractRequest = { target_account, action, auth, ...(options && { options }) };
+    const contractRequest = {
+      target_account,
+      action,
+      auth,
+      ...(options && { options }),
+    };
 
-  try {
-    const response = await fetch(`${config.relayUrl}/execute`, {
-      method: 'POST',
-      headers: relayHeaders(),
-      signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify(contractRequest),
-    });
+    try {
+      const response = await fetch(`${config.relayUrl}/execute`, {
+        method: 'POST',
+        headers: relayHeaders(),
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify(contractRequest),
+      });
 
-    const data = await response.json();
-    res.status(response.status).json(data);
-  } catch (error) {
-    logger.error({ error, target_account, action: action.type }, 'Signed relay failed');
-    res.status(502).json({ error: 'Failed to relay signed transaction' });
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error) {
+      logger.error(
+        { error, target_account, action: action.type },
+        'Signed relay failed'
+      );
+      res.status(502).json({ error: 'Failed to relay signed transaction' });
+    }
   }
-});
+);
 
 // ---------------------------------------------------------------------------
 // POST /relay/delegate  — DelegateAction auth (NEP-366 meta-tx, pro tier)
@@ -145,7 +171,12 @@ relayRouter.post(
       return;
     }
 
-    const contractRequest = { target_account, action, auth, ...(options && { options }) };
+    const contractRequest = {
+      target_account,
+      action,
+      auth,
+      ...(options && { options }),
+    };
 
     try {
       const response = await fetch(`${config.relayUrl}/execute`, {
@@ -157,7 +188,10 @@ relayRouter.post(
       const data = await response.json();
       res.status(response.status).json(data);
     } catch (error) {
-      logger.error({ error, target_account, action: action?.type }, 'Delegate relay failed');
+      logger.error(
+        { error, target_account, action: action?.type },
+        'Delegate relay failed'
+      );
       res.status(502).json({ error: 'Failed to relay delegate transaction' });
     }
   }

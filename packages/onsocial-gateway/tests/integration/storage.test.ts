@@ -18,9 +18,9 @@ describe('Storage Endpoints', () => {
 
       const res = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(testData),
       });
@@ -35,9 +35,9 @@ describe('Storage Endpoints', () => {
     it('should reject empty body', async () => {
       const res = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: '{}',
       });
@@ -46,9 +46,9 @@ describe('Storage Endpoints', () => {
       // Let's test with truly empty
       const res2 = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
       });
 
@@ -88,9 +88,9 @@ describe('Storage Endpoints', () => {
         // Upload something first
         const uploadRes = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({ test: 'download-test' }),
         });
@@ -112,9 +112,9 @@ describe('Storage Endpoints', () => {
       if (!testCid) {
         const uploadRes = await fetch(`${GATEWAY_URL}/storage/upload-json`, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify({ test: 'json-download-test', num: 42 }),
         });
@@ -140,7 +140,7 @@ describe('Storage Endpoints', () => {
       const res = await fetch(`${GATEWAY_URL}/storage/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: formData,
       });
@@ -155,7 +155,7 @@ describe('Storage Endpoints', () => {
       const res = await fetch(`${GATEWAY_URL}/storage/upload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authToken}`,
+          Authorization: `Bearer ${authToken}`,
         },
       });
 

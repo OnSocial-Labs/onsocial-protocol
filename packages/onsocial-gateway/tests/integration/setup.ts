@@ -17,7 +17,8 @@ export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
  * Override the account via TEST_ACCOUNT_ID env var (default: test01.onsocial.testnet).
  * Or supply TEST_PUBLIC_KEY + TEST_PRIVATE_KEY directly (e.g. in CI).
  */
-const TEST_ACCOUNT_ID = process.env.TEST_ACCOUNT_ID || 'test01.onsocial.testnet';
+const TEST_ACCOUNT_ID =
+  process.env.TEST_ACCOUNT_ID || 'test01.onsocial.testnet';
 
 function loadCredentials(): { publicKey: string; privateKey: string } {
   // Prefer explicit env vars (for CI)
@@ -30,14 +31,19 @@ function loadCredentials(): { publicKey: string; privateKey: string } {
 
   // Read from local NEAR credentials file
   const network = process.env.NEAR_NETWORK || 'testnet';
-  const credPath = join(homedir(), '.near-credentials', network, `${TEST_ACCOUNT_ID}.json`);
+  const credPath = join(
+    homedir(),
+    '.near-credentials',
+    network,
+    `${TEST_ACCOUNT_ID}.json`
+  );
   try {
     const raw = JSON.parse(readFileSync(credPath, 'utf-8'));
     return { publicKey: raw.public_key, privateKey: raw.private_key };
   } catch {
     throw new Error(
       `Cannot load NEAR credentials for ${TEST_ACCOUNT_ID} from ${credPath}.\n` +
-        'Either create the key file or set TEST_PUBLIC_KEY + TEST_PRIVATE_KEY env vars.',
+        'Either create the key file or set TEST_PUBLIC_KEY + TEST_PRIVATE_KEY env vars.'
     );
   }
 }
@@ -98,7 +104,7 @@ export { TEST_ACCOUNT_ID };
 export async function fetchWithRetry(
   url: string,
   options?: RequestInit,
-  retries = 3,
+  retries = 3
 ): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
