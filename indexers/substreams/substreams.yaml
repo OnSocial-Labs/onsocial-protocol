@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: onsocial_events
-  version: v0.7.0
+  version: v0.8.0
   url: https://github.com/onsocial-protocol/indexers/substreams
   description: High-performance substreams indexer for OnSocial protocol events
   doc: |
@@ -131,21 +131,21 @@ params:
 #
 #   # Core (sink.module = core_db_out)
 #   substreams-sink-sql run "$DATABASE_URL" \
-#     onsocial-events-v0.7.0-core.spkg \
+#     onsocial-events-v0.8.0-core.spkg \
 #     -e "$SUBSTREAMS_ENDPOINT" \
 #     -p map_core_output=contract_id=core.onsocial.testnet \
 #     --development-mode --infinite-retry
 #
 #   # Staking (sink.module = staking_db_out)
 #   substreams-sink-sql run "$DATABASE_URL" \
-#     onsocial-events-v0.7.0-staking.spkg \
+#     onsocial-events-v0.8.0-staking.spkg \
 #     -e "$SUBSTREAMS_ENDPOINT" \
 #     -p map_staking_output=contract_id=staking.onsocial.testnet \
 #     --development-mode --infinite-retry
 #
 #   # Token (sink.module = token_db_out)
 #   substreams-sink-sql run "$DATABASE_URL" \
-#     onsocial-events-v0.7.0-token.spkg \
+#     onsocial-events-v0.8.0-token.spkg \
 #     -e "$SUBSTREAMS_ENDPOINT" \
 #     -p map_token_output=contract_id=token.onsocial.testnet \
 #     --development-mode --infinite-retry

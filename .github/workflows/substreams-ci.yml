@@ -50,18 +50,24 @@ jobs:
           curl -sL https://github.com/streamingfast/substreams/releases/latest/download/substreams_linux_x86_64.tar.gz | tar xz -C /usr/local/bin
           substreams --version
 
+      - name: Extract version from substreams.yaml
+        id: ver
+        run: |
+          VER=$(grep -m1 'version:' substreams.yaml | awk '{print $2}')
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
       - name: Pack spkg (core)
-        run: substreams pack -o onsocial-events-v0.7.0-core.spkg
+        run: substreams pack -o "onsocial-events-${{ steps.ver.outputs.version }}-core.spkg"
 
       - name: Pack spkg (staking)
         run: |
           sed -i 's/module: core_db_out/module: staking_db_out/' substreams.yaml
-          substreams pack -o onsocial-events-v0.7.0-staking.spkg
+          substreams pack -o "onsocial-events-${{ steps.ver.outputs.version }}-staking.spkg"
 
       - name: Pack spkg (token)
         run: |
           sed -i 's/module: staking_db_out/module: token_db_out/' substreams.yaml
-          substreams pack -o onsocial-events-v0.7.0-token.spkg
+          substreams pack -o "onsocial-events-${{ steps.ver.outputs.version }}-token.spkg"
 
       - name: Restore substreams.yaml
         run: |
@@ -73,7 +79,7 @@ jobs:
         with:
           name: substreams-spkg
           path: |
-            indexers/substreams/onsocial-events-v0.7.0-core.spkg
-            indexers/substreams/onsocial-events-v0.7.0-staking.spkg
-            indexers/substreams/onsocial-events-v0.7.0-token.spkg
+            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-core.spkg
+            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-staking.spkg
+            indexers/substreams/onsocial-events-${{ steps.ver.outputs.version }}-token.spkg
           retention-days: 30
