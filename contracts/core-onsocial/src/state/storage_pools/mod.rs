@@ -5,4 +5,5 @@ mod helpers;
 mod platform_pool;
 mod shared_pool;
 mod shared_storage;
+mod tip;
 mod withdraw;

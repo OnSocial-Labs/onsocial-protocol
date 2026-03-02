@@ -15,6 +15,7 @@ pub(crate) enum ApiOperationKey<'a> {
     StorageGroupSponsorDefaultSet,
     StorageShareStorage,
     StorageReturnSharedStorage,
+    StorageTip,
 
     PermissionGrant,
     PermissionRevoke,
@@ -39,6 +40,7 @@ impl ApiOperationKey<'_> {
                 | Self::StorageGroupSponsorDefaultSet
                 | Self::StorageShareStorage
                 | Self::StorageReturnSharedStorage
+                | Self::StorageTip
         )
     }
 }
@@ -70,6 +72,7 @@ pub(crate) fn classify_api_operation_key(key: &str) -> Result<ApiOperationKey<'_
         "storage/group_sponsor_default_set" => ApiOperationKey::StorageGroupSponsorDefaultSet,
         "storage/share_storage" => ApiOperationKey::StorageShareStorage,
         "storage/return_shared_storage" => ApiOperationKey::StorageReturnSharedStorage,
+        "storage/tip" => ApiOperationKey::StorageTip,
 
         "permission/grant" => ApiOperationKey::PermissionGrant,
         "permission/revoke" => ApiOperationKey::PermissionRevoke,

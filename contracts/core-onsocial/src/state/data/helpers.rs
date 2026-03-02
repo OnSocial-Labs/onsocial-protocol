@@ -109,6 +109,9 @@ impl SocialPlatform {
             ApiOperationKey::StorageReturnSharedStorage => {
                 self.handle_api_return_shared_storage(account_id, &verified.actor_id, ctx)
             }
+            ApiOperationKey::StorageTip => {
+                self.handle_api_storage_tip(value, account_id, &verified.actor_id, ctx)
+            }
 
             ApiOperationKey::PermissionGrant => self.handle_api_permission_grant(
                 value,

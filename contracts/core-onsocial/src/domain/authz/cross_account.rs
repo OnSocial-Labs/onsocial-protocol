@@ -91,7 +91,8 @@ pub fn validate_cross_account_permissions_simple(
             | ApiOperationKey::StorageGroupSponsorQuotaSet
             | ApiOperationKey::StorageGroupSponsorDefaultSet
             | ApiOperationKey::StorageShareStorage
-            | ApiOperationKey::StorageReturnSharedStorage) => {
+            | ApiOperationKey::StorageReturnSharedStorage
+            | ApiOperationKey::StorageTip) => {
                 debug_assert!(op.requires_target_owner());
 
                 let action = match op {

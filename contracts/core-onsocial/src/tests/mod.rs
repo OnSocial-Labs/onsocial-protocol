@@ -28,6 +28,7 @@ pub mod unit {
     pub mod proposal_index_test; // Proposal sequence index view methods
     pub mod set_permission_signer_test; // Security test: set_permission uses signer not predecessor
     pub mod stats_test; // Group stats counter tests (underflow protection, timestamps)
+    pub mod storage_tip_test; // Storage tip (gasless NEAR micro-tipping) tests
     pub mod storage_tracker_helpers_test;
     pub mod storage_tracking_test; // Storage tracking correctness tests (validates storage.rs fixes)
     pub mod voting; // Voting tests
