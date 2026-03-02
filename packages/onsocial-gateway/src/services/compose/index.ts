@@ -60,14 +60,20 @@ export interface ComposeSetResult {
 export interface ComposeMintRequest {
   title: string;
   description?: string;
-  /** Optional: additional metadata fields */
+  /** Optional: additional metadata fields (NEP-177 `extra` — stringified JSON) */
   extra?: Record<string, unknown>;
-  /** Price in yoctoNEAR (string for u128 precision) */
-  price?: string;
   /** Number of copies (default 1) */
   copies?: number;
-  /** Collection ID for collection-based minting */
+  /** Collection ID for collection-based minting (uses MintFromCollection) */
   collectionId?: string;
+  /** Quantity to mint from collection (default 1, only for MintFromCollection) */
+  quantity?: number;
+  /** Receiver for collection mint (defaults to caller) */
+  receiverId?: string;
+  /** Royalty map: { "account.near": 2500 } = 25% (only for QuickMint) */
+  royalty?: Record<string, number>;
+  /** App ID for analytics attribution (only for QuickMint) */
+  appId?: string;
   /** Optional: override target account (which scarces contract) */
   targetAccount?: string;
 }
@@ -90,14 +96,16 @@ function getApiKey(): string {
   return key;
 }
 
-export async function uploadToLighthouse(file: UploadedFile): Promise<UploadResult> {
+export async function uploadToLighthouse(
+  file: UploadedFile
+): Promise<UploadResult> {
   const result = await lighthouse.uploadBuffer(file.buffer, getApiKey());
   const cid = result.data.Hash;
   const hash = createHash('sha256').update(file.buffer).digest('base64');
 
   return {
     cid,
-    size: result.data.Size,
+    size: Number(result.data.Size),
     url: `${GATEWAY_URL}/${cid}`,
     hash,
   };
@@ -105,7 +113,7 @@ export async function uploadToLighthouse(file: UploadedFile): Promise<UploadResu
 
 export async function uploadJsonToLighthouse(
   data: Record<string, unknown>,
-  filename = 'metadata.json',
+  filename = 'metadata.json'
 ): Promise<UploadResult> {
   const json = JSON.stringify(data);
   const buffer = Buffer.from(json);
@@ -115,7 +123,7 @@ export async function uploadJsonToLighthouse(
 
   return {
     cid,
-    size: result.data.Size,
+    size: Number(result.data.Size),
     url: `${GATEWAY_URL}/${cid}`,
     hash,
   };
@@ -126,7 +134,9 @@ export async function uploadJsonToLighthouse(
 // ---------------------------------------------------------------------------
 
 function relayHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
   if (config.relayApiKey) {
     headers['X-Api-Key'] = config.relayApiKey;
   }
@@ -136,7 +146,7 @@ function relayHeaders(): Record<string, string> {
 async function relayExecute(
   accountId: string,
   action: Record<string, unknown>,
-  targetAccount?: string,
+  targetAccount?: string
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const contractRequest = {
     target_account: targetAccount || accountId,
@@ -155,7 +165,13 @@ async function relayExecute(
     body: JSON.stringify(contractRequest),
   });
 
-  const data = await response.json();
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    const text = await response.text().catch(() => '(empty)');
+    data = { error: 'Relay returned non-JSON response', raw: text };
+  }
   return { ok: response.ok, status: response.status, data };
 }
 
@@ -170,21 +186,47 @@ function extractTxHash(data: unknown): string {
 // Compose: Set (core contract — any path)
 // ---------------------------------------------------------------------------
 
+// Max path depth / length (matches core contract limits)
+const MAX_PATH_DEPTH = 12;
+const MAX_PATH_LENGTH = 256;
+
+function validatePath(path: string): string | null {
+  if (path.length > MAX_PATH_LENGTH)
+    return `Path exceeds ${MAX_PATH_LENGTH} characters`;
+  if (path.split('/').length > MAX_PATH_DEPTH)
+    return `Path exceeds ${MAX_PATH_DEPTH} segments`;
+  if (path.startsWith('/') || path.endsWith('/'))
+    return 'Path must not start or end with /';
+  if (/\/\//.test(path)) return 'Path must not contain empty segments';
+  return null;
+}
+
 export async function composeSet(
   accountId: string,
   req: ComposeSetRequest,
-  files: UploadedFile[],
+  files: UploadedFile[]
 ): Promise<ComposeSetResult> {
-  // 1. Upload files to Lighthouse
-  const uploads: Record<string, UploadResult> = {};
-  for (const file of files) {
-    const result = await uploadToLighthouse(file);
-    uploads[file.fieldname] = result;
-    logger.info(
-      { accountId, cid: result.cid, field: file.fieldname, size: result.size },
-      'Compose: file uploaded to Lighthouse',
-    );
-  }
+  // 0. Validate path
+  const pathError = validatePath(req.path);
+  if (pathError) throw new ComposeError(400, pathError);
+
+  // 1. Upload files to Lighthouse (parallel)
+  const entries = await Promise.all(
+    files.map(async (file) => {
+      const result = await uploadToLighthouse(file);
+      logger.info(
+        {
+          accountId,
+          cid: result.cid,
+          field: file.fieldname,
+          size: result.size,
+        },
+        'Compose: file uploaded to Lighthouse'
+      );
+      return [file.fieldname, result] as const;
+    })
+  );
+  const uploads: Record<string, UploadResult> = Object.fromEntries(entries);
 
   // 2. Inject CIDs into value
   const value = { ...req.value };
@@ -223,59 +265,68 @@ export async function composeSet(
 export async function composeMint(
   accountId: string,
   req: ComposeMintRequest,
-  imageFile?: UploadedFile,
+  imageFile?: UploadedFile
 ): Promise<ComposeMintResult> {
   let media: UploadResult | undefined;
 
-  // 1. Upload image if provided
-  if (imageFile) {
+  // 1. Upload image if provided (only for QuickMint — collections have their own metadata)
+  if (imageFile && !req.collectionId) {
     media = await uploadToLighthouse(imageFile);
     logger.info(
       { accountId, cid: media.cid, size: media.size },
-      'Compose mint: image uploaded to Lighthouse',
+      'Compose mint: image uploaded to Lighthouse'
     );
   }
 
-  // 2. Build NEP-177 metadata
-  const tokenMetadata: Record<string, unknown> = {
-    title: req.title,
-    ...(req.description && { description: req.description }),
-    ...(media && { media: `ipfs://${media.cid}` }),
-    ...(media && { media_hash: media.hash }),
-    ...(req.copies && { copies: req.copies }),
-    ...(req.extra && { extra: JSON.stringify(req.extra) }),
-  };
+  // 2. Build action
+  let action: Record<string, unknown>;
+  let metadata: UploadResult | undefined;
 
-  // 3. Upload full metadata JSON to Lighthouse (OpenSea-compatible)
-  const fullMetadata = {
-    ...tokenMetadata,
-    ...(media && { image: `ipfs://${media.cid}` }),
-    name: req.title,
-    ...(req.description && { description: req.description }),
-    ...(req.extra || {}),
-  };
+  if (req.collectionId) {
+    // ── MintFromCollection ──────────────────────────────────────────
+    // Collection already has metadata/price configured. Caller only
+    // specifies collection_id, quantity, and optional receiver_id.
+    action = {
+      type: 'mint_from_collection',
+      collection_id: req.collectionId,
+      quantity: req.quantity ?? 1,
+      ...(req.receiverId && { receiver_id: req.receiverId }),
+    };
+  } else {
+    // ── QuickMint ──────────────────────────────────────────────────
+    // Build NEP-177 metadata for a standalone (non-collection) mint.
+    const tokenMetadata: Record<string, unknown> = {
+      title: req.title,
+      ...(req.description && { description: req.description }),
+      ...(media && { media: `ipfs://${media.cid}` }),
+      ...(media && { media_hash: media.hash }),
+      ...(req.copies && { copies: req.copies }),
+      ...(req.extra && { extra: JSON.stringify(req.extra) }),
+    };
 
-  const metadata = await uploadJsonToLighthouse(fullMetadata);
-  tokenMetadata.reference = `ipfs://${metadata.cid}`;
-  tokenMetadata.reference_hash = metadata.hash;
+    // 3. Upload full metadata JSON to Lighthouse (OpenSea-compatible)
+    const fullMetadata = {
+      ...tokenMetadata,
+      ...(media && { image: `ipfs://${media.cid}` }),
+      name: req.title,
+      ...(req.description && { description: req.description }),
+      ...(req.extra || {}),
+    };
 
-  // 4. Build mint action
-  const action: Record<string, unknown> = req.collectionId
-    ? {
-        type: 'mint_from_collection',
-        collection_id: req.collectionId,
-        metadata: tokenMetadata,
-        ...(req.price && { price: req.price }),
-      }
-    : {
-        type: 'quick_mint',
-        metadata: tokenMetadata,
-        options: {
-          ...(req.price && { price: req.price }),
-        },
-      };
+    metadata = await uploadJsonToLighthouse(fullMetadata);
+    tokenMetadata.reference = `ipfs://${metadata.cid}`;
+    tokenMetadata.reference_hash = metadata.hash;
 
-  // 5. Relay to scarces contract
+    // ScarceOptions fields are #[serde(flatten)]'d — they go at root level
+    action = {
+      type: 'quick_mint',
+      metadata: tokenMetadata,
+      ...(req.royalty && { royalty: req.royalty }),
+      ...(req.appId && { app_id: req.appId }),
+    };
+  }
+
+  // 4. Relay to scarces contract
   const targetAccount =
     req.targetAccount ||
     (config.nearNetwork === 'mainnet'
@@ -297,7 +348,7 @@ export async function composeMint(
 export class ComposeError extends Error {
   constructor(
     public status: number,
-    public details: unknown,
+    public details: unknown
   ) {
     super(typeof details === 'string' ? details : JSON.stringify(details));
     this.name = 'ComposeError';

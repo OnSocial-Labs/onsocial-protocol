@@ -43,6 +43,7 @@ import {
   ComposeError,
   type UploadedFile,
 } from '../../src/services/compose/index.js';
+import { config } from '../../src/config/index.js';
 
 // Get mock references after import
 const mockUploadBuffer = vi.mocked(lighthouse.uploadBuffer);
@@ -105,11 +106,13 @@ describe('uploadToLighthouse', () => {
 
     expect(mockUploadBuffer).toHaveBeenCalledWith(
       expect.any(Buffer),
-      'test-lighthouse-key',
+      'test-lighthouse-key'
     );
     expect(result.cid).toBe('QmPhoto123');
     expect(result.size).toBe(1024);
-    expect(result.url).toBe('https://gateway.lighthouse.storage/ipfs/QmPhoto123');
+    expect(result.url).toBe(
+      'https://gateway.lighthouse.storage/ipfs/QmPhoto123'
+    );
     expect(result.hash).toBeTruthy();
     // Hash should be consistent for same content
     const result2 = await uploadToLighthouse(makeFile());
@@ -123,7 +126,7 @@ describe('uploadToLighthouse', () => {
     (config as Record<string, unknown>).lighthouseApiKey = '';
 
     await expect(uploadToLighthouse(makeFile())).rejects.toThrow(
-      'LIGHTHOUSE_API_KEY not configured',
+      'LIGHTHOUSE_API_KEY not configured'
     );
 
     (config as Record<string, unknown>).lighthouseApiKey = origKey;
@@ -141,11 +144,13 @@ describe('uploadJsonToLighthouse', () => {
     expect(mockUploadText).toHaveBeenCalledWith(
       JSON.stringify({ name: 'Test', value: 123 }),
       'test-lighthouse-key',
-      'metadata.json',
+      'metadata.json'
     );
     expect(result.cid).toBe('QmJsonCid789');
     expect(result.size).toBe(42);
-    expect(result.url).toBe('https://gateway.lighthouse.storage/ipfs/QmJsonCid789');
+    expect(result.url).toBe(
+      'https://gateway.lighthouse.storage/ipfs/QmJsonCid789'
+    );
     expect(result.hash).toBeTruthy();
   });
 });
@@ -159,7 +164,7 @@ describe('composeSet', () => {
     const result = await composeSet(
       'alice.testnet',
       { path: 'profile/bio', value: { text: 'Developer' } },
-      [],
+      []
     );
 
     expect(result.txHash).toBe('tx_set_no_file');
@@ -183,7 +188,7 @@ describe('composeSet', () => {
     const result = await composeSet(
       'alice.testnet',
       { path: 'post/main', value: { text: 'Hello' }, mediaField: 'image' },
-      [makeFile()],
+      [makeFile()]
     );
 
     expect(result.txHash).toBe('tx_with_media');
@@ -206,7 +211,7 @@ describe('composeSet', () => {
     const result = await composeSet(
       'alice.testnet',
       { path: 'post/gallery', value: { title: 'Vacation' } },
-      [file],
+      [file]
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -234,7 +239,7 @@ describe('composeSet', () => {
     const result = await composeSet(
       'alice.testnet',
       { path: 'post/product', value: { name: 'Shoe' } },
-      files,
+      files
     );
 
     expect(Object.keys(result.uploads)).toHaveLength(2);
@@ -253,7 +258,7 @@ describe('composeSet', () => {
     await composeSet(
       'alice.testnet',
       { path: 'groups/dao/media/photo1', value: { caption: 'Meeting' } },
-      [],
+      []
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -271,7 +276,7 @@ describe('composeSet', () => {
         path: 'app/recipes/pasta/carbonara',
         value: { ingredients: ['eggs', 'pecorino'] },
       },
-      [],
+      []
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -290,7 +295,7 @@ describe('composeSet', () => {
         value: { text: 'On behalf' },
         targetAccount: 'bob.testnet',
       },
-      [],
+      []
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -301,7 +306,7 @@ describe('composeSet', () => {
     mockRelayFailure(400, 'Bad action');
 
     await expect(
-      composeSet('alice.testnet', { path: 'post/x', value: {} }, []),
+      composeSet('alice.testnet', { path: 'post/x', value: {} }, [])
     ).rejects.toThrow(ComposeError);
 
     try {
@@ -329,6 +334,47 @@ describe('composeSet', () => {
 
     expect(mockFetch.mock.calls[0][0]).toBe('http://localhost:3030/execute');
   });
+
+  it('rejects path exceeding max length', async () => {
+    const longPath = 'a'.repeat(257);
+    await expect(
+      composeSet('alice.testnet', { path: longPath, value: {} }, [])
+    ).rejects.toThrow(ComposeError);
+  });
+
+  it('rejects path exceeding max depth', async () => {
+    const deepPath = Array.from({ length: 13 }, (_, i) => `s${i}`).join('/');
+    await expect(
+      composeSet('alice.testnet', { path: deepPath, value: {} }, [])
+    ).rejects.toThrow(ComposeError);
+  });
+
+  it('rejects path with empty segments', async () => {
+    await expect(
+      composeSet('alice.testnet', { path: 'post//main', value: {} }, [])
+    ).rejects.toThrow(ComposeError);
+  });
+
+  it('uploads files in parallel', async () => {
+    const uploadOrder: number[] = [];
+    let callIdx = 0;
+    mockUploadBuffer.mockImplementation(() => {
+      const idx = ++callIdx;
+      uploadOrder.push(idx);
+      return Promise.resolve({ data: { Hash: `QmPar${idx}`, Size: 100 } });
+    });
+    mockRelaySuccess();
+
+    const files = [
+      makeFile({ fieldname: 'a' }),
+      makeFile({ fieldname: 'b' }),
+      makeFile({ fieldname: 'c' }),
+    ];
+    await composeSet('alice.testnet', { path: 'post/x', value: {} }, files);
+
+    // All 3 uploads should have been initiated
+    expect(mockUploadBuffer).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe('composeMint', () => {
@@ -342,14 +388,14 @@ describe('composeMint', () => {
     const result = await composeMint(
       'alice.testnet',
       { title: 'Sunset Art', description: 'A sunset' },
-      makeFile(),
+      makeFile()
     );
 
     expect(result.txHash).toBe('tx_mint');
     expect(result.media!.cid).toBe('QmArtCid');
     expect(result.metadata!.cid).toBe('QmMetaCid');
 
-    // Verify relay action
+    // Verify relay action — ScarceOptions fields are flattened at root
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action.type).toBe('quick_mint');
     expect(body.action.metadata.title).toBe('Sunset Art');
@@ -358,6 +404,8 @@ describe('composeMint', () => {
     expect(body.action.metadata.media_hash).toBeTruthy();
     expect(body.action.metadata.reference).toBe('ipfs://QmMetaCid');
     expect(body.action.metadata.reference_hash).toBeTruthy();
+    // No nested options object
+    expect(body.action.options).toBeUndefined();
   });
 
   it('mints NFT without image', async () => {
@@ -367,7 +415,7 @@ describe('composeMint', () => {
     const result = await composeMint(
       'alice.testnet',
       { title: 'Text NFT' },
-      undefined,
+      undefined
     );
 
     expect(result.txHash).toBe('tx_mint_noimg');
@@ -379,34 +427,99 @@ describe('composeMint', () => {
     expect(body.action.metadata.reference).toBe('ipfs://QmMetaOnly');
   });
 
-  it('includes price in QuickMint options', async () => {
+  it('includes royalty in QuickMint (flattened)', async () => {
     mockLighthouseText('QmM', 50);
     mockRelaySuccess();
 
     await composeMint(
       'alice.testnet',
-      { title: 'Priced', price: '1000000000000000000000000' },
-      undefined,
+      { title: 'Royalty NFT', royalty: { 'artist.testnet': 2500 } },
+      undefined
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-    expect(body.action.options.price).toBe('1000000000000000000000000');
+    expect(body.action.type).toBe('quick_mint');
+    expect(body.action.royalty).toEqual({ 'artist.testnet': 2500 });
+    // Flattened → no options wrapper
+    expect(body.action.options).toBeUndefined();
   });
 
   it('uses MintFromCollection when collectionId provided', async () => {
-    mockLighthouseText('QmCol', 50);
     mockRelaySuccess();
 
     await composeMint(
       'alice.testnet',
-      { title: 'Collection Item', collectionId: 'col-001', price: '500' },
-      undefined,
+      { title: 'Collection Item', collectionId: 'col-001', quantity: 3 },
+      undefined
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action.type).toBe('mint_from_collection');
     expect(body.action.collection_id).toBe('col-001');
-    expect(body.action.price).toBe('500');
+    expect(body.action.quantity).toBe(3);
+    // MintFromCollection has NO metadata or price — those live on the collection
+    expect(body.action.metadata).toBeUndefined();
+    expect(body.action.price).toBeUndefined();
+  });
+
+  it('MintFromCollection defaults quantity to 1', async () => {
+    mockRelaySuccess();
+
+    await composeMint(
+      'alice.testnet',
+      { title: 'ignored for collection', collectionId: 'col-002' },
+      undefined
+    );
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.action.quantity).toBe(1);
+  });
+
+  it('MintFromCollection skips Lighthouse upload', async () => {
+    mockRelaySuccess();
+
+    await composeMint(
+      'alice.testnet',
+      { title: 'ignored', collectionId: 'col-003' },
+      undefined
+    );
+
+    // No Lighthouse calls — collection mint uses pre-configured metadata
+    expect(mockUploadBuffer).not.toHaveBeenCalled();
+    expect(mockUploadText).not.toHaveBeenCalled();
+  });
+
+  it('MintFromCollection ignores image file even if provided', async () => {
+    mockRelaySuccess();
+
+    const result = await composeMint(
+      'alice.testnet',
+      { title: 'ignored', collectionId: 'col-003' },
+      {
+        fieldname: 'image',
+        originalname: 'photo.png',
+        buffer: Buffer.from('img'),
+        mimetype: 'image/png',
+        size: 3,
+      }
+    );
+
+    // Image should NOT be uploaded for collection mints
+    expect(mockUploadBuffer).not.toHaveBeenCalled();
+    expect(result.media).toBeUndefined();
+  });
+
+  it('MintFromCollection passes receiver_id', async () => {
+    mockRelaySuccess();
+
+    await composeMint(
+      'alice.testnet',
+      { title: 'Gift', collectionId: 'col-004', receiverId: 'bob.testnet' },
+      undefined
+    );
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.action.receiver_id).toBe('bob.testnet');
   });
 
   it('includes copies in metadata', async () => {
@@ -416,7 +529,7 @@ describe('composeMint', () => {
     await composeMint(
       'alice.testnet',
       { title: 'Edition', copies: 100 },
-      undefined,
+      undefined
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -431,14 +544,20 @@ describe('composeMint', () => {
       'alice.testnet',
       {
         title: 'Rich NFT',
-        extra: { rarity: 'legendary', attributes: [{ trait: 'color', value: 'gold' }] },
+        extra: {
+          rarity: 'legendary',
+          attributes: [{ trait: 'color', value: 'gold' }],
+        },
       },
-      undefined,
+      undefined
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.action.metadata.extra).toBe(
-      JSON.stringify({ rarity: 'legendary', attributes: [{ trait: 'color', value: 'gold' }] }),
+      JSON.stringify({
+        rarity: 'legendary',
+        attributes: [{ trait: 'color', value: 'gold' }],
+      })
     );
   });
 
@@ -452,6 +571,21 @@ describe('composeMint', () => {
     expect(body.target_account).toBe('scarces.onsocial.testnet');
   });
 
+  it('targets scarces.onsocial.near on mainnet', async () => {
+    const orig = config.nearNetwork;
+    (config as Record<string, unknown>).nearNetwork = 'mainnet';
+
+    mockLighthouseText('QmMain', 50);
+    mockRelaySuccess();
+
+    await composeMint('alice.near', { title: 'Mainnet' }, undefined);
+
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.target_account).toBe('scarces.onsocial.near');
+
+    (config as Record<string, unknown>).nearNetwork = orig;
+  });
+
   it('allows custom targetAccount override', async () => {
     mockLighthouseText('QmT', 50);
     mockRelaySuccess();
@@ -459,7 +593,7 @@ describe('composeMint', () => {
     await composeMint(
       'alice.testnet',
       { title: 'Test', targetAccount: 'custom-nft.testnet' },
-      undefined,
+      undefined
     );
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -471,7 +605,7 @@ describe('composeMint', () => {
     mockRelayFailure(500, 'Mint failed');
 
     await expect(
-      composeMint('alice.testnet', { title: 'Fail' }, undefined),
+      composeMint('alice.testnet', { title: 'Fail' }, undefined)
     ).rejects.toThrow(ComposeError);
   });
 });
