@@ -40,6 +40,9 @@ import {
   uploadJsonToLighthouse,
   composeSet,
   composeMint,
+  buildSetAction,
+  buildMintAction,
+  intentAuth,
   ComposeError,
   type UploadedFile,
 } from '../../src/services/compose/index.js';
@@ -622,5 +625,158 @@ describe('ComposeError', () => {
   it('handles string details', () => {
     const err = new ComposeError(400, 'Bad request');
     expect(err.message).toBe('Bad request');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// intentAuth helper
+// ---------------------------------------------------------------------------
+
+describe('intentAuth', () => {
+  it('builds an intent auth block', () => {
+    const auth = intentAuth('alice.testnet');
+    expect(auth).toEqual({
+      type: 'intent',
+      actor_id: 'alice.testnet',
+      intent: {},
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildSetAction (prepare — no relay)
+// ---------------------------------------------------------------------------
+
+describe('buildSetAction', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('builds action without files and does not call relay', async () => {
+    const result = await buildSetAction(
+      'alice.testnet',
+      { path: 'profile/bio', value: { text: 'Developer' } },
+      []
+    );
+
+    expect(result.action).toEqual({
+      type: 'set',
+      data: { 'profile/bio': { text: 'Developer' } },
+    });
+    expect(result.targetAccount).toBe('alice.testnet');
+    expect(Object.keys(result.uploads)).toHaveLength(0);
+    // No relay call
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('uploads files and injects CIDs into the action', async () => {
+    mockLighthouseUpload('QmPrepCid', 2000);
+
+    const result = await buildSetAction(
+      'alice.testnet',
+      { path: 'post/main', value: { text: 'Hello' }, mediaField: 'image' },
+      [makeFile()]
+    );
+
+    expect(result.uploads['image'].cid).toBe('QmPrepCid');
+    const value = (
+      result.action as { data: Record<string, Record<string, unknown>> }
+    ).data['post/main'];
+    expect(value.image).toBe('ipfs://QmPrepCid');
+    expect(value.image_hash).toBeTruthy();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('respects targetAccount override', async () => {
+    const result = await buildSetAction(
+      'alice.testnet',
+      { path: 'post/x', value: {}, targetAccount: 'bob.testnet' },
+      []
+    );
+
+    expect(result.targetAccount).toBe('bob.testnet');
+  });
+
+  it('validates path (rejects invalid paths)', async () => {
+    await expect(
+      buildSetAction('alice.testnet', { path: 'post//main', value: {} }, [])
+    ).rejects.toThrow(ComposeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildMintAction (prepare — no relay)
+// ---------------------------------------------------------------------------
+
+describe('buildMintAction', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('builds QuickMint action with image upload', async () => {
+    mockLighthouseUpload('QmPrepArt', 5000);
+    mockLighthouseText('QmPrepMeta', 300);
+
+    const result = await buildMintAction(
+      'alice.testnet',
+      { title: 'Sunset', description: 'A sunset' },
+      makeFile()
+    );
+
+    expect(result.action).toMatchObject({
+      type: 'quick_mint',
+      metadata: {
+        title: 'Sunset',
+        description: 'A sunset',
+        media: 'ipfs://QmPrepArt',
+        reference: 'ipfs://QmPrepMeta',
+      },
+    });
+    expect(result.media!.cid).toBe('QmPrepArt');
+    expect(result.metadata!.cid).toBe('QmPrepMeta');
+    expect(result.targetAccount).toBe('scarces.onsocial.testnet');
+    // No relay call
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('builds MintFromCollection action without uploads', async () => {
+    const result = await buildMintAction(
+      'alice.testnet',
+      { title: 'ignored', collectionId: 'col-001', quantity: 5 },
+      undefined
+    );
+
+    expect(result.action).toEqual({
+      type: 'mint_from_collection',
+      collection_id: 'col-001',
+      quantity: 5,
+    });
+    expect(result.media).toBeUndefined();
+    expect(result.metadata).toBeUndefined();
+    expect(mockUploadBuffer).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('respects targetAccount override', async () => {
+    mockLighthouseText('QmT', 50);
+
+    const result = await buildMintAction(
+      'alice.testnet',
+      { title: 'Test', targetAccount: 'custom-nft.testnet' },
+      undefined
+    );
+
+    expect(result.targetAccount).toBe('custom-nft.testnet');
+  });
+
+  it('includes royalty in QuickMint action', async () => {
+    mockLighthouseText('QmR', 50);
+
+    const result = await buildMintAction(
+      'alice.testnet',
+      { title: 'Royalty', royalty: { 'artist.testnet': 2500 } },
+      undefined
+    );
+
+    expect(result.action).toMatchObject({
+      type: 'quick_mint',
+      royalty: { 'artist.testnet': 2500 },
+    });
   });
 });

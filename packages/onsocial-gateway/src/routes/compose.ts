@@ -19,6 +19,8 @@ import { logger } from '../logger.js';
 import {
   composeSet,
   composeMint,
+  buildSetAction,
+  buildMintAction,
   ComposeError,
   type UploadedFile,
 } from '../services/compose/index.js';
@@ -257,6 +259,217 @@ composeRouter.post(
         'Compose mint failed'
       );
       res.status(500).json({ error: 'Compose mint failed' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /compose/prepare/set — Build action without relaying (for SDK signing)
+//
+// Same input as /compose/set. Uploads files to Lighthouse and returns the
+// built action + target_account so the SDK can sign with the user's key
+// and relay via POST /relay/signed (signed_payload auth).
+//
+// Response:
+//   {
+//     action:        { type: "set", data: {...} },
+//     target_account: "alice.testnet",
+//     uploads:       { image: { cid, url, size, hash } }
+//   }
+// ---------------------------------------------------------------------------
+composeRouter.post(
+  '/prepare/set',
+  upload.any(),
+  async (req: Request, res: Response) => {
+    const accountId = req.auth!.accountId;
+
+    try {
+      const path = req.body.path;
+      if (!path || typeof path !== 'string') {
+        res.status(400).json({ error: 'Missing required field: path' });
+        return;
+      }
+
+      let value: Record<string, unknown>;
+      if (typeof req.body.value === 'string') {
+        try {
+          value = JSON.parse(req.body.value);
+        } catch {
+          res.status(400).json({ error: 'Invalid JSON in value field' });
+          return;
+        }
+      } else if (
+        typeof req.body.value === 'object' &&
+        req.body.value !== null
+      ) {
+        value = req.body.value;
+      } else {
+        value = {};
+      }
+
+      const mediaField = req.body.mediaField || undefined;
+      const targetAccount = req.body.targetAccount || undefined;
+
+      const files: UploadedFile[] = [];
+      if (req.files && Array.isArray(req.files)) {
+        for (const f of req.files) {
+          files.push({
+            fieldname: f.fieldname,
+            originalname: f.originalname,
+            buffer: f.buffer,
+            mimetype: f.mimetype,
+            size: f.size,
+          });
+        }
+      }
+
+      const built = await buildSetAction(
+        accountId,
+        { path, value, mediaField, targetAccount },
+        files
+      );
+
+      res.status(200).json({
+        action: built.action,
+        target_account: built.targetAccount,
+        uploads: Object.fromEntries(
+          Object.entries(built.uploads).map(([k, v]) => [
+            k,
+            { cid: v.cid, url: v.url, size: v.size, hash: v.hash },
+          ])
+        ),
+      });
+    } catch (error) {
+      if (error instanceof ComposeError) {
+        res.status(error.status).json({ error: error.details });
+        return;
+      }
+      logger.error({ error, accountId }, 'Compose prepare/set failed');
+      res.status(500).json({ error: 'Compose prepare/set failed' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /compose/prepare/mint — Build mint action without relaying
+//
+// Same input as /compose/mint. Uploads media + metadata JSON to Lighthouse,
+// returns the built action so the SDK can sign and relay.
+//
+// Response:
+//   {
+//     action:         { type: "quick_mint", metadata: {...} },
+//     target_account: "scarces.onsocial.testnet",
+//     media:          { cid, url, size, hash },
+//     metadata:       { cid, url, size, hash }
+//   }
+// ---------------------------------------------------------------------------
+composeRouter.post(
+  '/prepare/mint',
+  upload.single('image'),
+  async (req: Request, res: Response) => {
+    const accountId = req.auth!.accountId;
+
+    try {
+      const {
+        title,
+        description,
+        copies,
+        collectionId,
+        extra,
+        targetAccount,
+        quantity,
+        receiverId,
+        royalty,
+        appId,
+      } = req.body;
+
+      if (!title || typeof title !== 'string') {
+        res.status(400).json({ error: 'Missing required field: title' });
+        return;
+      }
+
+      let parsedExtra: Record<string, unknown> | undefined;
+      if (typeof extra === 'string') {
+        try {
+          parsedExtra = JSON.parse(extra);
+        } catch {
+          res.status(400).json({ error: 'Invalid JSON in extra field' });
+          return;
+        }
+      } else if (typeof extra === 'object' && extra !== null) {
+        parsedExtra = extra;
+      }
+
+      let parsedRoyalty: Record<string, number> | undefined;
+      if (typeof royalty === 'string') {
+        try {
+          parsedRoyalty = JSON.parse(royalty);
+        } catch {
+          res.status(400).json({ error: 'Invalid JSON in royalty field' });
+          return;
+        }
+      } else if (typeof royalty === 'object' && royalty !== null) {
+        parsedRoyalty = royalty;
+      }
+
+      const imageFile: UploadedFile | undefined = req.file
+        ? {
+            fieldname: req.file.fieldname,
+            originalname: req.file.originalname,
+            buffer: req.file.buffer,
+            mimetype: req.file.mimetype,
+            size: req.file.size,
+          }
+        : undefined;
+
+      const built = await buildMintAction(
+        accountId,
+        {
+          title,
+          ...(description && { description }),
+          ...(copies && { copies: parseInt(copies, 10) }),
+          ...(collectionId && { collectionId }),
+          ...(quantity && { quantity: parseInt(quantity, 10) }),
+          ...(receiverId && { receiverId }),
+          ...(parsedExtra && { extra: parsedExtra }),
+          ...(parsedRoyalty && { royalty: parsedRoyalty }),
+          ...(appId && { appId }),
+          ...(targetAccount && { targetAccount }),
+        },
+        imageFile
+      );
+
+      res.status(200).json({
+        action: built.action,
+        target_account: built.targetAccount,
+        media: built.media
+          ? {
+              cid: built.media.cid,
+              url: built.media.url,
+              size: built.media.size,
+              hash: built.media.hash,
+            }
+          : undefined,
+        metadata: built.metadata
+          ? {
+              cid: built.metadata.cid,
+              url: built.metadata.url,
+              size: built.metadata.size,
+              hash: built.metadata.hash,
+            }
+          : undefined,
+      });
+    } catch (error) {
+      if (error instanceof ComposeError) {
+        res.status(error.status).json({ error: error.details });
+        return;
+      }
+      logger.error(
+        { error, accountId: req.auth!.accountId },
+        'Compose prepare/mint failed'
+      );
+      res.status(500).json({ error: 'Compose prepare/mint failed' });
     }
   }
 );

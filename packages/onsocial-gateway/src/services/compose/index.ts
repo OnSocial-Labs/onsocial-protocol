@@ -19,6 +19,7 @@ import lighthouse from '@lighthouse-web3/sdk';
 import { createHash } from 'node:crypto';
 import { config } from '../../config/index.js';
 import { logger } from '../../logger.js';
+import type { ContractAuth, IntentAuth } from '../../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,6 +85,21 @@ export interface ComposeMintResult {
   metadata?: UploadResult;
 }
 
+/** Prepared Set action ready for signing (returned by prepare endpoints). */
+export interface SetActionResult {
+  action: Record<string, unknown>;
+  targetAccount: string;
+  uploads: Record<string, UploadResult>;
+}
+
+/** Prepared Mint action ready for signing (returned by prepare endpoints). */
+export interface MintActionResult {
+  action: Record<string, unknown>;
+  targetAccount: string;
+  media?: UploadResult;
+  metadata?: UploadResult;
+}
+
 // ---------------------------------------------------------------------------
 // Lighthouse upload
 // ---------------------------------------------------------------------------
@@ -143,19 +159,20 @@ function relayHeaders(): Record<string, string> {
   return headers;
 }
 
+/** Build an intent auth block (gateway acts on behalf of user via relayer). */
+export function intentAuth(actorId: string): IntentAuth {
+  return { type: 'intent', actor_id: actorId, intent: {} };
+}
+
 async function relayExecute(
-  accountId: string,
+  auth: ContractAuth,
   action: Record<string, unknown>,
-  targetAccount?: string
+  targetAccount: string
 ): Promise<{ ok: boolean; status: number; data: unknown }> {
   const contractRequest = {
-    target_account: targetAccount || accountId,
+    target_account: targetAccount,
     action,
-    auth: {
-      type: 'intent',
-      actor_id: accountId,
-      intent: {},
-    },
+    auth,
   };
 
   const response = await fetch(`${config.relayUrl}/execute`, {
@@ -201,11 +218,19 @@ function validatePath(path: string): string | null {
   return null;
 }
 
-export async function composeSet(
+/**
+ * Build a Set action — uploads files to Lighthouse, injects CIDs into
+ * the value, and returns the action object without relaying.
+ *
+ * Used by:
+ *   - composeSet()           → intent auth (server/API-key callers)
+ *   - /compose/prepare/set   → returns action for SDK signing (signed_payload)
+ */
+export async function buildSetAction(
   accountId: string,
   req: ComposeSetRequest,
   files: UploadedFile[]
-): Promise<ComposeSetResult> {
+): Promise<SetActionResult> {
   // 0. Validate path
   const pathError = validatePath(req.path);
   if (pathError) throw new ComposeError(400, pathError);
@@ -244,29 +269,62 @@ export async function composeSet(
     }
   }
 
-  // 3. Relay to core contract
+  // 3. Build action (no relay — caller decides auth mode)
   const action = {
     type: 'set',
     data: { [req.path]: value },
   };
 
-  const relay = await relayExecute(accountId, action, req.targetAccount);
+  return {
+    action,
+    targetAccount: req.targetAccount || accountId,
+    uploads,
+  };
+}
+
+/**
+ * Compose: Set — uploads files, builds action, relays via intent auth.
+ * For signed-payload flow, use buildSetAction() + /relay/signed instead.
+ */
+export async function composeSet(
+  accountId: string,
+  req: ComposeSetRequest,
+  files: UploadedFile[]
+): Promise<ComposeSetResult> {
+  const built = await buildSetAction(accountId, req, files);
+  const relay = await relayExecute(
+    intentAuth(accountId),
+    built.action,
+    built.targetAccount
+  );
   if (!relay.ok) {
     throw new ComposeError(relay.status, relay.data);
   }
 
-  return { txHash: extractTxHash(relay.data), path: req.path, uploads };
+  return {
+    txHash: extractTxHash(relay.data),
+    path: req.path,
+    uploads: built.uploads,
+  };
 }
 
 // ---------------------------------------------------------------------------
 // Compose: Mint (scarces contract — NFT)
 // ---------------------------------------------------------------------------
 
-export async function composeMint(
+/**
+ * Build a Mint action — uploads media/metadata to Lighthouse, returns
+ * the action object without relaying.
+ *
+ * Used by:
+ *   - composeMint()           → intent auth (server/API-key callers)
+ *   - /compose/prepare/mint   → returns action for SDK signing (signed_payload)
+ */
+export async function buildMintAction(
   accountId: string,
   req: ComposeMintRequest,
   imageFile?: UploadedFile
-): Promise<ComposeMintResult> {
+): Promise<MintActionResult> {
   let media: UploadResult | undefined;
 
   // 1. Upload image if provided (only for QuickMint — collections have their own metadata)
@@ -326,19 +384,40 @@ export async function composeMint(
     };
   }
 
-  // 4. Relay to scarces contract
+  // 4. Resolve target account
   const targetAccount =
     req.targetAccount ||
     (config.nearNetwork === 'mainnet'
       ? 'scarces.onsocial.near'
       : 'scarces.onsocial.testnet');
 
-  const relay = await relayExecute(accountId, action, targetAccount);
+  return { action, targetAccount, media, metadata };
+}
+
+/**
+ * Compose: Mint — uploads media/metadata, builds action, relays via intent auth.
+ * For signed-payload flow, use buildMintAction() + /relay/signed instead.
+ */
+export async function composeMint(
+  accountId: string,
+  req: ComposeMintRequest,
+  imageFile?: UploadedFile
+): Promise<ComposeMintResult> {
+  const built = await buildMintAction(accountId, req, imageFile);
+  const relay = await relayExecute(
+    intentAuth(accountId),
+    built.action,
+    built.targetAccount
+  );
   if (!relay.ok) {
     throw new ComposeError(relay.status, relay.data);
   }
 
-  return { txHash: extractTxHash(relay.data), media, metadata };
+  return {
+    txHash: extractTxHash(relay.data),
+    media: built.media,
+    metadata: built.metadata,
+  };
 }
 
 // ---------------------------------------------------------------------------
