@@ -6,10 +6,12 @@ on:
     paths:
       - 'indexers/substreams/**'
       - '.github/workflows/substreams-ci.yml'
+      - '.github/workflows/deploy-substreams-testnet.yml'
   pull_request:
     paths:
       - 'indexers/substreams/**'
       - '.github/workflows/substreams-ci.yml'
+      - '.github/workflows/deploy-substreams-testnet.yml'
 
 defaults:
   run:
