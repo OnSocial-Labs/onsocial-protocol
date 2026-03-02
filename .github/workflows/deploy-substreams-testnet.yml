@@ -191,11 +191,39 @@ jobs:
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkgs swapped"
 
-            # Update systemd service files to reference the new version
+            # Create or update systemd service files
+            DB_URL=""
+            [ -f /root/.onsocial-sink-db-url ] && DB_URL=$(cat /root/.onsocial-sink-db-url)
+            ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
+
             for variant in core staking token scarces; do
               UNIT="/etc/systemd/system/onsocial-sink-${variant}.service"
               if [ -f "$UNIT" ]; then
+                # Existing unit — just update spkg version
                 sed -i "s|onsocial-events-v[0-9.]*-${variant}.spkg|onsocial-events-${VER}-${variant}.spkg|g" "$UNIT"
+              else
+                # New contract — create systemd unit from template
+                echo "📝 Creating new systemd unit: onsocial-sink-${variant}"
+                cat > "$UNIT" <<UNITEOF
+            [Unit]
+            Description=OnSocial Substreams Sink - ${variant}
+            After=network.target postgresql.service
+
+            [Service]
+            Type=simple
+            Environment=SUBSTREAMS_API_TOKEN=
+            ExecStart=/usr/local/bin/substreams-sink-sql run \
+              ${DB_URL} \
+              ${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg \
+              -e ${ENDPOINT} \
+              -p map_${variant}_output=contract_id=${variant}.onsocial.testnet \
+              --infinite-retry
+            Restart=on-failure
+            RestartSec=15
+
+            [Install]
+            WantedBy=multi-user.target
+            UNITEOF
               fi
             done
             systemctl daemon-reload
