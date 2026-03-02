@@ -25,17 +25,18 @@ pub struct EventLog<'a> {
 ///
 /// Params format: `contract_id=core.onsocial.testnet`
 pub fn parse_contract_filter(params: &str) -> Option<String> {
-    params
-        .split('=')
-        .nth(1)
-        .map(|s| s.trim().to_string())
+    params.split('=').nth(1).map(|s| s.trim().to_string())
 }
 
 /// Extract block metadata from block header.
 pub fn block_context(block: &Block) -> BlockContext {
     BlockContext {
         block_height: block.header.as_ref().map(|h| h.height).unwrap_or(0),
-        block_timestamp: block.header.as_ref().map(|h| h.timestamp_nanosec).unwrap_or(0),
+        block_timestamp: block
+            .header
+            .as_ref()
+            .map(|h| h.timestamp_nanosec)
+            .unwrap_or(0),
         block_hash: block
             .header
             .as_ref()
@@ -76,10 +77,8 @@ where
 
             let receiver_id = &receipt.receiver_id;
 
-            if let Some(filter) = contract_filter {
-                if receiver_id != filter {
-                    continue;
-                }
+            if contract_filter.is_some_and(|filter| receiver_id != filter) {
+                continue;
             }
 
             let receipt_id = receipt

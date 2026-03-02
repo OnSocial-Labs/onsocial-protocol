@@ -3,11 +3,11 @@
 //! Converts TokenOutput to DatabaseChanges for substreams-sink-sql.
 //! Writes to: token_events, token_balances
 
+use crate::pb::token::v1::token_event::Payload;
+use crate::pb::token::v1::*;
 use std::collections::HashMap;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
-use crate::pb::token::v1::*;
-use crate::pb::token::v1::token_event::Payload;
 
 /// Accumulated token balance fields (one entry per account per block scope).
 #[derive(Default)]
@@ -71,9 +71,14 @@ pub(crate) fn write_token_event(tables: &mut Tables, event: &TokenEvent) {
     }
 }
 
-pub(crate) fn accumulate_token_balances(accum: &mut HashMap<String, BalanceAccum>, event: &TokenEvent) {
+pub(crate) fn accumulate_token_balances(
+    accum: &mut HashMap<String, BalanceAccum>,
+    event: &TokenEvent,
+) {
     let mut touch = |account_id: &str, event_type: &str| {
-        if account_id.is_empty() { return; }
+        if account_id.is_empty() {
+            return;
+        }
         let entry = accum.entry(account_id.to_string()).or_default();
         entry.last_event_type = event_type.to_string();
         entry.last_event_block = event.block_height.to_string();

@@ -74,12 +74,34 @@ CREATE TABLE IF NOT EXISTS group_updates (
   operation TEXT,
   author TEXT,
   partition_id INTEGER,
+
+  -- Group identification
   group_id TEXT,
+
+  -- Member fields
   member_id TEXT,
+  member_nonce BIGINT,
+  member_nonce_path TEXT,
   role TEXT,
   level INTEGER,
+
+  -- Path and value
   path TEXT,
   value TEXT,
+
+  -- Pool fields
+  pool_key TEXT,
+  amount TEXT,
+  previous_pool_balance TEXT,
+  new_pool_balance TEXT,
+
+  -- Sponsor quota
+  quota_bytes TEXT,
+  quota_used TEXT,
+  daily_limit TEXT,
+  previously_enabled BOOLEAN,
+
+  -- Proposal fields
   proposal_id TEXT,
   proposal_type TEXT,
   status TEXT,
@@ -91,6 +113,10 @@ CREATE TABLE IF NOT EXISTS group_updates (
   locked_member_count INTEGER,
   locked_deposit TEXT,
   expires_at BIGINT,
+  tally_path TEXT,
+  counter_path TEXT,
+
+  -- Voting fields
   voter TEXT,
   approve BOOLEAN,
   total_votes INTEGER,
@@ -99,7 +125,24 @@ CREATE TABLE IF NOT EXISTS group_updates (
   should_execute BOOLEAN,
   should_reject BOOLEAN,
   voted_at BIGINT,
-  member_nonce BIGINT,
+
+  -- Voting config
+  voting_period BIGINT,
+  participation_quorum INTEGER,
+  approval_threshold INTEGER,
+
+  -- Permission fields
+  permission_key TEXT,
+  permission_value TEXT,
+  permission_target TEXT,
+
+  -- Create group fields
+  name TEXT,
+  is_public BOOLEAN,
+  creator_role TEXT,
+  storage_allocation TEXT,
+
+  -- Full JSON catch-all
   extra_data TEXT
 );
 

@@ -27,6 +27,7 @@ CONTRACTS=(
   "core|core_db_out|core_schema.sql"
   "staking|staking_db_out|staking_schema.sql"
   "token|token_db_out|token_schema.sql"
+  "scarces|scarces_db_out|scarces_schema.sql"
 )
 
 # Extract version from substreams.yaml

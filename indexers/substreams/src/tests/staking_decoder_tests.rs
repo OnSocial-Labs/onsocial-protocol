@@ -1,5 +1,5 @@
-use crate::staking_decoder::decode_staking_event;
 use crate::pb::staking::v1::staking_event::Payload;
+use crate::staking_decoder::decode_staking_event;
 
 #[test]
 fn test_decode_stake_lock() {
@@ -110,20 +110,50 @@ fn test_all_failure_events_have_success_false() {
 #[test]
 fn test_decode_all_14_events() {
     let events = vec![
-        ("STAKE_LOCK", r#"{"amount":"1","months":6,"effective_stake":"1","account_id":"a"}"#),
-        ("STAKE_EXTEND", r#"{"new_months":12,"new_effective":"1","account_id":"a"}"#),
+        (
+            "STAKE_LOCK",
+            r#"{"amount":"1","months":6,"effective_stake":"1","account_id":"a"}"#,
+        ),
+        (
+            "STAKE_EXTEND",
+            r#"{"new_months":12,"new_effective":"1","account_id":"a"}"#,
+        ),
         ("STAKE_UNLOCK", r#"{"amount":"1","account_id":"a"}"#),
-        ("REWARDS_RELEASED", r#"{"amount":"1","elapsed_ns":"1","total_released":"1","remaining_pool":"1","account_id":"a"}"#),
+        (
+            "REWARDS_RELEASED",
+            r#"{"amount":"1","elapsed_ns":"1","total_released":"1","remaining_pool":"1","account_id":"a"}"#,
+        ),
         ("REWARDS_CLAIM", r#"{"amount":"1","account_id":"a"}"#),
-        ("CREDITS_PURCHASE", r#"{"amount":"1","infra_share":"1","rewards_share":"1","account_id":"a"}"#),
-        ("SCHEDULED_FUND", r#"{"amount":"1","total_pool":"1","account_id":"a"}"#),
-        ("INFRA_WITHDRAW", r#"{"amount":"1","receiver_id":"b","account_id":"a"}"#),
-        ("OWNER_CHANGED", r#"{"old_owner":"a","new_owner":"b","account_id":"a"}"#),
-        ("CONTRACT_UPGRADE", r#"{"old_version":1,"new_version":2,"account_id":"a"}"#),
-        ("STORAGE_DEPOSIT", r#"{"deposit":"5000000000000000000000","account_id":"a"}"#),
+        (
+            "CREDITS_PURCHASE",
+            r#"{"amount":"1","infra_share":"1","rewards_share":"1","account_id":"a"}"#,
+        ),
+        (
+            "SCHEDULED_FUND",
+            r#"{"amount":"1","total_pool":"1","account_id":"a"}"#,
+        ),
+        (
+            "INFRA_WITHDRAW",
+            r#"{"amount":"1","receiver_id":"b","account_id":"a"}"#,
+        ),
+        (
+            "OWNER_CHANGED",
+            r#"{"old_owner":"a","new_owner":"b","account_id":"a"}"#,
+        ),
+        (
+            "CONTRACT_UPGRADE",
+            r#"{"old_version":1,"new_version":2,"account_id":"a"}"#,
+        ),
+        (
+            "STORAGE_DEPOSIT",
+            r#"{"deposit":"5000000000000000000000","account_id":"a"}"#,
+        ),
         ("UNLOCK_FAILED", r#"{"amount":"1","account_id":"a"}"#),
         ("CLAIM_FAILED", r#"{"amount":"1","account_id":"a"}"#),
-        ("WITHDRAW_INFRA_FAILED", r#"{"amount":"1","account_id":"a"}"#),
+        (
+            "WITHDRAW_INFRA_FAILED",
+            r#"{"amount":"1","account_id":"a"}"#,
+        ),
     ];
 
     for (event_type, data_json) in events {

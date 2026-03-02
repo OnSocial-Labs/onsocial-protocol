@@ -11,29 +11,38 @@
 //!   4. Wire a `map_<contract>_output` handler below (5-10 lines)
 //!   5. substreams.yaml module + params + schema
 
-mod pb;
+// The #[substreams::handlers::map] macro generates raw-pointer FFI glue
+// that clippy flags. This is safe — the substreams runtime guarantees
+// valid pointers.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 mod block_walker;
-mod core_decoder;
 mod core_db_out;
-mod staking_decoder;
+mod core_decoder;
+mod pb;
+mod scarces_db_out;
+mod scarces_decoder;
 mod staking_db_out;
-mod token_decoder;
+mod staking_decoder;
 mod token_db_out;
+mod token_decoder;
 
 #[cfg(test)]
 mod tests;
 
-use substreams_near::pb::sf::near::r#type::v1::Block;
+use block_walker::{block_context, for_each_event_log, parse_contract_filter};
+use core_decoder::decode_onsocial_event;
 use pb::core::v1::{
-    Output, DataUpdate, StorageUpdate, GroupUpdate, ContractUpdate, PermissionUpdate,
+    ContractUpdate, DataUpdate, GroupUpdate, Output, PermissionUpdate, StorageUpdate,
 };
+use pb::scarces::v1::ScarcesOutput;
 use pb::staking::v1::StakingOutput;
 use pb::token::v1::TokenOutput;
-use block_walker::{parse_contract_filter, block_context, for_each_event_log};
-use core_decoder::decode_onsocial_event;
-use staking_decoder::decode_staking_event;
-use token_decoder::decode_token_events;
+use scarces_decoder::decode_scarces_event;
 use serde_json::Value;
+use staking_decoder::decode_staking_event;
+use substreams_near::pb::sf::near::r#type::v1::Block;
+use token_decoder::decode_token_events;
 
 // =============================================================================
 // Core-OnSocial Map Module
@@ -64,35 +73,70 @@ fn map_core_output(params: String, block: Block) -> Result<Output, substreams::e
         match event.event.as_str() {
             "DATA_UPDATE" => {
                 for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_data_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                    if let Some(u) = extract_data_update(
+                        data,
+                        &log.receipt_id,
+                        log.log_index as u32,
+                        i as u32,
+                        ctx.block_height,
+                        ctx.block_timestamp,
+                    ) {
                         data_updates.push(u);
                     }
                 }
             }
             "STORAGE_UPDATE" => {
                 for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_storage_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                    if let Some(u) = extract_storage_update(
+                        data,
+                        &log.receipt_id,
+                        log.log_index as u32,
+                        i as u32,
+                        ctx.block_height,
+                        ctx.block_timestamp,
+                    ) {
                         storage_updates.push(u);
                     }
                 }
             }
             "GROUP_UPDATE" => {
                 for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_group_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                    if let Some(u) = extract_group_update(
+                        data,
+                        &log.receipt_id,
+                        log.log_index as u32,
+                        i as u32,
+                        ctx.block_height,
+                        ctx.block_timestamp,
+                    ) {
                         group_updates.push(u);
                     }
                 }
             }
             "CONTRACT_UPDATE" => {
                 for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_contract_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                    if let Some(u) = extract_contract_update(
+                        data,
+                        &log.receipt_id,
+                        log.log_index as u32,
+                        i as u32,
+                        ctx.block_height,
+                        ctx.block_timestamp,
+                    ) {
                         contract_updates.push(u);
                     }
                 }
             }
             "PERMISSION_UPDATE" => {
                 for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_permission_update(data, &log.receipt_id, log.log_index as u32, i as u32, ctx.block_height, ctx.block_timestamp) {
+                    if let Some(u) = extract_permission_update(
+                        data,
+                        &log.receipt_id,
+                        log.log_index as u32,
+                        i as u32,
+                        ctx.block_height,
+                        ctx.block_timestamp,
+                    ) {
                         permission_updates.push(u);
                     }
                 }
@@ -119,20 +163,32 @@ fn map_core_output(params: String, block: Block) -> Result<Output, substreams::e
 
 /// Staking map module - outputs typed staking events for DB sink
 #[substreams::handlers::map]
-fn map_staking_output(params: String, block: Block) -> Result<StakingOutput, substreams::errors::Error> {
+fn map_staking_output(
+    params: String,
+    block: Block,
+) -> Result<StakingOutput, substreams::errors::Error> {
     let filter = parse_contract_filter(&params);
     let ctx = block_context(&block);
     let mut events = Vec::new();
 
     for_each_event_log(&block, filter.as_deref(), |log| {
         if let Some(event) = decode_staking_event(
-            log.json_data, &log.receipt_id, ctx.block_height, ctx.block_timestamp, log.log_index,
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
         ) {
             events.push(event);
         }
     });
 
-    Ok(StakingOutput { events, block_height: ctx.block_height, block_timestamp: ctx.block_timestamp, block_hash: ctx.block_hash })
+    Ok(StakingOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    })
 }
 
 // =============================================================================
@@ -141,18 +197,64 @@ fn map_staking_output(params: String, block: Block) -> Result<StakingOutput, sub
 
 /// Token map module - outputs typed NEP-141 events for DB sink
 #[substreams::handlers::map]
-fn map_token_output(params: String, block: Block) -> Result<TokenOutput, substreams::errors::Error> {
+fn map_token_output(
+    params: String,
+    block: Block,
+) -> Result<TokenOutput, substreams::errors::Error> {
     let filter = parse_contract_filter(&params);
     let ctx = block_context(&block);
     let mut events = Vec::new();
 
     for_each_event_log(&block, filter.as_deref(), |log| {
         events.extend(decode_token_events(
-            log.json_data, &log.receipt_id, ctx.block_height, ctx.block_timestamp, log.log_index,
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
         ));
     });
 
-    Ok(TokenOutput { events, block_height: ctx.block_height, block_timestamp: ctx.block_timestamp, block_hash: ctx.block_hash })
+    Ok(TokenOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    })
+}
+
+// =============================================================================
+// Scarces (NFT Marketplace) Map Module
+// =============================================================================
+
+/// Scarces map module - outputs typed marketplace events for DB sink
+#[substreams::handlers::map]
+fn map_scarces_output(
+    params: String,
+    block: Block,
+) -> Result<ScarcesOutput, substreams::errors::Error> {
+    let filter = parse_contract_filter(&params);
+    let ctx = block_context(&block);
+    let mut events = Vec::new();
+
+    for_each_event_log(&block, filter.as_deref(), |log| {
+        if let Some(event) = decode_scarces_event(
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
+        ) {
+            events.push(event);
+        }
+    });
+
+    Ok(ScarcesOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    })
 }
 
 // =============================================================================
@@ -168,37 +270,39 @@ fn extract_data_update(
     block_timestamp: u64,
 ) -> Option<DataUpdate> {
     let id = format!("{}-{}-{}-data", receipt_id, log_index, data_index);
-    
+
     let path = get_string(&data.extra, "path")?;
     let path_parts: Vec<&str> = path.split('/').collect();
-    
+
     // Derive account_id and data_type from path
-    let account_id = path_parts.first().map(|s| s.to_string()).unwrap_or_default();
+    let account_id = path_parts
+        .first()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
     let data_type = path_parts.get(1).map(|s| s.to_string());
     let data_id = path_parts.get(2).map(|s| s.to_string());
-    
+
     // Check for group content
     let group_id = get_string(&data.extra, "group_id");
     let group_path = get_string(&data.extra, "group_path");
     let is_group_content = get_bool(&data.extra, "is_group_content").unwrap_or(false);
-    
+
     // Target account for graph/* paths
     let target_account = if path_parts.len() >= 4 && path_parts.get(1) == Some(&"graph") {
         path_parts.get(3).map(|s| s.to_string())
     } else {
         None
     };
-    
+
     // Get value and extract reference fields
     let value = get_string(&data.extra, "value");
-    let value_json: Option<Value> = value.as_ref()
-        .and_then(|v| serde_json::from_str(v).ok());
-    
+    let value_json: Option<Value> = value.as_ref().and_then(|v| serde_json::from_str(v).ok());
+
     // Extract reference fields from value JSON
     let (parent_path, parent_author, parent_type) = extract_parent_refs(&value_json);
     let (ref_path, ref_author, ref_type) = extract_ref_refs(&value_json);
     let (refs, ref_authors) = extract_refs_array(&value_json);
-    
+
     Some(DataUpdate {
         id,
         block_height,
@@ -235,11 +339,20 @@ fn extract_parent_refs(value: &Option<Value>) -> (Option<String>, Option<String>
         Some(Value::Object(o)) => o,
         _ => return (None, None, None),
     };
-    
-    let parent_path = obj.get("parent").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let parent_author = parent_path.as_ref().and_then(|p| p.split('/').next()).map(|s| s.to_string());
-    let parent_type = obj.get("parentType").and_then(|v| v.as_str()).map(|s| s.to_string());
-    
+
+    let parent_path = obj
+        .get("parent")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let parent_author = parent_path
+        .as_ref()
+        .and_then(|p| p.split('/').next())
+        .map(|s| s.to_string());
+    let parent_type = obj
+        .get("parentType")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
     (parent_path, parent_author, parent_type)
 }
 
@@ -248,11 +361,20 @@ fn extract_ref_refs(value: &Option<Value>) -> (Option<String>, Option<String>, O
         Some(Value::Object(o)) => o,
         _ => return (None, None, None),
     };
-    
-    let ref_path = obj.get("ref").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let ref_author = ref_path.as_ref().and_then(|p| p.split('/').next()).map(|s| s.to_string());
-    let ref_type = obj.get("refType").and_then(|v| v.as_str()).map(|s| s.to_string());
-    
+
+    let ref_path = obj
+        .get("ref")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let ref_author = ref_path
+        .as_ref()
+        .and_then(|p| p.split('/').next())
+        .map(|s| s.to_string());
+    let ref_type = obj
+        .get("refType")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
     (ref_path, ref_author, ref_type)
 }
 
@@ -261,15 +383,15 @@ fn extract_refs_array(value: &Option<Value>) -> (Vec<String>, Vec<String>) {
         Some(Value::Object(o)) => o,
         _ => return (vec![], vec![]),
     };
-    
+
     let refs_array = match obj.get("refs") {
         Some(Value::Array(arr)) => arr,
         _ => return (vec![], vec![]),
     };
-    
+
     let mut refs = Vec::new();
     let mut ref_authors = Vec::new();
-    
+
     for item in refs_array {
         if let Some(path) = item.as_str() {
             refs.push(path.to_string());
@@ -278,7 +400,7 @@ fn extract_refs_array(value: &Option<Value>) -> (Vec<String>, Vec<String>) {
             }
         }
     }
-    
+
     (refs, ref_authors)
 }
 
@@ -295,7 +417,7 @@ fn extract_storage_update(
     block_timestamp: u64,
 ) -> Option<StorageUpdate> {
     let id = format!("{}-{}-{}-storage", receipt_id, log_index, data_index);
-    
+
     Some(StorageUpdate {
         id,
         block_height,
@@ -346,7 +468,7 @@ fn extract_group_update(
     block_timestamp: u64,
 ) -> Option<GroupUpdate> {
     let id = format!("{}-{}-{}-group", receipt_id, log_index, data_index);
-    
+
     Some(GroupUpdate {
         id,
         block_height,
@@ -356,7 +478,9 @@ fn extract_group_update(
         author: data.author.clone(),
         partition_id: data.partition_id.unwrap_or(0) as u32,
         group_id: get_string(&data.extra, "group_id").unwrap_or_default(),
-        member_id: get_string(&data.extra, "target_id").or_else(|| get_string(&data.extra, "member_id")).unwrap_or_default(),
+        member_id: get_string(&data.extra, "target_id")
+            .or_else(|| get_string(&data.extra, "member_id"))
+            .unwrap_or_default(),
         member_nonce: get_u64(&data.extra, "member_nonce").unwrap_or(0),
         member_nonce_path: get_string(&data.extra, "member_nonce_path").unwrap_or_default(),
         role: get_string(&data.extra, "role").unwrap_or_default(),
@@ -420,11 +544,18 @@ fn extract_contract_update(
     block_timestamp: u64,
 ) -> Option<ContractUpdate> {
     let id = format!("{}-{}-{}-contract", receipt_id, log_index, data_index);
-    
+
     // Capture event-specific fields (old_config, new_manager, executor, etc.) as JSON
     let extra_keys: Vec<&str> = vec![
-        "old_config", "new_config", "old_manager", "new_manager",
-        "executor", "previous", "new", "public_key", "nonce",
+        "old_config",
+        "new_config",
+        "old_manager",
+        "new_manager",
+        "executor",
+        "previous",
+        "new",
+        "public_key",
+        "nonce",
         "wnear_account_id",
     ];
     let extra_data = {
@@ -434,9 +565,13 @@ fn extract_contract_update(
                 map.insert(key.to_string(), val.clone());
             }
         }
-        if map.is_empty() { String::new() } else { serde_json::Value::Object(map).to_string() }
+        if map.is_empty() {
+            String::new()
+        } else {
+            serde_json::Value::Object(map).to_string()
+        }
     };
-    
+
     Some(ContractUpdate {
         id,
         block_height,
@@ -469,7 +604,7 @@ fn extract_permission_update(
     block_timestamp: u64,
 ) -> Option<PermissionUpdate> {
     let id = format!("{}-{}-{}-permission", receipt_id, log_index, data_index);
-    
+
     Some(PermissionUpdate {
         id,
         block_height,

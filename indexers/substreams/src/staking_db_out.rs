@@ -3,11 +3,11 @@
 //! Converts StakingOutput to DatabaseChanges for substreams-sink-sql.
 //! Writes to: staking_events, staker_state, credit_purchases
 
+use crate::pb::staking::v1::staking_event::Payload;
+use crate::pb::staking::v1::*;
 use std::collections::HashMap;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
-use crate::pb::staking::v1::*;
-use crate::pb::staking::v1::staking_event::Payload;
 
 /// Accumulated staker state fields (one entry per account per block scope).
 #[derive(Default)]
@@ -47,11 +47,21 @@ pub fn staking_db_out(output: StakingOutput) -> Result<DatabaseChanges, substrea
         row.set("last_event_type", &state.last_event_type);
         row.set("last_event_block", &state.last_event_block);
         row.set("updated_at", &state.updated_at);
-        if let Some(v) = &state.locked_amount { row.set("locked_amount", v); }
-        if let Some(v) = &state.effective_stake { row.set("effective_stake", v); }
-        if let Some(v) = &state.lock_months { row.set("lock_months", *v); }
-        if let Some(v) = &state.total_claimed { row.set("total_claimed", v); }
-        if let Some(v) = &state.total_credits_purchased { row.set("total_credits_purchased", v); }
+        if let Some(v) = &state.locked_amount {
+            row.set("locked_amount", v);
+        }
+        if let Some(v) = &state.effective_stake {
+            row.set("effective_stake", v);
+        }
+        if let Some(v) = &state.lock_months {
+            row.set("lock_months", *v);
+        }
+        if let Some(v) = &state.total_claimed {
+            row.set("total_claimed", v);
+        }
+        if let Some(v) = &state.total_credits_purchased {
+            row.set("total_credits_purchased", v);
+        }
     }
 
     Ok(tables.to_database_changes())
@@ -126,7 +136,10 @@ pub(crate) fn write_staking_event(tables: &mut Tables, event: &StakingEvent) {
     }
 }
 
-pub(crate) fn accumulate_staker_state(accum: &mut HashMap<String, StakerStateAccum>, event: &StakingEvent) {
+pub(crate) fn accumulate_staker_state(
+    accum: &mut HashMap<String, StakerStateAccum>,
+    event: &StakingEvent,
+) {
     match &event.payload {
         Some(Payload::StakeLock(p)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();

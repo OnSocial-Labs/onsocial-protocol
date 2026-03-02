@@ -6,8 +6,8 @@
 //!         OWNER_CHANGED, CONTRACT_UPGRADE, STORAGE_DEPOSIT,
 //!         UNLOCK_FAILED, CLAIM_FAILED, WITHDRAW_INFRA_FAILED
 
-use crate::pb::staking::v1::*;
 use crate::pb::staking::v1::staking_event::Payload;
+use crate::pb::staking::v1::*;
 use serde_json::Value;
 
 pub fn decode_staking_event(
@@ -51,73 +51,115 @@ pub fn decode_staking_event(
 
 fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
     match event_type {
-        "STAKE_LOCK" => Some((true, Payload::StakeLock(StakeLock {
-            amount: str_field(data, "amount"),
-            months: u64_field(data, "months"),
-            effective_stake: str_field(data, "effective_stake"),
-        }))),
+        "STAKE_LOCK" => Some((
+            true,
+            Payload::StakeLock(StakeLock {
+                amount: str_field(data, "amount"),
+                months: u64_field(data, "months"),
+                effective_stake: str_field(data, "effective_stake"),
+            }),
+        )),
 
-        "STAKE_EXTEND" => Some((true, Payload::StakeExtend(StakeExtend {
-            new_months: u64_field(data, "new_months"),
-            new_effective: str_field(data, "new_effective"),
-        }))),
+        "STAKE_EXTEND" => Some((
+            true,
+            Payload::StakeExtend(StakeExtend {
+                new_months: u64_field(data, "new_months"),
+                new_effective: str_field(data, "new_effective"),
+            }),
+        )),
 
-        "STAKE_UNLOCK" => Some((true, Payload::StakeUnlock(StakeUnlock {
-            amount: str_field(data, "amount"),
-        }))),
+        "STAKE_UNLOCK" => Some((
+            true,
+            Payload::StakeUnlock(StakeUnlock {
+                amount: str_field(data, "amount"),
+            }),
+        )),
 
-        "REWARDS_RELEASED" => Some((true, Payload::RewardsReleased(RewardsReleased {
-            amount: str_field(data, "amount"),
-            elapsed_ns: str_field(data, "elapsed_ns"),
-            total_released: str_field(data, "total_released"),
-            remaining_pool: str_field(data, "remaining_pool"),
-        }))),
+        "REWARDS_RELEASED" => Some((
+            true,
+            Payload::RewardsReleased(RewardsReleased {
+                amount: str_field(data, "amount"),
+                elapsed_ns: str_field(data, "elapsed_ns"),
+                total_released: str_field(data, "total_released"),
+                remaining_pool: str_field(data, "remaining_pool"),
+            }),
+        )),
 
-        "REWARDS_CLAIM" => Some((true, Payload::RewardsClaim(RewardsClaim {
-            amount: str_field(data, "amount"),
-        }))),
+        "REWARDS_CLAIM" => Some((
+            true,
+            Payload::RewardsClaim(RewardsClaim {
+                amount: str_field(data, "amount"),
+            }),
+        )),
 
-        "CREDITS_PURCHASE" => Some((true, Payload::CreditsPurchase(CreditsPurchase {
-            amount: str_field(data, "amount"),
-            infra_share: str_field(data, "infra_share"),
-            rewards_share: str_field(data, "rewards_share"),
-        }))),
+        "CREDITS_PURCHASE" => Some((
+            true,
+            Payload::CreditsPurchase(CreditsPurchase {
+                amount: str_field(data, "amount"),
+                infra_share: str_field(data, "infra_share"),
+                rewards_share: str_field(data, "rewards_share"),
+            }),
+        )),
 
-        "SCHEDULED_FUND" => Some((true, Payload::ScheduledFund(ScheduledFund {
-            amount: str_field(data, "amount"),
-            total_pool: str_field(data, "total_pool"),
-        }))),
+        "SCHEDULED_FUND" => Some((
+            true,
+            Payload::ScheduledFund(ScheduledFund {
+                amount: str_field(data, "amount"),
+                total_pool: str_field(data, "total_pool"),
+            }),
+        )),
 
-        "INFRA_WITHDRAW" => Some((true, Payload::InfraWithdraw(InfraWithdraw {
-            amount: str_field(data, "amount"),
-            receiver_id: str_field(data, "receiver_id"),
-        }))),
+        "INFRA_WITHDRAW" => Some((
+            true,
+            Payload::InfraWithdraw(InfraWithdraw {
+                amount: str_field(data, "amount"),
+                receiver_id: str_field(data, "receiver_id"),
+            }),
+        )),
 
-        "OWNER_CHANGED" => Some((true, Payload::OwnerChanged(OwnerChanged {
-            old_owner: str_field(data, "old_owner"),
-            new_owner: str_field(data, "new_owner"),
-        }))),
+        "OWNER_CHANGED" => Some((
+            true,
+            Payload::OwnerChanged(OwnerChanged {
+                old_owner: str_field(data, "old_owner"),
+                new_owner: str_field(data, "new_owner"),
+            }),
+        )),
 
-        "CONTRACT_UPGRADE" => Some((true, Payload::ContractUpgrade(ContractUpgrade {
-            old_version: u32_field(data, "old_version"),
-            new_version: u32_field(data, "new_version"),
-        }))),
+        "CONTRACT_UPGRADE" => Some((
+            true,
+            Payload::ContractUpgrade(ContractUpgrade {
+                old_version: u32_field(data, "old_version"),
+                new_version: u32_field(data, "new_version"),
+            }),
+        )),
 
-        "STORAGE_DEPOSIT" => Some((true, Payload::StorageDeposit(StorageDeposit {
-            deposit: str_field(data, "deposit"),
-        }))),
+        "STORAGE_DEPOSIT" => Some((
+            true,
+            Payload::StorageDeposit(StorageDeposit {
+                deposit: str_field(data, "deposit"),
+            }),
+        )),
 
-        "UNLOCK_FAILED" => Some((false, Payload::UnlockFailed(UnlockFailed {
-            amount: str_field(data, "amount"),
-        }))),
+        "UNLOCK_FAILED" => Some((
+            false,
+            Payload::UnlockFailed(UnlockFailed {
+                amount: str_field(data, "amount"),
+            }),
+        )),
 
-        "CLAIM_FAILED" => Some((false, Payload::ClaimFailed(ClaimFailed {
-            amount: str_field(data, "amount"),
-        }))),
+        "CLAIM_FAILED" => Some((
+            false,
+            Payload::ClaimFailed(ClaimFailed {
+                amount: str_field(data, "amount"),
+            }),
+        )),
 
-        "WITHDRAW_INFRA_FAILED" => Some((false, Payload::WithdrawInfraFailed(WithdrawInfraFailed {
-            amount: str_field(data, "amount"),
-        }))),
+        "WITHDRAW_INFRA_FAILED" => Some((
+            false,
+            Payload::WithdrawInfraFailed(WithdrawInfraFailed {
+                amount: str_field(data, "amount"),
+            }),
+        )),
 
         _ => None,
     }
@@ -131,9 +173,7 @@ fn str_field(data: &Value, key: &str) -> String {
 }
 
 fn u64_field(data: &Value, key: &str) -> u64 {
-    data.get(key)
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0)
+    data.get(key).and_then(|v| v.as_u64()).unwrap_or(0)
 }
 
 fn u32_field(data: &Value, key: &str) -> u32 {

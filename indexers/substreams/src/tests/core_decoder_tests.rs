@@ -48,7 +48,10 @@ fn test_decode_event_no_partition() {
     let event = decode_onsocial_event(json).unwrap();
 
     assert_eq!(event.data[0].partition_id, None);
-    assert_eq!(event.data[0].extra.get("path").unwrap(), "alice.near/profile");
+    assert_eq!(
+        event.data[0].extra.get("path").unwrap(),
+        "alice.near/profile"
+    );
 }
 
 #[test]

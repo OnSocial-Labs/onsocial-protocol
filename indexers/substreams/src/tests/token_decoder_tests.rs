@@ -1,5 +1,5 @@
-use crate::token_decoder::decode_token_events;
 use crate::pb::token::v1::token_event::Payload;
+use crate::token_decoder::decode_token_events;
 
 #[test]
 fn test_decode_ft_mint() {
@@ -68,7 +68,8 @@ fn test_decode_ignores_onsocial_standard() {
 
 #[test]
 fn test_decode_ignores_unknown_event() {
-    let json = r#"{"standard":"nep141","version":"1.0.0","event":"ft_unknown","data":[{"owner_id":"x"}]}"#;
+    let json =
+        r#"{"standard":"nep141","version":"1.0.0","event":"ft_unknown","data":[{"owner_id":"x"}]}"#;
     let events = decode_token_events(json, "r", 1, 1, 0);
     assert!(events.is_empty());
 }

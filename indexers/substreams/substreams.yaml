@@ -21,6 +21,7 @@ protobuf:
     - core.proto
     - staking.proto
     - token.proto
+    - scarces.proto
     - sf/substreams/sink/database/v1/database.proto
     - sf/substreams/sink/sql/v1/service.proto
   importPaths:
@@ -118,10 +119,41 @@ modules:
       Converts TokenOutput to DatabaseChanges for SQL sink.
       Writes to: token_events, token_balances.
 
+  # =========================================================================
+  # SCARCES CONTRACT MODULES (NFT Marketplace)
+  # =========================================================================
+
+  # Scarces events - typed output
+  - name: map_scarces_output
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:scarces.v1.ScarcesOutput
+    doc: |
+      Extracts scarces marketplace events: listings, purchases, collections,
+      auctions, offers, storage, app pools, contract config.
+      7 event types with 70+ operations.
+
+  # Scarces database changes - for substreams-sink-sql
+  - name: scarces_db_out
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - map: map_scarces_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts ScarcesOutput to DatabaseChanges for SQL sink.
+      Writes to: scarces_events.
+
 params:
   map_core_output: "contract_id=core.onsocial.testnet"
   map_staking_output: "contract_id=staking.onsocial.testnet"
   map_token_output: "contract_id=token.onsocial.testnet"
+  map_scarces_output: "contract_id=scarces.onsocial.testnet"
 
 # ---------------------------------------------------------------------------
 # SINK DEPLOYMENT
@@ -141,9 +173,11 @@ params:
 #   core.onsocial.testnet     → block 233084800 (Jan 2026)
 #   token.onsocial.testnet    → block 234337349 (Jan 2026)
 #   staking.onsocial.testnet  → block 235546389 (Feb 2026)
+#   scarces.onsocial.testnet  → block 238800000 (Feb 2026)
 #
 # Contract registry for pack.sh:
 #   core    → core_db_out    → core_schema.sql
 #   staking → staking_db_out → staking_schema.sql
 #   token   → token_db_out   → token_schema.sql
+#   scarces → scarces_db_out → scarces_schema.sql
 # ---------------------------------------------------------------------------

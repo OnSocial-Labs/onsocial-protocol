@@ -127,7 +127,7 @@ jobs:
             echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} (${VER}) ==="
 
             # Verify uploaded files exist
-            for variant in core staking token; do
+            for variant in core staking token scarces; do
               SRC="${UPLOAD_DIR}/onsocial-events-${VER}-${variant}.spkg"
               if [ ! -f "$SRC" ]; then
                 echo "❌ Upload missing: $SRC"
@@ -137,7 +137,7 @@ jobs:
             echo "✓ All spkgs uploaded"
 
             # Stop sinks
-            systemctl stop onsocial-sink-core onsocial-sink-staking onsocial-sink-token || true
+            systemctl stop onsocial-sink-core onsocial-sink-staking onsocial-sink-token onsocial-sink-scarces || true
             echo "✓ Sinks stopped"
 
             # Clean deploy: drop all tables and re-apply schema
@@ -157,11 +157,12 @@ jobs:
                   DROP TABLE IF EXISTS permission_updates CASCADE;
                   DROP TABLE IF EXISTS staking_updates CASCADE;
                   DROP TABLE IF EXISTS token_updates CASCADE;
+                  DROP TABLE IF EXISTS scarces_events CASCADE;
                   DROP TABLE IF EXISTS cursors CASCADE;
                 "
                 echo "✓ Tables dropped"
                 # Re-apply schemas
-                for schema in core staking token; do
+                for schema in core staking token scarces; do
                   SCHEMA_FILE="${UPLOAD_DIR}/${schema}_schema.sql"
                   if [ -f "$SCHEMA_FILE" ]; then
                     psql "$DB_URL" -f "$SCHEMA_FILE"
@@ -177,13 +178,13 @@ jobs:
             find "$SPKG_DIR" -name 'onsocial-events-v*-*.spkg' ! -name "*-${VER}-*" -delete 2>/dev/null || true
 
             # Backup current spkgs
-            for variant in core staking token; do
+            for variant in core staking token scarces; do
               CURRENT="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
               [ -f "$CURRENT" ] && cp "$CURRENT" "${CURRENT}.prev"
             done
 
             # Move uploaded spkgs into place
-            for variant in core staking token; do
+            for variant in core staking token scarces; do
               mv "${UPLOAD_DIR}/onsocial-events-${VER}-${variant}.spkg" \
                  "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
             done
@@ -191,7 +192,7 @@ jobs:
             echo "✓ Spkgs swapped"
 
             # Update systemd service files to reference the new version
-            for variant in core staking token; do
+            for variant in core staking token scarces; do
               UNIT="/etc/systemd/system/onsocial-sink-${variant}.service"
               if [ -f "$UNIT" ]; then
                 sed -i "s|onsocial-events-v[0-9.]*-${variant}.spkg|onsocial-events-${VER}-${variant}.spkg|g" "$UNIT"
@@ -201,14 +202,14 @@ jobs:
             echo "✓ Systemd units updated to ${VER}"
 
             # Restart sinks
-            systemctl start onsocial-sink-core onsocial-sink-staking onsocial-sink-token
+            systemctl start onsocial-sink-core onsocial-sink-staking onsocial-sink-token onsocial-sink-scarces
             echo "✓ Sinks started"
 
             # Health check — wait 20s then verify at least 2/3 active
             # (FREE StreamingFast plan allows only 2 concurrent streams)
             sleep 20
             ACTIVE=0
-            for s in core staking token; do
+            for s in core staking token scarces; do
               if systemctl is-active --quiet "onsocial-sink-$s"; then
                 ACTIVE=$((ACTIVE + 1))
                 echo "  ✅ $s: active"
@@ -219,12 +220,12 @@ jobs:
 
             if [ "$ACTIVE" -lt 2 ]; then
               echo ""
-              echo "❌ Only $ACTIVE/3 sinks active after 20s — rolling back"
-              for variant in core staking token; do
+              echo "❌ Only $ACTIVE/4 sinks active after 20s — rolling back"
+              for variant in core staking token scarces; do
                 PREV="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg.prev"
                 [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
               done
-              systemctl restart onsocial-sink-core onsocial-sink-staking onsocial-sink-token || true
+              systemctl restart onsocial-sink-core onsocial-sink-staking onsocial-sink-token onsocial-sink-scarces || true
               exit 1
             fi
 
@@ -232,7 +233,7 @@ jobs:
             rm -f ${SPKG_DIR}/*.spkg.prev
 
             echo ""
-            echo "✅ Deploy complete — $ACTIVE/3 sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
+            echo "✅ Deploy complete — $ACTIVE/4 sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
 
       - name: Notify Telegram
         if: always()

@@ -2,9 +2,9 @@
 //!
 //! Converts core OnSocial events to DatabaseChanges format for PostgreSQL.
 
+use crate::pb::core::v1::Output;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
-use crate::pb::core::v1::Output;
 
 /// Convert typed Output to DatabaseChanges for SQL sink
 #[substreams::handlers::map]
@@ -14,7 +14,7 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
     // Process DataUpdates
     for update in output.data_updates {
         let row = tables.create_row("data_updates", &update.id);
-        
+
         row.set("block_height", update.block_height);
         row.set("block_timestamp", update.block_timestamp);
         row.set("receipt_id", &update.receipt_id);
@@ -46,7 +46,7 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
     // Process StorageUpdates
     for update in output.storage_updates {
         let row = tables.create_row("storage_updates", &update.id);
-        
+
         row.set("block_height", update.block_height);
         row.set("block_timestamp", update.block_timestamp);
         row.set("receipt_id", &update.receipt_id);
@@ -83,19 +83,40 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
     // Process GroupUpdates
     for update in output.group_updates {
         let row = tables.create_row("group_updates", &update.id);
-        
+
         row.set("block_height", update.block_height);
         row.set("block_timestamp", update.block_timestamp);
         row.set("receipt_id", &update.receipt_id);
         row.set("operation", &update.operation);
         row.set("author", &update.author);
         row.set("partition_id", update.partition_id);
+        // Group identification
         row.set("group_id", &update.group_id);
+
+        // Member fields
         row.set("member_id", &update.member_id);
+        row.set("member_nonce", update.member_nonce);
+        row.set("member_nonce_path", &update.member_nonce_path);
         row.set("role", &update.role);
         row.set("level", update.level);
+
+        // Path and value
         row.set("path", &update.path);
         row.set("value", &update.value);
+
+        // Pool fields
+        row.set("pool_key", &update.pool_key);
+        row.set("amount", &update.amount);
+        row.set("previous_pool_balance", &update.previous_pool_balance);
+        row.set("new_pool_balance", &update.new_pool_balance);
+
+        // Sponsor quota
+        row.set("quota_bytes", &update.quota_bytes);
+        row.set("quota_used", &update.quota_used);
+        row.set("daily_limit", &update.daily_limit);
+        row.set("previously_enabled", update.previously_enabled);
+
+        // Proposal fields
         row.set("proposal_id", &update.proposal_id);
         row.set("proposal_type", &update.proposal_type);
         row.set("status", &update.status);
@@ -107,6 +128,10 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
         row.set("locked_member_count", update.locked_member_count);
         row.set("locked_deposit", &update.locked_deposit);
         row.set("expires_at", update.expires_at);
+        row.set("tally_path", &update.tally_path);
+        row.set("counter_path", &update.counter_path);
+
+        // Voting fields
         row.set("voter", &update.voter);
         row.set("approve", update.approve);
         row.set("total_votes", update.total_votes);
@@ -115,14 +140,31 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
         row.set("should_execute", update.should_execute);
         row.set("should_reject", update.should_reject);
         row.set("voted_at", update.voted_at);
-        row.set("member_nonce", update.member_nonce);
+
+        // Voting config
+        row.set("voting_period", update.voting_period);
+        row.set("participation_quorum", update.participation_quorum);
+        row.set("approval_threshold", update.approval_threshold);
+
+        // Permission fields
+        row.set("permission_key", &update.permission_key);
+        row.set("permission_value", &update.permission_value);
+        row.set("permission_target", &update.permission_target);
+
+        // Create group fields
+        row.set("name", &update.name);
+        row.set("is_public", update.is_public);
+        row.set("creator_role", &update.creator_role);
+        row.set("storage_allocation", &update.storage_allocation);
+
+        // Full JSON catch-all
         row.set("extra_data", &update.extra_data);
     }
 
     // Process ContractUpdates
     for update in output.contract_updates {
         let row = tables.create_row("contract_updates", &update.id);
-        
+
         row.set("block_height", update.block_height);
         row.set("block_timestamp", update.block_timestamp);
         row.set("receipt_id", &update.receipt_id);
@@ -142,7 +184,7 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
     // Process PermissionUpdates
     for update in output.permission_updates {
         let row = tables.create_row("permission_updates", &update.id);
-        
+
         row.set("block_height", update.block_height);
         row.set("block_timestamp", update.block_timestamp);
         row.set("receipt_id", &update.receipt_id);

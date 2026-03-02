@@ -36,8 +36,7 @@ pub struct EventData {
 
 /// Decode a NEP-297 JSON event from log string
 pub fn decode_onsocial_event(json_data: &str) -> Result<OnSocialEvent, DecodeError> {
-    serde_json::from_str(json_data)
-        .map_err(|e| DecodeError::Json(e.to_string()))
+    serde_json::from_str(json_data).map_err(|e| DecodeError::Json(e.to_string()))
 }
 
 #[derive(Debug)]

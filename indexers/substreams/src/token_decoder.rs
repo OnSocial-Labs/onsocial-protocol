@@ -5,8 +5,8 @@
 //!
 //! Format: `EVENT_JSON:{"standard":"nep141","version":"1.0.0","event":"ft_mint","data":[{...}]}`
 
-use crate::pb::token::v1::*;
 use crate::pb::token::v1::token_event::Payload;
+use crate::pb::token::v1::*;
 use serde_json::Value;
 
 /// Decode a single NEP-141 event log into one or more TokenEvents.
@@ -54,13 +54,21 @@ pub fn decode_token_events(
                 let owner_id = str_field(data, "owner_id");
                 let amount = str_field(data, "amount");
                 let memo = str_field(data, "memo");
-                Some(Payload::FtMint(FtMint { owner_id, amount, memo }))
+                Some(Payload::FtMint(FtMint {
+                    owner_id,
+                    amount,
+                    memo,
+                }))
             }
             "ft_burn" => {
                 let owner_id = str_field(data, "owner_id");
                 let amount = str_field(data, "amount");
                 let memo = str_field(data, "memo");
-                Some(Payload::FtBurn(FtBurn { owner_id, amount, memo }))
+                Some(Payload::FtBurn(FtBurn {
+                    owner_id,
+                    amount,
+                    memo,
+                }))
             }
             "ft_transfer" => {
                 let old_owner_id = str_field(data, "old_owner_id");

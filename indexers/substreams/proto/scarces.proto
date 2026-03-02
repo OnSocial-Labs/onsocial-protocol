@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package scarces.v1;
+
+// =============================================================================
+// TOP-LEVEL OUTPUT - All scarces contract events per block
+// =============================================================================
+
+message ScarcesOutput {
+  repeated ScarcesEvent events = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string block_hash = 4;
+}
+
+// =============================================================================
+// SCARCES EVENT - Flat event with operation routing + typed fields
+// =============================================================================
+//
+// The scarces contract emits 7 event types with 70+ operations.
+// We use a flat schema with named columns for the most query-relevant
+// fields, plus an `extra_data` JSON catch-all so nothing is ever lost.
+// This mirrors the core contract's proven approach.
+
+message ScarcesEvent {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  string event_type = 5;        // SCARCE_UPDATE, COLLECTION_UPDATE, etc.
+  string operation = 6;         // list, purchase, create, bid, etc.
+  string author = 7;            // event emitter (AccountId)
+
+  // --- Identity / routing fields ---
+  string token_id = 10;
+  string collection_id = 11;
+  string listing_id = 12;
+  string owner_id = 13;
+  string creator_id = 101;
+  string buyer_id = 14;
+  string seller_id = 15;
+  string bidder = 102;
+  string winner_id = 103;
+  string sender_id = 58;
+  string receiver_id = 59;
+  string account_id = 16;
+  string executor = 104;
+  string contract_id = 105;
+
+  // --- NFT contract reference (cross-contract listings) ---
+  string scarce_contract_id = 30;
+
+  // --- Financial fields (TEXT for u128 precision) ---
+  string amount = 20;
+  string price = 21;
+  string old_price = 22;
+  string new_price = 23;
+  string bid_amount = 110;
+  string attempted_price = 111;
+  string marketplace_fee = 24;
+  string app_pool_amount = 25;
+  string app_commission = 26;
+  string creator_payment = 112;
+  string revenue = 27;
+  string new_balance = 28;
+  string initial_balance = 113;
+  string refunded_amount = 29;
+  string refund_per_token = 114;
+  string refund_pool = 115;
+
+  // --- Quantity / count fields ---
+  uint32 quantity = 35;
+  uint32 total_supply = 36;
+  uint32 redeem_count = 37;
+  uint32 max_redeems = 38;
+  uint32 bid_count = 39;
+  uint32 refundable_count = 120;
+
+  // --- Auction fields ---
+  string reserve_price = 40;
+  string buy_now_price = 41;
+  string min_bid_increment = 42;
+  string winning_bid = 43;
+  uint64 expires_at = 44;
+  uint64 auction_duration_ns = 45;
+  uint64 anti_snipe_extension_ns = 46;
+
+  // --- App pool fields ---
+  string app_id = 50;
+  string funder = 51;
+
+  // --- Ownership / transfers ---
+  string old_owner = 60;
+  string new_owner = 61;
+  string old_recipient = 90;
+  string new_recipient = 91;
+
+  // --- Misc fields ---
+  string reason = 55;
+  string mode = 56;              // revoke mode: invalidate|burn
+  string memo = 57;
+
+  // --- Array fields (serialized JSON) ---
+  string token_ids = 65;        // JSON array
+  string prices = 66;           // JSON array
+  string receivers = 67;        // JSON array
+  string accounts = 68;         // JSON array (allowlist)
+
+  // --- Contract config fields ---
+  string old_version = 70;
+  string new_version = 71;
+  uint32 total_fee_bps = 72;
+  uint32 app_pool_fee_bps = 73;
+  uint32 platform_storage_fee_bps = 74;
+
+  // --- Timing fields ---
+  uint64 start_time = 80;
+  uint64 end_time = 81;
+  uint64 new_expires_at = 82;
+  uint64 old_expires_at = 83;
+
+  // --- Approval fields ---
+  uint64 approval_id = 85;
+
+  // --- Storage fields ---
+  string deposit = 95;
+  string remaining_balance = 96;
+  string cap = 97;
+
+  // --- Full JSON catch-all (never lose data) ---
+  string extra_data = 100;
+}
