@@ -96,7 +96,7 @@ All test files support three modes:
 - **Full Field Validation** - Validates all schema fields
 - **Block Extraction** - Extracts block height from EVENT_JSON
 - **Assertions Tracking** - Counts passed/failed assertions
-- **Formatted Output** - Color-coded results matching subgraph tests
+- **Formatted Output** - Color-coded test results
 
 ## Security
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Common utilities for Hasura/PostgreSQL indexer testing
-# Mirror of subgraph tests but for Substreams → PostgreSQL → Hasura stack
+# Substreams → PostgreSQL → Hasura stack
 # =============================================================================
 
 # Configuration

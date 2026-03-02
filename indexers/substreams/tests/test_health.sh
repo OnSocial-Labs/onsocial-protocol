@@ -171,32 +171,6 @@ test_subscription_support() {
 }
 
 # =============================================================================
-# TEST 8: Compare with The Graph (if available)
-# =============================================================================
-test_compare_thegraph() {
-    log_header "Test 8: Compare with The Graph Subgraph"
-    
-    local thegraph_url="https://api.studio.thegraph.com/query/1723512/onsocial-testnet/version/latest"
-    
-    # Query The Graph
-    local tg_result=$(curl -s "$thegraph_url" \
-        -H 'Content-Type: application/json' \
-        -d '{"query":"{ dataUpdates(first: 1, orderBy: blockTimestamp, orderDirection: desc) { blockTimestamp } }"}')
-    
-    local tg_block=$(echo "$tg_result" | jq -r '.data.dataUpdates[0].blockTimestamp // "none"' 2>/dev/null)
-    
-    if [ "$tg_block" != "none" ] && [ "$tg_block" != "null" ]; then
-        log_info "The Graph latest: block timestamp $tg_block"
-        log_info "Hasura: Real-time (current block)"
-        log_success "Both indexers operational - Hasura is faster!"
-    else
-        log_warn "Could not query The Graph subgraph (may be behind or no data)"
-    fi
-    
-    return 0
-}
-
-# =============================================================================
 # Main
 # =============================================================================
 main() {
@@ -219,7 +193,6 @@ main() {
     test_storage_updates
     test_group_updates
     test_subscription_support
-    test_compare_thegraph
     
     set -e  # Re-enable exit on error
     

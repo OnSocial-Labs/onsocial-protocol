@@ -3,7 +3,6 @@
 # CONTRACT_UPDATE Event Tests for Hasura/PostgreSQL Indexer
 # Tests: config_change, admin_change, manager_change, status_change, partition
 # Note: Most of these require admin privileges
-# Mirror of subgraph/tests/test_contract.sh
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

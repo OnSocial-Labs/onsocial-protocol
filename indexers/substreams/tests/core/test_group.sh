@@ -2,7 +2,6 @@
 # =============================================================================
 # GROUP_UPDATE Event Tests for Hasura/PostgreSQL Indexer
 # Tests: group_created, member_added, member_removed, proposal_created, vote_cast
-# Mirror of subgraph/tests/test_group.sh
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -129,7 +128,7 @@ test_group_create() {
 # Test: GROUP_UPDATE (member_added)
 # =============================================================================
 test_group_add_member() {
-    local group_id="${TEST_GROUP_ID:-test-subgraph-group}"
+    local group_id="${TEST_GROUP_ID:-test-group}"
     local member="test-member-$(date +%s).testnet"
     
     log_test "GROUP_UPDATE (member_added) - Adding $member to $group_id"
@@ -169,7 +168,7 @@ test_group_add_member() {
 # Test: GROUP_UPDATE (member_removed)
 # =============================================================================
 test_group_remove_member() {
-    local group_id="${TEST_GROUP_ID:-test-subgraph-group}"
+    local group_id="${TEST_GROUP_ID:-test-group}"
     local member="temp-member-$(date +%s).testnet"
     
     log_test "GROUP_UPDATE (member_removed) - First add, then remove $member"

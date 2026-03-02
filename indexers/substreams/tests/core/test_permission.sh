@@ -2,7 +2,6 @@
 # =============================================================================
 # PERMISSION_UPDATE Event Tests for Hasura/PostgreSQL Indexer
 # Tests: grant, revoke, grant_key, revoke_key operations
-# Mirror of subgraph/tests/test_permission.sh
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -3,7 +3,7 @@ syntax = "proto3";
 package core_onsocial.v1;
 
 // =============================================================================
-// TOP-LEVEL OUTPUT - Contains typed events for subgraph consumption
+// TOP-LEVEL OUTPUT - Contains typed events for indexer consumption
 // =============================================================================
 
 message Output {

@@ -2,7 +2,6 @@
 # =============================================================================
 # STORAGE_UPDATE Event Tests for Hasura/PostgreSQL Indexer
 # Tests: auto_deposit, deposit, withdraw, share_storage operations
-# Mirror of subgraph/tests/test_storage.sh
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -2,7 +2,6 @@
 # =============================================================================
 # DATA_UPDATE Event Tests for Hasura/PostgreSQL Indexer
 # Tests: set, remove, parent, ref, parentType, refType, refs array
-# Mirror of subgraph/tests/test_data.sh
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -548,7 +547,7 @@ test_data_all_refs() {
 # Test: Verify real-time indexing speed
 # =============================================================================
 test_indexing_speed() {
-    log_test "Indexing Speed - Verify substreams is faster than subgraph"
+    log_test "Indexing Speed - Verify substreams indexing latency"
     
     local key="speed-test-$(date +%s)"
     local start_time=$(date +%s)
