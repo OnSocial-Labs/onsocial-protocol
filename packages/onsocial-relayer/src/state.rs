@@ -17,6 +17,9 @@ pub struct AppState {
     pub rpc: RpcClient,
     pub key_pool: Arc<KeyPool>,
     pub contract_id: near_primitives::types::AccountId,
+    /// Additional contract accounts the relayer may route to.
+    /// When a request's `target_account` matches, the tx is sent there.
+    pub allowed_contracts: Vec<near_primitives::types::AccountId>,
     pub start_time: Instant,
     pub request_count: AtomicU64,
     /// False until pool has `min_keys` active. `/ready` returns 503 until then.
@@ -34,6 +37,25 @@ impl AppState {
             .contract_id
             .parse()
             .map_err(|e| crate::Error::Config(format!("Invalid contract_id: {e}")))?;
+
+        // Parse allowed contracts (includes primary contract_id automatically)
+        let mut allowed_contracts: Vec<near_primitives::types::AccountId> = config
+            .allowed_contracts
+            .iter()
+            .filter_map(|s| {
+                s.parse()
+                    .map_err(|e| {
+                        warn!(contract = %s, error = %e, "Ignoring invalid allowed_contract");
+                        e
+                    })
+                    .ok()
+            })
+            .collect();
+        // Ensure primary contract is always in the list
+        if !allowed_contracts.contains(&contract_id) {
+            allowed_contracts.push(contract_id.clone());
+        }
+        info!(contracts = ?allowed_contracts, "Allowed target contracts");
 
         let scaling = ScalingConfig::default();
         let scaling_min_keys = scaling.min_keys as usize;
@@ -106,6 +128,7 @@ impl AppState {
         Ok(Self {
             rpc,
             contract_id,
+            allowed_contracts,
             config,
             key_pool,
             start_time: Instant::now(),

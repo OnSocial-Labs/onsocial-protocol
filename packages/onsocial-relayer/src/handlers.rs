@@ -147,7 +147,16 @@ pub async fn execute(
         );
     }
 
-    let contract_id = &state.contract_id;
+    // Route to the correct contract: if `target_account` matches an allowed
+    // contract, send the `execute()` call there; otherwise use the default.
+    let contract_id = request
+        .get("target_account")
+        .and_then(|v| v.as_str())
+        .and_then(|ta| ta.parse::<near_primitives::types::AccountId>().ok())
+        .filter(|ta| state.allowed_contracts.contains(ta))
+        .unwrap_or_else(|| state.contract_id.clone());
+    info!(req_id = %req_id, contract = %contract_id, "Routing to contract");
+
     let gas = NearGas::from_tgas(state.config.gas_tgas);
     let deposit = state.config.storage_deposit;
 
@@ -183,7 +192,7 @@ pub async fn execute(
     let actions = build_execute_actions(&request, gas, deposit);
     let signed_tx = match guard
         .signer()
-        .sign_transaction(guard.nonce, contract_id, block_hash, actions)
+        .sign_transaction(guard.nonce, &contract_id, block_hash, actions)
         .await
     {
         Ok(tx) => tx,
@@ -218,7 +227,7 @@ pub async fn execute(
                 let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
 
                 if let Some(result) =
-                    retry_after_nonce_error(&state, contract_id, &request, gas, deposit, block_hash)
+                    retry_after_nonce_error(&state, &contract_id, &request, gas, deposit, block_hash)
                         .await
                 {
                     METRICS.tx_success.fetch_add(1, Ordering::Relaxed);

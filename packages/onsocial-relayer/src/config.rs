@@ -71,6 +71,14 @@ pub struct Config {
     /// Env: `RELAYER_ALLOWED_METHODS` (comma-separated, default: `execute`).
     #[serde(default = "defaults::allowed_methods")]
     pub allowed_methods: Vec<String>,
+
+    /// Additional contract accounts the relayer may route to.
+    /// Env: `RELAYER_ALLOWED_CONTRACTS` (comma-separated).
+    /// The primary `contract_id` is always allowed.
+    /// When a request's `target_account` matches one of these, the relayer
+    /// sends the `execute()` call to that contract instead of the default one.
+    #[serde(default = "defaults::allowed_contracts")]
+    pub allowed_contracts: Vec<String>,
 }
 
 impl Default for Config {
@@ -93,6 +101,7 @@ impl Default for Config {
             gcp_kms_pool_size: defaults::gcp_kms_pool_size(),
             gcp_kms_admin_key: defaults::gcp_kms_admin_key(),
             allowed_methods: defaults::allowed_methods(),
+            allowed_contracts: defaults::allowed_contracts(),
         }
     }
 }
@@ -307,5 +316,24 @@ mod defaults {
                     .collect()
             })
             .unwrap_or_else(|| vec!["execute".into()])
+    }
+
+    pub fn allowed_contracts() -> Vec<String> {
+        std::env::var("RELAYER_ALLOWED_CONTRACTS")
+            .ok()
+            .map(|v| {
+                v.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_else(|| {
+                let net = network();
+                if net.contains("mainnet") {
+                    vec!["scarces.onsocial.near".into()]
+                } else {
+                    vec!["scarces.onsocial.testnet".into()]
+                }
+            })
     }
 }
