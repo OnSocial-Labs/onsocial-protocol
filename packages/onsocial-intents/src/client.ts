@@ -1,267 +1,194 @@
 /**
- * NEAR Intents API Client
- * 
- * Client for interacting with NEAR Intents 1Click API.
- * Enables multi-token and cross-chain payments.
- * 
+ * NEAR Intents 1Click API Client
+ *
+ * Thin typed wrapper over the 4 endpoints:
+ *   GET  /v0/tokens              — token discovery
+ *   POST /v0/quote               — request swap quote
+ *   POST /v0/deposit/submit      — submit deposit tx hash
+ *   GET  /v0/status              — check swap status
+ *   GET  /v0/any-input/withdrawals — ANY_INPUT withdrawal details
+ *
  * @module onsocial-intents/client
  */
 
 import type {
   QuoteRequest,
   QuoteResponse,
+  SubmitDepositRequest,
+  SubmitDepositResponse,
   StatusResponse,
-  DepositResponse,
+  AnyInputWithdrawalsResponse,
   ClientConfig,
+  Token,
   SwapStatus,
 } from './types';
-import { SwapStatus as SwapStatusEnum } from './types';
 
 const DEFAULT_BASE_URL = 'https://1click.chaindefuser.com';
-const DEFAULT_SLIPPAGE = 100; // 1%
-const DEFAULT_DEADLINE_MS = 3600000; // 1 hour
+const DEFAULT_SLIPPAGE = 100; // 1 %
+const DEFAULT_DEADLINE_MS = 3_600_000; // 1 hour
 
-/**
- * NEAR Intents 1Click API Client
- * 
- * @example
- * ```typescript
- * const client = new IntentsClient({
- *   jwtToken: process.env.NEAR_INTENTS_JWT,
- * });
- * 
- * const quote = await client.getQuote({
- *   originAsset: 'nep141:usdc.e.near',
- *   destinationAsset: 'near',
- *   amount: '100000000',
- *   recipient: 'marketplace.near',
- *   refundTo: 'user.near',
- * });
- * ```
- */
+const TERMINAL_STATUSES: SwapStatus[] = ['SUCCESS', 'FAILED', 'REFUNDED'];
+
 export class IntentsClient {
-  private baseUrl: string;
-  private jwtToken?: string;
-  private defaultSlippage: number;
-  private defaultDeadline: number;
+  private readonly baseUrl: string;
+  private readonly jwtToken?: string;
+  private readonly defaultSlippage: number;
+  private readonly defaultDeadline: number;
+  private readonly referral?: string;
+  private readonly appFees?: QuoteRequest['appFees'];
 
   constructor(config?: ClientConfig) {
     this.baseUrl = config?.baseUrl || DEFAULT_BASE_URL;
     this.jwtToken = config?.jwtToken;
-    this.defaultSlippage = config?.defaultSlippage || DEFAULT_SLIPPAGE;
-    this.defaultDeadline = config?.defaultDeadline || DEFAULT_DEADLINE_MS;
+    this.defaultSlippage = config?.defaultSlippage ?? DEFAULT_SLIPPAGE;
+    this.defaultDeadline = config?.defaultDeadline ?? DEFAULT_DEADLINE_MS;
+    this.referral = config?.referral;
+    this.appFees = config?.appFees;
   }
 
-  /**
-   * Get headers for API requests
-   */
-  private getHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
+  // ── Headers ─────────────────────────────────────────────────────────────
 
-    if (this.jwtToken) {
-      headers['Authorization'] = `Bearer ${this.jwtToken}`;
-    }
-
-    return headers;
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.jwtToken) h['Authorization'] = `Bearer ${this.jwtToken}`;
+    return h;
   }
 
+  // ── GET /v0/tokens ────────────────────────────────────────────────────────
+
+  /** Fetch the full list of tokens currently supported by 1Click. */
+  async getTokens(): Promise<Token[]> {
+    const res = await fetch(`${this.baseUrl}/v0/tokens`);
+    if (!res.ok) throw new Error(`Failed to fetch tokens: ${await res.text()}`);
+    return res.json() as Promise<Token[]>;
+  }
+
+  // ── POST /v0/quote ────────────────────────────────────────────────────────
+
   /**
-   * Get a quote for swapping tokens
-   * 
-   * @param request - Quote request parameters
-   * @returns Quote with deposit address and amounts
-   * 
-   * @example
-   * ```typescript
-   * const quote = await client.getQuote({
-   *   dry: false,
-   *   swapType: SwapType.EXACT_INPUT,
-   *   originAsset: 'nep141:usdc.e.near',
-   *   destinationAsset: 'near',
-   *   amount: '100000000', // 100 USDC
-   *   recipient: 'marketplace.near',
-   *   recipientType: AddressType.INTENTS,
-   *   refundTo: 'user.near',
-   *   refundType: AddressType.INTENTS,
-   *   slippageTolerance: 100,
-   *   deadline: new Date(Date.now() + 3600000).toISOString(),
-   * });
-   * ```
+   * Request a swap quote.
+   *
+   * Client-level defaults (referral, appFees) are merged automatically
+   * but can be overridden per call.
    */
   async getQuote(request: QuoteRequest): Promise<QuoteResponse> {
-    const response = await fetch(`${this.baseUrl}/v0/quote`, {
+    const body: QuoteRequest = {
+      ...request,
+      referral: request.referral ?? this.referral,
+      appFees: request.appFees ?? this.appFees,
+    };
+
+    const res = await fetch(`${this.baseUrl}/v0/quote`, {
       method: 'POST',
-      headers: this.getHeaders(),
+      headers: this.headers(),
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) throw new Error(`Failed to get quote: ${await res.text()}`);
+    return res.json() as Promise<QuoteResponse>;
+  }
+
+  // ── POST /v0/deposit/submit ───────────────────────────────────────────────
+
+  /**
+   * Notify 1Click that a deposit has been sent.
+   * Optional but recommended — speeds up swap processing.
+   */
+  async submitDeposit(request: SubmitDepositRequest): Promise<SubmitDepositResponse> {
+    const res = await fetch(`${this.baseUrl}/v0/deposit/submit`, {
+      method: 'POST',
+      headers: this.headers(),
       body: JSON.stringify(request),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to get quote: ${error}`);
-    }
-
-    const result = await response.json() as any;
-    // API returns nested quote object
-    return result.quote as QuoteResponse;
+    if (!res.ok) throw new Error(`Failed to submit deposit: ${await res.text()}`);
+    return res.json() as Promise<SubmitDepositResponse>;
   }
 
-  /**
-   * Submit a deposit confirmation to the 1Click API
-   * 
-   * This is optional but recommended after user deposits tokens to trigger
-   * faster processing by solvers.
-   * 
-   * @param depositAddress - The deposit address from the quote
-   * @param txHash - Transaction hash of the user's deposit
-   * @returns Confirmation response
-   * 
-   * @example
-   * ```typescript
-   * await client.submitDeposit(quote.depositAddress, userTxHash);
-   * ```
-   */
-  async submitDeposit(
-    depositAddress: string,
-    txHash: string
-  ): Promise<DepositResponse> {
-    const response = await fetch(`${this.baseUrl}/v0/deposit/submit`, {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({
-        depositAddress,
-        txHash,
-      }),
+  // ── GET /v0/status ────────────────────────────────────────────────────────
+
+  /** Check the current status of a swap by deposit address (+ optional memo). */
+  async getStatus(depositAddress: string, depositMemo?: string): Promise<StatusResponse> {
+    const params = new URLSearchParams({ depositAddress });
+    if (depositMemo) params.set('depositMemo', depositMemo);
+
+    const res = await fetch(`${this.baseUrl}/v0/status?${params}`, {
+      headers: this.headers(),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to submit deposit: ${error}`);
-    }
-
-    return response.json() as Promise<DepositResponse>;
+    if (!res.ok) throw new Error(`Failed to get status: ${await res.text()}`);
+    return res.json() as Promise<StatusResponse>;
   }
 
-  /**
-   * Get the status of a swap by deposit address
-   * 
-   * @param depositAddress - The deposit address from the quote
-   * @returns Current swap status
-   * 
-   * @example
-   * ```typescript
-   * const status = await client.getSwapStatus(quote.depositAddress);
-   * if (status.status === SwapStatus.SUCCESS) {
-   *   console.log('NFT purchase complete!');
-   * }
-   * ```
-   */
-  async getSwapStatus(depositAddress: string): Promise<StatusResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/v0/status?depositAddress=${encodeURIComponent(depositAddress)}`,
-      { headers: this.getHeaders() }
-    );
+  // ── GET /v0/any-input/withdrawals ─────────────────────────────────────────
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Failed to get swap status: ${error}`);
-    }
+  /** Get ANY_INPUT withdrawal details. */
+  async getAnyInputWithdrawals(
+    depositAddress: string,
+    opts?: { depositMemo?: string; timestampFrom?: string; page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+  ): Promise<AnyInputWithdrawalsResponse> {
+    const params = new URLSearchParams({ depositAddress });
+    if (opts?.depositMemo) params.set('depositMemo', opts.depositMemo);
+    if (opts?.timestampFrom) params.set('timestampFrom', opts.timestampFrom);
+    if (opts?.page !== undefined) params.set('page', String(opts.page));
+    if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
+    if (opts?.sortOrder) params.set('sortOrder', opts.sortOrder);
 
-    return response.json() as Promise<StatusResponse>;
+    const res = await fetch(`${this.baseUrl}/v0/any-input/withdrawals?${params}`, {
+      headers: this.headers(),
+    });
+
+    if (!res.ok) throw new Error(`Failed to get withdrawals: ${await res.text()}`);
+    return res.json() as Promise<AnyInputWithdrawalsResponse>;
   }
 
+  // ── Poll ──────────────────────────────────────────────────────────────────
+
   /**
-   * Poll swap status until completion or timeout
-   * 
-   * @param depositAddress - The deposit address from the quote
-   * @param onUpdate - Callback called on each status update
-   * @param maxAttempts - Maximum polling attempts (default: 60)
-   * @param intervalMs - Polling interval in milliseconds (default: 5000)
-   * @returns Final swap status
-   * 
-   * @example
-   * ```typescript
-   * const finalStatus = await client.pollSwapStatus(
-   *   quote.depositAddress,
-   *   (status) => console.log('Current status:', status.status),
-   *   60,
-   *   5000
-   * );
-   * ```
+   * Poll swap status until a terminal state is reached.
+   *
+   * @param depositAddress  — deposit address from the quote
+   * @param onUpdate        — optional callback on each poll
+   * @param maxAttempts     — max polls (default 60)
+   * @param intervalMs      — interval between polls (default 5 000)
+   * @param depositMemo     — memo if required
    */
-  async pollSwapStatus(
+  async pollStatus(
     depositAddress: string,
     onUpdate?: (status: StatusResponse) => void,
-    maxAttempts: number = 60,
-    intervalMs: number = 5000
+    maxAttempts = 60,
+    intervalMs = 5_000,
+    depositMemo?: string,
   ): Promise<StatusResponse> {
-    let attempts = 0;
+    for (let i = 0; i < maxAttempts; i++) {
+      const status = await this.getStatus(depositAddress, depositMemo);
+      onUpdate?.(status);
 
-    while (attempts < maxAttempts) {
-      const status = await this.getSwapStatus(depositAddress);
-
-      if (onUpdate) {
-        onUpdate(status);
-      }
-
-      // Terminal states
-      if (
-        status.status === SwapStatusEnum.SUCCESS ||
-        status.status === SwapStatusEnum.FAILED ||
-        status.status === SwapStatusEnum.REFUNDED
-      ) {
-        return status;
-      }
-
-      // Wait before next poll
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-      attempts++;
+      if (TERMINAL_STATUSES.includes(status.status)) return status;
+      await new Promise((r) => setTimeout(r, intervalMs));
     }
-
     throw new Error('Swap status polling timeout');
   }
 
-  /**
-   * Get default slippage tolerance
-   */
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Default slippage in basis points. */
   getDefaultSlippage(): number {
     return this.defaultSlippage;
   }
 
-  /**
-   * Get default deadline offset
-   */
+  /** Default deadline offset in ms. */
   getDefaultDeadline(): number {
     return this.defaultDeadline;
   }
 
-  /**
-   * Create a deadline timestamp for quotes
-   * 
-   * @param offsetMs - Milliseconds from now (default: uses configured default)
-   * @returns ISO 8601 timestamp
-   */
+  /** Create an ISO deadline string from now. */
   createDeadline(offsetMs?: number): string {
-    const ms = offsetMs !== undefined ? offsetMs : this.defaultDeadline;
-    return new Date(Date.now() + ms).toISOString();
+    return new Date(Date.now() + (offsetMs ?? this.defaultDeadline)).toISOString();
   }
 }
 
-/**
- * Create a new IntentsClient instance
- * 
- * @param config - Client configuration
- * @returns Configured IntentsClient
- * 
- * @example
- * ```typescript
- * const client = createClient({
- *   jwtToken: process.env.NEAR_INTENTS_JWT,
- *   defaultSlippage: 100,
- * });
- * ```
- */
+/** Factory shorthand. */
 export function createClient(config?: ClientConfig): IntentsClient {
   return new IntentsClient(config);
 }

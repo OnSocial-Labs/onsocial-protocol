@@ -1,234 +1,261 @@
 /**
- * NEAR Intents API Types
- * 
- * Type definitions for NEAR Intents 1Click API and currency pricing.
- * 
+ * NEAR Intents 1Click API Types
+ *
+ * Aligned 1 : 1 with the OpenAPI spec at
+ * https://1click.chaindefuser.com/docs/v0/openapi.yaml
+ *
+ * No hardcoded token lists — the API is the registry.
+ *
  * @module onsocial-intents/types
  */
 
-/**
- * Asset identifier format
- * - Native NEAR: "near"
- * - NEP-141 tokens: "nep141:token.near"
- * - EVM tokens: "evm:0x..."
- */
-export type AssetId = string;
+// ── Enums (union types for tree-shaking) ────────────────────────────────────
+
+/** How to interpret `amount` in a quote request. */
+export type SwapType = 'EXACT_INPUT' | 'EXACT_OUTPUT' | 'FLEX_INPUT' | 'ANY_INPUT';
 
 /**
- * Swap status from 1Click API
+ * Address type for deposit / recipient / refund.
+ *
+ * - `ORIGIN_CHAIN`      – address on the origin chain
+ * - `DESTINATION_CHAIN`  – address on the destination chain
+ * - `INTENTS`            – account inside NEAR Intents (verifier contract)
  */
-export enum SwapStatus {
-  /** Waiting for user to deposit tokens */
-  PENDING_DEPOSIT = 'PENDING_DEPOSIT',
-  /** Solvers are processing the swap */
-  PROCESSING = 'PROCESSING',
-  /** Swap completed successfully */
-  SUCCESS = 'SUCCESS',
-  /** User deposited less than required amount */
-  INCOMPLETE_DEPOSIT = 'INCOMPLETE_DEPOSIT',
-  /** Swap failed and funds were refunded */
-  REFUNDED = 'REFUNDED',
-  /** Swap failed permanently */
-  FAILED = 'FAILED',
+export type AddressType = 'ORIGIN_CHAIN' | 'DESTINATION_CHAIN' | 'INTENTS';
+
+/**
+ * Deposit address mode.
+ *
+ * - `SIMPLE` – normal deposit address
+ * - `MEMO`   – deposit address + required memo (e.g. Stellar)
+ */
+export type DepositMode = 'SIMPLE' | 'MEMO';
+
+/** Swap lifecycle status. */
+export type SwapStatus =
+  | 'PENDING_DEPOSIT'
+  | 'KNOWN_DEPOSIT_TX'
+  | 'PROCESSING'
+  | 'SUCCESS'
+  | 'INCOMPLETE_DEPOSIT'
+  | 'REFUNDED'
+  | 'FAILED';
+
+/**
+ * Blockchains the 1Click API may support.
+ * The `(string & {})` union allows future chains without a type error.
+ */
+export type Blockchain =
+  | 'near' | 'eth' | 'base' | 'arb' | 'btc' | 'sol' | 'ton'
+  | 'doge' | 'xrp' | 'zec' | 'gnosis' | 'bera' | 'bsc' | 'pol'
+  | 'tron' | 'sui' | 'op' | 'avax' | 'cardano' | 'ltc' | 'xlayer'
+  | 'monad' | 'bch' | 'adi' | 'plasma' | 'starknet' | 'aleo'
+  | (string & {});
+
+// ── Token (GET /v0/tokens) ──────────────────────────────────────────────────
+
+/** A single token returned by the 1Click token-discovery endpoint. */
+export interface Token {
+  /** Unique asset identifier, e.g. `nep141:wrap.near`. */
+  assetId: string;
+  /** Number of decimals. */
+  decimals: number;
+  /** Blockchain the token lives on. */
+  blockchain: Blockchain;
+  /** Ticker symbol, e.g. `wNEAR`, `USDC`. */
+  symbol: string;
+  /** Current USD price. */
+  price: number;
+  /** ISO timestamp of last price update. */
+  priceUpdatedAt: string;
+  /** On-chain contract address (if applicable). */
+  contractAddress?: string;
 }
 
-/**
- * Swap type for quote requests
- */
-export enum SwapType {
-  /** User specifies input amount (common for payments) */
-  EXACT_INPUT = 'EXACT_INPUT',
-  /** User specifies output amount (common for purchases) */
-  EXACT_OUTPUT = 'EXACT_OUTPUT',
-}
+// ── App Fee ─────────────────────────────────────────────────────────────────
 
-/**
- * Recipient/refund address type
- */
-export enum AddressType {
-  /** NEAR account ID */
-  INTENTS = 'INTENTS',
-  /** Ethereum-style address */
-  EVM = 'EVM',
-}
-
-/**
- * Quote request parameters for NEAR Intents 1Click API
- */
-export interface QuoteRequest {
-  /** Set to false for actual swap, true for price quotes only */
-  dry: boolean;
-  /** Swap type - EXACT_INPUT means user specifies input amount */
-  swapType: SwapType;
-  /** Origin asset (what user pays with) - e.g., "nep141:usdc.e.near" */
-  originAsset: AssetId;
-  /** Destination asset (what recipient receives) - e.g., "near" */
-  destinationAsset: AssetId;
-  /** Amount to swap (in smallest units - yoctoNEAR, base tokens, etc.) */
-  amount: string;
-  /** Deposit type */
-  depositType: AddressType;
-  /** Who receives the swapped funds */
+/** Fee entry for distribution-channel revenue. */
+export interface AppFee {
+  /** Recipient account within Intents. */
   recipient: string;
-  /** Recipient type */
-  recipientType: AddressType;
-  /** Where to refund if swap fails */
-  refundTo: string;
-  /** Refund type */
-  refundType: AddressType;
-  /** Slippage tolerance in basis points (100 = 1%) */
+  /** Fee in basis points (100 = 1 %). */
+  fee: number;
+}
+
+// ── Quote Request (POST /v0/quote) ──────────────────────────────────────────
+
+export interface QuoteRequest {
+  /** `true` for price preview only (no deposit address generated). */
+  dry: boolean;
+  swapType: SwapType;
+  /** Slippage tolerance in basis points (100 = 1 %). */
   slippageTolerance: number;
-  /** Swap deadline (ISO 8601 timestamp) */
-  deadline: string;
-  /** Optional: Custom message to pass to recipient contract (EXPERIMENTAL) */
-  customRecipientMsg?: string;
-}
-
-/**
- * Quote response from 1Click API
- */
-export interface QuoteResponse {
-  /** Unique ID for this quote */
-  id: string;
-  /** Network where user deposits tokens (e.g., "NEAR") */
-  depositNetwork: string;
-  /** Asset user should deposit (e.g., "nep141:usdc.e.near") */
-  depositAsset: string;
-  /** Address where user deposits tokens */
-  depositAddress: string;
-  /** Exact amount user should deposit (in smallest units) */
-  amountIn: string;
-  /** Estimated amount recipient receives (in smallest units) */
-  amountOut: string;
-  /** ISO 8601 timestamp when quote expires */
-  deadline: string;
-}
-
-/**
- * Swap status response from 1Click API
- */
-export interface StatusResponse {
-  /** Deposit address used for this swap */
-  depositAddress: string;
-  /** Current status of the swap */
-  status: SwapStatus;
-  /** Origin asset being swapped from */
+  /** Origin asset ID, e.g. `nep141:wrap.near`. */
   originAsset: string;
-  /** Destination asset being swapped to */
+  depositType: AddressType;
+  /** Destination asset ID. */
   destinationAsset: string;
-  /** Amount deposited by user (in smallest units) */
-  amountIn?: string;
-  /** Amount received by recipient (in smallest units) */
-  amountOut?: string;
-  /** Transaction hash on destination network */
-  txHash?: string;
-  /** Error message if failed */
-  error?: string;
-}
-
-/**
- * Deposit submission response
- */
-export interface DepositResponse {
-  /** Whether deposit was successfully registered */
-  success: boolean;
-}
-
-/**
- * Price mode for NFT listings
- * 
- * Supports two pricing models:
- * 1. Currency: Stable pricing in fiat or stablecoins (USD, EUR, USDC, etc.)
- * 2. NEAR: Direct NEAR pricing
- * 
- * Currency mode uses NEAR Intents as implicit pricing oracle.
- */
-export type PriceMode =
-  | {
-      /** Currency-based stable pricing */
-      type: 'Currency';
-      /** Amount in smallest units (e.g., cents for USD, wei for tokens) */
-      amount: string;
-      /** Currency code (USD, EUR, USDC, USDT, SOCIAL, etc.) */
-      currency: string;
-    }
-  | {
-      /** Direct NEAR pricing */
-      type: 'NEAR';
-      /** Price in yoctoNEAR (10^-24 NEAR) */
-      priceNear: string;
-    };
-
-/**
- * Currency conversion request
- */
-export interface PriceRequest {
-  /** Source currency code */
-  fromCurrency: string;
-  /** Destination currency code */
-  toCurrency: string;
-  /** Amount in smallest units */
+  /** Amount in smallest units. */
   amount: string;
-  /** Whether to use dry run (default: true) */
-  dry?: boolean;
+  /** Where to refund on failure. */
+  refundTo: string;
+  refundType: AddressType;
+  /** Recipient of the swapped asset. */
+  recipient: string;
+  recipientType: AddressType;
+  /** ISO 8601 deadline — after this the deposit is refunded. */
+  deadline: string;
+
+  // ── Optional ──
+  depositMode?: DepositMode;
+  connectedWallets?: string[];
+  sessionId?: string;
+  virtualChainRecipient?: string;
+  virtualChainRefundRecipient?: string;
+  /**
+   * EXPERIMENTAL — message passed to `ft_transfer_call` on NEAR withdrawal.
+   * WARNING: funds lost if recipient lacks `ft_on_transfer` or storage.
+   */
+  customRecipientMsg?: string;
+  /** Lowercase referral tag (displayed on analytics platforms). */
+  referral?: string;
+  /** How long to wait for a solver quote (ms, default 3 000). */
+  quoteWaitingTimeMs?: number;
+  /** Distribution-channel fees deducted from amountIn. */
+  appFees?: AppFee[];
 }
 
-/**
- * Currency conversion options
- */
-export interface ConversionOptions {
-  /** Slippage tolerance in basis points (default: 100 = 1%) */
-  slippageTolerance?: number;
-  /** Deadline offset in milliseconds (default: 3600000 = 1 hour) */
-  deadlineMs?: number;
-  /** Whether to use dry run (default: true for pricing) */
-  dry?: boolean;
-  /** Refund address (required for actual swaps) */
-  refundTo?: string;
+// ── Quote (nested inside QuoteResponse) ─────────────────────────────────────
+
+export interface Quote {
+  /** Deposit address (absent on dry run). */
+  depositAddress?: string;
+  /** Memo required alongside the deposit (e.g. Stellar). */
+  depositMemo?: string;
+  amountIn: string;
+  amountInFormatted: string;
+  amountInUsd: string;
+  minAmountIn: string;
+  amountOut: string;
+  amountOutFormatted: string;
+  amountOutUsd: string;
+  minAmountOut: string;
+  /** Estimated swap duration in seconds. */
+  timeEstimate: number;
+  /** When the deposit address expires (ISO). */
+  deadline?: string;
+  /** When the deposit address goes cold (ISO). */
+  timeWhenInactive?: string;
+  virtualChainRecipient?: string;
+  virtualChainRefundRecipient?: string;
+  customRecipientMsg?: string;
+  /** Refund fee in smallest unit of origin asset. */
+  refundFee?: string;
 }
 
-/**
- * Client configuration
- */
+// ── Quote Response ──────────────────────────────────────────────────────────
+
+export interface QuoteResponse {
+  correlationId: string;
+  timestamp: string;
+  /** Signature for dispute resolution — save client-side. */
+  signature: string;
+  quoteRequest: QuoteRequest;
+  quote: Quote;
+}
+
+// ── Deposit Submit (POST /v0/deposit/submit) ────────────────────────────────
+
+export interface SubmitDepositRequest {
+  txHash: string;
+  depositAddress: string;
+  /** Required for NEAR-chain deposits. */
+  nearSenderAccount?: string;
+  /** Include if deposit was submitted with a memo. */
+  memo?: string;
+}
+
+export interface TransactionDetails {
+  hash: string;
+  explorerUrl: string;
+}
+
+export interface SwapDetails {
+  intentHashes: string[];
+  nearTxHashes: string[];
+  originChainTxHashes: TransactionDetails[];
+  destinationChainTxHashes: TransactionDetails[];
+  amountIn?: string;
+  amountInFormatted?: string;
+  amountInUsd?: string;
+  amountOut?: string;
+  amountOutFormatted?: string;
+  amountOutUsd?: string;
+  slippage?: number;
+  refundedAmount?: string;
+  refundedAmountFormatted?: string;
+  refundedAmountUsd?: string;
+  refundReason?: string;
+  depositedAmount?: string;
+  depositedAmountFormatted?: string;
+  depositedAmountUsd?: string;
+  referral?: string;
+}
+
+// ── Status (GET /v0/status) ─────────────────────────────────────────────────
+
+export interface StatusResponse {
+  correlationId: string;
+  quoteResponse: QuoteResponse;
+  status: SwapStatus;
+  updatedAt: string;
+  swapDetails: SwapDetails;
+}
+
+// ── Deposit Submit Response ─────────────────────────────────────────────────
+
+export interface SubmitDepositResponse {
+  correlationId: string;
+  quoteResponse: QuoteResponse;
+  status: SwapStatus;
+  updatedAt: string;
+  swapDetails: SwapDetails;
+}
+
+// ── ANY_INPUT Withdrawals (GET /v0/any-input/withdrawals) ───────────────────
+
+export interface AnyInputWithdrawal {
+  status: 'SUCCESS' | 'FAILED';
+  amountOutFormatted: string;
+  amountOutUsd: string;
+  amountOut: string;
+  withdrawFeeFormatted: string;
+  withdrawFee: string;
+  withdrawFeeUsd: string;
+  timestamp: string;
+  hash: string;
+}
+
+export interface AnyInputWithdrawalsResponse {
+  asset: string;
+  recipient: string;
+  affiliateRecipient: string;
+  withdrawals: AnyInputWithdrawal[];
+}
+
+// ── Client Config ───────────────────────────────────────────────────────────
+
 export interface ClientConfig {
-  /** Base URL for NEAR Intents API (default: https://1click.chaindefuser.com) */
+  /** Base URL (default: `https://1click.chaindefuser.com`). */
   baseUrl?: string;
-  /** JWT token to eliminate 0.1% fee */
+  /** JWT token — authenticated requests skip the 0.2 % platform fee. */
   jwtToken?: string;
-  /** Default slippage tolerance in basis points (default: 100 = 1%) */
+  /** Default slippage in basis points (default: 100 = 1 %). */
   defaultSlippage?: number;
-  /** Default deadline offset in milliseconds (default: 3600000 = 1 hour) */
+  /** Default deadline offset in ms (default: 3 600 000 = 1 h). */
   defaultDeadline?: number;
-}
-
-/**
- * Supported token configuration
- */
-export interface TokenConfig {
-  /** Token symbol (NEAR, SOCIAL, USDC, etc.) */
-  symbol: string;
-  /** Asset ID for NEAR Intents */
-  assetId: AssetId;
-  /** Token decimals */
-  decimals: number;
-  /** Display name */
-  name: string;
-  /** Icon URL or emoji */
-  icon?: string;
-  /** Whether this is a stablecoin */
-  isStablecoin?: boolean;
-}
-
-/**
- * Token amount with display formatting
- */
-export interface TokenAmount {
-  /** Raw amount in smallest units */
-  raw: string;
-  /** Human-readable amount */
-  formatted: string;
-  /** Token symbol */
-  symbol: string;
-  /** Token decimals */
-  decimals: number;
+  /** Default referral tag applied to every quote. */
+  referral?: string;
+  /** Default app fees applied to every quote. */
+  appFees?: AppFee[];
 }

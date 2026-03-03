@@ -1,59 +1,61 @@
 /**
- * OnSocial Intents
- * 
- * NEAR Intents API client for multi-token payments and currency pricing oracle.
- * 
+ * OnSocial Intents — NEAR Intents 1Click API client
+ *
+ * Fully dynamic: no hardcoded token lists. Token discovery is backed by
+ * `GET /v0/tokens` with in-memory caching.
+ *
  * @module onsocial-intents
  * @packageDocumentation
  */
 
-// Client
+// ── Client ──────────────────────────────────────────────────────────────────
 export { IntentsClient, createClient } from './client';
 
-// Pricing Oracle
-export {
-  convertToNear,
-  getPrice,
-  getNearPriceUsd,
-  getUsdPriceNear,
-  convertCurrency,
-  createCurrencyPrice,
-  createNearPrice,
-  isCurrencySupported,
-  getSupportedCurrencies,
-} from './pricing';
+// ── Token Registry ──────────────────────────────────────────────────────────
+export { TokenRegistry, createRegistry } from './registry';
 
-// Tokens & Utilities
+// ── Utilities ───────────────────────────────────────────────────────────────
 export {
-  SUPPORTED_TOKENS,
-  getCurrencyAsset,
-  getTokenConfig,
-  formatNep141Asset,
+  parseAmount,
+  formatAmount,
+  formatAssetId,
   parseAssetId,
-  isStablecoin,
-  getStablecoins,
-  nearToYocto,
-  yoctoToNear,
-  formatTokenAmount,
-  formatCurrency,
-  formatNear,
-  parseCurrencyAmount,
-  createTokenAmount,
-} from './tokens';
+  isTerminalStatus,
+} from './utils';
 
-// Types
+// ── Types ───────────────────────────────────────────────────────────────────
 export type {
-  AssetId,
-  QuoteRequest,
-  QuoteResponse,
-  StatusResponse,
-  DepositResponse,
-  PriceMode,
-  PriceRequest,
-  ConversionOptions,
-  ClientConfig,
-  TokenConfig,
-  TokenAmount,
-} from './types';
+  // Enums (union types)
+  SwapType,
+  AddressType,
+  DepositMode,
+  SwapStatus,
+  Blockchain,
 
-export { SwapStatus, SwapType, AddressType } from './types';
+  // Token
+  Token,
+
+  // Fee
+  AppFee,
+
+  // Quote
+  QuoteRequest,
+  Quote,
+  QuoteResponse,
+
+  // Deposit
+  SubmitDepositRequest,
+  SubmitDepositResponse,
+
+  // Status
+  TransactionDetails,
+  SwapDetails,
+  StatusResponse,
+
+  // ANY_INPUT
+  AnyInputWithdrawal,
+  AnyInputWithdrawalsResponse,
+
+  // Config
+  ClientConfig,
+} from './types';
