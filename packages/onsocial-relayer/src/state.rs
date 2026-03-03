@@ -123,6 +123,12 @@ impl AppState {
 
         let key_pool = Arc::new(key_pool);
 
+        // Ensure every allowed contract has at least min_keys/N active keys.
+        // Runs once at startup so the relayer is ready from the first request.
+        if let Err(e) = key_pool.ensure_contracts_covered(&rpc).await {
+            warn!(error = %e, "Failed to provision keys for all contracts — autoscaler will retry");
+        }
+
         info!(
             active = key_pool.active_count(),
             mode = ?config.signer_mode,

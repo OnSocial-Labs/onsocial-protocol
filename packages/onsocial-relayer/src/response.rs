@@ -93,6 +93,8 @@ pub struct KeyPoolStats {
     pub draining_keys: usize,
     pub total_in_flight: u32,
     pub per_key_load: f32,
+    /// Per-contract active key counts.
+    pub per_contract: std::collections::HashMap<String, usize>,
 }
 
 #[derive(Serialize)]

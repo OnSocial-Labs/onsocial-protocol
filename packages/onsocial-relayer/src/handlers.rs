@@ -88,6 +88,11 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
             draining_keys: pool.draining_count(),
             total_in_flight: pool.total_in_flight(),
             per_key_load: pool.per_key_load(),
+            per_contract: state
+                .allowed_contracts
+                .iter()
+                .map(|c| (c.to_string(), pool.active_count_for(c)))
+                .collect(),
         },
     })
 }

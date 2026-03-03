@@ -238,6 +238,32 @@ impl KeyPool {
     pub fn relayer_account(&self) -> &AccountId {
         &self.account_id
     }
+
+    /// Ensure every allowed contract has at least `min_keys / num_contracts`
+    /// active keys. Called once at bootstrap so the relayer is ready from
+    /// its very first request. The autoscaler keeps a `have == 0` safety
+    /// net for runtime edge cases.
+    pub async fn ensure_contracts_covered(
+        &self,
+        rpc: &crate::rpc::RpcClient,
+    ) -> Result<(), crate::Error> {
+        let num = self.allowed_contracts.len().max(1) as u32;
+        let need = (self.config.min_keys / num).max(1) as usize;
+
+        for target in &self.allowed_contracts {
+            let have = self.active_count_for(target);
+            if have >= need {
+                continue;
+            }
+            let deficit = (need - have) as u32;
+            tracing::info!(
+                contract = %target, have, need, adding = deficit,
+                "Bootstrap: provisioning keys for under-covered contract"
+            );
+            self.scale_up_for_contract(rpc, deficit, target).await?;
+        }
+        Ok(())
+    }
 }
 
 // --- Test helpers (shared across sub-module tests) ---

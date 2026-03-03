@@ -43,6 +43,25 @@ impl KeyPool {
         self.reap_dead_slots();
         self.rotate_old_keys(rpc).await?;
 
+        // ── Per-contract safety net ───────────────────────────────────
+        // If a contract has zero active keys (e.g. all rotated out, or
+        // added at runtime), provision immediately so requests don't 503.
+        // The main bootstrap provisioning is `ensure_contracts_covered()`.
+        for target in &self.allowed_contracts {
+            if self.active_count_for(target) == 0
+                && self.active_count() < self.config.max_keys as usize
+            {
+                let need = (self.config.min_keys / num_contracts).max(1);
+                info!(
+                    contract = %target,
+                    adding = need,
+                    "Contract has zero keys — provisioning"
+                );
+                self.scale_up_for_contract(rpc, need, target).await?;
+                self.last_scale_event.store(now_secs(), Ordering::Relaxed);
+            }
+        }
+
         // Scale up when per-key load exceeds threshold
         if load > self.config.scale_up_per_key && active < self.config.max_keys as usize {
             let promoted = self.promote_warm_keys();
