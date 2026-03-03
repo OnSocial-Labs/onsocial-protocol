@@ -24,57 +24,54 @@ impl KeyPool {
 
     /// Scale up with locally generated keys (non-KMS).
     pub async fn scale_up_local(&self, rpc: &RpcClient, count: u32) -> Result<(), crate::Error> {
-        let mut new_keys: Vec<(SecretKey, PublicKey)> = Vec::with_capacity(count as usize);
+        // Create keys for each allowed contract.
+        for target in &self.allowed_contracts {
+            let mut new_keys: Vec<(SecretKey, PublicKey)> = Vec::with_capacity(count as usize);
 
-        for _ in 0..count {
-            let secret_key = SecretKey::from_random(near_crypto::KeyType::ED25519);
-            let public_key = secret_key.public_key();
-            new_keys.push((secret_key, public_key));
-        }
+            for _ in 0..count {
+                let secret_key = SecretKey::from_random(near_crypto::KeyType::ED25519);
+                let public_key = secret_key.public_key();
+                new_keys.push((secret_key, public_key));
+            }
 
-        let public_keys: Vec<PublicKey> = new_keys.iter().map(|(_, pk)| pk.clone()).collect();
-        self.register_keys_on_chain(rpc, &public_keys).await?;
+            let public_keys: Vec<PublicKey> = new_keys.iter().map(|(_, pk)| pk.clone()).collect();
+            self.register_keys_on_chain(rpc, &public_keys, target)
+                .await?;
 
-        info!(count, mode = "local", "AddKey batch submitted");
+            info!(count, contract = %target, mode = "local", "AddKey batch submitted");
 
-        // Sync nonces (retry briefly — RPC may lag after AddKey)
-        for (secret_key, public_key) in &new_keys {
-            let mut nonce = None;
-            for attempt in 0..3 {
-                match rpc.query_access_key(&self.account_id, public_key).await {
-                    Ok(ak) => {
-                        nonce = Some(ak.nonce);
-                        break;
-                    }
-                    Err(e) => {
-                        if attempt < 2 {
-                            tokio::time::sleep(Duration::from_millis(500)).await;
-                        } else {
-                            warn!(key = %public_key, error = %e, "Key added on-chain but nonce sync failed — will retry next tick");
+            // Sync nonces (retry briefly — RPC may lag after AddKey)
+            for (secret_key, public_key) in &new_keys {
+                let mut nonce = None;
+                for attempt in 0..3 {
+                    match rpc.query_access_key(&self.account_id, public_key).await {
+                        Ok(ak) => {
+                            nonce = Some(ak.nonce);
+                            break;
+                        }
+                        Err(e) => {
+                            if attempt < 2 {
+                                tokio::time::sleep(Duration::from_millis(500)).await;
+                            } else {
+                                warn!(key = %public_key, error = %e, "Key added on-chain but nonce sync failed — will retry next tick");
+                            }
                         }
                     }
                 }
-            }
-            if let Some(n) = nonce {
+                let n = nonce.unwrap_or(0);
                 let signer = near_crypto::InMemorySigner::from_secret_key(
                     self.account_id.clone(),
                     secret_key.clone(),
                 );
                 let relayer_signer = RelayerSigner::Local { signer };
-                let slot = KeySlot::new(relayer_signer, n);
+                let slot = KeySlot::new(relayer_signer, n, target.clone());
                 slot.state.store(ACTIVE, Ordering::Relaxed);
+                if nonce.is_some() {
+                    info!(key = %public_key, nonce = n, contract = %target, "New local key added to pool");
+                } else {
+                    warn!(key = %public_key, contract = %target, "Key added with nonce=0, will re-sync on first use");
+                }
                 self.write_slots().push(Arc::new(slot));
-                info!(key = %public_key, nonce = n, "New local key added to pool");
-            } else {
-                let signer = near_crypto::InMemorySigner::from_secret_key(
-                    self.account_id.clone(),
-                    secret_key.clone(),
-                );
-                let relayer_signer = RelayerSigner::Local { signer };
-                let slot = KeySlot::new(relayer_signer, 0);
-                slot.state.store(ACTIVE, Ordering::Relaxed);
-                self.write_slots().push(Arc::new(slot));
-                warn!(key = %public_key, "Key added with nonce=0, will re-sync on first use");
             }
         }
 
@@ -94,79 +91,88 @@ impl KeyPool {
     ) -> Result<(), crate::Error> {
         use crate::signer::RelayerSigner;
 
-        let base_idx = kms.next_index.fetch_add(count, Ordering::Relaxed);
-        let key_ids: Vec<String> = (base_idx..base_idx + count)
-            .map(|idx| format!("pool-key-{idx}"))
-            .collect();
+        // Create keys for each allowed contract.
+        for target in &self.allowed_contracts {
+            let base_idx = kms.next_index.fetch_add(count, Ordering::Relaxed);
+            let key_ids: Vec<String> = (base_idx..base_idx + count)
+                .map(|idx| format!("pool-key-{idx}"))
+                .collect();
 
-        let mut handles = tokio::task::JoinSet::new();
-        for key_id in &key_ids {
-            let client = Arc::clone(&kms.client);
-            let project = kms.project.clone();
-            let location = kms.location.clone();
-            let keyring = kms.keyring.clone();
-            let kid = key_id.clone();
-            let account_id = self.account_id.clone();
-            handles.spawn(async move {
-                let key_ref = client
-                    .create_key(&project, &location, &keyring, &kid, &account_id)
-                    .await
-                    .map_err(|e| crate::Error::KeyPool(format!("KMS create_key({kid}): {e}")))?;
-                info!(key_id = kid, public_key = %key_ref.public_key, "Created KMS key");
-                Ok::<_, crate::Error>(key_ref)
-            });
-        }
+            let mut handles = tokio::task::JoinSet::new();
+            for key_id in &key_ids {
+                let client = Arc::clone(&kms.client);
+                let project = kms.project.clone();
+                let location = kms.location.clone();
+                let keyring = kms.keyring.clone();
+                let kid = key_id.clone();
+                let account_id = self.account_id.clone();
+                handles.spawn(async move {
+                    let key_ref = client
+                        .create_key(&project, &location, &keyring, &kid, &account_id)
+                        .await
+                        .map_err(|e| {
+                            crate::Error::KeyPool(format!("KMS create_key({kid}): {e}"))
+                        })?;
+                    info!(key_id = kid, public_key = %key_ref.public_key, "Created KMS key");
+                    Ok::<_, crate::Error>(key_ref)
+                });
+            }
 
-        let mut key_refs = Vec::with_capacity(count as usize);
-        while let Some(result) = handles.join_next().await {
-            let key_ref =
-                result.map_err(|e| crate::Error::KeyPool(format!("KMS task panicked: {e}")))??;
-            key_refs.push(key_ref);
-        }
+            let mut key_refs = Vec::with_capacity(count as usize);
+            while let Some(result) = handles.join_next().await {
+                let key_ref = result
+                    .map_err(|e| crate::Error::KeyPool(format!("KMS task panicked: {e}")))??;
+                key_refs.push(key_ref);
+            }
 
-        let public_keys: Vec<PublicKey> = key_refs.iter().map(|kr| kr.public_key.clone()).collect();
-        self.register_keys_on_chain(rpc, &public_keys).await?;
+            let public_keys: Vec<PublicKey> =
+                key_refs.iter().map(|kr| kr.public_key.clone()).collect();
+            self.register_keys_on_chain(rpc, &public_keys, target)
+                .await?;
 
-        info!(count, mode = "kms", "AddKey batch submitted");
+            info!(count, contract = %target, mode = "kms", "AddKey batch submitted");
 
-        let mut nonce_handles = tokio::task::JoinSet::new();
-        for key_ref in key_refs {
-            let account_id = self.account_id.clone();
-            let pk = key_ref.public_key.clone();
-            let rpc_url = rpc.primary_url().to_string();
-            let fallback_url = rpc.fallback_url().to_string();
-            nonce_handles.spawn(async move {
-                let rpc = RpcClient::new(&rpc_url, &fallback_url);
-                let nonce = match rpc.query_access_key(&account_id, &pk).await {
-                    Ok(ak) => Some(ak.nonce),
-                    Err(e) => {
-                        warn!(key = %pk, error = %e, "KMS key registered but nonce sync failed");
-                        None
-                    }
-                };
-                (key_ref, pk, nonce)
-            });
-        }
-
-        while let Some(result) = nonce_handles.join_next().await {
-            match result {
-                Ok((key_ref, pk, nonce_opt)) => {
-                    let n = nonce_opt.unwrap_or(0);
-                    let signer = RelayerSigner::Kms {
-                        key_ref,
-                        client: Arc::clone(&kms.client),
+            let mut nonce_handles = tokio::task::JoinSet::new();
+            let target_clone = target.clone();
+            for key_ref in key_refs {
+                let account_id = self.account_id.clone();
+                let pk = key_ref.public_key.clone();
+                let rpc_url = rpc.primary_url().to_string();
+                let fallback_url = rpc.fallback_url().to_string();
+                let tgt = target_clone.clone();
+                nonce_handles.spawn(async move {
+                    let rpc = RpcClient::new(&rpc_url, &fallback_url);
+                    let nonce = match rpc.query_access_key(&account_id, &pk).await {
+                        Ok(ak) => Some(ak.nonce),
+                        Err(e) => {
+                            warn!(key = %pk, error = %e, "KMS key registered but nonce sync failed");
+                            None
+                        }
                     };
-                    let slot = KeySlot::new(signer, n);
-                    slot.state.store(ACTIVE, Ordering::Relaxed);
-                    self.write_slots().push(Arc::new(slot));
-                    if nonce_opt.is_some() {
-                        info!(key = %pk, nonce = n, "New KMS key added to pool");
-                    } else {
-                        warn!(key = %pk, "KMS key added with nonce=0, will re-sync on first use");
+                    (key_ref, pk, nonce, tgt)
+                });
+            }
+
+            while let Some(result) = nonce_handles.join_next().await {
+                match result {
+                    Ok((key_ref, pk, nonce_opt, tgt)) => {
+                        let n = nonce_opt.unwrap_or(0);
+                        let signer = RelayerSigner::Kms {
+                            key_ref,
+                            client: Arc::clone(&kms.client),
+                        };
+                        let slot = KeySlot::new(signer, n, tgt);
+                        slot.state.store(ACTIVE, Ordering::Relaxed);
+                        self.write_slots().push(Arc::new(slot));
+                        if nonce_opt.is_some() {
+                            info!(key = %pk, nonce = n, contract = %target, "New KMS key added to pool");
+                        } else {
+                            warn!(key = %pk, contract = %target, "KMS key added with nonce=0, will re-sync on first use");
+                        }
                     }
-                }
-                Err(e) => {
-                    warn!(error = %e, "KMS nonce sync task panicked");
+                    Err(e) => {
+                        warn!(error = %e, "KMS nonce sync task panicked");
+                    }
                 }
             }
         }
@@ -179,6 +185,7 @@ impl KeyPool {
         &self,
         rpc: &RpcClient,
         public_keys: &[PublicKey],
+        target_contract: &near_primitives::types::AccountId,
     ) -> Result<(), crate::Error> {
         let _admin_guard = self.admin_tx_lock.lock().await;
 
@@ -192,7 +199,7 @@ impl KeyPool {
                         permission: near_primitives::account::AccessKeyPermission::FunctionCall(
                             near_primitives::account::FunctionCallPermission {
                                 allowance: None,
-                                receiver_id: self.contract_id.to_string(),
+                                receiver_id: target_contract.to_string(),
                                 method_names: self.allowed_methods.clone(),
                             },
                         ),

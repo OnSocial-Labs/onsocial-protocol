@@ -2,6 +2,7 @@
 
 use crate::signer::RelayerSigner;
 use near_crypto::PublicKey;
+use near_primitives::types::AccountId;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -16,6 +17,8 @@ pub(crate) const DEAD: u8 = 3;
 /// A single key slot in the pool.
 pub struct KeySlot {
     pub(crate) signer: RelayerSigner,
+    /// The contract this key is authorized to call.
+    pub(crate) target_contract: AccountId,
     /// 0=warmup, 1=active, 2=draining, 3=dead.
     pub(crate) state: AtomicU8,
     pub(crate) in_flight: AtomicU32,
@@ -28,9 +31,10 @@ pub struct KeySlot {
 }
 
 impl KeySlot {
-    pub(crate) fn new(signer: RelayerSigner, nonce: u64) -> Self {
+    pub(crate) fn new(signer: RelayerSigner, nonce: u64, target_contract: AccountId) -> Self {
         Self {
             signer,
+            target_contract,
             state: AtomicU8::new(WARMUP),
             in_flight: AtomicU32::new(0),
             nonce: AtomicU64::new(nonce),

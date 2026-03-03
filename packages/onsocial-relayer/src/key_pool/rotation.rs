@@ -35,6 +35,10 @@ impl KeyPool {
         let active = self.active_count();
         let _warm = self.warm_count();
         let load = self.per_key_load();
+        // scale_up creates `count` keys *per contract*, so the effective total
+        // increase is `count × num_contracts`. We divide headroom accordingly
+        // to never overshoot `max_keys`.
+        let num_contracts = self.allowed_contracts.len().max(1) as u32;
 
         self.reap_dead_slots();
         self.rotate_old_keys(rpc).await?;
@@ -56,18 +60,17 @@ impl KeyPool {
                 && active_now < self.config.max_keys as usize
                 && self.cooldown_elapsed()
             {
-                let to_add = self
-                    .config
-                    .batch_size
-                    .min(self.config.max_keys - active_now as u32);
-                if to_add > 0 {
+                let headroom = self.config.max_keys.saturating_sub(active_now as u32);
+                let per_contract = (headroom / num_contracts).min(self.config.batch_size);
+                if per_contract > 0 {
                     info!(
                         current = active_now,
-                        adding = to_add,
+                        adding_per_contract = per_contract,
+                        contracts = num_contracts,
                         per_key_load = load,
                         "Scaling up"
                     );
-                    self.scale_up(rpc, to_add).await?;
+                    self.scale_up(rpc, per_contract).await?;
                     self.last_scale_event.store(now_secs(), Ordering::Relaxed);
                 }
             }
@@ -102,15 +105,17 @@ impl KeyPool {
             && self.cooldown_elapsed()
         {
             let deficit = self.config.warm_buffer - self.warm_count() as u32;
-            let can_add = (self.config.max_keys as usize - total) as u32;
-            let to_warm = deficit.min(can_add).min(self.config.batch_size);
-            if to_warm > 0 {
+            let headroom = (self.config.max_keys as usize - total) as u32;
+            let per_contract = (headroom / num_contracts)
+                .min(deficit)
+                .min(self.config.batch_size);
+            if per_contract > 0 {
                 info!(
                     warm = self.warm_count(),
-                    adding = to_warm,
+                    adding_per_contract = per_contract,
                     "Pre-warming spare keys"
                 );
-                self.pre_warm(rpc, to_warm).await?;
+                self.pre_warm(rpc, per_contract).await?;
             }
         }
 
@@ -221,7 +226,7 @@ impl KeyPool {
 mod tests {
     use super::super::slot::{now_secs, KeySlot, ACTIVE, DRAINING};
     use super::super::tests::{
-        dummy_rpc, make_test_pool, make_test_pool_with_config, make_test_signer,
+        dummy_rpc, make_test_pool, make_test_pool_with_config, make_test_signer, test_contract,
     };
     use crate::config::ScalingConfig;
     use std::sync::atomic::Ordering;
@@ -295,7 +300,7 @@ mod tests {
         {
             let mut slots = pool.write_slots();
             for i in 0..3u8 {
-                let slot = KeySlot::new(make_test_signer(i + 1), 1000);
+                let slot = KeySlot::new(make_test_signer(i + 1), 1000, test_contract());
                 slots.push(Arc::new(slot));
             }
         }
@@ -327,7 +332,11 @@ mod tests {
         let pool = make_test_pool(2);
         {
             let mut slots = pool.write_slots();
-            slots.push(Arc::new(KeySlot::new(make_test_signer(10), 1000)));
+            slots.push(Arc::new(KeySlot::new(
+                make_test_signer(10),
+                1000,
+                test_contract(),
+            )));
         }
         assert_eq!(pool.active_count(), 2);
         assert_eq!(pool.warm_count(), 1);
@@ -368,7 +377,11 @@ mod tests {
 
         {
             let mut slots = pool.write_slots();
-            slots.push(Arc::new(KeySlot::new(make_test_signer(10), 2000)));
+            slots.push(Arc::new(KeySlot::new(
+                make_test_signer(10),
+                2000,
+                test_contract(),
+            )));
         }
         assert_eq!(pool.active_count(), 1);
         assert_eq!(pool.warm_count(), 1);
@@ -398,7 +411,7 @@ mod tests {
         {
             let mut slots = pool.write_slots();
             for i in 0..3u8 {
-                let mut slot = KeySlot::new(make_test_signer(i + 1), 1000);
+                let mut slot = KeySlot::new(make_test_signer(i + 1), 1000, test_contract());
                 slot.state.store(ACTIVE, Ordering::Relaxed);
                 slot.created_at = now_secs() - 90_000;
                 slots.push(Arc::new(slot));
@@ -430,7 +443,7 @@ mod tests {
         let rpc = dummy_rpc();
         {
             let mut slots = pool.write_slots();
-            let mut slot = KeySlot::new(make_test_signer(1), 1000);
+            let mut slot = KeySlot::new(make_test_signer(1), 1000, test_contract());
             slot.state.store(ACTIVE, Ordering::Relaxed);
             slot.created_at = now_secs() - 90_000;
             slot.in_flight.store(1, Ordering::Relaxed);
@@ -450,12 +463,12 @@ mod tests {
         {
             let mut slots = pool.write_slots();
 
-            let mut old = KeySlot::new(make_test_signer(1), 1000);
+            let mut old = KeySlot::new(make_test_signer(1), 1000, test_contract());
             old.state.store(ACTIVE, Ordering::Relaxed);
             old.created_at = now_secs() - 90_000;
             slots.push(Arc::new(old));
 
-            let young = KeySlot::new(make_test_signer(2), 1001);
+            let young = KeySlot::new(make_test_signer(2), 1001, test_contract());
             young.state.store(ACTIVE, Ordering::Relaxed);
             slots.push(Arc::new(young));
         }
@@ -518,12 +531,12 @@ mod tests {
         let pool = make_test_pool_with_config(0, config);
         {
             let mut slots = pool.write_slots();
-            let drain = KeySlot::new(make_test_signer(1), 1000);
+            let drain = KeySlot::new(make_test_signer(1), 1000, test_contract());
             drain.state.store(DRAINING, Ordering::Relaxed);
             slots.push(Arc::new(drain));
-            let warm = KeySlot::new(make_test_signer(2), 1001);
+            let warm = KeySlot::new(make_test_signer(2), 1001, test_contract());
             slots.push(Arc::new(warm));
-            let active = KeySlot::new(make_test_signer(3), 1002);
+            let active = KeySlot::new(make_test_signer(3), 1002, test_contract());
             active.state.store(ACTIVE, Ordering::Relaxed);
             slots.push(Arc::new(active));
         }

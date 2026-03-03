@@ -1,8 +1,7 @@
 //! Pool bootstrap from on-chain state and nonce synchronization.
 
 use super::KeyPool;
-use crate::config::ScalingConfig;
-use crate::key_store::KeyStore;
+use super::PoolConfig;
 use crate::rpc::RpcClient;
 use crate::signer::RelayerSigner;
 use near_crypto::{PublicKey, SecretKey};
@@ -54,29 +53,54 @@ pub(crate) async fn sync_nonce_from_chain(
     Ok(ak.nonce)
 }
 
-#[allow(clippy::too_many_arguments)]
+/// Bootstrap a [`KeyPool`] by syncing stored local keys against on-chain state.
+///
+/// Each key's target contract is detected from its `AccessKeyPermissionView`.
+/// FullAccess keys are skipped (they belong to the admin signer, not the pool).
 pub async fn bootstrap_pool_from_chain(
     rpc: &RpcClient,
-    account_id: &AccountId,
-    contract_id: &AccountId,
-    admin_signer: RelayerSigner,
+    pool_config: PoolConfig,
     stored_keys: Vec<(SecretKey, PublicKey)>,
-    config: ScalingConfig,
-    store: KeyStore,
-    allowed_methods: Vec<String>,
 ) -> Result<KeyPool, crate::Error> {
-    let mut signers_with_nonces = Vec::new();
+    let mut signers_with_nonces: Vec<(RelayerSigner, u64, AccountId)> = Vec::new();
 
     for (secret_key, public_key) in &stored_keys {
-        match rpc.query_access_key(account_id, public_key).await {
+        match rpc
+            .query_access_key(&pool_config.account_id, public_key)
+            .await
+        {
             Ok(ak) => {
+                // Detect which contract this key is authorized for.
+                let target = match &ak.permission {
+                    near_primitives::views::AccessKeyPermissionView::FunctionCall {
+                        receiver_id,
+                        ..
+                    } => match receiver_id.parse::<AccountId>() {
+                        Ok(id) => id,
+                        Err(e) => {
+                            warn!(
+                                key = %public_key,
+                                receiver = %receiver_id,
+                                error = %e,
+                                "Skipping key with unparseable receiver_id"
+                            );
+                            continue;
+                        }
+                    },
+                    near_primitives::views::AccessKeyPermissionView::FullAccess => {
+                        // FullAccess keys are admin keys, not pool keys — skip.
+                        warn!(key = %public_key, "Skipping FullAccess key during bootstrap");
+                        continue;
+                    }
+                };
+
                 let signer = near_crypto::InMemorySigner::from_secret_key(
-                    account_id.clone(),
+                    pool_config.account_id.clone(),
                     secret_key.clone(),
                 );
                 let relayer_signer = RelayerSigner::Local { signer };
-                signers_with_nonces.push((relayer_signer, ak.nonce));
-                info!(key = %public_key, nonce = ak.nonce, "Synced key from chain");
+                signers_with_nonces.push((relayer_signer, ak.nonce, target.clone()));
+                info!(key = %public_key, nonce = ak.nonce, contract = %target, "Synced key from chain");
             }
             Err(e) => {
                 warn!(key = %public_key, error = %e, "Key not found on chain, skipping");
@@ -90,15 +114,7 @@ pub async fn bootstrap_pool_from_chain(
         "Bootstrap complete"
     );
 
-    Ok(KeyPool::new(
-        account_id.clone(),
-        contract_id.clone(),
-        admin_signer,
-        signers_with_nonces,
-        config,
-        store,
-        allowed_methods,
-    ))
+    Ok(KeyPool::new(pool_config, signers_with_nonces))
 }
 
 #[cfg(test)]

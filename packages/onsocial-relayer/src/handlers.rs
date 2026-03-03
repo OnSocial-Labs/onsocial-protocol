@@ -160,8 +160,8 @@ pub async fn execute(
     let gas = NearGas::from_tgas(state.config.gas_tgas);
     let deposit = state.config.storage_deposit;
 
-    // Acquire a key from the pool
-    let guard = match state.key_pool.acquire() {
+    // Acquire a key from the pool (filtered by target contract)
+    let guard = match state.key_pool.acquire(&contract_id) {
         Ok(g) => g,
         Err(e) => {
             METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
@@ -233,6 +233,7 @@ pub async fn execute(
                     gas,
                     deposit,
                     block_hash,
+                    &contract_id,
                 )
                 .await
                 {
@@ -273,8 +274,9 @@ async fn retry_after_nonce_error(
     gas: NearGas,
     deposit: u128,
     fallback_block_hash: CryptoHash,
+    target_contract: &near_primitives::types::AccountId,
 ) -> Option<(StatusCode, Json<ExecuteResponse>)> {
-    let retry_guard = state.key_pool.acquire().ok()?;
+    let retry_guard = state.key_pool.acquire(target_contract).ok()?;
     let _submit = retry_guard.lock_submit().await;
     let bh = state
         .rpc

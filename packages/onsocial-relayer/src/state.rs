@@ -1,7 +1,7 @@
 //! Application state shared across all handlers.
 
 use crate::config::{Config, ScalingConfig, SignerMode};
-use crate::key_pool::{bootstrap_pool_from_chain, KeyPool};
+use crate::key_pool::{bootstrap_pool_from_chain, KeyPool, PoolConfig};
 use crate::key_store::KeyStore;
 use crate::rpc::RpcClient;
 use crate::signer::RelayerSigner;
@@ -78,7 +78,8 @@ impl AppState {
                             crate::Error::Config(format!("Invalid RELAYER_ACCOUNT_ID: {e}"))
                         })?;
                     info!(account = %account_id, mode = "kms", "Bootstrapping KMS pool");
-                    bootstrap_kms_pool(&config, &rpc, &account_id, &contract_id, scaling).await?
+                    bootstrap_kms_pool(&config, &rpc, &account_id, &allowed_contracts, scaling)
+                        .await?
                 }
             }
             SignerMode::Local => {
@@ -96,7 +97,7 @@ impl AppState {
                         &config,
                         &rpc,
                         &account_id,
-                        &contract_id,
+                        &allowed_contracts,
                         admin,
                         scaling,
                     )
@@ -104,9 +105,15 @@ impl AppState {
                     (pool, None)
                 };
                 #[cfg(not(feature = "gcp"))]
-                let result =
-                    bootstrap_local_pool(&config, &rpc, &account_id, &contract_id, admin, scaling)
-                        .await?;
+                let result = bootstrap_local_pool(
+                    &config,
+                    &rpc,
+                    &account_id,
+                    &allowed_contracts,
+                    admin,
+                    scaling,
+                )
+                .await?;
                 result
             }
         };
@@ -145,7 +152,7 @@ async fn bootstrap_local_pool(
     config: &Config,
     rpc: &RpcClient,
     account_id: &near_primitives::types::AccountId,
-    contract_id: &near_primitives::types::AccountId,
+    allowed_contracts: &[near_primitives::types::AccountId],
     admin_signer: RelayerSigner,
     scaling: ScalingConfig,
 ) -> Result<KeyPool, crate::Error> {
@@ -191,17 +198,16 @@ async fn bootstrap_local_pool(
         stored_keys
     };
 
-    bootstrap_pool_from_chain(
-        rpc,
-        account_id,
-        contract_id,
+    let pool_config = PoolConfig {
+        account_id: account_id.clone(),
+        allowed_contracts: allowed_contracts.to_vec(),
         admin_signer,
-        stored_keys,
         scaling,
         store,
-        config.allowed_methods.clone(),
-    )
-    .await
+        allowed_methods: config.allowed_methods.clone(),
+    };
+
+    bootstrap_pool_from_chain(rpc, pool_config, stored_keys).await
 }
 
 /// Bootstrap pool from GCP Cloud KMS. Zero private keys on server.
@@ -210,7 +216,7 @@ async fn bootstrap_kms_pool(
     config: &Config,
     rpc: &RpcClient,
     account_id: &near_primitives::types::AccountId,
-    contract_id: &near_primitives::types::AccountId,
+    allowed_contracts: &[near_primitives::types::AccountId],
     scaling: ScalingConfig,
 ) -> Result<(KeyPool, Option<Arc<crate::kms::KmsClient>>), crate::Error> {
     use crate::kms::KmsClient;
@@ -267,9 +273,15 @@ async fn bootstrap_kms_pool(
     };
 
     // --- Pool keys from KMS (function-call, for execute TXs) ---
+    // Note: KMS pool keys are initially loaded for the first allowed contract.
+    // The autoscaler will provision keys for additional contracts on its first tick.
+    let first_contract = allowed_contracts
+        .first()
+        .cloned()
+        .unwrap_or_else(|| account_id.clone());
 
     // Fetch public keys for each pool key from KMS (with bootstrap retry)
-    let mut pool_signers: Vec<(RelayerSigner, u64)> = Vec::new();
+    let mut pool_signers: Vec<(RelayerSigner, u64, near_primitives::types::AccountId)> = Vec::new();
     const BOOTSTRAP_MAX_RETRIES: u32 = 3;
     const BOOTSTRAP_BASE_DELAY_MS: u64 = 2000;
 
@@ -302,12 +314,26 @@ async fn bootstrap_kms_pool(
                 .await
             {
                 Ok(key_ref) => {
-                    // Query on-chain nonce for this key
-                    let nonce = match rpc.query_access_key(account_id, &key_ref.public_key).await {
-                        Ok(ak) => ak.nonce,
+                    // Query on-chain access key to get nonce AND detect target contract.
+                    let (nonce, target) = match rpc
+                        .query_access_key(account_id, &key_ref.public_key)
+                        .await
+                    {
+                        Ok(ak) => {
+                            let contract = match &ak.permission {
+                                near_primitives::views::AccessKeyPermissionView::FunctionCall {
+                                    receiver_id,
+                                    ..
+                                } => receiver_id
+                                    .parse::<near_primitives::types::AccountId>()
+                                    .unwrap_or_else(|_| first_contract.clone()),
+                                _ => first_contract.clone(),
+                            };
+                            (ak.nonce, contract)
+                        }
                         Err(_) => {
                             info!(key = %key_ref.public_key, "KMS key not yet registered on-chain (nonce=0)");
-                            0
+                            (0, first_contract.clone())
                         }
                     };
 
@@ -315,6 +341,7 @@ async fn bootstrap_kms_pool(
                         key = i,
                         public_key = %key_ref.public_key,
                         nonce = nonce,
+                        contract = %target,
                         "KMS pool key ready"
                     );
 
@@ -323,7 +350,7 @@ async fn bootstrap_kms_pool(
                         client: Arc::clone(&kms_client),
                     };
 
-                    pool_signers.push((signer, nonce));
+                    pool_signers.push((signer, nonce, target));
                     last_err = None;
                     break;
                 }
@@ -359,16 +386,16 @@ async fn bootstrap_kms_pool(
         next_index: std::sync::atomic::AtomicU32::new(config.gcp_kms_pool_size),
     };
 
-    let pool = KeyPool::new(
-        account_id.clone(),
-        contract_id.clone(),
+    let pool_config = PoolConfig {
+        account_id: account_id.clone(),
+        allowed_contracts: allowed_contracts.to_vec(),
         admin_signer,
-        pool_signers,
         scaling,
         store,
-        config.allowed_methods.clone(),
-    )
-    .with_kms(kms_context);
+        allowed_methods: config.allowed_methods.clone(),
+    };
+
+    let pool = KeyPool::new(pool_config, pool_signers).with_kms(kms_context);
 
     Ok((pool, Some(kms_client)))
 }
