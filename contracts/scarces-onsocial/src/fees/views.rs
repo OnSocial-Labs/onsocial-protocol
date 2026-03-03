@@ -2,14 +2,6 @@ use crate::*;
 
 #[near]
 impl Contract {
-    pub fn get_fee_config(&self) -> &FeeConfig {
-        &self.fee_config
-    }
-
-    pub fn get_fee_recipient(&self) -> AccountId {
-        self.fee_recipient.clone()
-    }
-
     pub fn get_platform_storage_balance(&self) -> U128 {
         U128(self.platform_storage_balance)
     }

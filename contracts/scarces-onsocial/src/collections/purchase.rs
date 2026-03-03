@@ -210,7 +210,11 @@ impl Contract {
                 // Rollback: restore mint counts
                 if is_before_start || collection.max_per_wallet.is_some() {
                     let mint_key = format!("{}:{}", collection_id, buyer_id);
-                    let cur = self.collection_mint_counts.get(&mint_key).copied().unwrap_or(0);
+                    let cur = self
+                        .collection_mint_counts
+                        .get(&mint_key)
+                        .copied()
+                        .unwrap_or(0);
                     if cur <= quantity {
                         self.collection_mint_counts.remove(&mint_key);
                     } else {

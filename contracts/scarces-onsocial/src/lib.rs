@@ -32,6 +32,7 @@ mod upgrade;
 #[cfg(test)]
 mod tests;
 
+pub use admin::ContractInfo;
 pub use app_pool::{AppConfig, AppPool};
 pub use collections::{
     AllowlistEntry, CollectionConfig, CollectionProgress, CollectionStats, LazyCollection,

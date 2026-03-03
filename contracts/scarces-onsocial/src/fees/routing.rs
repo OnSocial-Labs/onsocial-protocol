@@ -126,13 +126,16 @@ impl Contract {
                         "WARN: app pool '{}' missing during route_fee; {} yN → platform pool",
                         app, app_amount
                     ));
-                    self.platform_storage_balance = self.platform_storage_balance.saturating_add(app_amount);
+                    self.platform_storage_balance =
+                        self.platform_storage_balance.saturating_add(app_amount);
                 }
             }
         }
 
         if platform_amount > 0 {
-            self.platform_storage_balance = self.platform_storage_balance.saturating_add(platform_amount);
+            self.platform_storage_balance = self
+                .platform_storage_balance
+                .saturating_add(platform_amount);
         }
 
         if revenue > 0 {

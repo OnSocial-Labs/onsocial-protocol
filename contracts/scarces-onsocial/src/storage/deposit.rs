@@ -82,7 +82,8 @@ impl Contract {
                 updated.balance.0 -= available;
                 let new_balance = updated.balance.0;
                 self.user_storage.insert(actor_id.clone(), updated);
-                self.pending_attached_balance = self.pending_attached_balance.saturating_add(available);
+                self.pending_attached_balance =
+                    self.pending_attached_balance.saturating_add(available);
                 events::emit_prepaid_balance_drawn(actor_id, available, new_balance);
                 return available;
             }

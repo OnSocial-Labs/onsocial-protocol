@@ -152,14 +152,43 @@ pub async fn execute(
         );
     }
 
-    // Route to the correct contract: if `target_account` matches an allowed
-    // contract, send the `execute()` call there; otherwise use the default.
-    let contract_id = request
-        .get("target_account")
-        .and_then(|v| v.as_str())
-        .and_then(|ta| ta.parse::<near_primitives::types::AccountId>().ok())
-        .filter(|ta| state.allowed_contracts.contains(ta))
-        .unwrap_or_else(|| state.contract_id.clone());
+    // Route to the correct contract based on `target_account`.
+    // Required field — reject if missing, invalid, or not in allowed list.
+    let contract_id = match request.get("target_account").and_then(|v| v.as_str()) {
+        Some(ta) => {
+            let parsed = match ta.parse::<near_primitives::types::AccountId>() {
+                Ok(id) => id,
+                Err(_) => {
+                    METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ExecuteResponse::err(
+                            format!("Invalid target_account: {ta}"),
+                            None,
+                        )),
+                    );
+                }
+            };
+            if !state.allowed_contracts.contains(&parsed) {
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(ExecuteResponse::err(
+                        format!("Contract not allowed: {parsed}"),
+                        None,
+                    )),
+                );
+            }
+            parsed
+        }
+        None => {
+            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ExecuteResponse::err("Missing 'target_account' field", None)),
+            );
+        }
+    };
     info!(req_id = %req_id, contract = %contract_id, "Routing to contract");
 
     let gas = NearGas::from_tgas(state.config.gas_tgas);

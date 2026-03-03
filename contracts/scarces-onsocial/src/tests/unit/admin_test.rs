@@ -227,3 +227,40 @@ fn admin_update_fee_config_below_minimum_fails() {
         .unwrap_err();
     assert!(matches!(err, MarketplaceError::InvalidInput(_)));
 }
+
+// --- get_contract_info ---
+
+#[test]
+fn get_contract_info_returns_all_fields() {
+    let mut contract = new_contract();
+    testing_env!(context_with_deposit(owner(), 1).build());
+
+    let executor: AccountId = "relayer.near".parse().unwrap();
+    contract.add_intents_executor(executor.clone()).unwrap();
+
+    let nft: AccountId = "nft.near".parse().unwrap();
+    contract.add_approved_nft_contract(nft.clone()).unwrap();
+
+    let info = contract.get_contract_info();
+    assert_eq!(info.owner, owner());
+    assert_eq!(info.fee_recipient, owner());
+    assert_eq!(info.intents_executors, vec![executor]);
+    assert!(info.approved_nft_contracts.contains(&nft));
+    assert!(info.wnear_account_id.is_none());
+    assert!(!info.version.is_empty());
+    assert_eq!(
+        info.platform_storage_balance.0,
+        5_000_000_000_000_000_000_000_000
+    );
+}
+
+#[test]
+fn get_contract_info_empty_defaults() {
+    let contract = new_contract();
+    testing_env!(context(owner()).build());
+
+    let info = contract.get_contract_info();
+    assert!(info.intents_executors.is_empty());
+    assert!(info.approved_nft_contracts.is_empty());
+    assert!(info.wnear_account_id.is_none());
+}

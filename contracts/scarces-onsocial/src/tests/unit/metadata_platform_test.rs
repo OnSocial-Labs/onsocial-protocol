@@ -47,33 +47,33 @@ fn nft_metadata_after_update() {
     assert_eq!(meta.symbol, "UPD");
 }
 
-// ===== get_fee_config / get_fee_recipient =====
+// ===== fee config / fee recipient via get_contract_info =====
 
 #[test]
-fn get_fee_config_returns_defaults() {
+fn contract_info_fee_config_returns_defaults() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
 
-    let config = contract.get_fee_config();
-    // Smoke-test: calling get_fee_config must not panic
-    let _ = config.total_fee_bps;
+    let info = contract.get_contract_info();
+    // Smoke-test: fee_config is present and readable
+    let _ = info.fee_config.total_fee_bps;
 }
 
 #[test]
-fn get_fee_recipient_default() {
+fn contract_info_fee_recipient_default() {
     let contract = setup_contract();
     testing_env!(context(owner()).build());
-    assert_eq!(contract.get_fee_recipient(), owner());
+    assert_eq!(contract.get_contract_info().fee_recipient, owner());
 }
 
 #[test]
-fn get_fee_recipient_after_change() {
+fn contract_info_fee_recipient_after_change() {
     let mut contract = setup_contract();
 
     testing_env!(context_with_deposit(owner(), 1).build());
     contract.set_fee_recipient(buyer()).unwrap();
 
-    assert_eq!(contract.get_fee_recipient(), buyer());
+    assert_eq!(contract.get_contract_info().fee_recipient, buyer());
 }
 
 // ===== get_platform_storage_balance =====

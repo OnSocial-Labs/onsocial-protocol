@@ -200,7 +200,7 @@ services:
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
       GCP_KMS_ADMIN_KEY: admin-key
-      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-3}
+      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-6}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
       # Instance 0 uses the original keyring

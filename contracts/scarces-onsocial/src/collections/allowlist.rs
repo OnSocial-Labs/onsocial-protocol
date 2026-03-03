@@ -38,7 +38,9 @@ impl Contract {
         let bytes_used = after.saturating_sub(before);
         if bytes_used > 0 {
             // Storage/accounting invariant: rollback allowlist entries if storage charge fails.
-            if let Err(e) = self.charge_storage_waterfall(actor_id, bytes_used, collection.app_id.as_ref()) {
+            if let Err(e) =
+                self.charge_storage_waterfall(actor_id, bytes_used, collection.app_id.as_ref())
+            {
                 for entry in &entries {
                     let key = format!("{}:al:{}", collection_id, entry.account_id);
                     self.collection_allowlist.remove(&key);
@@ -80,11 +82,7 @@ impl Contract {
         let after = self.storage_usage_flushed();
         let bytes_freed = before.saturating_sub(after);
         if bytes_freed > 0 {
-            self.release_storage_waterfall(
-                actor_id,
-                bytes_freed,
-                collection.app_id.as_ref(),
-            );
+            self.release_storage_waterfall(actor_id, bytes_freed, collection.app_id.as_ref());
         }
 
         events::emit_allowlist_removed(actor_id, collection_id, &accounts);

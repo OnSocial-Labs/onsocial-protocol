@@ -1,5 +1,17 @@
 use crate::*;
 
+#[near(serializers = [json])]
+pub struct ContractInfo {
+    pub owner: AccountId,
+    pub version: String,
+    pub fee_recipient: AccountId,
+    pub fee_config: FeeConfig,
+    pub intents_executors: Vec<AccountId>,
+    pub approved_nft_contracts: Vec<AccountId>,
+    pub wnear_account_id: Option<AccountId>,
+    pub platform_storage_balance: U128,
+}
+
 #[near]
 impl Contract {
     #[init]
@@ -61,10 +73,6 @@ impl Contract {
         self.owner_id = new_owner;
         events::emit_owner_transferred(&old_owner, &self.owner_id);
         Ok(())
-    }
-
-    pub fn get_owner(&self) -> &AccountId {
-        &self.owner_id
     }
 
     #[payable]
@@ -231,11 +239,16 @@ impl Contract {
         Ok(())
     }
 
-    pub fn get_approved_nft_contracts(&self) -> Vec<&AccountId> {
-        self.approved_nft_contracts.iter().collect()
-    }
-
-    pub fn get_version(&self) -> &str {
-        &self.version
+    pub fn get_contract_info(&self) -> ContractInfo {
+        ContractInfo {
+            owner: self.owner_id.clone(),
+            version: self.version.clone(),
+            fee_recipient: self.fee_recipient.clone(),
+            fee_config: self.fee_config.clone(),
+            intents_executors: self.intents_executors.clone(),
+            approved_nft_contracts: self.approved_nft_contracts.iter().cloned().collect(),
+            wnear_account_id: self.wnear_account_id.clone(),
+            platform_storage_balance: U128(self.platform_storage_balance),
+        }
     }
 }

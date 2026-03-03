@@ -139,11 +139,14 @@ async function main() {
       console.log('Status:', finalStatus || 'completed');
     }
 
-    // Query new version — core uses get_version, staking uses get_stats
+    // Query new version — core uses get_version, scarces uses get_contract_info, staking uses get_stats
     console.log('');
     console.log('Querying contract version...');
-    const usesGetVersion = ['core-onsocial', 'scarces-onsocial'].includes(contractName);
-    const versionMethod = usesGetVersion ? 'get_version' : 'get_stats';
+    const versionMethod = contractName === 'scarces-onsocial'
+      ? 'get_contract_info'
+      : contractName === 'core-onsocial'
+        ? 'get_version'
+        : 'get_stats';
     const viewResult = await provider.query({
       request_type: 'call_function',
       account_id: contractId,
