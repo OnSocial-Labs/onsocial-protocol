@@ -226,9 +226,15 @@ pub async fn execute(
                 let pk = guard.public_key();
                 let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
 
-                if let Some(result) =
-                    retry_after_nonce_error(&state, &contract_id, &request, gas, deposit, block_hash)
-                        .await
+                if let Some(result) = retry_after_nonce_error(
+                    &state,
+                    &contract_id,
+                    &request,
+                    gas,
+                    deposit,
+                    block_hash,
+                )
+                .await
                 {
                     METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
                     METRICS.record_tx_duration(start);
