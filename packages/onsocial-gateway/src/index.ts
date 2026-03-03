@@ -10,7 +10,7 @@ import { authRouter } from './routes/auth.js';
 import { developerRouter } from './routes/developer.js';
 import { graphRouter } from './routes/graph.js';
 import { relayRouter } from './routes/relay.js';
-import { composeRouter } from './routes/compose.js';
+import { composeRouter } from './routes/compose/index.js';
 import { storageRouter } from './services/storage/index.js';
 
 const app = express();

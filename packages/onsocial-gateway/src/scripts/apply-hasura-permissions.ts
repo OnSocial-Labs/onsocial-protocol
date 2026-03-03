@@ -356,10 +356,7 @@ async function createPermissions(): Promise<void> {
         ) {
           console.log(`   ⏭ ${table.name} (already exists)`);
           skipped++;
-        } else if (
-          msg.includes('table') &&
-          msg.includes('does not exist')
-        ) {
+        } else if (msg.includes('table') && msg.includes('does not exist')) {
           console.log(
             `   ⚠ ${table.name} (table not found - might not be tracked yet)`
           );
@@ -404,7 +401,9 @@ async function main(): Promise<void> {
         process.exit(1);
     }
   } catch (error: unknown) {
-    console.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `\n❌ Error: ${error instanceof Error ? error.message : String(error)}`
+    );
     process.exit(1);
   }
 }
