@@ -30,6 +30,12 @@
         "init": "new '{}'"
     },
     {
+        "name": "rewards-onsocial",
+        "id": "rewards.${AUTH_ACCOUNT}",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"social_token\": \"token.${AUTH_ACCOUNT}\", \"max_daily\": \"1000000000000000000\"}'"
+    },
+    {
         "name": "token-onsocial",
         "id": "token.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",

@@ -65,12 +65,12 @@ test-integration-contract-%-no-run: build-docker-contracts ensure-scripts-execut
 	$(call log_progress,Compiling integration tests without executing)
 	@if [ "$*" = "core-onsocial" ]; then \
 		$(MAKE) test-integration-contract-core-onsocial-no-run; \
-	elif [ "$*" = "cross-contract" ]; then \
-		$(MAKE) test-integration-contract-cross-contract-no-run; \
 	elif [ "$*" = "staking-onsocial" ]; then \
 		$(MAKE) test-integration-contract-staking-onsocial-no-run; \
 	elif [ "$*" = "scarces-onsocial" ]; then \
 		$(MAKE) test-integration-contract-scarces-onsocial-no-run; \
+	elif [ "$*" = "rewards-onsocial" ]; then \
+		$(MAKE) test-integration-contract-rewards-onsocial-no-run; \
 	else \
 		$(call log_error,No -no-run integration compile target defined for contract: $*); \
 		exit 1; \
@@ -85,13 +85,6 @@ test-integration-contract-core-onsocial-no-run: build-docker-contracts ensure-sc
 		cargo test -p onsocial-integration-tests --release --color always --no-run)
 	@echo "✅ Integration tests compiled for contract core-onsocial (no-run)"
 
-.PHONY: test-integration-contract-cross-contract-no-run
-test-integration-contract-cross-contract-no-run: build-docker-contracts ensure-scripts-executable
-	$(call docker_run_contracts,set -euo pipefail; \
-		cd /code; \
-		cargo test -p onsocial-integration-tests --release --color always --no-run)
-	@echo "✅ Integration tests compiled for contract cross-contract (no-run)"
-
 .PHONY: test-integration-contract-staking-onsocial-no-run
 test-integration-contract-staking-onsocial-no-run: build-docker-contracts ensure-scripts-executable
 	$(call docker_run_contracts,set -euo pipefail; \
@@ -100,6 +93,15 @@ test-integration-contract-staking-onsocial-no-run: build-docker-contracts ensure
 		cd /code; \
 		cargo test -p onsocial-integration-tests --release --color always --no-run)
 	@echo "✅ Integration tests compiled for contract staking-onsocial (no-run)"
+
+.PHONY: test-integration-contract-rewards-onsocial-no-run
+test-integration-contract-rewards-onsocial-no-run: build-docker-contracts ensure-scripts-executable
+	$(call docker_run_contracts,set -euo pipefail; \
+		cd /code/contracts/rewards-onsocial; \
+		cargo build --release --target wasm32-unknown-unknown; \
+		cd /code; \
+		cargo test -p onsocial-integration-tests --release --color always --no-run)
+	@echo "✅ Integration tests compiled for contract rewards-onsocial (no-run)"
 
 .PHONY: test-integration-contract-scarces-onsocial-no-run
 test-integration-contract-scarces-onsocial-no-run: build-docker-contracts ensure-scripts-executable

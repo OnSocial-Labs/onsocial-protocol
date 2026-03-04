@@ -21,6 +21,7 @@ members = [
     "contracts/manager-proxy-onsocial",
     "contracts/mock-ft",
     "contracts/token-onsocial",
+    "contracts/rewards-onsocial",
     "tests",
     "packages/onsocial-relayer"
 ]

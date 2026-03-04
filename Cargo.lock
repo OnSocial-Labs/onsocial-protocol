@@ -3623,6 +3623,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rewards-onsocial"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.2.16",
+ "near-sdk",
+ "near-sdk-macros",
+ "onsocial-auth",
+ "onsocial-types",
+ "serde",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

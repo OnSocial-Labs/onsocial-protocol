@@ -43,14 +43,17 @@ fn build_pool(
         signer: admin_signer,
     };
     let store = KeyStore::new_plaintext("/tmp/relayer_integ_test".into());
-    KeyPool::new(
-        account,
-        contract_id.parse().unwrap(),
-        admin,
-        vec![], // start empty — scale_up will add keys
-        config,
+    let pool_config = onsocial_relayer::key_pool::PoolConfig {
+        account_id: account,
+        allowed_contracts: vec![contract_id.parse().unwrap()],
+        admin_signer: admin,
+        scaling: config,
         store,
-        vec!["execute".into()],
+        allowed_methods: vec!["execute".into()],
+    };
+    KeyPool::new(
+        pool_config,
+        vec![], // start empty — scale_up will add keys
     )
 }
 
@@ -108,13 +111,14 @@ async fn test_scale_up_local_registers_keys_on_chain() -> Result<()> {
     );
 
     // Verify keys work: acquire and check nonce
-    let guard = pool.acquire()?;
+    let core_id: near_primitives::types::AccountId = core.id().as_str().parse().unwrap();
+    let guard = pool.acquire(&core_id)?;
     assert!(guard.nonce > 0, "acquired key should have a valid nonce");
     drop(guard);
 
     // Verify on-chain: query all access keys for the relayer account
     let pk1 = {
-        let g = pool.acquire()?;
+        let g = pool.acquire(&core_id)?;
         g.public_key()
     };
 
@@ -171,11 +175,12 @@ async fn test_scale_down_removes_keys_on_chain() -> Result<()> {
     assert_eq!(pool.active_count(), 4);
 
     // Capture a public key before scale_down
+    let core_id: near_primitives::types::AccountId = core.id().as_str().parse().unwrap();
     let _pk_to_delete = {
         // Scale down removes from the end. Acquire the last key's pubkey.
         let slots_count = pool.active_count();
         assert!(slots_count >= 2);
-        let g = pool.acquire()?;
+        let g = pool.acquire(&core_id)?;
         g.public_key()
     };
 
@@ -233,8 +238,9 @@ async fn test_handle_nonce_error_resyncs_from_chain() -> Result<()> {
     assert_eq!(pool.active_count(), 1);
 
     // Acquire a key to know its public key
+    let core_id: near_primitives::types::AccountId = core.id().as_str().parse().unwrap();
     let pk = {
-        let g = pool.acquire()?;
+        let g = pool.acquire(&core_id)?;
         g.public_key()
     };
 
@@ -242,7 +248,7 @@ async fn test_handle_nonce_error_resyncs_from_chain() -> Result<()> {
     pool.handle_nonce_error(&pk, &rpc).await?;
 
     // Key should still be active and acquirable
-    let guard = pool.acquire()?;
+    let guard = pool.acquire(&core_id)?;
     assert!(guard.nonce > 0);
     drop(guard);
 
@@ -294,7 +300,8 @@ async fn test_full_scale_up_then_scale_down_cycle() -> Result<()> {
     assert_eq!(pool.active_count(), 5);
 
     // Verify we can acquire and use all keys
-    let guards: Vec<_> = (0..5).map(|_| pool.acquire().unwrap()).collect();
+    let core_id: near_primitives::types::AccountId = core.id().as_str().parse().unwrap();
+    let guards: Vec<_> = (0..5).map(|_| pool.acquire(&core_id).unwrap()).collect();
     assert_eq!(pool.total_in_flight(), 5);
     drop(guards);
     assert_eq!(pool.total_in_flight(), 0);
@@ -311,8 +318,8 @@ async fn test_full_scale_up_then_scale_down_cycle() -> Result<()> {
     // scale_down again (which triggers no-op since nothing is idle among active).
 
     // Acquire remaining active keys — they still work
-    let g1 = pool.acquire()?;
-    let g2 = pool.acquire()?;
+    let g1 = pool.acquire(&core_id)?;
+    let g2 = pool.acquire(&core_id)?;
     assert_eq!(pool.total_in_flight(), 2);
     drop(g1);
     drop(g2);
@@ -367,9 +374,10 @@ async fn test_scale_up_multiple_batches() -> Result<()> {
     assert_eq!(pool.active_count(), 5);
 
     // All 5 keys should be independently acquirable
+    let core_id: near_primitives::types::AccountId = core.id().as_str().parse().unwrap();
     let mut pks = std::collections::HashSet::new();
     for _ in 0..5 {
-        let g = pool.acquire()?;
+        let g = pool.acquire(&core_id)?;
         pks.insert(g.public_key().to_string());
     }
     // Should have 5 distinct keys

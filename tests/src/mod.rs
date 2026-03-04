@@ -43,6 +43,8 @@ pub mod proposals_tests;
 #[cfg(test)]
 pub mod relayer_key_pool_tests;
 #[cfg(test)]
+pub mod rewards;
+#[cfg(test)]
 pub mod shared_storage_atomic_tests;
 #[cfg(test)]
 pub mod scarces;

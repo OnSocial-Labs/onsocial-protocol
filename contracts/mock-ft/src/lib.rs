@@ -18,6 +18,8 @@ pub struct MockFT {
     decimals: u8,
     /// Test helper: if set, the next ft_transfer will fail
     fail_next_transfer: bool,
+    /// Tracks registered accounts (NEP-145 mock)
+    registered: LookupMap<AccountId, bool>,
 }
 
 #[near(serializers = [json])]
@@ -33,12 +35,15 @@ impl MockFT {
     #[init]
     pub fn new(owner_id: AccountId, total_supply: U128, decimals: u8) -> Self {
         let mut balances = LookupMap::new(b"b");
-        balances.insert(owner_id, total_supply.0);
+        balances.insert(owner_id.clone(), total_supply.0);
+        let mut registered = LookupMap::new(b"r");
+        registered.insert(owner_id, true);
         Self {
             balances,
             total_supply: total_supply.0,
             decimals,
             fail_next_transfer: false,
+            registered,
         }
     }
 
@@ -59,6 +64,13 @@ impl MockFT {
             self.fail_next_transfer = false;
             env::panic_str("MockFT: Simulated transfer failure");
         }
+
+        // Check receiver is registered (mirrors real NEP-141 behavior)
+        assert!(
+            self.registered.contains_key(&receiver_id),
+            "Receiver {} is not registered",
+            receiver_id
+        );
 
         let sender_id = env::predecessor_account_id();
         self.internal_transfer(&sender_id, &receiver_id, amount.0, memo);
@@ -124,31 +136,53 @@ impl MockFT {
     // =========================================================================
 
     #[payable]
-    pub fn storage_deposit(&mut self, _account_id: Option<AccountId>) -> StorageBalance {
-        // Just acknowledge - no actual storage tracking for mock
+    pub fn storage_deposit(
+        &mut self,
+        account_id: Option<AccountId>,
+        registration_only: Option<bool>,
+    ) -> StorageBalance {
+        let _ = registration_only;
+        let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
+        let deposit = env::attached_deposit().as_yoctonear();
+
+        if self.registered.contains_key(&account_id) {
+            // Already registered — refund full deposit (matches NEP-145 with registration_only)
+            if deposit > 0 {
+                let _ = Promise::new(env::predecessor_account_id())
+                    .transfer(NearToken::from_yoctonear(deposit));
+            }
+        } else {
+            // Register the account
+            self.registered.insert(account_id, true);
+        }
+
         StorageBalance {
-            total: U128(env::attached_deposit().as_yoctonear()),
+            total: U128(1250000000000000000000),
             available: U128(0),
         }
     }
 
-    pub fn storage_balance_of(&self, _account_id: AccountId) -> Option<StorageBalance> {
-        // Always return some balance for mock
-        Some(StorageBalance {
-            total: U128(1250000000000000000000), // ~0.00125 NEAR
-            available: U128(0),
-        })
+    pub fn storage_balance_of(&self, account_id: AccountId) -> Option<StorageBalance> {
+        if self.registered.contains_key(&account_id) {
+            Some(StorageBalance {
+                total: U128(1250000000000000000000), // ~0.00125 NEAR
+                available: U128(0),
+            })
+        } else {
+            None
+        }
     }
 
     // =========================================================================
     // Test Helpers (not in real FT)
     // =========================================================================
 
-    /// Mint tokens to account (for testing only)
+    /// Mint tokens to account (for testing only). Also registers the account.
     pub fn mint(&mut self, account_id: AccountId, amount: U128) {
         let current = self.balances.get(&account_id).copied().unwrap_or(0);
-        self.balances.insert(account_id, current + amount.0);
+        self.balances.insert(account_id.clone(), current + amount.0);
         self.total_supply += amount.0;
+        self.registered.insert(account_id, true);
     }
 
     /// Set flag to fail the next ft_transfer call (for testing callbacks)

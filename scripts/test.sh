@@ -20,7 +20,7 @@ WARNING="⚠️  \033[0;33m"
 RESET="\033[0m"
 
 # List of contracts to test and report on
-CONTRACT_LIST=("scarces-onsocial" "staking-onsocial" "core-onsocial" "token-onsocial" "cross-contract")
+CONTRACT_LIST=("scarces-onsocial" "staking-onsocial" "core-onsocial" "token-onsocial" "rewards-onsocial")
 
 # List of JS/TS/RS packages to test and report on
 PACKAGES_LIST=("onsocial-client" "app" "relayer")
@@ -128,7 +128,7 @@ test_integration() {
     # Build contract in release mode if a specific contract is being tested
     if [ -n "$module" ]; then
         case $module in
-            scarces-onsocial|staking-onsocial|core-onsocial|token-onsocial)
+            scarces-onsocial|staking-onsocial|core-onsocial|token-onsocial|rewards-onsocial)
                 echo "Building $module in release mode for integration test..."
                 cd "$BASE_DIR/$module" || { echo -e "${ERROR}Directory $module not found${RESET}"; INTEGRATION_RESULTS["$module"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
                 local features_flag=""
@@ -163,34 +163,13 @@ test_integration() {
     fi
     if [ -n "$module" ]; then
         case $module in
-            cross-contract)
-                module_name=$(echo "$module" | tr '-' '_')
-                
-                # Build test command with optional specific test filter
-                local test_filter="${module_name}_tests"
-                if [ -n "$test_name" ]; then
-                    test_filter="$test_name"
-                    echo "Running specific integration test: $test_name"
-                fi
-                
-                [ "$VERBOSE" = "1" ] && echo "Running: cargo test --release --color always -- $test_filter"
-                if ! cargo test --release --color always -- "$test_filter"; then
-                    echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"
-                    INTEGRATION_RESULTS["$module"]="Failed"
-                    ((INTEGRATION_FAILURES++))
-                    return 1
-                else
-                    echo -e "${SUCCESS}Integration tests passed for $module${test_name:+ (test: $test_name)}${RESET}"
-                    INTEGRATION_RESULTS["$module"]="Passed"
-                fi
-                ;;
             core-onsocial)
                 # Run near-workspaces integration tests for core-onsocial
                 # Clean up any stale sandbox temp files first
                 rm -rf /tmp/.tmp* 2>/dev/null || true
                 
                 # Run core-onsocial integration tests only
-                # Skip tests belonging to other contracts (token, staking, cross-contract)
+                # Skip tests belonging to other contracts
                 local test_filter=""
                 if [ -n "$test_name" ]; then
                     test_filter="$test_name"
@@ -200,8 +179,8 @@ test_integration() {
                 if [ -n "$test_filter" ]; then
                     run_integration_test "$test_filter"
                 else
-                    # Run core-onsocial tests only: skip cross-contract, token, staking, and scarces test modules
-                    run_integration_test "" "--skip cross_contract_tests --skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests --skip scarces::"
+                    # Run core-onsocial tests only: skip token, staking, scarces, and rewards test modules
+                    run_integration_test "" "--skip token_onsocial_tests --skip staking_onsocial_tests --skip staking_gas_profiling_tests --skip scarces:: --skip rewards::"
                 fi
                 local test_exit_code=$?
                 
@@ -271,6 +250,37 @@ test_integration() {
                     INTEGRATION_RESULTS["$module"]="Passed"
                 fi
                 ;;
+            rewards-onsocial)
+                # Run near-workspaces integration tests for rewards-onsocial
+                rm -rf /tmp/.tmp* 2>/dev/null || true
+                
+                # Build mock-ft for FT integration tests
+                echo "Building mock-ft contract for rewards integration tests..."
+                if [ -d "$BASE_DIR/mock-ft" ]; then
+                    cd "$BASE_DIR/mock-ft" || { echo -e "${WARNING}mock-ft contract not found, FT tests will be skipped${RESET}"; }
+                    cargo near build non-reproducible-wasm || { echo -e "${ERROR}Failed to build mock-ft${RESET}"; }
+                fi
+                cd "$TEST_DIR" || { echo -e "${ERROR}Tests directory not found${RESET}"; INTEGRATION_RESULTS["${module:-all}"]="Failed"; ((INTEGRATION_FAILURES++)); return 1; }
+                
+                local test_filter="rewards::"
+                if [ -n "$test_name" ]; then
+                    test_filter="$test_name"
+                    echo "Running specific integration test: $test_name"
+                fi
+                
+                run_integration_test "$test_filter"
+                local test_exit_code=$?
+                
+                if [ $test_exit_code -ne 0 ]; then
+                    echo -e "${ERROR}Integration tests failed for $module${test_name:+ (test: $test_name)}${RESET}"
+                    INTEGRATION_RESULTS["$module"]="Failed"
+                    ((INTEGRATION_FAILURES++))
+                    return 1
+                else
+                    echo -e "${SUCCESS}Integration tests passed for $module${test_name:+ (test: $test_name)}${RESET}"
+                    INTEGRATION_RESULTS["$module"]="Passed"
+                fi
+                ;;
             scarces-onsocial)
                 # Run near-workspaces integration tests for scarces-onsocial
                 rm -rf /tmp/.tmp* 2>/dev/null || true
@@ -318,7 +328,7 @@ test_integration() {
         fi
         
         [ "$VERBOSE" = "1" ] && echo "Running: $test_cmd"
-        for contract in "${CONTRACT_LIST[@]}" cross-contract; do
+        for contract in "${CONTRACT_LIST[@]}"; do
             INTEGRATION_RESULTS["$contract"]="Not Run"
         done
         if ! eval "$test_cmd"; then
