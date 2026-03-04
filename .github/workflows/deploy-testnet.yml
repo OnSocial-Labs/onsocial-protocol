@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/onsocial-relayer/**'
       - 'packages/onsocial-gateway/**'
+      - 'packages/onsocial-backend/**'
       - 'packages/onsocial-rpc/**'
       - 'docker/**'
       - 'deployment/**'
@@ -37,6 +38,9 @@ jobs:
             context: .
           - image: relayer
             dockerfile: docker/Dockerfile.relayer
+            context: .
+          - image: backend
+            dockerfile: docker/Dockerfile.backend
             context: .
     steps:
       - uses: actions/checkout@v4
@@ -114,8 +118,12 @@ jobs:
           ssh-keyscan -H 135.181.110.183 >> ~/.ssh/known_hosts 2>/dev/null
           scp -i ~/.ssh/deploy_key \
             deployment/docker-compose.yml \
+            deployment/Caddyfile \
             deployment/Caddyfile.relayer \
+            deployment/init-extra-dbs.sh \
             root@135.181.110.183:/opt/onsocial/
+          ssh -i ~/.ssh/deploy_key root@135.181.110.183 \
+            'chmod +x /opt/onsocial/init-extra-dbs.sh'
           echo "✅ Config files synced to server"
 
       - name: Deploy via SSH
@@ -180,7 +188,7 @@ jobs:
             set -a && source .env.production && source .env.image && set +a
 
             # ── Pull new images ──────────────────────────────────────
-            docker compose pull caddy gateway relayer-0 relayer-1
+            docker compose pull caddy gateway relayer-0 relayer-1 backend
 
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
@@ -213,6 +221,13 @@ jobs:
             docker compose up -d --no-deps caddy
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
               echo "⚠️  Public health check failed — services may still be starting"
+            fi
+
+            # ── Backend (Telegram rewards bot) ───────────────────────
+            echo "Rolling backend..."
+            docker compose up -d --no-deps backend
+            if ! check_container_health "backend" "backend" "http://localhost:4001/health" 10 3; then
+              echo "⚠️  Backend health check failed — bot may need manual restart"
             fi
 
             # ── Bring up any remaining services ──────────────────────

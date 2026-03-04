@@ -40,6 +40,8 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
+      backend:
+        condition: service_healthy
 
   # =========================================================================
   # DATABASE
@@ -56,6 +58,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-extra-dbs.sh:/docker-entrypoint-initdb.d/02-extra-dbs.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
@@ -159,6 +162,37 @@ services:
       - /tmp
 
   # =========================================================================
+  # TELEGRAM REWARDS BACKEND (OnSocial Pulse)
+  # =========================================================================
+  backend:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/backend:${IMAGE_TAG:-latest}
+    container_name: backend
+    expose:
+      - "4001"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4001"
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/onsocial_backend
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_GROUP_IDS: ${TELEGRAM_GROUP_IDS:-}
+      BOT_USERNAME: ${BOT_USERNAME:-onsocial_pulse_bot}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      RELAYER_URL: http://relayer-lb:3040
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 256m
+    cpus: 0.5
+
+  # =========================================================================
   # NEAR TRANSACTION RELAYER — Two instances for zero-downtime deploys.
   # Each gets its own KMS keyring (separate admin nonces → no conflicts).
   # Gateway talks to relayer-lb (Caddy upstream), which round-robins
@@ -200,7 +234,8 @@ services:
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
       GCP_KMS_ADMIN_KEY: admin-key
-      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-6}
+      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-9}
+      RELAYER_ALLOWED_CONTRACTS: rewards.onsocial.testnet,scarces.onsocial.testnet
       LAVA_API_KEY: ${LAVA_API_KEY:-}
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
       # Instance 0 uses the original keyring

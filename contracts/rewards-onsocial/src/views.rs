@@ -13,8 +13,7 @@ impl RewardsContract {
             total_credited: U128(self.total_credited),
             total_claimed: U128(self.total_claimed),
             intents_executors: self.intents_executors.clone(),
-            // LookupSet is not iterable; use CALLER_ADDED/CALLER_REMOVED events for audit.
-            authorized_callers: Vec::new(),
+            authorized_callers: self.authorized_callers.clone(),
         }
     }
 

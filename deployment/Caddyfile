@@ -24,7 +24,15 @@ api.onsocial.id, testnet.onsocial.id, mainnet.onsocial.id {
 		}
 	}
 
-	reverse_proxy gateway:8080
+	# Telegram webhook → backend (must be before catch-all)
+	handle /webhooks/telegram {
+		reverse_proxy backend:4001
+	}
+
+	# Everything else → gateway
+	handle {
+		reverse_proxy gateway:8080
+	}
 
 	header {
 		X-Content-Type-Options "nosniff"

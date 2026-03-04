@@ -155,10 +155,13 @@ deploy_contract() {
     echo "  Network: $NETWORK"
     echo "  Node URL: $NEAR_NODE_URL"
     if [ "$init" = "init" ]; then
-      local init_args
-      init_args=$(echo "$contract_config" | jq -r '.init')
-      init_args=$(eval echo "$init_args")
-      echo "  Init args: $init_args"
+      local init_raw init_method init_json
+      init_raw=$(echo "$contract_config" | jq -r '.init')
+      init_method=$(echo "$init_raw" | awk '{print $1}')
+      init_json=$(echo "$init_raw" | sed "s/^$init_method //" | sed "s/^'//;s/'$//")
+      init_json=$(echo "$init_json" | envsubst)
+      echo "  Init method: $init_method"
+      echo "  Init args: $init_json"
     fi
     return 0
   fi
@@ -191,20 +194,26 @@ deploy_contract() {
   if [ "$init" = "init" ]; then
     echo "Initializing $contract..."
     
-    # Load init args from configs/contracts.json
-    local init_args
-    init_args=$(echo "$contract_config" | jq -r '.init')
-    [ -z "$init_args" ] || [ "$init_args" = "null" ] && handle_error "No init args found for $contract in configs/contracts.json"
+    # Load init config from configs/contracts.json
+    # Format: "method_name '{json_args}'", e.g. "new '{\"owner_id\": \"${AUTH_ACCOUNT}\"}'"
+    local init_raw
+    init_raw=$(echo "$contract_config" | jq -r '.init')
+    [ -z "$init_raw" ] || [ "$init_raw" = "null" ] && handle_error "No init args found for $contract in configs/contracts.json"
     
-    # Expand environment variables in init args
-    init_args=$(eval echo "$init_args")
+    # Split method name from JSON args and strip surrounding quotes
+    local init_method init_json
+    init_method=$(echo "$init_raw" | awk '{print $1}')
+    init_json=$(echo "$init_raw" | sed "s/^$init_method //" | sed "s/^'//;s/'$//")
     
-    [ "$VERBOSE" = "1" ] && echo "Running: near call $contract_id new '$init_args' --accountId $AUTH_ACCOUNT --networkId $NETWORK ..."
+    # Expand environment variables (e.g. ${AUTH_ACCOUNT} → onsocial.testnet)
+    init_json=$(echo "$init_json" | envsubst)
+    
+    [ "$VERBOSE" = "1" ] && echo "Running: near call $contract_id $init_method '$init_json' --accountId $AUTH_ACCOUNT --networkId $NETWORK ..."
     
     if [ "$VERBOSE" = "1" ]; then
-      near call "$contract_id" new "$init_args" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK"
+      near call "$contract_id" "$init_method" "$init_json" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK"
     else
-      near call "$contract_id" new "$init_args" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK" >/dev/null
+      near call "$contract_id" "$init_method" "$init_json" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK" >/dev/null
     fi
     
     echo -e "${SUCCESS}$contract initialized successfully${RESET}"

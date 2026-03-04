@@ -1,0 +1,76 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/onsocial-backend/**'
+      - '.github/workflows/onsocial-backend-ci.yml'
+      - 'pnpm-lock.yaml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/onsocial-backend/**'
+      - '.github/workflows/onsocial-backend-ci.yml'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_ENV: test
+  CI: true
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: onsocial
+          POSTGRES_PASSWORD: onsocial
+          POSTGRES_DB: onsocial_backend
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm --filter onsocial-backend lint
+
+      - name: Build
+        run: pnpm --filter onsocial-backend build
+
+      - name: Test
+        run: pnpm --filter onsocial-backend test
+        env:
+          DATABASE_URL: postgresql://onsocial:onsocial@localhost:5432/onsocial_backend
+          TELEGRAM_BOT_TOKEN: test-token-not-real
+          NEAR_NETWORK: testnet
+          RELAYER_URL: http://localhost:3040

@@ -126,11 +126,12 @@ rsync -avz --progress \
   "$SCRIPT_DIR/docker-compose.yml" \
   "$SCRIPT_DIR/.Caddyfile.generated" \
   "$SCRIPT_DIR/Caddyfile.relayer" \
+  "$SCRIPT_DIR/init-extra-dbs.sh" \
   "$ROOT_DIR/scripts/pull-secrets.sh" \
   "root@$SERVER_IP:$REMOTE_DIR/"
 
 # Rename Caddyfile and set permissions
-ssh "root@$SERVER_IP" "cd $REMOTE_DIR && mv -f .Caddyfile.generated Caddyfile && chmod +x pull-secrets.sh"
+ssh "root@$SERVER_IP" "cd $REMOTE_DIR && mv -f .Caddyfile.generated Caddyfile && chmod +x pull-secrets.sh init-extra-dbs.sh"
 
 # --- Generate network.env + pull secrets from GSM on the server ---
 info "Generating network config + pulling secrets from GSM on server..."
@@ -210,7 +211,7 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
   # Pull new images
   echo "Pulling images (tag: $IMAGE_TAG)..."
   set -a && source .env.production && source .env.image && set +a
-  docker compose pull caddy gateway relayer-0 relayer-1
+  docker compose pull caddy gateway relayer-0 relayer-1 backend
 
   # Health check helper
   check_health() {
@@ -254,6 +255,9 @@ ssh "root@$SERVER_IP" bash -s "$IMAGE_TAG" << 'REMOTE_SCRIPT'
 
   echo "Reloading caddy..."
   docker compose up -d --no-deps caddy
+
+  echo "Rolling backend..."
+  docker compose up -d --no-deps backend
 
   # Bring up any remaining services (postgres, hasura, relayer-lb, monitoring, backup)
   docker compose up -d

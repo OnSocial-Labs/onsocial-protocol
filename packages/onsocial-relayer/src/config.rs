@@ -330,9 +330,15 @@ mod defaults {
             .unwrap_or_else(|| {
                 let net = network();
                 if net.contains("mainnet") {
-                    vec!["scarces.onsocial.near".into()]
+                    vec![
+                        "scarces.onsocial.near".into(),
+                        "rewards.onsocial.near".into(),
+                    ]
                 } else {
-                    vec!["scarces.onsocial.testnet".into()]
+                    vec![
+                        "scarces.onsocial.testnet".into(),
+                        "rewards.onsocial.testnet".into(),
+                    ]
                 }
             })
     }

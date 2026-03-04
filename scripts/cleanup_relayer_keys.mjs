@@ -19,15 +19,33 @@ const BATCH_SIZE = 100;
 const KEEP_FC_KEYS = 0;
 
 // KMS pool keys to preserve — both instances
+// Allocation: pool-key-0..2 → core, 3..5 → scarces, 6..8 → rewards
+// Sync with: CONTRACT_KEYS in register_kms_keys.mjs
 const KMS_KEYS = new Set([
-  // Instance 0 (relayer-keys-testnet)
+  // Instance 0 (relayer-keys-testnet): pool-key-0, 1, 2 → core
   'ed25519:E92v8YJe43fbaMfWDKxeJNBSQJj8wxWincK3xJYjLMqn',
   'ed25519:6j8aX2DXe9HiaDFNorRPkLf6UEA6znB16s5kiPuu3jKk',
   'ed25519:4g7FtkMpzaoJEysfK67RgHeza6iRurVy1xoWm6Be8TdC',
-  // Instance 1 (relayer-keys-inst-1)
+  // Instance 0 (relayer-keys-testnet): pool-key-3, 4, 5 → scarces
+  'ed25519:7JBGZ14HFqc9nCPSJRwNNXGqzKu13wnv6ht3ByXP59nu',
+  'ed25519:7cStETZFeJbPFZcpLYarBQpZy9tmSpZguKGxhKFTSEp1',
+  'ed25519:Hi69YTpDMoGGhLByvToQEC84SUDod4Jyk533WkVY2qKr',
+  // Instance 0 (relayer-keys-testnet): pool-key-6, 7, 8 → rewards
+  'ed25519:9ELHXpMZ7LPNJ7LsBSPKDS9JDeMm1713E7dArSdxESL2',
+  'ed25519:jzormw9q7Ld5KvH9rwu7gMigq5UDXPCsiQ9NRCoyQi2',
+  'ed25519:8Gka4u9WzJxVQsQqcktwJfYFpQTFQ3p7b2Z5CUK9qZ3K',
+  // Instance 1 (relayer-keys-inst-1): pool-key-0, 1, 2 → core
   'ed25519:7F2jGTZWpGGQkBDuB2jixuk3MNpox7N1pyedUUF7Y5M7',
   'ed25519:gsW2E2nKZHey2u7pwdsAkfbYpZWTyfTfQCoznbQbDzj',
   'ed25519:7rRbLQhH5ajcquaE9drS5V9BuutVE5vQ6UEdozTXtMjd',
+  // Instance 1 (relayer-keys-inst-1): pool-key-3, 4, 5 → scarces
+  'ed25519:6VCHBVJgGKx1TeHTmJfAcTQLu4VibN8YdGVeyaTPC6Rx',
+  'ed25519:3qvbnrYLPn1GZSBedHjvEuC1CR9CCDMf7Txw1g4cfSG4',
+  'ed25519:Fr2BXEjD5CGd3xY2rhnExGMep6cP1gJh4XEtinYPW8eo',
+  // Instance 1 (relayer-keys-inst-1): pool-key-6, 7, 8 → rewards
+  'ed25519:AtjVBaz4GfYo33seMB3vuvtB7sbk1KFswkfkVKrBvJUF',
+  'ed25519:C4yV3YUtPiRWUhbeSzRJ9Cp8qyWmCAFXXBavFPfHAtDN',
+  'ed25519:9erda85LYQhSMFPqbgHh8riR19YszeuTaaR9mfoqjnks',
 ]);
 
 async function main() {

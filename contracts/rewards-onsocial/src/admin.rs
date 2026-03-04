@@ -32,13 +32,15 @@ impl RewardsContract {
 
     pub fn add_authorized_caller(&mut self, account_id: AccountId) {
         self.require_owner();
-        self.authorized_callers.insert(account_id.clone());
+        if !self.authorized_callers.contains(&account_id) {
+            self.authorized_callers.push(account_id.clone());
+        }
         events::emit_authorized_caller_added(&self.owner_id, &account_id);
     }
 
     pub fn remove_authorized_caller(&mut self, account_id: AccountId) {
         self.require_owner();
-        self.authorized_callers.remove(&account_id);
+        self.authorized_callers.retain(|c| c != &account_id);
         events::emit_authorized_caller_removed(&self.owner_id, &account_id);
     }
 

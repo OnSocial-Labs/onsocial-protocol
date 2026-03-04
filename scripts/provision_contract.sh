@@ -212,7 +212,7 @@ if ! $SKIP_KMS; then
         --location="$GCP_KMS_LOCATION" \
         --keyring="$KEYRING" &>/dev/null; then
         echo "    $KEY_NAME — already exists"
-        ((EXISTED++))
+        ((EXISTED++)) || true
         continue
       fi
 
@@ -225,9 +225,9 @@ if ! $SKIP_KMS; then
           --keyring="$KEYRING" \
           --purpose=asymmetric-signing \
           --default-algorithm=ec-sign-ed25519 \
-          --protection-level=hsm
+          --protection-level=software
         echo "    $KEY_NAME — created ✓"
-        ((CREATED++))
+        ((CREATED++)) || true
       fi
     done
   done
@@ -350,13 +350,13 @@ if ! $SKIP_REGISTER; then
       
       if [[ "$RESULT" == OK:* ]]; then
         echo "registered ✓ (TX: ${RESULT#OK:})"
-        ((REGISTERED++))
+        ((REGISTERED++)) || true
       elif [[ "$RESULT" == "EXISTS" ]]; then
         echo "already registered"
-        ((ALREADY++))
+        ((ALREADY++)) || true
       else
         echo "FAILED: ${RESULT#FAIL:}"
-        ((FAILED++))
+        ((FAILED++)) || true
       fi
     done
     echo ""

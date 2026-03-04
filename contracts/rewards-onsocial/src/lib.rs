@@ -6,7 +6,7 @@
 //!   - Only `social_token` is accepted via `ft_on_transfer`; all outgoing transfers target `social_token`.
 
 use near_sdk::json_types::U128;
-use near_sdk::store::{LookupMap, LookupSet};
+use near_sdk::store::LookupMap;
 use near_sdk::{
     AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env, near, require,
 };
@@ -45,7 +45,6 @@ const NS_PER_DAY: u64 = 86_400_000_000_000;
 #[near]
 enum StorageKey {
     Users,
-    AuthorizedCallers,
     PendingClaims,
 }
 
@@ -79,8 +78,7 @@ pub struct RewardsContract {
     /// Per-user per-day earning cap.
     pub max_daily: u128,
     pub(crate) users: LookupMap<AccountId, UserReward>,
-    /// Not iterable; use events for audit trail.
-    pub(crate) authorized_callers: LookupSet<AccountId>,
+    pub authorized_callers: Vec<AccountId>,
     /// Enables optimistic claim with rollback on cross-contract failure.
     pub(crate) pending_claims: LookupMap<AccountId, PendingClaim>,
     /// Must be `Vec` — `onsocial_auth::authenticate` expects `&[AccountId]`.
@@ -101,7 +99,7 @@ impl RewardsContract {
             social_token,
             max_daily: max_daily.0,
             users: LookupMap::new(StorageKey::Users),
-            authorized_callers: LookupSet::new(StorageKey::AuthorizedCallers),
+            authorized_callers: Vec::new(),
             pending_claims: LookupMap::new(StorageKey::PendingClaims),
             intents_executors: Vec::new(),
             pool_balance: 0,

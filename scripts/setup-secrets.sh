@@ -34,6 +34,7 @@ SECRETS=(
   "LIGHTHOUSE_API_KEY:Lighthouse storage API key"
   "RELAYER_API_KEY:Relayer authentication key (min 32 chars)"
   "LAVA_API_KEY:Lava RPC private endpoint key"
+  "TELEGRAM_BOT_TOKEN:Telegram bot token for OnSocial Pulse rewards bot"
 )
 
 echo "============================================"
