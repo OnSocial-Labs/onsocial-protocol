@@ -19,7 +19,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name("relayer").required(false))
-        .add_source(config::Environment::with_prefix("RELAYER"))
+        .add_source(
+            config::Environment::with_prefix("RELAYER")
+                .list_separator(",")
+                .try_parsing(true),
+        )
         .build()
         .and_then(|c| c.try_deserialize())
         .unwrap_or_else(|e| {

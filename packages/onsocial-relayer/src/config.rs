@@ -307,39 +307,25 @@ mod defaults {
     }
 
     pub fn allowed_methods() -> Vec<String> {
-        std::env::var("RELAYER_ALLOWED_METHODS")
-            .ok()
-            .map(|v| {
-                v.split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            })
-            .unwrap_or_else(|| vec!["execute".into()])
+        // Default methods when RELAYER_ALLOWED_METHODS env var is not set.
+        // When set, the config crate parses it directly via list_separator(",").
+        vec!["execute".into()]
     }
 
     pub fn allowed_contracts() -> Vec<String> {
-        std::env::var("RELAYER_ALLOWED_CONTRACTS")
-            .ok()
-            .map(|v| {
-                v.split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            })
-            .unwrap_or_else(|| {
-                let net = network();
-                if net.contains("mainnet") {
-                    vec![
-                        "scarces.onsocial.near".into(),
-                        "rewards.onsocial.near".into(),
-                    ]
-                } else {
-                    vec![
-                        "scarces.onsocial.testnet".into(),
-                        "rewards.onsocial.testnet".into(),
-                    ]
-                }
-            })
+        // Default contracts when RELAYER_ALLOWED_CONTRACTS env var is not set.
+        // When set, the config crate parses it directly via list_separator(",").
+        let net = network();
+        if net.contains("mainnet") {
+            vec![
+                "scarces.onsocial.near".into(),
+                "rewards.onsocial.near".into(),
+            ]
+        } else {
+            vec![
+                "scarces.onsocial.testnet".into(),
+                "rewards.onsocial.testnet".into(),
+            ]
+        }
     }
 }
