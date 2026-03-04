@@ -193,7 +193,7 @@ jobs:
             # ── Rolling restart: relayer-1 → verify → relayer-0 → verify
             echo "Rolling relayer-1..."
             docker compose up -d --no-deps relayer-1
-            if ! check_health "relayer-1" "http://localhost:3040/ready" 20 3; then
+            if ! check_container_health "relayer-1" "relayer-1" "http://localhost:3040/ready" 20 3; then
               echo "❌ relayer-1 health check failed — rolling back"
               rollback "relayer-1"
               exit 1
@@ -201,7 +201,11 @@ jobs:
 
             echo "Rolling relayer-0..."
             docker compose up -d --no-deps relayer-0
-            sleep 10  # let relayer-0 stabilize (relayer-1 serves traffic)
+            if ! check_container_health "relayer-0" "relayer-0" "http://localhost:3040/ready" 20 3; then
+              echo "❌ relayer-0 health check failed — rolling back"
+              rollback "relayer-0 relayer-1"
+              exit 1
+            fi
 
             # ── Gateway restart → verify → then Caddy ────────────────
             echo "Rolling gateway..."
