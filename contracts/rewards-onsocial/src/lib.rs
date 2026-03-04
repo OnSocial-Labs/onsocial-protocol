@@ -29,9 +29,9 @@ pub use protocol::{Action, Auth, Options, Request};
 
 // --- Constants ---
 
-pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(50);
+pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 pub const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
-pub const GAS_CALLBACK: Gas = Gas::from_tgas(50);
+pub const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 pub const GAS_MIGRATE: Gas = Gas::from_tgas(200);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 /// NEP-145 registration deposit for the SOCIAL token contract.
