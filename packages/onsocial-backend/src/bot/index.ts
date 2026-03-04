@@ -6,7 +6,7 @@ import { Bot, InlineKeyboard, webhookCallback } from 'grammy';
 import type { Request, Response } from 'express';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { handleStart } from './start.js';
+import { handleStart, handleAccountLink, LINK_PROMPT } from './start.js';
 import {
   handleBalance,
   buildBalanceText,
@@ -165,6 +165,13 @@ bot.callbackQuery('cb:claim:cancel', async (ctx) => {
   }
 });
 
+bot.callbackQuery('cb:link', async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.reply(LINK_PROMPT, {
+    reply_markup: { force_reply: true, selective: true },
+  });
+});
+
 bot.callbackQuery('cb:help', async (ctx) => {
   await ctx.answerCallbackQuery();
   const keyboard = new InlineKeyboard()
@@ -176,6 +183,21 @@ bot.callbackQuery('cb:help', async (ctx) => {
   } catch {
     await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
   }
+});
+
+// -- Private chat: account linking via plain text ----------------------------
+// Must be BEFORE the group activity handler so it matches first.
+// Only fires in private chats for text that looks like a NEAR account.
+
+bot.on('message', async (ctx, next) => {
+  if (ctx.chat?.type === 'private' && ctx.message?.text) {
+    const text = ctx.message.text.trim().toLowerCase();
+    if (/^[a-z0-9._-]+\.(near|testnet)$/.test(text)) {
+      await handleAccountLink(ctx);
+      return;
+    }
+  }
+  await next();
 });
 
 // -- Group activity handler --------------------------------------------------

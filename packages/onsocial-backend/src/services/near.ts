@@ -85,6 +85,37 @@ export async function viewUserReward(accountId: string): Promise<{
   return viewMethod('get_user_reward', { account_id: accountId });
 }
 
+/**
+ * Check if a NEAR account exists on-chain via RPC.
+ */
+export async function accountExists(accountId: string): Promise<boolean> {
+  try {
+    const response = await fetch(config.nearRpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5_000),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 'check',
+        method: 'query',
+        params: {
+          request_type: 'view_account',
+          finality: 'final',
+          account_id: accountId,
+        },
+      }),
+    });
+    const data = (await response.json()) as {
+      result?: unknown;
+      error?: unknown;
+    };
+    return !!data.result;
+  } catch {
+    // Network error — don't block linking, just skip validation
+    return true;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Generic NEAR RPC view call
 // ---------------------------------------------------------------------------

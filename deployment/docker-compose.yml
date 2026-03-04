@@ -175,7 +175,7 @@ services:
       PORT: "4001"
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/onsocial_backend
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TELEGRAM_GROUP_IDS: ${TELEGRAM_GROUP_IDS:-}
+      TELEGRAM_GROUP_IDS: "-1002402150258"
       BOT_USERNAME: ${BOT_USERNAME:-onsocial_pulse_bot}
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
       RELAYER_URL: http://relayer-lb:3040

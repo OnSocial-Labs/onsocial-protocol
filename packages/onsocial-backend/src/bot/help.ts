@@ -20,7 +20,7 @@ const HELP_TEXT =
   `  • ${config.rewards.dailyCap} SOCIAL daily cap\n` +
   `  • ${config.rewards.minClaimAmount} SOCIAL minimum to claim\n\n` +
   '🔗 Commands:\n' +
-  '  /start your-account.near — Link your NEAR account\n' +
+  `  /start — Link your NEAR account\n` +
   '  /balance — Check your rewards\n' +
   '  /claim — Withdraw your tokens\n' +
   '  /help — Show this message';
