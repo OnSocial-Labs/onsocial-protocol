@@ -54,8 +54,9 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   if (!reward) {
     return (
       `📊 Rewards for ${accountId}\n\n` +
-      `💎 Unclaimed: 0 SOCIAL (min ${config.rewards.minClaimAmount} to claim)\n` +
-      `📅 Daily progress: 0 / ${config.rewards.dailyCap} SOCIAL\n` +
+      `💎 Unclaimed: 0 SOCIAL\n` +
+      `(min ${config.rewards.minClaimAmount} to claim)\n\n` +
+      `📅 Daily progress: 0 / ${config.rewards.dailyCap} SOCIAL\n\n` +
       `🏆 Total earned: 0 SOCIAL`
     );
   }
@@ -73,7 +74,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   let dailySuffix = '';
   if (capReached) {
     const resetCountdown = timeUntilUtcMidnight();
-    dailySuffix = ` ✓ (resets in ${resetCountdown})`;
+    dailySuffix = `\n✓ Cap reached (resets in ${resetCountdown})`;
   }
 
   // Unclaimed status hint
@@ -88,8 +89,9 @@ export async function buildBalanceText(accountId: string): Promise<string> {
 
   return (
     `📊 Rewards for ${accountId}\n\n` +
-    `💎 Unclaimed: ${unclaimed} SOCIAL ${unclaimedHint}\n` +
-    `📅 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n` +
+    `💎 Unclaimed: ${unclaimed} SOCIAL\n` +
+    `${unclaimedHint}\n\n` +
+    `📅 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n\n` +
     `🏆 Total earned: ${totalEarned} SOCIAL`
   );
 }

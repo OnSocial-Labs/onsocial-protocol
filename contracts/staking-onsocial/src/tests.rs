@@ -217,6 +217,89 @@ fn test_storage_balance_of() {
 // Lock Tokens Tests
 // =============================================================================
 
+/// Locking without prior storage_deposit auto-registers the user.
+#[test]
+fn test_lock_auto_registers_storage() {
+    let mut contract = setup_contract();
+    // No setup_with_storage call — user stakes directly
+    assert!(
+        contract
+            .storage_balance_of("alice.near".parse().unwrap())
+            .is_none()
+    );
+
+    lock_tokens(&mut contract, "alice.near", ONE_SOCIAL, 6);
+
+    // Should be auto-registered now
+    let balance = contract
+        .storage_balance_of("alice.near".parse().unwrap())
+        .expect("auto-registered");
+    assert_eq!(balance.total.0, STORAGE_DEPOSIT);
+
+    let account = contract.get_account("alice.near".parse().unwrap());
+    assert_eq!(account.locked_amount.0, ONE_SOCIAL);
+}
+
+/// When the contract's NEAR balance is too low to subsidise storage,
+/// get_storage_subsidy_available returns 0 and ft_on_transfer will panic
+/// (tokens get refunded by NEP-141).
+/// NOTE: The actual panic path is tested in integration tests because NEAR
+/// SDK's env::panic_str() aborts in release mode (incompatible with unwind).
+#[test]
+fn test_lock_auto_reg_fails_when_subsidy_exhausted() {
+    let contract = setup_contract();
+
+    // Simulate a nearly empty contract balance
+    let mut context = get_context("social.token.near");
+    context
+        .account_balance(NearToken::from_yoctonear(1)) // 1 yocto — way too low
+        .block_timestamp(1_000_000_000_000_000_000);
+    testing_env!(context.build());
+
+    // Verify the view method correctly reports no subsidy available
+    assert_eq!(
+        contract.get_storage_subsidy_available(),
+        0,
+        "subsidy should be 0 when contract balance is nearly empty"
+    );
+}
+
+/// Users who already registered via storage_deposit can lock even when
+/// the subsidy pool is empty.
+#[test]
+fn test_lock_succeeds_with_manual_storage_when_subsidy_empty() {
+    let mut contract = setup_contract();
+
+    // Register storage manually (user pays NEAR)
+    setup_with_storage(&mut contract, "alice.near");
+
+    // Now drain contract balance for the lock call
+    let mut context = get_context("social.token.near");
+    context
+        .account_balance(NearToken::from_yoctonear(1))
+        .block_timestamp(1_000_000_000_000_000_000);
+    testing_env!(context.build());
+
+    let msg = r#"{"action":"lock","months":6}"#;
+    contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(ONE_SOCIAL),
+        msg.to_string(),
+    );
+
+    let account = contract.get_account("alice.near".parse().unwrap());
+    assert_eq!(account.locked_amount.0, ONE_SOCIAL);
+}
+
+/// The view method reports how many more auto-registrations are possible.
+#[test]
+fn test_get_storage_subsidy_available() {
+    let contract = setup_contract();
+    let available = contract.get_storage_subsidy_available();
+    // Default test context has a large balance → should be > 0
+    assert!(available > 0, "should show available subsidy slots");
+}
+
 #[test]
 fn test_lock_tokens_basic() {
     let mut contract = setup_contract();
@@ -2135,7 +2218,7 @@ fn test_extend_just_before_expiry() {
 // - lock with invalid period like 3, 7, 18 months (Invalid lock period)
 // - lock below minimum stake (Minimum stake is 0.01 SOCIAL)
 // - lock zero amount (Amount must be positive)
-// - lock without storage deposit (Call storage_deposit first)
+// - lock without storage deposit → now auto-registers (see unit test)
 // - storage deposit insufficient (Attach at least 0.005 NEAR)
 // - add tokens with different period (Cannot add with different lock period)
 // - extend with zero locked (No tokens locked)

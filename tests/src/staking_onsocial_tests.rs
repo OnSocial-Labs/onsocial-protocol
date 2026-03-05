@@ -2905,11 +2905,11 @@ async fn test_withdraw_infra_exceeds_balance_fails() -> Result<()> {
     Ok(())
 }
 
-/// HIGH: Lock without storage_deposit fails.
+/// HIGH: Lock without prior storage_deposit succeeds via auto-registration.
 ///
-/// INVARIANT: User must call storage_deposit before locking tokens.
+/// INVARIANT: Auto-registration subsidised by the contract's own NEAR balance.
 #[tokio::test]
-async fn test_lock_without_storage_deposit_fails() -> Result<()> {
+async fn test_lock_without_storage_deposit_auto_registers() -> Result<()> {
     let worker = setup_sandbox().await?;
     let owner = worker.dev_create_account().await?;
     let user = worker.dev_create_account().await?;
@@ -2928,18 +2928,10 @@ async fn test_lock_without_storage_deposit_fails() -> Result<()> {
     ft_storage_deposit(&ft, &user).await?;
     ft_transfer(&ft, &owner, user.id().as_str(), 100 * ONE_SOCIAL).await?;
 
-    // Do NOT register on staking contract
+    // Do NOT register on staking contract — auto-registration should handle it
 
-    // Get balance before
-    let balance_before: String = ft
-        .view("ft_balance_of")
-        .args_json(json!({ "account_id": user.id().to_string() }))
-        .await?
-        .json()?;
-
-    // Try to lock - should fail and refund
-    let _result = user
-        .call(ft.id(), "ft_transfer_call")
+    // Lock tokens — should succeed without separate storage_deposit
+    user.call(ft.id(), "ft_transfer_call")
         .args_json(json!({
             "receiver_id": staking.id().to_string(),
             "amount": (50 * ONE_SOCIAL).to_string(),
@@ -2951,7 +2943,7 @@ async fn test_lock_without_storage_deposit_fails() -> Result<()> {
         .await?
         .into_result()?;
 
-    // Tokens should be refunded
+    // Tokens should be locked, not refunded
     let balance_after: String = ft
         .view("ft_balance_of")
         .args_json(json!({ "account_id": user.id().to_string() }))
@@ -2959,8 +2951,32 @@ async fn test_lock_without_storage_deposit_fails() -> Result<()> {
         .json()?;
 
     assert_eq!(
-        balance_before, balance_after,
-        "Tokens should be refunded when user hasn't called storage_deposit"
+        balance_after,
+        (50 * ONE_SOCIAL).to_string(),
+        "50 SOCIAL should remain (100 - 50 locked)"
+    );
+
+    // Verify user is auto-registered on staking contract
+    let storage: serde_json::Value = staking
+        .view("storage_balance_of")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+    assert!(
+        storage != serde_json::Value::Null,
+        "User should be auto-registered after first lock"
+    );
+
+    // Verify the lock is recorded
+    let account: serde_json::Value = staking
+        .view("get_account")
+        .args_json(json!({ "account_id": user.id().to_string() }))
+        .await?
+        .json()?;
+    assert_eq!(
+        account["locked_amount"].as_str().unwrap(),
+        (50 * ONE_SOCIAL).to_string(),
+        "50 SOCIAL should be locked"
     );
 
     Ok(())
@@ -2969,6 +2985,37 @@ async fn test_lock_without_storage_deposit_fails() -> Result<()> {
 // =============================================================================
 // Tests: MEDIUM - Edge Cases and Views
 // =============================================================================
+
+/// MEDIUM: get_storage_subsidy_available returns remaining auto-reg capacity.
+#[tokio::test]
+async fn test_get_storage_subsidy_available() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 1_000_000 * ONE_SOCIAL).await?;
+    let staking = setup_staking_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    // Register staking on FT
+    owner
+        .call(ft.id(), "storage_deposit")
+        .args_json(json!({ "account_id": staking.id().to_string() }))
+        .deposit(NearToken::from_millinear(50))
+        .transact()
+        .await?
+        .into_result()?;
+
+    let available: u32 = staking
+        .view("get_storage_subsidy_available")
+        .await?
+        .json()?;
+
+    assert!(
+        available > 0,
+        "Freshly deployed contract should have subsidy capacity"
+    );
+
+    Ok(())
+}
 
 /// MEDIUM: Unknown action in ft_on_transfer is rejected.
 ///

@@ -185,10 +185,16 @@ impl OnsocialStaking {
 
         match action {
             "lock" => {
-                require!(
-                    self.storage_paid.contains_key(&sender_id),
-                    "Call storage_deposit first"
-                );
+                // Auto-register storage on first stake (no separate storage_deposit needed).
+                // Subsidised by the contract's own NEAR balance; if depleted the
+                // user can fall back to calling storage_deposit() manually.
+                if !self.storage_paid.contains_key(&sender_id) {
+                    require!(
+                        self.free_balance() >= STORAGE_DEPOSIT,
+                        "Storage subsidy exhausted: call storage_deposit() with 0.005 NEAR first"
+                    );
+                    self.storage_paid.insert(sender_id.clone(), true);
+                }
                 let months = parsed["months"]
                     .as_u64()
                     .unwrap_or_else(|| env::panic_str("Missing months"));
@@ -833,6 +839,12 @@ impl OnsocialStaking {
         }
     }
 
+    /// How many new users the contract can still auto-register for free.
+    /// Returns 0 when the subsidy is exhausted (users must call storage_deposit).
+    pub fn get_storage_subsidy_available(&self) -> u32 {
+        (self.free_balance() / STORAGE_DEPOSIT) as u32
+    }
+
     /// Triggers reward release and stake-seconds update.
     pub fn poke(&mut self) {
         self.release_due_rewards();
@@ -840,6 +852,15 @@ impl OnsocialStaking {
     }
 
     // --- Helpers ---
+
+    /// Contract balance minus storage-staking cost.
+    fn free_balance(&self) -> u128 {
+        let used_bytes = env::storage_usage() as u128;
+        let byte_cost = env::storage_byte_cost().as_yoctonear();
+        env::account_balance()
+            .as_yoctonear()
+            .saturating_sub(used_bytes * byte_cost)
+    }
 
     fn effective_stake(&self, account: &Account) -> u128 {
         self.effective_stake_with_bonus(account)
