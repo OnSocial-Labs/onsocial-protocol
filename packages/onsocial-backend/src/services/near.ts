@@ -85,6 +85,11 @@ export async function viewClaimable(accountId: string): Promise<string> {
  *
  * Returns the on-chain `UserReward` struct — the single source of truth
  * for claimable balance, daily earning progress, and lifetime totals.
+ *
+ * The contract's `UserReward` uses raw `u128` fields (not the `U128`
+ * JSON-string wrapper), so values arrive as bare JSON numbers that can
+ * exceed `Number.MAX_SAFE_INTEGER`.  We parse from the raw bytes with a
+ * regex that quotes large integers to preserve full precision.
  */
 export async function viewUserReward(accountId: string): Promise<{
   claimable: string;
@@ -93,7 +98,31 @@ export async function viewUserReward(accountId: string): Promise<{
   total_earned: string;
   total_claimed: string;
 } | null> {
-  return viewMethod('get_user_reward', { account_id: accountId });
+  const raw = await viewMethodRaw('get_user_reward', {
+    account_id: accountId,
+  });
+
+  if (raw === 'null') return null;
+
+  // Quote any bare integer (u128 values) to preserve precision as strings.
+  // Matches `: 1234...` patterns — safe because UserReward only has numeric
+  // fields (u128 and u64), and last_day (u64) fits in a JS number anyway.
+  const safe = raw.replace(/:(\d+)([,}])/g, ':"$1"$2');
+  const parsed = JSON.parse(safe) as {
+    claimable: string;
+    daily_earned: string;
+    last_day: string;
+    total_earned: string;
+    total_claimed: string;
+  };
+
+  return {
+    claimable: parsed.claimable,
+    daily_earned: parsed.daily_earned,
+    last_day: parseInt(parsed.last_day, 10),
+    total_earned: parsed.total_earned,
+    total_claimed: parsed.total_claimed,
+  };
 }
 
 /**
@@ -128,10 +157,20 @@ export async function accountExists(accountId: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Generic NEAR RPC view call
+// Generic NEAR RPC view calls
 // ---------------------------------------------------------------------------
 
+/** Call a view method and return the parsed JSON result. */
 async function viewMethod<T>(methodName: string, args: object): Promise<T> {
+  const raw = await viewMethodRaw(methodName, args);
+  return JSON.parse(raw) as T;
+}
+
+/** Call a view method and return the raw UTF-8 string (before JSON.parse). */
+async function viewMethodRaw(
+  methodName: string,
+  args: object
+): Promise<string> {
   const response = await fetch(config.nearRpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -161,6 +200,5 @@ async function viewMethod<T>(methodName: string, args: object): Promise<T> {
     );
   }
 
-  const bytes = Buffer.from(rpcResult.result.result);
-  return JSON.parse(bytes.toString()) as T;
+  return Buffer.from(rpcResult.result.result).toString();
 }
