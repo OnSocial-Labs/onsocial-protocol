@@ -69,7 +69,7 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
       const current = formatSocial(claimableRaw);
       const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
       await ctx.reply(
-        `💭 You have ${current} SOCIAL pending, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
+        `💭 You have ${current} SOCIAL unclaimed, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
           'Keep being active to earn more!',
         { reply_markup: keyboard }
       );

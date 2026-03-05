@@ -82,11 +82,16 @@ export async function viewClaimable(accountId: string): Promise<string> {
 
 /**
  * View a user's full reward record on the rewards contract.
+ *
+ * Returns the on-chain `UserReward` struct — the single source of truth
+ * for claimable balance, daily earning progress, and lifetime totals.
  */
 export async function viewUserReward(accountId: string): Promise<{
   claimable: string;
-  credited_today: string;
-  last_credit_day: number;
+  daily_earned: string;
+  last_day: number;
+  total_earned: string;
+  total_claimed: string;
 } | null> {
   return viewMethod('get_user_reward', { account_id: accountId });
 }

@@ -1,11 +1,15 @@
 // ---------------------------------------------------------------------------
-// /balance — Show a user's pending rewards
+// /balance — Show a user's on-chain reward state
+// ---------------------------------------------------------------------------
+// All data comes from the rewards contract (single source of truth).
+// The backend DB is only used for dedup/cooldown in the crediting path;
+// the user-facing display is always the contract's view.
 // ---------------------------------------------------------------------------
 
 import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
-import { getUserLink, getUserStats } from '../db/queries.js';
-import { viewClaimable } from '../services/near.js';
+import { getUserLink } from '../db/queries.js';
+import { viewUserReward } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 
@@ -39,25 +43,54 @@ export async function handleBalance(
   }
 }
 
-/** Build the balance text for a given account. Shared by command + callback. */
+/**
+ * Build the balance text from the contract's on-chain state.
+ * Shared by the /balance command and the cb:balance callback.
+ */
 export async function buildBalanceText(accountId: string): Promise<string> {
-  const [stats, claimableRaw] = await Promise.all([
-    getUserStats(accountId),
-    viewClaimable(accountId).catch(() => '0'),
-  ]);
+  const reward = await viewUserReward(accountId);
 
-  const claimable = formatSocial(claimableRaw);
-  const todayRemaining = Math.max(
-    0,
-    config.rewards.dailyCap - stats.todayCredited
-  );
+  // User has never been credited
+  if (!reward) {
+    return (
+      `📊 Rewards for ${accountId}\n\n` +
+      `💎 Unclaimed: 0 SOCIAL (min ${config.rewards.minClaimAmount} to claim)\n` +
+      `📅 Daily progress: 0 / ${config.rewards.dailyCap} SOCIAL\n` +
+      `🏆 Total earned: 0 SOCIAL`
+    );
+  }
+
+  const unclaimed = formatSocial(reward.claimable);
+  const dailyEarned = formatSocial(reward.daily_earned);
+  const totalEarned = formatSocial(reward.total_earned);
+  const dailyCap = config.rewards.dailyCap;
+
+  // Check if daily cap is reached
+  const dailyEarnedNum = Number(reward.daily_earned) / 1e18;
+  const capReached = dailyEarnedNum >= dailyCap;
+
+  // Show countdown to reset only when cap is reached
+  let dailySuffix = '';
+  if (capReached) {
+    const resetCountdown = timeUntilUtcMidnight();
+    dailySuffix = ` ✓ (resets in ${resetCountdown})`;
+  }
+
+  // Unclaimed status hint
+  const minYocto = BigInt(config.rewards.minClaimAmount * 1e18);
+  const claimableBig = BigInt(reward.claimable);
+  const unclaimedHint =
+    claimableBig === 0n
+      ? `(min ${config.rewards.minClaimAmount} to claim)`
+      : claimableBig < minYocto
+        ? `(min ${config.rewards.minClaimAmount} to claim)`
+        : '(ready to claim!)';
 
   return (
     `📊 Rewards for ${accountId}\n\n` +
-    `💰 Claimable: ${claimable} SOCIAL\n` +
-    `📅 Earned today: ${stats.todayCredited.toFixed(1)} SOCIAL\n` +
-    `📈 Remaining today: ${todayRemaining.toFixed(1)} SOCIAL\n` +
-    `🏆 All-time credits: ${stats.totalCredited.toFixed(1)} SOCIAL (${stats.count} actions)`
+    `💎 Unclaimed: ${unclaimed} SOCIAL ${unclaimedHint}\n` +
+    `📅 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n` +
+    `🏆 Total earned: ${totalEarned} SOCIAL`
   );
 }
 
@@ -76,4 +109,17 @@ export function formatSocial(yocto: string): string {
   const decPart = padded.slice(padded.length - 18, padded.length - 16); // 2 decimal places
   const dec = decPart.replace(/0+$/, '');
   return dec ? `${intPart}.${dec}` : intPart;
+}
+
+/** Human-readable countdown to next UTC midnight (when daily_earned resets). */
+function timeUntilUtcMidnight(): string {
+  const now = new Date();
+  const nextMidnight = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  );
+  const diffMs = nextMidnight.getTime() - now.getTime();
+  const hours = Math.floor(diffMs / 3_600_000);
+  const minutes = Math.floor((diffMs % 3_600_000) / 60_000);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
