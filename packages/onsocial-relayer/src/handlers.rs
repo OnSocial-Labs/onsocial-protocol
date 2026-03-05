@@ -274,7 +274,10 @@ pub async fn execute(
                     FinalExecutionStatus::Failure(e) => {
                         let err_msg = format!("{e:?}");
                         warn!(req_id = %req_id, tx_hash = %hash, error = %err_msg, "TX committed (failure)");
-                        (StatusCode::OK, Json(ExecuteResponse::failure(hash, err_msg)))
+                        (
+                            StatusCode::OK,
+                            Json(ExecuteResponse::failure(hash, err_msg)),
+                        )
                     }
                     _ => {
                         info!(req_id = %req_id, tx_hash = %hash, "TX committed (pending status)");
@@ -453,10 +456,7 @@ async fn retry_after_nonce_error_sync(
                 Json(ExecuteResponse::failure(hash, err_msg)),
             ))
         }
-        _ => Some((
-            StatusCode::ACCEPTED,
-            Json(ExecuteResponse::pending(hash)),
-        )),
+        _ => Some((StatusCode::ACCEPTED, Json(ExecuteResponse::pending(hash)))),
     }
 }
 
