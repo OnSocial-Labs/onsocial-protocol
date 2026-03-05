@@ -15,13 +15,13 @@ import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 
 /** Convert a decimal SOCIAL amount to yocto (18 decimals) string. */
-function toYoctoString(amount: number): string {
+export function toYoctoString(amount: number): string {
   const [intPart, decPart = ''] = amount.toString().split('.');
   return intPart + decPart.padEnd(18, '0');
 }
 
 /** Compare two yocto strings numerically. Returns -1, 0, or 1. */
-function compareYocto(a: string, b: string): number {
+export function compareYocto(a: string, b: string): number {
   const maxLen = Math.max(a.length, b.length);
   const pa = a.padStart(maxLen, '0');
   const pb = b.padStart(maxLen, '0');
@@ -92,7 +92,10 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
 }
 
 /**
- * Execute the actual claim. Called from the confirm callback.
+ * Execute the actual claim via the relayer (synchronous / confirmed).
+ *
+ * Uses `?wait=true` so the relayer waits for `broadcast_tx_commit`.
+ * We know the claim either succeeded on-chain or failed — no ambiguity.
  */
 export async function executeClaim(
   accountId: string
@@ -114,7 +117,7 @@ export async function executeClaim(
     headers['X-Api-Key'] = config.relayerApiKey;
   }
 
-  const response = await fetch(`${config.relayerUrl}/execute`, {
+  const response = await fetch(`${config.relayerUrl}/execute?wait=true`, {
     method: 'POST',
     headers,
     signal: AbortSignal.timeout(30_000),
@@ -122,15 +125,17 @@ export async function executeClaim(
   });
 
   const data = (await response.json()) as {
-    status: string;
+    success: boolean;
+    status?: string;
     tx_hash?: string;
     error?: string;
   };
 
-  if (!response.ok || data.status === 'error') {
+  if (!data.success) {
     return {
       success: false,
-      error: data.error || `Relayer returned ${response.status}`,
+      error:
+        data.error || `Relayer returned ${response.status} (${data.status})`,
     };
   }
 

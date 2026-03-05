@@ -27,6 +27,29 @@ impl ExecuteResponse {
         }
     }
 
+    /// Committed (broadcast_tx_commit) success with optional return value.
+    pub fn success(tx_hash: String, result: Option<Value>) -> Self {
+        Self {
+            success: true,
+            status: Some("success".into()),
+            result,
+            error: None,
+            tx_hash: Some(tx_hash),
+        }
+    }
+
+    /// Committed (broadcast_tx_commit) failure — the TX was included but
+    /// the contract execution failed (panic, assertion, exceeded gas, etc.).
+    pub fn failure(tx_hash: String, error: String) -> Self {
+        Self {
+            success: false,
+            status: Some("failure".into()),
+            result: None,
+            error: Some(error),
+            tx_hash: Some(tx_hash),
+        }
+    }
+
     pub fn err(error: impl Into<String>, tx_hash: Option<String>) -> Self {
         Self {
             success: false,

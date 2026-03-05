@@ -97,6 +97,20 @@ bot.callbackQuery('cb:claim', async (ctx) => {
       return;
     }
 
+    // Enforce minimum claim threshold (same as /claim command)
+    const { toYoctoString, compareYocto } = await import('./claim.js');
+    const minYocto = toYoctoString(config.rewards.minClaimAmount);
+    if (compareYocto(claimableRaw, minYocto) < 0) {
+      const current = formatSocial(claimableRaw);
+      const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
+      await ctx.reply(
+        `💭 You have ${current} SOCIAL pending, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
+          'Keep being active to earn more!',
+        { reply_markup: keyboard }
+      );
+      return;
+    }
+
     const claimable = formatSocial(claimableRaw);
     const keyboard = new InlineKeyboard()
       .text('✅ Confirm Claim', 'cb:claim:confirm')
@@ -120,9 +134,9 @@ bot.callbackQuery('cb:claim:confirm', async (ctx) => {
 
   // Remove the confirmation buttons
   try {
-    await ctx.editMessageText('⏳ Submitting your claim...');
+    await ctx.editMessageText('⏳ Claiming your tokens...');
   } catch {
-    await ctx.reply('⏳ Submitting your claim...');
+    await ctx.reply('⏳ Claiming your tokens...');
   }
 
   try {
@@ -139,13 +153,13 @@ bot.callbackQuery('cb:claim:confirm', async (ctx) => {
 
     const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
 
-    await ctx.reply(`✅ Claim submitted!\n\nView transaction: ${explorerUrl}`, {
+    await ctx.reply(`✅ Claim confirmed!\n\nView transaction: ${explorerUrl}`, {
       reply_markup: keyboard,
     });
 
     logger.info(
       { accountId: link.accountId, txHash: result.txHash },
-      'Claim submitted'
+      'Claim confirmed on-chain'
     );
   } catch (err) {
     logger.error({ err, telegramId }, 'Claim execution failed');

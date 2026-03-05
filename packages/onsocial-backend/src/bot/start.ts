@@ -68,7 +68,7 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
 
     let message =
       '👋 Welcome to OnSocial Pulse!\n\n' +
-      'Earn SOCIAL tokens for being active in OnSocial groups.\n\n';
+      `Earn ${config.rewards.messageReward} SOCIAL per message (up to ${config.rewards.dailyCap}/day) for being active in OnSocial groups.\n\n`;
 
     if (pendingCount > 0) {
       message +=

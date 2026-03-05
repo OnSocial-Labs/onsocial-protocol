@@ -17,11 +17,15 @@ function relayerHeaders(): Record<string, string> {
 }
 
 /**
- * Credit a reward on-chain via the relayer.
+ * Credit a reward on-chain via the relayer (synchronous / confirmed).
  *
  * Builds a `{ type: "credit_reward", account_id, amount, source }` action
  * wrapped in `Auth::Direct` (the relayer's own NEAR account is the
  * authorized_caller on the rewards contract).
+ *
+ * Uses `?wait=true` so the relayer waits for `broadcast_tx_commit`,
+ * giving us ground truth — the credit either landed on-chain or we
+ * know it failed.
  *
  * Returns the transaction hash on success, or throws on failure.
  */
@@ -41,7 +45,7 @@ export async function creditOnChain(
     auth: { type: 'direct' },
   };
 
-  const response = await fetch(`${config.relayerUrl}/execute`, {
+  const response = await fetch(`${config.relayerUrl}/execute?wait=true`, {
     method: 'POST',
     headers: relayerHeaders(),
     signal: AbortSignal.timeout(30_000),
@@ -49,20 +53,22 @@ export async function creditOnChain(
   });
 
   const data = (await response.json()) as {
-    status: string;
+    success: boolean;
+    status?: string;
     tx_hash?: string;
     error?: string;
   };
 
-  if (!response.ok || data.status === 'error') {
-    const msg = data.error || `Relayer returned ${response.status}`;
+  if (!data.success) {
+    const msg =
+      data.error || `Relayer returned ${response.status} (${data.status})`;
     logger.error({ accountId, amount, source, error: msg }, 'Credit failed');
     throw new Error(msg);
   }
 
   logger.info(
-    { accountId, amount, source, txHash: data.tx_hash },
-    'Credit submitted'
+    { accountId, amount, source, txHash: data.tx_hash, status: data.status },
+    'Credit confirmed on-chain'
   );
   return data.tx_hash ?? '';
 }

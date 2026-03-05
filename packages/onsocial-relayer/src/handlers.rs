@@ -4,7 +4,7 @@ use crate::metrics::METRICS;
 use crate::middleware::RequestId;
 use crate::response::{ExecuteResponse, HealthResponse, KeyPoolStats, TxStatusResponse};
 use crate::state::AppState;
-use axum::extract::{FromRequest, Path, State};
+use axum::extract::{FromRequest, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
@@ -12,10 +12,23 @@ use near_gas::NearGas;
 use near_primitives::hash::CryptoHash;
 use near_primitives::transaction::{Action, FunctionCallAction};
 use near_primitives::views::FinalExecutionStatus;
+use serde::Deserialize;
 use serde_json::Value;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tracing::{error, info, warn};
+
+/// Query parameters for the `/execute` endpoint.
+#[derive(Deserialize, Default)]
+pub struct ExecuteParams {
+    /// When `true`, use `broadcast_tx_commit` (synchronous) instead of
+    /// `send_tx_async`. The response will contain the final execution
+    /// outcome — either `{success: true, status: "success"}` or
+    /// `{success: false, status: "failure", error: "..."}`.  Callers that
+    /// need confirmed results (e.g. reward credits, claims) should set this.
+    #[serde(default)]
+    pub wait: bool,
+}
 
 /// Readiness probe. Returns 200 once pool has active keys and RPC is reachable.
 pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -98,8 +111,13 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 }
 
 /// Forward a request to the contract's `execute()` method.
+///
+/// Query parameters:
+/// - `wait=true`: use `broadcast_tx_commit` for a synchronous, confirmed result.
+///   Default (`wait=false`): fire-and-forget via `send_tx_async`.
 pub async fn execute(
     State(state): State<Arc<AppState>>,
+    Query(params): Query<ExecuteParams>,
     request_parts: axum::extract::Request,
 ) -> (StatusCode, Json<ExecuteResponse>) {
     let start = std::time::Instant::now();
@@ -240,50 +258,112 @@ pub async fn execute(
         }
     };
 
-    match state.rpc.send_tx_async(signed_tx).await {
-        Ok(tx_hash) => {
-            METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
-            METRICS.record_tx_duration(start);
-            info!(req_id = %req_id, tx_hash = %tx_hash, "TX submitted (async)");
-            (
-                StatusCode::ACCEPTED,
-                Json(ExecuteResponse::pending(tx_hash.to_string())),
-            )
-        }
-        Err(e) => {
-            let err_str = format!("{e}");
-
-            // Nonce error — re-sync nonce, re-sign, and retry once
-            if err_str.contains("InvalidNonce") || err_str.contains("nonce") {
-                METRICS.nonce_retries.fetch_add(1, Ordering::Relaxed);
-                warn!(req_id = %req_id, "Nonce error on async send, re-syncing and retrying");
-                let pk = guard.public_key();
-                let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
-
-                if let Some(result) = retry_after_nonce_error(
-                    &state,
-                    &contract_id,
-                    &request,
-                    gas,
-                    deposit,
-                    block_hash,
-                    &contract_id,
-                )
-                .await
-                {
-                    METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
-                    METRICS.record_tx_duration(start);
-                    return result;
+    if params.wait {
+        // ---- Synchronous mode: broadcast_tx_commit, return confirmed outcome ----
+        match state.rpc.send_signed_tx(signed_tx).await {
+            Ok(outcome) => {
+                METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+                METRICS.record_tx_duration(start);
+                let hash = format!("{}", outcome.transaction_outcome.id);
+                match &outcome.status {
+                    FinalExecutionStatus::SuccessValue(bytes) => {
+                        let value: Option<Value> = serde_json::from_slice(bytes).ok();
+                        info!(req_id = %req_id, tx_hash = %hash, "TX committed (success)");
+                        (StatusCode::OK, Json(ExecuteResponse::success(hash, value)))
+                    }
+                    FinalExecutionStatus::Failure(e) => {
+                        let err_msg = format!("{e:?}");
+                        warn!(req_id = %req_id, tx_hash = %hash, error = %err_msg, "TX committed (failure)");
+                        (StatusCode::OK, Json(ExecuteResponse::failure(hash, err_msg)))
+                    }
+                    _ => {
+                        info!(req_id = %req_id, tx_hash = %hash, "TX committed (pending status)");
+                        (StatusCode::ACCEPTED, Json(ExecuteResponse::pending(hash)))
+                    }
                 }
             }
+            Err(e) => {
+                let err_str = format!("{e}");
 
-            METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
-            METRICS.record_tx_duration(start);
-            error!(req_id = %req_id, error = %e, "Async broadcast failed");
-            (
-                StatusCode::BAD_GATEWAY,
-                Json(ExecuteResponse::err("Transaction broadcast failed", None)),
-            )
+                // Nonce error — re-sync and retry once (sync)
+                if err_str.contains("InvalidNonce") || err_str.contains("nonce") {
+                    METRICS.nonce_retries.fetch_add(1, Ordering::Relaxed);
+                    warn!(req_id = %req_id, "Nonce error on commit, re-syncing and retrying");
+                    let pk = guard.public_key();
+                    let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
+
+                    if let Some(result) = retry_after_nonce_error_sync(
+                        &state,
+                        &contract_id,
+                        &request,
+                        gas,
+                        deposit,
+                        block_hash,
+                    )
+                    .await
+                    {
+                        METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+                        METRICS.record_tx_duration(start);
+                        return result;
+                    }
+                }
+
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                METRICS.record_tx_duration(start);
+                error!(req_id = %req_id, error = %e, "Commit broadcast failed");
+                (
+                    StatusCode::BAD_GATEWAY,
+                    Json(ExecuteResponse::err("Transaction broadcast failed", None)),
+                )
+            }
+        }
+    } else {
+        // ---- Async mode (default): send_tx_async, return tx_hash immediately ----
+        match state.rpc.send_tx_async(signed_tx).await {
+            Ok(tx_hash) => {
+                METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+                METRICS.record_tx_duration(start);
+                info!(req_id = %req_id, tx_hash = %tx_hash, "TX submitted (async)");
+                (
+                    StatusCode::ACCEPTED,
+                    Json(ExecuteResponse::pending(tx_hash.to_string())),
+                )
+            }
+            Err(e) => {
+                let err_str = format!("{e}");
+
+                // Nonce error — re-sync nonce, re-sign, and retry once
+                if err_str.contains("InvalidNonce") || err_str.contains("nonce") {
+                    METRICS.nonce_retries.fetch_add(1, Ordering::Relaxed);
+                    warn!(req_id = %req_id, "Nonce error on async send, re-syncing and retrying");
+                    let pk = guard.public_key();
+                    let _ = state.key_pool.handle_nonce_error(&pk, &state.rpc).await;
+
+                    if let Some(result) = retry_after_nonce_error(
+                        &state,
+                        &contract_id,
+                        &request,
+                        gas,
+                        deposit,
+                        block_hash,
+                        &contract_id,
+                    )
+                    .await
+                    {
+                        METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
+                        METRICS.record_tx_duration(start);
+                        return result;
+                    }
+                }
+
+                METRICS.tx_error.fetch_add(1, Ordering::Relaxed);
+                METRICS.record_tx_duration(start);
+                error!(req_id = %req_id, error = %e, "Async broadcast failed");
+                (
+                    StatusCode::BAD_GATEWAY,
+                    Json(ExecuteResponse::err("Transaction broadcast failed", None)),
+                )
+            }
         }
     }
 }
@@ -331,6 +411,53 @@ async fn retry_after_nonce_error(
         StatusCode::ACCEPTED,
         Json(ExecuteResponse::pending(tx_hash.to_string())),
     ))
+}
+
+/// Retry once after nonce error in synchronous (commit) mode.
+async fn retry_after_nonce_error_sync(
+    state: &AppState,
+    contract_id: &near_primitives::types::AccountId,
+    request: &Value,
+    gas: NearGas,
+    deposit: u128,
+    fallback_block_hash: CryptoHash,
+) -> Option<(StatusCode, Json<ExecuteResponse>)> {
+    let retry_guard = state.key_pool.acquire(contract_id).ok()?;
+    let _submit = retry_guard.lock_submit().await;
+    let bh = state
+        .rpc
+        .latest_block_hash()
+        .await
+        .unwrap_or(fallback_block_hash);
+    let retry_actions = build_execute_actions(request, gas, deposit);
+
+    let retry_tx = retry_guard
+        .signer()
+        .sign_transaction(retry_guard.nonce, contract_id, bh, retry_actions)
+        .await
+        .ok()?;
+
+    let outcome = state.rpc.send_signed_tx(retry_tx).await.ok()?;
+    let hash = format!("{}", outcome.transaction_outcome.id);
+    match &outcome.status {
+        FinalExecutionStatus::SuccessValue(bytes) => {
+            let value: Option<Value> = serde_json::from_slice(bytes).ok();
+            info!(tx_hash = %hash, "TX commit retry succeeded");
+            Some((StatusCode::OK, Json(ExecuteResponse::success(hash, value))))
+        }
+        FinalExecutionStatus::Failure(e) => {
+            let err_msg = format!("{e:?}");
+            warn!(tx_hash = %hash, error = %err_msg, "TX commit retry failed on-chain");
+            Some((
+                StatusCode::OK,
+                Json(ExecuteResponse::failure(hash, err_msg)),
+            ))
+        }
+        _ => Some((
+            StatusCode::ACCEPTED,
+            Json(ExecuteResponse::pending(hash)),
+        )),
+    }
 }
 
 /// Query TX status. `GET /tx/:tx_hash`
