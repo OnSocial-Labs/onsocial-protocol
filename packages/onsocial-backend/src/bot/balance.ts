@@ -62,12 +62,19 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   }
 
   const unclaimed = formatSocial(reward.claimable);
-  const dailyEarned = formatSocial(reward.daily_earned);
   const totalEarned = formatSocial(reward.total_earned);
   const dailyCap = config.rewards.dailyCap;
 
+  // The contract stores daily_earned with last_day but doesn't reset on read.
+  // If the current UTC day differs from last_day, daily progress is 0.
+  const currentDay = Math.floor(Date.now() / 86_400_000);
+  const dayRolledOver = reward.last_day < currentDay;
+  const effectiveDailyEarned = dayRolledOver ? '0' : reward.daily_earned;
+
+  const dailyEarned = formatSocial(effectiveDailyEarned);
+
   // Check if daily cap is reached
-  const dailyEarnedNum = Number(reward.daily_earned) / 1e18;
+  const dailyEarnedNum = dayRolledOver ? 0 : Number(reward.daily_earned) / 1e18;
   const capReached = dailyEarnedNum >= dailyCap;
 
   // Show countdown to reset only when cap is reached
