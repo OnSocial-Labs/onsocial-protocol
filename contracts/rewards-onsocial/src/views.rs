@@ -14,6 +14,7 @@ impl RewardsContract {
             total_claimed: U128(self.total_claimed),
             intents_executors: self.intents_executors.clone(),
             authorized_callers: self.authorized_callers.clone(),
+            app_ids: self.app_ids.clone(),
         }
     }
 
@@ -36,5 +37,22 @@ impl RewardsContract {
 
     pub fn get_max_daily(&self) -> U128 {
         U128(self.max_daily)
+    }
+
+    pub fn get_app_config(&self, app_id: String) -> Option<AppConfig> {
+        self.app_configs.get(&app_id).cloned()
+    }
+
+    pub fn get_all_apps(&self) -> Vec<String> {
+        self.app_ids.clone()
+    }
+
+    pub fn get_user_app_reward(
+        &self,
+        account_id: AccountId,
+        app_id: String,
+    ) -> Option<UserAppReward> {
+        let key = Self::user_app_key(&account_id, &app_id);
+        self.user_app_rewards.get(&key).cloned()
     }
 }

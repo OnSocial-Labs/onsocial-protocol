@@ -142,11 +142,11 @@ async function main() {
     // Query new version — core uses get_version, scarces uses get_contract_info, staking uses get_stats
     console.log('');
     console.log('Querying contract version...');
-    const versionMethod = contractName === 'scarces-onsocial'
-      ? 'get_contract_info'
-      : contractName === 'core-onsocial'
-        ? 'get_version'
-        : 'get_stats';
+    const versionMethod = contractName === 'core-onsocial'
+      ? 'get_version'
+      : contractName === 'staking-onsocial'
+        ? 'get_stats'
+        : 'get_contract_info';
     const viewResult = await provider.query({
       request_type: 'call_function',
       account_id: contractId,

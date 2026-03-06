@@ -25,6 +25,7 @@ pub fn emit_reward_credited(
     amount: u128,
     source: Option<&str>,
     credited_by: &AccountId,
+    app_id: Option<&str>,
 ) {
     emit(
         "REWARD_CREDITED",
@@ -33,6 +34,7 @@ pub fn emit_reward_credited(
             "amount": amount.to_string(),
             "source": source.unwrap_or("unspecified"),
             "credited_by": credited_by.to_string(),
+            "app_id": app_id.unwrap_or("global"),
         }),
     );
 }

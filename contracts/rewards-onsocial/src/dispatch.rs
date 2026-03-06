@@ -12,26 +12,39 @@ impl RewardsContract {
                 account_id,
                 amount,
                 source,
-            } => self.handle_credit_reward(actor_id, &account_id, amount.0, source.as_deref()),
+                app_id,
+            } => self.handle_credit_reward(
+                actor_id,
+                &account_id,
+                amount.0,
+                source.as_deref(),
+                app_id.as_deref(),
+            ),
 
             Action::Claim => self.handle_claim(actor_id),
         }
     }
 
     /// Deducts from `pool_balance`, credits to user. Enforces daily cap per user.
+    ///
+    /// If `app_id` is provided:
+    ///   - Validates the app exists and is active.
+    ///   - Validates the caller is in the app's `authorized_callers`.
+    ///   - Enforces the app's per-user `daily_cap` via `UserAppReward`.
+    ///
+    /// Otherwise:
+    ///   - Validates the caller is owner or in global `authorized_callers`.
+    ///   - Enforces global `max_daily` via `UserReward.daily_earned`.
+    ///
+    /// In both cases, credits flow into the user's global `UserReward.claimable`.
     fn handle_credit_reward(
         &mut self,
         caller: &AccountId,
         account_id: &AccountId,
         amount: u128,
         source: Option<&str>,
+        app_id: Option<&str>,
     ) -> Result<Value, RewardsError> {
-        if *caller != self.owner_id && !self.authorized_callers.contains(caller) {
-            return Err(RewardsError::Unauthorized(
-                "Only owner or authorized callers can credit rewards".into(),
-            ));
-        }
-
         if amount == 0 {
             return Err(RewardsError::InvalidAmount);
         }
@@ -44,33 +57,153 @@ impl RewardsContract {
         }
 
         let today = self.current_day();
-        let mut user = self.users.get(account_id).cloned().unwrap_or_default();
 
+        let allowed = if let Some(aid) = app_id {
+            let config = self
+                .app_configs
+                .get(aid)
+                .cloned()
+                .ok_or_else(|| RewardsError::AppNotFound(aid.to_string()))?;
+
+            if !config.active {
+                return Err(RewardsError::AppInactive(aid.to_string()));
+            }
+
+            if config.total_budget > 0 && config.total_credited >= config.total_budget {
+                return Err(RewardsError::AppBudgetExhausted(aid.to_string()));
+            }
+
+            let app_daily_spent = if config.budget_last_day < today {
+                0
+            } else {
+                config.daily_budget_spent
+            };
+            if config.daily_budget > 0 && app_daily_spent >= config.daily_budget {
+                return Err(RewardsError::AppDailyBudgetExhausted(aid.to_string()));
+            }
+
+            // App-level caller authorization (owner always allowed).
+            if *caller != self.owner_id && !config.authorized_callers.contains(caller) {
+                return Err(RewardsError::Unauthorized(format!(
+                    "Caller {} not authorized for app '{}'",
+                    caller, aid
+                )));
+            }
+
+            let key = Self::user_app_key(account_id, aid);
+            let mut app_reward = self.user_app_rewards.get(&key).cloned().unwrap_or_default();
+
+            if app_reward.last_day < today {
+                app_reward.daily_earned = 0;
+                app_reward.last_day = today;
+            }
+
+            let remaining = config.daily_cap.saturating_sub(app_reward.daily_earned);
+            if remaining == 0 {
+                return Err(RewardsError::AppDailyCapReached(aid.to_string()));
+            }
+            let mut allowed = amount.min(remaining);
+
+            if config.total_budget > 0 {
+                let budget_remaining = config.total_budget.saturating_sub(config.total_credited);
+                allowed = allowed.min(budget_remaining);
+            }
+
+            if config.daily_budget > 0 {
+                let daily_remaining = config.daily_budget.saturating_sub(app_daily_spent);
+                allowed = allowed.min(daily_remaining);
+            }
+
+            app_reward.daily_earned = app_reward.daily_earned.saturating_add(allowed);
+            app_reward.total_earned = app_reward.total_earned.saturating_add(allowed);
+            self.user_app_rewards.insert(key, app_reward);
+
+            let mut updated_config = config;
+            updated_config.total_credited = updated_config.total_credited.saturating_add(allowed);
+            if updated_config.budget_last_day < today {
+                updated_config.daily_budget_spent = allowed;
+                updated_config.budget_last_day = today;
+            } else {
+                updated_config.daily_budget_spent =
+                    updated_config.daily_budget_spent.saturating_add(allowed);
+            }
+            self.app_configs.insert(aid.to_string(), updated_config);
+
+            allowed
+        } else {
+            if *caller != self.owner_id && !self.authorized_callers.contains(caller) {
+                return Err(RewardsError::Unauthorized(
+                    "Only owner or authorized callers can credit rewards".into(),
+                ));
+            }
+
+            let user = self.users.get(account_id).cloned().unwrap_or_default();
+            let daily_earned = if user.last_day < today {
+                0
+            } else {
+                user.daily_earned
+            };
+            let remaining = self.max_daily.saturating_sub(daily_earned);
+            if remaining == 0 {
+                return Err(RewardsError::DailyCapReached);
+            }
+            amount.min(remaining)
+        };
+
+        let mut user = self.users.get(account_id).cloned().unwrap_or_default();
         if user.last_day < today {
             user.daily_earned = 0;
             user.last_day = today;
         }
-
-        let remaining_daily = self.max_daily.saturating_sub(user.daily_earned);
-        if remaining_daily == 0 {
-            return Err(RewardsError::DailyCapReached);
-        }
-        let allowed = amount.min(remaining_daily);
-
         user.claimable = user.claimable.saturating_add(allowed);
-        user.daily_earned = user.daily_earned.saturating_add(allowed);
+        // Only bump global daily_earned when using global cap (no app_id).
+        if app_id.is_none() {
+            user.daily_earned = user.daily_earned.saturating_add(allowed);
+        }
         user.total_earned = user.total_earned.saturating_add(allowed);
         self.pool_balance = self.pool_balance.saturating_sub(allowed);
         self.total_credited = self.total_credited.saturating_add(allowed);
-
         self.users.insert(account_id.clone(), user);
 
-        events::emit_reward_credited(account_id, allowed, source, caller);
+        events::emit_reward_credited(account_id, allowed, source, caller, app_id);
 
-        Ok(serde_json::json!({
+        let mut result = serde_json::json!({
             "credited": allowed.to_string(),
-            "remaining_daily": remaining_daily.saturating_sub(allowed).to_string(),
-        }))
+        });
+        if let Some(aid) = app_id {
+            let key = Self::user_app_key(account_id, aid);
+            let app_reward = self.user_app_rewards.get(&key).cloned().unwrap_or_default();
+            let config = self.app_configs.get(aid).cloned().unwrap_or_default();
+            result["app_id"] = serde_json::json!(aid);
+            result["app_remaining_daily"] = serde_json::json!(
+                config
+                    .daily_cap
+                    .saturating_sub(app_reward.daily_earned)
+                    .to_string()
+            );
+            if config.total_budget > 0 {
+                result["app_remaining_budget"] = serde_json::json!(
+                    config
+                        .total_budget
+                        .saturating_sub(config.total_credited)
+                        .to_string()
+                );
+            }
+            if config.daily_budget > 0 {
+                result["app_remaining_daily_budget"] = serde_json::json!(
+                    config
+                        .daily_budget
+                        .saturating_sub(config.daily_budget_spent)
+                        .to_string()
+                );
+            }
+        } else {
+            let user = self.users.get(account_id).cloned().unwrap_or_default();
+            result["remaining_daily"] =
+                serde_json::json!(self.max_daily.saturating_sub(user.daily_earned).to_string());
+        }
+
+        Ok(result)
     }
 
     /// Optimistic: zeros `claimable`, stores `PendingClaim`, batches `storage_deposit` + `ft_transfer`. Callback rolls back on failure.
@@ -98,9 +231,7 @@ impl RewardsContract {
             .insert(actor_id.clone(), PendingClaim { amount });
         self.total_claimed = self.total_claimed.saturating_add(amount);
 
-        // Batch storage_deposit (auto-register) + ft_transfer on the FT contract.
-        // storage_deposit is idempotent: refunds if already registered (NEP-145).
-        // Batch acts as a unit: if ft_transfer fails, registration is also reverted.
+        // Batched storage_deposit + ft_transfer: atomic unit, NEP-145 idempotent registration.
         let _ = Promise::new(self.social_token.clone())
             .function_call(
                 "storage_deposit".to_string(),

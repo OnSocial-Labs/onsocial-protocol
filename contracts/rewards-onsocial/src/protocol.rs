@@ -15,6 +15,9 @@ pub enum Action {
         amount: U128,
         #[serde(default)]
         source: Option<String>,
+        /// When set, enforces per-app daily cap and caller authorization.
+        #[serde(default)]
+        app_id: Option<String>,
     },
     Claim,
 }

@@ -12,6 +12,45 @@ pub struct ContractInfo {
     pub total_claimed: U128,
     pub intents_executors: Vec<AccountId>,
     pub authorized_callers: Vec<AccountId>,
+    pub app_ids: Vec<String>,
+}
+
+/// Input for `register_app`. All budgets default to 0 (unlimited).
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct RegisterApp {
+    pub app_id: String,
+    pub label: String,
+    pub daily_cap: U128,
+    pub reward_per_action: U128,
+    pub authorized_callers: Vec<AccountId>,
+    /// Lifetime token budget. 0 = unlimited.
+    #[serde(default)]
+    pub total_budget: U128,
+    /// Aggregate daily budget across all users. 0 = unlimited.
+    #[serde(default)]
+    pub daily_budget: U128,
+}
+
+/// Input for `update_app`. Only provided fields are changed.
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct UpdateApp {
+    pub app_id: String,
+    #[serde(default)]
+    pub daily_cap: Option<U128>,
+    #[serde(default)]
+    pub reward_per_action: Option<U128>,
+    #[serde(default)]
+    pub active: Option<bool>,
+    #[serde(default)]
+    pub authorized_callers: Option<Vec<AccountId>>,
+    /// Lifetime token budget. 0 = unlimited.
+    #[serde(default)]
+    pub total_budget: Option<U128>,
+    /// Aggregate daily budget across all users. 0 = unlimited.
+    #[serde(default)]
+    pub daily_budget: Option<U128>,
 }
 
 #[near]
@@ -80,5 +119,93 @@ impl RewardsContract {
         contract.version = CONTRACT_VERSION.to_string();
         events::emit_contract_upgraded(&contract.owner_id, &old, CONTRACT_VERSION);
         contract
+    }
+
+    pub fn register_app(&mut self, config: RegisterApp) {
+        self.require_owner();
+        require!(!config.app_id.is_empty(), "app_id cannot be empty");
+        require!(
+            !self.app_configs.contains_key(&config.app_id),
+            "App already registered"
+        );
+
+        let app_id = config.app_id.clone();
+        self.app_configs.insert(
+            app_id.clone(),
+            AppConfig {
+                label: config.label,
+                daily_cap: config.daily_cap.0,
+                reward_per_action: config.reward_per_action.0,
+                authorized_callers: config.authorized_callers,
+                active: true,
+                total_budget: config.total_budget.0,
+                total_credited: 0,
+                daily_budget: config.daily_budget.0,
+                daily_budget_spent: 0,
+                budget_last_day: 0,
+            },
+        );
+        self.app_ids.push(app_id.clone());
+
+        events::emit(
+            "APP_REGISTERED",
+            &self.owner_id.clone(),
+            near_sdk::serde_json::json!({
+                "app_id": app_id,
+                "daily_cap": config.daily_cap.0.to_string(),
+                "reward_per_action": config.reward_per_action.0.to_string(),
+                "total_budget": config.total_budget.0.to_string(),
+                "daily_budget": config.daily_budget.0.to_string(),
+            }),
+        );
+    }
+
+    /// Update an existing app config. Only provided fields are changed.
+    pub fn update_app(&mut self, update: UpdateApp) {
+        self.require_owner();
+        let mut config = self
+            .app_configs
+            .get(&update.app_id)
+            .cloned()
+            .unwrap_or_else(|| env::panic_str("App not found"));
+
+        if let Some(cap) = update.daily_cap {
+            config.daily_cap = cap.0;
+        }
+        if let Some(rate) = update.reward_per_action {
+            config.reward_per_action = rate.0;
+        }
+        if let Some(a) = update.active {
+            config.active = a;
+        }
+        if let Some(callers) = update.authorized_callers {
+            config.authorized_callers = callers;
+        }
+        if let Some(budget) = update.total_budget {
+            config.total_budget = budget.0;
+        }
+        if let Some(db) = update.daily_budget {
+            config.daily_budget = db.0;
+        }
+
+        self.app_configs.insert(update.app_id.clone(), config);
+
+        events::emit(
+            "APP_UPDATED",
+            &self.owner_id.clone(),
+            near_sdk::serde_json::json!({ "app_id": update.app_id }),
+        );
+    }
+
+    /// Deactivate an app (stops new credits, existing claimable unaffected).
+    pub fn deactivate_app(&mut self, app_id: String) {
+        self.require_owner();
+        let mut config = self
+            .app_configs
+            .get(&app_id)
+            .cloned()
+            .unwrap_or_else(|| env::panic_str("App not found"));
+        config.active = false;
+        self.app_configs.insert(app_id, config);
     }
 }

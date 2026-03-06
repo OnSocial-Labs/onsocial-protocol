@@ -11,6 +11,11 @@ pub enum RewardsError {
     InvalidAmount,
     ClaimPending,
     InternalError(String),
+    AppNotFound(String),
+    AppInactive(String),
+    AppDailyCapReached(String),
+    AppBudgetExhausted(String),
+    AppDailyBudgetExhausted(String),
 }
 
 impl std::fmt::Display for RewardsError {
@@ -23,6 +28,13 @@ impl std::fmt::Display for RewardsError {
             Self::InvalidAmount => write!(f, "Invalid amount"),
             Self::ClaimPending => write!(f, "Claim already pending"),
             Self::InternalError(msg) => write!(f, "Internal error: {}", msg),
+            Self::AppNotFound(id) => write!(f, "App not found: {}", id),
+            Self::AppInactive(id) => write!(f, "App inactive: {}", id),
+            Self::AppDailyCapReached(id) => write!(f, "App daily cap reached: {}", id),
+            Self::AppBudgetExhausted(id) => write!(f, "App total budget exhausted: {}", id),
+            Self::AppDailyBudgetExhausted(id) => {
+                write!(f, "App aggregate daily budget exhausted: {}", id)
+            }
         }
     }
 }
