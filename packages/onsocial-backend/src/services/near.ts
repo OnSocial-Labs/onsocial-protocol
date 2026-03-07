@@ -32,16 +32,20 @@ function relayerHeaders(): Record<string, string> {
 export async function creditOnChain(
   accountId: string,
   amount: string,
-  source: string
+  source: string,
+  appId?: string
 ): Promise<string> {
+  const action: Record<string, string> = {
+    type: 'credit_reward',
+    account_id: accountId,
+    amount,
+    source,
+  };
+  if (appId) action.app_id = appId;
+
   const request = {
     target_account: config.rewardsContract,
-    action: {
-      type: 'credit_reward',
-      account_id: accountId,
-      amount,
-      source,
-    },
+    action,
     auth: { type: 'direct' },
   };
 
@@ -67,7 +71,14 @@ export async function creditOnChain(
   }
 
   logger.info(
-    { accountId, amount, source, txHash: data.tx_hash, status: data.status },
+    {
+      accountId,
+      amount,
+      source,
+      appId,
+      txHash: data.tx_hash,
+      status: data.status,
+    },
     'Credit confirmed on-chain'
   );
   return data.tx_hash ?? '';

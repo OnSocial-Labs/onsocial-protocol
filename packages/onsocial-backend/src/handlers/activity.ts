@@ -66,6 +66,7 @@ export async function handleActivity(ctx: Context): Promise<void> {
         source: 'telegram',
         action: 'message',
         sourceRef,
+        appId: 'onsocial_telegram',
       });
 
       if (result === 'credited') {

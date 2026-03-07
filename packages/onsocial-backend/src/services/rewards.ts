@@ -24,6 +24,8 @@ interface CreditRequest {
   action: RewardAction;
   /** Unique dedup key, e.g. "tg:msg:chatId:msgId" */
   sourceRef: string;
+  /** On-chain app identifier for per-app budget tracking. */
+  appId?: string;
 }
 
 /**
@@ -83,7 +85,8 @@ export async function creditReward(req: CreditRequest): Promise<CreditResult> {
     const txHash = await creditOnChain(
       req.accountId,
       yoctoAmount,
-      `${req.source}:${req.action}`
+      `${req.source}:${req.action}`,
+      req.appId
     );
     await updateCreditStatus(creditId, 'credited', txHash);
     logger.info(
