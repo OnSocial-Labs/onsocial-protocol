@@ -84,8 +84,12 @@ export async function partnerAuth(
   next();
 }
 
-/** Pre-warm the key cache at startup. */
+/** Pre-warm the key cache at startup. Non-fatal if table doesn't exist yet. */
 export async function initPartnerKeyCache(): Promise<void> {
-  await refreshCache();
-  logger.info({ partnerKeys: keyCache.size }, 'Partner key cache initialized');
+  try {
+    await refreshCache();
+    logger.info({ partnerKeys: keyCache.size }, 'Partner key cache initialized');
+  } catch (err) {
+    logger.warn({ err }, 'Partner key cache init failed (table may not exist yet)');
+  }
 }

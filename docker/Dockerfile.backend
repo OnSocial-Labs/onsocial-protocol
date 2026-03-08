@@ -52,4 +52,5 @@ EXPOSE 4001
 ENV PORT=4001
 ENV NODE_ENV=production
 
-CMD ["node", "packages/onsocial-backend/dist/index.js"]
+# Run migrations then start the server
+CMD ["sh", "-c", "node packages/onsocial-backend/dist/db/migrate.js && node packages/onsocial-backend/dist/index.js"]
