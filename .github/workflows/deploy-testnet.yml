@@ -232,7 +232,9 @@ jobs:
             echo "Rolling backend..."
             docker compose up -d --no-deps backend
             if ! check_container_health "backend" "backend" "http://localhost:4001/health" 10 3; then
-              echo "⚠️  Backend health check failed — bot may need manual restart"
+              echo "❌ Backend health check failed — rolling back"
+              rollback "backend gateway relayer-0 relayer-1"
+              exit 1
             fi
 
             # ── Bring up any remaining services ──────────────────────
