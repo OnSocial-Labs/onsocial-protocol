@@ -29,6 +29,11 @@ api.onsocial.id, testnet.onsocial.id, mainnet.onsocial.id {
 		reverse_proxy backend:4001
 	}
 
+	# Partner Rewards SDK API → backend
+	handle /v1/* {
+		reverse_proxy backend:4001
+	}
+
 	# Everything else → gateway
 	handle {
 		reverse_proxy gateway:8080

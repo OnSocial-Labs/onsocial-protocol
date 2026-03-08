@@ -181,6 +181,7 @@ services:
       RELAYER_URL: http://relayer-lb:3040
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
+      ADMIN_SECRET: ${ADMIN_SECRET}
     depends_on:
       postgres:
         condition: service_healthy

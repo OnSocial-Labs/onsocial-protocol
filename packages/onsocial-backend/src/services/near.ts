@@ -85,6 +85,51 @@ export async function creditOnChain(
 }
 
 /**
+ * Execute a gasless claim for a NEAR user via the relayer.
+ *
+ * Uses intent-based auth — the relayer signs on the user's behalf.
+ * Returns the tx hash on success.
+ */
+export async function claimOnChain(
+  accountId: string
+): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  const request = {
+    target_account: config.rewardsContract,
+    action: { type: 'claim' },
+    auth: {
+      type: 'intent',
+      actor_id: accountId,
+      intent: {},
+    },
+  };
+
+  const response = await fetch(`${config.relayerUrl}/execute?wait=true`, {
+    method: 'POST',
+    headers: relayerHeaders(),
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify(request),
+  });
+
+  const data = (await response.json()) as {
+    success: boolean;
+    status?: string;
+    tx_hash?: string;
+    error?: string;
+  };
+
+  if (!data.success) {
+    return {
+      success: false,
+      error:
+        data.error || `Relayer returned ${response.status} (${data.status})`,
+    };
+  }
+
+  logger.info({ accountId, txHash: data.tx_hash }, 'Claim confirmed on-chain');
+  return { success: true, txHash: data.tx_hash };
+}
+
+/**
  * View a user's claimable balance on the rewards contract via NEAR RPC.
  */
 export async function viewClaimable(accountId: string): Promise<string> {
@@ -175,6 +220,14 @@ export async function accountExists(accountId: string): Promise<boolean> {
 async function viewMethod<T>(methodName: string, args: object): Promise<T> {
   const raw = await viewMethodRaw(methodName, args);
   return JSON.parse(raw) as T;
+}
+
+/** Public wrapper for view calls — used by partner API routes. */
+export async function viewContract<T = unknown>(
+  methodName: string,
+  args: Record<string, string>
+): Promise<T> {
+  return viewMethod<T>(methodName, args);
 }
 
 /** Call a view method and return the raw UTF-8 string (before JSON.parse). */

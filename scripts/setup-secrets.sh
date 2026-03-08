@@ -35,6 +35,7 @@ SECRETS=(
   "RELAYER_API_KEY:Relayer authentication key (min 32 chars)"
   "LAVA_API_KEY:Lava RPC private endpoint key"
   "TELEGRAM_BOT_TOKEN:Telegram bot token for OnSocial Pulse rewards bot"
+  "ADMIN_SECRET:Backend admin API secret for partner approval (min 32 chars)"
 )
 
 echo "============================================"

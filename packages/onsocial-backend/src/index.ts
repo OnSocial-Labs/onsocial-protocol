@@ -5,12 +5,38 @@ import { config } from './config/index.js';
 import { logger } from './logger.js';
 import { webhookHandler, setupWebhook, startPolling } from './bot/index.js';
 import { close as closeDb } from './db/index.js';
+import partnerRoutes from './routes/partner.js';
+import adminRoutes from './routes/admin.js';
+import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 
 const app = express();
 
 // ---------------------------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------------------------
+
+// CORS — allow portal (localhost + production) to call the API
+app.use((req, res, next) => {
+  const origin = req.headers.origin ?? '';
+  const allowed = [
+    'http://localhost:3000',
+    'https://portal.onsocial.id',
+    'https://onsocial.id',
+  ];
+  if (allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, X-Admin-Secret, X-Api-Key'
+  );
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
 
 app.use(express.json());
 app.use(pinoHttp({ logger }));
@@ -28,6 +54,15 @@ app.get('/health', (_req, res) => {
 // ---------------------------------------------------------------------------
 
 app.post('/webhooks/telegram', webhookHandler);
+
+// ---------------------------------------------------------------------------
+// Partner Rewards API (SDK consumers)
+// ---------------------------------------------------------------------------
+
+// Admin routes MUST be registered before partner routes, because
+// partnerRoutes applies partnerAuth to all /v1/* sub-routes.
+app.use('/v1/admin', adminRoutes);
+app.use('/v1', partnerRoutes);
 
 // ---------------------------------------------------------------------------
 // 404 + error handlers
@@ -64,6 +99,9 @@ const server = app.listen(config.port, async () => {
     'onsocial-backend started'
   );
 
+  // Pre-warm partner API key cache
+  await initPartnerKeyCache();
+
   // Telegram: webhook in production, long-polling in dev
   if (config.nodeEnv === 'production') {
     const webhookUrl = process.env.WEBHOOK_URL;
@@ -73,7 +111,11 @@ const server = app.listen(config.port, async () => {
       logger.warn('WEBHOOK_URL not set — Telegram webhook not configured');
     }
   } else {
-    await startPolling();
+    try {
+      await startPolling();
+    } catch (err) {
+      logger.warn({ err }, 'Telegram bot polling failed (non-fatal in dev)');
+    }
   }
 });
 
