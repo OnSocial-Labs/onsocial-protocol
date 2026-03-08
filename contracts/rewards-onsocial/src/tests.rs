@@ -62,12 +62,13 @@ mod unit {
     // =================================================================
     // NEGATIVE TESTS (ft_on_transfer)
     // =================================================================
-    // NOTE: Tests using #[should_panic] are not compatible with NEAR SDK's
-    // env::panic_str() in release mode (abort vs unwind). These negative test
-    // cases should be covered in integration tests (sandbox) where contract
-    // panics are properly caught as transaction failures.
+    // NOTE: ft_on_transfer uses require! / env::panic_str which aborts in
+    // release mode, so negative cases must be tested in integration tests
+    // (sandbox) where contract panics are caught as transaction failures.
+    // All admin validation uses Result<(), RewardsError> + #[handle_result],
+    // so those negative cases are fully covered in unit tests below.
     //
-    // Negative cases to test in integration tests:
+    // ft_on_transfer negative cases to test in integration tests:
     // - ft_on_transfer from non-owner sender (Only owner can deposit)
     // - ft_on_transfer from wrong token contract (Wrong token)
     // - ft_on_transfer with invalid JSON message
@@ -113,7 +114,7 @@ mod unit {
 
         // Add bot as authorized caller
         testing_env!(context(owner()).build());
-        c.add_authorized_caller(bot());
+        c.add_authorized_caller(bot()).unwrap();
 
         // Credit via bot
         let result = c.dispatch_action(
@@ -257,9 +258,10 @@ mod unit {
             daily_cap: U128(10_000),
             reward_per_action: U128(500),
             authorized_callers: vec![partner()],
-            total_budget: U128(0),
+            total_budget: U128(1_000_000),
             daily_budget: U128(0),
-        });
+        })
+        .unwrap();
     }
 
     #[test]
@@ -397,7 +399,7 @@ mod unit {
         setup_app(&mut c);
 
         testing_env!(context(owner()).build());
-        c.deactivate_app("game_xyz".into());
+        c.deactivate_app("game_xyz".into()).unwrap();
 
         testing_env!(context(token()).build());
         c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
@@ -464,7 +466,8 @@ mod unit {
             authorized_callers: None,
             total_budget: None,
             daily_budget: None,
-        });
+        })
+        .unwrap();
 
         let config = c.app_configs.get("game_xyz").unwrap();
         assert_eq!(config.daily_cap, 20_000);
@@ -485,7 +488,8 @@ mod unit {
             authorized_callers: vec![partner()],
             total_budget: U128(5_000), // 5k lifetime budget
             daily_budget: U128(0),     // unlimited daily budget
-        });
+        })
+        .unwrap();
 
         testing_env!(context(token()).build());
         c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
@@ -567,18 +571,18 @@ mod unit {
     fn test_set_max_daily() {
         let mut c = new_contract();
         testing_env!(context(owner()).build());
-        c.set_max_daily(U128(200_000));
+        c.set_max_daily(U128(200_000)).unwrap();
         assert_eq!(c.max_daily, 200_000);
     }
 
-    // NOTE: test_set_max_daily_non_owner is covered in integration tests.
-    // #[should_panic] is incompatible with NEAR SDK's env::panic_str().
+    // NOTE: test_set_max_daily_non_owner now tested via check_owner() returning
+    // Err(RewardsError::Unauthorized) — see test_register_app_not_owner below.
 
     #[test]
     fn test_transfer_ownership() {
         let mut c = new_contract();
         testing_env!(context(owner()).build());
-        c.transfer_ownership(user());
+        c.transfer_ownership(user()).unwrap();
         assert_eq!(c.owner_id, user());
     }
 
@@ -587,10 +591,10 @@ mod unit {
         let mut c = new_contract();
         testing_env!(context(owner()).build());
 
-        c.add_intents_executor(relayer());
+        c.add_intents_executor(relayer()).unwrap();
         assert!(c.intents_executors.contains(&relayer()));
 
-        c.remove_intents_executor(relayer());
+        c.remove_intents_executor(relayer()).unwrap();
         assert!(!c.intents_executors.contains(&relayer()));
     }
 
@@ -632,9 +636,10 @@ mod unit {
             daily_cap: U128(100_000), // per-user daily cap (high)
             reward_per_action: U128(500),
             authorized_callers: vec![partner()],
-            total_budget: U128(0),     // unlimited lifetime budget
-            daily_budget: U128(3_000), // 3k aggregate daily budget
-        });
+            total_budget: U128(500_000), // 500k lifetime budget
+            daily_budget: U128(3_000),   // 3k aggregate daily budget
+        })
+        .unwrap();
 
         testing_env!(context(token()).build());
         c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
@@ -940,9 +945,10 @@ mod unit {
             daily_cap: U128(5_000),
             reward_per_action: U128(100),
             authorized_callers: vec![partner()],
-            total_budget: U128(0),
+            total_budget: U128(500_000),
             daily_budget: U128(0),
-        });
+        })
+        .unwrap();
         c.register_app(RegisterApp {
             app_id: "app_b".into(),
             label: "App B".into(),
@@ -951,7 +957,8 @@ mod unit {
             authorized_callers: vec![bot()],
             total_budget: U128(10_000),
             daily_budget: U128(0),
-        });
+        })
+        .unwrap();
 
         testing_env!(context(token()).build());
         c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
@@ -1032,7 +1039,8 @@ mod unit {
             authorized_callers: vec![partner()],
             total_budget: U128(6_000),
             daily_budget: U128(4_000),
-        });
+        })
+        .unwrap();
 
         testing_env!(context(token()).build());
         c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
@@ -1109,5 +1117,409 @@ mod unit {
         assert!(matches!(r4, Err(RewardsError::AppBudgetExhausted(_))));
 
         assert_eq!(c.app_configs.get("combo").unwrap().total_credited, 6_000);
+    }
+
+    // ── Validation: register_app ─────────────────────────────────────
+
+    /// Helper: build a valid RegisterApp config for mutation in negative tests.
+    fn valid_register_config() -> RegisterApp {
+        RegisterApp {
+            app_id: "test_app".into(),
+            label: "Test".into(),
+            daily_cap: U128(1_000),
+            reward_per_action: U128(100),
+            authorized_callers: vec![partner()],
+            total_budget: U128(100_000),
+            daily_budget: U128(0),
+        }
+    }
+
+    #[test]
+    fn test_register_app_empty_app_id() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.app_id = "".into();
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("app_id cannot be empty")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_id_too_long() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.app_id = "a".repeat(65);
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("app_id too long")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_empty_label() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.label = "".into();
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("label cannot be empty")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_label_too_long() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.label = "x".repeat(129);
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("label too long")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_zero_reward() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.reward_per_action = U128(0);
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("reward_per_action must be > 0")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_reward_exceeds_max() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.reward_per_action = U128(1_000_000_000_000_000_001); // 1 SOCIAL + 1
+        cfg.daily_cap = U128(10_000_000_000_000_000_000); // 10 SOCIAL (valid)
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("reward_per_action exceeds max")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_zero_daily_cap() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.daily_cap = U128(0);
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("daily_cap must be > 0")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_daily_cap_exceeds_max() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.daily_cap = U128(10_000_000_000_000_000_001); // 10 SOCIAL + 1
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("daily_cap exceeds max")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_daily_cap_less_than_reward() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.daily_cap = U128(50);
+        cfg.reward_per_action = U128(100);
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("daily_cap must be >= reward_per_action")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_zero_total_budget() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.total_budget = U128(0);
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("total_budget must be > 0")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_empty_callers() {
+        let c = new_contract();
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.authorized_callers = vec![];
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("authorized_callers cannot be empty")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_duplicate() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+        testing_env!(context(owner()).build());
+        let mut cfg = valid_register_config();
+        cfg.app_id = "game_xyz".into(); // already registered by setup_app
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("App already registered")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_register_app_max_apps() {
+        let mut c = new_contract();
+        testing_env!(context(owner()).build());
+        // Populate 100 apps directly (bypass register_app to avoid event-log
+        // overhead in the unit-test mock environment).
+        for i in 0..100 {
+            let id = format!("app_{}", i);
+            c.app_configs.insert(
+                id.clone(),
+                AppConfig {
+                    label: format!("App {}", i),
+                    daily_cap: 1_000,
+                    reward_per_action: 100,
+                    authorized_callers: vec![partner()],
+                    active: true,
+                    total_budget: 100_000,
+                    total_credited: 0,
+                    daily_budget: 0,
+                    daily_budget_spent: 0,
+                    budget_last_day: 0,
+                },
+            );
+            c.app_ids.push(id);
+        }
+        assert_eq!(c.app_ids.len(), 100);
+        // 101st should fail validation
+        let cfg = RegisterApp {
+            app_id: "app_100".into(),
+            label: "One Too Many".into(),
+            daily_cap: U128(1_000),
+            reward_per_action: U128(100),
+            authorized_callers: vec![partner()],
+            total_budget: U128(100_000),
+            daily_budget: U128(0),
+        };
+        let err = c.validate_register_app(&cfg).unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("Maximum number of apps reached")),
+            "{err}"
+        );
+    }
+
+    // ── Validation: register_app at exact limits (should pass) ───────
+
+    #[test]
+    fn test_register_app_at_exact_max_reward() {
+        let mut c = new_contract();
+        testing_env!(context(owner()).build());
+        // Exactly 1 SOCIAL reward — should succeed
+        c.register_app(RegisterApp {
+            app_id: "exact_rpa".into(),
+            label: "Exact Max RPA".into(),
+            daily_cap: U128(1_000_000_000_000_000_000), // = reward
+            reward_per_action: U128(1_000_000_000_000_000_000), // exactly 1 SOCIAL
+            authorized_callers: vec![partner()],
+            total_budget: U128(100_000_000_000_000_000_000),
+            daily_budget: U128(0),
+        })
+        .unwrap();
+        assert!(c.app_configs.contains_key("exact_rpa"));
+    }
+
+    #[test]
+    fn test_register_app_at_exact_max_daily_cap() {
+        let mut c = new_contract();
+        testing_env!(context(owner()).build());
+        // Exactly 10 SOCIAL daily cap — should succeed
+        c.register_app(RegisterApp {
+            app_id: "exact_dc".into(),
+            label: "Exact Max DC".into(),
+            daily_cap: U128(10_000_000_000_000_000_000), // exactly 10 SOCIAL
+            reward_per_action: U128(100),
+            authorized_callers: vec![partner()],
+            total_budget: U128(100_000_000_000_000_000_000),
+            daily_budget: U128(0),
+        })
+        .unwrap();
+        assert!(c.app_configs.contains_key("exact_dc"));
+    }
+
+    #[test]
+    fn test_register_app_max_length_id_and_label() {
+        let mut c = new_contract();
+        testing_env!(context(owner()).build());
+        // Exactly 64 char app_id, 128 char label — should succeed
+        c.register_app(RegisterApp {
+            app_id: "a".repeat(64),
+            label: "b".repeat(128),
+            daily_cap: U128(1_000),
+            reward_per_action: U128(100),
+            authorized_callers: vec![partner()],
+            total_budget: U128(100_000),
+            daily_budget: U128(0),
+        })
+        .unwrap();
+        assert!(c.app_configs.contains_key(&"a".repeat(64)));
+    }
+
+    // ── Validation: update_app ───────────────────────────────────────
+
+    #[test]
+    fn test_update_app_reward_exceeds_max() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+        testing_env!(context(owner()).build());
+        let err = c
+            .validate_update_app(&UpdateApp {
+                app_id: "game_xyz".into(),
+                daily_cap: None,
+                reward_per_action: Some(U128(1_000_000_000_000_000_001)),
+                active: None,
+                authorized_callers: None,
+                total_budget: None,
+                daily_budget: None,
+            })
+            .unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("reward_per_action exceeds max")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_update_app_daily_cap_exceeds_max() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+        testing_env!(context(owner()).build());
+        let err = c
+            .validate_update_app(&UpdateApp {
+                app_id: "game_xyz".into(),
+                daily_cap: Some(U128(10_000_000_000_000_000_001)),
+                reward_per_action: None,
+                active: None,
+                authorized_callers: None,
+                total_budget: None,
+                daily_budget: None,
+            })
+            .unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("daily_cap exceeds max")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_update_app_daily_cap_less_than_reward() {
+        let mut c = new_contract();
+        setup_app(&mut c); // reward_per_action = 500
+        testing_env!(context(owner()).build());
+        let err = c
+            .validate_update_app(&UpdateApp {
+                app_id: "game_xyz".into(),
+                daily_cap: Some(U128(100)), // less than 500
+                reward_per_action: None,
+                active: None,
+                authorized_callers: None,
+                total_budget: None,
+                daily_budget: None,
+            })
+            .unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("daily_cap must be >= reward_per_action")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_update_app_zero_total_budget() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+        testing_env!(context(owner()).build());
+        let err = c
+            .validate_update_app(&UpdateApp {
+                app_id: "game_xyz".into(),
+                daily_cap: None,
+                reward_per_action: None,
+                active: None,
+                authorized_callers: None,
+                total_budget: Some(U128(0)),
+                daily_budget: None,
+            })
+            .unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("total_budget must be > 0")),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn test_update_app_empty_callers() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+        testing_env!(context(owner()).build());
+        let err = c
+            .validate_update_app(&UpdateApp {
+                app_id: "game_xyz".into(),
+                daily_cap: None,
+                reward_per_action: None,
+                active: None,
+                authorized_callers: Some(vec![]),
+                total_budget: None,
+                daily_budget: None,
+            })
+            .unwrap_err();
+        assert!(
+            matches!(err, RewardsError::InvalidInput(ref msg) if msg.contains("authorized_callers cannot be empty")),
+            "{err}"
+        );
+    }
+
+    // ── Owner gate ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_register_app_not_owner() {
+        let c = new_contract();
+        testing_env!(context(user()).build()); // not owner
+        let err = c.check_owner().unwrap_err();
+        assert!(matches!(err, RewardsError::Unauthorized(_)), "{err}");
+    }
+
+    #[test]
+    fn test_update_app_not_owner() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+        testing_env!(context(user()).build()); // not owner
+        let err = c.check_owner().unwrap_err();
+        assert!(matches!(err, RewardsError::Unauthorized(_)), "{err}");
     }
 }

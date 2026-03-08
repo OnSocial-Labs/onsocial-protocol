@@ -5,6 +5,7 @@ use near_sdk_macros::NearSchema;
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum RewardsError {
     Unauthorized(String),
+    InvalidInput(String),
     DailyCapReached,
     InsufficientPool(String),
     NothingToClaim,
@@ -22,6 +23,7 @@ impl std::fmt::Display for RewardsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            Self::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
             Self::DailyCapReached => write!(f, "Daily reward cap reached"),
             Self::InsufficientPool(msg) => write!(f, "Insufficient pool: {}", msg),
             Self::NothingToClaim => write!(f, "Nothing to claim"),

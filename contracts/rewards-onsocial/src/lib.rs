@@ -151,8 +151,12 @@ impl RewardsContract {
         env::block_timestamp() / NS_PER_DAY
     }
 
-    pub(crate) fn require_owner(&self) {
-        assert_eq!(env::predecessor_account_id(), self.owner_id, "Only owner");
+    pub(crate) fn check_owner(&self) -> Result<(), RewardsError> {
+        if env::predecessor_account_id() == self.owner_id {
+            Ok(())
+        } else {
+            Err(RewardsError::Unauthorized("Only owner".into()))
+        }
     }
 
     pub(crate) fn user_app_key(account_id: &AccountId, app_id: &str) -> String {
