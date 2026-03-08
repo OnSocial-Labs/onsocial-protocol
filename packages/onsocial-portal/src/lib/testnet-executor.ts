@@ -1,5 +1,3 @@
-import { providers } from 'near-api-js'
-
 export interface ExecutionResult {
 	success: boolean
 	output: string
@@ -10,11 +8,9 @@ export interface ExecutionResult {
 export async function executeOnTestnet(
 	code: string,
 	accountId: string,
-	selector: any
+	wallet: any
 ): Promise<ExecutionResult> {
 	try {
-		// Parse the code to determine the contract call
-		const wallet = await selector.wallet()
 		
 		// Extract function name and arguments from code
 		const contractMatch = code.match(/contract\.(set|get|call|view)\(([^)]+)\)/)

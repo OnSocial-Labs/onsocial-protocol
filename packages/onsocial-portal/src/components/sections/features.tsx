@@ -3,57 +3,56 @@
 import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import {
-  User,
-  Blocks,
   Globe,
-  Lock,
-  Coins,
-  Code,
+  Zap,
+  FileCode2,
+  Layers,
+  Package,
+  Terminal,
 } from 'lucide-react'
-import { TiltCard } from '@/components/effects/tilt-card'
 
-const features = [
+const tools = [
   {
-    title: 'Decentralized Identity',
-    description: 'Own your digital identity. Control your data, reputation, and social graph across all platforms.',
-    icon: User,
-    color: '#00ec96',
-    isPurple: false,
-  },
-  {
-    title: 'Composable Actions',
-    description: 'Build complex social interactions with simple, reusable building blocks. Infinite possibilities.',
-    icon: Blocks,
-    color: '#A05CFF',
-    isPurple: true,
-  },
-  {
-    title: 'Cross-Chain Ready',
-    description: 'Seamlessly interact across multiple blockchains. One identity, infinite networks.',
+    title: 'Gateway API',
+    description: 'Auth, GraphQL, relay, compose, storage — one endpoint at api.onsocial.id. JWT-based with tier rate limiting.',
     icon: Globe,
-    color: '#00ec96',
-    isPurple: false,
+    color: '#3B82F6',
+    status: 'Live',
   },
   {
-    title: 'Privacy First',
-    description: 'Your data, your rules. Zero-knowledge proofs ensure privacy without sacrificing functionality.',
-    icon: Lock,
-    color: '#A05CFF',
-    isPurple: true,
+    title: 'Gasless Relayer',
+    description: 'Users never pay gas. 2-instance HA with GCP Cloud KMS signing and automatic key pool management.',
+    icon: Zap,
+    color: '#4ADE80',
+    status: 'Live',
   },
   {
-    title: 'Token Economics',
-    description: 'Fair, transparent reward systems. Creators earn, communities thrive, users own value.',
-    icon: Coins,
-    color: '#00ec96',
-    isPurple: false,
+    title: 'Smart Contracts',
+    description: 'Core, Token, Staking, Scarces, Rewards — 6 contracts on testnet, token verified on mainnet.',
+    icon: FileCode2,
+    color: '#A855F7',
+    status: 'Live',
   },
   {
-    title: 'Developer Friendly',
-    description: 'Powerful APIs, extensive docs, and SDKs. Build the next generation of social apps.',
-    icon: Code,
-    color: '#A05CFF',
-    isPurple: true,
+    title: 'Compose API',
+    description: 'One-call endpoints: mint, collection, marketplace, offers, approvals, storage uploads via Lighthouse IPFS.',
+    icon: Layers,
+    color: '#3B82F6',
+    status: 'Live',
+  },
+  {
+    title: 'Developer SDKs',
+    description: '@onsocial/rewards for token rewards, @onsocial/rpc for resilient NEAR calls, partner API for app registration.',
+    icon: Package,
+    color: '#4ADE80',
+    status: 'Live',
+  },
+  {
+    title: 'Playground',
+    description: 'Browser code editor with live testnet execution. Connect wallet, run real transactions, test your integration.',
+    icon: Terminal,
+    color: '#A855F7',
+    status: 'Live',
   },
 ]
 
@@ -62,50 +61,44 @@ export function Features() {
   const isInView = useInView(ref, { once: true, amount: 0.2 })
 
   return (
-    <section id="features" ref={ref} className="py-24 relative overflow-hidden">
+    <section id="tools" ref={ref} className="py-24 relative">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-2xl mx-auto mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Built for the Next Generation of Social
+          <h2 className="text-4xl md:text-5xl font-bold tracking-[-0.03em] mb-4">
+            Developer Tools
           </h2>
-          <p className="text-xl text-muted-foreground">
-            Everything you need to build powerful, decentralized social applications at scale
+          <p className="text-lg text-muted-foreground">
+            Everything running in production today
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => {
-            const Icon = feature.icon
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tools.map((tool, index) => {
+            const Icon = tool.icon
             return (
               <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 50 }}
+                key={tool.title}
+                initial={{ opacity: 0, y: 20 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group relative"
+                transition={{ duration: 0.4, delay: index * 0.08 }}
               >
-                <TiltCard>
-                  <div className="bg-card/50 backdrop-blur-xl border border-border rounded-2xl p-8 hover:border-[#00ec96]/50 transition-all duration-300 hover:shadow-xl hover:shadow-[#00ec96]/10">
-                    <Icon 
-                      className="w-12 h-12 mb-6 group-hover:scale-110 transition-transform duration-300"
-                      style={{
-                        color: feature.color,
-                        filter: feature.isPurple 
-                          ? 'drop-shadow(0 0 8px rgba(160, 92, 255, 0.3))' 
-                          : 'drop-shadow(0 0 8px rgba(0, 236, 150, 0.3))'
-                      }}
-                    />
-                    <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {feature.description}
-                    </p>
+                <div className="border border-border/50 rounded-2xl p-8 hover:border-border transition-colors bg-muted/30 h-full">
+                  <div className="flex items-start justify-between mb-5">
+                    <Icon className="w-10 h-10" style={{ color: tool.color }} />
+                    <span className="text-xs px-2.5 py-1 rounded-full border border-[#4ADE80]/30 text-[#4ADE80] font-medium">
+                      {tool.status}
+                    </span>
                   </div>
-                </TiltCard>
+                  <h3 className="text-lg font-semibold mb-2 tracking-[-0.01em]">{tool.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {tool.description}
+                  </p>
+                </div>
               </motion.div>
             )
           })}

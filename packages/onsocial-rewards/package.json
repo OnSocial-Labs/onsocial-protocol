@@ -1,0 +1,47 @@
+{
+  "name": "@onsocial/rewards",
+  "version": "0.1.0",
+  "description": "SDK for crediting and querying SOCIAL token rewards via the OnSocial relayer",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./bot": {
+      "import": "./dist/bot.js",
+      "types": "./dist/bot.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "grammy": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "grammy": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "grammy": "^1.41.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "onsocial",
+    "near",
+    "rewards",
+    "social-token"
+  ]
+}

@@ -11,7 +11,7 @@ import { useWallet } from '@/contexts/wallet-context';
 import { executeOnTestnet } from '@/lib/testnet-executor';
 
 function PlaygroundContent() {
-  const { accountId, isConnected, selector } = useWallet();
+  const { accountId, isConnected, wallet, connect } = useWallet();
   const { theme } = useTheme();
   
   const [selectedExample, setSelectedExample] = useState<ExampleSnippet>(playgroundExamples[0]);
@@ -35,10 +35,10 @@ function PlaygroundContent() {
     setOutput('⏳ Running code...\n\n');
     setTxHash(null);
     
-    if (useTestnet && isConnected && selector) {
+    if (useTestnet && isConnected && wallet) {
       // Execute on NEAR testnet with connected wallet
       try {
-        const result = await executeOnTestnet(code, accountId!, selector);
+        const result = await executeOnTestnet(code, accountId!, wallet);
         setOutput(result.output);
         if (result.txHash) {
           setTxHash(result.txHash);
@@ -84,7 +84,7 @@ function PlaygroundContent() {
     : playgroundExamples.filter(ex => ex.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#131313] pt-24 pb-16">
+    <div className="min-h-screen pt-24 pb-16">
       <div className="container mx-auto px-4">
         {/* Header */}
         <motion.div
@@ -93,10 +93,10 @@ function PlaygroundContent() {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-1 bg-gradient-to-r from-[#00ec96] to-[#A05CFF] bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-1 tracking-[-0.03em]">
             OnSocial Playground
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-lg max-w-3xl leading-relaxed">
+          <p className="text-muted-foreground text-lg max-w-3xl leading-relaxed">
             Experiment with OnSocial Protocol in real-time. Try out examples or write your own code to interact with the decentralized social platform.
           </p>
         </motion.div>
@@ -110,7 +110,7 @@ function PlaygroundContent() {
         >
           <a
             href="/docs"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#1A1E23] text-gray-900 dark:text-white hover:bg-[#00ec96] hover:text-[#131313] transition-all duration-300 hover:shadow-lg hover:shadow-[#00ec96]/20"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-all bg-muted/30"
           >
             <Book className="w-4 h-4" />
             Documentation
@@ -119,14 +119,14 @@ function PlaygroundContent() {
             href="https://github.com/OnSocial-Labs/onsocial-protocol"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#1A1E23] text-gray-900 dark:text-white hover:bg-[#00ec96] hover:text-[#131313] transition-all duration-300 hover:shadow-lg hover:shadow-[#00ec96]/20"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-all bg-muted/30"
           >
             <Github className="w-4 h-4" />
             GitHub
           </a>
           <a
             href="/docs/api"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#1A1E23] text-gray-900 dark:text-white hover:bg-[#00ec96] hover:text-[#131313] transition-all duration-300 hover:shadow-lg hover:shadow-[#00ec96]/20"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-all bg-muted/30"
           >
             <Code2 className="w-4 h-4" />
             API Reference
@@ -138,16 +138,16 @@ function PlaygroundContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-white dark:bg-[#1A1E23] rounded-xl p-4 mb-6 border border-[#00ec96]/20"
+          className="border border-border/50 rounded-2xl p-4 mb-6 bg-muted/30"
         >
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full ${useTestnet && isConnected ? 'bg-[#00ec96] animate-pulse' : 'bg-gray-600'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${useTestnet && isConnected ? 'bg-[#4ADE80] animate-pulse' : 'bg-muted-foreground/40'}`}></div>
               <div>
-                <h3 className="text-gray-900 dark:text-white font-semibold">
+                <h3 className="text-foreground font-semibold tracking-[-0.02em]">
                   {useTestnet && isConnected ? '🚀 Testnet Mode (Real Execution)' : '📺 Demo Mode (Simulation)'}
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   {useTestnet && isConnected
                     ? 'Code executes on NEAR testnet with your wallet' 
                     : useTestnet && !isConnected
@@ -160,12 +160,12 @@ function PlaygroundContent() {
               <button
                 onClick={() => setUseTestnet(!useTestnet)}
                 disabled={useTestnet && !isConnected}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-4 py-2 rounded-full font-medium transition-all ${
                   useTestnet && isConnected
-                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground hover:border-[#3B82F6]/60 hover:shadow-md hover:shadow-[#3B82F6]/20'
                     : useTestnet && !isConnected
-                    ? 'bg-gray-200 dark:bg-[#131313] text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                    : 'bg-gray-200 dark:bg-[#131313] text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-[#252525]'
+                    ? 'border border-border/50 bg-muted/50 text-muted-foreground cursor-not-allowed'
+                    : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 {useTestnet ? 'Disable Testnet' : 'Enable Testnet'}
@@ -173,17 +173,17 @@ function PlaygroundContent() {
             </div>
           </div>
           {useTestnet && !isConnected && (
-            <div className="mt-3 pt-3 border-t border-gray-800">
-              <p className="text-xs text-gray-400 flex items-center gap-2">
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
                 <Wallet className="w-4 h-4" />
                 Connect your wallet above to execute on NEAR testnet
               </p>
             </div>
           )}
           {useTestnet && isConnected && (
-            <div className="mt-3 pt-3 border-t border-gray-800">
-              <p className="text-xs text-gray-400">
-                ⚠️ Testnet mode active • Network: <span className="text-[#00ec96]">testnet</span> • <span className="text-yellow-500">Note: Deploy your contract first for real execution</span>
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                ⚠️ Testnet mode active • Network: <span className="text-[#4ADE80]">testnet</span> • <span className="text-yellow-500">Note: Deploy your contract first for real execution</span>
               </p>
             </div>
           )}
@@ -193,9 +193,9 @@ function PlaygroundContent() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar - Examples */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-[#1A1E23] rounded-xl p-4 sticky top-24 border border-gray-200 dark:border-gray-800">
-              <h2 className="text-gray-900 dark:text-white font-semibold mb-4 flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-[#00ec96]" />
+            <div className="border border-border/50 rounded-2xl p-4 sticky top-24 bg-muted/30">
+              <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-[#3B82F6]" />
                 Examples
               </h2>
 
@@ -203,10 +203,10 @@ function PlaygroundContent() {
               <div className="flex flex-wrap gap-2 mb-4">
                 <button
                   onClick={() => setSelectedCategory('all')}
-                  className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                  className={`px-3 py-1 rounded-full text-sm transition-all ${
                     selectedCategory === 'all'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-gray-200 dark:bg-[#131313] text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground'
+                      : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
                   }`}
                 >
                   All
@@ -217,10 +217,10 @@ function PlaygroundContent() {
                     <button
                       key={cat.id}
                       onClick={() => setSelectedCategory(cat.id)}
-                      className={`px-3 py-1 rounded-lg text-sm transition-colors flex items-center gap-1.5 ${
+                      className={`px-3 py-1 rounded-full text-sm transition-all flex items-center gap-1.5 ${
                         selectedCategory === cat.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-gray-200 dark:bg-[#131313] text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground'
+                          : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
                       }`}
                       title={cat.name}
                     >
@@ -236,10 +236,10 @@ function PlaygroundContent() {
                   <button
                     key={example.id}
                     onClick={() => handleExampleSelect(example)}
-                    className={`w-full text-left p-3 rounded-lg transition-all ${
+                    className={`w-full text-left p-3 rounded-xl transition-all ${
                       selectedExample.id === example.id
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-gray-200 dark:bg-[#131313] text-gray-700 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-[#252525] hover:text-gray-900 dark:hover:text-white'
+                        ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground'
+                        : 'border border-border/50 bg-muted/50 text-muted-foreground hover:bg-muted/80 hover:text-foreground hover:border-border'
                     }`}
                   >
                     <div className="font-medium mb-1">{example.title}</div>
@@ -253,37 +253,37 @@ function PlaygroundContent() {
           {/* Main Editor Area */}
           <div className="lg:col-span-3 space-y-6">
             {/* Selected Example Info */}
-            <div className="bg-white dark:bg-[#1A1E23] rounded-xl p-4 border border-gray-200 dark:border-gray-800">
-              <h3 className="text-gray-900 dark:text-white font-semibold text-xl mb-2">{selectedExample.title}</h3>
-              <p className="text-gray-600 dark:text-gray-400">{selectedExample.description}</p>
+            <div className="border border-border/50 rounded-2xl p-4 bg-muted/30">
+              <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">{selectedExample.title}</h3>
+              <p className="text-muted-foreground">{selectedExample.description}</p>
             </div>
 
             {/* Code Editor */}
-            <div className="bg-white dark:bg-[#1A1E23] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 dark:border-gray-800">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Code2 className="w-4 h-4" />
                   <span className="text-sm font-medium">Code Editor</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCopy}
-                    className="p-2 rounded-lg bg-gray-200 dark:bg-[#131313] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
                     title={copied ? "Copied!" : "Copy code"}
                   >
-                    {copied ? <Check className="w-4 h-4 text-[#00ec96]" /> : <Copy className="w-4 h-4" />}
+                    {copied ? <Check className="w-4 h-4 text-[#4ADE80]" /> : <Copy className="w-4 h-4" />}
                   </button>
                   <button
                     onClick={handleReset}
-                    className="p-2 rounded-lg bg-gray-200 dark:bg-[#131313] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
                     title={reset ? "Reset!" : "Reset to example"}
                   >
-                    {reset ? <Check className="w-4 h-4 text-[#00ec96]" /> : <RotateCcw className="w-4 h-4" />}
+                    {reset ? <Check className="w-4 h-4 text-[#4ADE80]" /> : <RotateCcw className="w-4 h-4" />}
                   </button>
                   <button
                     onClick={handleRun}
                     disabled={isRunning}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground hover:border-[#3B82F6]/60 hover:shadow-md hover:shadow-[#3B82F6]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                   >
                     <Play className="w-4 h-4" />
                     {isRunning ? 'Running...' : 'Run Code'}
@@ -312,22 +312,22 @@ function PlaygroundContent() {
             </div>
 
             {/* Output Panel */}
-            <div className="bg-white dark:bg-[#1A1E23] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-300 dark:border-gray-800 text-gray-600 dark:text-gray-400">
+            <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 text-muted-foreground">
                 <Terminal className="w-4 h-4" />
                 <span className="text-sm font-medium">Output</span>
               </div>
               <div className="p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
                 {output ? (
                   <>
-                    <pre className="text-sm text-gray-800 dark:text-gray-300 font-mono whitespace-pre-wrap">{output}</pre>
+                    <pre className="text-sm text-muted-foreground font-mono whitespace-pre-wrap">{output}</pre>
                     {txHash && (
-                      <div className="mt-4 pt-4 border-t border-gray-800">
+                      <div className="mt-4 pt-4 border-t border-border/50">
                         <a
                           href={`https://testnet.nearblocks.io/txns/${txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-[#00ec96] hover:text-[#00d484] text-sm transition-colors"
+                          className="inline-flex items-center gap-2 text-[#4ADE80] hover:text-[#4ADE80]/80 text-sm transition-colors"
                         >
                           <ExternalLink className="w-4 h-4" />
                           View on NEAR Explorer
@@ -336,7 +336,7 @@ function PlaygroundContent() {
                     )}
                   </>
                 ) : (
-                  <div className="text-gray-500 dark:text-gray-500 text-sm">
+                  <div className="text-muted-foreground text-sm">
                     <p className="mb-2">Click "Run Code" to execute your code.</p>
                     <p className="text-xs">💡 Tip: {isConnected ? 'Enable testnet mode for real execution' : 'Connect wallet and enable testnet for real execution'}.</p>
                   </div>
@@ -345,18 +345,18 @@ function PlaygroundContent() {
             </div>
 
             {/* Info Card */}
-            <div className="bg-white dark:bg-[#1A1E23] rounded-xl p-6 border border-[#00ec96]/20">
+            <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-[#00ec96]/10">
-                  <CheckCircle2 className="w-5 h-5 text-[#00ec96]" />
+                <div className="p-2 rounded-full border border-border/50">
+                  <CheckCircle2 className="w-5 h-5 text-[#4ADE80]" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-gray-900 dark:text-white font-semibold mb-2">About the Playground</h4>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                  <h4 className="text-foreground font-semibold mb-2 tracking-[-0.02em]">About the Playground</h4>
+                  <p className="text-muted-foreground text-sm mb-3">
                     This playground lets you experiment with OnSocial Protocol. Connect your wallet and enable testnet mode 
                     to execute real transactions on NEAR testnet blockchain.
                   </p>
-                  <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="space-y-1 text-sm text-muted-foreground">
                     <p>• {isConnected ? '✅' : '○'} Connect wallet for real testnet execution</p>
                     <p>• All examples use TypeScript and the OnSocial SDK</p>
                     <p>• Storage deposits are required for most operations</p>

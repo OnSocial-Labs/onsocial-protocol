@@ -6,8 +6,6 @@ import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provi
 import { WalletProvider } from '@/contexts/wallet-context'
 import { Navigation } from '@/components/navigation/navigation'
 import { Footer } from '@/components/footer'
-import { Spotlight } from '@/components/effects/spotlight'
-import { ScrollProgress } from '@/components/effects/scroll-progress'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -30,17 +28,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} overflow-x-hidden`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
-          <WalletProvider contractId="guest-book.testnet" network="testnet">
+          <WalletProvider network="testnet">
             <SmoothScrollProvider>
-              <ScrollProgress />
-              <Spotlight />
               <Navigation />
               <main>{children}</main>
               <Footer />

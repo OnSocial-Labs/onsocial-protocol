@@ -1,285 +1,245 @@
 'use client'
 
-import { useState } from 'react'
-import { motion } from 'framer-motion'
-import { Coins, TrendingUp, Users, Calendar, Gift, ArrowRight, CheckCircle2, Info, Lock } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { motion, useInView } from 'framer-motion'
+import {
+	Coins,
+	TrendingUp,
+	Calendar,
+	ArrowRight,
+	CheckCircle2,
+	Info,
+	Lock,
+} from 'lucide-react'
 import { useWallet } from '@/contexts/wallet-context'
 
-const STAKING_TIERS = [
-	{
-		duration: 6,
-		multiplier: 1.0,
-		label: '6 Months',
-		emoji: '⚡',
-		highlight: false,
-	},
-	{
-		duration: 12,
-		multiplier: 1.5,
-		label: '12 Months',
-		emoji: '🚀',
-		highlight: true,
-	},
-	{
-		duration: 48,
-		multiplier: 2.0,
-		label: '48 Months',
-		emoji: '💎',
-		highlight: false,
-	},
+// ─── Lock Periods (from contract: VALID_LOCK_PERIODS) ────────
+const LOCK_PERIODS = [
+	{ months: 1, bonus: 10, label: '1 Month', color: '#6B7280' },
+	{ months: 6, bonus: 10, label: '6 Months', color: '#3B82F6' },
+	{ months: 12, bonus: 20, label: '12 Months', color: '#4ADE80', popular: true },
+	{ months: 24, bonus: 35, label: '24 Months', color: '#A855F7' },
+	{ months: 48, bonus: 50, label: '48 Months', color: '#F59E0B' },
 ]
 
 export default function StakingPage() {
-	const { isConnected, modal } = useWallet()
-	const [selectedTier, setSelectedTier] = useState(1) // Default to 12 months
+	const { isConnected, connect } = useWallet()
+	const [selectedPeriod, setSelectedPeriod] = useState(2) // default 12 months
 	const [stakeAmount, setStakeAmount] = useState('1000')
+	const ref = useRef(null)
+	const isInView = useInView(ref, { once: true, amount: 0.1 })
 
-	const calculateRewards = () => {
-		const amount = parseFloat(stakeAmount) || 0
-		const tier = STAKING_TIERS[selectedTier]
-		const rewards = amount * tier.multiplier
-		const total = amount + rewards
-		return { rewards, total }
-	}
-
-	const { rewards, total } = calculateRewards()
-	const selectedDuration = STAKING_TIERS[selectedTier]
+	const period = LOCK_PERIODS[selectedPeriod]
+	const amount = parseFloat(stakeAmount) || 0
+	const effectiveStake = amount * (1 + period.bonus / 100)
 
 	const handleStake = () => {
 		if (!isConnected) {
-			modal?.show()
+			connect()
 		} else {
-			// TODO: Implement staking logic
 			alert('Staking functionality coming soon!')
 		}
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50 dark:bg-[#131313] pt-24 pb-16">
-			<div className="container mx-auto px-4">
-				{/* Hero Section */}
+		<div className="min-h-screen pt-24 pb-16">
+			<div className="container mx-auto px-4 max-w-4xl">
+				{/* Hero */}
 				<motion.div
 					initial={{ opacity: 0, y: 20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5 }}
-					className="text-center mb-16"
+					className="text-center mb-12"
 				>
-					<h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-[#00ec96] to-[#A05CFF] bg-clip-text text-transparent">
+					<h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-[-0.03em]">
 						Stake $SOCIAL
 					</h1>
-					<p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-4">
-						Support OnSocial Protocol and earn rewards. First 1,000 stakers get bonus multipliers!
+					<p className="text-lg text-muted-foreground max-w-xl mx-auto">
+						Lock tokens, earn pro-rata rewards. Longer locks get higher effective stake.
 					</p>
-					<div className="inline-flex items-center gap-2 px-4 py-2 bg-[#00ec96]/10 border border-[#00ec96]/30 rounded-full text-[#00ec96] text-sm font-medium">
-						<Gift className="w-4 h-4" />
-						Early Supporter Program Active
-					</div>
 				</motion.div>
 
-			{/* Stats Cards */}
-			<motion.div
-				initial={{ opacity: 0 }}
-				animate={{ opacity: 1 }}
-				transition={{ duration: 1, delay: 0.3 }}
-				className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
-			>
+				{/* How It Works */}
 				<motion.div
+					ref={ref}
 					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 1, delay: 0.4 }}
-					className="group bg-white dark:bg-[#1A1E23] rounded-xl p-6 border border-gray-200 dark:border-gray-800 hover:border-[#00ec96]/50 transition-all duration-300 hover:shadow-xl hover:shadow-[#00ec96]/10"
+					animate={isInView ? { opacity: 1 } : {}}
+					transition={{ duration: 0.5, delay: 0.1 }}
+					className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-12 max-w-3xl mx-auto"
 				>
-					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-[#00ec96]/10 rounded-lg">
-							<Coins className="w-5 h-5 text-[#00ec96] group-hover:scale-110 transition-transform duration-300" />
+					<div className="border border-border/50 rounded-2xl p-5 bg-muted/30">
+						<div className="flex items-center gap-3 mb-2">
+							<Lock className="w-4 h-4 text-[#3B82F6]" />
+							<span className="text-sm font-medium">Lock Period</span>
 						</div>
-						<h3 className="text-gray-600 dark:text-gray-400 text-sm">Total Staked</h3>
+						<p className="text-xs text-muted-foreground">
+							5 periods: 1, 6, 12, 24, or 48 months. Longer locks earn higher bonus on effective stake.
+						</p>
 					</div>
-					<p className="text-3xl font-bold text-gray-900 dark:text-white">5.2M $SOCIAL</p>
-					<p className="text-sm text-gray-500 mt-1">~$2.6M USD</p>
+					<div className="border border-border/50 rounded-2xl p-5 bg-muted/30">
+						<div className="flex items-center gap-3 mb-2">
+							<TrendingUp className="w-4 h-4 text-[#4ADE80]" />
+							<span className="text-sm font-medium">Pro-Rata Rewards</span>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							0.2% of the scheduled pool releases each week. Your share = your stake-seconds ÷ total.
+						</p>
+					</div>
+					<div className="border border-border/50 rounded-2xl p-5 bg-muted/30">
+						<div className="flex items-center gap-3 mb-2">
+							<Coins className="w-4 h-4 text-[#A855F7]" />
+							<span className="text-sm font-medium">Growing Pool</span>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							40% of every API credit purchase flows into the reward pool — more usage, more rewards.
+						</p>
+					</div>
 				</motion.div>
 
+				{/* Staking Interface */}
 				<motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 1, delay: 0.5 }}
-					className="group bg-white dark:bg-[#1A1E23] rounded-xl p-6 border border-gray-200 dark:border-gray-800 hover:border-[#A05CFF]/50 transition-all duration-300 hover:shadow-xl hover:shadow-[#A05CFF]/10"
+					initial={{ opacity: 0, y: 20 }}
+					animate={isInView ? { opacity: 1, y: 0 } : {}}
+					transition={{ duration: 0.5, delay: 0.2 }}
+					className="border border-border/50 rounded-2xl p-4 md:p-8 bg-muted/30"
 				>
-					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-[#A05CFF]/10 rounded-lg">
-							<Users className="w-5 h-5 text-[#A05CFF] group-hover:scale-110 transition-transform duration-300" />
+					{/* Lock Period Selector */}
+					<div className="mb-8">
+						<h3 className="text-lg font-semibold mb-4">Lock Period</h3>
+						<div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+							{LOCK_PERIODS.map((lp, index) => (
+								<button
+									key={lp.months}
+									onClick={() => setSelectedPeriod(index)}
+									className={`relative p-4 rounded-xl border transition-colors text-center ${
+										selectedPeriod === index
+											? 'border-border bg-muted/50'
+											: 'border-border/50 hover:border-border bg-muted/30'
+									}`}
+								>
+									{lp.popular && (
+										<div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 border border-[#4ADE80]/40 bg-[#4ADE80]/[0.06] text-foreground rounded-full text-[10px] font-medium">
+											Popular
+										</div>
+									)}
+									<div className="text-sm font-semibold mb-1">{lp.label}</div>
+									<div className="text-lg font-bold mb-0.5" style={{ color: lp.color }}>+{lp.bonus}%</div>
+									<div className="text-[10px] text-muted-foreground">Effective Stake</div>
+								</button>
+							))}
 						</div>
-						<h3 className="text-gray-600 dark:text-gray-400 text-sm">Stakers</h3>
 					</div>
-					<p className="text-3xl font-bold text-gray-900 dark:text-white">237 / 1,000</p>
-					<div className="mt-2 w-full bg-gray-300 dark:bg-gray-800 rounded-full h-2">
-						<div className="bg-gradient-to-r from-[#00ec96] to-[#A05CFF] h-2 rounded-full" style={{ width: '23.7%' }}></div>
-					</div>
-				</motion.div>
 
-				<motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 1, delay: 0.6 }}
-					className="group bg-white dark:bg-[#1A1E23] rounded-xl p-6 border border-gray-200 dark:border-gray-800 hover:border-[#00ec96]/50 transition-all duration-300 hover:shadow-xl hover:shadow-[#00ec96]/10"
-				>
-					<div className="flex items-center gap-3 mb-2">
-						<div className="p-2 bg-[#00ec96]/10 rounded-lg">
-							<TrendingUp className="w-5 h-5 text-[#00ec96] group-hover:scale-110 transition-transform duration-300" />
-						</div>
-						<h3 className="text-gray-600 dark:text-gray-400 text-sm">Est. APY</h3>
-					</div>
-					<p className="text-3xl font-bold text-gray-900 dark:text-white">50-100%</p>
-					<p className="text-sm text-gray-500 mt-1">Based on tier</p>
-				</motion.div>
-			</motion.div>
-
-			{/* Main Staking Interface */}
-				<div className="max-w-4xl mx-auto">
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5, delay: 0.4 }}
-						className="bg-white dark:bg-[#1A1E23] rounded-2xl p-8 border border-gray-200 dark:border-gray-800"
-					>
-						{/* Tier Selector */}
-						<div className="mb-8">
-							<h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Choose Staking Period</h2>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-								{STAKING_TIERS.map((tier, index) => (
-									<button
-										key={index}
-										onClick={() => setSelectedTier(index)}
-										className={`relative p-6 rounded-xl border-2 transition-all ${
-											selectedTier === index
-												? 'border-[#00ec96] bg-[#00ec96]/5'
-												: 'border-gray-300 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-700'
-										} ${tier.highlight ? 'ring-2 ring-[#A05CFF]/30' : ''}`}
-									>
-										{tier.highlight && (
-											<div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-[#00ec96] to-[#A05CFF] rounded-full text-xs font-semibold text-white">
-												Popular
-											</div>
-										)}
-										<div className="text-4xl mb-2">{tier.emoji}</div>
-										<div className="text-lg font-semibold text-gray-900 dark:text-white mb-1">{tier.label}</div>
-										<div className="text-2xl font-bold text-[#00ec96] mb-2">{tier.multiplier}:1</div>
-										<div className="text-sm text-gray-600 dark:text-gray-400">Reward Multiplier</div>
-									</button>
-								))}
+					{/* Amount Input */}
+					<div className="mb-8">
+						<h3 className="text-lg font-semibold mb-4">Amount</h3>
+						<div className="border border-border/50 rounded-xl p-4 md:p-6 bg-muted/30">
+							<div className="flex items-center justify-between mb-4">
+								<label className="text-sm text-muted-foreground">Amount to Stake</label>
+								<span className="text-xs text-muted-foreground">Min: 0.01 $SOCIAL</span>
+							</div>
+							<div className="flex items-center gap-4 mb-4">
+								<input
+									type="number"
+									value={stakeAmount}
+									onChange={(e) => setStakeAmount(e.target.value)}
+									placeholder="0.00"
+									className="flex-1 min-w-0 bg-transparent text-2xl md:text-3xl font-bold outline-none tracking-[-0.02em]"
+								/>
+								<span className="text-base text-muted-foreground">$SOCIAL</span>
 							</div>
 						</div>
+					</div>
 
-						{/* Staking Calculator */}
-						<div className="mb-8">
-							<h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Stake Amount</h2>
-							<div className="bg-white dark:bg-[#131313] rounded-xl p-6 border border-gray-300 dark:border-gray-800">
-								<div className="flex items-center justify-between mb-4">
-									<label className="text-gray-600 dark:text-gray-400 text-sm">Amount to Stake</label>
-									<span className="text-gray-600 dark:text-gray-400 text-sm">Balance: 10,000 $SOCIAL</span>
-								</div>
-								<div className="flex items-center gap-4 mb-6">
-									<input
-										type="number"
-										value={stakeAmount}
-										onChange={(e) => setStakeAmount(e.target.value)}
-										placeholder="0.00"
-										className="flex-1 bg-transparent text-3xl font-bold text-gray-900 dark:text-white outline-none"
-									/>
-									<span className="text-xl text-gray-600 dark:text-gray-400">$SOCIAL</span>
-								</div>
-								<div className="flex gap-2">
-									<button
-										onClick={() => setStakeAmount('1000')}
-										className="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white transition-colors"
-									>
-										1K
-									</button>
-									<button
-										onClick={() => setStakeAmount('5000')}
-										className="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white transition-colors"
-									>
-										5K
-									</button>
-									<button
-										onClick={() => setStakeAmount('10000')}
-										className="px-4 py-2 bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 rounded-lg text-sm text-gray-900 dark:text-white transition-colors"
-									>
-										MAX
-									</button>
-								</div>
+					{/* Effective Stake Breakdown */}
+					<div className="border border-border/50 rounded-xl p-4 md:p-6 bg-muted/30 mb-8">
+						<h3 className="text-base font-semibold mb-4">Your Effective Stake</h3>
+						<div className="space-y-3">
+							<div className="flex justify-between items-center">
+								<span className="text-sm text-muted-foreground">Locked Amount</span>
+								<span className="text-base font-semibold truncate ml-2">
+									{amount.toLocaleString()} $SOCIAL
+								</span>
 							</div>
-						</div>
-
-						{/* Rewards Breakdown */}
-						<div className="bg-gradient-to-br from-[#00ec96]/10 to-[#A05CFF]/10 rounded-xl p-6 border border-[#00ec96]/30 mb-8">
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">You'll Receive</h3>
-							<div className="space-y-3">
-								<div className="flex justify-between items-center">
-									<span className="text-gray-600 dark:text-gray-400">Original Stake</span>
-									<span className="text-xl font-semibold text-gray-900 dark:text-white">{stakeAmount || '0'} $SOCIAL</span>
-								</div>
-								<div className="flex justify-between items-center">
-									<span className="text-gray-600 dark:text-gray-400">Rewards ({selectedDuration.multiplier}:1)</span>
-									<span className="text-xl font-semibold text-[#00ec96]">+{rewards.toLocaleString()} $SOCIAL</span>
-								</div>
-								<div className="h-px bg-gray-300 dark:bg-gray-800"></div>
-								<div className="flex justify-between items-center">
-									<span className="text-gray-900 dark:text-white font-semibold">Total at Unlock</span>
-									<span className="text-2xl font-bold bg-gradient-to-r from-[#00ec96] to-[#A05CFF] bg-clip-text text-transparent">
-										{total.toLocaleString()} $SOCIAL
-									</span>
-								</div>
+							<div className="flex justify-between items-center">
+								<span className="text-sm text-muted-foreground">
+									Lock Bonus ({period.label})
+								</span>
+								<span className="text-base font-semibold truncate ml-2" style={{ color: period.color }}>
+									+{period.bonus}%
+								</span>
 							</div>
-							<div className="mt-4 flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-								<Calendar className="w-4 h-4 mt-0.5 flex-shrink-0" />
-								<span>
-									Unlock Date: {new Date(Date.now() + selectedDuration.duration * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+							<div className="h-px bg-border/50" />
+							<div className="flex justify-between items-center">
+								<span className="font-semibold">Effective Stake</span>
+								<span className="text-xl md:text-2xl font-bold tracking-[-0.02em] truncate ml-2">
+									{effectiveStake.toLocaleString()} $SOCIAL
 								</span>
 							</div>
 						</div>
+						<div className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
+							<Calendar className="w-4 h-4 mt-0.5 flex-shrink-0" />
+							<span>
+								Unlock:{' '}
+								{new Date(
+									Date.now() + period.months * 30 * 24 * 60 * 60 * 1000,
+								).toLocaleDateString('en-US', {
+									year: 'numeric',
+									month: 'long',
+									day: 'numeric',
+								})}
+							</span>
+						</div>
+						<div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
+							<Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+							<span>
+								Rewards accrue pro-rata: your effective-stake × time ÷ total. Actual APY depends on pool size and total stakers.
+							</span>
+						</div>
+					</div>
 
 					{/* Stake Button */}
 					<button
 						onClick={handleStake}
-						disabled={!stakeAmount || parseFloat(stakeAmount) <= 0}
-						className="w-full py-4 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl font-semibold text-lg transition-all flex items-center justify-center gap-2 group"
+						disabled={!stakeAmount || amount < 0.01}
+						className="w-full py-4 border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground hover:border-[#3B82F6]/60 hover:shadow-md hover:shadow-[#3B82F6]/20 disabled:opacity-50 disabled:cursor-not-allowed rounded-full font-semibold text-base transition-all flex items-center justify-center gap-2 group"
 					>
 						<Lock className="w-5 h-5" />
-						{isConnected ? 'Stake Now' : 'Connect Wallet to Stake'}
-						<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-					</button>						{/* Warning */}
-						<div className="mt-4 flex items-start gap-2 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-							<Info className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
-							<div className="text-sm text-yellow-900 dark:text-yellow-200">
-								<strong>Important:</strong> Staked tokens are locked for the selected period. Early withdrawal will forfeit all rewards.
-							</div>
-						</div>
-					</motion.div>
+						{isConnected ? `Lock for ${period.label}` : 'Connect Wallet to Stake'}
+						<ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+					</button>
 
-					{/* Benefits Section */}
-					<motion.div
-						initial={{ opacity: 0, y: 20 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5, delay: 0.5 }}
-						className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6"
-					>
-						<div className="bg-white dark:bg-[#1A1E23] rounded-xl p-6 border border-gray-200 dark:border-gray-800">
-							<CheckCircle2 className="w-8 h-8 text-[#00ec96] mb-4" />
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Bonus Rewards</h3>
-							<p className="text-gray-600 dark:text-gray-400 text-sm">
-								First 1,000 stakers receive enhanced reward multipliers. Join early to maximize your returns!
-							</p>
+					{/* Warning */}
+					<div className="mt-4 flex items-start gap-2 p-4 border border-yellow-500/20 rounded-xl">
+						<Info className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+						<div className="text-sm text-muted-foreground">
+							<strong className="text-foreground">Important:</strong> Tokens are locked for the full period. You can extend but not shorten. Rewards are claimable anytime during the lock.
 						</div>
-						<div className="bg-white dark:bg-[#1A1E23] rounded-xl p-6 border border-gray-200 dark:border-gray-800">
-							<CheckCircle2 className="w-8 h-8 text-[#00ec96] mb-4" />
-							<h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Secure & Trustless</h3>
-							<p className="text-gray-600 dark:text-gray-400 text-sm">
-								All staking is managed by audited smart contracts on NEAR blockchain. Your tokens remain in your control.
-							</p>
-						</div>
-					</motion.div>
-				</div>
+					</div>
+				</motion.div>
+
+				{/* Contract Details */}
+				<motion.div
+					initial={{ opacity: 0, y: 20 }}
+					animate={isInView ? { opacity: 1, y: 0 } : {}}
+					transition={{ duration: 0.5, delay: 0.3 }}
+					className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-3"
+				>
+					<div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
+						<CheckCircle2 className="w-5 h-5 text-[#4ADE80] mb-3" />
+						<h3 className="text-sm font-semibold mb-1">Continuous Release</h3>
+						<p className="text-xs text-muted-foreground">
+							0.2% of the scheduled pool releases every week using compound decay — rewards never run out abruptly.
+						</p>
+					</div>
+					<div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
+						<CheckCircle2 className="w-5 h-5 text-[#3B82F6] mb-3" />
+						<h3 className="text-sm font-semibold mb-1">On-Chain & Trustless</h3>
+						<p className="text-xs text-muted-foreground">
+							All staking logic runs on <span className="font-mono text-foreground/70">staking.onsocial.near</span>. Auto-register on first stake — no separate storage deposit.
+						</p>
+					</div>
+				</motion.div>
 			</div>
 		</div>
 	)

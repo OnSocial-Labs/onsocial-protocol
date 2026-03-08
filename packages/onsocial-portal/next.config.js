@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    optimizePackageImports: ['lucide-react'],
-  },
   images: {
     remotePatterns: [
       {
@@ -12,9 +9,11 @@ const nextConfig = {
       },
     ],
   },
+  // Turbopack is the default bundler in Next.js 16
+  turbopack: {},
+  // Keep webpack config as fallback for `next build --webpack`
   webpack: (config, { isServer }) => {
     if (!isServer) {
-      // Exclude Node.js modules from client-side bundle
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,

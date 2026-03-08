@@ -1,14 +1,14 @@
 import { Hero } from '@/components/sections/hero'
-import { Features } from '@/components/sections/features'
+import { CommunityBanner } from '@/components/sections/community-banner'
+import { Vision } from '@/components/sections/vision'
 import { CTA } from '@/components/sections/cta'
-import { Roadmap } from '@/components/sections/roadmap'
 
 export default function Home() {
   return (
     <>
       <Hero />
-      <Features />
-      <Roadmap />
+      <CommunityBanner />
+      <Vision />
       <CTA />
     </>
   )
