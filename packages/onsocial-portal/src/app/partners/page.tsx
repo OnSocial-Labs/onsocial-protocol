@@ -113,28 +113,39 @@ async function submitApplication(body: ApplyBody): Promise<ApplyResponse> {
 // Code Snippets
 // ---------------------------------------------------------------------------
 
-function installSnippet() {
-  return `npm install @onsocial/rewards grammy`
+function installSnippet(tab: 'bot' | 'sdk') {
+  return tab === 'bot'
+    ? `npm install @onsocial/rewards grammy`
+    : `npm install @onsocial/rewards`
 }
 
-function botSnippet(appId: string, apiKey: string) {
+function envSnippet(appId: string, apiKey: string, tab: 'bot' | 'sdk') {
+  const lines = [
+    `ONSOCIAL_API_KEY=${apiKey}`,
+    `ONSOCIAL_APP_ID=${appId}`,
+  ]
+  if (tab === 'bot') lines.unshift(`BOT_TOKEN=your-telegram-bot-token`)
+  return lines.join('\n')
+}
+
+function botSnippet() {
   return `import { createRewardsBot } from '@onsocial/rewards/bot';
 
 const bot = createRewardsBot({
   botToken: process.env.BOT_TOKEN!,
-  apiKey:   '${apiKey}',
-  appId:    '${appId}',
+  apiKey:   process.env.ONSOCIAL_API_KEY!,
+  appId:    process.env.ONSOCIAL_APP_ID!,
 });
 
 bot.start();`
 }
 
-function sdkOnlySnippet(appId: string, apiKey: string) {
+function sdkOnlySnippet() {
   return `import { OnSocialRewards } from '@onsocial/rewards';
 
 const rewards = new OnSocialRewards({
-  apiKey: '${apiKey}',
-  appId:  '${appId}',
+  apiKey: process.env.ONSOCIAL_API_KEY!,
+  appId:  process.env.ONSOCIAL_APP_ID!,
 });
 
 // Credit a reward
@@ -512,34 +523,55 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
             <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">1</span>
             Install
           </div>
-          <CodeBlock code={installSnippet()} language="bash" />
+          <CodeBlock code={installSnippet(tab)} language="bash" />
         </div>
 
-        {/* Step 2: Create bot / use SDK */}
+        {/* Step 2: Create .env */}
         <div className="space-y-4 mt-6">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">2</span>
+            Create .env
+          </div>
+          <CodeBlock code={envSnippet(registration.appId, registration.apiKey, tab)} language="bash" />
+          {tab === 'bot' && (
+            <p className="text-xs text-muted-foreground">
+              Get your <code className="text-[#3B82F6]">BOT_TOKEN</code> from{' '}
+              <a
+                href="https://t.me/BotFather"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#3B82F6] hover:underline"
+              >
+                @BotFather
+              </a>{' '}
+              on Telegram.
+            </p>
+          )}
+        </div>
+
+        {/* Step 3: Code */}
+        <div className="space-y-4 mt-6">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">3</span>
             {tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'}
           </div>
           <CodeBlock
-            code={
-              tab === 'bot'
-                ? botSnippet(registration.appId, registration.apiKey)
-                : sdkOnlySnippet(registration.appId, registration.apiKey)
-            }
+            code={tab === 'bot' ? botSnippet() : sdkOnlySnippet()}
           />
         </div>
 
-        {/* Step 3: Run */}
-        {tab === 'bot' && (
-          <div className="space-y-4 mt-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">3</span>
-              Run
-            </div>
-            <CodeBlock code="npx tsx bot.ts" language="bash" />
+        {/* Step 4: Run */}
+        <div className="space-y-4 mt-6">
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">4</span>
+            Run
           </div>
-        )}
+          {tab === 'bot' ? (
+            <CodeBlock code="npx tsx bot.ts" language="bash" />
+          ) : (
+            <CodeBlock code="npx tsx app.ts" language="bash" />
+          )}
+        </div>
       </div>
 
       {/* What You Get */}
@@ -548,7 +580,7 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
           { icon: Zap, title: 'Auto-rewarding', desc: 'Messages in groups earn SOCIAL tokens automatically', color: '#4ADE80' },
           { icon: Shield, title: 'Gasless claims', desc: 'Users claim tokens in-bot with zero gas fees', color: '#3B82F6' },
           { icon: Users, title: 'Account linking', desc: '/start → link NEAR account → start earning', color: '#A855F7' },
-          { icon: Rocket, title: 'Branded UX', desc: '"🤝 OnSocial stands with Your Dapp" everywhere', color: '#4ADE80' },
+          { icon: Rocket, title: 'Branded UX', desc: `"🤝 OnSocial stands with ${registration.label}" everywhere`, color: '#4ADE80' },
         ].map((item) => (
           <div
             key={item.title}

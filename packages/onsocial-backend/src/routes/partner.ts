@@ -143,7 +143,7 @@ router.post('/claim', async (req: Request, res: Response): Promise<void> => {
         claimed: '0',
         tx_hash: null,
         account_id,
-        powered_by: 'OnSocial',
+        powered_by: `OnSocial stands with ${appId}`,
       });
       return;
     }

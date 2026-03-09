@@ -28,14 +28,14 @@ describe('OnSocialRewards', () => {
 
   describe('constructor', () => {
     it('throws if apiKey is missing', () => {
-      expect(
-        () => new OnSocialRewards({ apiKey: '', appId: 'x' }),
-      ).toThrow('apiKey is required');
+      expect(() => new OnSocialRewards({ apiKey: '', appId: 'x' })).toThrow(
+        'apiKey is required'
+      );
     });
 
     it('throws if appId is missing', () => {
       expect(
-        () => new OnSocialRewards({ apiKey: 'sk_test', appId: '' }),
+        () => new OnSocialRewards({ apiKey: 'sk_test', appId: '' })
       ).toThrow('appId is required');
     });
 
@@ -49,7 +49,7 @@ describe('OnSocialRewards', () => {
       s.credit({ accountId: 'a.near', source: 'test' });
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.onsocial.id/v1/reward',
-        expect.anything(),
+        expect.anything()
       );
     });
   });
@@ -57,7 +57,12 @@ describe('OnSocialRewards', () => {
   describe('credit()', () => {
     it('sends correct request to backend API', async () => {
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, tx_hash: 'abc123', app_id: 'test_app', account_id: 'alice.near' }),
+        jsonResponse({
+          success: true,
+          tx_hash: 'abc123',
+          app_id: 'test_app',
+          account_id: 'alice.near',
+        })
       );
 
       const result = await sdk.credit({
@@ -96,7 +101,7 @@ describe('OnSocialRewards', () => {
 
     it('returns error response from backend', async () => {
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: false, error: 'daily cap exceeded' }, 502),
+        jsonResponse({ success: false, error: 'daily cap exceeded' }, 502)
       );
 
       const result = await sdk.credit({
@@ -111,9 +116,13 @@ describe('OnSocialRewards', () => {
 
   describe('getUserAppReward()', () => {
     it('calls /v1/balance/:accountId and returns app_reward', async () => {
-      const reward = { total_earned: '100', daily_earned: '100', last_day: 20520 };
+      const reward = {
+        total_earned: '100',
+        daily_earned: '100',
+        last_day: 20520,
+      };
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, app_reward: reward, claimable: '100' }),
+        jsonResponse({ success: true, app_reward: reward, claimable: '100' })
       );
 
       const result = await sdk.getUserAppReward('alice.near');
@@ -128,7 +137,11 @@ describe('OnSocialRewards', () => {
   describe('getClaimable()', () => {
     it('calls /v1/balance/:accountId and returns claimable', async () => {
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, claimable: '500000000000000000', app_reward: null }),
+        jsonResponse({
+          success: true,
+          claimable: '500000000000000000',
+          app_reward: null,
+        })
       );
 
       const result = await sdk.getClaimable('alice.near');
@@ -150,7 +163,7 @@ describe('OnSocialRewards', () => {
         authorized_callers: ['relayer.test.near'],
       };
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, config: appConfig }),
+        jsonResponse({ success: true, config: appConfig })
       );
 
       const result = await sdk.getAppConfig();
@@ -235,7 +248,7 @@ describe('OnSocialRewards', () => {
           tx_hash: 'tx_claim_123',
           account_id: 'alice.near',
           powered_by: 'OnSocial stands with Acme Community',
-        }),
+        })
       );
 
       const result = await sdk.claim('alice.near');
@@ -262,7 +275,7 @@ describe('OnSocialRewards', () => {
           tx_hash: null,
           account_id: 'bob.near',
           powered_by: 'OnSocial',
-        }),
+        })
       );
 
       const result = await sdk.claim('bob.near');
@@ -273,7 +286,7 @@ describe('OnSocialRewards', () => {
 
     it('returns error when claim fails', async () => {
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: false, error: 'relayer timeout' }, 502),
+        jsonResponse({ success: false, error: 'relayer timeout' }, 502)
       );
 
       const result = await sdk.claim('alice.near');
@@ -285,12 +298,12 @@ describe('OnSocialRewards', () => {
   describe('badge()', () => {
     it('returns partnership message with partner name', () => {
       expect(sdk.badge('Acme Community')).toBe(
-        '🤝 OnSocial stands with Acme Community',
+        '🤝 OnSocial stands with Acme Community'
       );
     });
 
-    it('returns generic branding without partner name', () => {
-      expect(sdk.badge()).toBe('⚡ Powered by OnSocial');
+    it('returns empty string without partner name', () => {
+      expect(sdk.badge()).toBe('');
     });
   });
 });

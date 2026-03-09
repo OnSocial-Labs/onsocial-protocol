@@ -119,7 +119,10 @@ describe('createRewardsBot', () => {
 describe('createRewardsBot handlers', () => {
   let commandHandlers: Record<string, (ctx: unknown) => Promise<void>>;
   let callbackHandlers: Record<string, (ctx: unknown) => Promise<void>>;
-  let messageHandlers: ((ctx: unknown, next: () => Promise<void>) => Promise<void>)[];
+  let messageHandlers: ((
+    ctx: unknown,
+    next: () => Promise<void>
+  ) => Promise<void>)[];
   let mockStore: AccountStore;
 
   beforeEach(() => {
@@ -129,15 +132,24 @@ describe('createRewardsBot handlers', () => {
     callbackHandlers = {};
     messageHandlers = [];
 
-    mockCommand.mockImplementation((name: string, handler: (ctx: unknown) => Promise<void>) => {
-      commandHandlers[name] = handler;
-    });
-    mockCallbackQuery.mockImplementation((name: string, handler: (ctx: unknown) => Promise<void>) => {
-      callbackHandlers[name] = handler;
-    });
-    mockOn.mockImplementation((_event: string, handler: (ctx: unknown, next: () => Promise<void>) => Promise<void>) => {
-      messageHandlers.push(handler);
-    });
+    mockCommand.mockImplementation(
+      (name: string, handler: (ctx: unknown) => Promise<void>) => {
+        commandHandlers[name] = handler;
+      }
+    );
+    mockCallbackQuery.mockImplementation(
+      (name: string, handler: (ctx: unknown) => Promise<void>) => {
+        callbackHandlers[name] = handler;
+      }
+    );
+    mockOn.mockImplementation(
+      (
+        _event: string,
+        handler: (ctx: unknown, next: () => Promise<void>) => Promise<void>
+      ) => {
+        messageHandlers.push(handler);
+      }
+    );
 
     mockStore = {
       get: vi.fn().mockResolvedValue(undefined),
@@ -159,8 +171,14 @@ describe('createRewardsBot handlers', () => {
       chat: { type: 'private', id: 999 },
       from: { id: 12345, is_bot: false },
       match: '',
-      message: { text: '', from: { id: 12345, is_bot: false }, chat: { type: 'private', id: 999 }, message_id: 1 },
+      message: {
+        text: '',
+        from: { id: 12345, is_bot: false },
+        chat: { type: 'private', id: 999 },
+        message_id: 1,
+      },
       reply: vi.fn().mockResolvedValue(undefined),
+      replyWithPhoto: vi.fn().mockResolvedValue(undefined),
       editMessageText: vi.fn().mockResolvedValue(undefined),
       answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
       ...overrides,
@@ -183,7 +201,7 @@ describe('createRewardsBot handlers', () => {
           total_credited: '0',
           authorized_callers: [],
         },
-      }),
+      })
     );
   }
 
@@ -198,14 +216,18 @@ describe('createRewardsBot handlers', () => {
       mockAppConfig();
       const ctx = makeCtx();
       await commandHandlers.start(ctx);
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Test Community'),
-        expect.anything(),
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          caption: expect.stringContaining('Test Community'),
+        })
       );
       // Should show real reward rate from on-chain config
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('0.1 SOCIAL per message'),
-        expect.anything(),
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          caption: expect.stringContaining('0.1 SOCIAL per message'),
+        })
       );
     });
 
@@ -214,9 +236,11 @@ describe('createRewardsBot handlers', () => {
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
       const ctx = makeCtx();
       await commandHandlers.start(ctx);
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('alice.near'),
-        expect.anything(),
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          caption: expect.stringContaining('alice.near'),
+        })
       );
     });
 
@@ -225,9 +249,11 @@ describe('createRewardsBot handlers', () => {
       const ctx = makeCtx({ match: 'bob.near' });
       await commandHandlers.start(ctx);
       expect(mockStore.set).toHaveBeenCalledWith(12345, 'bob.near');
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('bob.near'),
-        expect.anything(),
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          caption: expect.stringContaining('bob.near'),
+        })
       );
     });
   });
@@ -238,7 +264,7 @@ describe('createRewardsBot handlers', () => {
       const ctx = makeCtx();
       await commandHandlers.balance(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('No NEAR account linked'),
+        expect.stringContaining('No NEAR account linked')
       );
     });
 
@@ -247,17 +273,30 @@ describe('createRewardsBot handlers', () => {
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
       mockFetch
         .mockReturnValueOnce(
-          jsonResponse({ success: true, claimable: '500000000000000000', app_reward: null }),
+          jsonResponse({
+            success: true,
+            claimable: '500000000000000000',
+            app_reward: null,
+          })
         )
         .mockReturnValueOnce(
-          jsonResponse({ success: true, app_reward: { total_earned: '1000000000000000000', daily_earned: '0', last_day: 0 } }),
+          jsonResponse({
+            success: true,
+            app_reward: {
+              total_earned: '1000000000000000000',
+              daily_earned: '0',
+              last_day: 0,
+            },
+          })
         );
 
       const ctx = makeCtx();
       await commandHandlers.balance(ctx);
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('alice.near'),
-        expect.anything(),
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          caption: expect.stringContaining('alice.near'),
+        })
       );
     });
   });
@@ -267,33 +306,39 @@ describe('createRewardsBot handlers', () => {
       const ctx = makeCtx();
       await commandHandlers.claim(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('No NEAR account linked'),
+        expect.stringContaining('No NEAR account linked')
       );
     });
 
     it('shows nothing-to-claim when balance is 0', async () => {
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, claimable: '0', app_reward: null }),
+        jsonResponse({ success: true, claimable: '0', app_reward: null })
       );
       const ctx = makeCtx();
       await commandHandlers.claim(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Nothing to claim'),
-        expect.anything(),
+        expect.anything()
       );
     });
 
     it('shows confirm/cancel when balance > 0', async () => {
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, claimable: '500000000000000000', app_reward: null }),
+        jsonResponse({
+          success: true,
+          claimable: '500000000000000000',
+          app_reward: null,
+        })
       );
       const ctx = makeCtx();
       await commandHandlers.claim(ctx);
-      expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Ready to claim 0.5 SOCIAL'),
-        expect.anything(),
+      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          caption: expect.stringContaining('Ready to claim 0.5 SOCIAL'),
+        })
       );
     });
   });
@@ -308,7 +353,7 @@ describe('createRewardsBot handlers', () => {
           tx_hash: 'tx123',
           account_id: 'alice.near',
           powered_by: 'OnSocial stands with Test App',
-        }),
+        })
       );
 
       const ctx = makeCtx();
@@ -316,11 +361,11 @@ describe('createRewardsBot handlers', () => {
 
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Claimed 0.5 SOCIAL'),
-        expect.anything(),
+        expect.anything()
       );
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('OnSocial stands with'),
-        expect.anything(),
+        expect.anything()
       );
     });
   });
@@ -368,7 +413,7 @@ describe('createRewardsBot handlers', () => {
       // ensureAppConfig() fires non-blocking, then credit() fires
       mockAppConfig();
       mockFetch.mockReturnValueOnce(
-        jsonResponse({ success: true, tx_hash: 'tx_credit' }),
+        jsonResponse({ success: true, tx_hash: 'tx_credit' })
       );
 
       const next = vi.fn();
@@ -388,7 +433,7 @@ describe('createRewardsBot handlers', () => {
       // Verify credit was called through the SDK → fetch
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.test.onsocial.id/v1/reward',
-        expect.objectContaining({ method: 'POST' }),
+        expect.objectContaining({ method: 'POST' })
       );
     });
 

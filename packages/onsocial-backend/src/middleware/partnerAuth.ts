@@ -88,8 +88,14 @@ export async function partnerAuth(
 export async function initPartnerKeyCache(): Promise<void> {
   try {
     await refreshCache();
-    logger.info({ partnerKeys: keyCache.size }, 'Partner key cache initialized');
+    logger.info(
+      { partnerKeys: keyCache.size },
+      'Partner key cache initialized'
+    );
   } catch (err) {
-    logger.warn({ err }, 'Partner key cache init failed (table may not exist yet)');
+    logger.warn(
+      { err },
+      'Partner key cache init failed (table may not exist yet)'
+    );
   }
 }

@@ -19,6 +19,7 @@ import { creditReward } from '../services/rewards.js';
 import { accountExists } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { BANNER_URL } from './banner.js';
 
 export const NEAR_ACCOUNT_REGEX = /^[a-z0-9._-]+\.(near|testnet)$/;
 
@@ -48,16 +49,22 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
 
   if (existing) {
     const keyboard = new InlineKeyboard()
-      .text('📊 Balance', 'cb:balance')
+      .text('⭐ Balance', 'cb:balance')
       .text('💎 Claim', 'cb:claim')
       .row()
       .text('🔗 Change Account', 'cb:link')
       .text('❓ How it works', 'cb:help');
 
-    await ctx.reply(`✅ Your account is linked to \`${existing.accountId}\``, {
-      reply_markup: keyboard,
-      parse_mode: 'Markdown',
-    });
+    const text = `✅ Your account is linked to \`${existing.accountId}\``;
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: text,
+        reply_markup: keyboard,
+        parse_mode: 'Markdown',
+      });
+    } else {
+      await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
+    }
   } else {
     const pendingCount = await getPendingActivityCount(telegramId);
 
@@ -78,7 +85,14 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
 
     message += 'Tap the button below to get started 👇';
 
-    await ctx.reply(message, { reply_markup: keyboard });
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: message,
+        reply_markup: keyboard,
+      });
+    } else {
+      await ctx.reply(message, { reply_markup: keyboard });
+    }
   }
 }
 
@@ -139,7 +153,7 @@ async function linkAccount(
   const pendingRecords = await getPendingActivity(telegramId);
 
   const keyboard = new InlineKeyboard()
-    .text('📊 Balance', 'cb:balance')
+    .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim')
     .row()
     .text('❓ How it works', 'cb:help');
@@ -166,17 +180,37 @@ async function linkAccount(
 
     await deletePendingActivity(telegramId);
 
-    await ctx.reply(
+    const linkedText =
       `✅ Linked to \`${accountId}\`!\n\n` +
-        `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
-        "You'll now earn SOCIAL automatically.",
-      { reply_markup: keyboard, parse_mode: 'Markdown' }
-    );
+      `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
+      "You'll now earn SOCIAL automatically.";
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: linkedText,
+        reply_markup: keyboard,
+        parse_mode: 'Markdown',
+      });
+    } else {
+      await ctx.reply(linkedText, {
+        reply_markup: keyboard,
+        parse_mode: 'Markdown',
+      });
+    }
   } else {
-    await ctx.reply(
+    const linkedText =
       `✅ Linked to \`${accountId}\`!\n\n` +
-        "You'll now earn SOCIAL tokens for activity in the group.",
-      { reply_markup: keyboard, parse_mode: 'Markdown' }
-    );
+      "You'll now earn SOCIAL tokens for activity in the group.";
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: linkedText,
+        reply_markup: keyboard,
+        parse_mode: 'Markdown',
+      });
+    } else {
+      await ctx.reply(linkedText, {
+        reply_markup: keyboard,
+        parse_mode: 'Markdown',
+      });
+    }
   }
 }

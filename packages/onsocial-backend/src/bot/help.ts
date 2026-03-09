@@ -5,6 +5,7 @@
 import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
 import { config } from '../config/index.js';
+import { BANNER_URL } from './banner.js';
 
 const HELP_TEXT =
   '❓ How OnSocial Rewards Work\n\n' +
@@ -30,10 +31,17 @@ export async function handleHelp(ctx: CommandContext<Context>): Promise<void> {
   if (ctx.chat?.type !== 'private') return;
 
   const keyboard = new InlineKeyboard()
-    .text('📊 Balance', 'cb:balance')
+    .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim');
 
-  await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
+  if (BANNER_URL) {
+    await ctx.replyWithPhoto(BANNER_URL, {
+      caption: HELP_TEXT,
+      reply_markup: keyboard,
+    });
+  } else {
+    await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
+  }
 }
 
 /** The help text, exported for use by the callback handler. */

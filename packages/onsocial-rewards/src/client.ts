@@ -92,16 +92,16 @@ export class OnSocialRewards {
    * @example badge('Acme Community') → '🤝 OnSocial stands with Acme Community'
    */
   badge(partnerName?: string): string {
-    return partnerName
-      ? `🤝 OnSocial stands with ${partnerName}`
-      : '⚡ Powered by OnSocial';
+    return partnerName ? `🤝 OnSocial stands with ${partnerName}` : '';
   }
 
   // ── Views (read-only, direct RPC) ──
 
   /** Get a user's global reward state. */
   async getUserReward(accountId: string): Promise<UserReward | null> {
-    return this.view<UserReward | null>('get_user_reward', { account_id: accountId });
+    return this.view<UserReward | null>('get_user_reward', {
+      account_id: accountId,
+    });
   }
 
   /** Get a user's per-app reward state via the backend API. */
@@ -153,7 +153,10 @@ export class OnSocialRewards {
 
   // ── Internal ──
 
-  private async view<T>(method: string, args: Record<string, string>): Promise<T> {
+  private async view<T>(
+    method: string,
+    args: Record<string, string>
+  ): Promise<T> {
     // Use the NEAR RPC directly to call view functions (no gas, no signing).
     // Detect network from the contract account suffix, not the relayer URL.
     const rpcUrl = this.contract.endsWith('.testnet')

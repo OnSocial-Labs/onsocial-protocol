@@ -13,6 +13,7 @@ import { viewClaimable } from '../services/near.js';
 import { formatSocial } from './balance.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { BANNER_URL } from './banner.js';
 
 /** Convert a decimal SOCIAL amount to yocto (18 decimals) string. */
 export function toYoctoString(amount: number): string {
@@ -55,9 +56,9 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
     const claimableRaw = await viewClaimable(link.accountId);
 
     if (!claimableRaw || claimableRaw === '0') {
-      const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
+      const keyboard = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
       await ctx.reply(
-        '💭 Nothing to claim yet. Keep being active in the group!',
+        '🌱 Nothing to claim yet. Keep being active in the group!',
         { reply_markup: keyboard }
       );
       return;
@@ -67,9 +68,9 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
     const minYocto = toYoctoString(config.rewards.minClaimAmount);
     if (compareYocto(claimableRaw, minYocto) < 0) {
       const current = formatSocial(claimableRaw);
-      const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
+      const keyboard = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
       await ctx.reply(
-        `💭 You have ${current} SOCIAL unclaimed, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
+        `🌱 You have ${current} SOCIAL unclaimed, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
           'Keep being active to earn more!',
         { reply_markup: keyboard }
       );
@@ -82,9 +83,16 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
       .text('✅ Confirm Claim', 'cb:claim:confirm')
       .text('❌ Cancel', 'cb:claim:cancel');
 
-    await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
-      reply_markup: keyboard,
-    });
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: `Ready to claim ${claimable} SOCIAL?`,
+        reply_markup: keyboard,
+      });
+    } else {
+      await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
+        reply_markup: keyboard,
+      });
+    }
   } catch (err) {
     logger.error({ err, telegramId }, 'Claim check failed');
     await ctx.reply('⚠️ Could not check balance. Please try again later.');

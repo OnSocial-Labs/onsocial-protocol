@@ -11,11 +11,19 @@ import {
   handleBalance,
   buildBalanceText,
   buildBalanceKeyboard,
+  formatSocial,
 } from './balance.js';
-import { handleClaim, executeClaim } from './claim.js';
+import { BANNER_URL } from './banner.js';
+import {
+  handleClaim,
+  executeClaim,
+  toYoctoString,
+  compareYocto,
+} from './claim.js';
 import { handleHelp, HELP_TEXT } from './help.js';
 import { handleActivity } from '../handlers/activity.js';
 import { getUserLink } from '../db/queries.js';
+import { viewClaimable } from '../services/near.js';
 
 export const bot = new Bot(config.telegramBotToken, {
   // Pre-supply bot info so grammY skips the getMe call on first webhook.
@@ -60,11 +68,18 @@ bot.callbackQuery('cb:balance', async (ctx) => {
     const text = await buildBalanceText(link.accountId);
     const keyboard = buildBalanceKeyboard();
 
-    // Try to update the existing message; fall back to a new one
-    try {
-      await ctx.editMessageText(text, { reply_markup: keyboard });
-    } catch {
-      await ctx.reply(text, { reply_markup: keyboard });
+    // Photo messages can't be edited — always send a fresh one
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: text,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard,
+      });
+    } else {
+      await ctx.reply(text, {
+        parse_mode: 'Markdown',
+        reply_markup: keyboard,
+      });
     }
   } catch (err) {
     logger.error({ err, telegramId }, 'Balance callback failed');
@@ -86,27 +101,23 @@ bot.callbackQuery('cb:claim', async (ctx) => {
   }
 
   try {
-    const { viewClaimable } = await import('../services/near.js');
-    const { formatSocial } = await import('./balance.js');
-
     const claimableRaw = await viewClaimable(link.accountId);
     if (!claimableRaw || claimableRaw === '0') {
-      const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
+      const keyboard = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
       await ctx.reply(
-        '💭 Nothing to claim yet. Keep being active in the group!',
+        '🌱 Nothing to claim yet. Keep being active in the group!',
         { reply_markup: keyboard }
       );
       return;
     }
 
     // Enforce minimum claim threshold (same as /claim command)
-    const { toYoctoString, compareYocto } = await import('./claim.js');
     const minYocto = toYoctoString(config.rewards.minClaimAmount);
     if (compareYocto(claimableRaw, minYocto) < 0) {
       const current = formatSocial(claimableRaw);
-      const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
+      const keyboard = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
       await ctx.reply(
-        `💭 You have ${current} SOCIAL unclaimed, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
+        `🌱 You have ${current} SOCIAL unclaimed, but the minimum claim is ${config.rewards.minClaimAmount} SOCIAL.\n` +
           'Keep being active to earn more!',
         { reply_markup: keyboard }
       );
@@ -118,9 +129,16 @@ bot.callbackQuery('cb:claim', async (ctx) => {
       .text('✅ Confirm Claim', 'cb:claim:confirm')
       .text('❌ Cancel', 'cb:claim:cancel');
 
-    await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
-      reply_markup: keyboard,
-    });
+    if (BANNER_URL) {
+      await ctx.replyWithPhoto(BANNER_URL, {
+        caption: `Ready to claim ${claimable} SOCIAL?`,
+        reply_markup: keyboard,
+      });
+    } else {
+      await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
+        reply_markup: keyboard,
+      });
+    }
   } catch (err) {
     logger.error({ err, telegramId }, 'Claim callback failed');
     await ctx.reply('⚠️ Could not check balance. Please try again later.');
@@ -153,11 +171,12 @@ bot.callbackQuery('cb:claim:confirm', async (ctx) => {
         ? `https://nearblocks.io/txns/${result.txHash}`
         : `https://testnet.nearblocks.io/txns/${result.txHash}`;
 
-    const keyboard = new InlineKeyboard().text('📊 Balance', 'cb:balance');
+    const keyboard = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
 
-    await ctx.reply(`✅ Claim confirmed!\n\nView transaction: ${explorerUrl}`, {
-      reply_markup: keyboard,
-    });
+    await ctx.reply(
+      `✅ Claim confirmed!\n\n🤝 OnSocial stands with you\n\n🔗 View transaction:\n${explorerUrl}`,
+      { reply_markup: keyboard }
+    );
 
     logger.info(
       { accountId: link.accountId, txHash: result.txHash },
@@ -191,12 +210,15 @@ bot.callbackQuery('cb:link', async (ctx) => {
 bot.callbackQuery('cb:help', async (ctx) => {
   await ctx.answerCallbackQuery();
   const keyboard = new InlineKeyboard()
-    .text('📊 Balance', 'cb:balance')
+    .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim');
 
-  try {
-    await ctx.editMessageText(HELP_TEXT, { reply_markup: keyboard });
-  } catch {
+  if (BANNER_URL) {
+    await ctx.replyWithPhoto(BANNER_URL, {
+      caption: HELP_TEXT,
+      reply_markup: keyboard,
+    });
+  } else {
     await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
   }
 });
