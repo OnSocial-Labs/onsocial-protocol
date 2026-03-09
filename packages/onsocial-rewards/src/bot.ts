@@ -174,7 +174,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
     const base = isTestnet
       ? 'https://testnet.nearblocks.io'
       : 'https://nearblocks.io';
-    return `🪙 Contract: [${tokenContract}](${base}/token/${tokenContract})`;
+    return `🔗 Contract: [${tokenContract}](${base}/token/${tokenContract})`;
   }
 
   // ── Cooldown state ──
@@ -569,7 +569,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       if (!claimable || claimable === '0') {
         const kb = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
         await ctx.reply(
-          '🌱 Nothing to claim yet. Keep being active in the group!',
+          '🚀 Nothing to claim yet. Keep being active in the group!',
           { reply_markup: kb }
         );
         return;

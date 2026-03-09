@@ -77,7 +77,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
       `(min ${config.rewards.minClaimAmount} to claim)\n\n` +
       `📈 Daily progress: 0 / ${config.rewards.dailyCap} SOCIAL\n\n` +
       `🏆 Total earned: 0 SOCIAL\n\n` +
-      `🪙 Contract: [${tokenContract}](${tokenUrl})`
+      `🔗 Contract: [${tokenContract}](${tokenUrl})`
     );
   }
 
@@ -120,7 +120,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
     `${unclaimedHint}\n\n` +
     `📈 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n\n` +
     `🏆 Total earned: ${totalEarned} SOCIAL\n\n` +
-    `🪙 Contract: [${tokenContract}](${tokenUrl})`
+    `🔗 Contract: [${tokenContract}](${tokenUrl})`
   );
 }
 
