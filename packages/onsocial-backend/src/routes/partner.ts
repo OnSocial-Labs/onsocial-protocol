@@ -10,6 +10,25 @@ import { logger } from '../logger.js';
 
 const router = Router();
 
+// Cache: app_id → reward_per_action (yocto string). Refreshed every 5 min.
+const rewardAmountCache = new Map<string, { amount: string; ts: number }>();
+const CACHE_TTL = 5 * 60_000;
+
+async function getRewardAmount(appId: string): Promise<string | null> {
+  const cached = rewardAmountCache.get(appId);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.amount;
+
+  const cfg = (await viewContract('get_app_config', {
+    app_id: appId,
+  })) as { reward_per_action?: string } | null;
+
+  const amount = cfg?.reward_per_action;
+  if (amount && amount !== '0') {
+    rewardAmountCache.set(appId, { amount, ts: Date.now() });
+  }
+  return amount || null;
+}
+
 // All partner routes require API key auth
 router.use(partnerAuth);
 
@@ -38,18 +57,23 @@ router.post('/reward', async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    // Build the action — mirrors what creditOnChain does internally
-    const action: Record<string, string> = {
-      type: 'credit_reward',
-      account_id: body.account_id,
-      source: body.source,
-      app_id: appId,
-    };
-    if (body.amount) action.amount = body.amount;
+    // Resolve amount: use explicit value, or look up the app's on-chain
+    // reward_per_action so the contract never receives "0".
+    let amount: string | undefined = body.amount;
+    if (!amount) {
+      const resolved = await getRewardAmount(appId);
+      if (!resolved) {
+        res
+          .status(400)
+          .json({ success: false, error: 'Could not resolve reward amount' });
+        return;
+      }
+      amount = resolved;
+    }
 
     const txHash = await creditOnChain(
       body.account_id,
-      body.amount || '0', // 0 = use on-chain default (reward_per_action)
+      amount,
       body.source,
       appId
     );
