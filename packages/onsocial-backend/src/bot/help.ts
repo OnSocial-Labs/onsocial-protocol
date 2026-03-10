@@ -5,9 +5,9 @@
 import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
 import { config } from '../config/index.js';
-import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 const HELP_TEXT =
+  '🚀 OnSocial Rewards\n\n' +
   '❓ How OnSocial Rewards Work\n\n' +
   '1️⃣ Be active in OnSocial groups — send meaningful messages\n' +
   '2️⃣ Earn SOCIAL tokens automatically for qualifying contributions\n' +
@@ -34,14 +34,7 @@ export async function handleHelp(ctx: CommandContext<Context>): Promise<void> {
     .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim');
 
-  if (BANNER_URL) {
-    await ctx.reply(HELP_TEXT, {
-      reply_markup: keyboard,
-      link_preview_options: BANNER_PREVIEW,
-    });
-  } else {
-    await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
-  }
+  await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
 }
 
 /** The help text, exported for use by the callback handler. */

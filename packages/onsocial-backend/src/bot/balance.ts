@@ -12,7 +12,6 @@ import { getUserLink } from '../db/queries.js';
 import { viewUserReward } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 export async function handleBalance(
   ctx: CommandContext<Context>
@@ -37,15 +36,7 @@ export async function handleBalance(
     const text = await buildBalanceText(link.accountId);
     const keyboard = buildBalanceKeyboard();
 
-    if (BANNER_URL) {
-      await ctx.reply(text, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
-    }
+    await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
   } catch (err) {
     logger.error({ err, telegramId }, 'Balance check failed');
     await ctx.reply('⚠️ Could not fetch balance. Please try again later.');
@@ -72,6 +63,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   // User has never been credited
   if (!reward) {
     return (
+      `🚀 OnSocial Rewards\n\n` +
       `⭐ Rewards for ${accountId}\n\n` +
       `💎 Unclaimed: 0 SOCIAL\n` +
       `(min ${config.rewards.minClaimAmount} to claim)\n\n` +
@@ -115,6 +107,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
         : '(ready to claim!)';
 
   return (
+    `🚀 OnSocial Rewards\n\n` +
     `⭐ Rewards for ${accountId}\n\n` +
     `💎 Unclaimed: ${unclaimed} SOCIAL\n` +
     `${unclaimedHint}\n\n` +

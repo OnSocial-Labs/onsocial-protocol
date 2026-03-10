@@ -21,7 +21,6 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { OnSocialRewards } from './client.js';
 import type { ClaimResponse, AppConfig } from './types.js';
-import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,21 +206,18 @@ export function createRewardsBot(config: RewardsBotConfig) {
         .text('💎 Claim', 'cb:claim')
         .row()
         .text('🔗 Change Account', 'cb:link');
-      await ctx.reply(`✅ Linked to \`${existing}\``, {
+      await ctx.reply(`${brandLine()}\n\n✅ Linked to \`${existing}\``, {
         reply_markup: kb,
         parse_mode: 'Markdown',
-        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
       });
     } else {
       const kb = new InlineKeyboard().text('🔗 Link Account', 'cb:link');
       const welcomeText =
+        `${brandLine()}\n\n` +
         `👋 Welcome to ${appLabel}!\n\n` +
         `Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day) for being active in the group.\n\n` +
         'Tap below to link your NEAR account and start earning 👇';
-      await ctx.reply(welcomeText, {
-        reply_markup: kb,
-        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
-      });
+      await ctx.reply(welcomeText, { reply_markup: kb });
     }
   });
 
@@ -258,17 +254,15 @@ export function createRewardsBot(config: RewardsBotConfig) {
         .text('🔄 Refresh', 'cb:balance');
 
       const balanceText =
+        `${brandLine()}\n\n` +
         `⭐ Rewards for \`${accountId}\`\n\n` +
         `💎 Unclaimed: ${unclaimedStr} SOCIAL\n` +
         `🏆 Total earned: ${earned} SOCIAL\n\n` +
-        brandLine() +
-        '\n\n' +
         tokenLink();
 
       await ctx.reply(balanceText, {
         parse_mode: 'Markdown',
         reply_markup: kb,
-        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
       });
     } catch (err) {
       onError(err, 'balance');
@@ -299,6 +293,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       .text('💎 Claim', 'cb:claim');
 
     const helpText =
+      `${brandLine()}\n\n` +
       `❓ How ${appLabel} Rewards Work\n\n` +
       '1️⃣ Be active in the group — send meaningful messages\n' +
       '2️⃣ Earn SOCIAL tokens automatically\n' +
@@ -310,12 +305,8 @@ export function createRewardsBot(config: RewardsBotConfig) {
       '  /start — Link your NEAR account\n' +
       '  /balance — Check your rewards\n' +
       '  /claim — Withdraw your tokens\n' +
-      '  /help — This message\n\n' +
-      brandLine();
-    await ctx.reply(helpText, {
-      reply_markup: kb,
-      ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
-    });
+      '  /help — This message';
+    await ctx.reply(helpText, { reply_markup: kb });
   });
 
   // ────────────────────────────────────────────────
@@ -351,16 +342,14 @@ export function createRewardsBot(config: RewardsBotConfig) {
         .text('💎 Claim', 'cb:claim')
         .text('🔄 Refresh', 'cb:balance');
       const text =
+        `${brandLine()}\n\n` +
         `⭐ Rewards for \`${accountId}\`\n\n` +
         `💎 Unclaimed: ${unclaimedStr} SOCIAL\n` +
         `🏆 Total earned: ${earned} SOCIAL\n\n` +
-        brandLine() +
-        '\n\n' +
         tokenLink();
       await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: kb,
-        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
       });
     } catch (err) {
       onError(err, 'balance callback');
@@ -404,7 +393,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       if (txUrl) kb.url('🔗 View Transaction', txUrl).row();
       kb.text('⭐ Balance', 'cb:balance');
 
-      await ctx.reply(`✅ Claimed ${claimed} SOCIAL!\n\n${brand}`, {
+      await ctx.reply(`${brand}\n\n✅ Claimed ${claimed} SOCIAL!`, {
         reply_markup: kb,
       });
     } catch (err) {
@@ -507,13 +496,12 @@ export function createRewardsBot(config: RewardsBotConfig) {
       .text('💎 Claim', 'cb:claim');
 
     const linkedText =
+      `${brandLine()}\n\n` +
       `✅ Linked to \`${accountId}\`!\n\n` +
-      "You'll now earn SOCIAL tokens for activity in the group.\n\n" +
-      brandLine();
+      "You'll now earn SOCIAL tokens for activity in the group.";
     await ctx.reply(linkedText, {
       reply_markup: kb,
       parse_mode: 'Markdown',
-      ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
     });
   }
 
@@ -548,7 +536,6 @@ export function createRewardsBot(config: RewardsBotConfig) {
 
       await ctx.reply(`Ready to claim ${human} SOCIAL?`, {
         reply_markup: kb,
-        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
       });
     } catch (err) {
       onError(err, 'claim flow');

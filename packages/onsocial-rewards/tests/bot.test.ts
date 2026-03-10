@@ -222,11 +222,7 @@ describe('createRewardsBot handlers', () => {
       await commandHandlers.start(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Test Community'),
-        expect.objectContaining({
-          link_preview_options: expect.objectContaining({
-            url: expect.any(String),
-          }),
-        })
+        expect.anything()
       );
       // Should show real reward rate from on-chain config
       expect(ctx.reply).toHaveBeenCalledWith(
@@ -242,11 +238,7 @@ describe('createRewardsBot handlers', () => {
       await commandHandlers.start(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('alice.near'),
-        expect.objectContaining({
-          link_preview_options: expect.objectContaining({
-            url: expect.any(String),
-          }),
-        })
+        expect.anything()
       );
     });
 
@@ -257,11 +249,7 @@ describe('createRewardsBot handlers', () => {
       expect(mockStore.set).toHaveBeenCalledWith(12345, 'bob.near');
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('bob.near'),
-        expect.objectContaining({
-          link_preview_options: expect.objectContaining({
-            url: expect.any(String),
-          }),
-        })
+        expect.anything()
       );
     });
   });
@@ -302,11 +290,7 @@ describe('createRewardsBot handlers', () => {
       await commandHandlers.balance(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('alice.near'),
-        expect.objectContaining({
-          link_preview_options: expect.objectContaining({
-            url: expect.any(String),
-          }),
-        })
+        expect.anything()
       );
     });
   });
@@ -346,11 +330,7 @@ describe('createRewardsBot handlers', () => {
       await commandHandlers.claim(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
         expect.stringContaining('Ready to claim 0.5 SOCIAL'),
-        expect.objectContaining({
-          link_preview_options: expect.objectContaining({
-            url: expect.any(String),
-          }),
-        })
+        expect.anything()
       );
     });
   });

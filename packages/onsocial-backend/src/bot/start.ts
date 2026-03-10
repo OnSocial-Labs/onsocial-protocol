@@ -19,7 +19,6 @@ import { creditReward } from '../services/rewards.js';
 import { accountExists } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 export const NEAR_ACCOUNT_REGEX = /^[a-z0-9._-]+\.(near|testnet)$/;
 
@@ -55,16 +54,8 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
       .text('🔗 Change Account', 'cb:link')
       .text('❓ How it works', 'cb:help');
 
-    const text = `✅ Your account is linked to \`${existing.accountId}\``;
-    if (BANNER_URL) {
-      await ctx.reply(text, {
-        reply_markup: keyboard,
-        parse_mode: 'Markdown',
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
-    }
+    const text = `🚀 OnSocial Rewards\n\n✅ Your account is linked to \`${existing.accountId}\``;
+    await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
   } else {
     const pendingCount = await getPendingActivityCount(telegramId);
 
@@ -74,7 +65,8 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
       .text('❓ How it works', 'cb:help');
 
     let message =
-      '👋 Welcome to OnSocial Pulse!\n\n' +
+      '� OnSocial Rewards\n\n' +
+      '�👋 Welcome to OnSocial Pulse!\n\n' +
       `Earn ${config.rewards.messageReward} SOCIAL per message (up to ${config.rewards.dailyCap}/day) for being active in OnSocial groups.\n\n`;
 
     if (pendingCount > 0) {
@@ -85,14 +77,7 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
 
     message += 'Tap the button below to get started 👇';
 
-    if (BANNER_URL) {
-      await ctx.reply(message, {
-        reply_markup: keyboard,
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(message, { reply_markup: keyboard });
-    }
+    await ctx.reply(message, { reply_markup: keyboard });
   }
 }
 
@@ -181,36 +166,22 @@ async function linkAccount(
     await deletePendingActivity(telegramId);
 
     const linkedText =
+      `🚀 OnSocial Rewards\n\n` +
       `✅ Linked to \`${accountId}\`!\n\n` +
       `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
       "You'll now earn SOCIAL automatically.";
-    if (BANNER_URL) {
-      await ctx.reply(linkedText, {
-        reply_markup: keyboard,
-        parse_mode: 'Markdown',
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(linkedText, {
-        reply_markup: keyboard,
-        parse_mode: 'Markdown',
-      });
-    }
+    await ctx.reply(linkedText, {
+      reply_markup: keyboard,
+      parse_mode: 'Markdown',
+    });
   } else {
     const linkedText =
+      `🚀 OnSocial Rewards\n\n` +
       `✅ Linked to \`${accountId}\`!\n\n` +
       "You'll now earn SOCIAL tokens for activity in the group.";
-    if (BANNER_URL) {
-      await ctx.reply(linkedText, {
-        reply_markup: keyboard,
-        parse_mode: 'Markdown',
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(linkedText, {
-        reply_markup: keyboard,
-        parse_mode: 'Markdown',
-      });
-    }
+    await ctx.reply(linkedText, {
+      reply_markup: keyboard,
+      parse_mode: 'Markdown',
+    });
   }
 }

@@ -13,7 +13,7 @@ import {
   buildBalanceKeyboard,
   formatSocial,
 } from './balance.js';
-import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
+
 import {
   handleClaim,
   executeClaim,
@@ -69,18 +69,10 @@ bot.callbackQuery('cb:balance', async (ctx) => {
     const keyboard = buildBalanceKeyboard();
 
     // Photo messages can't be edited — always send a fresh one
-    if (BANNER_URL) {
-      await ctx.reply(text, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(text, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard,
-      });
-    }
+    await ctx.reply(text, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard,
+    });
   } catch (err) {
     logger.error({ err, telegramId }, 'Balance callback failed');
     await ctx.reply('⚠️ Could not fetch balance. Please try again later.');
@@ -129,16 +121,9 @@ bot.callbackQuery('cb:claim', async (ctx) => {
       .text('✅ Confirm Claim', 'cb:claim:confirm')
       .text('❌ Cancel', 'cb:claim:cancel');
 
-    if (BANNER_URL) {
-      await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
-        reply_markup: keyboard,
-        link_preview_options: BANNER_PREVIEW,
-      });
-    } else {
-      await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
-        reply_markup: keyboard,
-      });
-    }
+    await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
+      reply_markup: keyboard,
+    });
   } catch (err) {
     logger.error({ err, telegramId }, 'Claim callback failed');
     await ctx.reply('⚠️ Could not check balance. Please try again later.');
@@ -176,7 +161,7 @@ bot.callbackQuery('cb:claim:confirm', async (ctx) => {
       .row()
       .text('⭐ Balance', 'cb:balance');
 
-    await ctx.reply(`✅ Claim confirmed!\n\n🤝 OnSocial stands with you`, {
+    await ctx.reply(`🚀 OnSocial Rewards\n\n✅ Claim confirmed!`, {
       reply_markup: keyboard,
     });
 
@@ -215,14 +200,7 @@ bot.callbackQuery('cb:help', async (ctx) => {
     .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim');
 
-  if (BANNER_URL) {
-    await ctx.reply(HELP_TEXT, {
-      reply_markup: keyboard,
-      link_preview_options: BANNER_PREVIEW,
-    });
-  } else {
-    await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
-  }
+  await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
 });
 
 // -- Private chat: account linking via plain text ----------------------------
