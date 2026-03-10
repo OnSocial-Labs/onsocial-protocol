@@ -7,9 +7,9 @@ import type { CommandContext, Context } from 'grammy';
 import { config } from '../config/index.js';
 
 const HELP_TEXT =
-  '🚀 OnSocial Rewards\n\n' +
-  '❓ How OnSocial Rewards Work\n\n' +
-  '1️⃣ Be active in OnSocial groups — send meaningful messages\n' +
+  '🤝 Powered by OnSocial\n\n' +
+  '❓ How Rewards Work\n\n' +
+  '1️⃣ Be active in the group — send meaningful messages\n' +
   '2️⃣ Earn SOCIAL tokens automatically for qualifying contributions\n' +
   '3️⃣ Once you reach the minimum, claim your tokens with /claim\n\n' +
   '📋 Qualifying messages:\n' +

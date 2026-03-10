@@ -36,7 +36,11 @@ export async function handleBalance(
     const text = await buildBalanceText(link.accountId);
     const keyboard = buildBalanceKeyboard();
 
-    await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
+    await ctx.reply(text, {
+      reply_markup: keyboard,
+      parse_mode: 'Markdown',
+      link_preview_options: { is_disabled: true },
+    });
   } catch (err) {
     logger.error({ err, telegramId }, 'Balance check failed');
     await ctx.reply('⚠️ Could not fetch balance. Please try again later.');
@@ -63,7 +67,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   // User has never been credited
   if (!reward) {
     return (
-      `🚀 OnSocial Rewards\n\n` +
+      `🤝 Powered by OnSocial\n\n` +
       `⭐ Rewards for ${accountId}\n\n` +
       `💎 Unclaimed: 0 SOCIAL\n` +
       `(min ${config.rewards.minClaimAmount} to claim)\n\n` +
@@ -107,7 +111,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
         : '(ready to claim!)';
 
   return (
-    `🚀 OnSocial Rewards\n\n` +
+    `🤝 Powered by OnSocial\n\n` +
     `⭐ Rewards for ${accountId}\n\n` +
     `💎 Unclaimed: ${unclaimed} SOCIAL\n` +
     `${unclaimedHint}\n\n` +

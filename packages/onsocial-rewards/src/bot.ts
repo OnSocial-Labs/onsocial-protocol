@@ -163,17 +163,18 @@ export function createRewardsBot(config: RewardsBotConfig) {
     return `🤝 OnSocial stands with ${appLabel}`;
   }
 
-  /** Token contract link for balance display. */
+  /** Clickable contract link (testnet/mainnet auto-detect). */
   function tokenLink(): string {
-    const contract = config.rewardsContract ?? 'rewards.onsocial.near';
-    const isTestnet = contract.endsWith('.testnet');
+    const isTestnet = (
+      config.rewardsContract ?? 'rewards.onsocial.near'
+    ).endsWith('.testnet');
     const tokenContract = isTestnet
       ? 'token.onsocial.testnet'
       : 'token.onsocial.near';
-    const base = isTestnet
-      ? 'https://testnet.nearblocks.io'
-      : 'https://nearblocks.io';
-    return `🔗 Contract: [${tokenContract}](${base}/token/${tokenContract})`;
+    const tokenUrl = isTestnet
+      ? `https://testnet.nearblocks.io/token/${tokenContract}`
+      : `https://nearblocks.io/token/${tokenContract}`;
+    return `🔗 Contract: [${tokenContract}](${tokenUrl})`;
   }
 
   // ── Cooldown state ──
@@ -214,7 +215,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       const kb = new InlineKeyboard().text('🔗 Link Account', 'cb:link');
       const welcomeText =
         `${brandLine()}\n\n` +
-        `👋 Welcome to ${appLabel}!\n\n` +
+        `👋 Welcome!\n\n` +
         `Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day) for being active in the group.\n\n` +
         'Tap below to link your NEAR account and start earning 👇';
       await ctx.reply(welcomeText, { reply_markup: kb });
@@ -263,6 +264,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       await ctx.reply(balanceText, {
         parse_mode: 'Markdown',
         reply_markup: kb,
+        link_preview_options: { is_disabled: true },
       });
     } catch (err) {
       onError(err, 'balance');
@@ -294,7 +296,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
 
     const helpText =
       `${brandLine()}\n\n` +
-      `❓ How ${appLabel} Rewards Work\n\n` +
+      `❓ How Rewards Work\n\n` +
       '1️⃣ Be active in the group — send meaningful messages\n' +
       '2️⃣ Earn SOCIAL tokens automatically\n' +
       '3️⃣ Claim your tokens with /claim\n\n' +
@@ -350,6 +352,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: kb,
+        link_preview_options: { is_disabled: true },
       });
     } catch (err) {
       onError(err, 'balance callback');

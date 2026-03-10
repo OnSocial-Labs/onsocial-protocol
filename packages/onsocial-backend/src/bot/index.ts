@@ -68,10 +68,10 @@ bot.callbackQuery('cb:balance', async (ctx) => {
     const text = await buildBalanceText(link.accountId);
     const keyboard = buildBalanceKeyboard();
 
-    // Photo messages can't be edited — always send a fresh one
     await ctx.reply(text, {
       parse_mode: 'Markdown',
       reply_markup: keyboard,
+      link_preview_options: { is_disabled: true },
     });
   } catch (err) {
     logger.error({ err, telegramId }, 'Balance callback failed');
@@ -161,7 +161,7 @@ bot.callbackQuery('cb:claim:confirm', async (ctx) => {
       .row()
       .text('⭐ Balance', 'cb:balance');
 
-    await ctx.reply(`🚀 OnSocial Rewards\n\n✅ Claim confirmed!`, {
+    await ctx.reply(`🤝 Powered by OnSocial\n\n✅ Claim confirmed!`, {
       reply_markup: keyboard,
     });
 
@@ -232,17 +232,26 @@ bot.catch((err) => {
 /**
  * Express handler for the Telegram webhook endpoint.
  * Mount via `app.post('/webhooks/telegram', webhookHandler)`.
+ *
+ * The adapter is created lazily so that calling `webhookCallback` doesn't mark
+ * the bot as "webhook mode" at import time — which would prevent `bot.start()`
+ * (long-polling) from working in development.
  */
-const expressAdapter = webhookCallback(bot, 'express');
+let expressAdapter:
+  | ((req: Request, res: Response) => Promise<void>)
+  | undefined;
 
 export async function webhookHandler(
   req: Request,
   res: Response
 ): Promise<void> {
-  await (expressAdapter as (req: Request, res: Response) => Promise<void>)(
-    req,
-    res
-  );
+  if (!expressAdapter) {
+    expressAdapter = webhookCallback(bot, 'express') as (
+      req: Request,
+      res: Response
+    ) => Promise<void>;
+  }
+  await expressAdapter(req, res);
 }
 
 /**

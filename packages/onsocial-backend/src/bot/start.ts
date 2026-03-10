@@ -54,7 +54,7 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
       .text('🔗 Change Account', 'cb:link')
       .text('❓ How it works', 'cb:help');
 
-    const text = `🚀 OnSocial Rewards\n\n✅ Your account is linked to \`${existing.accountId}\``;
+    const text = `🤝 Powered by OnSocial\n\n✅ Your account is linked to \`${existing.accountId}\``;
     await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
   } else {
     const pendingCount = await getPendingActivityCount(telegramId);
@@ -65,9 +65,9 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
       .text('❓ How it works', 'cb:help');
 
     let message =
-      '� OnSocial Rewards\n\n' +
-      '�👋 Welcome to OnSocial Pulse!\n\n' +
-      `Earn ${config.rewards.messageReward} SOCIAL per message (up to ${config.rewards.dailyCap}/day) for being active in OnSocial groups.\n\n`;
+      '🤝 Powered by OnSocial\n\n' +
+      '👋 Welcome!\n\n' +
+      `Earn ${config.rewards.messageReward} SOCIAL per message (up to ${config.rewards.dailyCap}/day) for being active in the group.\n\n`;
 
     if (pendingCount > 0) {
       message +=
@@ -166,7 +166,7 @@ async function linkAccount(
     await deletePendingActivity(telegramId);
 
     const linkedText =
-      `🚀 OnSocial Rewards\n\n` +
+      `🤝 Powered by OnSocial\n\n` +
       `✅ Linked to \`${accountId}\`!\n\n` +
       `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
       "You'll now earn SOCIAL automatically.";
@@ -176,7 +176,7 @@ async function linkAccount(
     });
   } else {
     const linkedText =
-      `🚀 OnSocial Rewards\n\n` +
+      `🤝 Powered by OnSocial\n\n` +
       `✅ Linked to \`${accountId}\`!\n\n` +
       "You'll now earn SOCIAL tokens for activity in the group.";
     await ctx.reply(linkedText, {
