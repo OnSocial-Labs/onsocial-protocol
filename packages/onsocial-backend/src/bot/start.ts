@@ -16,9 +16,10 @@ import {
   deletePendingActivity,
 } from '../db/queries.js';
 import { creditReward } from '../services/rewards.js';
-import { accountExists } from '../services/near.js';
+import { accountExists, viewUserReward } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { formatSocial } from './balance.js';
 
 export const NEAR_ACCOUNT_REGEX = /^[a-z0-9._-]+\.(near|testnet)$/;
 
@@ -130,11 +131,46 @@ async function linkAccount(
     return;
   }
 
-  // 3. Save link
+  // 3. Note if switching away from an account with unclaimed balance
+  const previousLink = await getUserLink(telegramId);
+  if (previousLink && previousLink.accountId !== accountId) {
+    try {
+      const prevReward = await viewUserReward(previousLink.accountId);
+      if (prevReward && BigInt(prevReward.claimable) > 0n) {
+        const unclaimed = formatSocial(prevReward.claimable);
+        const minYocto = BigInt(
+          Math.floor(config.rewards.minClaimAmount * 1e18)
+        );
+        const canClaim = BigInt(prevReward.claimable) >= minYocto;
+        const hint = canClaim
+          ? `You can still claim by switching back to \`${previousLink.accountId}\`.`
+          : `You need ${config.rewards.minClaimAmount} SOCIAL to claim. Keep earning and switch back later.`;
+        await ctx.reply(
+          `ℹ️ ${unclaimed} SOCIAL remains unclaimed on \`${previousLink.accountId}\`.\n${hint}`,
+          { parse_mode: 'Markdown' }
+        );
+      }
+    } catch {
+      // Non-blocking — don't prevent re-link if RPC fails
+    }
+  }
+
+  // 4. Save link and complete
+  await completeLinkAccount(ctx, telegramId, accountId);
+}
+
+// ---------------------------------------------------------------------------
+// Complete link — save to DB, credit pending activity, reply
+// ---------------------------------------------------------------------------
+
+async function completeLinkAccount(
+  ctx: Context,
+  telegramId: number,
+  accountId: string
+): Promise<void> {
   await upsertUserLink(telegramId, accountId);
   logger.info({ telegramId, accountId }, 'Account linked');
 
-  // 4. Process any pending activity
   const pendingRecords = await getPendingActivity(telegramId);
 
   const keyboard = new InlineKeyboard()
@@ -153,6 +189,7 @@ async function linkAccount(
           action: record.action,
           sourceRef: record.sourceRef,
           appId: config.appId,
+          telegramId,
         });
         if (result === 'credited') credited++;
       } catch (err) {
@@ -165,23 +202,19 @@ async function linkAccount(
 
     await deletePendingActivity(telegramId);
 
-    const linkedText =
+    await ctx.reply(
       `🤝 Powered by OnSocial\n\n` +
-      `✅ Linked to \`${accountId}\`!\n\n` +
-      `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
-      "You'll now earn SOCIAL automatically.";
-    await ctx.reply(linkedText, {
-      reply_markup: keyboard,
-      parse_mode: 'Markdown',
-    });
+        `✅ Linked to \`${accountId}\`!\n\n` +
+        `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
+        "You'll now earn SOCIAL automatically.",
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    );
   } else {
-    const linkedText =
+    await ctx.reply(
       `🤝 Powered by OnSocial\n\n` +
-      `✅ Linked to \`${accountId}\`!\n\n` +
-      "You'll now earn SOCIAL tokens for activity in the group.";
-    await ctx.reply(linkedText, {
-      reply_markup: keyboard,
-      parse_mode: 'Markdown',
-    });
+        `✅ Linked to \`${accountId}\`!\n\n` +
+        "You'll now earn SOCIAL tokens for activity in the group.",
+      { reply_markup: keyboard, parse_mode: 'Markdown' }
+    );
   }
 }

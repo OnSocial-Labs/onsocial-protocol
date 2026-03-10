@@ -58,10 +58,11 @@ export async function insertCredit(params: {
   action: RewardAction;
   amount: string;
   sourceRef: string;
+  telegramId?: number;
 }): Promise<number> {
   const { rows } = await query<{ id: number }>(
-    `INSERT INTO reward_credits (account_id, source, action, amount, source_ref)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO reward_credits (account_id, source, action, amount, source_ref, telegram_id)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id`,
     [
       params.accountId,
@@ -69,6 +70,7 @@ export async function insertCredit(params: {
       params.action,
       params.amount,
       params.sourceRef,
+      params.telegramId ?? null,
     ]
   );
   return rows[0].id;
@@ -91,6 +93,24 @@ export async function getDailyTotal(accountId: string): Promise<number> {
        AND status = 'credited'
        AND created_at >= (CURRENT_DATE AT TIME ZONE 'UTC')`,
     [accountId]
+  );
+  return parseFloat(rows[0].total);
+}
+
+/**
+ * Sum of all amounts credited today for a Telegram user across ALL NEAR accounts.
+ * Prevents cycling accounts to bypass the daily cap.
+ */
+export async function getDailyTotalByTelegram(
+  telegramId: number
+): Promise<number> {
+  const { rows } = await query<{ total: string }>(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM reward_credits
+     WHERE telegram_id = $1
+       AND status = 'credited'
+       AND created_at >= (CURRENT_DATE AT TIME ZONE 'UTC')`,
+    [telegramId]
   );
   return parseFloat(rows[0].total);
 }

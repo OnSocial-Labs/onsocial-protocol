@@ -264,6 +264,10 @@ export function createRewardsBot(config: RewardsBotConfig) {
   // ── Cooldown state ──
   const lastReward = new Map<number, number>();
 
+  // ── Anti-cycling state ──
+  /** Daily credit count per telegram user (keyed by `telegramId:day`). */
+  const dailyCredits = new Map<string, number>();
+
   // ── Bot ──
   const bot = new Bot(config.botToken);
 
@@ -556,6 +560,13 @@ export function createRewardsBot(config: RewardsBotConfig) {
     const last = lastReward.get(telegramId) ?? 0;
     if (now - last < cooldownMs) return;
 
+    // Per-telegram daily cap — prevents cycling NEAR accounts to bypass cap
+    const dayKey = `${telegramId}:${Math.floor(now / 86_400_000)}`;
+    const dailyUsed = dailyCredits.get(dayKey) ?? 0;
+    const capNum = dailyCap ? Number(dailyCap) : Infinity;
+    const perAction = rewardPerAction ? Number(rewardPerAction) : 0.1;
+    if (dailyUsed + perAction > capNum) return;
+
     // Lazy-load config on first credit (non-blocking if it fails)
     ensureAppConfig().catch(() => {});
 
@@ -566,6 +577,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       });
       if (result.success) {
         lastReward.set(telegramId, now);
+        dailyCredits.set(dayKey, dailyUsed + perAction);
         config.onReward?.(accountId, 'message');
       }
     } catch (err) {
@@ -585,8 +597,8 @@ export function createRewardsBot(config: RewardsBotConfig) {
   //  Helpers (scoped)
   // ────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function linkAccount(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ctx: any,
     telegramId: number,
     input: string
@@ -595,6 +607,29 @@ export function createRewardsBot(config: RewardsBotConfig) {
     if (!NEAR_ACCOUNT_RE.test(accountId)) {
       await ctx.reply('❌ Invalid NEAR account format.');
       return;
+    }
+
+    // Note if switching away from an account with unclaimed balance
+    const currentAccount = await store.get(telegramId);
+    if (currentAccount && currentAccount !== accountId) {
+      try {
+        const claimable = await rewards.getClaimable(currentAccount);
+        if (claimable !== '0') {
+          const unclaimed = formatSocial(claimable);
+          const minNum = config.minClaimAmount ?? 1;
+          const minYocto = BigInt(Math.floor(minNum * 1e18));
+          const canClaim = BigInt(claimable) >= minYocto;
+          const hint = canClaim
+            ? `You can still claim by switching back to \`${currentAccount}\`.`
+            : `You need ${minNum} SOCIAL to claim. Keep earning and switch back later.`;
+          await ctx.reply(
+            `ℹ️ ${unclaimed} SOCIAL remains unclaimed on \`${currentAccount}\`.\n${hint}`,
+            { parse_mode: 'Markdown' }
+          );
+        }
+      } catch {
+        // Non-blocking — don't prevent re-link if RPC fails
+      }
     }
 
     await store.set(telegramId, accountId);

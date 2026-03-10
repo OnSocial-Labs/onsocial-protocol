@@ -7,6 +7,7 @@ import { logger } from '../logger.js';
 import {
   isDuplicate,
   getDailyTotal,
+  getDailyTotalByTelegram,
   insertCredit,
   updateCreditStatus,
   getLastCreditTime,
@@ -26,6 +27,8 @@ interface CreditRequest {
   sourceRef: string;
   /** On-chain app identifier for per-app budget tracking. */
   appId?: string;
+  /** Telegram user ID — used for per-user daily cap enforcement. */
+  telegramId?: number;
 }
 
 /**
@@ -66,8 +69,29 @@ export async function creditReward(req: CreditRequest): Promise<CreditResult> {
       action: req.action,
       amount: amount.toString(),
       sourceRef: req.sourceRef,
+      telegramId: req.telegramId,
     }).then((id) => updateCreditStatus(id, 'capped'));
     return 'capped';
+  }
+
+  // 3b. Per-Telegram-user cap — prevents cycling NEAR accounts to bypass cap
+  if (req.telegramId) {
+    const tgTotal = await getDailyTotalByTelegram(req.telegramId);
+    if (tgTotal + amount > config.rewards.dailyCap) {
+      logger.debug(
+        { telegramId: req.telegramId, tgTotal, amount },
+        'Per-user daily cap reached (account cycling prevention)'
+      );
+      await insertCredit({
+        accountId: req.accountId,
+        source: req.source,
+        action: req.action,
+        amount: amount.toString(),
+        sourceRef: req.sourceRef,
+        telegramId: req.telegramId,
+      }).then((id) => updateCreditStatus(id, 'capped'));
+      return 'capped';
+    }
   }
 
   // 4. Insert pending + credit on-chain
@@ -77,6 +101,7 @@ export async function creditReward(req: CreditRequest): Promise<CreditResult> {
     action: req.action,
     amount: amount.toString(),
     sourceRef: req.sourceRef,
+    telegramId: req.telegramId,
   });
 
   try {

@@ -67,6 +67,7 @@ export async function handleActivity(ctx: Context): Promise<void> {
         action: 'message',
         sourceRef,
         appId: config.appId,
+        telegramId,
       });
 
       if (result === 'credited') {
