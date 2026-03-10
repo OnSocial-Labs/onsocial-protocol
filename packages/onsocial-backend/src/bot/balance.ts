@@ -9,9 +9,12 @@
 import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
 import { getUserLink } from '../db/queries.js';
-import { viewUserReward } from '../services/near.js';
+import { viewUserReward, viewContract } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+
+/** The backend bot's own on-chain app identifier. */
+const OWN_APP_ID = 'onsocial_telegram';
 
 export async function handleBalance(
   ctx: CommandContext<Context>
@@ -39,7 +42,6 @@ export async function handleBalance(
     await ctx.reply(text, {
       reply_markup: keyboard,
       parse_mode: 'Markdown',
-      link_preview_options: { is_disabled: true },
     });
   } catch (err) {
     logger.error({ err, telegramId }, 'Balance check failed');
@@ -52,7 +54,17 @@ export async function handleBalance(
  * Shared by the /balance command and the cb:balance callback.
  */
 export async function buildBalanceText(accountId: string): Promise<string> {
-  const reward = await viewUserReward(accountId);
+  const [reward, appReward] = await Promise.all([
+    viewUserReward(accountId),
+    viewContract<{
+      total_earned: string;
+      daily_earned: string;
+      last_day: number;
+    } | null>('get_user_app_reward', {
+      account_id: accountId,
+      app_id: OWN_APP_ID,
+    }),
+  ]);
 
   // User has never been credited
   if (!reward) {
@@ -70,16 +82,23 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   const totalEarned = formatSocial(reward.total_earned);
   const dailyCap = config.rewards.dailyCap;
 
-  // The contract stores daily_earned with last_day but doesn't reset on read.
-  // If the current UTC day differs from last_day, daily progress is 0.
+  // Daily progress from per-app reward (more accurate than global)
   const currentDay = Math.floor(Date.now() / 86_400_000);
-  const dayRolledOver = reward.last_day < currentDay;
-  const effectiveDailyEarned = dayRolledOver ? '0' : reward.daily_earned;
+  const dayRolledOver = appReward
+    ? appReward.last_day < currentDay
+    : reward.last_day < currentDay;
+  const effectiveDailyEarned = dayRolledOver
+    ? '0'
+    : appReward
+      ? appReward.daily_earned
+      : reward.daily_earned;
 
   const dailyEarned = formatSocial(effectiveDailyEarned);
 
   // Check if daily cap is reached
-  const dailyEarnedNum = dayRolledOver ? 0 : Number(reward.daily_earned) / 1e18;
+  const dailyEarnedNum = dayRolledOver
+    ? 0
+    : Number(effectiveDailyEarned) / 1e18;
   const capReached = dailyEarnedNum >= dailyCap;
 
   // Show countdown to reset only when cap is reached
@@ -99,13 +118,22 @@ export async function buildBalanceText(accountId: string): Promise<string> {
         ? `(min ${config.rewards.minClaimAmount} to claim)`
         : '(ready to claim!)';
 
+  // Show per-app vs global earned when user earns from multiple apps
+  const appEarned = appReward ? formatSocial(appReward.total_earned) : '0';
+  const multiApp = appReward && appReward.total_earned !== reward.total_earned;
+
+  const earnedLines = multiApp
+    ? `⭐ Earned with OnSocial: ${appEarned} SOCIAL\n` +
+      `🏆 Total earned: ${totalEarned} SOCIAL`
+    : `🏆 Total earned: ${totalEarned} SOCIAL`;
+
   return (
     `🤝 Powered by OnSocial\n\n` +
     `⭐ Rewards for ${accountId}\n\n` +
     `💎 Unclaimed: ${unclaimed} SOCIAL\n` +
     `${unclaimedHint}\n\n` +
     `📈 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n\n` +
-    `🏆 Total earned: ${totalEarned} SOCIAL`
+    `${earnedLines}`
   );
 }
 
