@@ -110,6 +110,8 @@ const server = app.listen(config.port, async () => {
     } else {
       logger.warn('WEBHOOK_URL not set — Telegram webhook not configured');
     }
+  } else if (process.env.SKIP_BOT) {
+    logger.info('SKIP_BOT set — running API server only (no Telegram polling)');
   } else {
     try {
       await startPolling();

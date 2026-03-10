@@ -21,6 +21,9 @@ import {
   Loader2,
   Clock,
   XCircle,
+  Download,
+  MessageSquare,
+  Cloud,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -124,7 +127,12 @@ function envSnippet(appId: string, apiKey: string, tab: 'bot' | 'sdk') {
     `ONSOCIAL_API_KEY=${apiKey}`,
     `ONSOCIAL_APP_ID=${appId}`,
   ]
-  if (tab === 'bot') lines.unshift(`BOT_TOKEN=your-telegram-bot-token`)
+  if (tab === 'bot') {
+    lines.unshift(`BOT_TOKEN=your-telegram-bot-token`)
+    lines.push(`# MIN_MESSAGE_LENGTH=10   # min chars to earn a reward`)
+    lines.push(`# COOLDOWN_SEC=60         # seconds between rewarded messages`)
+    lines.push(`# MIN_CLAIM_AMOUNT=1      # min SOCIAL tokens to claim`)
+  }
   return lines.join('\n')
 }
 
@@ -132,9 +140,12 @@ function botSnippet() {
   return `import { createRewardsBot } from '@onsocial/rewards/bot';
 
 const bot = createRewardsBot({
-  botToken: process.env.BOT_TOKEN!,
-  apiKey:   process.env.ONSOCIAL_API_KEY!,
-  appId:    process.env.ONSOCIAL_APP_ID!,
+  botToken:         process.env.BOT_TOKEN!,
+  apiKey:           process.env.ONSOCIAL_API_KEY!,
+  appId:            process.env.ONSOCIAL_APP_ID!,
+  minMessageLength: Number(process.env.MIN_MESSAGE_LENGTH) || 10,
+  cooldownSec:      Number(process.env.COOLDOWN_SEC) || 60,
+  minClaimAmount:   Number(process.env.MIN_CLAIM_AMOUNT) || 1,
 });
 
 bot.start();`
@@ -153,6 +164,27 @@ await rewards.credit({ accountId: 'alice.near', source: 'message' });
 
 // Gasless claim
 const result = await rewards.claim('alice.near');`
+}
+
+function packageJsonSnippet() {
+  return `{
+  "name": "my-onsocial-bot",
+  "type": "module",
+  "scripts": { "start": "tsx bot.ts" },
+  "dependencies": {
+    "@onsocial/rewards": "latest",
+    "grammy": "^1.0.0",
+    "tsx": "^4.0.0"
+  }
+}`
+}
+
+/** Generate a zip-like text bundle the user can download as a complete project. */
+function generateScaffold(appId: string, apiKey: string): string {
+  const pkg = packageJsonSnippet()
+  const env = `BOT_TOKEN=your-telegram-bot-token\nONSOCIAL_API_KEY=${apiKey}\nONSOCIAL_APP_ID=${appId}\n# MIN_MESSAGE_LENGTH=10\n# COOLDOWN_SEC=60\n# MIN_CLAIM_AMOUNT=1`
+  const bot = botSnippet()
+  return `// ── package.json ──\n${pkg}\n\n// ── .env ──\n${env}\n\n// ── bot.ts ──\n${bot}`
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +207,28 @@ function CopyButton({ text }: { text: string }) {
       title="Copy to clipboard"
     >
       {copied ? <Check className="w-4 h-4 text-[#4ADE80]" /> : <Copy className="w-4 h-4" />}
+    </button>
+  )
+}
+
+function DownloadButton({ filename, content, label }: { filename: string; content: string; label: string }) {
+  const handleDownload = () => {
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <button
+      onClick={handleDownload}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/50 bg-muted/40 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
+    >
+      <Download className="w-3.5 h-3.5" />
+      {label}
     </button>
   )
 }
@@ -528,9 +582,16 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
 
         {/* Step 2: Create .env */}
         <div className="space-y-4 mt-6">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">2</span>
-            Create .env
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">2</span>
+              Create .env
+            </div>
+            <DownloadButton
+              filename=".env"
+              content={envSnippet(registration.appId, registration.apiKey, tab)}
+              label="Download .env"
+            />
           </div>
           <CodeBlock code={envSnippet(registration.appId, registration.apiKey, tab)} language="bash" />
           {tab === 'bot' && (
@@ -572,7 +633,105 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
             <CodeBlock code="npx tsx app.ts" language="bash" />
           )}
         </div>
+
+        {/* Download full project */}
+        {tab === 'bot' && (
+          <div className="mt-6 pt-6 border-t border-border/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium mb-1">Download full project</h4>
+                <p className="text-xs text-muted-foreground">
+                  Get package.json + .env + bot.ts — ready to <code className="text-[#3B82F6]">npm install &amp;&amp; npm start</code>
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <DownloadButton
+                  filename="package.json"
+                  content={packageJsonSnippet()}
+                  label="package.json"
+                />
+                <DownloadButton
+                  filename="bot.ts"
+                  content={botSnippet()}
+                  label="bot.ts"
+                />
+                <DownloadButton
+                  filename=".env"
+                  content={envSnippet(registration.appId, registration.apiKey, 'bot')}
+                  label=".env"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Deploy Options */}
+      {tab === 'bot' && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Deploy</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            Your bot needs a persistent process. Example:
+          </p>
+          <a
+            href="https://fly.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-border/50 rounded-2xl p-4 bg-muted/30 hover:border-border transition-colors flex items-center gap-4"
+          >
+            <div className="w-10 h-10 rounded-full border border-[#A855F7]/30 flex items-center justify-center flex-shrink-0">
+              <Cloud className="w-5 h-5 text-[#A855F7]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-medium text-sm">Fly.io</h4>
+              <p className="text-xs text-muted-foreground">Push to GitHub → always-on deploy. Free tier available.</p>
+            </div>
+            <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          </a>
+        </div>
+      )}
+
+      {/* Bot Preview */}
+      {tab === 'bot' && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4">
+            <MessageSquare className="w-5 h-5 inline mr-2 text-[#3B82F6]" />
+            Preview
+          </h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            This is how your bot will look in Telegram — fully branded, zero custom code needed.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {/* /start preview */}
+            <div className="border border-border/50 rounded-2xl p-4 bg-muted/20">
+              <p className="text-xs font-medium text-muted-foreground mb-2">/start</p>
+              <div className="bg-[#1a1a2e] rounded-xl p-3 text-sm text-gray-200 leading-relaxed font-mono space-y-1">
+                <p>🤝 OnSocial stands with {registration.label}</p>
+                <p className="mt-2">👋 Welcome!</p>
+                <p className="mt-2 text-gray-400">Earn SOCIAL per message for being active in the group.</p>
+                <div className="mt-3 flex gap-2">
+                  <span className="px-2.5 py-1 rounded-full border border-[#3B82F6]/40 text-[#3B82F6] text-xs">🔗 Link Account</span>
+                </div>
+              </div>
+            </div>
+            {/* /balance preview */}
+            <div className="border border-border/50 rounded-2xl p-4 bg-muted/20">
+              <p className="text-xs font-medium text-muted-foreground mb-2">/balance</p>
+              <div className="bg-[#1a1a2e] rounded-xl p-3 text-sm text-gray-200 leading-relaxed font-mono space-y-1">
+                <p>🤝 OnSocial stands with {registration.label}</p>
+                <p className="mt-2">⭐ Rewards for <span className="text-[#4ADE80]">alice.near</span></p>
+                <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
+                <p>🏆 Total earned: 42 SOCIAL</p>
+                <p className="mt-2 text-[#3B82F6]">🔗 Contract: token.onsocial.near</p>
+                <div className="mt-3 flex gap-2">
+                  <span className="px-2.5 py-1 rounded-full border border-[#A855F7]/40 text-[#A855F7] text-xs">💎 Claim</span>
+                  <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">🔄 Refresh</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* What You Get */}
       <div className="grid sm:grid-cols-2 gap-4">

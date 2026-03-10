@@ -84,6 +84,7 @@ describe('createRewardsBot', () => {
     createRewardsBot(baseConfig);
     const cbNames = mockCallbackQuery.mock.calls.map((c: unknown[]) => c[0]);
     expect(cbNames).toContain('cb:link');
+    expect(cbNames).toContain('cb:help');
     expect(cbNames).toContain('cb:balance');
     expect(cbNames).toContain('cb:claim');
     expect(cbNames).toContain('cb:claim:confirm');
@@ -267,12 +268,32 @@ describe('createRewardsBot handlers', () => {
     it('shows balance for linked users', async () => {
       mockAppConfig();
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+      // buildBalanceText makes 3 parallel fetches:
+      // 1. getClaimable → GET /v1/balance/:id
+      // 2. getUserReward → POST NEAR RPC (view call)
+      // 3. getUserAppReward → GET /v1/balance/:id
       mockFetch
         .mockReturnValueOnce(
           jsonResponse({
             success: true,
             claimable: '500000000000000000',
             app_reward: null,
+          })
+        )
+        .mockReturnValueOnce(
+          jsonResponse({
+            result: {
+              result: Array.from(
+                new TextEncoder().encode(
+                  JSON.stringify({
+                    total_earned: '1000000000000000000',
+                    claimable: '500000000000000000',
+                    last_day: 0,
+                    daily_earned: '0',
+                  })
+                )
+              ),
+            },
           })
         )
         .mockReturnValueOnce(
@@ -319,17 +340,18 @@ describe('createRewardsBot handlers', () => {
 
     it('shows confirm/cancel when balance > 0', async () => {
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+      // Use 1.5 SOCIAL (above the default minClaimAmount of 1)
       mockFetch.mockReturnValueOnce(
         jsonResponse({
           success: true,
-          claimable: '500000000000000000',
+          claimable: '1500000000000000000',
           app_reward: null,
         })
       );
       const ctx = makeCtx();
       await commandHandlers.claim(ctx);
       expect(ctx.reply).toHaveBeenCalledWith(
-        expect.stringContaining('Ready to claim 0.5 SOCIAL'),
+        expect.stringContaining('Ready to claim 1.5 SOCIAL'),
         expect.anything()
       );
     });

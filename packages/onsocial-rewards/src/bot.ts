@@ -48,6 +48,9 @@ export interface RewardsBotConfig {
   /** Cooldown between rewarded messages in seconds (default: 60). */
   cooldownSec?: number;
 
+  /** Minimum SOCIAL tokens required to claim (default: 1). */
+  minClaimAmount?: number;
+
   /** Custom account store — swap in Postgres, Redis, etc. */
   store?: AccountStore;
 
@@ -73,11 +76,24 @@ const NEAR_ACCOUNT_RE = /^[a-z0-9._-]+\.(near|testnet)$/;
 /** Convert yocto-SOCIAL (18 decimals) to human-readable string. */
 export function formatSocial(yocto: string): string {
   if (!yocto || yocto === '0') return '0';
-  const padded = yocto.padStart(19, '0');
+  const s = yocto;
+  const padded = s.padStart(19, '0');
   const intPart = padded.slice(0, padded.length - 18) || '0';
   const decPart = padded.slice(padded.length - 18, padded.length - 16);
   const dec = decPart.replace(/0+$/, '');
   return dec ? `${intPart}.${dec}` : intPart;
+}
+
+/** Human-readable countdown to next UTC midnight. */
+function timeUntilUtcMidnight(): string {
+  const now = new Date();
+  const next = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  );
+  const diffMs = next.getTime() - now.getTime();
+  const h = Math.floor(diffMs / 3_600_000);
+  const m = Math.floor((diffMs % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,6 +146,8 @@ export function createRewardsBot(config: RewardsBotConfig) {
   // ── Settings ──
   const minMessageLength = config.minMessageLength ?? 10;
   const cooldownMs = (config.cooldownSec ?? 60) * 1000;
+  const minClaimAmount = config.minClaimAmount ?? 1;
+  const minClaimYocto = BigInt(minClaimAmount) * 10n ** 18n;
   const store: AccountStore = config.store ?? new MemoryAccountStore();
   const onError =
     config.onError ??
@@ -137,8 +155,8 @@ export function createRewardsBot(config: RewardsBotConfig) {
 
   // ── On-chain app config (populated at startup) ──
   let appLabel: string = config.appId;
-  let rewardPerAction: string = '?';
-  let dailyCap: string = '?';
+  let rewardPerAction: string | null = null;
+  let dailyCap: string | null = null;
   let appConfigLoaded = false;
 
   /** Fetch once on first use (lazy init). */
@@ -177,6 +195,74 @@ export function createRewardsBot(config: RewardsBotConfig) {
     return `🔗 Contract: [${tokenContract}](${tokenUrl})`;
   }
 
+  /** Build rich balance text with daily progress and timing. */
+  async function buildBalanceText(accountId: string): Promise<string> {
+    const [claimable, userReward, appReward] = await Promise.all([
+      rewards.getClaimable(accountId),
+      rewards.getUserReward(accountId),
+      rewards.getUserAppReward(accountId),
+    ]);
+
+    const unclaimedStr = formatSocial(claimable);
+    const totalEarned = userReward
+      ? formatSocial(userReward.total_earned)
+      : '0';
+
+    // Unclaimed status hint
+    const claimableBig = BigInt(claimable || '0');
+    const unclaimedHint =
+      claimableBig === 0n
+        ? `(min ${minClaimAmount} to claim)`
+        : claimableBig < minClaimYocto
+          ? `(min ${minClaimAmount} to claim)`
+          : '(ready to claim!)';
+
+    // Per-app earned
+    const appEarned = appReward ? formatSocial(appReward.total_earned) : '0';
+
+    // Daily progress from per-app reward
+    let dailyLine = '';
+    if (dailyCap && appReward) {
+      const currentDay = Math.floor(Date.now() / 86_400_000);
+      const dayRolledOver = appReward.last_day < currentDay;
+      const effectiveDaily = dayRolledOver ? '0' : appReward.daily_earned;
+      const dailyEarned = formatSocial(effectiveDaily);
+      const dailyEarnedNum = dayRolledOver
+        ? 0
+        : Number(BigInt(appReward.daily_earned)) / 1e18;
+      const capNum = Number(dailyCap);
+      const capReached = dailyEarnedNum >= capNum;
+
+      dailyLine = `📈 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL`;
+      if (capReached) {
+        dailyLine += `\n✓ Cap reached (resets in ${timeUntilUtcMidnight()})`;
+      }
+      dailyLine += '\n\n';
+    }
+
+    // Show both app-specific and global totals so multi-app users
+    // understand what came from THIS partner vs. everything.
+    const multiApp =
+      appReward &&
+      userReward &&
+      appReward.total_earned !== userReward.total_earned;
+
+    const earnedLines = multiApp
+      ? `⭐ Earned with ${appLabel}: ${appEarned} SOCIAL\n` +
+        `🏆 Total earned: ${totalEarned} SOCIAL`
+      : `🏆 Total earned: ${totalEarned} SOCIAL`;
+
+    return (
+      `${brandLine()}\n\n` +
+      `⭐ Rewards for \`${accountId}\`\n\n` +
+      `💎 Unclaimed: ${unclaimedStr} SOCIAL\n` +
+      `${unclaimedHint}\n\n` +
+      dailyLine +
+      `${earnedLines}\n\n` +
+      tokenLink()
+    );
+  }
+
   // ── Cooldown state ──
   const lastReward = new Map<number, number>();
 
@@ -212,11 +298,18 @@ export function createRewardsBot(config: RewardsBotConfig) {
         parse_mode: 'Markdown',
       });
     } else {
-      const kb = new InlineKeyboard().text('🔗 Link Account', 'cb:link');
+      const kb = new InlineKeyboard()
+        .text('🔗 Link Account', 'cb:link')
+        .row()
+        .text('❓ How it works', 'cb:help');
+      const rateInfo =
+        rewardPerAction && dailyCap
+          ? `Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day) for being active in the group.`
+          : 'Earn SOCIAL tokens for being active in the group.';
       const welcomeText =
         `${brandLine()}\n\n` +
         `👋 Welcome!\n\n` +
-        `Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day) for being active in the group.\n\n` +
+        `${rateInfo}\n\n` +
         'Tap below to link your NEAR account and start earning 👇';
       await ctx.reply(welcomeText, { reply_markup: kb });
     }
@@ -242,24 +335,10 @@ export function createRewardsBot(config: RewardsBotConfig) {
     }
 
     try {
-      const [claimable, appReward] = await Promise.all([
-        rewards.getClaimable(accountId),
-        rewards.getUserAppReward(accountId),
-      ]);
-
-      const unclaimedStr = formatSocial(claimable);
-      const earned = appReward ? formatSocial(appReward.total_earned) : '0';
-
+      const balanceText = await buildBalanceText(accountId);
       const kb = new InlineKeyboard()
         .text('💎 Claim', 'cb:claim')
         .text('🔄 Refresh', 'cb:balance');
-
-      const balanceText =
-        `${brandLine()}\n\n` +
-        `⭐ Rewards for \`${accountId}\`\n\n` +
-        `💎 Unclaimed: ${unclaimedStr} SOCIAL\n` +
-        `🏆 Total earned: ${earned} SOCIAL\n\n` +
-        tokenLink();
 
       await ctx.reply(balanceText, {
         parse_mode: 'Markdown',
@@ -294,15 +373,20 @@ export function createRewardsBot(config: RewardsBotConfig) {
       .text('⭐ Balance', 'cb:balance')
       .text('💎 Claim', 'cb:claim');
 
+    const ratesBlock =
+      rewardPerAction && dailyCap
+        ? '💰 Reward rates:\n' +
+          `  • ${rewardPerAction} SOCIAL per message\n` +
+          `  • ${dailyCap} SOCIAL daily cap\n\n`
+        : '';
+
     const helpText =
       `${brandLine()}\n\n` +
       `❓ How Rewards Work\n\n` +
       '1️⃣ Be active in the group — send meaningful messages\n' +
       '2️⃣ Earn SOCIAL tokens automatically\n' +
       '3️⃣ Claim your tokens with /claim\n\n' +
-      '💰 Reward rates:\n' +
-      `  • ${rewardPerAction} SOCIAL per message\n` +
-      `  • ${dailyCap} SOCIAL daily cap\n\n` +
+      ratesBlock +
       '🔗 Commands:\n' +
       '  /start — Link your NEAR account\n' +
       '  /balance — Check your rewards\n' +
@@ -322,6 +406,38 @@ export function createRewardsBot(config: RewardsBotConfig) {
     });
   });
 
+  bot.callbackQuery('cb:help', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ensureAppConfig();
+
+    const kb = new InlineKeyboard()
+      .text('🔗 Link Account', 'cb:link')
+      .row()
+      .text('⭐ Balance', 'cb:balance')
+      .text('💎 Claim', 'cb:claim');
+
+    const ratesBlock =
+      rewardPerAction && dailyCap
+        ? '💰 Reward rates:\n' +
+          `  • ${rewardPerAction} SOCIAL per message\n` +
+          `  • ${dailyCap} SOCIAL daily cap\n\n`
+        : '';
+
+    const helpText =
+      `${brandLine()}\n\n` +
+      `❓ How Rewards Work\n\n` +
+      '1️⃣ Be active in the group — send meaningful messages\n' +
+      '2️⃣ Earn SOCIAL tokens automatically\n' +
+      '3️⃣ Claim your tokens with /claim\n\n' +
+      ratesBlock +
+      '🔗 Commands:\n' +
+      '  /start — Link your NEAR account\n' +
+      '  /balance — Check your rewards\n' +
+      '  /claim — Withdraw your tokens\n' +
+      '  /help — This message';
+    await ctx.reply(helpText, { reply_markup: kb });
+  });
+
   bot.callbackQuery('cb:balance', async (ctx) => {
     await ctx.answerCallbackQuery();
     await ensureAppConfig();
@@ -334,21 +450,10 @@ export function createRewardsBot(config: RewardsBotConfig) {
       return;
     }
     try {
-      const [claimable, appReward] = await Promise.all([
-        rewards.getClaimable(accountId),
-        rewards.getUserAppReward(accountId),
-      ]);
-      const unclaimedStr = formatSocial(claimable);
-      const earned = appReward ? formatSocial(appReward.total_earned) : '0';
+      const text = await buildBalanceText(accountId);
       const kb = new InlineKeyboard()
         .text('💎 Claim', 'cb:claim')
         .text('🔄 Refresh', 'cb:balance');
-      const text =
-        `${brandLine()}\n\n` +
-        `⭐ Rewards for \`${accountId}\`\n\n` +
-        `💎 Unclaimed: ${unclaimedStr} SOCIAL\n` +
-        `🏆 Total earned: ${earned} SOCIAL\n\n` +
-        tokenLink();
       await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: kb,
@@ -498,10 +603,12 @@ export function createRewardsBot(config: RewardsBotConfig) {
       .text('⭐ Balance', 'cb:balance')
       .text('💎 Claim', 'cb:claim');
 
+    const rateInfo =
+      rewardPerAction && dailyCap
+        ? `Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day).`
+        : 'Earn SOCIAL tokens for being active in the group.';
     const linkedText =
-      `${brandLine()}\n\n` +
-      `✅ Linked to \`${accountId}\`!\n\n` +
-      "You'll now earn SOCIAL tokens for activity in the group.";
+      `${brandLine()}\n\n` + `✅ Linked to \`${accountId}\`!\n\n` + rateInfo;
     await ctx.reply(linkedText, {
       reply_markup: kb,
       parse_mode: 'Markdown',
@@ -527,6 +634,18 @@ export function createRewardsBot(config: RewardsBotConfig) {
         const kb = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
         await ctx.reply(
           '🚀 Nothing to claim yet. Keep being active in the group!',
+          { reply_markup: kb }
+        );
+        return;
+      }
+
+      const claimableBig = BigInt(claimable);
+      if (claimableBig < minClaimYocto) {
+        const current = formatSocial(claimable);
+        const kb = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
+        await ctx.reply(
+          `🚀 You have ${current} SOCIAL unclaimed, but the minimum claim is ${minClaimAmount} SOCIAL.\n` +
+            'Keep being active to earn more!',
           { reply_markup: kb }
         );
         return;
