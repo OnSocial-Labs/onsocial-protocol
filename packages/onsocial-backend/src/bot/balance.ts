@@ -51,7 +51,7 @@ export async function handleBalance(
  * Shared by the /balance command and the cb:balance callback.
  */
 export async function buildBalanceText(accountId: string): Promise<string> {
-  const [reward, appReward] = await Promise.all([
+  const [reward, appReward, appConfig] = await Promise.all([
     viewUserReward(accountId),
     viewContract<{
       total_earned: string;
@@ -61,7 +61,17 @@ export async function buildBalanceText(accountId: string): Promise<string> {
       account_id: accountId,
       app_id: config.appId,
     }),
+    viewContract<{
+      daily_cap: string;
+      reward_per_action: string;
+      label: string;
+    } | null>('get_app_config', { app_id: config.appId }),
   ]);
+
+  // On-chain daily cap (source of truth); fall back to local config
+  const dailyCap = appConfig
+    ? Number(BigInt(appConfig.daily_cap)) / 1e18
+    : config.rewards.dailyCap;
 
   // User has never been credited
   if (!reward) {
@@ -70,14 +80,13 @@ export async function buildBalanceText(accountId: string): Promise<string> {
       `⭐ Rewards for ${accountId}\n\n` +
       `💎 Unclaimed: 0 SOCIAL\n` +
       `(min ${config.rewards.minClaimAmount} to claim)\n\n` +
-      `📈 Daily progress: 0 / ${config.rewards.dailyCap} SOCIAL\n\n` +
+      `📈 Daily progress: 0 / ${dailyCap} SOCIAL\n\n` +
       `🏆 Total earned: 0 SOCIAL`
     );
   }
 
   const unclaimed = formatSocial(reward.claimable);
   const totalEarned = formatSocial(reward.total_earned);
-  const dailyCap = config.rewards.dailyCap;
 
   // Daily progress from per-app reward (more accurate than global)
   const currentDay = Math.floor(Date.now() / 86_400_000);
