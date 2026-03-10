@@ -8,21 +8,18 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex as AsyncMutex;
 
-// --- Key states ---
+// Key states
 pub(crate) const WARMUP: u8 = 0;
 pub(crate) const ACTIVE: u8 = 1;
 pub(crate) const DRAINING: u8 = 2;
 pub(crate) const DEAD: u8 = 3;
 
-/// A single key slot in the pool.
 pub struct KeySlot {
     pub(crate) signer: RelayerSigner,
-    /// The contract this key is authorized to call.
     pub(crate) target_contract: AccountId,
-    /// 0=warmup, 1=active, 2=draining, 3=dead.
     pub(crate) state: AtomicU8,
     pub(crate) in_flight: AtomicU32,
-    /// Local nonce counter — incremented atomically, never queries chain mid-flight.
+    /// Incremented atomically; never queries chain mid-flight.
     pub(crate) nonce: AtomicU64,
     pub(crate) last_used: AtomicU64,
     pub(crate) created_at: u64,
@@ -49,7 +46,7 @@ impl KeySlot {
     }
 }
 
-/// RAII guard from [`KeyPool::acquire`]. Decrements `in_flight` on drop.
+/// RAII guard. Decrements `in_flight` on drop.
 pub struct KeyGuard {
     pub(crate) slot: Arc<KeySlot>,
     pub nonce: u64,
@@ -64,7 +61,7 @@ impl KeyGuard {
         self.slot.signer.public_key()
     }
 
-    /// Hold across sign + send_tx_async to guarantee nonce ordering.
+    /// Hold across sign + send to guarantee nonce ordering.
     pub async fn lock_submit(&self) -> tokio::sync::MutexGuard<'_, ()> {
         self.slot.submit_lock.lock().await
     }

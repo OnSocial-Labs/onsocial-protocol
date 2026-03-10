@@ -131,7 +131,7 @@ function envSnippet(appId: string, apiKey: string, tab: 'bot' | 'sdk') {
     lines.unshift(`BOT_TOKEN=your-telegram-bot-token`)
     lines.push(`# MIN_MESSAGE_LENGTH=10   # min chars to earn a reward`)
     lines.push(`# COOLDOWN_SEC=60         # seconds between rewarded messages`)
-    lines.push(`# MIN_CLAIM_AMOUNT=1      # min SOCIAL tokens to claim`)
+    lines.push(`# MIN_CLAIM_AMOUNT=1      # min SOCIAL earned to allow claim`)
   }
   return lines.join('\n')
 }
@@ -148,7 +148,7 @@ const bot = createRewardsBot({
   minClaimAmount:   Number(process.env.MIN_CLAIM_AMOUNT) || 1,
 });
 
-bot.start();`
+bot.start({ onStart: () => console.log('✅ Bot is running!') });`
 }
 
 function sdkOnlySnippet() {
@@ -170,7 +170,7 @@ function packageJsonSnippet() {
   return `{
   "name": "my-onsocial-bot",
   "type": "module",
-  "scripts": { "start": "tsx bot.ts" },
+  "scripts": { "start": "node --env-file=.env --import tsx bot.ts" },
   "dependencies": {
     "@onsocial-id/rewards": "latest",
     "grammy": "^1.0.0",
@@ -182,7 +182,7 @@ function packageJsonSnippet() {
 /** Generate a zip-like text bundle the user can download as a complete project. */
 function generateScaffold(appId: string, apiKey: string): string {
   const pkg = packageJsonSnippet()
-  const env = `BOT_TOKEN=your-telegram-bot-token\nONSOCIAL_API_KEY=${apiKey}\nONSOCIAL_APP_ID=${appId}\n# MIN_MESSAGE_LENGTH=10\n# COOLDOWN_SEC=60\n# MIN_CLAIM_AMOUNT=1`
+  const env = `BOT_TOKEN=your-telegram-bot-token\nONSOCIAL_API_KEY=${apiKey}\nONSOCIAL_APP_ID=${appId}\n# MIN_MESSAGE_LENGTH=10\n# COOLDOWN_SEC=60\n# MIN_CLAIM_AMOUNT=1  # min SOCIAL earned to allow claim`
   const bot = botSnippet()
   return `// ── package.json ──\n${pkg}\n\n// ── .env ──\n${env}\n\n// ── bot.ts ──\n${bot}`
 }
@@ -628,9 +628,9 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
             Run
           </div>
           {tab === 'bot' ? (
-            <CodeBlock code="npx tsx bot.ts" language="bash" />
+            <CodeBlock code="npm start" language="bash" />
           ) : (
-            <CodeBlock code="npx tsx app.ts" language="bash" />
+            <CodeBlock code="node --env-file=.env --import tsx app.ts" language="bash" />
           )}
         </div>
 
@@ -708,9 +708,11 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
               <div className="bg-[#1a1a2e] rounded-xl p-3 text-sm text-gray-200 leading-relaxed font-mono space-y-1">
                 <p>🤝 OnSocial stands with {registration.label}</p>
                 <p className="mt-2">👋 Welcome!</p>
-                <p className="mt-2 text-gray-400">Earn SOCIAL per message for being active in the group.</p>
+                <p className="mt-2 text-gray-400">Earn 0.1 SOCIAL per message (up to 1/day) for being active in the group.</p>
+                <p className="mt-1 text-gray-400">Tap below to link your NEAR account and start earning 👇</p>
                 <div className="mt-3 flex gap-2">
                   <span className="px-2.5 py-1 rounded-full border border-[#3B82F6]/40 text-[#3B82F6] text-xs">🔗 Link Account</span>
+                  <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">❓ How it works</span>
                 </div>
               </div>
             </div>
@@ -721,8 +723,9 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
                 <p>🤝 OnSocial stands with {registration.label}</p>
                 <p className="mt-2">⭐ Rewards for <span className="text-[#4ADE80]">alice.near</span></p>
                 <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
-                <p>🏆 Total earned: 42 SOCIAL</p>
-                <p className="mt-2 text-[#3B82F6]">🔗 Contract: token.onsocial.near</p>
+                <p className="text-[#4ADE80] text-xs">(ready to claim!)</p>
+                <p className="mt-1 text-gray-400">📈 Daily progress: 0.5 / 1 SOCIAL</p>
+                <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
                 <div className="mt-3 flex gap-2">
                   <span className="px-2.5 py-1 rounded-full border border-[#A855F7]/40 text-[#A855F7] text-xs">💎 Claim</span>
                   <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">🔄 Refresh</span>

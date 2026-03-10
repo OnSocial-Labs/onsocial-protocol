@@ -1,7 +1,4 @@
 //! Signer abstraction: local `InMemory` or GCP KMS.
-//!
-//! Since `near_crypto::Signer` is a closed enum, each variant
-//! implements `sign_transaction()` directly.
 
 use near_crypto::PublicKey;
 use near_primitives::hash::CryptoHash;
@@ -14,7 +11,7 @@ pub enum RelayerSigner {
         signer: near_crypto::Signer,
     },
 
-    /// Private key never leaves HSM (~20-50ms per sign).
+    /// Private key never leaves HSM.
     #[cfg(feature = "gcp")]
     Kms {
         key_ref: crate::kms::KmsKeyRef,
@@ -39,7 +36,7 @@ impl RelayerSigner {
         }
     }
 
-    /// Sign a NEAR transaction. Local: synchronous (~1μs). KMS: async HTTPS (~20-50ms).
+    /// Local: ~1μs. KMS: ~20-50ms (HTTPS to HSM).
     pub async fn sign_transaction(
         &self,
         nonce: Nonce,
@@ -70,7 +67,6 @@ impl RelayerSigner {
         }
     }
 
-    /// Access inner `near_crypto::Signer` (Local only). Used for key persistence.
     pub fn as_local_signer(&self) -> Option<&near_crypto::Signer> {
         match self {
             Self::Local { signer } => Some(signer),

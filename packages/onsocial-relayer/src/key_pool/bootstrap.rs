@@ -1,4 +1,4 @@
-//! Pool bootstrap from on-chain state and nonce synchronization.
+//! Pool bootstrap and nonce synchronization.
 
 use super::KeyPool;
 use super::PoolConfig;
@@ -10,7 +10,7 @@ use std::sync::atomic::Ordering;
 use tracing::{info, warn};
 
 impl KeyPool {
-    /// Re-sync a key's nonce from chain after an InvalidNonce error.
+    /// Re-sync a key's nonce from chain after InvalidNonce.
     pub async fn handle_nonce_error(
         &self,
         public_key: &PublicKey,
@@ -53,10 +53,8 @@ pub(crate) async fn sync_nonce_from_chain(
     Ok(ak.nonce)
 }
 
-/// Bootstrap a [`KeyPool`] by syncing stored local keys against on-chain state.
-///
-/// Each key's target contract is detected from its `AccessKeyPermissionView`.
-/// FullAccess keys are skipped (they belong to the admin signer, not the pool).
+/// Bootstrap a [`KeyPool`] from encrypted local keys and on-chain state.
+/// FullAccess keys are skipped — they belong to the admin signer.
 pub async fn bootstrap_pool_from_chain(
     rpc: &RpcClient,
     pool_config: PoolConfig,
@@ -88,7 +86,6 @@ pub async fn bootstrap_pool_from_chain(
                         }
                     },
                     near_primitives::views::AccessKeyPermissionView::FullAccess => {
-                        // FullAccess keys are admin keys, not pool keys — skip.
                         warn!(key = %public_key, "Skipping FullAccess key during bootstrap");
                         continue;
                     }

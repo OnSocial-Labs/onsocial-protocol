@@ -1,7 +1,4 @@
 //! Self-scaling key pool for NEAR function-call access keys.
-//!
-//! Lock-free round-robin acquisition (~20ns). Background autoscaler handles
-//! provisioning, rotation, and cleanup.
 
 mod bootstrap;
 mod rotation;
@@ -23,7 +20,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
 use tracing::info;
 
-/// KMS context for on-demand key creation (only with `gcp` feature).
 #[cfg(feature = "gcp")]
 pub struct KmsContext {
     pub client: Arc<crate::kms::KmsClient>,
@@ -33,37 +29,19 @@ pub struct KmsContext {
     pub next_index: AtomicU32,
 }
 
-/// Everything needed to construct a [`KeyPool`].
-///
-/// Groups constructor parameters so callers never hit
-/// `clippy::too_many_arguments`. The pool consumes this struct; build it
-/// once in `state.rs` and hand it to [`KeyPool::new`] or
-/// [`bootstrap_pool_from_chain`].
+/// Constructor bundle for [`KeyPool`].
 pub struct PoolConfig {
-    /// The relayer's NEAR account that owns the pool keys.
     pub account_id: AccountId,
-    /// All contracts the pool provisions FunctionCall keys for.
-    /// Each contract gets its own set of keys (NEAR restriction:
-    /// one `receiver_id` per FunctionCall key). Adding a new contract
-    /// is a one-line env-var change — the autoscaler provisions keys
-    /// for it automatically on next tick.
     pub allowed_contracts: Vec<AccountId>,
-    /// Full-access key for AddKey/DeleteKey. Local (dev) or KMS (production).
     pub admin_signer: RelayerSigner,
-    /// Autoscaling thresholds and limits.
     pub scaling: ScalingConfig,
-    /// Encrypted key store for local-mode keys. KMS mode uses `/dev/null`.
     pub store: KeyStore,
-    /// Methods FunctionCall keys are allowed to call (e.g. `["execute"]`).
     pub allowed_methods: Vec<String>,
 }
 
-/// The self-scaling key pool.
 pub struct KeyPool {
     pub(crate) account_id: AccountId,
-    /// All contracts the pool provisions keys for.
     pub(crate) allowed_contracts: Vec<AccountId>,
-    /// Full-access key for AddKey/DeleteKey. Local (dev) or KMS (production).
     pub(crate) admin_signer: RelayerSigner,
     pub(crate) slots: std::sync::RwLock<Vec<Arc<KeySlot>>>,
     next: AtomicU64,
@@ -71,17 +49,13 @@ pub struct KeyPool {
     pub(crate) store: KeyStore,
     pub(crate) last_scale_event: AtomicU64,
     pub(crate) allowed_methods: Vec<String>,
-    /// Serializes admin TXs (AddKey/DeleteKey) to prevent nonce races.
+    /// Serializes AddKey/DeleteKey to prevent admin nonce races.
     pub(crate) admin_tx_lock: AsyncMutex<()>,
     #[cfg(feature = "gcp")]
     pub(crate) kms: Option<KmsContext>,
 }
 
 impl KeyPool {
-    /// Bootstrap a new pool from config + pre-loaded signers.
-    ///
-    /// Empty `initial_signers` starts cold — the autoscaler will provision
-    /// keys on the next tick.
     pub fn new(
         pool_config: PoolConfig,
         initial_signers: Vec<(RelayerSigner, u64, AccountId)>,
@@ -118,14 +92,47 @@ impl KeyPool {
         }
     }
 
-    /// Set KMS context for on-demand key creation.
     #[cfg(feature = "gcp")]
     pub fn with_kms(mut self, kms: KmsContext) -> Self {
         self.kms = Some(kms);
         self
     }
 
-    // --- Slot accessors ---
+    /// Add HSM-backed signers as WARMUP; `ensure_contracts_covered` registers and promotes them.
+    pub fn with_unregistered(
+        self,
+        signers: Vec<(RelayerSigner, u64, near_primitives::types::AccountId)>,
+    ) -> Self {
+        if signers.is_empty() {
+            return self;
+        }
+        let count = signers.len();
+        {
+            let mut slots = self.write_slots();
+            for (signer, nonce, target) in signers {
+                let slot = KeySlot::new(signer, nonce, target);
+                slots.push(Arc::new(slot));
+            }
+        }
+        info!(
+            warmup_added = count,
+            "Added unregistered KMS keys as WARMUP slots"
+        );
+        self
+    }
+
+    pub(crate) fn is_kms_mode(&self) -> bool {
+        #[cfg(feature = "gcp")]
+        {
+            self.kms.is_some()
+        }
+        #[cfg(not(feature = "gcp"))]
+        {
+            false
+        }
+    }
+
+
 
     pub(crate) fn read_slots(&self) -> std::sync::RwLockReadGuard<'_, Vec<Arc<KeySlot>>> {
         self.slots.read().unwrap_or_else(|e| e.into_inner())
@@ -135,10 +142,7 @@ impl KeyPool {
         self.slots.write().unwrap_or_else(|e| e.into_inner())
     }
 
-    // --- Hot path ---
-
-    /// Acquire a key for a transaction targeting `target_contract`.
-    /// Returns an RAII guard. O(N) worst case, typically O(1) for sparse pools.
+    /// Lock-free round-robin acquire. Nonce incremented atomically (SeqCst).
     pub fn acquire(&self, target_contract: &AccountId) -> Result<KeyGuard, crate::Error> {
         let slots = self.read_slots();
         let len = slots.len();
@@ -166,8 +170,6 @@ impl KeyPool {
         )))
     }
 
-    // --- Diagnostics ---
-
     pub fn active_count(&self) -> usize {
         self.read_slots()
             .iter()
@@ -189,7 +191,6 @@ impl KeyPool {
             .count()
     }
 
-    /// Total in-flight TXs across ACTIVE keys (excludes DRAINING).
     pub fn total_in_flight(&self) -> u32 {
         self.read_slots()
             .iter()
@@ -198,7 +199,7 @@ impl KeyPool {
             .sum()
     }
 
-    /// Average in-flight TXs per active key. Returns `f32::MAX` when empty.
+    /// Returns `f32::MAX` when pool is empty (forces scale-up).
     pub fn per_key_load(&self) -> f32 {
         let active = self.active_count();
         if active == 0 {
@@ -207,9 +208,6 @@ impl KeyPool {
         self.total_in_flight() as f32 / active as f32
     }
 
-    // --- Per-contract diagnostics ---
-
-    /// Active keys authorized for a specific contract.
     pub fn active_count_for(&self, contract: &AccountId) -> usize {
         self.read_slots()
             .iter()
@@ -217,7 +215,6 @@ impl KeyPool {
             .count()
     }
 
-    /// In-flight TXs across active keys for a specific contract.
     pub fn in_flight_for(&self, contract: &AccountId) -> u32 {
         self.read_slots()
             .iter()
@@ -226,7 +223,6 @@ impl KeyPool {
             .sum()
     }
 
-    /// Per-key load for a specific contract. Returns `f32::MAX` when no keys.
     pub fn per_key_load_for(&self, contract: &AccountId) -> f32 {
         let active = self.active_count_for(contract);
         if active == 0 {
@@ -239,10 +235,8 @@ impl KeyPool {
         &self.account_id
     }
 
-    /// Ensure every allowed contract has at least `min_keys / num_contracts`
-    /// active keys. Called once at bootstrap so the relayer is ready from
-    /// its very first request. The autoscaler keeps a `have == 0` safety
-    /// net for runtime edge cases.
+    /// Guarantee: every contract has ≥ `min_keys / N` active keys after return.
+    /// KMS mode promotes WARMUP→ACTIVE; local mode provisions new keys on-chain.
     pub async fn ensure_contracts_covered(
         &self,
         rpc: &crate::rpc::RpcClient,
@@ -251,11 +245,43 @@ impl KeyPool {
         let need = (self.config.min_keys / num).max(1) as usize;
 
         for target in &self.allowed_contracts {
-            let have = self.active_count_for(target);
+            let mut have = self.active_count_for(target);
             if have >= need {
                 continue;
             }
+
+            let warm_for = self.warm_count_for(target);
+            if warm_for > 0 {
+                let to_register = ((need - have) as u32).min(warm_for as u32);
+                let registered = self
+                    .register_and_promote_warm(rpc, target, to_register)
+                    .await?;
+                have += registered;
+                if registered > 0 {
+                    tracing::info!(
+                        contract = %target, registered, have, need,
+                        "Bootstrap: registered and promoted warm keys"
+                    );
+                }
+            }
+
+            if have >= need {
+                continue;
+            }
+
             let deficit = (need - have) as u32;
+
+            // KMS: cannot create keys at runtime — ops must pre-provision.
+            if self.is_kms_mode() {
+                tracing::error!(
+                    contract = %target, have, need, deficit,
+                    "CRITICAL: KMS pool under-provisioned after promoting all warm keys. \
+                     Pre-provision more keys: increase GCP_KMS_POOL_SIZE, run \
+                     `node scripts/register_kms_keys.mjs`, and restart the relayer."
+                );
+                continue;
+            }
+
             tracing::info!(
                 contract = %target, have, need, adding = deficit,
                 "Bootstrap: provisioning keys for under-covered contract"
@@ -264,9 +290,76 @@ impl KeyPool {
         }
         Ok(())
     }
-}
 
-// --- Test helpers (shared across sub-module tests) ---
+    pub fn warm_count_for(&self, contract: &AccountId) -> usize {
+        self.read_slots()
+            .iter()
+            .filter(|s| {
+                s.state.load(std::sync::atomic::Ordering::Relaxed) == WARMUP
+                    && s.target_contract == *contract
+            })
+            .count()
+    }
+
+    /// AddKey on-chain for WARMUP slots, sync nonces, promote to ACTIVE.
+    async fn register_and_promote_warm(
+        &self,
+        rpc: &crate::rpc::RpcClient,
+        target: &AccountId,
+        max: u32,
+    ) -> Result<usize, crate::Error> {
+        let mut to_register: Vec<near_crypto::PublicKey> = Vec::new();
+        for slot in self.read_slots().iter() {
+            if to_register.len() as u32 >= max {
+                break;
+            }
+            if slot.state.load(std::sync::atomic::Ordering::Relaxed) == WARMUP
+                && slot.target_contract == *target
+            {
+                to_register.push(slot.signer.public_key());
+            }
+        }
+
+        if to_register.is_empty() {
+            return Ok(0);
+        }
+
+        // Idempotent: NEAR returns "already exists" for duplicates.
+        self.register_keys_on_chain(rpc, &to_register, target)
+            .await?;
+
+        let mut promoted = 0;
+        for slot in self.read_slots().iter() {
+            if slot.state.load(std::sync::atomic::Ordering::Relaxed) == WARMUP
+                && slot.target_contract == *target
+                && to_register.contains(&slot.signer.public_key())
+            {
+                match rpc
+                    .query_access_key(&self.account_id, &slot.signer.public_key())
+                    .await
+                {
+                    Ok(ak) => {
+                        slot.nonce
+                            .store(ak.nonce, std::sync::atomic::Ordering::Relaxed);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            key = %slot.signer.public_key(),
+                            error = %e,
+                            "Nonce sync failed for registered key — will re-sync on first use"
+                        );
+                    }
+                }
+                slot.state
+                    .store(ACTIVE, std::sync::atomic::Ordering::Relaxed);
+                promoted += 1;
+            }
+        }
+
+        Ok(promoted)
+    }
+
+}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -316,7 +409,6 @@ pub(crate) mod tests {
         )
     }
 
-    /// Dummy RPC client for tests that accept `&RpcClient` but don't call it.
     pub(crate) fn dummy_rpc() -> RpcClient {
         RpcClient::new("http://127.0.0.1:1", "http://127.0.0.1:2")
     }
@@ -324,8 +416,6 @@ pub(crate) mod tests {
     pub(crate) fn test_contract() -> AccountId {
         "core.testnet".parse().unwrap()
     }
-
-    // --- Acquire / Guard / Diagnostics ---
 
     #[test]
     fn test_acquire_returns_guard() {
@@ -435,8 +525,6 @@ pub(crate) mod tests {
         }
         assert!((pool.per_key_load() - 10.0).abs() < 0.01);
     }
-
-    // --- Per-contract diagnostics ---
 
     #[test]
     fn test_active_count_for_filters_by_contract() {

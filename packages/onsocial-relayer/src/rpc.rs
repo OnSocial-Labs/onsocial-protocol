@@ -15,7 +15,6 @@ use tracing::{info, warn};
 
 use crate::metrics::METRICS;
 
-/// Cached block hash TTL.
 const BLOCK_HASH_TTL_SECS: u64 = 30;
 
 const CIRCUIT_BREAKER_THRESHOLD: u64 = 5;
@@ -26,7 +25,6 @@ struct CircuitState {
     open: bool,
 }
 
-/// RPC client with primary → fallback failover and block hash caching.
 pub struct RpcClient {
     primary: JsonRpcClient,
     fallback: JsonRpcClient,
@@ -61,7 +59,6 @@ impl RpcClient {
         }
     }
 
-    /// The primary RPC URL.
     pub fn primary_url(&self) -> &str {
         &self.primary_url
     }
@@ -70,11 +67,11 @@ impl RpcClient {
         &self.fallback_url
     }
 
-    // --- TX construction & submission ---
+    // --- TX submission ---
 
-    /// Get a recent block hash, using cache when fresh (<30s).
+    /// Recent block hash, cached for <30s.
     pub async fn latest_block_hash(&self) -> Result<CryptoHash, crate::Error> {
-        // Fast path: cached and fresh
+        // Fast path: cached
         if !self.block_hash_stale.load(Ordering::Relaxed) {
             let cache = self.cached_block_hash.read().await;
             if let Some((hash, when)) = *cache {
@@ -83,7 +80,7 @@ impl RpcClient {
                 }
             }
         }
-        // Slow path: fetch from RPC with failover
+        // Slow path: RPC with failover
         let block = match self
             .primary
             .call(methods::block::RpcBlockRequest {
@@ -119,7 +116,7 @@ impl RpcClient {
         Ok(hash)
     }
 
-    /// Query an access key's on-chain nonce. Automatic failover.
+    /// Query access key nonce. Automatic failover.
     pub async fn query_access_key(
         &self,
         account_id: &AccountId,
@@ -157,7 +154,7 @@ impl RpcClient {
         }
     }
 
-    /// Send a signed transaction and wait for finality. Automatic failover.
+    /// `broadcast_tx_commit`. Automatic failover.
     pub async fn send_signed_tx(
         &self,
         signed_tx: SignedTransaction,
@@ -192,7 +189,7 @@ impl RpcClient {
         }
     }
 
-    /// Fire-and-forget: send a signed TX and return the hash immediately (~50ms).
+    /// `send_tx_async`. Returns hash immediately.
     pub async fn send_tx_async(
         &self,
         signed_tx: SignedTransaction,
@@ -227,7 +224,6 @@ impl RpcClient {
         }
     }
 
-    /// Query TX status. Automatic failover.
     pub async fn tx_status(
         &self,
         tx_hash: CryptoHash,
@@ -259,7 +255,6 @@ impl RpcClient {
             .ok_or_else(|| crate::Error::Rpc("TX not finalized yet".into()))
     }
 
-    /// Quick connectivity check. Returns "ok", "degraded", or error.
     pub async fn health_check(&self) -> Result<&'static str, crate::Error> {
         match self
             .primary
@@ -286,7 +281,6 @@ impl RpcClient {
 
     // --- Failover / circuit breaker ---
 
-    /// Active client (primary unless circuit is open).
     fn active(&self) -> &JsonRpcClient {
         if self.is_circuit_open() {
             &self.fallback
@@ -341,7 +335,6 @@ impl RpcClient {
         self.total_failovers.load(Ordering::Relaxed)
     }
 
-    /// Currently active RPC URL.
     pub fn active_url(&self) -> &str {
         if self.is_circuit_open() {
             &self.fallback_url

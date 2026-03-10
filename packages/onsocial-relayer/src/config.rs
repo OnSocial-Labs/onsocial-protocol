@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use std::time::Duration;
 
-/// Signing backend: `local` (in-memory) or `kms` (GCP Cloud KMS HSM).
+/// Signing backend.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum SignerMode {
@@ -23,7 +23,6 @@ pub struct Config {
     #[serde(default = "defaults::contract_id")]
     pub contract_id: String,
 
-    /// Env: `RELAYER_ACCOUNT_ID`. In local mode, derived from admin key if unset.
     #[serde(default = "defaults::relayer_account_id")]
     pub relayer_account_id: String,
 
@@ -36,9 +35,7 @@ pub struct Config {
     #[serde(default = "defaults::gas_tgas")]
     pub gas_tgas: u64,
 
-    /// yoctoNEAR deposit per `execute()` call. Default: 0.
-    /// FunctionCall keys cannot attach deposits (NEAR protocol restriction).
-    /// Use FullAccess keys or fund the contract's platform pool instead.
+    /// yoctoNEAR deposit. FunctionCall keys cannot attach deposits (NEAR restriction).
     #[serde(default = "defaults::storage_deposit")]
     pub storage_deposit: u128,
 
@@ -64,19 +61,13 @@ pub struct Config {
     #[serde(default = "defaults::gcp_kms_pool_size")]
     pub gcp_kms_pool_size: u32,
 
-    /// Admin signer key name in KMS. Env: `GCP_KMS_ADMIN_KEY`.
     #[serde(default = "defaults::gcp_kms_admin_key")]
     pub gcp_kms_admin_key: String,
 
-    /// Env: `RELAYER_ALLOWED_METHODS` (comma-separated, default: `execute`).
     #[serde(default = "defaults::allowed_methods")]
     pub allowed_methods: Vec<String>,
 
-    /// Additional contract accounts the relayer may route to.
-    /// Env: `RELAYER_ALLOWED_CONTRACTS` (comma-separated).
-    /// The primary `contract_id` is always allowed.
-    /// When a request's `target_account` matches one of these, the relayer
-    /// sends the `execute()` call to that contract instead of the default one.
+    /// Extra contract accounts (comma-separated env `RELAYER_ALLOWED_CONTRACTS`).
     #[serde(default = "defaults::allowed_contracts")]
     pub allowed_contracts: Vec<String>,
 }
@@ -106,20 +97,19 @@ impl Default for Config {
     }
 }
 
-/// Autoscaling thresholds and limits for the key pool.
+/// Autoscaling thresholds for the key pool.
 #[derive(Debug, Clone)]
 pub struct ScalingConfig {
     pub min_keys: u32,
     pub max_keys: u32,
-    /// Scale-up threshold: avg in-flight TXs per key.
+    /// Scale-up threshold: avg in-flight per key.
     pub scale_up_per_key: f32,
-    /// Scale-down threshold (must also exceed `scale_down_idle`).
     pub scale_down_per_key: f32,
     pub scale_down_idle: Duration,
     pub cooldown: Duration,
     pub batch_size: u32,
     pub max_key_age: Duration,
-    /// Pre-warmed spare keys on-chain. Promote to ACTIVE in ~0ms on spikes. 0 = disabled.
+    /// Pre-warmed spare keys. 0 = disabled.
     pub warm_buffer: u32,
 }
 
@@ -129,11 +119,11 @@ impl Default for ScalingConfig {
             min_keys: std::env::var("RELAYER_MIN_KEYS")
                 .ok()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(2),
+                .unwrap_or(9),
             max_keys: std::env::var("RELAYER_MAX_KEYS")
                 .ok()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(100),
+                .unwrap_or(200),
             scale_up_per_key: std::env::var("RELAYER_SCALE_UP_PER_KEY")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -178,9 +168,6 @@ impl Default for ScalingConfig {
 }
 
 mod defaults {
-    // URL constants synced with: packages/onsocial-rpc/src/index.ts
-    // Primary: Private Lava (LAVA_API_KEY from GSM/env)
-    // Fallback: FASTNEAR public endpoints
     fn build_lava_url(network: &str) -> Option<String> {
         let key = std::env::var("LAVA_API_KEY").ok()?;
         if key.is_empty() {
@@ -299,7 +286,7 @@ mod defaults {
         std::env::var("GCP_KMS_POOL_SIZE")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(10)
+            .unwrap_or(30)
     }
 
     pub fn gcp_kms_admin_key() -> String {
@@ -307,14 +294,10 @@ mod defaults {
     }
 
     pub fn allowed_methods() -> Vec<String> {
-        // Default methods when RELAYER_ALLOWED_METHODS env var is not set.
-        // When set, the config crate parses it directly via list_separator(",").
         vec!["execute".into()]
     }
 
     pub fn allowed_contracts() -> Vec<String> {
-        // Default contracts when RELAYER_ALLOWED_CONTRACTS env var is not set.
-        // When set, the config crate parses it directly via list_separator(",").
         let net = network();
         if net.contains("mainnet") {
             vec![

@@ -73,6 +73,11 @@ export interface AccountStore {
 
 const NEAR_ACCOUNT_RE = /^[a-z0-9._-]+\.(near|testnet)$/;
 
+/** Escape Telegram Markdown special chars. */
+function escapeMarkdown(s: string): string {
+  return s.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
+}
+
 /** Convert yocto-SOCIAL (18 decimals) to human-readable string. */
 export function formatSocial(yocto: string): string {
   if (!yocto || yocto === '0') return '0';
@@ -178,7 +183,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
 
   /** Branded tagline using the real app label. */
   function brandLine(): string {
-    return `🤝 OnSocial stands with ${appLabel}`;
+    return `🤝 OnSocial stands with ${escapeMarkdown(appLabel)}`;
   }
 
   /** Token contract URL (testnet/mainnet auto-detect). */

@@ -1,4 +1,4 @@
-//! Scale-up and scale-down operations for the key pool.
+//! Scale-up/down operations for the key pool.
 
 use super::slot::{now_secs, KeySlot, ACTIVE, DRAINING, WARMUP};
 use super::KeyPool;
@@ -11,8 +11,7 @@ use std::time::Duration;
 use tracing::{info, warn};
 
 impl KeyPool {
-    /// Scale up: create N keys per contract and register on-chain.
-    /// KMS mode creates keys in Cloud KMS HSM; local mode generates in-memory.
+    /// Scale up: create N keys *per contract* and register on-chain.
     pub async fn scale_up(&self, rpc: &RpcClient, count: u32) -> Result<(), crate::Error> {
         #[cfg(feature = "gcp")]
         if let Some(ref kms) = self.kms {
@@ -22,8 +21,7 @@ impl KeyPool {
         self.scale_up_local(rpc, count).await
     }
 
-    /// Scale up for a single target contract. Used by the autoscaler's
-    /// per-contract minimum check to provision keys for newly added contracts.
+    /// Scale up for a single contract (safety-net provisioning).
     pub async fn scale_up_for_contract(
         &self,
         rpc: &RpcClient,
@@ -43,7 +41,6 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Scale up with locally generated keys (non-KMS).
     pub async fn scale_up_local(&self, rpc: &RpcClient, count: u32) -> Result<(), crate::Error> {
         for target in &self.allowed_contracts {
             self.provision_local_keys(rpc, count, target).await?;
@@ -56,7 +53,6 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Provision `count` locally generated keys for a single target contract.
     async fn provision_local_keys(
         &self,
         rpc: &RpcClient,
@@ -127,7 +123,7 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Provision `count` KMS-backed keys for a single target contract.
+    /// Provision `count` KMS keys for one contract (HSM createKey + AddKey).
     #[cfg(feature = "gcp")]
     async fn provision_kms_keys(
         &self,
@@ -221,7 +217,7 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Batch AddKey via admin signer. Holds `admin_tx_lock` to prevent nonce races.
+    /// Batch AddKey. Holds `admin_tx_lock` to prevent admin nonce races.
     pub(crate) async fn register_keys_on_chain(
         &self,
         rpc: &RpcClient,
@@ -269,7 +265,7 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Scale down: drain N idle keys, then batch DeleteKey.
+    /// Drain N idle keys, then batch DeleteKey. Reverts on RPC failure.
     pub async fn scale_down(&self, rpc: &RpcClient, count: u32) -> Result<(), crate::Error> {
         let mut to_delete: Vec<PublicKey> = Vec::new();
         let now = now_secs();
@@ -321,7 +317,7 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Batch DeleteKey via admin signer. Holds `admin_tx_lock` to prevent nonce races.
+    /// Batch DeleteKey. Holds `admin_tx_lock` to prevent admin nonce races.
     pub(crate) async fn submit_delete_keys(
         &self,
         rpc: &RpcClient,
@@ -358,7 +354,7 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Persist active/warm local keys to encrypted store. KMS keys skip this.
+    /// Persist active/warm local keys to encrypted store. Skipped for KMS.
     pub(crate) fn persist_keys(&self) -> Result<(), crate::Error> {
         let keys: Vec<(String, String)> = self
             .read_slots()
@@ -384,7 +380,6 @@ impl KeyPool {
         self.store.save(&self.account_id, &keys)
     }
 
-    /// Public wrapper for shutdown-time key persistence.
     pub fn persist_keys_public(&self) -> Result<(), crate::Error> {
         self.persist_keys()
     }

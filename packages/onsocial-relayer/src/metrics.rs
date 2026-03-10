@@ -6,22 +6,22 @@ use std::time::Instant;
 pub static METRICS: Metrics = Metrics::new();
 
 pub struct Metrics {
-    // --- Traffic ---
+    // Traffic
     pub tx_total: AtomicU64,
     pub tx_success: AtomicU64,
     pub tx_error: AtomicU64,
     pub nonce_retries: AtomicU64,
 
-    // --- Latency (μs, updated via CAS) ---
+    // Latency (μs, CAS max tracking)
     pub tx_duration_us_sum: AtomicU64,
     pub tx_duration_us_max: AtomicU64,
 
-    // --- KMS ---
+    // KMS
     pub kms_sign_total: AtomicU64,
     pub kms_sign_errors: AtomicU64,
     pub kms_sign_duration_us_sum: AtomicU64,
 
-    // --- RPC ---
+    // RPC
     pub rpc_failovers: AtomicU64,
     pub rpc_errors: AtomicU64,
 }
@@ -68,7 +68,6 @@ impl Metrics {
         self.kms_sign_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Render in Prometheus text exposition format.
     pub fn render(&self, pool_active: usize, pool_warm: usize, pool_in_flight: u32) -> String {
         let tx_total = self.tx_total.load(Ordering::Relaxed);
         let tx_success = self.tx_success.load(Ordering::Relaxed);

@@ -4,7 +4,7 @@ use near_primitives::types::AccountId;
 use std::path::PathBuf;
 use tracing::info;
 
-/// Key store: encrypted (AES-256-GCM) for production, plaintext for dev.
+/// Encrypted (AES-256-GCM) or plaintext key store.
 pub struct KeyStore {
     path: PathBuf,
     encryption_key: Option<[u8; 32]>,

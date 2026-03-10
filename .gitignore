@@ -8,6 +8,9 @@
 .idea/
 *.sublime*
 
+# Throwaway test projects
+test-partner-sdk/
+
 # Node.js dependencies
 node_modules/
 .npm/

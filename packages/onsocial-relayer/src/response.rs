@@ -27,7 +27,6 @@ impl ExecuteResponse {
         }
     }
 
-    /// Committed (broadcast_tx_commit) success with optional return value.
     pub fn success(tx_hash: String, result: Option<Value>) -> Self {
         Self {
             success: true,
@@ -38,8 +37,7 @@ impl ExecuteResponse {
         }
     }
 
-    /// Committed (broadcast_tx_commit) failure — the TX was included but
-    /// the contract execution failed (panic, assertion, exceeded gas, etc.).
+    /// TX included on-chain but contract execution failed.
     pub fn failure(tx_hash: String, error: String) -> Self {
         Self {
             success: false,

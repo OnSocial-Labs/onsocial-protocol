@@ -1,6 +1,12 @@
 # Internal load balancer for relayer instances.
-# Round-robins between relayer-0 and relayer-1 with passive health checks.
+# Round-robins between all instances with passive health checks.
 # Only routes to instances that pass /ready (503 until keys are synced).
+#
+# To add an instance:
+#   1. Add relayer-N in docker-compose.yml (copy relayer-1 block, new keyring)
+#   2. Add relayer-N:3040 to the reverse_proxy list below
+#   3. Create KMS keyring: gcloud kms keyrings create relayer-keys-inst-N ...
+#   4. Run: node scripts/register_kms_keys.mjs --keyring relayer-keys-inst-N
 
 :3040 {
 	reverse_proxy relayer-0:3040 relayer-1:3040 {

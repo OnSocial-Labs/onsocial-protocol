@@ -21,18 +21,13 @@ use tracing::{error, info, warn};
 /// Query parameters for the `/execute` endpoint.
 #[derive(Deserialize, Default)]
 pub struct ExecuteParams {
-    /// When `true`, use `broadcast_tx_commit` (synchronous) instead of
-    /// `send_tx_async`. The response will contain the final execution
-    /// outcome — either `{success: true, status: "success"}` or
-    /// `{success: false, status: "failure", error: "..."}`.  Callers that
-    /// need confirmed results (e.g. reward credits, claims) should set this.
+    /// `wait=true` → `broadcast_tx_commit` (synchronous, confirmed result).
     #[serde(default)]
     pub wait: bool,
 }
 
-/// Readiness probe. Returns 200 once pool has active keys and RPC is reachable.
+/// Readiness probe. 200 once pool has active keys.
 pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    // Lazily flip ready once pool is healthy.
     if !state.ready.load(Ordering::Relaxed) && state.key_pool.active_count() > 0 {
         state.ready.store(true, Ordering::Relaxed);
     }
@@ -44,7 +39,7 @@ pub async fn ready(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     }
 }
 
-/// Prometheus metrics in text exposition format.
+/// Prometheus metrics.
 pub async fn metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let body = METRICS.render(
         state.key_pool.active_count(),
@@ -111,10 +106,6 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 }
 
 /// Forward a request to the contract's `execute()` method.
-///
-/// Query parameters:
-/// - `wait=true`: use `broadcast_tx_commit` for a synchronous, confirmed result.
-///   Default (`wait=false`): fire-and-forget via `send_tx_async`.
 pub async fn execute(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ExecuteParams>,
@@ -124,14 +115,12 @@ pub async fn execute(
     METRICS.tx_total.fetch_add(1, Ordering::Relaxed);
     state.request_count.fetch_add(1, Ordering::Relaxed);
 
-    // Extract correlation ID (set by middleware).
     let req_id = request_parts
         .extensions()
         .get::<RequestId>()
         .map(|r| r.0.clone())
         .unwrap_or_default();
 
-    // Parse JSON body
     let request: Value = match axum::Json::<Value>::from_request(request_parts, &state).await {
         Ok(axum::Json(v)) => v,
         Err(e) => {
@@ -170,8 +159,7 @@ pub async fn execute(
         );
     }
 
-    // Route to the correct contract based on `target_account`.
-    // Required field — reject if missing, invalid, or not in allowed list.
+    // Route to correct contract; `target_account` is required.
     let contract_id = match request.get("target_account").and_then(|v| v.as_str()) {
         Some(ta) => {
             let parsed = match ta.parse::<near_primitives::types::AccountId>() {
@@ -212,7 +200,6 @@ pub async fn execute(
     let gas = NearGas::from_tgas(state.config.gas_tgas);
     let deposit = state.config.storage_deposit;
 
-    // Acquire a key from the pool (filtered by target contract)
     let guard = match state.key_pool.acquire(&contract_id) {
         Ok(g) => g,
         Err(e) => {
@@ -225,7 +212,6 @@ pub async fn execute(
         }
     };
 
-    // Get a recent block hash
     let block_hash = match state.rpc.latest_block_hash().await {
         Ok(h) => h,
         Err(e) => {
@@ -238,7 +224,7 @@ pub async fn execute(
         }
     };
 
-    // Sign and submit, holding per-key lock for nonce ordering.
+    // Hold per-key lock for nonce ordering.
     let _submit_guard = guard.lock_submit().await;
 
     let actions = build_execute_actions(&request, gas, deposit);
@@ -259,7 +245,6 @@ pub async fn execute(
     };
 
     if params.wait {
-        // ---- Synchronous mode: broadcast_tx_commit, return confirmed outcome ----
         match state.rpc.send_signed_tx(signed_tx).await {
             Ok(outcome) => {
                 METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
@@ -288,7 +273,7 @@ pub async fn execute(
             Err(e) => {
                 let err_str = format!("{e}");
 
-                // Nonce error — re-sync and retry once (sync)
+                // Nonce error — re-sync and retry once
                 if err_str.contains("InvalidNonce") || err_str.contains("nonce") {
                     METRICS.nonce_retries.fetch_add(1, Ordering::Relaxed);
                     warn!(req_id = %req_id, "Nonce error on commit, re-syncing and retrying");
@@ -321,7 +306,6 @@ pub async fn execute(
             }
         }
     } else {
-        // ---- Async mode (default): send_tx_async, return tx_hash immediately ----
         match state.rpc.send_tx_async(signed_tx).await {
             Ok(tx_hash) => {
                 METRICS.tx_success.fetch_add(1, Ordering::Relaxed);
@@ -383,7 +367,7 @@ fn build_execute_actions(request: &Value, gas: NearGas, deposit: u128) -> Vec<Ac
     }))]
 }
 
-/// Retry once after nonce error: acquire fresh key, re-sign, re-submit.
+/// Retry once after nonce re-sync (async mode).
 async fn retry_after_nonce_error(
     state: &AppState,
     contract_id: &near_primitives::types::AccountId,
@@ -416,7 +400,7 @@ async fn retry_after_nonce_error(
     ))
 }
 
-/// Retry once after nonce error in synchronous (commit) mode.
+/// Retry once after nonce re-sync (sync/commit mode).
 async fn retry_after_nonce_error_sync(
     state: &AppState,
     contract_id: &near_primitives::types::AccountId,
@@ -460,7 +444,7 @@ async fn retry_after_nonce_error_sync(
     }
 }
 
-/// Query TX status. `GET /tx/:tx_hash`
+/// `GET /tx/:tx_hash`
 pub async fn tx_status(
     State(state): State<Arc<AppState>>,
     Path(tx_hash_str): Path<String>,
@@ -498,7 +482,6 @@ pub async fn tx_status(
             }
         }
         Err(e) => {
-            // TX not found — likely still pending
             let err_str = format!("{e}");
             if err_str.contains("UNKNOWN_TRANSACTION") || err_str.contains("not found") {
                 (

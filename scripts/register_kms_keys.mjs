@@ -1,23 +1,29 @@
 #!/usr/bin/env node
 /**
- * Register KMS public keys as function-call access keys on the relayer account.
+ * Register KMS pool keys as FunctionCall access keys on the relayer account.
  *
- * Each KMS pool key is assigned to exactly ONE contract. NEAR requires one
- * receiver_id per FunctionCall key, so each key can only sign for one contract.
+ * DYNAMIC: fetches public keys from KMS at runtime. No hardcoded keys.
+ * Distributes keys evenly across contracts using round-robin.
  *
- * Key allocation (per keyring, same for both instances):
- *   pool-key-0..2  → core
- *   pool-key-3..5  → scarces
- *   pool-key-6..8  → rewards
+ * Key allocation formula (per keyring):
+ *   pool-key-{i} → contracts[i % num_contracts]
+ *
+ * Example with 9 keys and 3 contracts:
+ *   pool-key-0,3,6 → core
+ *   pool-key-1,4,7 → scarces
+ *   pool-key-2,5,8 → rewards
  *
  * Network-aware: set NEAR_NETWORK=mainnet to target mainnet.
  *
  * Usage:
- *   node scripts/register_kms_keys.mjs                           # all contracts
- *   node scripts/register_kms_keys.mjs rewards.onsocial.testnet  # one contract
+ *   node scripts/register_kms_keys.mjs                           # all keyrings
+ *   node scripts/register_kms_keys.mjs --keyring relayer-keys-testnet  # one keyring
+ *   node scripts/register_kms_keys.mjs --pool-size 15            # override pool size
+ *   node scripts/register_kms_keys.mjs --dry-run                 # preview only
  */
 import { Account, JsonRpcProvider } from 'near-api-js';
 import { KmsSigner } from './lib/kms-signer.mjs';
+import { execSync } from 'child_process';
 
 const NETWORK = process.env.NEAR_NETWORK || 'testnet';
 const IS_MAINNET = NETWORK === 'mainnet';
@@ -25,133 +31,213 @@ const RELAYER_ACCOUNT = process.env.RELAYER_ACCOUNT_ID
   || (IS_MAINNET ? 'relayer.onsocial.near' : 'relayer.onsocial.testnet');
 const RPC_URL = process.env.RELAYER_RPC_URL
   || (IS_MAINNET ? 'https://free.rpc.fastnear.com' : 'https://test.rpc.fastnear.com');
-// Sync with: packages/onsocial-rpc/src/index.ts FALLBACK_RPC_URLS
 
-// ── Contract → key mapping ─────────────────────────────────────────────
-// Each entry maps a contract to the KMS public keys that should be
-// registered as FunctionCall access keys for that contract.
-// Sync with: RELAYER_ALLOWED_CONTRACTS + RELAYER_CONTRACT_ID in deployment/docker-compose.yml
-const CONTRACT_KEYS = IS_MAINNET
-  ? {
-      'core.onsocial.near': [
-        // pool-key-0..2 (keyring-0) — assigned per on-chain registration
-        // pool-key-3..5 (keyring-1) — assigned per on-chain registration
-      ],
-      'scarces.onsocial.near': [],
-      'rewards.onsocial.near': [],
-    }
-  : {
-      'core.onsocial.testnet': [
-        // keyring-0 (relayer-keys-testnet): pool-key-0, 1, 2
-        'ed25519:E92v8YJe43fbaMfWDKxeJNBSQJj8wxWincK3xJYjLMqn',
-        'ed25519:6j8aX2DXe9HiaDFNorRPkLf6UEA6znB16s5kiPuu3jKk',
-        'ed25519:4g7FtkMpzaoJEysfK67RgHeza6iRurVy1xoWm6Be8TdC',
-        // keyring-1 (relayer-keys-inst-1): pool-key-0, 1, 2
-        'ed25519:7F2jGTZWpGGQkBDuB2jixuk3MNpox7N1pyedUUF7Y5M7',
-        'ed25519:gsW2E2nKZHey2u7pwdsAkfbYpZWTyfTfQCoznbQbDzj',
-        'ed25519:7rRbLQhH5ajcquaE9drS5V9BuutVE5vQ6UEdozTXtMjd',
-      ],
-      'scarces.onsocial.testnet': [
-        // keyring-0 (relayer-keys-testnet): pool-key-3, 4, 5
-        'ed25519:7JBGZ14HFqc9nCPSJRwNNXGqzKu13wnv6ht3ByXP59nu',
-        'ed25519:7cStETZFeJbPFZcpLYarBQpZy9tmSpZguKGxhKFTSEp1',
-        'ed25519:Hi69YTpDMoGGhLByvToQEC84SUDod4Jyk533WkVY2qKr',
-        // keyring-1 (relayer-keys-inst-1): pool-key-3, 4, 5
-        'ed25519:6VCHBVJgGKx1TeHTmJfAcTQLu4VibN8YdGVeyaTPC6Rx',
-        'ed25519:3qvbnrYLPn1GZSBedHjvEuC1CR9CCDMf7Txw1g4cfSG4',
-        'ed25519:Fr2BXEjD5CGd3xY2rhnExGMep6cP1gJh4XEtinYPW8eo',
-      ],
-      'rewards.onsocial.testnet': [
-        // keyring-0 (relayer-keys-testnet): pool-key-6, 7, 8
-        'ed25519:9ELHXpMZ7LPNJ7LsBSPKDS9JDeMm1713E7dArSdxESL2',
-        'ed25519:jzormw9q7Ld5KvH9rwu7gMigq5UDXPCsiQ9NRCoyQi2',
-        'ed25519:8Gka4u9WzJxVQsQqcktwJfYFpQTFQ3p7b2Z5CUK9qZ3K',
-        // keyring-1 (relayer-keys-inst-1): pool-key-6, 7, 8
-        'ed25519:AtjVBaz4GfYo33seMB3vuvtB7sbk1KFswkfkVKrBvJUF',
-        'ed25519:C4yV3YUtPiRWUhbeSzRJ9Cp8qyWmCAFXXBavFPfHAtDN',
-        'ed25519:9erda85LYQhSMFPqbgHh8riR19YszeuTaaR9mfoqjnks',
-      ],
-    };
+// ── Contracts — all treated equally ─────────────────────────────────────
+const CONTRACTS = IS_MAINNET
+  ? [
+      'core.onsocial.near',
+      'scarces.onsocial.near',
+      'rewards.onsocial.near',
+    ]
+  : [
+      'core.onsocial.testnet',
+      'scarces.onsocial.testnet',
+      'rewards.onsocial.testnet',
+    ];
 
-// Flat list for the verification step
-const ALL_KMS_KEYS = new Set(Object.values(CONTRACT_KEYS).flat());
+// ── Keyrings (one per relayer instance) ──────────────────────────────────
+const KEYRINGS = IS_MAINNET
+  ? [
+      'relayer-keys-mainnet',
+      'relayer-keys-mainnet-1',
+      // Add more keyrings here for more instances
+    ]
+  : [
+      'relayer-keys-testnet',
+      'relayer-keys-inst-1',
+      // Add more keyrings here for more instances
+    ];
 
-const ALLOWED_METHODS = [
-  'execute',
-];
+const GCP_PROJECT  = process.env.GCP_KMS_PROJECT  || 'onsocial-protocol';
+const GCP_LOCATION = process.env.GCP_KMS_LOCATION || 'global';
+const POOL_SIZE    = parseInt(process.env.GCP_KMS_POOL_SIZE || '30', 10);
+const KMS_BASE     = 'https://cloudkms.googleapis.com/v1';
 
+const ALLOWED_METHODS = ['execute'];
 const ALLOWANCE = BigInt('1000000000000000000000000');
 
+// ── CLI args ─────────────────────────────────────────────────────────────
+const args = process.argv.slice(2);
+const dryRun = args.includes('--dry-run');
+const keyringFilter = (() => {
+  const idx = args.indexOf('--keyring');
+  return idx >= 0 ? args[idx + 1] : null;
+})();
+const poolSizeOverride = (() => {
+  const idx = args.indexOf('--pool-size');
+  return idx >= 0 ? parseInt(args[idx + 1], 10) : null;
+})();
+const poolSize = poolSizeOverride || POOL_SIZE;
+
+/** Fetch Ed25519 public key from KMS key version → "ed25519:..." */
+async function getKmsPublicKey(keyring, keyName, version = 1) {
+  const resourceName =
+    `projects/${GCP_PROJECT}/locations/${GCP_LOCATION}/keyRings/${keyring}/cryptoKeys/${keyName}/cryptoKeyVersions/${version}`;
+  const token = execSync('gcloud auth print-access-token', { encoding: 'utf8' }).trim();
+
+  const resp = await fetch(`${KMS_BASE}/${resourceName}/publicKey`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    if (resp.status === 404) return null; // Key doesn't exist yet
+    throw new Error(`KMS getPublicKey(${keyring}/${keyName}): ${resp.status} ${body}`);
+  }
+  const { pem } = await resp.json();
+
+  const b64 = pem.replace(/-----[A-Z ]+-----/g, '').replace(/\s/g, '');
+  const der = Buffer.from(b64, 'base64');
+  const rawKey = der.subarray(der.length - 32);
+
+  // Base58 encode
+  const bs58Alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const digits = [0];
+  for (const byte of rawKey) {
+    let carry = byte;
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  let output = '';
+  for (const byte of rawKey) {
+    if (byte !== 0) break;
+    output += bs58Alphabet[0];
+  }
+  for (let i = digits.length - 1; i >= 0; i--) {
+    output += bs58Alphabet[digits[i]];
+  }
+
+  return `ed25519:${output}`;
+}
+
 async function main() {
-  // Optional CLI filter: only register for a specific contract
-  const filterContract = process.argv[2] || null;
-  const contracts = filterContract
-    ? { [filterContract]: CONTRACT_KEYS[filterContract] || [] }
-    : CONTRACT_KEYS;
+  const keyrings = keyringFilter ? [keyringFilter] : KEYRINGS;
+
+  console.log(`Network:    ${NETWORK}`);
+  console.log(`Account:    ${RELAYER_ACCOUNT}`);
+  console.log(`Contracts:  ${CONTRACTS.join(', ')}`);
+  console.log(`Keyrings:   ${keyrings.join(', ')}`);
+  console.log(`Pool size:  ${poolSize} keys/keyring`);
+  console.log(`Keys/contract/keyring: ${Math.floor(poolSize / CONTRACTS.length)}`);
+  console.log(`Total keys: ${keyrings.length * poolSize}`);
+  if (dryRun) console.log('  ** DRY RUN — no on-chain changes **\n');
+  else console.log('');
+
+  // ── Step 1: Discover all KMS public keys ──────────────────────────────
+  console.log('=== Discovering KMS public keys ===\n');
+  const plan = []; // [{ keyring, keyName, pubKey, contract }]
+
+  for (const keyring of keyrings) {
+    for (let i = 0; i < poolSize; i++) {
+      const keyName = `pool-key-${i}`;
+      const contract = CONTRACTS[i % CONTRACTS.length]; // Round-robin
+
+      process.stdout.write(`  ${keyring}/${keyName} → ${contract} ... `);
+      const pubKey = await getKmsPublicKey(keyring, keyName);
+      if (!pubKey) {
+        console.log('NOT FOUND (skipping)');
+        continue;
+      }
+      console.log(pubKey);
+      plan.push({ keyring, keyName, pubKey, contract });
+    }
+    console.log('');
+  }
+
+  console.log(`\nDiscovered ${plan.length} keys across ${keyrings.length} keyrings\n`);
+
+  // ── Step 2: Show allocation ───────────────────────────────────────────
+  console.log('=== Key allocation ===\n');
+  for (const contract of CONTRACTS) {
+    const keys = plan.filter(p => p.contract === contract);
+    console.log(`  ${contract}: ${keys.length} keys`);
+    for (const k of keys) {
+      console.log(`    ${k.keyring}/${k.keyName} → ${k.pubKey}`);
+    }
+  }
+  console.log('');
+
+  if (dryRun) {
+    console.log('Dry run complete. No keys registered.');
+    return;
+  }
+
+  // ── Step 3: Register on-chain ─────────────────────────────────────────
+  // Use the first keyring's admin key for signing
+  const adminKeyring = keyrings[0];
+  console.log(`=== Registering on-chain (admin: ${adminKeyring}/admin-key) ===\n`);
 
   const provider = new JsonRpcProvider({ url: RPC_URL });
   const signer = await KmsSigner.create({
-    project:  process.env.GCP_KMS_PROJECT  || 'onsocial-protocol',
-    location: process.env.GCP_KMS_LOCATION || 'global',
-    keyring:  process.env.GCP_KMS_KEYRING  || (IS_MAINNET ? 'relayer-keys-mainnet' : 'relayer-keys-testnet'),
-    keyName:  process.env.GCP_KMS_ADMIN_KEY || 'admin-key',
+    project:  GCP_PROJECT,
+    location: GCP_LOCATION,
+    keyring:  adminKeyring,
+    keyName:  'admin-key',
   });
   const account = new Account(RELAYER_ACCOUNT, provider, signer);
-  
-  // Verify account exists
+
   const state = await account.getState();
-  console.log(`Account ${RELAYER_ACCOUNT}: ${state.amount} yoctoNEAR`);
+  console.log(`Account ${RELAYER_ACCOUNT}: ${state.amount} yoctoNEAR\n`);
 
-  const totalKeys = Object.values(contracts).reduce((n, ks) => n + ks.length, 0);
-  console.log(`Contracts: ${Object.keys(contracts).join(', ')}`);
-  console.log(`Total AddKey TXs: ${totalKeys}\n`);
+  let added = 0, skipped = 0, failed = 0;
 
-  let added = 0;
-  let skipped = 0;
-  let failed = 0;
+  for (const contract of CONTRACTS) {
+    const keys = plan.filter(p => p.contract === contract);
+    if (keys.length === 0) continue;
 
-  // Register each key for its designated contract only
-  for (const [contractId, keys] of Object.entries(contracts)) {
-    if (keys.length === 0) {
-      console.log(`\n=== Contract: ${contractId} === (no keys configured, skipping)`);
-      continue;
-    }
-    console.log(`\n=== Contract: ${contractId} === (${keys.length} keys)`);
-    for (const pubKey of keys) {
-      console.log(`  Adding key ${pubKey} → ${contractId}`);
+    console.log(`\n--- ${contract} (${keys.length} keys) ---`);
+    for (const { pubKey, keyring, keyName } of keys) {
+      process.stdout.write(`  AddKey ${pubKey} → ${contract} ... `);
       try {
         const result = await account.addFunctionCallAccessKey({
           publicKey: pubKey,
-          contractId,
+          contractId: contract,
           methodNames: ALLOWED_METHODS,
           allowance: ALLOWANCE,
         });
-        console.log(`    ✓ TX: ${result.transaction.hash}`);
+        console.log(`✓ TX: ${result.transaction.hash}`);
         added++;
       } catch (err) {
         if (err.message?.includes('already exists')) {
-          console.log(`    ⚠ Key already registered`);
+          console.log('⚠ already registered');
           skipped++;
         } else {
-          console.error(`    ✗ Error: ${err.message}`);
+          console.log(`✗ ${err.message}`);
           failed++;
         }
       }
     }
   }
 
+  // ── Step 4: Verify ────────────────────────────────────────────────────
   console.log(`\n=== Summary ===`);
-  console.log(`  Added: ${added}  Skipped: ${skipped}  Failed: ${failed}`);
+  console.log(`  Added: ${added}  Skipped: ${skipped}  Failed: ${failed}\n`);
 
-  console.log('\nVerifying keys...');
+  console.log('Verifying on-chain keys...');
   const keyList = await account.getAccessKeyList();
-  const keys = keyList.keys || keyList;
-  const fcKeys = (Array.isArray(keys) ? keys : []).filter(k => {
+  const allKeys = keyList.keys || keyList;
+  const fcKeys = (Array.isArray(allKeys) ? allKeys : []).filter(k => {
     const perm = k.access_key?.permission || k.accessKey?.permission;
     return perm && typeof perm === 'object' && perm.FunctionCall;
   });
 
-  // Group by contract
+  const discoveredPubKeys = new Set(plan.map(p => p.pubKey));
   const byContract = {};
   for (const k of fcKeys) {
     const perm = k.access_key?.permission || k.accessKey?.permission;
@@ -159,10 +245,10 @@ async function main() {
     byContract[receiver] = byContract[receiver] || [];
     byContract[receiver].push(k.public_key || k.publicKey);
   }
-  for (const [contract, pks] of Object.entries(byContract)) {
+  for (const [contract, pks] of Object.entries(byContract).sort()) {
     console.log(`\n  ${contract}: ${pks.length} keys`);
     for (const pk of pks) {
-      const isKms = ALL_KMS_KEYS.has(pk);
+      const isKms = discoveredPubKeys.has(pk);
       console.log(`    ${pk}${isKms ? ' (KMS)' : ''}`);
     }
   }

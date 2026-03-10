@@ -7,7 +7,7 @@ use axum::response::{IntoResponse, Response};
 use std::sync::OnceLock;
 use subtle::ConstantTimeEq;
 
-/// Cached API key from env. `None` = dev mode (no auth).
+/// Cached API key. `None` = dev mode (no auth).
 static API_KEY: OnceLock<Option<String>> = OnceLock::new();
 
 fn expected_api_key() -> &'static Option<String> {
@@ -18,9 +18,8 @@ fn expected_api_key() -> &'static Option<String> {
     })
 }
 
-/// Validate `X-Api-Key` or `Authorization: Bearer` header.
-/// Bypassed if `RELAYER_API_KEY` is unset (dev mode).
-/// Uses constant-time comparison to prevent timing attacks.
+/// Validate `X-Api-Key` or `Authorization: Bearer`.
+/// Constant-time comparison prevents timing attacks.
 pub async fn api_key_auth(request: Request, next: Next) -> Response {
     let expected = match expected_api_key() {
         Some(key) => key,
@@ -77,7 +76,6 @@ pub async fn inject_request_id(mut request: Request, next: Next) -> Response {
 
     let mut response = next.run(request).await;
 
-    // Echo back for end-to-end tracing.
     if let Ok(val) = HeaderValue::from_str(&request_id) {
         response.headers_mut().insert("x-request-id", val);
     }
@@ -85,6 +83,6 @@ pub async fn inject_request_id(mut request: Request, next: Next) -> Response {
     response
 }
 
-/// Request correlation ID, extractable from `Request::extensions()`.
+/// Request correlation ID.
 #[derive(Clone, Debug)]
 pub struct RequestId(pub String);

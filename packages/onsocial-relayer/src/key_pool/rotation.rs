@@ -1,4 +1,4 @@
-//! Autoscaler loop, key rotation, and slot lifecycle management.
+//! Autoscaler loop and key lifecycle management.
 
 use super::slot::{now_secs, ACTIVE, DEAD, DRAINING, WARMUP};
 use super::KeyPool;
@@ -35,30 +35,51 @@ impl KeyPool {
         let active = self.active_count();
         let _warm = self.warm_count();
         let load = self.per_key_load();
-        // scale_up creates `count` keys *per contract*, so the effective total
-        // increase is `count × num_contracts`. We divide headroom accordingly
-        // to never overshoot `max_keys`.
+        // scale_up creates `count` keys *per contract*; divide headroom to stay under max_keys.
         let num_contracts = self.allowed_contracts.len().max(1) as u32;
 
         self.reap_dead_slots();
-        self.rotate_old_keys(rpc).await?;
 
-        // ── Per-contract safety net ───────────────────────────────────
-        // If a contract has zero active keys (e.g. all rotated out, or
-        // added at runtime), provision immediately so requests don't 503.
-        // The main bootstrap provisioning is `ensure_contracts_covered()`.
+        // KMS: skip age rotation — HSM-backed keys never leave hardware.
+        if !self.is_kms_mode() {
+            self.rotate_old_keys(rpc).await?;
+        }
+
+        // Per-contract safety net: if a contract has zero active keys, provision
+        // immediately so requests don't 503.
         for target in &self.allowed_contracts {
             if self.active_count_for(target) == 0
                 && self.active_count() < self.config.max_keys as usize
             {
-                let need = (self.config.min_keys / num_contracts).max(1);
-                info!(
-                    contract = %target,
-                    adding = need,
-                    "Contract has zero keys — provisioning"
-                );
-                self.scale_up_for_contract(rpc, need, target).await?;
-                self.last_scale_event.store(now_secs(), Ordering::Relaxed);
+                let promoted = self.promote_warm_keys_for(target);
+                if promoted > 0 {
+                    info!(
+                        contract = %target,
+                        promoted,
+                        "Promoted warm keys to cover contract"
+                    );
+                }
+
+                // KMS: cannot create keys at runtime — ops must pre-provision.
+                if self.active_count_for(target) == 0 {
+                    if self.is_kms_mode() {
+                        error!(
+                            contract = %target,
+                            "CRITICAL: KMS contract has zero keys and zero warm keys. \
+                             This should never happen — keys are never deleted in KMS mode. \
+                             Run: node scripts/register_kms_keys.mjs {target} && restart relayer"
+                        );
+                    } else {
+                        let need = (self.config.min_keys / num_contracts).max(1);
+                        info!(
+                            contract = %target,
+                            adding = need,
+                            "Contract has zero keys — provisioning"
+                        );
+                        self.scale_up_for_contract(rpc, need, target).await?;
+                        self.last_scale_event.store(now_secs(), Ordering::Relaxed);
+                    }
+                }
             }
         }
 
@@ -79,23 +100,36 @@ impl KeyPool {
                 && active_now < self.config.max_keys as usize
                 && self.cooldown_elapsed()
             {
-                let headroom = self.config.max_keys.saturating_sub(active_now as u32);
-                let per_contract = (headroom / num_contracts).min(self.config.batch_size);
-                if per_contract > 0 {
-                    info!(
-                        current = active_now,
-                        adding_per_contract = per_contract,
-                        contracts = num_contracts,
-                        per_key_load = load,
-                        "Scaling up"
-                    );
-                    self.scale_up(rpc, per_contract).await?;
-                    self.last_scale_event.store(now_secs(), Ordering::Relaxed);
+                // KMS: pool is fixed-size; warn if all keys exhausted.
+                if self.is_kms_mode() {
+                    let total_warm = self.warm_count();
+                    if total_warm == 0 {
+                        warn!(
+                            active = active_now,
+                            per_key_load = load,
+                            "KMS pool exhausted — all keys active, no warm keys to promote. \
+                             Increase GCP_KMS_POOL_SIZE and re-provision to handle higher load."
+                        );
+                    }
+                } else {
+                    let headroom = self.config.max_keys.saturating_sub(active_now as u32);
+                    let per_contract = (headroom / num_contracts).min(self.config.batch_size);
+                    if per_contract > 0 {
+                        info!(
+                            current = active_now,
+                            adding_per_contract = per_contract,
+                            contracts = num_contracts,
+                            per_key_load = load,
+                            "Scaling up"
+                        );
+                        self.scale_up(rpc, per_contract).await?;
+                        self.last_scale_event.store(now_secs(), Ordering::Relaxed);
+                    }
                 }
             }
         }
 
-        // Scale down when per-key load is low and we have spare keys
+        // Scale down. KMS: soft (ACTIVE→WARMUP). Local: hard (DeleteKey).
         if load < self.config.scale_down_per_key
             && active > self.config.min_keys as usize
             && self.cooldown_elapsed()
@@ -105,36 +139,48 @@ impl KeyPool {
                 .batch_size
                 .min(active as u32 - self.config.min_keys);
             if to_remove > 0 {
-                info!(
-                    current = active,
-                    removing = to_remove,
-                    per_key_load = load,
-                    "Scaling down"
-                );
-                self.scale_down(rpc, to_remove).await?;
+                if self.is_kms_mode() {
+                    info!(
+                        current = active,
+                        parking = to_remove,
+                        per_key_load = load,
+                        "Soft scale-down (KMS): parking idle keys as WARMUP"
+                    );
+                    self.soft_scale_down(to_remove);
+                } else {
+                    info!(
+                        current = active,
+                        removing = to_remove,
+                        per_key_load = load,
+                        "Scaling down"
+                    );
+                    self.scale_down(rpc, to_remove).await?;
+                }
                 self.last_scale_event.store(now_secs(), Ordering::Relaxed);
             }
         }
 
-        // Replenish warm buffer
-        let total = self.active_count() + self.warm_count();
-        if self.config.warm_buffer > 0
-            && (self.warm_count() as u32) < self.config.warm_buffer
-            && total < self.config.max_keys as usize
-            && self.cooldown_elapsed()
-        {
-            let deficit = self.config.warm_buffer - self.warm_count() as u32;
-            let headroom = (self.config.max_keys as usize - total) as u32;
-            let per_contract = (headroom / num_contracts)
-                .min(deficit)
-                .min(self.config.batch_size);
-            if per_contract > 0 {
-                info!(
-                    warm = self.warm_count(),
-                    adding_per_contract = per_contract,
-                    "Pre-warming spare keys"
-                );
-                self.pre_warm(rpc, per_contract).await?;
+        // Warm buffer (local only — KMS warm keys come from soft_scale_down).
+        if !self.is_kms_mode() {
+            let total = self.active_count() + self.warm_count();
+            if self.config.warm_buffer > 0
+                && (self.warm_count() as u32) < self.config.warm_buffer
+                && total < self.config.max_keys as usize
+                && self.cooldown_elapsed()
+            {
+                let deficit = self.config.warm_buffer - self.warm_count() as u32;
+                let headroom = (self.config.max_keys as usize - total) as u32;
+                let per_contract = (headroom / num_contracts)
+                    .min(deficit)
+                    .min(self.config.batch_size);
+                if per_contract > 0 {
+                    info!(
+                        warm = self.warm_count(),
+                        adding_per_contract = per_contract,
+                        "Pre-warming spare keys"
+                    );
+                    self.pre_warm(rpc, per_contract).await?;
+                }
             }
         }
 
@@ -175,6 +221,18 @@ impl KeyPool {
         promoted
     }
 
+    /// Promote WARMUP keys for a specific contract to ACTIVE.
+    pub(crate) fn promote_warm_keys_for(&self, target: &near_primitives::types::AccountId) -> usize {
+        let mut promoted = 0;
+        for slot in self.read_slots().iter() {
+            if slot.state.load(Ordering::Relaxed) == WARMUP && slot.target_contract == *target {
+                slot.state.store(ACTIVE, Ordering::Relaxed);
+                promoted += 1;
+            }
+        }
+        promoted
+    }
+
     /// Pre-warm: create keys on-chain in WARMUP state, ready for instant promotion.
     async fn pre_warm(&self, rpc: &RpcClient, count: u32) -> Result<(), crate::Error> {
         let before = self.read_slots().len();
@@ -192,7 +250,37 @@ impl KeyPool {
         Ok(())
     }
 
-    /// Rotate keys older than `max_key_age`. Reverts to ACTIVE on DeleteKey failure.
+    /// Park idle ACTIVE keys as WARMUP. Keys stay on-chain.
+    pub(crate) fn soft_scale_down(&self, count: u32) {
+        let now = now_secs();
+        let mut parked = 0u32;
+
+        for slot in self.read_slots().iter().rev() {
+            if parked >= count {
+                break;
+            }
+            let st = slot.state.load(Ordering::Relaxed);
+            if st != ACTIVE {
+                continue;
+            }
+            let last_used = slot.last_used.load(Ordering::Relaxed);
+            let last_activity = last_used.max(slot.created_at);
+            if now.saturating_sub(last_activity) < self.config.scale_down_idle.as_secs() {
+                continue;
+            }
+            if slot.in_flight.load(Ordering::Relaxed) > 0 {
+                continue;
+            }
+            slot.state.store(WARMUP, Ordering::Relaxed);
+            parked += 1;
+        }
+
+        if parked > 0 {
+            info!(parked, "Parked idle KMS keys as WARMUP (still on-chain)");
+        }
+    }
+
+    /// Rotate keys older than `max_key_age`. Local mode only.
     pub(crate) async fn rotate_old_keys(&self, rpc: &RpcClient) -> Result<(), crate::Error> {
         let now = now_secs();
         let max_age = self.config.max_key_age.as_secs();
@@ -252,8 +340,6 @@ mod tests {
     use std::sync::Arc;
     use std::time::Duration;
 
-    // --- Reap dead slots ---
-
     #[test]
     fn test_reap_dead_slots_transitions_and_compacts() {
         let pool = make_test_pool(3);
@@ -310,8 +396,6 @@ mod tests {
         assert_eq!(pool.read_slots().len(), 3);
         assert_eq!(pool.active_count(), 3);
     }
-
-    // --- Promote warm keys ---
 
     #[test]
     fn test_promote_warm_keys_activates() {
@@ -421,8 +505,6 @@ mod tests {
         assert_eq!(pool.warm_count(), 0);
     }
 
-    // --- Rotate old keys ---
-
     #[tokio::test]
     async fn test_rotate_old_keys_drains_aged() {
         let pool = make_test_pool(0);
@@ -499,8 +581,6 @@ mod tests {
         assert_eq!(pool.draining_count(), 0);
     }
 
-    // --- Cooldown ---
-
     #[test]
     fn test_cooldown_not_elapsed() {
         let pool = make_test_pool(3);
@@ -521,8 +601,6 @@ mod tests {
         let pool = make_test_pool(3);
         assert!(pool.cooldown_elapsed());
     }
-
-    // --- Autoscale tick ---
 
     #[tokio::test]
     async fn test_autoscale_tick_balanced_no_scaling() {
@@ -568,8 +646,6 @@ mod tests {
         assert_eq!(pool.warm_count(), 1);
         assert_eq!(pool.draining_count(), 0);
     }
-
-    // --- Scale down ---
 
     #[tokio::test]
     async fn test_scale_down_reverts_on_rpc_failure() {
