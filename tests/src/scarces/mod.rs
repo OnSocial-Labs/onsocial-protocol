@@ -11,21 +11,21 @@
 pub mod helpers;
 
 #[cfg(test)]
-pub mod test_deploy_and_admin;
-#[cfg(test)]
-pub mod test_storage;
-#[cfg(test)]
-pub mod test_quick_mint;
+pub mod test_auctions;
 #[cfg(test)]
 pub mod test_collections;
 #[cfg(test)]
-pub mod test_native_sales;
+pub mod test_deploy_and_admin;
 #[cfg(test)]
-pub mod test_auctions;
+pub mod test_lazy_listings;
+#[cfg(test)]
+pub mod test_native_sales;
 #[cfg(test)]
 pub mod test_offers;
 #[cfg(test)]
-pub mod test_lazy_listings;
+pub mod test_quick_mint;
+#[cfg(test)]
+pub mod test_storage;
 
 pub mod test_refunds;
 

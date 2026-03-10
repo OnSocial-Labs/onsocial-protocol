@@ -52,8 +52,7 @@ async fn test_deploy_and_init_defaults() -> Result<()> {
 async fn test_deploy_with_custom_metadata() -> Result<()> {
     let worker = create_sandbox().await?;
     let owner = worker.dev_create_account().await?;
-    let contract =
-        deploy_scarces_with_metadata(&worker, &owner, "Test Collection", "TEST").await?;
+    let contract = deploy_scarces_with_metadata(&worker, &owner, "Test Collection", "TEST").await?;
 
     let meta = nft_metadata(&contract).await?;
     assert_eq!(meta.name, "Test Collection");
@@ -217,7 +216,10 @@ async fn test_add_remove_approved_nft_contract() -> Result<()> {
 
     // Initially empty
     let approved = get_approved_nft_contracts(&contract).await?;
-    assert!(approved.is_empty(), "should start with no approved contracts");
+    assert!(
+        approved.is_empty(),
+        "should start with no approved contracts"
+    );
 
     // Add one
     let external_nft: near_workspaces::AccountId = "nft-contract.testnet".parse().unwrap();

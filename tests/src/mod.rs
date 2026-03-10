@@ -45,9 +45,9 @@ pub mod relayer_key_pool_tests;
 #[cfg(test)]
 pub mod rewards;
 #[cfg(test)]
-pub mod shared_storage_atomic_tests;
-#[cfg(test)]
 pub mod scarces;
+#[cfg(test)]
+pub mod shared_storage_atomic_tests;
 #[cfg(test)]
 pub mod signed_payload_integration_tests;
 #[cfg(test)]

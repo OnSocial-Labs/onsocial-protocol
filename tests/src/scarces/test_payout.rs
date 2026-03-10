@@ -45,17 +45,11 @@ async fn test_nft_payout_no_royalty() -> Result<()> {
     let minter = user_with_storage(&worker, &contract).await?;
 
     // Mint without royalties
-    quick_mint(
-        &contract,
-        &minter,
-        "No Royalty",
-        DEPOSIT_LARGE,
-    )
-    .await?
-    .into_result()?;
+    quick_mint(&contract, &minter, "No Royalty", DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
     let token_id = &tokens[0].token_id;
 
     // Full balance goes to owner
@@ -87,15 +81,17 @@ async fn test_nft_payout_with_royalty() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
     let token_id = &tokens[0].token_id;
 
     // 1 NEAR sale: artist gets 10%, seller gets 90%
     let balance = "1000000000000000000000000"; // 1 NEAR
     let payout = nft_payout(&contract, token_id, balance, None).await?;
 
-    assert!(payout.payout.len() <= 2, "At most 2 entries (seller + artist)");
+    assert!(
+        payout.payout.len() <= 2,
+        "At most 2 entries (seller + artist)"
+    );
 
     let artist_amount: u128 = payout
         .payout
@@ -140,8 +136,7 @@ async fn test_nft_payout_multiple_royalties() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
     let token_id = &tokens[0].token_id;
 
     let balance = "1000000000000000000000000";
@@ -194,8 +189,7 @@ async fn test_nft_transfer_payout_transfers_token() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
     let token_id = &tokens[0].token_id;
 
     nft_transfer_payout(
@@ -223,17 +217,11 @@ async fn test_nft_transfer_payout_non_owner_fails() -> Result<()> {
     let stranger = user_with_storage(&worker, &contract).await?;
     let buyer = worker.dev_create_account().await?;
 
-    quick_mint(
-        &contract,
-        &minter,
-        "Not Yours",
-        DEPOSIT_LARGE,
-    )
-    .await?
-    .into_result()?;
+    quick_mint(&contract, &minter, "Not Yours", DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
     let token_id = &tokens[0].token_id;
 
     let result = nft_transfer_payout(
@@ -274,13 +262,11 @@ async fn test_nft_transfer_payout_returns_correct_split() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &minter.id().to_string(), None, Some(50)).await?;
     let token_id = &tokens[0].token_id;
 
     // View payout before transfer
-    let payout_view =
-        nft_payout(&contract, token_id, "1000000000000000000000000", None).await?;
+    let payout_view = nft_payout(&contract, token_id, "1000000000000000000000000", None).await?;
     assert_eq!(payout_view.payout.len(), 2);
 
     // Now do the actual transfer_payout

@@ -29,8 +29,12 @@ async fn user_with_token(
     title: &str,
 ) -> Result<(near_workspaces::Account, String)> {
     let user = worker.dev_create_account().await?;
-    storage_deposit(contract, &user, None, DEPOSIT_LARGE).await?.into_result()?;
-    quick_mint(contract, &user, title, DEPOSIT_STORAGE).await?.into_result()?;
+    storage_deposit(contract, &user, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    quick_mint(contract, &user, title, DEPOSIT_STORAGE)
+        .await?
+        .into_result()?;
     let tokens = nft_tokens_for_owner(contract, &user.id().to_string(), None, Some(1)).await?;
     let token_id = tokens[0].token_id.clone();
     Ok((user, token_id))
@@ -56,9 +60,15 @@ async fn test_get_sales_returns_listed() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Sale Item").await?;
 
     // List for sale
-    list_native_scarce(&contract, &seller, &token_id, "2000000000000000000000000", DEPOSIT_STORAGE)
-        .await?
-        .into_result()?;
+    list_native_scarce(
+        &contract,
+        &seller,
+        &token_id,
+        "2000000000000000000000000",
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
 
     let sales = get_sales(&contract, None, None).await?;
     assert_eq!(sales.len(), 1);
@@ -74,9 +84,15 @@ async fn test_get_sales_pagination() -> Result<()> {
     for i in 0..3 {
         let (seller, token_id) =
             user_with_token(&worker, &contract, &format!("Paginated {}", i)).await?;
-        list_native_scarce(&contract, &seller, &token_id, "1000000000000000000000000", DEPOSIT_STORAGE)
-            .await?
-            .into_result()?;
+        list_native_scarce(
+            &contract,
+            &seller,
+            &token_id,
+            "1000000000000000000000000",
+            DEPOSIT_STORAGE,
+        )
+        .await?
+        .into_result()?;
     }
 
     // Page 1: limit 2
@@ -109,9 +125,15 @@ async fn test_get_supply_by_scarce_contract_id_after_listing() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let (seller, token_id) = user_with_token(&worker, &contract, "Count Item").await?;
 
-    list_native_scarce(&contract, &seller, &token_id, "1000000000000000000000000", DEPOSIT_STORAGE)
-        .await?
-        .into_result()?;
+    list_native_scarce(
+        &contract,
+        &seller,
+        &token_id,
+        "1000000000000000000000000",
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
 
     let count = get_supply_by_scarce_contract_id(&contract, contract.id().as_str()).await?;
     assert_eq!(count, 1);
@@ -139,9 +161,15 @@ async fn test_is_sale_expired_false_for_active() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Active Sale").await?;
 
     // List without expiry
-    list_native_scarce(&contract, &seller, &token_id, "1000000000000000000000000", DEPOSIT_STORAGE)
-        .await?
-        .into_result()?;
+    list_native_scarce(
+        &contract,
+        &seller,
+        &token_id,
+        "1000000000000000000000000",
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
 
     let result = is_sale_expired(&contract, contract.id().as_str(), &token_id).await?;
     // No expiry set → should be Some(false)
@@ -170,9 +198,15 @@ async fn test_get_expired_sales_not_expired() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Not Expired").await?;
 
     // List without expiry
-    list_native_scarce(&contract, &seller, &token_id, "1000000000000000000000000", DEPOSIT_STORAGE)
-        .await?
-        .into_result()?;
+    list_native_scarce(
+        &contract,
+        &seller,
+        &token_id,
+        "1000000000000000000000000",
+        DEPOSIT_STORAGE,
+    )
+    .await?
+    .into_result()?;
 
     let expired = get_expired_sales(&contract, None, None).await?;
     assert!(expired.is_empty());

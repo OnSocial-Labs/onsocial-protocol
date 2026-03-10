@@ -151,11 +151,7 @@ async fn test_wnear_deposit_accumulates() -> Result<()> {
         .into_result()?;
 
     let storage = get_user_storage(&contract, user.id().as_str()).await?;
-    let balance: u128 = storage["balance"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let balance: u128 = storage["balance"].as_str().unwrap().parse().unwrap();
     assert_eq!(balance, first + second);
 
     Ok(())
@@ -181,11 +177,7 @@ async fn test_wnear_deposit_credits_different_account_via_msg() -> Result<()> {
 
     // Alice should have the balance
     let storage = get_user_storage(&contract, alice.id().as_str()).await?;
-    let alice_balance: u128 = storage["balance"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let alice_balance: u128 = storage["balance"].as_str().unwrap().parse().unwrap();
     assert_eq!(alice_balance, deposit_amount);
 
     // User should have zero
@@ -252,7 +244,10 @@ async fn test_wnear_deposit_without_config_rejected() -> Result<()> {
         .unwrap_or("0")
         .parse()
         .unwrap_or(0);
-    assert_eq!(balance, 0, "Unconfigured wNEAR should not credit storage balance");
+    assert_eq!(
+        balance, 0,
+        "Unconfigured wNEAR should not credit storage balance"
+    );
 
     Ok(())
 }
@@ -298,11 +293,7 @@ async fn test_wnear_deposit_enables_prepaid_purchase() -> Result<()> {
 
     // Verify user has storage balance from wNEAR deposit
     let storage = get_user_storage(&contract, user.id().as_str()).await?;
-    let balance: u128 = storage["balance"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let balance: u128 = storage["balance"].as_str().unwrap().parse().unwrap();
     assert!(balance > 0, "User should have wNEAR-funded storage balance");
 
     Ok(())
@@ -321,11 +312,7 @@ async fn test_wnear_balance_survives_after_mint() -> Result<()> {
         .into_result()?;
 
     let storage_before = get_user_storage(&contract, user.id().as_str()).await?;
-    let balance_before: u128 = storage_before["balance"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let balance_before: u128 = storage_before["balance"].as_str().unwrap().parse().unwrap();
 
     // Mint a scarce (costs some storage bytes)
     execute_action(
@@ -343,14 +330,13 @@ async fn test_wnear_balance_survives_after_mint() -> Result<()> {
 
     // Balance should still be positive (wNEAR deposit is separate from attached NEAR)
     let storage_after = get_user_storage(&contract, user.id().as_str()).await?;
-    let balance_after: u128 = storage_after["balance"]
-        .as_str()
-        .unwrap()
-        .parse()
-        .unwrap();
+    let balance_after: u128 = storage_after["balance"].as_str().unwrap().parse().unwrap();
     assert!(balance_after > 0, "wNEAR balance should persist after mint");
     // wNEAR-funded balance should be preserved; attached deposit excess may add more
-    assert!(balance_after >= balance_before, "Balance should not decrease after mint");
+    assert!(
+        balance_after >= balance_before,
+        "Balance should not decrease after mint"
+    );
 
     Ok(())
 }

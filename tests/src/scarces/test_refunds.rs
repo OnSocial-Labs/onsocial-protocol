@@ -59,12 +59,18 @@ async fn collection_with_tokens(
     .await?
     .into_result()?;
 
-    mint_from_collection(contract, &creator, collection_id, count, None, DEPOSIT_LARGE)
-        .await?
-        .into_result()?;
+    mint_from_collection(
+        contract,
+        &creator,
+        collection_id,
+        count,
+        None,
+        DEPOSIT_LARGE,
+    )
+    .await?
+    .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(contract, &creator.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(contract, &creator.id().to_string(), None, Some(50)).await?;
     let token_ids: Vec<String> = tokens
         .iter()
         .filter(|t| t.token_id.starts_with(&format!("{}:", collection_id)))
@@ -150,10 +156,7 @@ async fn test_cancel_collection_non_creator_fails() -> Result<()> {
         NearToken::from_near(1),
     )
     .await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-creator cannot cancel"
-    );
+    assert!(result.into_result().is_err(), "Non-creator cannot cancel");
 
     Ok(())
 }
@@ -284,12 +287,8 @@ async fn test_claim_refund_already_claimed_fails() -> Result<()> {
         .into_result()?;
 
     // Claim again — should fail
-    let result =
-        claim_refund(&contract, &creator, &token_ids[0], "refund-col", ONE_YOCTO).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Double claim should fail"
-    );
+    let result = claim_refund(&contract, &creator, &token_ids[0], "refund-col", ONE_YOCTO).await?;
+    assert!(result.into_result().is_err(), "Double claim should fail");
 
     Ok(())
 }
@@ -301,8 +300,7 @@ async fn test_claim_refund_not_cancelled_fails() -> Result<()> {
         collection_with_tokens(&worker, &contract, "refund-col", 5, 1).await?;
 
     // Try claiming without cancelling first
-    let result =
-        claim_refund(&contract, &creator, &token_ids[0], "refund-col", ONE_YOCTO).await?;
+    let result = claim_refund(&contract, &creator, &token_ids[0], "refund-col", ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Cannot claim from non-cancelled collection"
@@ -329,8 +327,7 @@ async fn test_claim_refund_non_holder_fails() -> Result<()> {
     .await?
     .into_result()?;
 
-    let result =
-        claim_refund(&contract, &stranger, &token_ids[0], "refund-col", ONE_YOCTO).await?;
+    let result = claim_refund(&contract, &stranger, &token_ids[0], "refund-col", ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Non-holder cannot claim refund"
@@ -361,8 +358,7 @@ async fn test_withdraw_unclaimed_before_deadline_fails() -> Result<()> {
     .into_result()?;
 
     // Try to withdraw immediately — deadline hasn't passed
-    let result =
-        withdraw_unclaimed_refunds(&contract, &creator, "refund-col", ONE_YOCTO).await?;
+    let result = withdraw_unclaimed_refunds(&contract, &creator, "refund-col", ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Cannot withdraw before deadline"
@@ -389,12 +385,8 @@ async fn test_withdraw_unclaimed_non_creator_fails() -> Result<()> {
     .await?
     .into_result()?;
 
-    let result =
-        withdraw_unclaimed_refunds(&contract, &stranger, "refund-col", ONE_YOCTO).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-creator cannot withdraw"
-    );
+    let result = withdraw_unclaimed_refunds(&contract, &stranger, "refund-col", ONE_YOCTO).await?;
+    assert!(result.into_result().is_err(), "Non-creator cannot withdraw");
 
     Ok(())
 }

@@ -31,17 +31,11 @@ async fn mint_one(
     storage_deposit(contract, minter, None, DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    quick_mint(
-        contract,
-        minter,
-        "Transfer Call Token",
-        DEPOSIT_LARGE,
-    )
-    .await?
-    .into_result()?;
+    quick_mint(contract, minter, "Transfer Call Token", DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(contract, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(contract, &minter.id().to_string(), None, Some(50)).await?;
     Ok(tokens[0].token_id.clone())
 }
 
@@ -148,9 +142,14 @@ async fn test_nft_transfer_call_nonexistent_token_fails() -> Result<()> {
 
     let receiver = worker.dev_create_account().await?;
 
-    let result =
-        nft_transfer_call(&contract, &minter, &receiver.id().to_string(), "nope:1", "msg")
-            .await?;
+    let result = nft_transfer_call(
+        &contract,
+        &minter,
+        &receiver.id().to_string(),
+        "nope:1",
+        "msg",
+    )
+    .await?;
     assert!(
         result.into_result().is_err(),
         "Cannot transfer nonexistent token"
@@ -171,8 +170,7 @@ async fn test_nft_transfer_call_updates_enumeration() -> Result<()> {
         .into_result()?;
 
     // Before transfer
-    let supply_before =
-        nft_supply_for_owner(&contract, &minter.id().to_string()).await?;
+    let supply_before = nft_supply_for_owner(&contract, &minter.id().to_string()).await?;
     assert_eq!(supply_before, "1");
 
     let _ = nft_transfer_call(
@@ -185,10 +183,8 @@ async fn test_nft_transfer_call_updates_enumeration() -> Result<()> {
     .await?;
 
     // After transfer
-    let minter_supply =
-        nft_supply_for_owner(&contract, &minter.id().to_string()).await?;
-    let receiver_supply =
-        nft_supply_for_owner(&contract, &receiver.id().to_string()).await?;
+    let minter_supply = nft_supply_for_owner(&contract, &minter.id().to_string()).await?;
+    let receiver_supply = nft_supply_for_owner(&contract, &receiver.id().to_string()).await?;
     assert_eq!(minter_supply, "0", "Minter should have 0 tokens");
     assert_eq!(receiver_supply, "1", "Receiver should have 1 token");
 

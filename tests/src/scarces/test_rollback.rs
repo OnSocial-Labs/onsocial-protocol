@@ -101,7 +101,10 @@ async fn test_quick_mint_rollback_no_storage() -> Result<()> {
     )
     .await?;
 
-    assert!(result.is_failure(), "quick_mint should fail without storage");
+    assert!(
+        result.is_failure(),
+        "quick_mint should fail without storage"
+    );
 
     let supply_after = nft_total_supply(&contract).await?;
     assert_eq!(
@@ -151,10 +154,7 @@ async fn test_create_collection_rollback_no_storage() -> Result<()> {
     );
 
     let col = get_collection(&contract, "ghost-col").await?;
-    assert!(
-        col.is_none(),
-        "collection should not exist after rollback"
-    );
+    assert!(col.is_none(), "collection should not exist after rollback");
 
     Ok(())
 }
@@ -360,7 +360,10 @@ async fn test_set_allowlist_rollback_drained_storage() -> Result<()> {
     assert!(!is_listed, "alice should NOT be allowlisted after rollback");
 
     let remaining = get_allowlist_remaining(&contract, "al-col", &alice.id().to_string()).await?;
-    assert_eq!(remaining, 0, "allowlist allocation should be 0 after rollback");
+    assert_eq!(
+        remaining, 0,
+        "allowlist allocation should be 0 after rollback"
+    );
 
     Ok(())
 }
@@ -419,7 +422,10 @@ async fn test_mint_from_collection_rollback_drained_storage() -> Result<()> {
 
     // The specific token IDs should not exist.
     let t1 = nft_token(&contract, "mint-col:1").await?;
-    assert!(t1.is_none(), "token mint-col:1 should not exist after rollback");
+    assert!(
+        t1.is_none(),
+        "token mint-col:1 should not exist after rollback"
+    );
 
     Ok(())
 }
@@ -479,7 +485,10 @@ async fn test_airdrop_rollback_drained_storage() -> Result<()> {
 
     // No tokens leaked to receivers.
     let alice_supply = nft_supply_for_owner(&contract, &alice.id().to_string()).await?;
-    assert_eq!(alice_supply, "0", "alice should own 0 tokens after rollback");
+    assert_eq!(
+        alice_supply, "0",
+        "alice should own 0 tokens after rollback"
+    );
     let bob_supply = nft_supply_for_owner(&contract, &bob.id().to_string()).await?;
     assert_eq!(bob_supply, "0", "bob should own 0 tokens after rollback");
 
@@ -551,7 +560,10 @@ async fn test_purchase_rollback_on_storage_failure() -> Result<()> {
     )
     .await?;
 
-    assert!(result.is_failure(), "purchase should fail with insufficient deposit");
+    assert!(
+        result.is_failure(),
+        "purchase should fail with insufficient deposit"
+    );
 
     let progress_after = get_collection_progress(&contract, "buy-col").await?;
     let minted_after = progress_after.as_ref().map(|p| p.minted).unwrap_or(0);
@@ -604,24 +616,22 @@ async fn test_collection_reusable_after_rollback() -> Result<()> {
         .into_result()?;
 
     // Second attempt succeeds.
-    let ok_result = mint_from_collection(
-        &contract,
-        &creator,
-        "reuse-col",
-        2,
-        None,
-        DEPOSIT_STORAGE,
-    )
-    .await?;
+    let ok_result =
+        mint_from_collection(&contract, &creator, "reuse-col", 2, None, DEPOSIT_STORAGE).await?;
     ok_result.into_result()?;
 
     // Verify: 2 minted, not 3 (the failed 1 didn't stick).
-    let progress = get_collection_progress(&contract, "reuse-col").await?.unwrap();
+    let progress = get_collection_progress(&contract, "reuse-col")
+        .await?
+        .unwrap();
     assert_eq!(progress.minted, 2, "only the successful mint should count");
 
     // Token IDs start at 1 (the rollback released the slot).
     let t1 = nft_token(&contract, "reuse-col:1").await?;
-    assert!(t1.is_some(), "reuse-col:1 should exist after successful mint");
+    assert!(
+        t1.is_some(),
+        "reuse-col:1 should exist after successful mint"
+    );
 
     Ok(())
 }

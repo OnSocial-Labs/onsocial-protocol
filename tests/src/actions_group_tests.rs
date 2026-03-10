@@ -133,7 +133,11 @@ async fn test_create_proposal_zero_deposit_fails() -> anyhow::Result<()> {
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(withdraw_all.is_success(), "Withdraw should succeed: {:?}", withdraw_all.failures());
+    assert!(
+        withdraw_all.is_success(),
+        "Withdraw should succeed: {:?}",
+        withdraw_all.failures()
+    );
     println!("   ✓ Withdrew all storage balance");
 
     // Attempt to create proposal with ZERO deposit (should fail)
@@ -225,7 +229,11 @@ async fn test_create_proposal_insufficient_deposit_fails() -> anyhow::Result<()>
         .gas(near_workspaces::types::Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(withdraw_all.is_success(), "Withdraw should succeed: {:?}", withdraw_all.failures());
+    assert!(
+        withdraw_all.is_success(),
+        "Withdraw should succeed: {:?}",
+        withdraw_all.failures()
+    );
     println!("   ✓ Withdrew all storage balance");
 
     // Attempt to create proposal with 0.05 NEAR (below 0.1 NEAR minimum)

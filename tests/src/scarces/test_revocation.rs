@@ -67,8 +67,7 @@ async fn collection_with_mode(
         .await?
         .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(contract, &creator.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(contract, &creator.id().to_string(), None, Some(10)).await?;
     let token_id = tokens
         .iter()
         .find(|t| t.token_id.starts_with(&format!("{}:", collection_id)))
@@ -123,8 +122,7 @@ async fn test_revoke_token_invalidate_already_revoked_fails() -> Result<()> {
         .await?
         .into_result()?;
 
-    let result =
-        revoke_token(&contract, &creator, &token_id, "inv-col", None, ONE_YOCTO).await?;
+    let result = revoke_token(&contract, &creator, &token_id, "inv-col", None, ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Cannot revoke already revoked token"
@@ -168,8 +166,7 @@ async fn test_revoke_token_none_mode_fails() -> Result<()> {
     let (creator, token_id) =
         collection_with_mode(&worker, &contract, "norv-col", "none", None, false).await?;
 
-    let result =
-        revoke_token(&contract, &creator, &token_id, "norv-col", None, ONE_YOCTO).await?;
+    let result = revoke_token(&contract, &creator, &token_id, "norv-col", None, ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Cannot revoke irrevocable token"
@@ -189,12 +186,8 @@ async fn test_revoke_token_non_creator_fails() -> Result<()> {
         collection_with_mode(&worker, &contract, "inv-col", "invalidate", None, false).await?;
     let stranger = user_with_storage(&worker, &contract).await?;
 
-    let result =
-        revoke_token(&contract, &stranger, &token_id, "inv-col", None, ONE_YOCTO).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-creator cannot revoke"
-    );
+    let result = revoke_token(&contract, &stranger, &token_id, "inv-col", None, ONE_YOCTO).await?;
+    assert!(result.into_result().is_err(), "Non-creator cannot revoke");
 
     Ok(())
 }
@@ -243,12 +236,8 @@ async fn test_redeem_token_until_fully_redeemed() -> Result<()> {
     assert_eq!(status.redeem_count, 2);
 
     // Third redeem should fail
-    let result =
-        redeem_token(&contract, &creator, &token_id, "red-col", ONE_YOCTO).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Cannot redeem beyond max"
-    );
+    let result = redeem_token(&contract, &creator, &token_id, "red-col", ONE_YOCTO).await?;
+    assert!(result.into_result().is_err(), "Cannot redeem beyond max");
 
     Ok(())
 }
@@ -260,8 +249,7 @@ async fn test_redeem_token_not_redeemable_fails() -> Result<()> {
     let (creator, token_id) =
         collection_with_mode(&worker, &contract, "nored-col", "none", None, false).await?;
 
-    let result =
-        redeem_token(&contract, &creator, &token_id, "nored-col", ONE_YOCTO).await?;
+    let result = redeem_token(&contract, &creator, &token_id, "nored-col", ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Token without max_redeems is not redeemable"
@@ -277,12 +265,8 @@ async fn test_redeem_token_non_creator_fails() -> Result<()> {
         collection_with_mode(&worker, &contract, "red-col", "none", Some(3), false).await?;
     let stranger = user_with_storage(&worker, &contract).await?;
 
-    let result =
-        redeem_token(&contract, &stranger, &token_id, "red-col", ONE_YOCTO).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-creator cannot redeem"
-    );
+    let result = redeem_token(&contract, &stranger, &token_id, "red-col", ONE_YOCTO).await?;
+    assert!(result.into_result().is_err(), "Non-creator cannot redeem");
 
     Ok(())
 }
@@ -305,12 +289,7 @@ async fn test_renew_token() -> Result<()> {
         + 365 * 24 * 3600 * 1_000_000_000;
 
     renew_token(
-        &contract,
-        &creator,
-        &token_id,
-        "ren-col",
-        future_ns,
-        ONE_YOCTO,
+        &contract, &creator, &token_id, "ren-col", future_ns, ONE_YOCTO,
     )
     .await?
     .into_result()?;
@@ -377,12 +356,8 @@ async fn test_burn_non_owner_fails() -> Result<()> {
         collection_with_mode(&worker, &contract, "brn-col", "none", None, false).await?;
     let stranger = user_with_storage(&worker, &contract).await?;
 
-    let result =
-        burn_scarce(&contract, &stranger, &token_id, Some("brn-col"), ONE_YOCTO).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-owner cannot burn"
-    );
+    let result = burn_scarce(&contract, &stranger, &token_id, Some("brn-col"), ONE_YOCTO).await?;
+    assert!(result.into_result().is_err(), "Non-owner cannot burn");
 
     Ok(())
 }

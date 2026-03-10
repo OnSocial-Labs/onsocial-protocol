@@ -132,8 +132,6 @@ impl KeyPool {
         }
     }
 
-
-
     pub(crate) fn read_slots(&self) -> std::sync::RwLockReadGuard<'_, Vec<Arc<KeySlot>>> {
         self.slots.read().unwrap_or_else(|e| e.into_inner())
     }
@@ -364,7 +362,6 @@ impl KeyPool {
 
         Ok(promoted)
     }
-
 }
 
 #[cfg(test)]

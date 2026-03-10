@@ -66,7 +66,10 @@ async fn test_pool_deposit_non_owner_rejected() -> Result<()> {
     // The call will succeed on FT side but ft_on_transfer panics,
     // so ft_resolve_transfer refunds the tokens to stranger.
     let pool = get_pool_balance(&rewards).await?;
-    assert_eq!(pool, 0, "pool should remain 0 after non-owner deposit attempt");
+    assert_eq!(
+        pool, 0,
+        "pool should remain 0 after non-owner deposit attempt"
+    );
 
     Ok(())
 }

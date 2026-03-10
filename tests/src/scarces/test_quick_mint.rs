@@ -59,7 +59,10 @@ async fn test_quick_mint_basic() -> Result<()> {
 
     let token = &tokens[0];
     assert_eq!(token.owner_id, user.id().to_string());
-    assert!(token.token_id.starts_with("s:"), "token_id should start with s:");
+    assert!(
+        token.token_id.starts_with("s:"),
+        "token_id should start with s:"
+    );
 
     // Check metadata
     let meta = token.metadata.as_ref().expect("token should have metadata");
@@ -86,10 +89,10 @@ async fn test_quick_mint_with_full_metadata() -> Result<()> {
         &contract,
         &user,
         metadata,
-        None,  // no royalty
-        None,  // no app_id
-        true,  // transferable
-        true,  // burnable
+        None, // no royalty
+        None, // no app_id
+        true, // transferable
+        true, // burnable
         DEPOSIT_STORAGE,
     )
     .await?;
@@ -138,8 +141,7 @@ async fn test_quick_mint_with_royalty() -> Result<()> {
     );
 
     // Verify via nft_token
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
     assert_eq!(tokens.len(), 1);
 
     // Check payout structure
@@ -169,13 +171,8 @@ async fn test_quick_mint_multiple_tokens() -> Result<()> {
 
     // Mint 3 tokens
     for i in 0..3 {
-        let result = quick_mint(
-            &contract,
-            &user,
-            &format!("Token #{}", i),
-            DEPOSIT_STORAGE,
-        )
-        .await?;
+        let result =
+            quick_mint(&contract, &user, &format!("Token #{}", i), DEPOSIT_STORAGE).await?;
         assert!(result.is_success(), "mint #{} should succeed", i);
     }
 
@@ -549,14 +546,9 @@ async fn test_nft_tokens_enumeration() -> Result<()> {
 
     // Mint 5 tokens
     for i in 0..5 {
-        quick_mint(
-            &contract,
-            &user,
-            &format!("Enum #{}", i),
-            DEPOSIT_STORAGE,
-        )
-        .await?
-        .into_result()?;
+        quick_mint(&contract, &user, &format!("Enum #{}", i), DEPOSIT_STORAGE)
+            .await?
+            .into_result()?;
     }
 
     // nft_tokens with limit

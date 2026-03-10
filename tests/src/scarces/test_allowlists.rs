@@ -68,13 +68,11 @@ async fn test_set_allowlist_happy() -> Result<()> {
     .into_result()?;
 
     // Verify via view
-    let is_allowed =
-        is_allowlisted(&contract, "allow-col", &allowed_user.id().to_string()).await?;
+    let is_allowed = is_allowlisted(&contract, "allow-col", &allowed_user.id().to_string()).await?;
     assert!(is_allowed, "User should be allowlisted");
 
     let remaining =
-        get_allowlist_remaining(&contract, "allow-col", &allowed_user.id().to_string())
-            .await?;
+        get_allowlist_remaining(&contract, "allow-col", &allowed_user.id().to_string()).await?;
     assert_eq!(remaining, 3, "Should have 3 remaining allocation");
 
     Ok(())
@@ -133,8 +131,7 @@ async fn test_allowlist_not_listed_returns_false() -> Result<()> {
     .await?
     .into_result()?;
 
-    let is_allowed =
-        is_allowlisted(&contract, "allow-col3", &random.id().to_string()).await?;
+    let is_allowed = is_allowlisted(&contract, "allow-col3", &random.id().to_string()).await?;
     assert!(!is_allowed, "Non-allowlisted user should return false");
 
     Ok(())
@@ -186,8 +183,7 @@ async fn test_remove_from_allowlist_happy() -> Result<()> {
     .await?
     .into_result()?;
 
-    let is_allowed =
-        is_allowlisted(&contract, "remove-col", &user.id().to_string()).await?;
+    let is_allowed = is_allowlisted(&contract, "remove-col", &user.id().to_string()).await?;
     assert!(!is_allowed, "User should no longer be allowlisted");
 
     Ok(())
@@ -303,8 +299,7 @@ async fn test_wallet_mint_remaining_no_limit() -> Result<()> {
     .into_result()?;
 
     let remaining =
-        get_wallet_mint_remaining(&contract, "nolimit-col", &creator.id().to_string())
-            .await?;
+        get_wallet_mint_remaining(&contract, "nolimit-col", &creator.id().to_string()).await?;
     assert_eq!(remaining, None, "No limit set → None");
 
     Ok(())

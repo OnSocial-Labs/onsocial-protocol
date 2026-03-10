@@ -37,8 +37,7 @@ async fn user_with_token(
     quick_mint(contract, &user, title, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(contract, &user.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(contract, &user.id().to_string(), None, Some(1)).await?;
     let token_id = tokens[0].token_id.clone();
     Ok((user, token_id))
 }
@@ -108,8 +107,7 @@ async fn test_list_auction_basic() -> Result<()> {
 #[tokio::test]
 async fn test_list_auction_with_buy_now() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (seller, token_id) =
-        user_with_token(&worker, &contract, "BuyNow NFT").await?;
+    let (seller, token_id) = user_with_token(&worker, &contract, "BuyNow NFT").await?;
 
     list_native_scarce_auction(
         &contract,
@@ -212,8 +210,7 @@ async fn test_list_auction_already_listed_fails() -> Result<()> {
 #[tokio::test]
 async fn test_place_bid_first_bid() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (seller, token_id) =
-        user_with_token(&worker, &contract, "Auction NFT").await?;
+    let (seller, token_id) = user_with_token(&worker, &contract, "Auction NFT").await?;
     let bidder = user_with_storage(&worker, &contract).await?;
 
     list_native_scarce_auction(
@@ -482,8 +479,7 @@ async fn test_cancel_auction_non_seller_fails() -> Result<()> {
     .await?
     .into_result()?;
 
-    let result =
-        cancel_auction(&contract, &stranger, &token_id, ONE_YOCTO).await?;
+    let result = cancel_auction(&contract, &stranger, &token_id, ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Non-seller cannot cancel auction"
@@ -499,8 +495,7 @@ async fn test_cancel_auction_non_seller_fails() -> Result<()> {
 #[tokio::test]
 async fn test_buy_now_settles_immediately() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (seller, token_id) =
-        user_with_token(&worker, &contract, "BuyNow NFT").await?;
+    let (seller, token_id) = user_with_token(&worker, &contract, "BuyNow NFT").await?;
     let buyer = user_with_storage(&worker, &contract).await?;
 
     list_native_scarce_auction(
@@ -546,8 +541,7 @@ async fn test_buy_now_settles_immediately() -> Result<()> {
 #[tokio::test]
 async fn test_settle_auction_after_expiry() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (seller, token_id) =
-        user_with_token(&worker, &contract, "Timed NFT").await?;
+    let (seller, token_id) = user_with_token(&worker, &contract, "Timed NFT").await?;
     let bidder = user_with_storage(&worker, &contract).await?;
 
     // Auction with 5 second duration
@@ -605,8 +599,7 @@ async fn test_settle_auction_after_expiry() -> Result<()> {
 #[tokio::test]
 async fn test_auction_views() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (seller, token_id) =
-        user_with_token(&worker, &contract, "View NFT").await?;
+    let (seller, token_id) = user_with_token(&worker, &contract, "View NFT").await?;
 
     list_native_scarce_auction(
         &contract,
@@ -632,10 +625,7 @@ async fn test_auction_views() -> Result<()> {
     let sale = get_sale(&contract, &token_id).await?;
     assert!(sale.is_some());
     let sale = sale.unwrap();
-    assert!(
-        sale.auction.is_some(),
-        "Sale should contain auction state"
-    );
+    assert!(sale.auction.is_some(), "Sale should contain auction state");
 
     Ok(())
 }

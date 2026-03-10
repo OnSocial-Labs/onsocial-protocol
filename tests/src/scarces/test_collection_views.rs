@@ -172,12 +172,10 @@ async fn test_get_collections_count_by_creator() -> Result<()> {
         .into_result()?;
     }
 
-    let count =
-        get_collections_count_by_creator(&contract, &creator.id().to_string()).await?;
+    let count = get_collections_count_by_creator(&contract, &creator.id().to_string()).await?;
     assert_eq!(count, 2);
 
-    let other_count =
-        get_collections_count_by_creator(&contract, &other.id().to_string()).await?;
+    let other_count = get_collections_count_by_creator(&contract, &other.id().to_string()).await?;
     assert_eq!(other_count, 0);
 
     Ok(())
@@ -208,8 +206,7 @@ async fn test_get_collection_price() -> Result<()> {
     let price = get_collection_price(&contract, "price-col").await?;
     let price_u128: u128 = price.parse()?;
     assert_eq!(
-        price_u128,
-        2_000_000_000_000_000_000_000_000u128,
+        price_u128, 2_000_000_000_000_000_000_000_000u128,
         "Price should be 2 NEAR"
     );
 
@@ -238,8 +235,7 @@ async fn test_calculate_collection_purchase_price() -> Result<()> {
     let total = calculate_collection_purchase_price(&contract, "calc-col", 3).await?;
     let total_u128: u128 = total.parse()?;
     assert_eq!(
-        total_u128,
-        3_000_000_000_000_000_000_000_000u128,
+        total_u128, 3_000_000_000_000_000_000_000_000u128,
         "3 tokens × 1 NEAR = 3 NEAR"
     );
 

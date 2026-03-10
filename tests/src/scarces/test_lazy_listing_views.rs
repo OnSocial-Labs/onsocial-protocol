@@ -86,8 +86,7 @@ async fn test_lazy_listings_by_app_returns_matching() -> Result<()> {
     assert_eq!(listings.len(), 1);
 
     // Different app should return empty
-    let other_listings =
-        get_lazy_listings_by_app(&contract, "other-app.near", None, None).await?;
+    let other_listings = get_lazy_listings_by_app(&contract, "other-app.near", None, None).await?;
     assert!(other_listings.is_empty());
 
     Ok(())
@@ -129,8 +128,7 @@ async fn test_allowlist_allocation_zero_by_default() -> Result<()> {
     .into_result()?;
 
     let user = worker.dev_create_account().await?;
-    let allocation =
-        get_allowlist_allocation(&contract, "alloc-col", user.id().as_str()).await?;
+    let allocation = get_allowlist_allocation(&contract, "alloc-col", user.id().as_str()).await?;
     assert_eq!(allocation, 0);
 
     Ok(())
@@ -166,8 +164,7 @@ async fn test_allowlist_allocation_after_set() -> Result<()> {
     .await?
     .into_result()?;
 
-    let allocation =
-        get_allowlist_allocation(&contract, "alloc-col2", user.id().as_str()).await?;
+    let allocation = get_allowlist_allocation(&contract, "alloc-col2", user.id().as_str()).await?;
     assert_eq!(allocation, 3);
 
     Ok(())

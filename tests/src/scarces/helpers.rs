@@ -237,10 +237,7 @@ pub async fn storage_deposit(
 }
 
 /// View the storage balance of an account.
-pub async fn storage_balance_of(
-    contract: &Contract,
-    account_id: &str,
-) -> Result<String> {
+pub async fn storage_balance_of(contract: &Contract, account_id: &str) -> Result<String> {
     let result = contract
         .view("storage_balance_of")
         .args_json(json!({ "account_id": account_id }))
@@ -720,10 +717,7 @@ pub async fn get_collection(
 }
 
 /// View `get_collection_availability`.
-pub async fn get_collection_availability(
-    contract: &Contract,
-    collection_id: &str,
-) -> Result<u32> {
+pub async fn get_collection_availability(contract: &Contract, collection_id: &str) -> Result<u32> {
     let result = contract
         .view("get_collection_availability")
         .args_json(json!({ "collection_id": collection_id }))
@@ -733,10 +727,7 @@ pub async fn get_collection_availability(
 }
 
 /// View `is_collection_sold_out`.
-pub async fn is_collection_sold_out(
-    contract: &Contract,
-    collection_id: &str,
-) -> Result<bool> {
+pub async fn is_collection_sold_out(contract: &Contract, collection_id: &str) -> Result<bool> {
     let result = contract
         .view("is_collection_sold_out")
         .args_json(json!({ "collection_id": collection_id }))
@@ -746,10 +737,7 @@ pub async fn is_collection_sold_out(
 }
 
 /// View `is_collection_mintable`.
-pub async fn is_collection_mintable(
-    contract: &Contract,
-    collection_id: &str,
-) -> Result<bool> {
+pub async fn is_collection_mintable(contract: &Contract, collection_id: &str) -> Result<bool> {
     let result = contract
         .view("is_collection_mintable")
         .args_json(json!({ "collection_id": collection_id }))
@@ -817,10 +805,7 @@ pub async fn get_collections_by_creator(
 // =============================================================================
 
 /// View `get_sale` for a native scarce (contract_id = the scarces contract itself).
-pub async fn get_sale(
-    contract: &Contract,
-    token_id: &str,
-) -> Result<Option<Sale>> {
+pub async fn get_sale(contract: &Contract, token_id: &str) -> Result<Option<Sale>> {
     let result = contract
         .view("get_sale")
         .args_json(json!({
@@ -840,10 +825,7 @@ pub async fn get_supply_sales(contract: &Contract) -> Result<u64> {
 }
 
 /// View `get_supply_by_owner_id`.
-pub async fn get_supply_by_owner_id(
-    contract: &Contract,
-    account_id: &str,
-) -> Result<u64> {
+pub async fn get_supply_by_owner_id(contract: &Contract, account_id: &str) -> Result<u64> {
     let result = contract
         .view("get_supply_by_owner_id")
         .args_json(json!({ "account_id": account_id }))
@@ -853,10 +835,7 @@ pub async fn get_supply_by_owner_id(
 }
 
 /// View `get_sales_by_owner_id`.
-pub async fn get_sales_by_owner_id(
-    contract: &Contract,
-    account_id: &str,
-) -> Result<Vec<Sale>> {
+pub async fn get_sales_by_owner_id(contract: &Contract, account_id: &str) -> Result<Vec<Sale>> {
     let result = contract
         .view("get_sales_by_owner_id")
         .args_json(json!({ "account_id": account_id }))
@@ -1257,10 +1236,7 @@ pub async fn purchase_lazy_listing(
 // =============================================================================
 
 /// View `get_auction` for a token.
-pub async fn get_auction(
-    contract: &Contract,
-    token_id: &str,
-) -> Result<Option<AuctionView>> {
+pub async fn get_auction(contract: &Contract, token_id: &str) -> Result<Option<AuctionView>> {
     let result = contract
         .view("get_auction")
         .args_json(json!({ "token_id": token_id }))
@@ -1282,10 +1258,7 @@ pub async fn get_auctions(
     if let Some(l) = limit {
         args["limit"] = json!(l);
     }
-    let result = contract
-        .view("get_auctions")
-        .args_json(args)
-        .await?;
+    let result = contract.view("get_auctions").args_json(args).await?;
     let auctions: Vec<AuctionView> = serde_json::from_slice(&result.result)?;
     Ok(auctions)
 }
@@ -2182,10 +2155,7 @@ pub async fn get_allowlist_remaining(
 }
 
 /// View `get_collection_price`.
-pub async fn get_collection_price(
-    contract: &Contract,
-    collection_id: &str,
-) -> Result<String> {
+pub async fn get_collection_price(contract: &Contract, collection_id: &str) -> Result<String> {
     let result = contract
         .view("get_collection_price")
         .args_json(json!({ "collection_id": collection_id }))
@@ -2216,10 +2186,7 @@ pub async fn calculate_collection_purchase_price(
 // =============================================================================
 
 /// View `nft_supply_for_collection`.
-pub async fn nft_supply_for_collection(
-    contract: &Contract,
-    collection_id: &str,
-) -> Result<String> {
+pub async fn nft_supply_for_collection(contract: &Contract, collection_id: &str) -> Result<String> {
     let result = contract
         .view("nft_supply_for_collection")
         .args_json(json!({ "collection_id": collection_id }))
@@ -2485,11 +2452,7 @@ pub async fn set_wnear_account(
 }
 
 /// Mint mock wNEAR tokens to `recipient`.
-pub async fn mint_wnear(
-    wnear: &Contract,
-    recipient: &Account,
-    amount: u128,
-) -> Result<()> {
+pub async fn mint_wnear(wnear: &Contract, recipient: &Account, amount: u128) -> Result<()> {
     wnear
         .call("mint")
         .args_json(json!({
@@ -2503,10 +2466,7 @@ pub async fn mint_wnear(
 }
 
 /// Register `account` for storage on the mock-ft contract.
-pub async fn ft_storage_deposit(
-    ft_contract: &Contract,
-    account: &Account,
-) -> Result<()> {
+pub async fn ft_storage_deposit(ft_contract: &Contract, account: &Account) -> Result<()> {
     account
         .call(ft_contract.id(), "storage_deposit")
         .args_json(json!({ "account_id": account.id().to_string() }))
@@ -2541,10 +2501,7 @@ pub async fn ft_transfer_call(
 }
 
 /// View `ft_balance_of` on a fungible token contract.
-pub async fn ft_balance_of(
-    ft_contract: &Contract,
-    account_id: &str,
-) -> Result<u128> {
+pub async fn ft_balance_of(ft_contract: &Contract, account_id: &str) -> Result<u128> {
     let result = ft_contract
         .view("ft_balance_of")
         .args_json(json!({ "account_id": account_id }))

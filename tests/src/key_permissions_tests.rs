@@ -342,7 +342,12 @@ async fn test_full_session_key_flow_deposit_then_operate_without_wallet() -> any
         .get("balance")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u128>().ok())
-        .or_else(|| storage.get("balance").and_then(|v| v.as_f64()).map(|f| f as u128))
+        .or_else(|| {
+            storage
+                .get("balance")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as u128)
+        })
         .unwrap_or(0) as f64;
     let deposit_f64 = deposit_amount.as_yoctonear() as f64;
     assert!(
@@ -637,7 +642,12 @@ async fn test_session_key_multiple_operations_consume_pre_deposited_storage() ->
         .get("balance")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse::<u128>().ok())
-        .or_else(|| final_storage.get("balance").and_then(|v| v.as_f64()).map(|f| f as u128))
+        .or_else(|| {
+            final_storage
+                .get("balance")
+                .and_then(|v| v.as_f64())
+                .map(|f| f as u128)
+        })
         .unwrap_or(0) as f64;
     assert!(
         balance_f64 > 0.0,

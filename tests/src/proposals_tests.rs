@@ -6804,7 +6804,8 @@ async fn test_locked_balance_blocks_withdraw() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_after_partial: f64 = parse_balance_f64(&alice_storage_after_partial, "locked_balance");
+    let locked_after_partial: f64 =
+        parse_balance_f64(&alice_storage_after_partial, "locked_balance");
     assert!(
         locked_after_partial > 0.0,
         "Locked balance should still be intact after partial withdrawal"
@@ -6969,7 +6970,8 @@ async fn test_locked_balance_prevents_spending() -> anyhow::Result<()> {
         .await?
         .json()?;
 
-    let locked_after_proposal: f64 = parse_balance_f64(&alice_storage_after_proposal, "locked_balance");
+    let locked_after_proposal: f64 =
+        parse_balance_f64(&alice_storage_after_proposal, "locked_balance");
 
     assert!(
         locked_after_proposal > initial_locked,

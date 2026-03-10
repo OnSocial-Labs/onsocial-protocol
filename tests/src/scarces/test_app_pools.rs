@@ -46,9 +46,14 @@ async fn test_register_app_basic() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
 
-    register_app(&contract, &app_owner, &app_owner.id().to_string(), DEPOSIT_LARGE)
-        .await?
-        .into_result()?;
+    register_app(
+        &contract,
+        &app_owner,
+        &app_owner.id().to_string(),
+        DEPOSIT_LARGE,
+    )
+    .await?
+    .into_result()?;
 
     let pool = get_app_pool(&contract, &app_owner.id().to_string()).await?;
     assert!(pool.is_some(), "App pool should exist");
@@ -63,12 +68,22 @@ async fn test_register_app_duplicate_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let app_owner = user_with_storage(&worker, &contract).await?;
 
-    register_app(&contract, &app_owner, &app_owner.id().to_string(), DEPOSIT_LARGE)
-        .await?
-        .into_result()?;
+    register_app(
+        &contract,
+        &app_owner,
+        &app_owner.id().to_string(),
+        DEPOSIT_LARGE,
+    )
+    .await?
+    .into_result()?;
 
-    let result =
-        register_app(&contract, &app_owner, &app_owner.id().to_string(), DEPOSIT_LARGE).await?;
+    let result = register_app(
+        &contract,
+        &app_owner,
+        &app_owner.id().to_string(),
+        DEPOSIT_LARGE,
+    )
+    .await?;
     assert!(
         result.into_result().is_err(),
         "Duplicate registration should fail"
@@ -114,8 +129,13 @@ async fn test_fund_nonexistent_pool_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let user = user_with_storage(&worker, &contract).await?;
 
-    let result =
-        fund_app_pool(&contract, &user, "nonexistent.near", NearToken::from_near(1)).await?;
+    let result = fund_app_pool(
+        &contract,
+        &user,
+        "nonexistent.near",
+        NearToken::from_near(1),
+    )
+    .await?;
     assert!(
         result.into_result().is_err(),
         "Cannot fund nonexistent pool"
@@ -187,10 +207,7 @@ async fn test_withdraw_app_pool_non_owner_fails() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-owner cannot withdraw"
-    );
+    assert!(result.into_result().is_err(), "Non-owner cannot withdraw");
 
     Ok(())
 }
@@ -313,10 +330,7 @@ async fn test_fee_config_view() -> Result<()> {
     let (_worker, _owner, contract) = setup().await?;
 
     let config = get_fee_config(&contract).await?;
-    assert!(
-        config.total_fee_bps > 0,
-        "Total fee bps should be set"
-    );
+    assert!(config.total_fee_bps > 0, "Total fee bps should be set");
     assert!(
         config.total_fee_bps <= 10000,
         "Total fee bps should be <= 100%"

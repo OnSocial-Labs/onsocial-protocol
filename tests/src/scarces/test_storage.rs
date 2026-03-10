@@ -219,8 +219,8 @@ async fn test_storage_deposit_zero_near_fails() -> Result<()> {
     // This should either fail or do nothing — we check the balance below.
     let result = storage_deposit(&contract, &user, None, NearToken::from_yoctonear(0)).await?;
     let _ = result.into_result(); // may fail, that's OK
-    // This should either fail or do nothing useful
-    // Some contracts accept 0 gracefully, others panic — we test the contract's behavior
+                                  // This should either fail or do nothing useful
+                                  // Some contracts accept 0 gracefully, others panic — we test the contract's behavior
     let balance = storage_balance_of(&contract, &user.id().to_string()).await?;
     assert_eq!(
         balance, "0",

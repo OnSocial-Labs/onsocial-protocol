@@ -284,8 +284,7 @@ async fn test_soulbound_collection_transfer_fails() -> Result<()> {
         .await?
         .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     // Transfer must fail (collection-level soulbound)
@@ -346,8 +345,7 @@ async fn test_soulbound_collection_but_token_override_transferable() -> Result<(
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     // Transfer should succeed (standalone token with transferable: true)
@@ -474,13 +472,11 @@ async fn test_non_burnable_collection_burn_fails() -> Result<()> {
         .await?
         .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     // Burn should fail
-    let result =
-        burn_scarce(&contract, &creator, token_id, Some("permacol"), ONE_YOCTO).await?;
+    let result = burn_scarce(&contract, &creator, token_id, Some("permacol"), ONE_YOCTO).await?;
     assert!(
         result.is_failure(),
         "non-burnable collection burn should fail"
@@ -569,8 +565,7 @@ async fn test_royalty_payout_on_secondary_sale() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     // Verify payout view before sale
@@ -649,8 +644,7 @@ async fn test_royalty_payout_multiple_recipients() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     let balance = "2000000000000000000000000"; // 2 NEAR
@@ -704,8 +698,7 @@ async fn test_royalty_transfer_payout_moves_token_and_returns_split() -> Result<
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     let balance = "1000000000000000000000000"; // 1 NEAR
@@ -772,8 +765,7 @@ async fn test_royalty_seller_is_also_recipient() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(1)).await?;
     let token_id = &tokens[0].token_id;
 
     let balance = "1000000000000000000000000"; // 1 NEAR

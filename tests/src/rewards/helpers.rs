@@ -287,11 +287,7 @@ pub async fn transfer_ownership(
 }
 
 /// Set max daily cap.
-pub async fn set_max_daily(
-    rewards: &Contract,
-    owner: &Account,
-    new_max: u128,
-) -> Result<()> {
+pub async fn set_max_daily(rewards: &Contract, owner: &Account, new_max: u128) -> Result<()> {
     owner
         .call(rewards.id(), "set_max_daily")
         .args_json(json!({ "new_max": new_max.to_string() }))
@@ -317,10 +313,7 @@ pub async fn set_ft_fail_next(ft: &Contract, should_fail: bool) -> Result<()> {
 
 /// Query contract info.
 pub async fn get_contract_info(rewards: &Contract) -> Result<ContractInfo> {
-    let res: ContractInfo = rewards
-        .view("get_contract_info")
-        .await?
-        .json()?;
+    let res: ContractInfo = rewards.view("get_contract_info").await?.json()?;
     Ok(res)
 }
 
@@ -346,9 +339,6 @@ pub async fn get_claimable(rewards: &Contract, account_id: &str) -> Result<u128>
 
 /// Query pool balance.
 pub async fn get_pool_balance(rewards: &Contract) -> Result<u128> {
-    let res: Value = rewards
-        .view("get_pool_balance")
-        .await?
-        .json()?;
+    let res: Value = rewards.view("get_pool_balance").await?.json()?;
     Ok(res.as_str().unwrap().parse()?)
 }

@@ -31,8 +31,12 @@ async fn user_with_token(
     title: &str,
 ) -> Result<(near_workspaces::Account, String)> {
     let user = worker.dev_create_account().await?;
-    storage_deposit(contract, &user, None, DEPOSIT_LARGE).await?.into_result()?;
-    quick_mint(contract, &user, title, DEPOSIT_STORAGE).await?.into_result()?;
+    storage_deposit(contract, &user, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
+    quick_mint(contract, &user, title, DEPOSIT_STORAGE)
+        .await?
+        .into_result()?;
     let tokens = nft_tokens_for_owner(contract, &user.id().to_string(), None, Some(1)).await?;
     let token_id = tokens[0].token_id.clone();
     Ok((user, token_id))
@@ -44,7 +48,9 @@ async fn user_with_storage(
     contract: &near_workspaces::Contract,
 ) -> Result<near_workspaces::Account> {
     let user = worker.dev_create_account().await?;
-    storage_deposit(contract, &user, None, DEPOSIT_LARGE).await?.into_result()?;
+    storage_deposit(contract, &user, None, DEPOSIT_LARGE)
+        .await?
+        .into_result()?;
     Ok(user)
 }
 
@@ -90,8 +96,13 @@ async fn test_list_non_owner_fails() -> Result<()> {
     let stranger = user_with_storage(&worker, &contract).await?;
 
     let result = list_native_scarce(
-        &contract, &stranger, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE,
-    ).await?;
+        &contract,
+        &stranger,
+        &token_id,
+        PRICE_1_NEAR,
+        DEPOSIT_STORAGE,
+    )
+    .await?;
     assert!(result.is_failure(), "non-owner should not be able to list");
 
     Ok(())
@@ -114,13 +125,16 @@ async fn test_list_already_listed_fails() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Double List").await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Try listing again
-    let result = list_native_scarce(
-        &contract, &seller, &token_id, PRICE_2_NEAR, DEPOSIT_STORAGE,
-    ).await?;
-    assert!(result.is_failure(), "already-listed token should be rejected");
+    let result =
+        list_native_scarce(&contract, &seller, &token_id, PRICE_2_NEAR, DEPOSIT_STORAGE).await?;
+    assert!(
+        result.is_failure(),
+        "already-listed token should be rejected"
+    );
 
     Ok(())
 }
@@ -135,7 +149,8 @@ async fn test_delist_native_scarce() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Delist Me").await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     assert_eq!(get_supply_sales(&contract).await?, 1);
 
@@ -161,7 +176,8 @@ async fn test_delist_non_owner_fails() -> Result<()> {
     let stranger = user_with_storage(&worker, &contract).await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     let result = delist_native_scarce(&contract, &stranger, &token_id, ONE_YOCTO).await?;
     assert!(result.is_failure(), "non-owner should not delist");
@@ -183,7 +199,8 @@ async fn test_purchase_native_scarce() -> Result<()> {
     let buyer = user_with_storage(&worker, &contract).await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Buyer purchases
     purchase_native_scarce(&contract, &buyer, &token_id, NearToken::from_near(2))
@@ -211,7 +228,8 @@ async fn test_purchase_insufficient_deposit_fails() -> Result<()> {
     let buyer = user_with_storage(&worker, &contract).await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Buyer sends only 1 yoctoNEAR
     let result = purchase_native_scarce(&contract, &buyer, &token_id, ONE_YOCTO).await?;
@@ -231,12 +249,12 @@ async fn test_purchase_own_listing_fails() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Self Buy").await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Seller tries to buy their own listing
-    let result = purchase_native_scarce(
-        &contract, &seller, &token_id, NearToken::from_near(2),
-    ).await?;
+    let result =
+        purchase_native_scarce(&contract, &seller, &token_id, NearToken::from_near(2)).await?;
     assert!(result.is_failure(), "cannot purchase own listing");
 
     Ok(())
@@ -252,7 +270,8 @@ async fn test_update_price() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Reprice").await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Update price
     update_native_price(&contract, &seller, &token_id, PRICE_2_NEAR, ONE_YOCTO)
@@ -272,11 +291,11 @@ async fn test_update_price_non_owner_fails() -> Result<()> {
     let stranger = user_with_storage(&worker, &contract).await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
-    let result = update_native_price(
-        &contract, &stranger, &token_id, PRICE_2_NEAR, ONE_YOCTO,
-    ).await?;
+    let result =
+        update_native_price(&contract, &stranger, &token_id, PRICE_2_NEAR, ONE_YOCTO).await?;
     assert!(result.is_failure(), "non-owner should not update price");
 
     // Price unchanged
@@ -292,7 +311,8 @@ async fn test_update_price_to_zero_fails() -> Result<()> {
     let (seller, token_id) = user_with_token(&worker, &contract, "Zero Update").await?;
 
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     let result = update_native_price(&contract, &seller, &token_id, "0", ONE_YOCTO).await?;
     assert!(result.is_failure(), "price 0 should be rejected");
@@ -312,15 +332,18 @@ async fn test_full_sale_lifecycle() -> Result<()> {
 
     // List at 1 NEAR
     list_native_scarce(&contract, &seller, &token_id, PRICE_1_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Seller changes mind, raises price to 2 NEAR
     update_native_price(&contract, &seller, &token_id, PRICE_2_NEAR, ONE_YOCTO)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Buyer purchases at the new price
     purchase_native_scarce(&contract, &buyer, &token_id, NearToken::from_near(3))
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     // Buyer owns the token
     let token = nft_token(&contract, &token_id).await?.unwrap();
@@ -331,7 +354,8 @@ async fn test_full_sale_lifecycle() -> Result<()> {
 
     // Buyer re-lists the token
     list_native_scarce(&contract, &buyer, &token_id, PRICE_2_NEAR, DEPOSIT_STORAGE)
-        .await?.into_result()?;
+        .await?
+        .into_result()?;
 
     let sale = get_sale(&contract, &token_id).await?.unwrap();
     assert_eq!(sale.owner_id, buyer.id().to_string());

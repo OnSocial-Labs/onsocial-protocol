@@ -142,7 +142,10 @@ async fn test_tier1_app_pool_covers_mint_cost() -> Result<()> {
         "App pool balance should decrease after mint (before={}, after={}, used_bytes_before={}, used_bytes_after={}, max_user_bytes={:?})",
         pool_balance_before, pool_balance_after, pool_before.used_bytes, pool_after.used_bytes, pool_after.max_user_bytes
     );
-    assert!(pool_after.used_bytes > 0, "App pool used_bytes should increase");
+    assert!(
+        pool_after.used_bytes > 0,
+        "App pool used_bytes should increase"
+    );
 
     // User balance should NOT decrease (app pool covered it)
     let user_storage_after = get_user_storage(&contract, user.id().as_str()).await?;
@@ -310,7 +313,13 @@ async fn test_tier2_exhausted_falls_to_tier3() -> Result<()> {
     // Using app_id causes tier 2 (platform pool) to be skipped entirely,
     // so the waterfall falls through to tier 3 (user balance).
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let broke_app = setup_app_pool(&contract, &app_owner, Some(50_000), NearToken::from_yoctonear(0)).await?;
+    let broke_app = setup_app_pool(
+        &contract,
+        &app_owner,
+        Some(50_000),
+        NearToken::from_yoctonear(0),
+    )
+    .await?;
 
     let user = user_with_storage(&worker, &contract).await?;
 
@@ -340,7 +349,13 @@ async fn test_tier3_user_balance_covers_mint() -> Result<()> {
     // Register a broke app pool (0 balance) so tier 1 fails and tier 2 is skipped.
     // This forces the waterfall to tier 3 (user balance).
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let broke_app = setup_app_pool(&contract, &app_owner, Some(50_000), NearToken::from_yoctonear(0)).await?;
+    let broke_app = setup_app_pool(
+        &contract,
+        &app_owner,
+        Some(50_000),
+        NearToken::from_yoctonear(0),
+    )
+    .await?;
 
     let user = user_with_storage(&worker, &contract).await?;
     let user_storage_before = get_user_storage(&contract, user.id().as_str()).await?;
@@ -359,7 +374,10 @@ async fn test_tier3_user_balance_covers_mint() -> Result<()> {
     );
 
     let tier2: u64 = user_storage_after["tier2_used_bytes"].as_u64().unwrap_or(0);
-    assert_eq!(tier2, 0, "tier2_used_bytes should be 0 when platform pool is not used");
+    assert_eq!(
+        tier2, 0,
+        "tier2_used_bytes should be 0 when platform pool is not used"
+    );
 
     Ok(())
 }
@@ -370,7 +388,13 @@ async fn test_tier3_insufficient_balance_fails() -> Result<()> {
 
     // Register a broke app pool so tier 2 (platform pool) is skipped.
     let app_owner = user_with_storage(&worker, &contract).await?;
-    let broke_app = setup_app_pool(&contract, &app_owner, Some(50_000), NearToken::from_yoctonear(0)).await?;
+    let broke_app = setup_app_pool(
+        &contract,
+        &app_owner,
+        Some(50_000),
+        NearToken::from_yoctonear(0),
+    )
+    .await?;
 
     // Create user with minimal storage (just enough to register, not enough for mint)
     let user = worker.dev_create_account().await?;
@@ -422,7 +446,10 @@ async fn test_release_credits_app_pool_on_burn() -> Result<()> {
     let pool_after_mint = get_app_pool(&contract, &app_id).await?.unwrap();
     let pool_balance_after_mint: u128 = pool_after_mint.balance.parse().unwrap();
     let pool_used_after_mint = pool_after_mint.used_bytes;
-    assert!(pool_used_after_mint > 0, "App pool should have used_bytes after mint");
+    assert!(
+        pool_used_after_mint > 0,
+        "App pool should have used_bytes after mint"
+    );
 
     // Get token ID
     let tokens = nft_tokens_for_owner(&contract, user.id().as_str(), None, None).await?;
@@ -443,7 +470,10 @@ async fn test_release_credits_app_pool_on_burn() -> Result<()> {
 
     // Token should be gone
     let tokens_after = nft_tokens_for_owner(&contract, user.id().as_str(), None, None).await?;
-    assert!(tokens_after.is_empty(), "Token should be removed after burn");
+    assert!(
+        tokens_after.is_empty(),
+        "Token should be removed after burn"
+    );
 
     // App pool balance should increase (storage freed → credited back)
     let pool_after_burn = get_app_pool(&contract, &app_id).await?.unwrap();
@@ -488,7 +518,10 @@ async fn test_release_credits_platform_pool_on_burn() -> Result<()> {
     let tier2_after_mint: u64 = user_storage_after_mint["tier2_used_bytes"]
         .as_u64()
         .unwrap_or(0);
-    assert!(tier2_after_mint > 0, "tier2_used_bytes should be > 0 after platform-funded mint");
+    assert!(
+        tier2_after_mint > 0,
+        "tier2_used_bytes should be > 0 after platform-funded mint"
+    );
 
     // Get token and burn
     let tokens = nft_tokens_for_owner(&contract, user.id().as_str(), None, None).await?;
@@ -508,7 +541,10 @@ async fn test_release_credits_platform_pool_on_burn() -> Result<()> {
 
     // Token should be gone
     let tokens_after = nft_tokens_for_owner(&contract, user.id().as_str(), None, None).await?;
-    assert!(tokens_after.is_empty(), "Token should be removed after burn");
+    assert!(
+        tokens_after.is_empty(),
+        "Token should be removed after burn"
+    );
 
     // Platform pool should be credited back
     let platform_after_burn: u128 = get_platform_storage_balance(&contract)

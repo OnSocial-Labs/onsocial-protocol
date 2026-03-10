@@ -223,15 +223,7 @@ async fn test_ban_collection_non_app_owner_fails() -> Result<()> {
     .await?
     .into_result()?;
 
-    let result = ban_collection(
-        &contract,
-        &stranger,
-        &app_id,
-        "ban-col2",
-        None,
-        ONE_YOCTO,
-    )
-    .await?;
+    let result = ban_collection(&contract, &stranger, &app_id, "ban-col2", None, ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Non-app-owner cannot ban collection"
@@ -276,15 +268,9 @@ async fn test_unban_collection_happy() -> Result<()> {
     .into_result()?;
 
     // Then unban
-    unban_collection(
-        &contract,
-        &app_owner,
-        &app_id,
-        "unban-col",
-        ONE_YOCTO,
-    )
-    .await?
-    .into_result()?;
+    unban_collection(&contract, &app_owner, &app_id, "unban-col", ONE_YOCTO)
+        .await?
+        .into_result()?;
 
     Ok(())
 }

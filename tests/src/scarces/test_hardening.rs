@@ -91,8 +91,7 @@ async fn test_cleanup_removes_expired_lazy_listing() -> Result<()> {
     .await?
     .into_result()?;
 
-    let listings =
-        get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
+    let listings = get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
     assert_eq!(listings.len(), 1, "listing should exist before expiry");
     let listing_id = listings[0].0.clone();
 
@@ -136,21 +135,15 @@ async fn test_purchase_expired_lazy_listing_rejected() -> Result<()> {
     .await?
     .into_result()?;
 
-    let listings =
-        get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
+    let listings = get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
     let listing_id = listings[0].0.clone();
 
     // Fast-forward past expiry
     worker.fast_forward(100).await?;
 
     // Attempt purchase — should fail
-    let result = purchase_lazy_listing(
-        &contract,
-        &buyer,
-        &listing_id,
-        NearToken::from_near(2),
-    )
-    .await?;
+    let result =
+        purchase_lazy_listing(&contract, &buyer, &listing_id, NearToken::from_near(2)).await?;
     assert!(
         result.is_failure(),
         "purchase of expired listing should be rejected"
@@ -256,8 +249,7 @@ async fn test_accept_expired_token_offer_rejected() -> Result<()> {
     quick_mint(&contract, &seller, "Offer NFT", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // Make offer with short expiry
@@ -339,16 +331,14 @@ async fn test_accept_expired_collection_offer_rejected() -> Result<()> {
     .await?
     .into_result()?;
 
-    let offer =
-        get_collection_offer(&contract, "exp-col", &buyer.id().to_string()).await?;
+    let offer = get_collection_offer(&contract, "exp-col", &buyer.id().to_string()).await?;
     assert!(offer.is_some(), "collection offer should exist");
 
     // Fast-forward past expiry
     worker.fast_forward(100).await?;
 
     // Find the minted token
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // Accept should fail
@@ -399,8 +389,7 @@ async fn test_accept_collection_offer_burned_token() -> Result<()> {
         .await?
         .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
     let token_id = tokens[0].token_id.clone();
 
     // Make collection offer
@@ -641,8 +630,7 @@ async fn test_cleanup_preserves_active_listings() -> Result<()> {
     assert_eq!(remaining, 2, "only expired listing should be removed");
 
     // Verify the permanent and far-future listings still exist
-    let listings =
-        get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
+    let listings = get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
     assert_eq!(listings.len(), 2);
 
     let titles: Vec<&str> = listings
@@ -668,8 +656,7 @@ async fn test_expired_offer_refunds_buyer() -> Result<()> {
     quick_mint(&contract, &seller, "Refund Test", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     let buyer_balance_before = buyer.view_account().await?.balance;
@@ -704,10 +691,7 @@ async fn test_expired_offer_refunds_buyer() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(
-        result.is_failure(),
-        "accepting expired offer should fail"
-    );
+    assert!(result.is_failure(), "accepting expired offer should fail");
 
     // Offer still exists (state rolled back) — buyer must cancel to reclaim.
     let offer = get_offer(&contract, token_id, &buyer.id().to_string()).await?;
@@ -721,10 +705,7 @@ async fn test_expired_offer_refunds_buyer() -> Result<()> {
         .await?
         .into_result()?;
     let offer = get_offer(&contract, token_id, &buyer.id().to_string()).await?;
-    assert!(
-        offer.is_none(),
-        "offer should be gone after cancel"
-    );
+    assert!(offer.is_none(), "offer should be gone after cancel");
 
     Ok(())
 }
@@ -752,8 +733,7 @@ async fn test_cleanup_then_purchase_fails() -> Result<()> {
     .await?
     .into_result()?;
 
-    let listings =
-        get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
+    let listings = get_lazy_listings_by_creator(&contract, &creator.id().to_string()).await?;
     let listing_id = listings[0].0.clone();
 
     worker.fast_forward(100).await?;
@@ -762,13 +742,8 @@ async fn test_cleanup_then_purchase_fails() -> Result<()> {
     let _ = cleanup_expired_lazy_listings(&creator, &contract, None).await?;
 
     // Then try to purchase — listing no longer exists
-    let result = purchase_lazy_listing(
-        &contract,
-        &buyer,
-        &listing_id,
-        NearToken::from_near(2),
-    )
-    .await?;
+    let result =
+        purchase_lazy_listing(&contract, &buyer, &listing_id, NearToken::from_near(2)).await?;
     assert!(
         result.is_failure(),
         "purchase after cleanup should fail — listing gone"

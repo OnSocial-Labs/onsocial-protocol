@@ -82,7 +82,11 @@ async fn test_approve_scarce_happy() -> Result<()> {
         DEPOSIT_STORAGE,
     )
     .await?;
-    assert!(result.is_success(), "approve_scarce should succeed: {:?}", result.failures());
+    assert!(
+        result.is_success(),
+        "approve_scarce should succeed: {:?}",
+        result.failures()
+    );
 
     // Verify via nft_is_approved
     assert!(nft_is_approved(&contract, &token_id, &bob.id().to_string(), None).await?);
@@ -144,7 +148,10 @@ async fn test_approve_scarce_token_not_found_fails() -> Result<()> {
         DEPOSIT_STORAGE,
     )
     .await?;
-    assert!(result.is_failure(), "approve on nonexistent token should fail");
+    assert!(
+        result.is_failure(),
+        "approve on nonexistent token should fail"
+    );
 
     Ok(())
 }
@@ -186,7 +193,10 @@ async fn test_approve_scarce_soulbound_fails() -> Result<()> {
         DEPOSIT_STORAGE,
     )
     .await?;
-    assert!(result.is_failure(), "approve on soulbound token should fail");
+    assert!(
+        result.is_failure(),
+        "approve on soulbound token should fail"
+    );
 
     Ok(())
 }
@@ -306,10 +316,26 @@ async fn test_nft_is_approved_with_approval_id() -> Result<()> {
     let approval_id = approvals[&bob.id().to_string()];
 
     // Correct approval_id → true
-    assert!(nft_is_approved(&contract, &token_id, &bob.id().to_string(), Some(approval_id)).await?);
+    assert!(
+        nft_is_approved(
+            &contract,
+            &token_id,
+            &bob.id().to_string(),
+            Some(approval_id)
+        )
+        .await?
+    );
 
     // Wrong approval_id → false
-    assert!(!nft_is_approved(&contract, &token_id, &bob.id().to_string(), Some(approval_id + 999)).await?);
+    assert!(
+        !nft_is_approved(
+            &contract,
+            &token_id,
+            &bob.id().to_string(),
+            Some(approval_id + 999)
+        )
+        .await?
+    );
 
     // Non-approved account → false
     assert!(!nft_is_approved(&contract, &token_id, &alice.id().to_string(), None).await?);
@@ -357,7 +383,11 @@ async fn test_revoke_scarce_happy() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(result.is_success(), "revoke_scarce should succeed: {:?}", result.failures());
+    assert!(
+        result.is_success(),
+        "revoke_scarce should succeed: {:?}",
+        result.failures()
+    );
 
     assert!(!nft_is_approved(&contract, &token_id, &bob.id().to_string(), None).await?);
 
@@ -426,7 +456,10 @@ async fn test_revoke_scarce_token_not_found_fails() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(result.is_failure(), "revoke on nonexistent token should fail");
+    assert!(
+        result.is_failure(),
+        "revoke on nonexistent token should fail"
+    );
 
     Ok(())
 }
@@ -520,7 +553,11 @@ async fn test_revoke_all_scarce_happy() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(result.is_success(), "revoke_all_scarce should succeed: {:?}", result.failures());
+    assert!(
+        result.is_success(),
+        "revoke_all_scarce should succeed: {:?}",
+        result.failures()
+    );
 
     assert!(!nft_is_approved(&contract, &token_id, &bob.id().to_string(), None).await?);
     assert!(!nft_is_approved(&contract, &token_id, &carol.id().to_string(), None).await?);
@@ -593,7 +630,10 @@ async fn test_revoke_all_scarce_token_not_found_fails() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(result.is_failure(), "revoke_all on nonexistent token should fail");
+    assert!(
+        result.is_failure(),
+        "revoke_all on nonexistent token should fail"
+    );
 
     Ok(())
 }
@@ -689,7 +729,10 @@ async fn test_approval_cleared_on_transfer() -> Result<()> {
     let token = nft_token(&contract, &token_id).await?.unwrap();
     assert_eq!(token.owner_id, bob.id().to_string());
     let approvals = token.approved_account_ids.unwrap_or_default();
-    assert!(approvals.is_empty(), "approvals should be cleared after transfer");
+    assert!(
+        approvals.is_empty(),
+        "approvals should be cleared after transfer"
+    );
 
     Ok(())
 }

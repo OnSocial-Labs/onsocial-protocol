@@ -64,8 +64,7 @@ async fn user_with_storage(
 
 #[tokio::test]
 async fn test_deploy_with_init_funding() -> Result<()> {
-    let (_worker, _owner, contract) =
-        setup_funded(NearToken::from_near(10)).await?;
+    let (_worker, _owner, contract) = setup_funded(NearToken::from_near(10)).await?;
 
     let balance = get_platform_storage_balance(&contract).await?;
     let bal: u128 = balance.parse()?;
@@ -107,8 +106,7 @@ async fn test_fund_platform_storage_happy() -> Result<()> {
 
 #[tokio::test]
 async fn test_fund_platform_storage_accumulates() -> Result<()> {
-    let (_worker, owner, contract) =
-        setup_funded(NearToken::from_near(5)).await?;
+    let (_worker, owner, contract) = setup_funded(NearToken::from_near(5)).await?;
 
     fund_platform_storage(&contract, &owner, NearToken::from_near(4))
         .await?
@@ -127,8 +125,7 @@ async fn test_fund_platform_storage_non_owner_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
     let stranger = worker.dev_create_account().await?;
 
-    let result =
-        fund_platform_storage(&contract, &stranger, NearToken::from_near(5)).await?;
+    let result = fund_platform_storage(&contract, &stranger, NearToken::from_near(5)).await?;
     assert!(
         result.into_result().is_err(),
         "Non-owner cannot fund platform storage"
@@ -141,12 +138,8 @@ async fn test_fund_platform_storage_non_owner_fails() -> Result<()> {
 async fn test_fund_platform_storage_zero_deposit_fails() -> Result<()> {
     let (_worker, owner, contract) = setup().await?;
 
-    let result =
-        fund_platform_storage(&contract, &owner, NearToken::from_yoctonear(0)).await?;
-    assert!(
-        result.into_result().is_err(),
-        "Zero deposit should fail"
-    );
+    let result = fund_platform_storage(&contract, &owner, NearToken::from_yoctonear(0)).await?;
+    assert!(result.into_result().is_err(), "Zero deposit should fail");
 
     Ok(())
 }
@@ -158,8 +151,7 @@ async fn test_fund_platform_storage_zero_deposit_fails() -> Result<()> {
 #[tokio::test]
 async fn test_withdraw_platform_storage_happy() -> Result<()> {
     // Fund with 8 NEAR, withdraw 3 NEAR → leaves 5 NEAR (at reserve)
-    let (_worker, owner, contract) =
-        setup_funded(NearToken::from_near(8)).await?;
+    let (_worker, owner, contract) = setup_funded(NearToken::from_near(8)).await?;
 
     withdraw_platform_storage(
         &contract,
@@ -183,8 +175,7 @@ async fn test_withdraw_platform_storage_happy() -> Result<()> {
 
 #[tokio::test]
 async fn test_withdraw_platform_storage_non_owner_fails() -> Result<()> {
-    let (worker, _owner, contract) =
-        setup_funded(NearToken::from_near(10)).await?;
+    let (worker, _owner, contract) = setup_funded(NearToken::from_near(10)).await?;
     let stranger = worker.dev_create_account().await?;
 
     let result = withdraw_platform_storage(
@@ -194,18 +185,14 @@ async fn test_withdraw_platform_storage_non_owner_fails() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(
-        result.into_result().is_err(),
-        "Non-owner cannot withdraw"
-    );
+    assert!(result.into_result().is_err(), "Non-owner cannot withdraw");
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_withdraw_platform_storage_exceeds_balance_fails() -> Result<()> {
-    let (_worker, owner, contract) =
-        setup_funded(NearToken::from_near(8)).await?;
+    let (_worker, owner, contract) = setup_funded(NearToken::from_near(8)).await?;
 
     let result = withdraw_platform_storage(
         &contract,
@@ -225,8 +212,7 @@ async fn test_withdraw_platform_storage_exceeds_balance_fails() -> Result<()> {
 #[tokio::test]
 async fn test_withdraw_platform_storage_below_reserve_fails() -> Result<()> {
     // Fund with 6 NEAR, try to withdraw 2 NEAR → would leave 4 NEAR < 5 NEAR reserve
-    let (_worker, owner, contract) =
-        setup_funded(NearToken::from_near(6)).await?;
+    let (_worker, owner, contract) = setup_funded(NearToken::from_near(6)).await?;
 
     let result = withdraw_platform_storage(
         &contract,
@@ -246,8 +232,7 @@ async fn test_withdraw_platform_storage_below_reserve_fails() -> Result<()> {
 #[tokio::test]
 async fn test_withdraw_platform_storage_at_reserve_boundary() -> Result<()> {
     // Fund with 7 NEAR, withdraw exactly 2 NEAR → leaves exactly 5 NEAR (reserve)
-    let (_worker, owner, contract) =
-        setup_funded(NearToken::from_near(7)).await?;
+    let (_worker, owner, contract) = setup_funded(NearToken::from_near(7)).await?;
 
     withdraw_platform_storage(
         &contract,
@@ -362,8 +347,7 @@ async fn test_withdraw_unclaimed_after_partial_claims() -> Result<()> {
         .await?
         .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(50)).await?;
     let col_token_ids: Vec<String> = tokens
         .iter()
         .filter(|t| t.token_id.starts_with("partial-col:"))
@@ -386,9 +370,15 @@ async fn test_withdraw_unclaimed_after_partial_claims() -> Result<()> {
     .into_result()?;
 
     // Claim refund for 1 of 3 tokens (before deadline)
-    claim_refund(&contract, &creator, &col_token_ids[0], "partial-col", ONE_YOCTO)
-        .await?
-        .into_result()?;
+    claim_refund(
+        &contract,
+        &creator,
+        &col_token_ids[0],
+        "partial-col",
+        ONE_YOCTO,
+    )
+    .await?
+    .into_result()?;
 
     // Fast-forward past 5s sandbox deadline
     worker.fast_forward(100).await?;
@@ -426,8 +416,7 @@ async fn test_withdraw_unclaimed_empty_pool_fails() -> Result<()> {
         .await?
         .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(50)).await?;
     let tok = tokens
         .iter()
         .find(|t| t.token_id.starts_with("empty-col:"))
@@ -456,8 +445,7 @@ async fn test_withdraw_unclaimed_empty_pool_fails() -> Result<()> {
     worker.fast_forward(100).await?;
 
     // Withdraw from empty pool → should fail
-    let result =
-        withdraw_unclaimed_refunds(&contract, &creator, "empty-col", ONE_YOCTO).await?;
+    let result = withdraw_unclaimed_refunds(&contract, &creator, "empty-col", ONE_YOCTO).await?;
     assert!(
         result.into_result().is_err(),
         "Cannot withdraw from empty refund pool"
@@ -472,16 +460,21 @@ async fn test_claim_refund_after_deadline_fails() -> Result<()> {
     let (creator, collection_id) =
         setup_cancelled_collection_past_deadline(&worker, &contract).await?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(50)).await?;
     let tok = tokens
         .iter()
         .find(|t| t.token_id.starts_with(&format!("{}:", collection_id)))
         .unwrap();
 
     // Deadline has passed — claim should fail
-    let result =
-        claim_refund(&contract, &creator, &tok.token_id, &collection_id, ONE_YOCTO).await?;
+    let result = claim_refund(
+        &contract,
+        &creator,
+        &tok.token_id,
+        &collection_id,
+        ONE_YOCTO,
+    )
+    .await?;
     assert!(
         result.into_result().is_err(),
         "Cannot claim refund after deadline"

@@ -38,8 +38,7 @@ async fn user_with_token(
     quick_mint(contract, &user, title, DEPOSIT_STORAGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(contract, &user.id().to_string(), None, Some(1)).await?;
+    let tokens = nft_tokens_for_owner(contract, &user.id().to_string(), None, Some(1)).await?;
     let token_id = tokens[0].token_id.clone();
     Ok((user, token_id))
 }
@@ -66,8 +65,7 @@ const OFFER_HALF_NEAR: &str = "500000000000000000000000";
 #[tokio::test]
 async fn test_make_offer_basic() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (_token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (_token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
     let buyer = user_with_storage(&worker, &contract).await?;
 
     make_offer(
@@ -81,8 +79,7 @@ async fn test_make_offer_basic() -> Result<()> {
     .await?
     .into_result()?;
 
-    let offer =
-        get_offer(&contract, &token_id, &buyer.id().to_string()).await?;
+    let offer = get_offer(&contract, &token_id, &buyer.id().to_string()).await?;
     assert!(offer.is_some(), "Offer should exist");
     let offer = offer.unwrap();
     assert_eq!(offer.buyer_id, buyer.id().to_string());
@@ -98,8 +95,7 @@ async fn test_make_offer_basic() -> Result<()> {
 #[tokio::test]
 async fn test_make_offer_own_token_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
 
     let result = make_offer(
         &contract,
@@ -110,10 +106,7 @@ async fn test_make_offer_own_token_fails() -> Result<()> {
         NearToken::from_near(2),
     )
     .await?;
-    assert!(
-        result.into_result().is_err(),
-        "Cannot offer on own token"
-    );
+    assert!(result.into_result().is_err(), "Cannot offer on own token");
 
     Ok(())
 }
@@ -125,8 +118,7 @@ async fn test_make_offer_own_token_fails() -> Result<()> {
 #[tokio::test]
 async fn test_accept_offer() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
     let buyer = user_with_storage(&worker, &contract).await?;
 
     make_offer(
@@ -155,8 +147,7 @@ async fn test_accept_offer() -> Result<()> {
     assert_eq!(token.owner_id, buyer.id().to_string());
 
     // Offer should be gone
-    let offer =
-        get_offer(&contract, &token_id, &buyer.id().to_string()).await?;
+    let offer = get_offer(&contract, &token_id, &buyer.id().to_string()).await?;
     assert!(offer.is_none());
 
     Ok(())
@@ -165,8 +156,7 @@ async fn test_accept_offer() -> Result<()> {
 #[tokio::test]
 async fn test_accept_offer_non_owner_fails() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (_token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (_token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
     let buyer = user_with_storage(&worker, &contract).await?;
     let stranger = user_with_storage(&worker, &contract).await?;
 
@@ -204,8 +194,7 @@ async fn test_accept_offer_non_owner_fails() -> Result<()> {
 #[tokio::test]
 async fn test_cancel_offer() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (_token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (_token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
     let buyer = user_with_storage(&worker, &contract).await?;
 
     make_offer(
@@ -223,8 +212,7 @@ async fn test_cancel_offer() -> Result<()> {
         .await?
         .into_result()?;
 
-    let offer =
-        get_offer(&contract, &token_id, &buyer.id().to_string()).await?;
+    let offer = get_offer(&contract, &token_id, &buyer.id().to_string()).await?;
     assert!(offer.is_none(), "Offer should be removed after cancel");
 
     Ok(())
@@ -233,8 +221,7 @@ async fn test_cancel_offer() -> Result<()> {
 #[tokio::test]
 async fn test_make_offer_replaces_existing() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (_token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (_token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
     let buyer = user_with_storage(&worker, &contract).await?;
 
     // First offer
@@ -262,8 +249,7 @@ async fn test_make_offer_replaces_existing() -> Result<()> {
     .into_result()?;
 
     // Should be only one offer at the new amount
-    let offers =
-        get_offers_for_token(&contract, &token_id, None, None).await?;
+    let offers = get_offers_for_token(&contract, &token_id, None, None).await?;
     assert_eq!(offers.len(), 1);
     assert_eq!(offers[0].amount, OFFER_1_NEAR);
 
@@ -305,12 +291,7 @@ async fn test_make_collection_offer() -> Result<()> {
     .await?
     .into_result()?;
 
-    let offer = get_collection_offer(
-        &contract,
-        "art",
-        &buyer.id().to_string(),
-    )
-    .await?;
+    let offer = get_collection_offer(&contract, "art", &buyer.id().to_string()).await?;
     assert!(offer.is_some());
     assert_eq!(offer.unwrap().amount, OFFER_1_NEAR);
 
@@ -341,13 +322,7 @@ async fn test_accept_collection_offer() -> Result<()> {
         .into_result()?;
 
     // Find the minted token
-    let tokens = nft_tokens_for_owner(
-        &contract,
-        &creator.id().to_string(),
-        None,
-        Some(10),
-    )
-    .await?;
+    let tokens = nft_tokens_for_owner(&contract, &creator.id().to_string(), None, Some(10)).await?;
     let token_id = tokens
         .iter()
         .find(|t| t.token_id.starts_with("art:"))
@@ -419,12 +394,7 @@ async fn test_cancel_collection_offer() -> Result<()> {
         .await?
         .into_result()?;
 
-    let offer = get_collection_offer(
-        &contract,
-        "art",
-        &buyer.id().to_string(),
-    )
-    .await?;
+    let offer = get_collection_offer(&contract, "art", &buyer.id().to_string()).await?;
     assert!(offer.is_none(), "Collection offer should be removed");
 
     Ok(())
@@ -437,8 +407,7 @@ async fn test_cancel_collection_offer() -> Result<()> {
 #[tokio::test]
 async fn test_offer_views() -> Result<()> {
     let (worker, _owner, contract) = setup().await?;
-    let (_token_owner, token_id) =
-        user_with_token(&worker, &contract, "NFT").await?;
+    let (_token_owner, token_id) = user_with_token(&worker, &contract, "NFT").await?;
     let buyer1 = user_with_storage(&worker, &contract).await?;
     let buyer2 = user_with_storage(&worker, &contract).await?;
 
@@ -464,8 +433,7 @@ async fn test_offer_views() -> Result<()> {
     .await?
     .into_result()?;
 
-    let offers =
-        get_offers_for_token(&contract, &token_id, None, None).await?;
+    let offers = get_offers_for_token(&contract, &token_id, None, None).await?;
     assert_eq!(offers.len(), 2, "Should have 2 offers");
 
     Ok(())

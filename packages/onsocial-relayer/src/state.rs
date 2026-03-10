@@ -311,37 +311,35 @@ async fn bootstrap_kms_pool(
             {
                 Ok(key_ref) => {
                     // Query on-chain access key for nonce and target contract.
-                    let (nonce, target, on_chain) = match rpc
-                        .query_access_key(account_id, &key_ref.public_key)
-                        .await
-                    {
-                        Ok(ak) => {
-                            let contract = match &ak.permission {
-                                near_primitives::views::AccessKeyPermissionView::FunctionCall {
-                                    receiver_id,
-                                    ..
-                                } => receiver_id
-                                    .parse::<near_primitives::types::AccountId>()
-                                    .unwrap_or_else(|_| first_contract.clone()),
-                                _ => first_contract.clone(),
-                            };
-                            (ak.nonce, contract, true)
-                        }
-                        Err(_) => {
-                            // Key in KMS but not on-chain; assign round-robin.
-                            let contract_idx = i as usize % allowed_contracts.len().max(1);
-                            let target = allowed_contracts
-                                .get(contract_idx)
-                                .cloned()
-                                .unwrap_or_else(|| first_contract.clone());
-                            info!(
-                                key = %key_ref.public_key,
-                                contract = %target,
-                                "KMS key not registered on-chain — will register at bootstrap"
-                            );
-                            (0, target, false)
-                        }
-                    };
+                    let (nonce, target, on_chain) =
+                        match rpc.query_access_key(account_id, &key_ref.public_key).await {
+                            Ok(ak) => {
+                                let contract = match &ak.permission {
+                                    near_primitives::views::AccessKeyPermissionView::FunctionCall {
+                                        receiver_id,
+                                        ..
+                                    } => receiver_id
+                                        .parse::<near_primitives::types::AccountId>()
+                                        .unwrap_or_else(|_| first_contract.clone()),
+                                    _ => first_contract.clone(),
+                                };
+                                (ak.nonce, contract, true)
+                            }
+                            Err(_) => {
+                                // Key in KMS but not on-chain; assign round-robin.
+                                let contract_idx = i as usize % allowed_contracts.len().max(1);
+                                let target = allowed_contracts
+                                    .get(contract_idx)
+                                    .cloned()
+                                    .unwrap_or_else(|| first_contract.clone());
+                                info!(
+                                    key = %key_ref.public_key,
+                                    contract = %target,
+                                    "KMS key not registered on-chain — will register at bootstrap"
+                                );
+                                (0, target, false)
+                            }
+                        };
 
                     info!(
                         key = i,

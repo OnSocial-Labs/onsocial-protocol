@@ -203,7 +203,17 @@ async fn test_batch_storage_deposit_with_data_real_balance() -> anyhow::Result<(
 
     // The total deposited should be ~1 NEAR (0.5 explicit + 0.5 auto for data)
     // NOT 1.5 NEAR (which would indicate double-counting)
-    if let Some(balance) = storage_balance.get("balance").and_then(|b| b.as_str()).and_then(|s| s.parse::<u128>().ok()).or_else(|| storage_balance.get("balance").and_then(|b| b.as_u64()).map(|n| n as u128)) {
+    if let Some(balance) = storage_balance
+        .get("balance")
+        .and_then(|b| b.as_str())
+        .and_then(|s| s.parse::<u128>().ok())
+        .or_else(|| {
+            storage_balance
+                .get("balance")
+                .and_then(|b| b.as_u64())
+                .map(|n| n as u128)
+        })
+    {
         let balance_near = balance as f64 / 1e24;
         println!("   Storage balance: {} NEAR", balance_near);
         assert!(
@@ -6696,7 +6706,11 @@ async fn test_refund_unused_deposit_true_returns_to_wallet() -> anyhow::Result<(
         .gas(Gas::from_tgas(50))
         .transact()
         .await?;
-    assert!(register.is_success(), "Pre-register should succeed: {:?}", register.failures());
+    assert!(
+        register.is_success(),
+        "Pre-register should succeed: {:?}",
+        register.failures()
+    );
 
     // Get Alice's wallet balance before
     let wallet_before = alice.view_account().await?.balance;

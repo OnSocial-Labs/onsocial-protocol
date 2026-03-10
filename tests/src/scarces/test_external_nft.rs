@@ -70,8 +70,7 @@ async fn mint_external_token(
     quick_mint(nft_source, minter, title, DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(nft_source, &minter.id().to_string(), None, Some(50)).await?;
+    let tokens = nft_tokens_for_owner(nft_source, &minter.id().to_string(), None, Some(50)).await?;
     Ok(tokens.last().unwrap().token_id.clone())
 }
 
@@ -128,7 +127,10 @@ async fn test_external_list_via_nft_approve() -> Result<()> {
     let price = "1000000000000000000000000"; // 1 NEAR
 
     let result = approve_and_list(&nft_source, &marketplace, &alice, &token_id, price).await?;
-    assert!(result.is_success(), "nft_approve + nft_on_approve should succeed");
+    assert!(
+        result.is_success(),
+        "nft_approve + nft_on_approve should succeed"
+    );
 
     // Sale should exist on the marketplace
     let sale = get_external_sale(&marketplace, &nft_source, &token_id).await?;
@@ -202,13 +204,21 @@ async fn test_external_list_duplicate_returns_existing() -> Result<()> {
         .into_result()?;
 
     // Second listing attempt — should succeed but not create a duplicate
-    let result = approve_and_list(&nft_source, &marketplace, &alice, &token_id, "2000000000000000000000000").await?;
+    let result = approve_and_list(
+        &nft_source,
+        &marketplace,
+        &alice,
+        &token_id,
+        "2000000000000000000000000",
+    )
+    .await?;
     assert!(result.is_success(), "Duplicate listing returns existing");
 
     // Price should still be the original
     let sale = get_external_sale(&marketplace, &nft_source, &token_id).await?;
     assert_eq!(
-        sale.unwrap().sale_conditions, price,
+        sale.unwrap().sale_conditions,
+        price,
         "Original price unchanged"
     );
 
@@ -329,7 +339,10 @@ async fn test_external_delist_wrong_owner_fails() -> Result<()> {
 
     // Sale still exists
     let sale = get_external_sale(&marketplace, &nft_source, &token_id).await?;
-    assert!(sale.is_some(), "Sale remains after unauthorized delist attempt");
+    assert!(
+        sale.is_some(),
+        "Sale remains after unauthorized delist attempt"
+    );
 
     Ok(())
 }
@@ -386,7 +399,11 @@ async fn test_external_purchase_transfers_token() -> Result<()> {
 
     // Token should now belong to Bob on the external NFT contract
     let token = nft_token(&nft_source, &token_id).await?.unwrap();
-    assert_eq!(token.owner_id, bob.id().to_string(), "Bob owns the token after purchase");
+    assert_eq!(
+        token.owner_id,
+        bob.id().to_string(),
+        "Bob owns the token after purchase"
+    );
 
     // Sale should be removed from marketplace
     let sale = get_external_sale(&marketplace, &nft_source, &token_id).await?;
@@ -552,7 +569,10 @@ async fn test_add_approved_non_owner_fails() -> Result<()> {
         .deposit(ONE_YOCTO)
         .transact()
         .await?;
-    assert!(result.is_failure(), "Non-owner cannot add approved NFT contract");
+    assert!(
+        result.is_failure(),
+        "Non-owner cannot add approved NFT contract"
+    );
 
     Ok(())
 }

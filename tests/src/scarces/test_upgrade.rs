@@ -61,7 +61,10 @@ async fn test_upgrade_owner_succeeds() -> Result<()> {
 
     // Contract should still be functional
     let version = get_version(&contract).await?;
-    assert!(!version.is_empty(), "Version should be non-empty after upgrade");
+    assert!(
+        !version.is_empty(),
+        "Version should be non-empty after upgrade"
+    );
     Ok(())
 }
 
@@ -107,7 +110,10 @@ async fn test_upgrade_requires_one_yocto() -> Result<()> {
         .transact()
         .await?;
 
-    assert!(result.is_failure(), "Upgrade without 1 yoctoNEAR should fail");
+    assert!(
+        result.is_failure(),
+        "Upgrade without 1 yoctoNEAR should fail"
+    );
     Ok(())
 }
 
@@ -174,7 +180,10 @@ async fn test_upgrade_preserves_tokens() -> Result<()> {
         .as_ref()
         .and_then(|m| m.title.as_deref())
         .unwrap_or("");
-    assert_eq!(title_before, title_after, "Token title should survive upgrade");
+    assert_eq!(
+        title_before, title_after,
+        "Token title should survive upgrade"
+    );
 
     Ok(())
 }
@@ -192,10 +201,7 @@ async fn test_upgrade_preserves_storage_balance() -> Result<()> {
         .into_result()?;
 
     let storage_before = get_user_storage(&contract, user.id().as_str()).await?;
-    let balance_before = storage_before["balance"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let balance_before = storage_before["balance"].as_str().unwrap().to_string();
 
     // Upgrade
     let wasm = read_scarces_wasm();
@@ -203,11 +209,11 @@ async fn test_upgrade_preserves_storage_balance() -> Result<()> {
 
     // Verify storage balance survived
     let storage_after = get_user_storage(&contract, user.id().as_str()).await?;
-    let balance_after = storage_after["balance"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    assert_eq!(balance_before, balance_after, "Storage balance should survive upgrade");
+    let balance_after = storage_after["balance"].as_str().unwrap().to_string();
+    assert_eq!(
+        balance_before, balance_after,
+        "Storage balance should survive upgrade"
+    );
 
     Ok(())
 }
@@ -240,8 +246,14 @@ async fn test_upgrade_preserves_contract_metadata() -> Result<()> {
     do_upgrade(&contract, &owner, &wasm).await?.into_result()?;
 
     let meta_after = nft_metadata(&contract).await?;
-    assert_eq!(meta_before.name, meta_after.name, "Contract name should survive");
-    assert_eq!(meta_before.symbol, meta_after.symbol, "Symbol should survive");
+    assert_eq!(
+        meta_before.name, meta_after.name,
+        "Contract name should survive"
+    );
+    assert_eq!(
+        meta_before.symbol, meta_after.symbol,
+        "Symbol should survive"
+    );
     Ok(())
 }
 

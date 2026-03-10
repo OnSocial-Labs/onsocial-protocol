@@ -68,7 +68,10 @@ async fn test_transfer_ownership_unauthorized() -> Result<()> {
         .transact()
         .await?;
 
-    assert!(result.is_failure(), "non-owner should not transfer ownership");
+    assert!(
+        result.is_failure(),
+        "non-owner should not transfer ownership"
+    );
 
     Ok(())
 }
@@ -93,7 +96,10 @@ async fn test_add_remove_authorized_caller() -> Result<()> {
     deposit_pool(&ft, &rewards, &owner, POOL_AMOUNT).await?;
     let user = worker.dev_create_account().await?;
     let result = credit_reward(&rewards, &caller, user.id().as_str(), ONE_SOCIAL, None).await?;
-    assert!(result.is_success(), "authorized caller should credit rewards");
+    assert!(
+        result.is_success(),
+        "authorized caller should credit rewards"
+    );
 
     // Remove authorized caller
     owner
@@ -105,7 +111,10 @@ async fn test_add_remove_authorized_caller() -> Result<()> {
 
     // Removed caller should fail
     let result = credit_reward(&rewards, &caller, user.id().as_str(), ONE_SOCIAL, None).await?;
-    assert!(result.is_failure(), "removed caller should not credit rewards");
+    assert!(
+        result.is_failure(),
+        "removed caller should not credit rewards"
+    );
 
     Ok(())
 }

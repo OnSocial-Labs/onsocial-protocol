@@ -57,8 +57,7 @@ async fn test_batch_transfer_nonexistent_token_rolls_back() -> Result<()> {
     quick_mint(&contract, &alice, "Valid 2", DEPOSIT_STORAGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
     let tid0 = &tokens[0].token_id;
 
     // Batch with first valid, second nonexistent
@@ -75,7 +74,10 @@ async fn test_batch_transfer_nonexistent_token_rolls_back() -> Result<()> {
         ONE_YOCTO,
     )
     .await?;
-    assert!(result.is_failure(), "Batch with nonexistent token should fail");
+    assert!(
+        result.is_failure(),
+        "Batch with nonexistent token should fail"
+    );
 
     // Atomicity: first token should NOT have been transferred
     let token = nft_token(&contract, tid0).await?.unwrap();
@@ -117,8 +119,7 @@ async fn test_batch_transfer_soulbound_token_rolls_back() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
     let transferable_id = &tokens[0].token_id;
     let soulbound_id = &tokens[1].token_id;
 
@@ -169,8 +170,7 @@ async fn test_batch_transfer_not_owner_rolls_back() -> Result<()> {
 
     let alice_tokens =
         nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
-    let bob_tokens =
-        nft_tokens_for_owner(&contract, &bob.id().to_string(), None, Some(10)).await?;
+    let bob_tokens = nft_tokens_for_owner(&contract, &bob.id().to_string(), None, Some(10)).await?;
 
     // Alice tries to batch-transfer her token + Bob's token
     let result = execute_action(
@@ -237,8 +237,7 @@ async fn test_batch_transfer_multiple_receivers() -> Result<()> {
             .await?
             .into_result()?;
     }
-    let tokens =
-        nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &alice.id().to_string(), None, Some(10)).await?;
 
     // Transfer token 0 to Bob, tokens 1+2 to Charlie
     let result = execute_action(
@@ -279,8 +278,7 @@ async fn test_native_sale_second_buyer_fails() -> Result<()> {
     quick_mint(&contract, &seller, "Contested", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
     let price = "1000000000000000000000000"; // 1 NEAR
 
@@ -299,8 +297,8 @@ async fn test_native_sale_second_buyer_fails() -> Result<()> {
     assert_eq!(token.owner_id, buyer1.id().to_string());
 
     // Buyer 2 tries to purchase the same token — sale no longer exists
-    let result = purchase_native_scarce(&contract, &buyer2, token_id, NearToken::from_near(2))
-        .await?;
+    let result =
+        purchase_native_scarce(&contract, &buyer2, token_id, NearToken::from_near(2)).await?;
     assert!(
         result.is_failure(),
         "Second buyer should fail (sale already consumed)"
@@ -368,8 +366,7 @@ async fn test_collection_max_supply_exhaustion() -> Result<()> {
     );
 
     // Creator mint should also fail
-    let result = mint_from_collection(&contract, &creator, "tiny", 1, None, DEPOSIT_LARGE)
-        .await?;
+    let result = mint_from_collection(&contract, &creator, "tiny", 1, None, DEPOSIT_LARGE).await?;
     assert!(
         result.is_failure(),
         "Creator mint from sold-out collection should fail"
@@ -436,7 +433,9 @@ async fn test_collection_supply_boundary() -> Result<()> {
     .await?
     .into_result()?;
 
-    let progress = get_collection_progress(&contract, "boundary").await?.unwrap();
+    let progress = get_collection_progress(&contract, "boundary")
+        .await?
+        .unwrap();
     assert_eq!(progress.remaining, 0);
     assert_eq!(progress.minted, 3);
 
@@ -456,8 +455,7 @@ async fn test_expired_native_sale_purchase_rejected() -> Result<()> {
     quick_mint(&contract, &seller, "Expiring", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // List with a very short expiration (1 nanosecond in the future)
@@ -496,8 +494,7 @@ async fn test_expired_offer_acceptance_rejected() -> Result<()> {
     quick_mint(&contract, &seller, "Offer Target", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &seller.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // Make an offer with expires_at = 1 ns (already expired)
@@ -559,19 +556,11 @@ async fn test_non_burnable_collection_burn_rejected() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &buyer.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &buyer.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // Burn should fail
-    let result = burn_scarce(
-        &contract,
-        &buyer,
-        token_id,
-        Some("noburn"),
-        ONE_YOCTO,
-    )
-    .await?;
+    let result = burn_scarce(&contract, &buyer, token_id, Some("noburn"), ONE_YOCTO).await?;
     assert!(
         result.is_failure(),
         "Burn from non-burnable collection should fail"
@@ -625,8 +614,7 @@ async fn test_soulbound_collection_transfer_rejected() -> Result<()> {
     .await?
     .into_result()?;
 
-    let tokens =
-        nft_tokens_for_owner(&contract, &buyer.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &buyer.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // Transfer should fail

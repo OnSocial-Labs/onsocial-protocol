@@ -160,10 +160,7 @@ async fn test_signed_payload_nonce_replay_rejected() -> Result<()> {
         NearToken::from_near(1),
     )
     .await?;
-    assert!(
-        result.is_failure(),
-        "replayed nonce should be rejected"
-    );
+    assert!(result.is_failure(), "replayed nonce should be rejected");
 
     // Nonce=2 should succeed (monotonic advance).
     let action3 = action_quick_mint("Second");
@@ -232,10 +229,7 @@ async fn test_signed_payload_expired_rejected() -> Result<()> {
         NearToken::from_near(1),
     )
     .await?;
-    assert!(
-        result.is_failure(),
-        "expired signature should be rejected"
-    );
+    assert!(result.is_failure(), "expired signature should be rejected");
     let err = format!("{:?}", result.failures());
     assert!(
         err.to_lowercase().contains("expired"),
@@ -282,10 +276,7 @@ async fn test_signed_payload_bad_signature_rejected() -> Result<()> {
         NearToken::from_near(1),
     )
     .await?;
-    assert!(
-        result.is_failure(),
-        "invalid signature should be rejected"
-    );
+    assert!(result.is_failure(), "invalid signature should be rejected");
 
     Ok(())
 }
@@ -587,10 +578,7 @@ async fn test_intent_removed_executor_rejected() -> Result<()> {
         NearToken::from_near(1),
     )
     .await?;
-    assert!(
-        result.is_failure(),
-        "removed executor should be rejected"
-    );
+    assert!(result.is_failure(), "removed executor should be rejected");
 
     Ok(())
 }
@@ -624,11 +612,7 @@ async fn test_intent_purchase_from_collection() -> Result<()> {
     .into_result()?;
 
     // Executor purchases on behalf of buyer — must include max_price_per_token.
-    let action = action_purchase_from_collection(
-        "intent-col",
-        1,
-        "1000000000000000000000000",
-    );
+    let action = action_purchase_from_collection("intent-col", 1, "1000000000000000000000000");
 
     let result = execute_with_intent(
         &contract,
@@ -685,11 +669,7 @@ async fn test_gasless_purchase_via_prepaid_balance() -> Result<()> {
     .into_result()?;
 
     // Executor issues a 0-deposit purchase (gasless) — draw_user_balance kicks in.
-    let action = action_purchase_from_collection(
-        "gasless-col",
-        1,
-        "1000000000000000000000000",
-    );
+    let action = action_purchase_from_collection("gasless-col", 1, "1000000000000000000000000");
 
     let result = execute_with_intent(
         &contract,
@@ -727,8 +707,7 @@ async fn test_signed_auth_bypasses_confirmation_gate() -> Result<()> {
     quick_mint(&contract, &user, "Gate Token", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &user.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &user.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // TransferScarce requires_confirmation() = true for direct auth.
@@ -783,8 +762,7 @@ async fn test_direct_auth_requires_confirmation_deposit() -> Result<()> {
     quick_mint(&contract, &user, "Confirm Token", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &user.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &user.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // TransferScarce requires 1 yoctoNEAR for direct auth.
@@ -1035,8 +1013,15 @@ async fn test_signed_payload_nonce_skip_allowed() -> Result<()> {
         &sk,
     );
     execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action1, &pk_str, 1, 0, &sig1, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action1,
+        &pk_str,
+        1,
+        0,
+        &sig1,
+        NearToken::from_near(1),
     )
     .await?
     .into_result()?;
@@ -1053,8 +1038,15 @@ async fn test_signed_payload_nonce_skip_allowed() -> Result<()> {
         &sk,
     );
     let result = execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action2, &pk_str, 100, 0, &sig2, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action2,
+        &pk_str,
+        100,
+        0,
+        &sig2,
+        NearToken::from_near(1),
     )
     .await?;
     assert!(
@@ -1093,14 +1085,18 @@ async fn test_signed_payload_nonce_zero_rejected() -> Result<()> {
     );
 
     let result = execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action, &pk_str, 0, 0, &sig, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action,
+        &pk_str,
+        0,
+        0,
+        &sig,
+        NearToken::from_near(1),
     )
     .await?;
-    assert!(
-        result.is_failure(),
-        "nonce=0 should be rejected"
-    );
+    assert!(result.is_failure(), "nonce=0 should be rejected");
     let err = format!("{:?}", result.failures());
     assert!(
         err.to_lowercase().contains("nonce"),
@@ -1134,8 +1130,15 @@ async fn test_signed_payload_nonce_regression_rejected() -> Result<()> {
         &sk,
     );
     execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action1, &pk_str, 100, 0, &sig1, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action1,
+        &pk_str,
+        100,
+        0,
+        &sig1,
+        NearToken::from_near(1),
     )
     .await?
     .into_result()?;
@@ -1152,8 +1155,15 @@ async fn test_signed_payload_nonce_regression_rejected() -> Result<()> {
         &sk,
     );
     let result = execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action2, &pk_str, 50, 0, &sig2, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action2,
+        &pk_str,
+        50,
+        0,
+        &sig2,
+        NearToken::from_near(1),
     )
     .await?;
     assert!(
@@ -1194,8 +1204,15 @@ async fn test_signed_payload_nonce_isolation_between_keys() -> Result<()> {
         &sk_a,
     );
     execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action_a, &pk_a, 50, 0, &sig_a, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action_a,
+        &pk_a,
+        50,
+        0,
+        &sig_a,
+        NearToken::from_near(1),
     )
     .await?
     .into_result()?;
@@ -1212,8 +1229,15 @@ async fn test_signed_payload_nonce_isolation_between_keys() -> Result<()> {
         &sk_b,
     );
     let result = execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action_b, &pk_b, 1, 0, &sig_b, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action_b,
+        &pk_b,
+        1,
+        0,
+        &sig_b,
+        NearToken::from_near(1),
     )
     .await?;
     assert!(
@@ -1253,8 +1277,15 @@ async fn test_signed_payload_nonce_cross_account_isolation() -> Result<()> {
         &sk,
     );
     execute_with_signed_payload(
-        &contract, &relayer, alice.id().as_str(),
-        action_a, &pk_str, 10, 0, &sig_a, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        alice.id().as_str(),
+        action_a,
+        &pk_str,
+        10,
+        0,
+        &sig_a,
+        NearToken::from_near(1),
     )
     .await?
     .into_result()?;
@@ -1271,8 +1302,15 @@ async fn test_signed_payload_nonce_cross_account_isolation() -> Result<()> {
         &sk,
     );
     let result = execute_with_signed_payload(
-        &contract, &relayer, bob.id().as_str(),
-        action_b, &pk_str, 1, 0, &sig_b, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        bob.id().as_str(),
+        action_b,
+        &pk_str,
+        1,
+        0,
+        &sig_b,
+        NearToken::from_near(1),
     )
     .await?;
     assert!(
@@ -1314,8 +1352,15 @@ async fn test_signed_payload_nonce_u64_max_is_terminal() -> Result<()> {
         &sk,
     );
     let result = execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action1, &pk_str, max_nonce, 0, &sig1, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action1,
+        &pk_str,
+        max_nonce,
+        0,
+        &sig1,
+        NearToken::from_near(1),
     )
     .await?;
     assert!(
@@ -1336,8 +1381,15 @@ async fn test_signed_payload_nonce_u64_max_is_terminal() -> Result<()> {
         &sk,
     );
     let result = execute_with_signed_payload(
-        &contract, &relayer, user.id().as_str(),
-        action2, &pk_str, max_nonce, 0, &sig2, NearToken::from_near(1),
+        &contract,
+        &relayer,
+        user.id().as_str(),
+        action2,
+        &pk_str,
+        max_nonce,
+        0,
+        &sig2,
+        NearToken::from_near(1),
     )
     .await?;
     assert!(
@@ -1393,10 +1445,7 @@ async fn test_signed_payload_secp256k1_key_rejected() -> Result<()> {
         .transact()
         .await?;
 
-    assert!(
-        result.is_failure(),
-        "secp256k1 key should be rejected"
-    );
+    assert!(result.is_failure(), "secp256k1 key should be rejected");
     let err = format!("{:?}", result.failures());
     assert!(
         err.contains("ed25519") || err.contains("ED25519") || err.contains("Only"),
@@ -1537,10 +1586,7 @@ async fn test_signed_payload_empty_signature_rejected() -> Result<()> {
         .transact()
         .await?;
 
-    assert!(
-        result.is_failure(),
-        "empty signature should be rejected"
-    );
+    assert!(result.is_failure(), "empty signature should be rejected");
 
     Ok(())
 }
@@ -1634,8 +1680,7 @@ async fn test_signed_payload_transfer_bypasses_confirmation() -> Result<()> {
     quick_mint(&contract, &user, "Transfer Token", DEPOSIT_LARGE)
         .await?
         .into_result()?;
-    let tokens =
-        nft_tokens_for_owner(&contract, &user.id().to_string(), None, Some(10)).await?;
+    let tokens = nft_tokens_for_owner(&contract, &user.id().to_string(), None, Some(10)).await?;
     let token_id = &tokens[0].token_id;
 
     // Transfer via signed payload with 0 deposit — should bypass confirmation gate.

@@ -222,7 +222,10 @@ impl KeyPool {
     }
 
     /// Promote WARMUP keys for a specific contract to ACTIVE.
-    pub(crate) fn promote_warm_keys_for(&self, target: &near_primitives::types::AccountId) -> usize {
+    pub(crate) fn promote_warm_keys_for(
+        &self,
+        target: &near_primitives::types::AccountId,
+    ) -> usize {
         let mut promoted = 0;
         for slot in self.read_slots().iter() {
             if slot.state.load(Ordering::Relaxed) == WARMUP && slot.target_contract == *target {
