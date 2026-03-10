@@ -19,7 +19,7 @@ import { creditReward } from '../services/rewards.js';
 import { accountExists } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { BANNER_URL } from './banner.js';
+import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 export const NEAR_ACCOUNT_REGEX = /^[a-z0-9._-]+\.(near|testnet)$/;
 
@@ -57,10 +57,10 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
 
     const text = `✅ Your account is linked to \`${existing.accountId}\``;
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: text,
+      await ctx.reply(text, {
         reply_markup: keyboard,
         parse_mode: 'Markdown',
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });
@@ -86,9 +86,9 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
     message += 'Tap the button below to get started 👇';
 
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: message,
+      await ctx.reply(message, {
         reply_markup: keyboard,
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(message, { reply_markup: keyboard });
@@ -185,10 +185,10 @@ async function linkAccount(
       `📨 ${credited} past reward${credited !== 1 ? 's' : ''} credited on-chain.\n` +
       "You'll now earn SOCIAL automatically.";
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: linkedText,
+      await ctx.reply(linkedText, {
         reply_markup: keyboard,
         parse_mode: 'Markdown',
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(linkedText, {
@@ -201,10 +201,10 @@ async function linkAccount(
       `✅ Linked to \`${accountId}\`!\n\n` +
       "You'll now earn SOCIAL tokens for activity in the group.";
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: linkedText,
+      await ctx.reply(linkedText, {
         reply_markup: keyboard,
         parse_mode: 'Markdown',
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(linkedText, {

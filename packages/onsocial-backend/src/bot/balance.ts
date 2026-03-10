@@ -12,7 +12,7 @@ import { getUserLink } from '../db/queries.js';
 import { viewUserReward } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { BANNER_URL } from './banner.js';
+import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 export async function handleBalance(
   ctx: CommandContext<Context>
@@ -38,10 +38,10 @@ export async function handleBalance(
     const keyboard = buildBalanceKeyboard();
 
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: text,
+      await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(text, { reply_markup: keyboard, parse_mode: 'Markdown' });

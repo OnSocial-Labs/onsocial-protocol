@@ -13,7 +13,7 @@ import { viewClaimable } from '../services/near.js';
 import { formatSocial } from './balance.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { BANNER_URL } from './banner.js';
+import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 /** Convert a decimal SOCIAL amount to yocto (18 decimals) string. */
 export function toYoctoString(amount: number): string {
@@ -84,9 +84,9 @@ export async function handleClaim(ctx: CommandContext<Context>): Promise<void> {
       .text('❌ Cancel', 'cb:claim:cancel');
 
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: `Ready to claim ${claimable} SOCIAL?`,
+      await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
         reply_markup: keyboard,
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {

@@ -21,7 +21,7 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { OnSocialRewards } from './client.js';
 import type { ClaimResponse, AppConfig } from './types.js';
-import { BANNER_URL } from './banner.js';
+import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,32 +207,21 @@ export function createRewardsBot(config: RewardsBotConfig) {
         .text('💎 Claim', 'cb:claim')
         .row()
         .text('🔗 Change Account', 'cb:link');
-      if (BANNER_URL) {
-        await ctx.replyWithPhoto(BANNER_URL, {
-          caption: `✅ Linked to \`${existing}\``,
-          reply_markup: kb,
-          parse_mode: 'Markdown',
-        });
-      } else {
-        await ctx.reply(`✅ Linked to \`${existing}\``, {
-          reply_markup: kb,
-          parse_mode: 'Markdown',
-        });
-      }
+      await ctx.reply(`✅ Linked to \`${existing}\``, {
+        reply_markup: kb,
+        parse_mode: 'Markdown',
+        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+      });
     } else {
       const kb = new InlineKeyboard().text('🔗 Link Account', 'cb:link');
       const welcomeText =
         `👋 Welcome to ${appLabel}!\n\n` +
         `Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day) for being active in the group.\n\n` +
         'Tap below to link your NEAR account and start earning 👇';
-      if (BANNER_URL) {
-        await ctx.replyWithPhoto(BANNER_URL, {
-          caption: welcomeText,
-          reply_markup: kb,
-        });
-      } else {
-        await ctx.reply(welcomeText, { reply_markup: kb });
-      }
+      await ctx.reply(welcomeText, {
+        reply_markup: kb,
+        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+      });
     }
   });
 
@@ -276,18 +265,11 @@ export function createRewardsBot(config: RewardsBotConfig) {
         '\n\n' +
         tokenLink();
 
-      if (BANNER_URL) {
-        await ctx.replyWithPhoto(BANNER_URL, {
-          caption: balanceText,
-          parse_mode: 'Markdown',
-          reply_markup: kb,
-        });
-      } else {
-        await ctx.reply(balanceText, {
-          reply_markup: kb,
-          parse_mode: 'Markdown',
-        });
-      }
+      await ctx.reply(balanceText, {
+        parse_mode: 'Markdown',
+        reply_markup: kb,
+        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+      });
     } catch (err) {
       onError(err, 'balance');
       await ctx.reply('⚠️ Could not fetch balance. Please try again later.');
@@ -330,14 +312,10 @@ export function createRewardsBot(config: RewardsBotConfig) {
       '  /claim — Withdraw your tokens\n' +
       '  /help — This message\n\n' +
       brandLine();
-    if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: helpText,
-        reply_markup: kb,
-      });
-    } else {
-      await ctx.reply(helpText, { reply_markup: kb });
-    }
+    await ctx.reply(helpText, {
+      reply_markup: kb,
+      ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+    });
   });
 
   // ────────────────────────────────────────────────
@@ -379,19 +357,11 @@ export function createRewardsBot(config: RewardsBotConfig) {
         brandLine() +
         '\n\n' +
         tokenLink();
-      // Photo messages can't be edited — always send a fresh one
-      if (BANNER_URL) {
-        await ctx.replyWithPhoto(BANNER_URL, {
-          caption: text,
-          parse_mode: 'Markdown',
-          reply_markup: kb,
-        });
-      } else {
-        await ctx.reply(text, {
-          parse_mode: 'Markdown',
-          reply_markup: kb,
-        });
-      }
+      await ctx.reply(text, {
+        parse_mode: 'Markdown',
+        reply_markup: kb,
+        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+      });
     } catch (err) {
       onError(err, 'balance callback');
       await ctx.reply('⚠️ Could not fetch balance. Please try again later.');
@@ -421,9 +391,8 @@ export function createRewardsBot(config: RewardsBotConfig) {
 
       const claimed = formatSocial(result.claimed);
       const brand = result.powered_by ?? brandLine();
-      const kb = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
 
-      const txLink = result.tx_hash
+      const txUrl = result.tx_hash
         ? (config.rewardsContract ?? 'rewards.onsocial.near').endsWith(
             '.testnet'
           )
@@ -431,10 +400,11 @@ export function createRewardsBot(config: RewardsBotConfig) {
           : `https://nearblocks.io/txns/${result.tx_hash}`
         : null;
 
-      const lines = [`✅ Claimed ${claimed} SOCIAL!`, '', brand];
-      if (txLink) lines.push('', `🔗 View transaction:\n${txLink}`);
+      const kb = new InlineKeyboard();
+      if (txUrl) kb.url('🔗 View Transaction', txUrl).row();
+      kb.text('⭐ Balance', 'cb:balance');
 
-      await ctx.reply(lines.join('\n'), {
+      await ctx.reply(`✅ Claimed ${claimed} SOCIAL!\n\n${brand}`, {
         reply_markup: kb,
       });
     } catch (err) {
@@ -540,15 +510,11 @@ export function createRewardsBot(config: RewardsBotConfig) {
       `✅ Linked to \`${accountId}\`!\n\n` +
       "You'll now earn SOCIAL tokens for activity in the group.\n\n" +
       brandLine();
-    if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: linkedText,
-        reply_markup: kb,
-        parse_mode: 'Markdown',
-      });
-    } else {
-      await ctx.reply(linkedText, { reply_markup: kb, parse_mode: 'Markdown' });
-    }
+    await ctx.reply(linkedText, {
+      reply_markup: kb,
+      parse_mode: 'Markdown',
+      ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+    });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -580,16 +546,10 @@ export function createRewardsBot(config: RewardsBotConfig) {
         .text('✅ Confirm Claim', 'cb:claim:confirm')
         .text('❌ Cancel', 'cb:claim:cancel');
 
-      if (BANNER_URL) {
-        await ctx.replyWithPhoto(BANNER_URL, {
-          caption: `Ready to claim ${human} SOCIAL?`,
-          reply_markup: kb,
-        });
-      } else {
-        await ctx.reply(`Ready to claim ${human} SOCIAL?`, {
-          reply_markup: kb,
-        });
-      }
+      await ctx.reply(`Ready to claim ${human} SOCIAL?`, {
+        reply_markup: kb,
+        ...(BANNER_URL ? { link_preview_options: BANNER_PREVIEW } : {}),
+      });
     } catch (err) {
       onError(err, 'claim flow');
       await ctx.reply('⚠️ Could not check balance. Please try again later.');

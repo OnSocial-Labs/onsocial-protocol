@@ -13,7 +13,7 @@ import {
   buildBalanceKeyboard,
   formatSocial,
 } from './balance.js';
-import { BANNER_URL } from './banner.js';
+import { BANNER_URL, BANNER_PREVIEW } from './banner.js';
 import {
   handleClaim,
   executeClaim,
@@ -70,10 +70,10 @@ bot.callbackQuery('cb:balance', async (ctx) => {
 
     // Photo messages can't be edited — always send a fresh one
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: text,
+      await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: keyboard,
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(text, {
@@ -130,9 +130,9 @@ bot.callbackQuery('cb:claim', async (ctx) => {
       .text('❌ Cancel', 'cb:claim:cancel');
 
     if (BANNER_URL) {
-      await ctx.replyWithPhoto(BANNER_URL, {
-        caption: `Ready to claim ${claimable} SOCIAL?`,
+      await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
         reply_markup: keyboard,
+        link_preview_options: BANNER_PREVIEW,
       });
     } else {
       await ctx.reply(`Ready to claim ${claimable} SOCIAL?`, {
@@ -171,12 +171,14 @@ bot.callbackQuery('cb:claim:confirm', async (ctx) => {
         ? `https://nearblocks.io/txns/${result.txHash}`
         : `https://testnet.nearblocks.io/txns/${result.txHash}`;
 
-    const keyboard = new InlineKeyboard().text('⭐ Balance', 'cb:balance');
+    const keyboard = new InlineKeyboard()
+      .url('🔗 View Transaction', explorerUrl)
+      .row()
+      .text('⭐ Balance', 'cb:balance');
 
-    await ctx.reply(
-      `✅ Claim confirmed!\n\n🤝 OnSocial stands with you\n\n🔗 View transaction:\n${explorerUrl}`,
-      { reply_markup: keyboard }
-    );
+    await ctx.reply(`✅ Claim confirmed!\n\n🤝 OnSocial stands with you`, {
+      reply_markup: keyboard,
+    });
 
     logger.info(
       { accountId: link.accountId, txHash: result.txHash },
@@ -214,9 +216,9 @@ bot.callbackQuery('cb:help', async (ctx) => {
     .text('💎 Claim', 'cb:claim');
 
   if (BANNER_URL) {
-    await ctx.replyWithPhoto(BANNER_URL, {
-      caption: HELP_TEXT,
+    await ctx.reply(HELP_TEXT, {
       reply_markup: keyboard,
+      link_preview_options: BANNER_PREVIEW,
     });
   } else {
     await ctx.reply(HELP_TEXT, { reply_markup: keyboard });

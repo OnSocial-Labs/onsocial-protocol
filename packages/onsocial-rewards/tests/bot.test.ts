@@ -19,9 +19,13 @@ vi.mock('grammy', () => {
     api = { setWebhook: vi.fn(), deleteWebhook: vi.fn() };
   }
   class FakeInlineKeyboard {
-    private buttons: { text: string; data: string }[][] = [[]];
+    private buttons: { text: string; data?: string; url?: string }[][] = [[]];
     text(label: string, data: string) {
       this.buttons[this.buttons.length - 1].push({ text: label, data });
+      return this;
+    }
+    url(label: string, href: string) {
+      this.buttons[this.buttons.length - 1].push({ text: label, url: href });
       return this;
     }
     row() {
@@ -216,18 +220,18 @@ describe('createRewardsBot handlers', () => {
       mockAppConfig();
       const ctx = makeCtx();
       await commandHandlers.start(ctx);
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Test Community'),
         expect.objectContaining({
-          caption: expect.stringContaining('Test Community'),
+          link_preview_options: expect.objectContaining({
+            url: expect.any(String),
+          }),
         })
       );
       // Should show real reward rate from on-chain config
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          caption: expect.stringContaining('0.1 SOCIAL per message'),
-        })
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('0.1 SOCIAL per message'),
+        expect.anything()
       );
     });
 
@@ -236,10 +240,12 @@ describe('createRewardsBot handlers', () => {
       vi.mocked(mockStore.get).mockResolvedValue('alice.near');
       const ctx = makeCtx();
       await commandHandlers.start(ctx);
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('alice.near'),
         expect.objectContaining({
-          caption: expect.stringContaining('alice.near'),
+          link_preview_options: expect.objectContaining({
+            url: expect.any(String),
+          }),
         })
       );
     });
@@ -249,10 +255,12 @@ describe('createRewardsBot handlers', () => {
       const ctx = makeCtx({ match: 'bob.near' });
       await commandHandlers.start(ctx);
       expect(mockStore.set).toHaveBeenCalledWith(12345, 'bob.near');
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('bob.near'),
         expect.objectContaining({
-          caption: expect.stringContaining('bob.near'),
+          link_preview_options: expect.objectContaining({
+            url: expect.any(String),
+          }),
         })
       );
     });
@@ -292,10 +300,12 @@ describe('createRewardsBot handlers', () => {
 
       const ctx = makeCtx();
       await commandHandlers.balance(ctx);
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('alice.near'),
         expect.objectContaining({
-          caption: expect.stringContaining('alice.near'),
+          link_preview_options: expect.objectContaining({
+            url: expect.any(String),
+          }),
         })
       );
     });
@@ -334,10 +344,12 @@ describe('createRewardsBot handlers', () => {
       );
       const ctx = makeCtx();
       await commandHandlers.claim(ctx);
-      expect(ctx.replyWithPhoto).toHaveBeenCalledWith(
-        expect.any(String),
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Ready to claim 0.5 SOCIAL'),
         expect.objectContaining({
-          caption: expect.stringContaining('Ready to claim 0.5 SOCIAL'),
+          link_preview_options: expect.objectContaining({
+            url: expect.any(String),
+          }),
         })
       );
     });
