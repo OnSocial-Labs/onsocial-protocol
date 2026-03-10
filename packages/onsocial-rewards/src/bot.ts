@@ -54,6 +54,9 @@ export interface RewardsBotConfig {
   /** Custom account store — swap in Postgres, Redis, etc. */
   store?: AccountStore;
 
+  /** Number of qualifying messages before nudging an unlinked user (default: 5, 0 = disabled). */
+  nudgeThreshold?: number;
+
   /** Called after a reward is credited. */
   onReward?: (accountId: string, source: string) => void;
 
@@ -154,6 +157,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
   const minClaimAmount = config.minClaimAmount ?? 1;
   const minClaimYocto = BigInt(minClaimAmount) * 10n ** 18n;
   const store: AccountStore = config.store ?? new MemoryAccountStore();
+  const nudgeThreshold = config.nudgeThreshold ?? 5;
   const onError =
     config.onError ??
     ((err: unknown, ctx: string) => console.error(`[onsocial] ${ctx}:`, err));
@@ -272,6 +276,12 @@ export function createRewardsBot(config: RewardsBotConfig) {
   // ── Anti-cycling state ──
   /** Daily credit count per telegram user (keyed by `telegramId:day`). */
   const dailyCredits = new Map<string, number>();
+
+  // ── Nudge state (unlinked users) ──
+  /** Count of qualifying group messages per unlinked telegram user. */
+  const nudgeMessageCount = new Map<number, number>();
+  /** Set of telegram IDs that have already been nudged (once per user, ever). */
+  const nudgedUsers = new Set<number>();
 
   // ── Bot ──
   const bot = new Bot(config.botToken);
@@ -558,7 +568,48 @@ export function createRewardsBot(config: RewardsBotConfig) {
 
     const telegramId = msg.from.id;
     const accountId = await store.get(telegramId);
-    if (!accountId) return; // unlinked — nothing to do (no Postgres for pending)
+
+    // ── Nudge unlinked users after N qualifying messages ──
+    if (!accountId) {
+      if (nudgeThreshold > 0 && !nudgedUsers.has(telegramId)) {
+        const count = (nudgeMessageCount.get(telegramId) ?? 0) + 1;
+        nudgeMessageCount.set(telegramId, count);
+
+        if (count === nudgeThreshold) {
+          nudgedUsers.add(telegramId);
+          nudgeMessageCount.delete(telegramId); // free memory
+
+          // Lazy-load config so brand line is populated
+          await ensureAppConfig();
+
+          try {
+            const botUsername = (await bot.api.getMe()).username;
+            const keyboard = new InlineKeyboard().url(
+              '🚀 Start earning',
+              `https://t.me/${botUsername}?start=link`
+            );
+
+            const rateHint =
+              rewardPerAction && dailyCap
+                ? ` Earn ${rewardPerAction} SOCIAL per message (up to ${dailyCap}/day).`
+                : '';
+
+            await ctx.reply(
+              `${brandLine()}\n\n` +
+                `⭐ You're contributing great content!${rateHint}\n\n` +
+                `Link your NEAR account to start earning SOCIAL tokens 👇`,
+              {
+                reply_parameters: { message_id: msg.message_id },
+                reply_markup: keyboard,
+              }
+            );
+          } catch (err) {
+            onError(err, 'nudge');
+          }
+        }
+      }
+      return;
+    }
 
     // Cooldown
     const now = Date.now();

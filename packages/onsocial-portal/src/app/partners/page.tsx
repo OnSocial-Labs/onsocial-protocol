@@ -156,6 +156,7 @@ function envSnippet(appId: string, apiKey: string, tab: 'bot' | 'sdk') {
     lines.push(`# MIN_MESSAGE_LENGTH=10   # min chars to earn a reward`)
     lines.push(`# COOLDOWN_SEC=60         # seconds between rewarded messages`)
     lines.push(`# MIN_CLAIM_AMOUNT=1      # min SOCIAL earned to allow claim`)
+    lines.push(`# NUDGE_THRESHOLD=5       # messages before nudging unlinked users (0=off)`)
   }
   return lines.join('\n')
 }
@@ -170,6 +171,7 @@ const bot = createRewardsBot({
   minMessageLength: Number(process.env.MIN_MESSAGE_LENGTH) || 10,
   cooldownSec:      Number(process.env.COOLDOWN_SEC) || 60,
   minClaimAmount:   Number(process.env.MIN_CLAIM_AMOUNT) || 1,
+  nudgeThreshold:   Number(process.env.NUDGE_THRESHOLD) || 5,
 });
 
 bot.start({ onStart: () => console.log('✅ Bot is running!') });`
