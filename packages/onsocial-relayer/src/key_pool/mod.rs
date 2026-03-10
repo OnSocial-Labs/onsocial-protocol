@@ -328,32 +328,38 @@ impl KeyPool {
         self.register_keys_on_chain(rpc, &to_register, target)
             .await?;
 
+        let matching_slots: Vec<Arc<KeySlot>> = self
+            .read_slots()
+            .iter()
+            .filter(|slot| {
+                slot.state.load(std::sync::atomic::Ordering::Relaxed) == WARMUP
+                    && slot.target_contract == *target
+                    && to_register.contains(&slot.signer.public_key())
+            })
+            .cloned()
+            .collect();
+
         let mut promoted = 0;
-        for slot in self.read_slots().iter() {
-            if slot.state.load(std::sync::atomic::Ordering::Relaxed) == WARMUP
-                && slot.target_contract == *target
-                && to_register.contains(&slot.signer.public_key())
+        for slot in &matching_slots {
+            match rpc
+                .query_access_key(&self.account_id, &slot.signer.public_key())
+                .await
             {
-                match rpc
-                    .query_access_key(&self.account_id, &slot.signer.public_key())
-                    .await
-                {
-                    Ok(ak) => {
-                        slot.nonce
-                            .store(ak.nonce, std::sync::atomic::Ordering::Relaxed);
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            key = %slot.signer.public_key(),
-                            error = %e,
-                            "Nonce sync failed for registered key — will re-sync on first use"
-                        );
-                    }
+                Ok(ak) => {
+                    slot.nonce
+                        .store(ak.nonce, std::sync::atomic::Ordering::Relaxed);
                 }
-                slot.state
-                    .store(ACTIVE, std::sync::atomic::Ordering::Relaxed);
-                promoted += 1;
+                Err(e) => {
+                    tracing::warn!(
+                        key = %slot.signer.public_key(),
+                        error = %e,
+                        "Nonce sync failed for registered key — will re-sync on first use"
+                    );
+                }
             }
+            slot.state
+                .store(ACTIVE, std::sync::atomic::Ordering::Relaxed);
+            promoted += 1;
         }
 
         Ok(promoted)
