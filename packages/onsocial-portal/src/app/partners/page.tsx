@@ -24,6 +24,10 @@ import {
   Download,
   MessageSquare,
   Cloud,
+  RefreshCw,
+  AlertTriangle,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -76,6 +80,26 @@ interface StatusResponse {
   api_key?: string
   applied_at?: string
   error?: string
+}
+
+interface RotateResponse {
+  success: boolean
+  app_id?: string
+  api_key?: string
+  error?: string
+}
+
+async function rotateKey(walletId: string, currentKey: string): Promise<RotateResponse> {
+  const res = await fetch(`${BACKEND_URL}/v1/admin/rotate-key/${walletId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Api-Key': currentKey,
+    },
+  })
+  const data = (await res.json()) as RotateResponse
+  if (!res.ok) throw new Error(data.error ?? 'Key rotation failed')
+  return data
 }
 
 async function checkStatus(walletId: string): Promise<StatusResponse> {
@@ -191,7 +215,7 @@ function generateScaffold(appId: string, apiKey: string): string {
 // Components
 // ---------------------------------------------------------------------------
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, className: extraClass }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -203,7 +227,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="absolute top-3 right-3 p-1.5 rounded-md bg-muted/50 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
+      className={`p-1.5 rounded-md bg-muted/50 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground ${extraClass ?? 'absolute top-3 right-3'}`}
       title="Copy to clipboard"
     >
       {copied ? <Check className="w-4 h-4 text-[#4ADE80]" /> : <Copy className="w-4 h-4" />}
@@ -510,8 +534,31 @@ function RejectedState({ appId, label }: { appId: string; label: string }) {
 // Approved Dashboard
 // ---------------------------------------------------------------------------
 
-function ApprovedDashboard({ registration }: { registration: AppRegistration }) {
+function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRegistration; onKeyRotated?: (newKey: string) => void }) {
+  const { accountId } = useWallet()
   const [tab, setTab] = useState<'bot' | 'sdk'>('bot')
+  const [keyRevealed, setKeyRevealed] = useState(false)
+  const [showRotateConfirm, setShowRotateConfirm] = useState(false)
+  const [rotating, setRotating] = useState(false)
+  const [rotateError, setRotateError] = useState('')
+
+  const handleRotate = async () => {
+    if (!accountId) return
+    setRotating(true)
+    setRotateError('')
+    try {
+      const result = await rotateKey(accountId, registration.apiKey)
+      if (result.api_key) {
+        onKeyRotated?.(result.api_key)
+        setKeyRevealed(true) // Show the new key so they can copy it
+      }
+      setShowRotateConfirm(false)
+    } catch (err) {
+      setRotateError(err instanceof Error ? err.message : 'Rotation failed')
+    } finally {
+      setRotating(false)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -522,21 +569,87 @@ function ApprovedDashboard({ registration }: { registration: AppRegistration }) 
             <Key className="w-5 h-5 text-[#4ADE80]" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold mb-1 tracking-[-0.02em]">Your OnApi Key</h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold tracking-[-0.02em]">Your OnApi Key</h3>
+              <button
+                onClick={() => setShowRotateConfirm(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/50 bg-muted/40 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
+                title="Rotate API key"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Rotate
+              </button>
+            </div>
             <p className="text-xs text-muted-foreground mb-3">
               App: <span className="font-mono text-foreground">{registration.appId}</span>
               {' · '}
               Label: <span className="text-foreground">{registration.label}</span>
             </p>
             <div className="relative">
-              <code className="block bg-muted/40 rounded-xl px-4 py-3 font-mono text-sm text-[#4ADE80] break-all border border-border/50">
-                {registration.apiKey}
+              <code className="block bg-muted/40 rounded-xl px-4 py-3 pr-20 font-mono text-sm text-[#4ADE80] break-all border border-border/50 select-none">
+                {keyRevealed
+                  ? registration.apiKey
+                  : `${registration.apiKey.slice(0, 10)}${'•'.repeat(32)}${registration.apiKey.slice(-4)}`}
               </code>
-              <CopyButton text={registration.apiKey} />
+              <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                <button
+                  onClick={() => setKeyRevealed((v) => !v)}
+                  className="p-1.5 rounded-md bg-muted/50 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
+                  title={keyRevealed ? 'Hide key' : 'Reveal key'}
+                >
+                  {keyRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                <CopyButton text={registration.apiKey} className="" />
+              </div>
             </div>
             <p className="text-xs text-yellow-500/80 mt-2">
               ⚠️ Store this securely — treat it like a password.
             </p>
+
+            {/* Rotate confirmation */}
+            {showRotateConfirm && (
+              <div className="mt-4 border border-yellow-500/30 rounded-xl p-4 bg-yellow-500/[0.05]">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium mb-1">Rotate API Key?</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      This will invalidate your current key immediately. Update your bot&apos;s
+                      <code className="text-[#3B82F6]"> ONSOCIAL_API_KEY</code> env var with the new key.
+                    </p>
+                    {rotateError && (
+                      <p className="text-xs text-red-400 mb-3">{rotateError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleRotate}
+                        disabled={rotating}
+                        size="sm"
+                        className="font-medium text-xs"
+                      >
+                        {rotating ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                            Rotating…
+                          </>
+                        ) : (
+                          'Yes, rotate key'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => { setShowRotateConfirm(false); setRotateError('') }}
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs"
+                        disabled={rotating}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -917,7 +1030,12 @@ export default function PartnersPage() {
             <RejectedState appId={pendingApp.appId} label={pendingApp.label} />
           )}
           {step === 'approved' && registration && (
-            <ApprovedDashboard registration={registration} />
+            <ApprovedDashboard
+              registration={registration}
+              onKeyRotated={(newKey) =>
+                setRegistration((prev) => prev ? { ...prev, apiKey: newKey } : prev)
+              }
+            />
           )}
         </motion.div>
 

@@ -3,8 +3,9 @@
 // ---------------------------------------------------------------------------
 //
 // Public (wallet-authenticated via portal):
-//   POST /v1/admin/apply          — submit a partner application (pending)
-//   GET  /v1/admin/status/:wallet — check application status by wallet
+//   POST /v1/admin/apply              — submit a partner application (pending)
+//   GET  /v1/admin/status/:wallet     — check application status by wallet
+//   POST /v1/admin/rotate-key/:wallet — rotate API key (wallet-authenticated)
 //
 // Admin-only (ADMIN_SECRET header):
 //   GET    /v1/admin/applications          — list all applications
@@ -14,7 +15,7 @@
 
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
-import { randomBytes } from 'crypto';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import { query } from '../db/index.js';
 import { logger } from '../logger.js';
 
@@ -217,7 +218,7 @@ router.post(
   requireAdmin,
   async (req: Request, res: Response): Promise<void> => {
     const { appId } = req.params;
-    const { admin_notes } = req.body as { admin_notes?: string };
+    const { admin_notes } = (req.body ?? {}) as { admin_notes?: string };
 
     try {
       const existing = await query(
@@ -264,7 +265,7 @@ router.post(
   requireAdmin,
   async (req: Request, res: Response): Promise<void> => {
     const { appId } = req.params;
-    const { admin_notes } = req.body as { admin_notes?: string };
+    const { admin_notes } = (req.body ?? {}) as { admin_notes?: string };
 
     try {
       await query(
@@ -280,6 +281,75 @@ router.post(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       res.status(500).json({ success: false, error: msg });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// POST /v1/admin/rotate-key/:wallet — rotate API key (wallet-authenticated)
+// ---------------------------------------------------------------------------
+// The partner portal calls this when the user clicks "Rotate Key".
+// Requires the current API key in the X-Api-Key header as proof of ownership.
+// ---------------------------------------------------------------------------
+
+router.post(
+  '/rotate-key/:wallet',
+  async (req: Request, res: Response): Promise<void> => {
+    const { wallet } = req.params;
+    const currentKey = req.headers['x-api-key']?.toString();
+
+    if (!wallet) {
+      res.status(400).json({ success: false, error: 'wallet is required' });
+      return;
+    }
+
+    if (!currentKey) {
+      res.status(401).json({ success: false, error: 'X-Api-Key header required' });
+      return;
+    }
+
+    try {
+      // Fetch the approved row for this wallet
+      const result = await query(
+        `SELECT id, app_id, api_key FROM partner_keys
+         WHERE wallet_id = $1 AND status = 'approved' AND active = true
+         ORDER BY created_at DESC LIMIT 1`,
+        [wallet]
+      );
+
+      if (result.rows.length === 0) {
+        res.status(404).json({ success: false, error: 'No active partner found for this wallet' });
+        return;
+      }
+
+      const row = result.rows[0] as { id: number; app_id: string; api_key: string };
+
+      // Constant-time comparison of current key
+      const storedBuf = Buffer.from(row.api_key);
+      const providedBuf = Buffer.from(currentKey);
+      if (storedBuf.length !== providedBuf.length || !timingSafeEqual(storedBuf, providedBuf)) {
+        res.status(403).json({ success: false, error: 'Invalid API key' });
+        return;
+      }
+
+      // Generate new key and update
+      const newKey = generateApiKey();
+      await query(
+        `UPDATE partner_keys SET api_key = $1 WHERE id = $2`,
+        [newKey, row.id]
+      );
+
+      logger.info({ appId: row.app_id, wallet }, 'Partner API key rotated');
+
+      res.json({
+        success: true,
+        app_id: row.app_id,
+        api_key: newKey,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error({ wallet, error: msg }, 'Key rotation failed');
+      res.status(500).json({ success: false, error: 'Key rotation failed' });
     }
   }
 );
