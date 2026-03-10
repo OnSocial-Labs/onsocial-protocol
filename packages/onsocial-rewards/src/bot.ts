@@ -181,18 +181,17 @@ export function createRewardsBot(config: RewardsBotConfig) {
     return `🤝 OnSocial stands with ${appLabel}`;
   }
 
-  /** Clickable contract link (testnet/mainnet auto-detect). */
-  function tokenLink(): string {
+  /** Token contract URL (testnet/mainnet auto-detect). */
+  function tokenUrl(): string {
     const isTestnet = (
       config.rewardsContract ?? 'rewards.onsocial.near'
     ).endsWith('.testnet');
     const tokenContract = isTestnet
       ? 'token.onsocial.testnet'
       : 'token.onsocial.near';
-    const tokenUrl = isTestnet
+    return isTestnet
       ? `https://testnet.nearblocks.io/token/${tokenContract}`
       : `https://nearblocks.io/token/${tokenContract}`;
-    return `🔗 Contract: [${tokenContract}](${tokenUrl})`;
   }
 
   /** Build rich balance text with daily progress and timing. */
@@ -258,8 +257,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       `💎 Unclaimed: ${unclaimedStr} SOCIAL\n` +
       `${unclaimedHint}\n\n` +
       dailyLine +
-      `${earnedLines}\n\n` +
-      tokenLink()
+      `${earnedLines}`
     );
   }
 
@@ -338,12 +336,13 @@ export function createRewardsBot(config: RewardsBotConfig) {
       const balanceText = await buildBalanceText(accountId);
       const kb = new InlineKeyboard()
         .text('💎 Claim', 'cb:claim')
-        .text('🔄 Refresh', 'cb:balance');
+        .text('🔄 Refresh', 'cb:balance')
+        .row()
+        .url('🔗 Contract', tokenUrl());
 
       await ctx.reply(balanceText, {
         parse_mode: 'Markdown',
         reply_markup: kb,
-        link_preview_options: { is_disabled: true },
       });
     } catch (err) {
       onError(err, 'balance');
@@ -453,11 +452,12 @@ export function createRewardsBot(config: RewardsBotConfig) {
       const text = await buildBalanceText(accountId);
       const kb = new InlineKeyboard()
         .text('💎 Claim', 'cb:claim')
-        .text('🔄 Refresh', 'cb:balance');
+        .text('🔄 Refresh', 'cb:balance')
+        .row()
+        .url('🔗 Contract', tokenUrl());
       await ctx.reply(text, {
         parse_mode: 'Markdown',
         reply_markup: kb,
-        link_preview_options: { is_disabled: true },
       });
     } catch (err) {
       onError(err, 'balance callback');

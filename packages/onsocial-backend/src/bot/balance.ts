@@ -54,16 +54,6 @@ export async function handleBalance(
 export async function buildBalanceText(accountId: string): Promise<string> {
   const reward = await viewUserReward(accountId);
 
-  // Token contract link (auto-detect network)
-  const tokenContract =
-    config.nearNetwork === 'mainnet'
-      ? 'token.onsocial.near'
-      : 'token.onsocial.testnet';
-  const tokenUrl =
-    config.nearNetwork === 'mainnet'
-      ? `https://nearblocks.io/token/${tokenContract}`
-      : `https://testnet.nearblocks.io/token/${tokenContract}`;
-
   // User has never been credited
   if (!reward) {
     return (
@@ -72,8 +62,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
       `💎 Unclaimed: 0 SOCIAL\n` +
       `(min ${config.rewards.minClaimAmount} to claim)\n\n` +
       `📈 Daily progress: 0 / ${config.rewards.dailyCap} SOCIAL\n\n` +
-      `🏆 Total earned: 0 SOCIAL\n\n` +
-      `🔗 Contract: [${tokenContract}](${tokenUrl})`
+      `🏆 Total earned: 0 SOCIAL`
     );
   }
 
@@ -116,16 +105,28 @@ export async function buildBalanceText(accountId: string): Promise<string> {
     `💎 Unclaimed: ${unclaimed} SOCIAL\n` +
     `${unclaimedHint}\n\n` +
     `📈 Daily progress: ${dailyEarned} / ${dailyCap} SOCIAL${dailySuffix}\n\n` +
-    `🏆 Total earned: ${totalEarned} SOCIAL\n\n` +
-    `🔗 Contract: [${tokenContract}](${tokenUrl})`
+    `🏆 Total earned: ${totalEarned} SOCIAL`
   );
+}
+
+/** Token contract explorer URL (testnet/mainnet auto-detect). */
+export function tokenExplorerUrl(): string {
+  const tokenContract =
+    config.nearNetwork === 'mainnet'
+      ? 'token.onsocial.near'
+      : 'token.onsocial.testnet';
+  return config.nearNetwork === 'mainnet'
+    ? `https://nearblocks.io/token/${tokenContract}`
+    : `https://testnet.nearblocks.io/token/${tokenContract}`;
 }
 
 /** Build the inline keyboard for the balance view. */
 export function buildBalanceKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text('💎 Claim Rewards', 'cb:claim')
-    .text('🔄 Refresh', 'cb:balance');
+    .text('🔄 Refresh', 'cb:balance')
+    .row()
+    .url('🔗 Contract', tokenExplorerUrl());
 }
 
 /** Convert yocto-SOCIAL string to human-readable decimal. */
