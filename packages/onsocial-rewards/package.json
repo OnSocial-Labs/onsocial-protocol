@@ -1,5 +1,5 @@
 {
-  "name": "@onsocial/rewards",
+  "name": "@onsocial-id/rewards",
   "version": "0.1.0",
   "description": "SDK for crediting and querying SOCIAL token rewards via the OnSocial relayer",
   "type": "module",

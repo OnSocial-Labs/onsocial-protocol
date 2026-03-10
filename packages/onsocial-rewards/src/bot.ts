@@ -6,7 +6,7 @@
 // Grammy is a **peer dependency** — partners install it themselves.
 //
 // Usage:
-//   import { createRewardsBot } from '@onsocial/rewards/bot';
+//   import { createRewardsBot } from '@onsocial-id/rewards/bot';
 //
 //   const bot = createRewardsBot({
 //     botToken:  process.env.BOT_TOKEN!,
@@ -247,7 +247,7 @@ export function createRewardsBot(config: RewardsBotConfig) {
       appReward.total_earned !== userReward.total_earned;
 
     const earnedLines = multiApp
-      ? `⭐ Earned with ${appLabel}: ${appEarned} SOCIAL\n` +
+      ? `⭐ Earned with ${appLabel}: ${appEarned} SOCIAL\n\n` +
         `🏆 Total earned: ${totalEarned} SOCIAL`
       : `🏆 Total earned: ${totalEarned} SOCIAL`;
 

@@ -13,9 +13,6 @@ import { viewUserReward, viewContract } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 
-/** The backend bot's own on-chain app identifier. */
-const OWN_APP_ID = 'onsocial_telegram';
-
 export async function handleBalance(
   ctx: CommandContext<Context>
 ): Promise<void> {
@@ -62,7 +59,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
       last_day: number;
     } | null>('get_user_app_reward', {
       account_id: accountId,
-      app_id: OWN_APP_ID,
+      app_id: config.appId,
     }),
   ]);
 
@@ -123,7 +120,7 @@ export async function buildBalanceText(accountId: string): Promise<string> {
   const multiApp = appReward && appReward.total_earned !== reward.total_earned;
 
   const earnedLines = multiApp
-    ? `⭐ Earned with OnSocial: ${appEarned} SOCIAL\n` +
+    ? `⭐ Earned with OnSocial: ${appEarned} SOCIAL\n\n` +
       `🏆 Total earned: ${totalEarned} SOCIAL`
     : `🏆 Total earned: ${totalEarned} SOCIAL`;
 

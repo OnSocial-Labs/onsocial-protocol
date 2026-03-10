@@ -1,19 +1,19 @@
-# @onsocial/rewards
+# @onsocial-id/rewards
 
 SDK for crediting and claiming **SOCIAL token** rewards through the OnSocial relayer. Works standalone or with a ready-made Telegram bot.
 
 ## Install
 
 ```bash
-npm install @onsocial/rewards
+npm install @onsocial-id/rewards
 # If building a Telegram bot:
-npm install @onsocial/rewards grammy
+npm install @onsocial-id/rewards grammy
 ```
 
 ## Quick Start — SDK Only
 
 ```ts
-import { OnSocialRewards } from '@onsocial/rewards';
+import { OnSocialRewards } from '@onsocial-id/rewards';
 
 const rewards = new OnSocialRewards({
   apiKey: process.env.ONSOCIAL_API_KEY!,
@@ -33,7 +33,7 @@ console.log(result.claimed); // yocto-SOCIAL amount
 Create a fully-wired Grammy bot in 5 lines:
 
 ```ts
-import { createRewardsBot } from '@onsocial/rewards/bot';
+import { createRewardsBot } from '@onsocial-id/rewards/bot';
 
 const bot = createRewardsBot({
   botToken: process.env.BOT_TOKEN!,
@@ -96,7 +96,7 @@ By default, Telegram ↔ NEAR account mappings are stored in memory.
 For production, provide a persistent store:
 
 ```ts
-import { createRewardsBot, type AccountStore } from '@onsocial/rewards/bot';
+import { createRewardsBot, type AccountStore } from '@onsocial-id/rewards/bot';
 
 const store: AccountStore = {
   async get(telegramId) {

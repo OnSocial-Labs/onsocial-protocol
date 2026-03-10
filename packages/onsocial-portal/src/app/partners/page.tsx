@@ -118,8 +118,8 @@ async function submitApplication(body: ApplyBody): Promise<ApplyResponse> {
 
 function installSnippet(tab: 'bot' | 'sdk') {
   return tab === 'bot'
-    ? `npm install @onsocial/rewards grammy`
-    : `npm install @onsocial/rewards`
+    ? `npm install @onsocial-id/rewards grammy`
+    : `npm install @onsocial-id/rewards`
 }
 
 function envSnippet(appId: string, apiKey: string, tab: 'bot' | 'sdk') {
@@ -137,7 +137,7 @@ function envSnippet(appId: string, apiKey: string, tab: 'bot' | 'sdk') {
 }
 
 function botSnippet() {
-  return `import { createRewardsBot } from '@onsocial/rewards/bot';
+  return `import { createRewardsBot } from '@onsocial-id/rewards/bot';
 
 const bot = createRewardsBot({
   botToken:         process.env.BOT_TOKEN!,
@@ -152,7 +152,7 @@ bot.start();`
 }
 
 function sdkOnlySnippet() {
-  return `import { OnSocialRewards } from '@onsocial/rewards';
+  return `import { OnSocialRewards } from '@onsocial-id/rewards';
 
 const rewards = new OnSocialRewards({
   apiKey: process.env.ONSOCIAL_API_KEY!,
@@ -172,7 +172,7 @@ function packageJsonSnippet() {
   "type": "module",
   "scripts": { "start": "tsx bot.ts" },
   "dependencies": {
-    "@onsocial/rewards": "latest",
+    "@onsocial-id/rewards": "latest",
     "grammy": "^1.0.0",
     "tsx": "^4.0.0"
   }

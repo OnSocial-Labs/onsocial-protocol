@@ -42,7 +42,7 @@ const tools = [
   },
   {
     title: 'Developer SDKs',
-    description: '@onsocial/rewards for token rewards, @onsocial/rpc for resilient NEAR calls, partner API for app registration.',
+    description: '@onsocial-id/rewards for token rewards, @onsocial-id/rpc for resilient NEAR calls, partner API for app registration.',
     icon: Package,
     color: '#4ADE80',
     status: 'Live',

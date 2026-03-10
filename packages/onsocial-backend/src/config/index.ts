@@ -53,6 +53,9 @@ export const config = {
   // Bot
   botUsername: process.env.BOT_USERNAME || 'onsocial_pulse_bot',
 
+  /** On-chain app identifier used when crediting rewards. */
+  appId: process.env.ONSOCIAL_APP_ID || 'onsocial_telegram',
+
   // Reward amounts (SOCIAL tokens, decimal)
   rewards: {
     /** Amount credited per qualifying group message. */

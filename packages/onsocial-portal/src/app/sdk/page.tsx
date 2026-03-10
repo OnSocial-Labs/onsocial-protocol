@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 const SDK_PACKAGES = [
 	{
-		name: '@onsocial/rewards',
+		name: '@onsocial-id/rewards',
 		desc: 'Reward users with $SOCIAL tokens — gasless claims, per-dapp pools, daily caps.',
 		status: 'beta' as const,
 		color: '#4ADE80',
@@ -121,7 +121,7 @@ export default function SDKPage() {
 							<span className="text-xs text-muted-foreground font-mono">terminal</span>
 						</div>
 						<pre className="p-4 overflow-x-auto text-sm font-mono text-muted-foreground">
-							<code>npm install @onsocial/rewards</code>
+							<code>npm install @onsocial-id/rewards</code>
 						</pre>
 					</div>
 				</motion.div>

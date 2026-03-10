@@ -1,5 +1,5 @@
 /**
- * Quick test script — run a partner bot via the @onsocial/rewards SDK.
+ * Quick test script — run a partner bot via the @onsocial-id/rewards SDK.
  *
  * Usage:
  *   cd packages/onsocial-rewards

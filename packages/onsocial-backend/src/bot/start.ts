@@ -152,7 +152,7 @@ async function linkAccount(
           source: record.source,
           action: record.action,
           sourceRef: record.sourceRef,
-          appId: 'onsocial_telegram',
+          appId: config.appId,
         });
         if (result === 'credited') credited++;
       } catch (err) {

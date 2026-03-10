@@ -18,7 +18,7 @@ const DEFAULT_TIMEOUT = 30_000;
  *
  * @example
  * ```ts
- * import { OnSocialRewards } from '@onsocial/rewards';
+ * import { OnSocialRewards } from '@onsocial-id/rewards';
  *
  * const rewards = new OnSocialRewards({
  *   apiKey: process.env.ONSOCIAL_API_KEY!,
