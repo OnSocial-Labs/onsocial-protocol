@@ -137,8 +137,16 @@ async function trackPendingActivity(
         `https://t.me/${config.botUsername}?start=link`
       );
 
+      const { messageReward, dailyCap } = config.rewards;
+      const rateHint =
+        messageReward && dailyCap
+          ? ` Earn ${messageReward} SOCIAL per message (up to ${dailyCap}/day).`
+          : '';
+
       await ctx.reply(
-        "⭐ You're contributing great content! Link your NEAR account to start earning SOCIAL tokens.",
+        `🤝 Powered by OnSocial\n\n` +
+          `⭐ You're contributing great content!${rateHint}\n\n` +
+          `Link your NEAR account to start earning SOCIAL tokens 👇`,
         {
           reply_parameters: { message_id: ctx.message!.message_id },
           reply_markup: keyboard,
