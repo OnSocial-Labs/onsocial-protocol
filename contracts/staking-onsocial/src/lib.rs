@@ -1,7 +1,7 @@
 //! SOCIAL Token Staking Contract
 //!
 //! Rewards release continuously at 0.2%/week (pro-rata per second).
-//! Time-lock bonuses: 1-6mo=10%, 7-12mo=20%, 13-24mo=35%, 25+mo=50%
+//! Time-lock bonuses: 1mo=5%, 2-6mo=10%, 7-12mo=20%, 13-24mo=35%, 25+mo=50%
 //! Reward formula: (user_stake_seconds / total_stake_seconds) × total_released - claimed
 
 use near_sdk::{
@@ -794,7 +794,8 @@ impl OnsocialStaking {
 
         let bonus = match account.lock_months {
             0 => 0,
-            1..=6 => 10,
+            1 => 5,
+            2..=6 => 10,
             7..=12 => 20,
             13..=24 => 35,
             _ => 50,
@@ -872,7 +873,8 @@ impl OnsocialStaking {
         }
         let bonus: u128 = match account.lock_months {
             0 => 0,
-            1..=6 => 10,
+            1 => 5,
+            2..=6 => 10,
             7..=12 => 20,
             13..=24 => 35,
             _ => 50,

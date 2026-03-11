@@ -447,14 +447,14 @@ fn test_effective_stake_keeps_bonus_until_unlock() {
     testing_env!(context.build());
 
     let account = contract.get_account("alice.near".parse().unwrap());
-    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 110 / 100);
+    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 105 / 100);
 
     // After expiry: STILL has bonus (until unlock is called)
     context.block_timestamp(start_time + MONTH_NS + NS_PER_SEC);
     testing_env!(context.build());
 
     let account = contract.get_account("alice.near".parse().unwrap());
-    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 110 / 100); // Bonus kept until unlock
+    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 105 / 100); // Bonus kept until unlock
 }
 
 // =============================================================================
@@ -1005,8 +1005,8 @@ fn test_bonus_1_month() {
     setup_with_storage(&mut contract, "alice.near");
     lock_tokens(&mut contract, "alice.near", ONE_SOCIAL, 1);
     let account = contract.get_account("alice.near".parse().unwrap());
-    // 1 month = 10% bonus
-    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 110 / 100);
+    // 1 month = 5% bonus
+    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 105 / 100);
 }
 
 #[test]
@@ -1767,11 +1767,11 @@ fn test_unlock_callback_success_path() {
 
     let start_time = 1_000_000_000_000_000_000u64;
 
-    // Step 1: Lock 100 SOCIAL for 1 month (10% bonus)
+    // Step 1: Lock 100 SOCIAL for 1 month (5% bonus)
     lock_tokens_at(&mut contract, "alice.near", 100 * ONE_SOCIAL, 1, start_time);
 
     // Verify initial state
-    let expected_effective = 100 * ONE_SOCIAL * 110 / 100; // 110 SOCIAL effective (10% bonus)
+    let expected_effective = 100 * ONE_SOCIAL * 105 / 100; // 105 SOCIAL effective (5% bonus)
     assert_eq!(contract.total_effective_stake, expected_effective);
     assert_eq!(contract.total_locked, 100 * ONE_SOCIAL);
 
@@ -2097,10 +2097,10 @@ fn test_extend_across_all_tiers() {
 
     let start_time = 1_000_000_000_000_000_000u64;
 
-    // Start with 1 month (10% bonus)
+    // Start with 1 month (5% bonus)
     lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 1, start_time);
     let account = contract.get_account("alice.near".parse().unwrap());
-    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 110 / 100);
+    assert_eq!(account.effective_stake.0, ONE_SOCIAL * 105 / 100);
 
     // Extend to 6 months (still 10% bonus)
     let mut context = get_context("alice.near");
@@ -2452,8 +2452,8 @@ fn test_multiple_users_different_extends() {
     lock_tokens_at(&mut contract, "bob.near", ONE_SOCIAL, 1, start_time);
     lock_tokens_at(&mut contract, "carol.near", ONE_SOCIAL, 1, start_time);
 
-    // Initial total: 3 × 1.1 = 3.3 SOCIAL effective
-    assert_eq!(contract.total_effective_stake, 3 * ONE_SOCIAL * 110 / 100);
+    // Initial total: 3 × 1.05 = 3.15 SOCIAL effective
+    assert_eq!(contract.total_effective_stake, 3 * ONE_SOCIAL * 105 / 100);
 
     let mut context = get_context("alice.near");
     context.block_timestamp(start_time);
@@ -2492,14 +2492,14 @@ fn test_effective_stake_after_multiple_extends() {
 
     // Track total_effective_stake after each extension
     let effective_1mo = contract.total_effective_stake;
-    assert_eq!(effective_1mo, 10 * ONE_SOCIAL * 110 / 100); // 11 SOCIAL
+    assert_eq!(effective_1mo, 10 * ONE_SOCIAL * 105 / 100); // 10.5 SOCIAL
 
     let mut context = get_context("alice.near");
     context.block_timestamp(start_time);
     testing_env!(context.build());
 
     contract.extend_lock(6);
-    assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 110 / 100); // Still 11
+    assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 110 / 100); // 11 SOCIAL (6mo = 10%)
 
     contract.extend_lock(12);
     assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 120 / 100); // 12 SOCIAL
