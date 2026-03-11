@@ -16,9 +16,6 @@ import {
   ArrowRight,
   CheckCircle2,
   ExternalLink,
-  Layers,
-  BarChart3,
-  Loader2,
   Clock,
   XCircle,
   Download,
@@ -30,6 +27,12 @@ import {
   EyeOff,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  viewContract,
+  yoctoToSocial,
+  type OnChainAppConfig,
+} from '@/lib/near-rpc'
+import { PulsingDots } from '@/components/ui/pulsing-dots'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,7 +57,7 @@ const STEPS = [
   {
     icon: Users,
     title: 'Apply',
-    description: 'Connect wallet and describe your dapp.',
+    description: 'Connect wallet and tell us about your project.',
   },
   {
     icon: Clock,
@@ -270,7 +273,7 @@ function CodeBlock({ code, language = 'typescript' }: { code: string; language?:
   )
 }
 
-const STEP_COLORS = ['#4ADE80', '#3B82F6', '#A855F7'] as const
+const STEP_COLORS = ['#4ADE80', '#60A5FA', '#C084FC'] as const
 
 function StepIndicator({ steps, current }: { steps: typeof STEPS; current: number }) {
   return (
@@ -348,15 +351,15 @@ function ApplicationForm({
     setError('')
 
     if (!label.trim()) {
-      setError('Dapp name is required')
+      setError('Project name is required')
       return
     }
     if (label.trim().length > MAX_LABEL_LEN) {
-      setError(`Dapp name too long (max ${MAX_LABEL_LEN} characters)`)
+      setError(`Project name too long (max ${MAX_LABEL_LEN} characters)`)
       return
     }
     if (appId.length < 3) {
-      setError('Dapp name is too short')
+      setError('Project name is too short')
       return
     }
     if (appId.length > MAX_APP_ID_LEN) {
@@ -365,6 +368,14 @@ function ApplicationForm({
     }
     if (!accountId) {
       setError('Wallet not connected')
+      return
+    }
+    if (!description.trim()) {
+      setError('Please tell us about your project')
+      return
+    }
+    if (!contact.trim()) {
+      setError('Contact info is required so we can reach you')
       return
     }
 
@@ -412,52 +423,52 @@ function ApplicationForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Dapp Name *</label>
+        <label className="block text-sm font-medium mb-2">Project Name *</label>
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="Acme Community"
+          placeholder="My Community"
           maxLength={MAX_LABEL_LEN}
           className="w-full px-4 py-3 rounded-full bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm"
           required
         />
         {appId && (
           <p className="text-xs text-muted-foreground mt-1">
-            App ID: <span className="font-mono text-[#3B82F6]">{appId}</span>
+            App ID: <span className="font-mono text-[#60A5FA]">{appId}</span>
           </p>
         )}
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Description</label>
+        <label className="block text-sm font-medium mb-2">Description *</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What does your dapp do? How will you use SOCIAL rewards?"
+          placeholder="Tell us about your project and why you want to reward your community with $SOCIAL."
           rows={3}
           className="w-full px-4 py-3 rounded-2xl bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm resize-none"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Expected Users</label>
+        <label className="block text-sm font-medium mb-2">Community Size</label>
         <input
           type="text"
           value={expectedUsers}
           onChange={(e) => setExpectedUsers(e.target.value)}
-          placeholder="e.g. 500 Telegram group members"
+          placeholder="e.g. 500 members, 2k followers, 10k monthly users"
           className="w-full px-4 py-3 rounded-full bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Contact</label>
+        <label className="block text-sm font-medium mb-2">Contact *</label>
         <input
           type="text"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
-          placeholder="@telegram or email"
+          placeholder="@telegram, email, or X handle"
           className="w-full px-4 py-3 rounded-full bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm"
         />
       </div>
@@ -468,13 +479,13 @@ function ApplicationForm({
 
       <Button
         type="submit"
-        disabled={submitting || !appId || !label}
+        disabled={submitting || !appId || !label || !description.trim() || !contact.trim()}
         size="lg"
         className="w-full font-semibold disabled:opacity-50"
       >
         {submitting ? (
           <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            <PulsingDots size="sm" className="mr-2" />
             Submitting…
           </>
         ) : (
@@ -486,7 +497,7 @@ function ApplicationForm({
       </Button>
 
       <p className="text-xs text-center text-muted-foreground">
-        Applications are reviewed by the OnSocial team. You&apos;ll receive your OnApi key upon approval.
+        Applications are reviewed within 24 hours. Reward rules are recorded on-chain for full transparency.
       </p>
     </form>
   )
@@ -499,11 +510,11 @@ function ApplicationForm({
 function PendingState({ appId, label }: { appId: string; label: string }) {
   return (
     <div className="text-center py-12">
-      <Clock className="w-16 h-16 mx-auto mb-4 text-[#3B82F6]" />
+      <Clock className="w-16 h-16 mx-auto mb-4 text-[#60A5FA]" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">Application Under Review</h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
         Your application for <span className="font-semibold text-foreground">{label}</span>{' '}
-        (<span className="font-mono text-[#3B82F6]">{appId}</span>) is being reviewed by the OnSocial team.
+        (<span className="font-mono text-[#60A5FA]">{appId}</span>) is under review.
       </p>
       <p className="text-sm text-muted-foreground">
         Check back here after connecting your wallet to see your status.
@@ -523,7 +534,7 @@ function RejectedState({ appId, label }: { appId: string; label: string }) {
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">Application Not Approved</h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
         Your application for <span className="font-semibold text-foreground">{label}</span>{' '}
-        (<span className="font-mono text-[#3B82F6]">{appId}</span>) was not approved at this time.
+        (<span className="font-mono text-[#60A5FA]">{appId}</span>) was not approved at this time.
       </p>
       <p className="text-sm text-muted-foreground">
         Contact the OnSocial team if you have questions.
@@ -543,6 +554,18 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
   const [showRotateConfirm, setShowRotateConfirm] = useState(false)
   const [rotating, setRotating] = useState(false)
   const [rotateError, setRotateError] = useState('')
+
+  // On-chain config
+  const [onChainConfig, setOnChainConfig] = useState<OnChainAppConfig | null>(null)
+  const [configLoading, setConfigLoading] = useState(true)
+
+  useEffect(() => {
+    setConfigLoading(true)
+    viewContract<OnChainAppConfig>('get_app_config', { app_id: registration.appId })
+      .then((cfg) => setOnChainConfig(cfg))
+      .catch(() => {})
+      .finally(() => setConfigLoading(false))
+  }, [registration.appId])
 
   const handleRotate = async () => {
     if (!accountId) return
@@ -617,7 +640,7 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
                     <p className="text-sm font-medium mb-1">Rotate API Key?</p>
                     <p className="text-xs text-muted-foreground mb-3">
                       This will invalidate your current key immediately. Update your bot&apos;s
-                      <code className="text-[#3B82F6]"> ONSOCIAL_API_KEY</code> env var with the new key.
+                      <code className="text-[#60A5FA]"> ONSOCIAL_API_KEY</code> env var with the new key.
                     </p>
                     {rotateError && (
                       <p className="text-xs text-red-400 mb-3">{rotateError}</p>
@@ -631,7 +654,7 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
                       >
                         {rotating ? (
                           <>
-                            <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                            <PulsingDots size="sm" className="mr-1.5" />
                             Rotating…
                           </>
                         ) : (
@@ -654,6 +677,56 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
             )}
           </div>
         </div>
+      </div>
+
+      {/* On-Chain Config */}
+      <div className="border border-[#C084FC]/15 rounded-2xl p-6 bg-[#C084FC]/[0.02]">
+        <h3 className="text-sm font-semibold text-[#C084FC] mb-4 uppercase tracking-wider">
+          Your App Rules · On-Chain
+        </h3>
+        {configLoading && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <PulsingDots size="sm" /> Loading…
+          </div>
+        )}
+        {!configLoading && !onChainConfig && (
+          <p className="text-xs text-yellow-500/80">
+            <AlertTriangle className="w-3 h-3 inline mr-1" />
+            App not yet registered on-chain. Contact the OnSocial team.
+          </p>
+        )}
+        {!configLoading && onChainConfig && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-4">
+            <div>
+              <span className="text-xs text-muted-foreground">Reward / Action</span>
+              <p className="font-mono text-sm text-foreground">{yoctoToSocial(onChainConfig.reward_per_action)} SOCIAL</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Daily Cap / User</span>
+              <p className="font-mono text-sm text-foreground">{yoctoToSocial(onChainConfig.daily_cap)} SOCIAL</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Total Budget</span>
+              <p className="font-mono text-sm text-foreground">{yoctoToSocial(onChainConfig.total_budget)} SOCIAL</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Daily Budget</span>
+              <p className="font-mono text-sm text-foreground">{yoctoToSocial(onChainConfig.daily_budget) === '0' ? 'Unlimited' : `${yoctoToSocial(onChainConfig.daily_budget)} SOCIAL`}</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Total Credited</span>
+              <p className="font-mono text-sm text-foreground">{yoctoToSocial(onChainConfig.total_credited)} SOCIAL</p>
+            </div>
+            <div>
+              <span className="text-xs text-muted-foreground">Budget Remaining</span>
+              <p className="font-mono text-sm text-foreground">
+                {yoctoToSocial(
+                  (BigInt(onChainConfig.total_budget) - BigInt(onChainConfig.total_credited)).toString()
+                )} SOCIAL
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Integration Tabs */}
@@ -711,12 +784,12 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
           <CodeBlock code={envSnippet(registration.appId, registration.apiKey, tab)} language="bash" />
           {tab === 'bot' && (
             <p className="text-xs text-muted-foreground">
-              Get your <code className="text-[#3B82F6]">BOT_TOKEN</code> from{' '}
+              Get your <code className="text-[#60A5FA]">BOT_TOKEN</code> from{' '}
               <a
                 href="https://t.me/BotFather"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#3B82F6] hover:underline"
+                className="text-[#60A5FA] hover:underline"
               >
                 @BotFather
               </a>{' '}
@@ -756,7 +829,7 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
               <div>
                 <h4 className="text-sm font-medium mb-1">Download full project</h4>
                 <p className="text-xs text-muted-foreground">
-                  Get package.json + .env + bot.ts — ready to <code className="text-[#3B82F6]">npm install &amp;&amp; npm start</code>
+                  Get package.json + .env + bot.ts — ready to <code className="text-[#60A5FA]">npm install &amp;&amp; npm start</code>
                 </p>
               </div>
               <div className="flex gap-2">
@@ -794,8 +867,8 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
             rel="noopener noreferrer"
             className="border border-border/50 rounded-2xl p-4 bg-muted/30 hover:border-border transition-colors flex items-center gap-4"
           >
-            <div className="w-10 h-10 rounded-full border border-[#A855F7]/30 flex items-center justify-center flex-shrink-0">
-              <Cloud className="w-5 h-5 text-[#A855F7]" />
+            <div className="w-10 h-10 rounded-full border border-[#C084FC]/30 flex items-center justify-center flex-shrink-0">
+              <Cloud className="w-5 h-5 text-[#C084FC]" />
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm">Fly.io</h4>
@@ -810,7 +883,7 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
       {tab === 'bot' && (
         <div>
           <h3 className="text-lg font-semibold mb-4">
-            <MessageSquare className="w-5 h-5 inline mr-2 text-[#3B82F6]" />
+            <MessageSquare className="w-5 h-5 inline mr-2 text-[#60A5FA]" />
             Preview
           </h3>
           <p className="text-xs text-muted-foreground mb-4">
@@ -826,7 +899,7 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
                 <p className="mt-2 text-gray-400">Earn 0.1 SOCIAL per message (up to 1/day) for being active in the group.</p>
                 <p className="mt-1 text-gray-400">Tap below to link your NEAR account and start earning 👇</p>
                 <div className="mt-3 flex gap-2">
-                  <span className="px-2.5 py-1 rounded-full border border-[#3B82F6]/40 text-[#3B82F6] text-xs">🔗 Link Account</span>
+                  <span className="px-2.5 py-1 rounded-full border border-[#60A5FA]/40 text-[#60A5FA] text-xs">🔗 Link Account</span>
                   <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">❓ How it works</span>
                 </div>
               </div>
@@ -842,7 +915,7 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
                 <p className="mt-1 text-gray-400">📈 Daily progress: 0.5 / 1 SOCIAL</p>
                 <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
                 <div className="mt-3 flex gap-2">
-                  <span className="px-2.5 py-1 rounded-full border border-[#A855F7]/40 text-[#A855F7] text-xs">💎 Claim</span>
+                  <span className="px-2.5 py-1 rounded-full border border-[#C084FC]/40 text-[#C084FC] text-xs">💎 Claim</span>
                   <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">🔄 Refresh</span>
                 </div>
               </div>
@@ -855,9 +928,9 @@ function ApprovedDashboard({ registration, onKeyRotated }: { registration: AppRe
       <div className="grid sm:grid-cols-2 gap-4">
         {[
           { icon: Zap, title: 'Auto-rewarding', desc: 'Messages in groups earn SOCIAL tokens automatically', color: '#4ADE80' },
-          { icon: Shield, title: 'Gasless claims', desc: 'Users claim tokens in-bot with zero gas fees', color: '#3B82F6' },
-          { icon: Users, title: 'Account linking', desc: '/start → link NEAR account → start earning', color: '#A855F7' },
-          { icon: Rocket, title: 'Branded UX', desc: `"🤝 OnSocial stands with ${registration.label}" everywhere`, color: '#4ADE80' },
+          { icon: Shield, title: 'Gasless claims', desc: 'Users claim tokens in-bot with zero gas fees', color: '#60A5FA' },
+          { icon: Users, title: 'Account linking', desc: '/start → link NEAR account → start earning', color: '#C084FC' },
+          { icon: Rocket, title: 'Branded UX', desc: `"🤝 OnSocial stands with ${registration.label}"`, color: '#4ADE80' },
         ].map((item) => (
           <div
             key={item.title}
@@ -898,9 +971,16 @@ export default function PartnersPage() {
   const [pageError, setPageError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Auto-check existing application status on wallet connect
+  // Reset state when wallet disconnects; check status when it connects
   useEffect(() => {
-    if (!accountId) return
+    if (!accountId) {
+      setStep('apply')
+      setRegistration(null)
+      setPendingApp(null)
+      setPageError('')
+      setLoading(false)
+      return
+    }
 
     let cancelled = false
     setLoading(true)
@@ -993,7 +1073,7 @@ export default function PartnersPage() {
             Partner Integration
           </h1>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-            Add SOCIAL token rewards to your community in 5 lines of code.
+            Reward your community with $SOCIAL tokens — fully on-chain, gasless, and live in minutes.
           </p>
         </motion.div>
 
@@ -1009,7 +1089,7 @@ export default function PartnersPage() {
         >
           {loading && (
             <div className="text-center py-12">
-              <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-[#3B82F6]" />
+              <div className="mb-4 text-[#60A5FA]"><PulsingDots size="lg" /></div>
               <p className="text-sm text-muted-foreground">Checking application status…</p>
             </div>
           )}
@@ -1021,7 +1101,7 @@ export default function PartnersPage() {
           )}
           {step === 'submitting' && (
             <div className="text-center py-12">
-              <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-[#3B82F6]" />
+              <div className="mb-4 text-[#60A5FA]"><PulsingDots size="lg" /></div>
               <h3 className="text-lg font-semibold mb-2">Submitting application…</h3>
             </div>
           )}
@@ -1041,127 +1121,7 @@ export default function PartnersPage() {
           )}
         </motion.div>
 
-        {/* Features below */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-16 text-center"
-        >
-          <h2 className="text-2xl font-bold mb-8 tracking-[-0.03em]">Why Partner With OnSocial?</h2>
-          <div className="grid sm:grid-cols-3 gap-6">
-            {[
-              {
-                icon: Zap,
-                title: 'Zero Gas For Users',
-                desc: 'We pay the gas. Users earn and claim tokens without ever touching crypto UX.',
-                color: '#4ADE80',
-              },
-              {
-                icon: Shield,
-                title: 'On-Chain Safety',
-                desc: 'Contract enforces daily caps and budgets. No partner can inflate rewards.',
-                color: '#3B82F6',
-              },
-              {
-                icon: Rocket,
-                title: '5 Lines of Code',
-                desc: 'npm install, configure 3 env vars, deploy. Your bot handles rewards automatically.',
-                color: '#A855F7',
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="border border-border/50 rounded-2xl p-6 bg-muted/30 hover:border-border transition-colors"
-              >
-                <item.icon className="w-8 h-8 mx-auto mb-3" style={{ color: item.color }} />
-                <h3 className="font-semibold mb-2">{item.title}</h3>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </motion.div>
 
-        {/* ─── Dapp Rewards ─────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="mt-24"
-        >
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-[-0.03em] mb-4">
-              Dapp Rewards
-            </h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">
-              Dapps reward their users with $SOCIAL tokens for engagement. Fully on-chain, gasless, and
-              configurable per app.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-            {[
-              {
-                icon: Zap,
-                title: 'Gasless Distribution',
-                desc: 'Rewards are distributed gaslessly — users never pay transaction fees to claim.',
-                color: '#4ADE80',
-              },
-              {
-                icon: Layers,
-                title: 'Multi-App Support',
-                desc: 'Each dapp configures its own reward pool, daily caps, and per-action amounts.',
-                color: '#3B82F6',
-              },
-              {
-                icon: Shield,
-                title: 'Per-User Limits',
-                desc: 'Global daily caps per user prevent abuse across all participating dapps.',
-                color: '#A855F7',
-              },
-              {
-                icon: BarChart3,
-                title: 'Pool-Based Claims',
-                desc: 'Dapps fund reward pools with $SOCIAL. Users earn and claim from the pool.',
-                color: '#F59E0B',
-              },
-            ].map((f) => (
-              <div
-                key={f.title}
-                className="border border-border/50 rounded-2xl p-6 bg-muted/30 hover:border-border transition-colors"
-              >
-                <div
-                  className="w-10 h-10 rounded-xl border flex items-center justify-center mb-4"
-                  style={{ borderColor: `${f.color}30` }}
-                >
-                  <f.icon className="w-5 h-5" style={{ color: f.color }} />
-                </div>
-                <h3 className="text-base font-semibold mb-2">{f.title}</h3>
-                <p className="text-sm text-muted-foreground">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Flow diagram */}
-          <div className="max-w-3xl mx-auto mt-8">
-            <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
-              <h3 className="text-base font-semibold mb-4 text-center">Reward Flow</h3>
-              <div className="flex items-center justify-center gap-2 flex-wrap text-sm">
-                <span className="px-3 py-1.5 border border-[#A855F7]/30 rounded-full text-[#A855F7] font-medium text-xs md:text-sm">
-                  Dapp funds pool
-                </span>
-                <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0 hidden sm:block" />
-                <span className="px-3 py-1.5 border border-[#3B82F6]/30 rounded-full text-[#3B82F6] font-medium text-xs md:text-sm">
-                  User earns reward
-                </span>
-                <ArrowRight className="w-4 h-4 text-muted-foreground flex-shrink-0 hidden sm:block" />
-                <span className="px-3 py-1.5 border border-[#4ADE80]/30 rounded-full text-[#4ADE80] font-medium text-xs md:text-sm">
-                  Gasless claim
-                </span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </div>
   )
