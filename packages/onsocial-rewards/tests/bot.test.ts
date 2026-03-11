@@ -16,7 +16,7 @@ vi.mock('grammy', () => {
     on = mockOn;
     catch = mockCatch;
     start = mockStart;
-    api = { setWebhook: vi.fn(), deleteWebhook: vi.fn() };
+    api = { setWebhook: vi.fn(), deleteWebhook: vi.fn(), getMe: vi.fn().mockResolvedValue({ username: 'test_bot' }) };
   }
   class FakeInlineKeyboard {
     private buttons: { text: string; data?: string; url?: string }[][] = [[]];
@@ -485,6 +485,293 @@ describe('createRewardsBot handlers', () => {
       await messageHandlers[1](ctx, next);
 
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for user-facing config options (minMessageLength, cooldownSec,
+// minClaimAmount, nudgeThreshold) — matches portal partner instructions.
+// ---------------------------------------------------------------------------
+
+describe('createRewardsBot config options', () => {
+  let commandHandlers: Record<string, (ctx: unknown) => Promise<void>>;
+  let callbackHandlers: Record<string, (ctx: unknown) => Promise<void>>;
+  let messageHandlers: ((
+    ctx: unknown,
+    next: () => Promise<void>
+  ) => Promise<void>)[];
+  let mockStore: AccountStore;
+
+  function setupBot(overrides: Partial<RewardsBotConfig> = {}) {
+    commandHandlers = {};
+    callbackHandlers = {};
+    messageHandlers = [];
+
+    mockCommand.mockImplementation(
+      (name: string, handler: (ctx: unknown) => Promise<void>) => {
+        commandHandlers[name] = handler;
+      }
+    );
+    mockCallbackQuery.mockImplementation(
+      (name: string, handler: (ctx: unknown) => Promise<void>) => {
+        callbackHandlers[name] = handler;
+      }
+    );
+    mockOn.mockImplementation(
+      (
+        _event: string,
+        handler: (ctx: unknown, next: () => Promise<void>) => Promise<void>
+      ) => {
+        messageHandlers.push(handler);
+      }
+    );
+
+    mockStore = {
+      get: vi.fn().mockResolvedValue(undefined),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+
+    createRewardsBot({
+      botToken: 'fake-token',
+      apiKey: 'sk_test_123',
+      appId: 'test_app',
+      baseUrl: 'https://api.test.onsocial.id',
+      rewardsContract: 'rewards.test.near',
+      store: mockStore,
+      ...overrides,
+    });
+  }
+
+  function makeCtx(overrides: Record<string, unknown> = {}) {
+    return {
+      chat: { type: 'private', id: 999 },
+      from: { id: 12345, is_bot: false },
+      match: '',
+      message: {
+        text: '',
+        from: { id: 12345, is_bot: false },
+        chat: { type: 'private', id: 999 },
+        message_id: 1,
+      },
+      reply: vi.fn().mockResolvedValue(undefined),
+      replyWithPhoto: vi.fn().mockResolvedValue(undefined),
+      editMessageText: vi.fn().mockResolvedValue(undefined),
+      answerCallbackQuery: vi.fn().mockResolvedValue(undefined),
+      ...overrides,
+    };
+  }
+
+  function mockAppConfig() {
+    mockFetch.mockReturnValueOnce(
+      jsonResponse({
+        success: true,
+        config: {
+          label: 'Test Community',
+          reward_per_action: '100000000000000000',
+          daily_cap: '1000000000000000000',
+          daily_budget: '0',
+          daily_budget_spent: '0',
+          budget_last_day: 0,
+          total_budget: '0',
+          total_credited: '0',
+          authorized_callers: [],
+        },
+      })
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockReset();
+  });
+
+  describe('minMessageLength', () => {
+    it('rejects messages shorter than custom minMessageLength', async () => {
+      setupBot({ minMessageLength: 20 });
+      vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+
+      const ctx = makeCtx({
+        chat: { type: 'supergroup', id: 999 },
+        message: {
+          text: 'Only fifteen ch', // 15 chars — below 20
+          from: { id: 12345, is_bot: false },
+          chat: { type: 'supergroup', id: 999 },
+          message_id: 42,
+        },
+      });
+
+      await messageHandlers[1](ctx, vi.fn());
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('accepts messages meeting custom minMessageLength', async () => {
+      setupBot({ minMessageLength: 5 });
+      vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+      mockAppConfig(); // ensureAppConfig
+      mockFetch.mockReturnValueOnce(jsonResponse({ success: true }));
+
+      const ctx = makeCtx({
+        chat: { type: 'supergroup', id: 999 },
+        message: {
+          text: 'Hello', // exactly 5 chars
+          from: { id: 12345, is_bot: false },
+          chat: { type: 'supergroup', id: 999 },
+          message_id: 42,
+        },
+      });
+
+      await messageHandlers[1](ctx, vi.fn());
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.test.onsocial.id/v1/reward',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+  });
+
+  describe('cooldownSec', () => {
+    it('blocks second message within cooldown window', async () => {
+      setupBot({ cooldownSec: 120 });
+      vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+
+      // First message — should credit
+      mockAppConfig();
+      mockFetch.mockReturnValueOnce(jsonResponse({ success: true }));
+
+      const ctx1 = makeCtx({
+        chat: { type: 'supergroup', id: 999 },
+        message: {
+          text: 'First qualifying message with enough length',
+          from: { id: 12345, is_bot: false },
+          chat: { type: 'supergroup', id: 999 },
+          message_id: 1,
+        },
+      });
+      await messageHandlers[1](ctx1, vi.fn());
+      expect(mockFetch).toHaveBeenCalledTimes(2); // appConfig + credit
+
+      mockFetch.mockReset();
+
+      // Second message immediately — should be blocked by cooldown
+      const ctx2 = makeCtx({
+        chat: { type: 'supergroup', id: 999 },
+        message: {
+          text: 'Second message right away also long enough',
+          from: { id: 12345, is_bot: false },
+          chat: { type: 'supergroup', id: 999 },
+          message_id: 2,
+        },
+      });
+      await messageHandlers[1](ctx2, vi.fn());
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('minClaimAmount', () => {
+    it('rejects claims below custom minClaimAmount', async () => {
+      setupBot({ minClaimAmount: 5 });
+      vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+
+      // 3 SOCIAL = 3e18 yocto — below the min of 5
+      mockFetch.mockReturnValueOnce(
+        jsonResponse({
+          success: true,
+          claimable: '3000000000000000000',
+          app_reward: null,
+        })
+      );
+
+      const ctx = makeCtx();
+      await commandHandlers.claim(ctx);
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('minimum claim is 5 SOCIAL'),
+        expect.anything()
+      );
+    });
+
+    it('allows claims meeting custom minClaimAmount', async () => {
+      setupBot({ minClaimAmount: 2 });
+      vi.mocked(mockStore.get).mockResolvedValue('alice.near');
+
+      // 2.5 SOCIAL — above the min of 2
+      mockFetch.mockReturnValueOnce(
+        jsonResponse({
+          success: true,
+          claimable: '2500000000000000000',
+          app_reward: null,
+        })
+      );
+
+      const ctx = makeCtx();
+      await commandHandlers.claim(ctx);
+      expect(ctx.reply).toHaveBeenCalledWith(
+        expect.stringContaining('Ready to claim 2.5 SOCIAL'),
+        expect.anything()
+      );
+    });
+  });
+
+  describe('nudgeThreshold', () => {
+    it('nudges unlinked user after custom threshold messages', async () => {
+      setupBot({ nudgeThreshold: 3 });
+      mockAppConfig();
+
+      // Mock bot.api.getMe for the nudge
+      const botInstance = { api: { getMe: vi.fn().mockResolvedValue({ username: 'test_bot' }) } };
+      // The bot instance isn't directly accessible, but the nudge triggers ctx.reply
+      // We send 3 qualifying messages from an unlinked user
+
+      const makeGroupCtx = (msgId: number) =>
+        makeCtx({
+          chat: { type: 'supergroup', id: 999 },
+          message: {
+            text: 'A qualifying message for nudge testing purposes',
+            from: { id: 77777, is_bot: false },
+            chat: { type: 'supergroup', id: 999 },
+            message_id: msgId,
+          },
+          from: { id: 77777, is_bot: false },
+        });
+
+      // Messages 1 and 2: no nudge
+      const ctx1 = makeGroupCtx(1);
+      await messageHandlers[1](ctx1, vi.fn());
+      expect(ctx1.reply).not.toHaveBeenCalled();
+
+      const ctx2 = makeGroupCtx(2);
+      await messageHandlers[1](ctx2, vi.fn());
+      expect(ctx2.reply).not.toHaveBeenCalled();
+
+      // Message 3: nudge fires
+      const ctx3 = makeGroupCtx(3);
+      await messageHandlers[1](ctx3, vi.fn());
+      expect(ctx3.reply).toHaveBeenCalledWith(
+        expect.stringContaining('contributing great content'),
+        expect.anything()
+      );
+    });
+
+    it('disables nudging when nudgeThreshold is 0', async () => {
+      setupBot({ nudgeThreshold: 0 });
+
+      const makeGroupCtx = (msgId: number) =>
+        makeCtx({
+          chat: { type: 'supergroup', id: 999 },
+          message: {
+            text: 'A qualifying message long enough to pass filter',
+            from: { id: 88888, is_bot: false },
+            chat: { type: 'supergroup', id: 999 },
+            message_id: msgId,
+          },
+          from: { id: 88888, is_bot: false },
+        });
+
+      // Send many messages — should never nudge
+      for (let i = 1; i <= 10; i++) {
+        const ctx = makeGroupCtx(i);
+        await messageHandlers[1](ctx, vi.fn());
+        expect(ctx.reply).not.toHaveBeenCalled();
+      }
     });
   });
 });
