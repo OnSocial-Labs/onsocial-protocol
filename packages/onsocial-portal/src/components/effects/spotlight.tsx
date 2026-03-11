@@ -1,29 +1,29 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 
 export function Spotlight() {
-  const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [isVisible, setIsVisible] = useState(false)
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setPosition({ x: e.clientX, y: e.clientY })
-      setIsVisible(true)
-    }
+      setPosition({ x: e.clientX, y: e.clientY });
+      setIsVisible(true);
+    };
 
     const handleMouseLeave = () => {
-      setIsVisible(false)
-    }
+      setIsVisible(false);
+    };
 
-    window.addEventListener('mousemove', handleMouseMove)
-    document.body.addEventListener('mouseleave', handleMouseLeave)
+    window.addEventListener('mousemove', handleMouseMove);
+    document.body.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      document.body.removeEventListener('mouseleave', handleMouseLeave)
-    }
-  }, [])
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.body.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
 
   return (
     <div
@@ -33,5 +33,5 @@ export function Spotlight() {
         background: `radial-gradient(600px circle at ${position.x}px ${position.y}px, rgba(0, 236, 150, 0.08), transparent 40%)`,
       }}
     />
-  )
+  );
 }

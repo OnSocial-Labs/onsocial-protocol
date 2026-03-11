@@ -19,29 +19,34 @@ export async function POST(request: NextRequest) {
     // Check if sandbox is running
     const sandboxCheck = await checkSandbox();
     if (!sandboxCheck.running) {
-      return NextResponse.json({
-        success: false,
-        error: 'NEAR sandbox is not running. Please start it first.',
-        hint: 'Run: cd packages/onsocial-portal && ./scripts/start-sandbox.sh',
-      }, { status: 503 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'NEAR sandbox is not running. Please start it first.',
+          hint: 'Run: cd packages/onsocial-portal && ./scripts/start-sandbox.sh',
+        },
+        { status: 503 }
+      );
     }
 
     // Execute the code
     const result = await executeCode(code, accountId);
-    
+
     return NextResponse.json({
       success: true,
       result,
       timestamp: new Date().toISOString(),
     });
-
   } catch (error: any) {
     console.error('Playground execution error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message || 'Execution failed',
-      details: error.stderr || error.stdout,
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Execution failed',
+        details: error.stderr || error.stdout,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -61,19 +66,22 @@ async function checkSandbox(): Promise<{ running: boolean }> {
 async function executeCode(code: string, accountId: string): Promise<any> {
   // Parse the code to extract contract method calls
   // This is a simplified version - in production you'd want a proper parser
-  
+
   // Check if it's a set() call
   if (code.includes('contract.set(')) {
     return await executeSetCall(code, accountId);
   }
-  
+
   // Check if it's a get() call
   if (code.includes('contract.get(')) {
     return await executeGetCall(code, accountId);
   }
-  
+
   // Check if it's a permission call
-  if (code.includes('contract.set_permission(') || code.includes('contract.grant_role(')) {
+  if (
+    code.includes('contract.set_permission(') ||
+    code.includes('contract.grant_role(')
+  ) {
     return await executePermissionCall(code, accountId);
   }
 
@@ -100,7 +108,7 @@ async function executeSetCall(code: string, accountId: string): Promise<any> {
 
     // For demo: simulate the call
     const command = `near-sandbox call contract.test.near set '{"data": ${dataMatch[1]}}' --accountId ${accountId} --deposit 0.01`;
-    
+
     const { stdout, stderr } = await execAsync(command, {
       timeout: 10000,
       env: { ...process.env, NEAR_ENV: 'sandbox' },
@@ -126,7 +134,7 @@ async function executeGetCall(code: string, accountId: string): Promise<any> {
     }
 
     const command = `near-sandbox view contract.test.near get '{"keys": [${keysMatch[1]}], "account_id": "${accountId}"}' --accountId ${accountId}`;
-    
+
     const { stdout } = await execAsync(command, {
       timeout: 10000,
       env: { ...process.env, NEAR_ENV: 'sandbox' },
@@ -141,7 +149,10 @@ async function executeGetCall(code: string, accountId: string): Promise<any> {
   }
 }
 
-async function executePermissionCall(code: string, accountId: string): Promise<any> {
+async function executePermissionCall(
+  _code: string,
+  _accountId: string
+): Promise<any> {
   // Simulate permission calls
   return {
     success: true,
@@ -150,10 +161,13 @@ async function executePermissionCall(code: string, accountId: string): Promise<a
   };
 }
 
-async function executeStorageCall(code: string, accountId: string): Promise<any> {
+async function executeStorageCall(
+  code: string,
+  accountId: string
+): Promise<any> {
   try {
     const command = `near-sandbox view contract.test.near get_storage_balance '{"account_id": "${accountId}"}' --accountId ${accountId}`;
-    
+
     const { stdout } = await execAsync(command, {
       timeout: 10000,
       env: { ...process.env, NEAR_ENV: 'sandbox' },
@@ -163,7 +177,7 @@ async function executeStorageCall(code: string, accountId: string): Promise<any>
       success: true,
       storage: JSON.parse(stdout),
     };
-  } catch (error: any) {
+  } catch {
     return {
       success: false,
       message: 'No storage found for this account',

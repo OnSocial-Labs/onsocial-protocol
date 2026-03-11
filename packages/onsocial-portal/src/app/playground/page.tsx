@@ -1,20 +1,35 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import Editor from '@monaco-editor/react';
 import { playgroundExamples, categories } from '@/data/playground-examples';
 import type { ExampleSnippet } from '@/data/playground-examples';
-import { Play, Copy, RotateCcw, Book, Github, Code2, Terminal, CheckCircle2, ExternalLink, Wallet, Check } from 'lucide-react';
+import { PageShell } from '@/components/layout/page-shell';
+import {
+  Play,
+  Copy,
+  RotateCcw,
+  Book,
+  Github,
+  Code2,
+  Terminal,
+  CheckCircle2,
+  ExternalLink,
+  Wallet,
+  Check,
+} from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { executeOnTestnet } from '@/lib/testnet-executor';
 
 function PlaygroundContent() {
-  const { accountId, isConnected, wallet, connect } = useWallet();
+  const { accountId, isConnected, wallet } = useWallet();
   const { theme } = useTheme();
-  
-  const [selectedExample, setSelectedExample] = useState<ExampleSnippet>(playgroundExamples[0]);
+
+  const [selectedExample, setSelectedExample] = useState<ExampleSnippet>(
+    playgroundExamples[0]
+  );
   const [code, setCode] = useState(selectedExample.code);
   const [output, setOutput] = useState<string>('');
   const [isRunning, setIsRunning] = useState(false);
@@ -34,7 +49,7 @@ function PlaygroundContent() {
     setIsRunning(true);
     setOutput('⏳ Running code...\n\n');
     setTxHash(null);
-    
+
     if (useTestnet && isConnected && wallet) {
       // Execute on NEAR testnet with connected wallet
       try {
@@ -51,11 +66,15 @@ function PlaygroundContent() {
     } else {
       // Simulate execution (demo mode)
       setTimeout(() => {
-        const demoOutput = useTestnet && !isConnected
-          ? `⚠️ Connect wallet to execute on testnet!\n\n// Click "Connect Wallet" button above to:\n// 1. Connect your NEAR wallet\n// 2. Execute real transactions on testnet\n// 3. Verify results on NEAR Explorer\n\n// For now, showing demo output:\n`
-          : `✅ Code executed successfully! (Demo Mode)\n\n// Example output:\n// This is a simulation. To execute on real blockchain:\n// 1. Click "Connect Wallet" button above\n// 2. Enable "Testnet Mode" toggle\n// 3. Run your code again\n\n`;
-        
-        setOutput(demoOutput + `{\n  "status": "success",\n  "transaction_id": "BvJeW6gnodVxA1H...",\n  "block_height": 123456789,\n  "gas_used": "2.4 Tgas",\n  "note": "This is simulated output. Connect wallet and enable testnet for real execution."\n}`);
+        const demoOutput =
+          useTestnet && !isConnected
+            ? `⚠️ Connect wallet to execute on testnet!\n\n// Click "Connect Wallet" button above to:\n// 1. Connect your NEAR wallet\n// 2. Execute real transactions on testnet\n// 3. Verify results on NEAR Explorer\n\n// For now, showing demo output:\n`
+            : `✅ Code executed successfully! (Demo Mode)\n\n// Example output:\n// This is a simulation. To execute on real blockchain:\n// 1. Click "Connect Wallet" button above\n// 2. Enable "Testnet Mode" toggle\n// 3. Run your code again\n\n`;
+
+        setOutput(
+          demoOutput +
+            `{\n  "status": "success",\n  "transaction_id": "BvJeW6gnodVxA1H...",\n  "block_height": 123456789,\n  "gas_used": "2.4 Tgas",\n  "note": "This is simulated output. Connect wallet and enable testnet for real execution."\n}`
+        );
         setIsRunning(false);
       }, 1500);
     }
@@ -79,13 +98,13 @@ function PlaygroundContent() {
     setTimeout(() => setReset(false), 1000);
   };
 
-  const filteredExamples = selectedCategory === 'all' 
-    ? playgroundExamples 
-    : playgroundExamples.filter(ex => ex.category === selectedCategory);
+  const filteredExamples =
+    selectedCategory === 'all'
+      ? playgroundExamples
+      : playgroundExamples.filter((ex) => ex.category === selectedCategory);
 
   return (
-    <div className="min-h-screen pt-24 pb-16">
-      <div className="container mx-auto px-4">
+    <PageShell size="wide">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -97,7 +116,9 @@ function PlaygroundContent() {
             OnSocial Playground
           </h1>
           <p className="text-muted-foreground text-lg max-w-3xl leading-relaxed">
-            Experiment with OnSocial Protocol in real-time. Try out examples or write your own code to interact with the decentralized social platform.
+            Experiment with OnSocial Protocol in real-time. Try out examples or
+            write your own code to interact with the decentralized social
+            platform.
           </p>
         </motion.div>
 
@@ -142,17 +163,21 @@ function PlaygroundContent() {
         >
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full ${useTestnet && isConnected ? 'bg-[#4ADE80] animate-pulse' : 'bg-muted-foreground/40'}`}></div>
+              <div
+                className={`w-2 h-2 rounded-full ${useTestnet && isConnected ? 'bg-[#4ADE80] animate-pulse' : 'bg-muted-foreground/40'}`}
+              ></div>
               <div>
                 <h3 className="text-foreground font-semibold tracking-[-0.02em]">
-                  {useTestnet && isConnected ? '🚀 Testnet Mode (Real Execution)' : '📺 Demo Mode (Simulation)'}
+                  {useTestnet && isConnected
+                    ? '🚀 Testnet Mode (Real Execution)'
+                    : '📺 Demo Mode (Simulation)'}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   {useTestnet && isConnected
-                    ? 'Code executes on NEAR testnet with your wallet' 
+                    ? 'Code executes on NEAR testnet with your wallet'
                     : useTestnet && !isConnected
-                    ? 'Connect wallet to enable testnet execution'
-                    : 'Code execution is simulated'}
+                      ? 'Connect wallet to enable testnet execution'
+                      : 'Code execution is simulated'}
                 </p>
               </div>
             </div>
@@ -164,8 +189,8 @@ function PlaygroundContent() {
                   useTestnet && isConnected
                     ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20'
                     : useTestnet && !isConnected
-                    ? 'border border-border/50 bg-muted/50 text-muted-foreground cursor-not-allowed'
-                    : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
+                      ? 'border border-border/50 bg-muted/50 text-muted-foreground cursor-not-allowed'
+                      : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 {useTestnet ? 'Disable Testnet' : 'Enable Testnet'}
@@ -183,7 +208,11 @@ function PlaygroundContent() {
           {useTestnet && isConnected && (
             <div className="mt-3 pt-3 border-t border-border/50">
               <p className="text-xs text-muted-foreground">
-                ⚠️ Testnet mode active • Network: <span className="text-[#4ADE80]">testnet</span> • <span className="text-yellow-500">Note: Deploy your contract first for real execution</span>
+                ⚠️ Testnet mode active • Network:{' '}
+                <span className="text-[#4ADE80]">testnet</span> •{' '}
+                <span className="text-yellow-500">
+                  Note: Deploy your contract first for real execution
+                </span>
               </p>
             </div>
           )}
@@ -243,7 +272,9 @@ function PlaygroundContent() {
                     }`}
                   >
                     <div className="font-medium mb-1">{example.title}</div>
-                    <div className="text-xs opacity-80">{example.description}</div>
+                    <div className="text-xs opacity-80">
+                      {example.description}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -254,8 +285,12 @@ function PlaygroundContent() {
           <div className="lg:col-span-3 space-y-6">
             {/* Selected Example Info */}
             <div className="border border-border/50 rounded-2xl p-4 bg-muted/30">
-              <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">{selectedExample.title}</h3>
-              <p className="text-muted-foreground">{selectedExample.description}</p>
+              <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">
+                {selectedExample.title}
+              </h3>
+              <p className="text-muted-foreground">
+                {selectedExample.description}
+              </p>
             </div>
 
             {/* Code Editor */}
@@ -269,16 +304,24 @@ function PlaygroundContent() {
                   <button
                     onClick={handleCopy}
                     className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                    title={copied ? "Copied!" : "Copy code"}
+                    title={copied ? 'Copied!' : 'Copy code'}
                   >
-                    {copied ? <Check className="w-4 h-4 text-[#4ADE80]" /> : <Copy className="w-4 h-4" />}
+                    {copied ? (
+                      <Check className="w-4 h-4 text-[#4ADE80]" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
                   </button>
                   <button
                     onClick={handleReset}
                     className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                    title={reset ? "Reset!" : "Reset to example"}
+                    title={reset ? 'Reset!' : 'Reset to example'}
                   >
-                    {reset ? <Check className="w-4 h-4 text-[#4ADE80]" /> : <RotateCcw className="w-4 h-4" />}
+                    {reset ? (
+                      <Check className="w-4 h-4 text-[#4ADE80]" />
+                    ) : (
+                      <RotateCcw className="w-4 h-4" />
+                    )}
                   </button>
                   <button
                     onClick={handleRun}
@@ -320,7 +363,9 @@ function PlaygroundContent() {
               <div className="p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
                 {output ? (
                   <>
-                    <pre className="text-sm text-muted-foreground font-mono whitespace-pre-wrap">{output}</pre>
+                    <pre className="text-sm text-muted-foreground font-mono whitespace-pre-wrap">
+                      {output}
+                    </pre>
                     {txHash && (
                       <div className="mt-4 pt-4 border-t border-border/50">
                         <a
@@ -337,8 +382,16 @@ function PlaygroundContent() {
                   </>
                 ) : (
                   <div className="text-muted-foreground text-sm">
-                    <p className="mb-2">Click "Run Code" to execute your code.</p>
-                    <p className="text-xs">💡 Tip: {isConnected ? 'Enable testnet mode for real execution' : 'Connect wallet and enable testnet for real execution'}.</p>
+                    <p className="mb-2">
+                      Click "Run Code" to execute your code.
+                    </p>
+                    <p className="text-xs">
+                      💡 Tip:{' '}
+                      {isConnected
+                        ? 'Enable testnet mode for real execution'
+                        : 'Connect wallet and enable testnet for real execution'}
+                      .
+                    </p>
                   </div>
                 )}
               </div>
@@ -351,13 +404,19 @@ function PlaygroundContent() {
                   <CheckCircle2 className="w-5 h-5 text-[#4ADE80]" />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-foreground font-semibold mb-2 tracking-[-0.02em]">About the Playground</h4>
+                  <h4 className="text-foreground font-semibold mb-2 tracking-[-0.02em]">
+                    About the Playground
+                  </h4>
                   <p className="text-muted-foreground text-sm mb-3">
-                    This playground lets you experiment with OnSocial Protocol. Connect your wallet and enable testnet mode 
-                    to execute real transactions on NEAR testnet blockchain.
+                    This playground lets you experiment with OnSocial Protocol.
+                    Connect your wallet and enable testnet mode to execute real
+                    transactions on NEAR testnet blockchain.
                   </p>
                   <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>• {isConnected ? '✅' : '○'} Connect wallet for real testnet execution</p>
+                    <p>
+                      • {isConnected ? '✅' : '○'} Connect wallet for real
+                      testnet execution
+                    </p>
                     <p>• All examples use TypeScript and the OnSocial SDK</p>
                     <p>• Storage deposits are required for most operations</p>
                     <p>• Check the documentation for detailed API references</p>
@@ -367,8 +426,7 @@ function PlaygroundContent() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }
 

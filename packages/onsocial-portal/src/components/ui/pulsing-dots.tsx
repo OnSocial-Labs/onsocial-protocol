@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 /**
  * Modern 3-dot pulsing loader.
@@ -13,26 +13,26 @@ const sizeMap = {
   sm: 'h-1 w-1',
   md: 'h-1.5 w-1.5',
   lg: 'h-2 w-2',
-} as const
+} as const;
 
 const gapMap = {
   sm: 'gap-1',
   md: 'gap-1.5',
   lg: 'gap-2',
-} as const
+} as const;
 
-export type PulsingDotsSize = keyof typeof sizeMap
+export type PulsingDotsSize = keyof typeof sizeMap;
 
 interface PulsingDotsProps {
   /** sm ≈ 12px row, md ≈ 16px row, lg ≈ 32px row */
-  size?: PulsingDotsSize
+  size?: PulsingDotsSize;
   /** Override the dot colour (inherits currentColor by default) */
-  className?: string
+  className?: string;
 }
 
 export function PulsingDots({ size = 'md', className }: PulsingDotsProps) {
-  const dot = sizeMap[size]
-  const gap = gapMap[size]
+  const dot = sizeMap[size];
+  const gap = gapMap[size];
 
   return (
     <span
@@ -43,10 +43,7 @@ export function PulsingDots({ size = 'md', className }: PulsingDotsProps) {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className={cn(
-            'rounded-full bg-current opacity-60',
-            dot,
-          )}
+          className={cn('rounded-full bg-current opacity-60', dot)}
           style={{
             animation: 'pulse-dot 1.4s ease-in-out infinite',
             animationDelay: `${i * 0.16}s`,
@@ -61,5 +58,5 @@ export function PulsingDots({ size = 'md', className }: PulsingDotsProps) {
         }
       `}</style>
     </span>
-  )
+  );
 }

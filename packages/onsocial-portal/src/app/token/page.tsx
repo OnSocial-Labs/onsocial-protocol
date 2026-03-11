@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function TokenRedirect() {
-const router = useRouter()
+  const router = useRouter();
 
-useEffect(() => {
-router.replace('/transparency')
-}, [router])
+  useEffect(() => {
+    router.replace('/transparency');
+  }, [router]);
 
-return null
+  return null;
 }

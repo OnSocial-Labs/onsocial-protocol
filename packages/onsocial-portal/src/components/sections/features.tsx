@@ -1,64 +1,63 @@
-'use client'
+'use client';
 
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
-import {
-  Globe,
-  Zap,
-  FileCode2,
-  Layers,
-  Package,
-  Terminal,
-} from 'lucide-react'
+import { motion, useInView } from 'framer-motion';
+import { useRef } from 'react';
+import { Globe, Zap, FileCode2, Layers, Package, Terminal } from 'lucide-react';
 
 const tools = [
   {
     title: 'Gateway API',
-    description: 'Auth, GraphQL, relay, compose, storage — one endpoint at api.onsocial.id. JWT-based with tier rate limiting.',
+    description:
+      'Auth, GraphQL, relay, compose, storage — one endpoint at api.onsocial.id. JWT-based with tier rate limiting.',
     icon: Globe,
     color: '#60A5FA',
     status: 'Live',
   },
   {
     title: 'Gasless Relayer',
-    description: 'Users never pay gas. 2-instance HA with GCP Cloud KMS signing and automatic key pool management.',
+    description:
+      'Users never pay gas. 2-instance HA with GCP Cloud KMS signing and automatic key pool management.',
     icon: Zap,
     color: '#4ADE80',
     status: 'Live',
   },
   {
     title: 'Smart Contracts',
-    description: 'Core, Token, Staking, Scarces, Rewards — 6 contracts on testnet, token verified on mainnet.',
+    description:
+      'Core, Token, Staking, Scarces, Rewards — 6 contracts on testnet, token verified on mainnet.',
     icon: FileCode2,
     color: '#C084FC',
     status: 'Live',
   },
   {
     title: 'Compose API',
-    description: 'One-call endpoints: mint, collection, marketplace, offers, approvals, storage uploads via Lighthouse IPFS.',
+    description:
+      'One-call endpoints: mint, collection, marketplace, offers, approvals, storage uploads via Lighthouse IPFS.',
     icon: Layers,
     color: '#60A5FA',
     status: 'Live',
   },
   {
     title: 'Developer SDKs',
-    description: '@onsocial-id/rewards for token rewards, @onsocial-id/rpc for resilient NEAR calls, partner API for app registration.',
+    description:
+      '@onsocial-id/rewards for token rewards, @onsocial-id/rpc for resilient NEAR calls, partner API for app registration.',
     icon: Package,
     color: '#4ADE80',
     status: 'Live',
   },
   {
     title: 'Playground',
-    description: 'Browser code editor with live testnet execution. Connect wallet, run real transactions, test your integration.',
+    description:
+      'Browser code editor with live testnet execution. Connect wallet, run real transactions, test your integration.',
     icon: Terminal,
     color: '#C084FC',
     status: 'Live',
   },
-]
+];
 
 export function Features() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, amount: 0.2 })
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.2 });
 
   return (
     <section id="tools" ref={ref} className="py-24 relative">
@@ -79,7 +78,7 @@ export function Features() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {tools.map((tool, index) => {
-            const Icon = tool.icon
+            const Icon = tool.icon;
             return (
               <motion.div
                 key={tool.title}
@@ -94,16 +93,18 @@ export function Features() {
                       {tool.status}
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2 tracking-[-0.01em]">{tool.title}</h3>
+                  <h3 className="text-lg font-semibold mb-2 tracking-[-0.01em]">
+                    {tool.title}
+                  </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {tool.description}
                   </p>
                 </div>
               </motion.div>
-            )
+            );
           })}
         </div>
       </div>
     </section>
-  )
+  );
 }

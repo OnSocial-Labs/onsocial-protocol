@@ -94,6 +94,7 @@ Framer Motion animations are configured in each component. Adjust timing and eas
 ### Content
 
 Update content in:
+
 - `src/components/sections/hero.tsx` - Hero section
 - `src/components/sections/features.tsx` - Features
 - `src/components/sections/stats.tsx` - Statistics

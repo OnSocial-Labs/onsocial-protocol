@@ -2,7 +2,13 @@ export interface ExampleSnippet {
   id: string;
   title: string;
   description: string;
-  category: 'profile' | 'content' | 'social' | 'groups' | 'permissions' | 'storage';
+  category:
+    | 'profile'
+    | 'content'
+    | 'social'
+    | 'groups'
+    | 'permissions'
+    | 'storage';
   code: string;
 }
 
@@ -308,7 +314,15 @@ console.log("Group stats:", stats);`,
   },
 ];
 
-import { User, FileText, Users, Building2, Shield, Database, LucideIcon } from 'lucide-react';
+import {
+  User,
+  FileText,
+  Users,
+  Building2,
+  Shield,
+  Database,
+  LucideIcon,
+} from 'lucide-react';
 
 export const categories: { id: string; name: string; icon: LucideIcon }[] = [
   { id: 'profile', name: 'Profile', icon: User },

@@ -1,17 +1,24 @@
-'use client'
+'use client';
 
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
+import { motion, useInView } from 'framer-motion';
+import { useRef } from 'react';
 import {
-  User, Users, Palette, Shield,
-  Zap, Database, Layers, Puzzle
-} from 'lucide-react'
+  User,
+  Users,
+  Palette,
+  Shield,
+  Zap,
+  Database,
+  Layers,
+  Puzzle,
+} from 'lucide-react';
 
 // What the protocol actually enables (backed by real contracts)
 const PROTOCOL_LAYERS = [
   {
     title: 'Identity & Data',
-    description: 'One on-chain profile shared across every dapp. Store profiles, posts, and dapp data with fine-grained permissions.',
+    description:
+      'One on-chain profile shared across every dapp. Store profiles, posts, and dapp data with fine-grained permissions.',
     icon: User,
     color: '#60A5FA',
     contract: 'core-onsocial',
@@ -19,15 +26,21 @@ const PROTOCOL_LAYERS = [
   },
   {
     title: 'Groups & Governance',
-    description: 'Create communities with membership, permission controls, proposals, and on-chain voting.',
+    description:
+      'Create communities with membership, permission controls, proposals, and on-chain voting.',
     icon: Users,
     color: '#C084FC',
     contract: 'core-onsocial',
-    capabilities: ['Group management', 'Proposals & voting', 'Role-based access'],
+    capabilities: [
+      'Group management',
+      'Proposals & voting',
+      'Role-based access',
+    ],
   },
   {
     title: 'Scarces',
-    description: 'Mint, list, sell, and auction Scarces — NFTs with a lifecycle. Renewable, redeemable, revocable, with automatic royalty splits.',
+    description:
+      'Mint, list, sell, and auction Scarces — NFTs with a lifecycle. Renewable, redeemable, revocable, with automatic royalty splits.',
     icon: Palette,
     color: '#4ADE80',
     contract: 'scarces-onsocial',
@@ -35,24 +48,25 @@ const PROTOCOL_LAYERS = [
   },
   {
     title: 'Flexible Auth',
-    description: 'Four on-chain auth models — direct calls, signed payloads, meta-transactions, and NEAR Intents.',
+    description:
+      'Four on-chain auth models — direct calls, signed payloads, meta-transactions, and NEAR Intents.',
     icon: Shield,
     color: '#60A5FA',
     contract: 'core-onsocial',
     capabilities: ['Meta-transactions', 'Signed payloads', 'Intents support'],
   },
-] as const
+] as const;
 
 const INFRA_FEATURES = [
   { title: 'Gasless transactions', icon: Zap, color: '#4ADE80' },
   { title: 'Sponsored storage', icon: Database, color: '#60A5FA' },
   { title: 'Composable data', icon: Layers, color: '#4ADE80' },
   { title: 'Real-time indexers', icon: Database, color: '#60A5FA' },
-] as const
+] as const;
 
 export function Vision() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, amount: 0.1 })
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.1 });
 
   return (
     <section id="protocol" ref={ref} className="py-24 relative">
@@ -68,7 +82,8 @@ export function Vision() {
             What you can build
           </h2>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Dapps with seamless onboarding — shared profiles, organizations, and commerce.
+            Dapps with seamless onboarding — shared profiles, organizations, and
+            commerce.
           </p>
         </motion.div>
 
@@ -85,12 +100,20 @@ export function Vision() {
               <div className="flex items-start gap-4">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ borderColor: `${layer.color}30`, border: `1px solid ${layer.color}30` }}
+                  style={{
+                    borderColor: `${layer.color}30`,
+                    border: `1px solid ${layer.color}30`,
+                  }}
                 >
-                  <layer.icon className="w-5 h-5" style={{ color: layer.color }} />
+                  <layer.icon
+                    className="w-5 h-5"
+                    style={{ color: layer.color }}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold tracking-[-0.02em] mb-1">{layer.title}</h3>
+                  <h3 className="font-semibold tracking-[-0.02em] mb-1">
+                    {layer.title}
+                  </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-3">
                     {layer.description}
                   </p>
@@ -119,12 +142,20 @@ export function Vision() {
         >
           <div className="flex items-center justify-center gap-2 mb-4">
             <Puzzle className="w-4 h-4 text-[#4ADE80]" />
-            <span className="text-sm font-semibold tracking-[-0.02em]">Built into every dapp. Zero config.</span>
+            <span className="text-sm font-semibold tracking-[-0.02em]">
+              Built into every dapp. Zero config.
+            </span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
             {INFRA_FEATURES.map((feature) => (
-              <div key={feature.title} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <feature.icon className="w-3.5 h-3.5" style={{ color: feature.color }} />
+              <div
+                key={feature.title}
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+              >
+                <feature.icon
+                  className="w-3.5 h-3.5"
+                  style={{ color: feature.color }}
+                />
                 <span>{feature.title}</span>
               </div>
             ))}
@@ -132,5 +163,5 @@ export function Vision() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }

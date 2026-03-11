@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
-import Link from 'next/link'
-import { ArrowRight, Coins, Handshake, Github } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { motion, useInView } from 'framer-motion';
+import { useRef } from 'react';
+import Link from 'next/link';
+import { ArrowRight, Coins, Handshake, Github } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function CTA() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, amount: 0.3 })
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.3 });
 
   return (
     <section ref={ref} className="py-24 relative">
@@ -23,7 +23,8 @@ export function CTA() {
             Get Involved
           </h2>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-            Whether you&apos;re here to earn or to build — there&apos;s a place for you.
+            Whether you&apos;re here to earn or to build — there&apos;s a place
+            for you.
           </p>
         </motion.div>
 
@@ -38,9 +39,12 @@ export function CTA() {
             <div className="w-12 h-12 rounded-xl border border-[#60A5FA]/30 flex items-center justify-center mb-5">
               <Coins className="w-6 h-6 text-[#60A5FA]" />
             </div>
-            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">For Token Holders</h3>
+            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">
+              For Token Holders
+            </h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-1">
-              Stake your $SOCIAL tokens and earn rewards. Choose your lock period for higher effective stake.
+              Stake your $SOCIAL tokens and earn rewards. Choose your lock
+              period for higher effective stake.
             </p>
             <Button asChild className="group w-full">
               <Link href="/staking">
@@ -60,9 +64,12 @@ export function CTA() {
             <div className="w-12 h-12 rounded-xl border border-[#C084FC]/30 flex items-center justify-center mb-5">
               <Handshake className="w-6 h-6 text-[#C084FC]" />
             </div>
-            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">For Builders & Communities</h3>
+            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">
+              For Builders & Communities
+            </h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-1">
-              Register your project, get an API key, and reward your community with $SOCIAL tokens.
+              Register your project, get an API key, and reward your community
+              with $SOCIAL tokens.
             </p>
             <Button variant="secondary" asChild className="group w-full">
               <Link href="/partners">
@@ -93,5 +100,5 @@ export function CTA() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }

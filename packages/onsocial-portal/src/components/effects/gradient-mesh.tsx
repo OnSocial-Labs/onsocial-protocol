@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import { motion } from 'framer-motion'
+import { motion } from 'framer-motion';
 
 export function GradientMesh() {
   return (
@@ -16,7 +16,7 @@ export function GradientMesh() {
         transition={{
           duration: 25,
           repeat: Infinity,
-          ease: "easeInOut",
+          ease: 'easeInOut',
         }}
         style={{
           background: 'rgba(0, 236, 150, 0.15)',
@@ -33,7 +33,7 @@ export function GradientMesh() {
         transition={{
           duration: 28,
           repeat: Infinity,
-          ease: "easeInOut",
+          ease: 'easeInOut',
           delay: 3,
         }}
         style={{
@@ -69,7 +69,7 @@ export function GradientMesh() {
         transition={{
           duration: 30,
           repeat: Infinity,
-          ease: "easeInOut",
+          ease: 'easeInOut',
           delay: 9,
         }}
         style={{
@@ -78,5 +78,5 @@ export function GradientMesh() {
         className="absolute top-1/2 left-1/3 w-[420px] h-[420px] rounded-full blur-3xl"
       />
     </div>
-  )
+  );
 }

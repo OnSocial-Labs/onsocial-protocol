@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
-import { RiTelegram2Line } from 'react-icons/ri'
-import { FaXTwitter } from 'react-icons/fa6'
-import { Github } from 'lucide-react'
+import { motion, useInView } from 'framer-motion';
+import { useRef } from 'react';
+import { RiTelegram2Line } from 'react-icons/ri';
+import { FaXTwitter } from 'react-icons/fa6';
+import { Github } from 'lucide-react';
 
 export function CommunityBanner() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, amount: 0.5 })
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.5 });
 
   return (
     <section ref={ref} className="py-4">
@@ -49,5 +49,5 @@ export function CommunityBanner() {
         </a>
       </motion.div>
     </section>
-  )
+  );
 }

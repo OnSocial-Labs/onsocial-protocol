@@ -1,10 +1,10 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { Github, Code } from 'lucide-react'
-import { FaXTwitter } from 'react-icons/fa6'
-import { IoMdHeart } from 'react-icons/io'
-import { RiTelegram2Line } from 'react-icons/ri'
+import Link from 'next/link';
+import { Github, Code } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
+import { IoMdHeart } from 'react-icons/io';
+import { RiTelegram2Line } from 'react-icons/ri';
 
 const footerLinks = {
   Product: [
@@ -18,7 +18,7 @@ const footerLinks = {
     { label: 'GitHub', href: 'https://github.com/OnSocial-Labs' },
     { label: 'License', href: '/LICENSE.md' },
   ],
-}
+};
 
 export function Footer() {
   return (
@@ -38,7 +38,9 @@ export function Footer() {
                 alt="OnSocial"
                 className="w-7 h-7 hidden dark:block"
               />
-              <span className="font-semibold text-lg tracking-[-0.02em]">OnSocial</span>
+              <span className="font-semibold text-lg tracking-[-0.02em]">
+                OnSocial
+              </span>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
               Building the future of decentralized social.
@@ -94,10 +96,11 @@ export function Footer() {
             <span>Open source</span>
           </div>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
-            Built with <IoMdHeart className="text-[#4ADE80] w-4 h-4" /> on NEAR Protocol
+            Built with <IoMdHeart className="text-[#4ADE80] w-4 h-4" /> on NEAR
+            Protocol
           </p>
         </div>
       </div>
     </footer>
-  )
+  );
 }

@@ -1,44 +1,48 @@
-'use client'
+'use client';
 
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
-import Link from 'next/link'
-import { Palette, Ticket, Users, Building2, ArrowUpRight } from 'lucide-react'
+import { motion, useInView } from 'framer-motion';
+import { useRef } from 'react';
+import Link from 'next/link';
+import { Palette, Ticket, Users, Building2, ArrowUpRight } from 'lucide-react';
 
 const USE_CASES = [
   {
     title: 'NFT Marketplace',
-    description: 'Mint, list, and trade NFTs with built-in royalties. One API call via /compose/mint.',
+    description:
+      'Mint, list, and trade NFTs with built-in royalties. One API call via /compose/mint.',
     icon: Palette,
     color: '#C084FC',
     apis: ['Compose API', 'Scarces Contract', 'IPFS Storage'],
   },
   {
     title: 'Event Ticketing',
-    description: 'Issue NFT tickets with on-chain verification. Gate access with token ownership.',
+    description:
+      'Issue NFT tickets with on-chain verification. Gate access with token ownership.',
     icon: Ticket,
     color: '#60A5FA',
     apis: ['Compose API', 'Token Gates', 'Gasless Claims'],
   },
   {
     title: 'Communities',
-    description: 'Token-gated groups with on-chain social graph. Posts, follows, likes — all composable.',
+    description:
+      'Token-gated groups with on-chain social graph. Posts, follows, likes — all composable.',
     icon: Users,
     color: '#4ADE80',
     apis: ['Core Contract', 'Groups API', 'Social Graph'],
   },
   {
     title: 'Company Profiles',
-    description: 'Verified business identities with on-chain reputation and team management.',
+    description:
+      'Verified business identities with on-chain reputation and team management.',
     icon: Building2,
     color: '#60A5FA',
     apis: ['Core Contract', 'Stores API', 'Permissions'],
   },
-] as const
+] as const;
 
 export function BuilderShowcase() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, amount: 0.2 })
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.2 });
 
   return (
     <section ref={ref} className="py-24 relative">
@@ -59,7 +63,7 @@ export function BuilderShowcase() {
 
         <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
           {USE_CASES.map((useCase, index) => {
-            const Icon = useCase.icon
+            const Icon = useCase.icon;
             return (
               <motion.div
                 key={useCase.title}
@@ -69,7 +73,10 @@ export function BuilderShowcase() {
               >
                 <div className="border border-border/50 rounded-2xl p-8 hover:border-border transition-colors bg-muted/30 h-full">
                   <div className="flex items-start justify-between mb-4">
-                    <Icon className="w-8 h-8" style={{ color: useCase.color }} />
+                    <Icon
+                      className="w-8 h-8"
+                      style={{ color: useCase.color }}
+                    />
                     <Link
                       href="/playground"
                       className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
@@ -78,7 +85,9 @@ export function BuilderShowcase() {
                       <ArrowUpRight className="w-3 h-3" />
                     </Link>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2 tracking-[-0.01em]">{useCase.title}</h3>
+                  <h3 className="text-lg font-semibold mb-2 tracking-[-0.01em]">
+                    {useCase.title}
+                  </h3>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                     {useCase.description}
                   </p>
@@ -94,10 +103,10 @@ export function BuilderShowcase() {
                   </div>
                 </div>
               </motion.div>
-            )
+            );
           })}
         </div>
       </div>
     </section>
-  )
+  );
 }

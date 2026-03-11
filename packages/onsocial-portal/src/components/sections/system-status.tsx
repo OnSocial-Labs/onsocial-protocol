@@ -1,8 +1,7 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion, useInView } from 'framer-motion';
 import {
   Activity,
   Globe,
@@ -12,51 +11,47 @@ import {
   Network,
   CheckCircle2,
   XCircle,
-} from 'lucide-react'
-import { PulsingDots } from '@/components/ui/pulsing-dots'
+} from 'lucide-react';
+import { PulsingDots } from '@/components/ui/pulsing-dots';
 
 interface HealthData {
-  gateway: { status: 'up' | 'down'; responseTime: number } | null
-  relayer: { status: 'up' | 'down'; responseTime: number } | null
+  gateway: { status: 'up' | 'down'; responseTime: number } | null;
+  relayer: { status: 'up' | 'down'; responseTime: number } | null;
   stats: {
-    uptime: number
-    network: string
-    totalPosts: number
-    totalUsers: number
-    activeDevelopers: number
-    avgResponseTime: number
-  } | null
+    uptime: number;
+    network: string;
+    totalPosts: number;
+    totalUsers: number;
+    activeDevelopers: number;
+    avgResponseTime: number;
+  } | null;
 }
 
 export function SystemStatus() {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, amount: 0.2 })
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, amount: 0.2 });
   const [health, setHealth] = useState<HealthData>({
     gateway: null,
     relayer: null,
     stats: null,
-  })
-  const [loading, setLoading] = useState(true)
+  });
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkHealth()
-    const interval = setInterval(checkHealth, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  const checkHealth = useCallback(async () => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.onsocial.id';
 
-  async function checkHealth() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.onsocial.id'
-
-    const results: HealthData = { gateway: null, relayer: null, stats: null }
+    const results: HealthData = { gateway: null, relayer: null, stats: null };
 
     // Check gateway
     try {
-      const start = performance.now()
-      const res = await fetch(`${apiUrl}/public/stats`, { signal: AbortSignal.timeout(5000) })
-      const elapsed = Math.round(performance.now() - start)
+      const start = performance.now();
+      const res = await fetch(`${apiUrl}/public/stats`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      const elapsed = Math.round(performance.now() - start);
       if (res.ok) {
-        const data = await res.json()
-        results.gateway = { status: 'up', responseTime: elapsed }
+        const data = await res.json();
+        results.gateway = { status: 'up', responseTime: elapsed };
         results.stats = {
           uptime: data.system?.uptime || 0,
           network: data.system?.network || 'testnet',
@@ -64,27 +59,39 @@ export function SystemStatus() {
           totalUsers: data.platform?.totalUsers || 0,
           activeDevelopers: data.credits?.activeDevelopers || 0,
           avgResponseTime: data.system?.avgResponseTime || 0,
-        }
+        };
       } else {
-        results.gateway = { status: 'down', responseTime: elapsed }
+        results.gateway = { status: 'down', responseTime: elapsed };
       }
     } catch {
-      results.gateway = { status: 'down', responseTime: 0 }
+      results.gateway = { status: 'down', responseTime: 0 };
     }
 
     // Check relayer via gateway relay health
     try {
-      const start = performance.now()
-      const res = await fetch(`${apiUrl}/relay/health`, { signal: AbortSignal.timeout(5000) })
-      const elapsed = Math.round(performance.now() - start)
-      results.relayer = { status: res.ok ? 'up' : 'down', responseTime: elapsed }
+      const start = performance.now();
+      const res = await fetch(`${apiUrl}/relay/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      const elapsed = Math.round(performance.now() - start);
+      results.relayer = {
+        status: res.ok ? 'up' : 'down',
+        responseTime: elapsed,
+      };
     } catch {
-      results.relayer = { status: 'down', responseTime: 0 }
+      results.relayer = { status: 'down', responseTime: 0 };
     }
 
-    setHealth(results)
-    setLoading(false)
-  }
+    setHealth(results);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- data-fetching pattern
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, [checkHealth]);
 
   const services = [
     {
@@ -108,7 +115,7 @@ export function SystemStatus() {
       status: health.gateway?.status, // If gateway is up, contracts are accessible
       responseTime: undefined,
     },
-  ]
+  ];
 
   return (
     <section id="status" ref={ref} className="py-24 relative">
@@ -131,7 +138,7 @@ export function SystemStatus() {
           {/* Service Status Cards */}
           <div className="grid md:grid-cols-3 gap-4 mb-8">
             {services.map((service, index) => {
-              const Icon = service.icon
+              const Icon = service.icon;
               return (
                 <motion.div
                   key={service.name}
@@ -143,7 +150,10 @@ export function SystemStatus() {
                     <div className="flex items-start justify-between mb-4">
                       <Icon className="w-5 h-5 text-muted-foreground" />
                       {loading ? (
-                        <PulsingDots size="sm" className="text-muted-foreground" />
+                        <PulsingDots
+                          size="sm"
+                          className="text-muted-foreground"
+                        />
                       ) : service.status === 'up' ? (
                         <CheckCircle2 className="w-4 h-4 text-[#4ADE80]" />
                       ) : (
@@ -151,15 +161,20 @@ export function SystemStatus() {
                       )}
                     </div>
                     <h3 className="font-semibold mb-1">{service.name}</h3>
-                    <p className="text-xs text-muted-foreground mb-3">{service.description}</p>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      {service.description}
+                    </p>
                     {service.responseTime !== undefined && !loading && (
                       <div className="text-xs text-muted-foreground">
-                        <span className="text-foreground font-mono">{service.responseTime}ms</span> response
+                        <span className="text-foreground font-mono">
+                          {service.responseTime}ms
+                        </span>{' '}
+                        response
                       </div>
                     )}
                   </div>
                 </motion.div>
-              )
+              );
             })}
           </div>
 
@@ -209,7 +224,9 @@ export function SystemStatus() {
             transition={{ delay: 0.5 }}
             className="flex items-center justify-center mt-6 text-xs text-muted-foreground gap-4"
           >
-            {!loading && health.gateway?.status === 'up' && health.relayer?.status === 'up' ? (
+            {!loading &&
+            health.gateway?.status === 'up' &&
+            health.relayer?.status === 'up' ? (
               <>
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 bg-[#4ADE80] rounded-full animate-pulse" />
@@ -230,37 +247,38 @@ export function SystemStatus() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
 function StatItem({
-  icon: Icon,
   label,
   value,
 }: {
-  icon: typeof Activity
-  label: string
-  value: string
+  icon: typeof Activity;
+  label: string;
+  value: string;
 }) {
   return (
     <div className="text-center">
-      <div className="text-xl md:text-2xl font-bold tracking-[-0.02em]">{value}</div>
+      <div className="text-xl md:text-2xl font-bold tracking-[-0.02em]">
+        {value}
+      </div>
       <div className="text-xs text-muted-foreground mt-1">{label}</div>
     </div>
-  )
+  );
 }
 
 function formatNumber(num: number): string {
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
-  return num.toString()
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toString();
 }
 
 function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  if (days > 0) return `${days}d ${hours}h`
-  const minutes = Math.floor((seconds % 3600) / 60)
-  if (hours > 0) return `${hours}h ${minutes}m`
-  return `${minutes}m`
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  if (days > 0) return `${days}d ${hours}h`;
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
