@@ -18,6 +18,12 @@ const NETWORK: Network =
 export const REWARDS_CONTRACT =
   NETWORK === 'mainnet' ? 'rewards.onsocial.near' : 'rewards.onsocial.testnet'
 
+export const STAKING_CONTRACT =
+  NETWORK === 'mainnet' ? 'staking.onsocial.near' : 'staking.onsocial.testnet'
+
+export const TOKEN_CONTRACT =
+  NETWORK === 'mainnet' ? 'token.onsocial.near' : 'token.onsocial.testnet'
+
 // ---------------------------------------------------------------------------
 // Singleton — circuit breaker state persists across renders
 // ---------------------------------------------------------------------------
@@ -41,12 +47,13 @@ function getRpc(): NearRpc {
 // ---------------------------------------------------------------------------
 
 /**
- * Call a view method on the rewards contract via NEAR RPC.
- * Automatically retries + fails over through @onsocial/rpc.
+ * Call a view method on any NEAR contract via RPC.
+ * Retries + failover handled by @onsocial/rpc.
  */
-export async function viewContract<T>(
+export async function viewContractAt<T>(
+  contractId: string,
   method: string,
-  args: Record<string, string>,
+  args: Record<string, unknown> = {},
 ): Promise<T | null> {
   const rpc = getRpc()
   const res = await rpc.call<{ result?: number[] }>(
@@ -54,7 +61,7 @@ export async function viewContract<T>(
     {
       request_type: 'call_function',
       finality: 'final',
-      account_id: REWARDS_CONTRACT,
+      account_id: contractId,
       method_name: method,
       args_base64: btoa(JSON.stringify(args)),
     },
@@ -64,6 +71,17 @@ export async function viewContract<T>(
   if (!bytes) return null
   const decoded = new TextDecoder().decode(new Uint8Array(bytes))
   return JSON.parse(decoded) as T
+}
+
+/**
+ * Call a view method on the rewards contract via NEAR RPC.
+ * Automatically retries + fails over through @onsocial/rpc.
+ */
+export async function viewContract<T>(
+  method: string,
+  args: Record<string, string>,
+): Promise<T | null> {
+  return viewContractAt<T>(REWARDS_CONTRACT, method, args)
 }
 
 // ---------------------------------------------------------------------------
@@ -117,4 +135,39 @@ export interface OnChainAppConfig {
   total_budget: string
   total_credited: string
   authorized_callers: string[]
+}
+
+// ---------------------------------------------------------------------------
+// Staking contract view types (match Rust ↔ JSON structs)
+// ---------------------------------------------------------------------------
+
+export interface StakingAccountView {
+  locked_amount: string
+  unlock_at: number
+  lock_months: number
+  effective_stake: string
+  claimable_rewards: string
+  stake_seconds: string
+  rewards_claimed: string
+}
+
+export interface StakingStats {
+  version: number
+  token_id: string
+  owner_id: string
+  total_locked: string
+  total_effective_stake: string
+  total_stake_seconds: string
+  total_rewards_released: string
+  scheduled_pool: string
+  infra_pool: string
+  last_release_time: number
+}
+
+export interface StakingRewardRate {
+  claimable_now: string
+  rewards_per_second: string
+  effective_stake: string
+  total_effective_stake: string
+  weekly_pool_release: string
 }
