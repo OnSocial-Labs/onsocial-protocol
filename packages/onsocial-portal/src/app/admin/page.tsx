@@ -10,12 +10,19 @@ import {
   XCircle,
   Clock,
   Users,
-  Loader2,
   Key,
   Link2,
   AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { PulsingDots } from '@/components/ui/pulsing-dots'
+import {
+  viewContract,
+  yoctoToSocial,
+  socialToYocto,
+  REWARDS_CONTRACT,
+  type OnChainAppConfig,
+} from '@/lib/near-rpc'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -31,11 +38,6 @@ const ADMIN_WALLETS = (
 
 // Contract owner wallets — only these can call register_app on-chain
 const CONTRACT_OWNER_WALLETS = ['onsocial.testnet', 'onsocial.near']
-
-const REWARDS_CONTRACT =
-  process.env.NEXT_PUBLIC_NEAR_NETWORK === 'mainnet'
-    ? 'rewards.onsocial.near'
-    : 'rewards.onsocial.testnet'
 
 const RELAYER_ACCOUNT =
   process.env.NEXT_PUBLIC_NEAR_NETWORK === 'mainnet'
@@ -119,38 +121,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// SOCIAL token helpers (24 decimals, same as NEAR)
-// ---------------------------------------------------------------------------
-
-const SOCIAL_DECIMALS = 18
-
-/** Convert human-readable SOCIAL amount string (e.g. "0.1") to yocto string.
- *  Pure string math — no floating-point involved, so "0.1" becomes
- *  exactly "100000000000000000000000" (1e23). */
-function socialToYocto(input: string): string {
-  const s = input.trim()
-  if (!s || s === '0') return '0'
-
-  const dotIdx = s.indexOf('.')
-  let whole: string
-  let frac: string
-
-  if (dotIdx === -1) {
-    whole = s
-    frac = ''
-  } else {
-    whole = s.slice(0, dotIdx) || '0'
-    frac = s.slice(dotIdx + 1)
-  }
-
-  // Pad or truncate fractional part to exactly SOCIAL_DECIMALS digits
-  const padded = frac.padEnd(SOCIAL_DECIMALS, '0').slice(0, SOCIAL_DECIMALS)
-  const raw = whole + padded
-  // Strip leading zeros
-  return raw.replace(/^0+/, '') || '0'
-}
-
-// ---------------------------------------------------------------------------
 // Clean numeric input — strip spaces, commas, non-numeric (except '.')
 // ---------------------------------------------------------------------------
 
@@ -204,7 +174,7 @@ function ParamField({
           onChange={(e) => onChange(cleanNumeric(e.target.value))}
           onBlur={() => onChange(normalizeNumeric(value))}
           className={`flex-1 px-3 py-1.5 rounded-lg bg-muted/40 border outline-none transition-colors text-sm font-mono ${
-            error ? 'border-red-400 focus:border-red-400' : 'border-border/50 focus:border-[#3B82F6]'
+            error ? 'border-red-400 focus:border-red-400' : 'border-border/50 focus:border-[#60A5FA]'
           }`}
         />
         {suffix && <span className="text-xs text-muted-foreground whitespace-nowrap">{suffix}</span>}
@@ -286,6 +256,20 @@ function AppCard({
   const [chainStatus, setChainStatus] = useState<'idle' | 'registering' | 'done' | 'error' | 'skipped'>('idle')
   const [chainError, setChainError] = useState('')
   const [error, setError] = useState('')
+
+  // On-chain config for approved apps
+  const [onChainConfig, setOnChainConfig] = useState<OnChainAppConfig | null>(null)
+  const [configLoading, setConfigLoading] = useState(false)
+
+  // Fetch on-chain config for approved apps
+  useEffect(() => {
+    if (app.status !== 'approved') return
+    setConfigLoading(true)
+    viewContract<OnChainAppConfig>('get_app_config', { app_id: app.app_id })
+      .then((cfg) => setOnChainConfig(cfg))
+      .catch(() => {})
+      .finally(() => setConfigLoading(false))
+  }, [app.status, app.app_id])
 
   // Contract params — configurable (human-readable SOCIAL amounts)
   const [dailyCap, setDailyCap] = useState('1')
@@ -456,8 +440,8 @@ function AppCard({
       {app.status === 'pending' && !result && (
         <>
           {/* Read-only contract fields */}
-          <div className="border border-[#A855F7]/15 rounded-xl p-4 bg-[#A855F7]/[0.02] mb-4">
-            <p className="text-xs font-semibold text-[#A855F7] mb-3 uppercase tracking-wider">
+          <div className="border border-[#C084FC]/15 rounded-xl p-4 bg-[#C084FC]/[0.02] mb-4">
+            <p className="text-xs font-semibold text-[#C084FC] mb-3 uppercase tracking-wider">
               Contract Registration · {REWARDS_CONTRACT}
             </p>
 
@@ -516,7 +500,7 @@ function AppCard({
                 {/* Auto-set authorized caller */}
                 <div className="text-xs text-muted-foreground">
                   <span className="font-medium">authorized_callers:</span>{' '}
-                  <span className="font-mono text-[#3B82F6]">{RELAYER_ACCOUNT}</span>
+                  <span className="font-mono text-[#60A5FA]">{RELAYER_ACCOUNT}</span>
                   <span className="text-muted-foreground/60 ml-1">(relayer — auto-set)</span>
                 </div>
               </div>
@@ -525,7 +509,7 @@ function AppCard({
             {!isContractOwner && (
               <p className="text-xs text-yellow-500/80 mt-2">
                 <AlertTriangle className="w-3 h-3 inline mr-1" />
-                Connect as <span className="font-mono text-[#A855F7]">onsocial.testnet</span> to configure & register on-chain.
+                Connect as <span className="font-mono text-[#C084FC]">onsocial.testnet</span> to configure & register on-chain.
               </p>
             )}
           </div>
@@ -554,7 +538,7 @@ function AppCard({
               className="font-semibold"
             >
               {acting ? (
-                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                <PulsingDots size="sm" className="mr-1.5" />
               ) : (
                 <CheckCircle2 className="w-3 h-3 mr-1.5" />
               )}
@@ -592,9 +576,9 @@ function AppCard({
 
       {/* On-chain status */}
       {chainStatus === 'registering' && (
-        <div className="border border-[#3B82F6]/20 rounded-xl p-4 bg-[#3B82F6]/[0.03] mb-4">
+        <div className="border border-[#60A5FA]/20 rounded-xl p-4 bg-[#60A5FA]/[0.03] mb-4">
           <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 text-[#3B82F6] animate-spin" />
+            <PulsingDots size="md" className="text-[#60A5FA]" />
             <span className="text-sm">Registering on <span className="font-mono">{REWARDS_CONTRACT}</span>…</span>
           </div>
         </div>
@@ -629,8 +613,56 @@ function AppCard({
             <span className="text-sm font-semibold">On-chain registration needed</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Connect as <span className="font-mono text-[#A855F7]">onsocial.testnet</span> to register <span className="font-mono">{app.app_id}</span> on the rewards contract.
+            Connect as <span className="font-mono text-[#C084FC]">onsocial.testnet</span> to register <span className="font-mono">{app.app_id}</span> on the rewards contract.
           </p>
+        </div>
+      )}
+
+      {/* On-chain config for approved apps */}
+      {app.status === 'approved' && (
+        <div className="border border-[#C084FC]/15 rounded-xl p-4 bg-[#C084FC]/[0.02] mt-4">
+          <p className="text-xs font-semibold text-[#C084FC] mb-3 uppercase tracking-wider">
+            On-Chain Config · {REWARDS_CONTRACT}
+          </p>
+          {configLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <PulsingDots size="sm" /> Loading…
+            </div>
+          )}
+          {!configLoading && !onChainConfig && (
+            <p className="text-xs text-yellow-500/80">
+              <AlertTriangle className="w-3 h-3 inline mr-1" />
+              Not registered on-chain yet.
+            </p>
+          )}
+          {!configLoading && onChainConfig && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground">Reward / Action</span>
+                <p className="font-mono text-foreground">{yoctoToSocial(onChainConfig.reward_per_action)} SOCIAL</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Daily Cap / User</span>
+                <p className="font-mono text-foreground">{yoctoToSocial(onChainConfig.daily_cap)} SOCIAL</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Total Budget</span>
+                <p className="font-mono text-foreground">{yoctoToSocial(onChainConfig.total_budget)} SOCIAL</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Daily Budget</span>
+                <p className="font-mono text-foreground">{yoctoToSocial(onChainConfig.daily_budget) === '0' ? 'Unlimited' : `${yoctoToSocial(onChainConfig.daily_budget)} SOCIAL`}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Total Credited</span>
+                <p className="font-mono text-foreground">{yoctoToSocial(onChainConfig.total_credited)} SOCIAL</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Callers</span>
+                <p className="font-mono text-foreground text-xs break-all">{onChainConfig.authorized_callers.join(', ') || '—'}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -722,7 +754,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-3xl font-bold tracking-[-0.03em]">Partner Applications</h1>
             <Button onClick={loadApps} disabled={loading} size="sm" variant="outline">
-              {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Refresh'}
+              {loading ? <PulsingDots size="sm" /> : 'Refresh'}
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -752,8 +784,8 @@ export default function AdminPage() {
 
         {/* Application list */}
         {loading && (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 mx-auto animate-spin text-[#3B82F6]" />
+          <div className="text-center py-12 text-[#60A5FA]">
+            <PulsingDots size="lg" />
           </div>
         )}
 
