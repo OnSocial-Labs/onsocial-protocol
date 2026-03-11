@@ -14,8 +14,14 @@ export default [
       parserOptions: {
         project: './tsconfig.json',
       },
+      globals: {
+        fetch: 'readonly',
+        URLSearchParams: 'readonly',
+        setTimeout: 'readonly',
+      },
     },
     rules: {
+      'no-unused-vars': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',

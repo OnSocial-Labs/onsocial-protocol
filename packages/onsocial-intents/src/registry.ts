@@ -72,7 +72,7 @@ export class TokenRegistry {
     return tokens.filter(
       (t) =>
         t.symbol.toUpperCase() === upper &&
-        (chain === undefined || t.blockchain === chain),
+        (chain === undefined || t.blockchain === chain)
     );
   }
 
@@ -106,7 +106,7 @@ export class TokenRegistry {
       const suffix = chain ? ` on ${chain}` : '';
       throw new Error(
         `Token not found: ${symbol}${suffix}. ` +
-          'Refresh available tokens or check symbol/chain.',
+          'Refresh available tokens or check symbol/chain.'
       );
     }
     return matches.sort((a, b) => a.assetId.localeCompare(b.assetId))[0];
@@ -117,7 +117,9 @@ export class TokenRegistry {
   private async fetchTokens(): Promise<Token[]> {
     const res = await fetch(`${this.baseUrl}/v0/tokens`);
     if (!res.ok) {
-      throw new Error(`Failed to fetch tokens: ${res.status} ${res.statusText}`);
+      throw new Error(
+        `Failed to fetch tokens: ${res.status} ${res.statusText}`
+      );
     }
     const tokens = (await res.json()) as Token[];
     this.cache = tokens;

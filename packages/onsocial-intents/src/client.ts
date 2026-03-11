@@ -94,21 +94,27 @@ export class IntentsClient {
    * Notify 1Click that a deposit has been sent.
    * Optional but recommended — speeds up swap processing.
    */
-  async submitDeposit(request: SubmitDepositRequest): Promise<SubmitDepositResponse> {
+  async submitDeposit(
+    request: SubmitDepositRequest
+  ): Promise<SubmitDepositResponse> {
     const res = await fetch(`${this.baseUrl}/v0/deposit/submit`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(request),
     });
 
-    if (!res.ok) throw new Error(`Failed to submit deposit: ${await res.text()}`);
+    if (!res.ok)
+      throw new Error(`Failed to submit deposit: ${await res.text()}`);
     return res.json() as Promise<SubmitDepositResponse>;
   }
 
   // ── GET /v0/status ────────────────────────────────────────────────────────
 
   /** Check the current status of a swap by deposit address (+ optional memo). */
-  async getStatus(depositAddress: string, depositMemo?: string): Promise<StatusResponse> {
+  async getStatus(
+    depositAddress: string,
+    depositMemo?: string
+  ): Promise<StatusResponse> {
     const params = new URLSearchParams({ depositAddress });
     if (depositMemo) params.set('depositMemo', depositMemo);
 
@@ -125,7 +131,13 @@ export class IntentsClient {
   /** Get ANY_INPUT withdrawal details. */
   async getAnyInputWithdrawals(
     depositAddress: string,
-    opts?: { depositMemo?: string; timestampFrom?: string; page?: number; limit?: number; sortOrder?: 'asc' | 'desc' },
+    opts?: {
+      depositMemo?: string;
+      timestampFrom?: string;
+      page?: number;
+      limit?: number;
+      sortOrder?: 'asc' | 'desc';
+    }
   ): Promise<AnyInputWithdrawalsResponse> {
     const params = new URLSearchParams({ depositAddress });
     if (opts?.depositMemo) params.set('depositMemo', opts.depositMemo);
@@ -134,11 +146,15 @@ export class IntentsClient {
     if (opts?.limit !== undefined) params.set('limit', String(opts.limit));
     if (opts?.sortOrder) params.set('sortOrder', opts.sortOrder);
 
-    const res = await fetch(`${this.baseUrl}/v0/any-input/withdrawals?${params}`, {
-      headers: this.headers(),
-    });
+    const res = await fetch(
+      `${this.baseUrl}/v0/any-input/withdrawals?${params}`,
+      {
+        headers: this.headers(),
+      }
+    );
 
-    if (!res.ok) throw new Error(`Failed to get withdrawals: ${await res.text()}`);
+    if (!res.ok)
+      throw new Error(`Failed to get withdrawals: ${await res.text()}`);
     return res.json() as Promise<AnyInputWithdrawalsResponse>;
   }
 
@@ -158,7 +174,7 @@ export class IntentsClient {
     onUpdate?: (status: StatusResponse) => void,
     maxAttempts = 60,
     intervalMs = 5_000,
-    depositMemo?: string,
+    depositMemo?: string
   ): Promise<StatusResponse> {
     for (let i = 0; i < maxAttempts; i++) {
       const status = await this.getStatus(depositAddress, depositMemo);
@@ -184,7 +200,9 @@ export class IntentsClient {
 
   /** Create an ISO deadline string from now. */
   createDeadline(offsetMs?: number): string {
-    return new Date(Date.now() + (offsetMs ?? this.defaultDeadline)).toISOString();
+    return new Date(
+      Date.now() + (offsetMs ?? this.defaultDeadline)
+    ).toISOString();
   }
 }
 

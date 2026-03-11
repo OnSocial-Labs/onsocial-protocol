@@ -43,7 +43,7 @@ export function parseAmount(human: string, decimals: number): string {
 export function formatAmount(
   raw: string,
   decimals: number,
-  maxDisplay?: number,
+  maxDisplay?: number
 ): string {
   const display = maxDisplay ?? Math.min(decimals, 6);
   const divisor = 10 ** decimals;
@@ -73,7 +73,10 @@ export function formatAssetId(prefix: string, contractAddress: string): string {
  * parseAssetId('near');              // { prefix: 'near',   address: 'near' }
  * ```
  */
-export function parseAssetId(assetId: string): { prefix: string; address: string } {
+export function parseAssetId(assetId: string): {
+  prefix: string;
+  address: string;
+} {
   const idx = assetId.indexOf(':');
   if (idx === -1) return { prefix: assetId, address: assetId };
   return { prefix: assetId.slice(0, idx), address: assetId.slice(idx + 1) };

@@ -75,7 +75,7 @@ describe('formatAssetId', () => {
 
   it('builds EVM asset ID', () => {
     expect(formatAssetId('nep141', 'arb-0xaf88d.omft.near')).toBe(
-      'nep141:arb-0xaf88d.omft.near',
+      'nep141:arb-0xaf88d.omft.near'
     );
   });
 });
@@ -113,9 +113,13 @@ describe('parseAssetId', () => {
 // ── isTerminalStatus ────────────────────────────────────────────────────────
 
 describe('isTerminalStatus', () => {
-  it('SUCCESS is terminal', () => expect(isTerminalStatus('SUCCESS')).toBe(true));
+  it('SUCCESS is terminal', () =>
+    expect(isTerminalStatus('SUCCESS')).toBe(true));
   it('FAILED is terminal', () => expect(isTerminalStatus('FAILED')).toBe(true));
-  it('REFUNDED is terminal', () => expect(isTerminalStatus('REFUNDED')).toBe(true));
-  it('PROCESSING is not terminal', () => expect(isTerminalStatus('PROCESSING')).toBe(false));
-  it('PENDING_DEPOSIT is not terminal', () => expect(isTerminalStatus('PENDING_DEPOSIT')).toBe(false));
+  it('REFUNDED is terminal', () =>
+    expect(isTerminalStatus('REFUNDED')).toBe(true));
+  it('PROCESSING is not terminal', () =>
+    expect(isTerminalStatus('PROCESSING')).toBe(false));
+  it('PENDING_DEPOSIT is not terminal', () =>
+    expect(isTerminalStatus('PENDING_DEPOSIT')).toBe(false));
 });

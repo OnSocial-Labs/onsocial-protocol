@@ -15,7 +15,8 @@ function mockFetch(data: unknown, ok = true) {
     ok,
     status: ok ? 200 : 400,
     json: () => Promise.resolve(data),
-    text: () => Promise.resolve(typeof data === 'string' ? data : JSON.stringify(data)),
+    text: () =>
+      Promise.resolve(typeof data === 'string' ? data : JSON.stringify(data)),
   }) as unknown as typeof fetch;
 }
 
@@ -54,7 +55,14 @@ describe('createClient', () => {
 describe('IntentsClient.getTokens', () => {
   it('fetches from /v0/tokens', async () => {
     const tokens: Token[] = [
-      { assetId: 'nep141:wrap.near', decimals: 24, blockchain: 'near', symbol: 'wNEAR', price: 2.79, priceUpdatedAt: '2025-01-01T00:00:00Z' },
+      {
+        assetId: 'nep141:wrap.near',
+        decimals: 24,
+        blockchain: 'near',
+        symbol: 'wNEAR',
+        price: 2.79,
+        priceUpdatedAt: '2025-01-01T00:00:00Z',
+      },
     ];
     mockFetch(tokens);
 
@@ -119,7 +127,23 @@ describe('IntentsClient.getQuote', () => {
   });
 
   it('merges referral and appFees from client config', async () => {
-    mockFetch({ correlationId: 'id', timestamp: '', signature: '', quoteRequest: {}, quote: { amountIn: '0', amountInFormatted: '0', amountInUsd: '0', minAmountIn: '0', amountOut: '0', amountOutFormatted: '0', amountOutUsd: '0', minAmountOut: '0', timeEstimate: 0 } });
+    mockFetch({
+      correlationId: 'id',
+      timestamp: '',
+      signature: '',
+      quoteRequest: {},
+      quote: {
+        amountIn: '0',
+        amountInFormatted: '0',
+        amountInUsd: '0',
+        minAmountIn: '0',
+        amountOut: '0',
+        amountOutFormatted: '0',
+        amountOutUsd: '0',
+        minAmountOut: '0',
+        timeEstimate: 0,
+      },
+    });
 
     const client = new IntentsClient({
       referral: 'onsocial',
@@ -143,7 +167,9 @@ describe('IntentsClient.getQuote', () => {
 
     const body = JSON.parse((fetch as any).mock.calls[0][1].body);
     expect(body.referral).toBe('onsocial');
-    expect(body.appFees).toEqual([{ recipient: 'fees.onsocial.near', fee: 50 }]);
+    expect(body.appFees).toEqual([
+      { recipient: 'fees.onsocial.near', fee: 50 },
+    ]);
   });
 
   it('throws on error', async () => {
@@ -151,11 +177,19 @@ describe('IntentsClient.getQuote', () => {
     const client = new IntentsClient();
     await expect(
       client.getQuote({
-        dry: true, swapType: 'EXACT_INPUT', slippageTolerance: 100,
-        originAsset: 'a', depositType: 'INTENTS', destinationAsset: 'b',
-        amount: '1', refundTo: 'x', refundType: 'INTENTS',
-        recipient: 'y', recipientType: 'INTENTS', deadline: '2025-01-01T00:00:00Z',
-      }),
+        dry: true,
+        swapType: 'EXACT_INPUT',
+        slippageTolerance: 100,
+        originAsset: 'a',
+        depositType: 'INTENTS',
+        destinationAsset: 'b',
+        amount: '1',
+        refundTo: 'x',
+        refundType: 'INTENTS',
+        recipient: 'y',
+        recipientType: 'INTENTS',
+        deadline: '2025-01-01T00:00:00Z',
+      })
     ).rejects.toThrow('Failed to get quote');
   });
 });
@@ -227,10 +261,11 @@ describe('IntentsClient.pollStatus', () => {
       callCount++;
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({
-          status: callCount >= 3 ? 'SUCCESS' : 'PROCESSING',
-          correlationId: 'id',
-        }),
+        json: () =>
+          Promise.resolve({
+            status: callCount >= 3 ? 'SUCCESS' : 'PROCESSING',
+            correlationId: 'id',
+          }),
       });
     }) as unknown as typeof fetch;
 
@@ -240,7 +275,7 @@ describe('IntentsClient.pollStatus', () => {
       '0xabc',
       (s) => updates.push(s.status),
       10,
-      10,
+      10
     );
 
     expect(result.status).toBe('SUCCESS');
@@ -251,9 +286,9 @@ describe('IntentsClient.pollStatus', () => {
     mockFetch({ status: 'PROCESSING', correlationId: 'id' });
 
     const client = new IntentsClient();
-    await expect(
-      client.pollStatus('0xabc', undefined, 2, 10),
-    ).rejects.toThrow('Swap status polling timeout');
+    await expect(client.pollStatus('0xabc', undefined, 2, 10)).rejects.toThrow(
+      'Swap status polling timeout'
+    );
   });
 });
 

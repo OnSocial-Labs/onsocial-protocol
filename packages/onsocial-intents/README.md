@@ -100,9 +100,12 @@ Main client for interacting with NEAR Intents 1Click API.
 ```typescript
 class IntentsClient {
   constructor(config?: ClientConfig);
-  
+
   getQuote(request: QuoteRequest): Promise<QuoteResponse>;
-  submitDeposit(depositAddress: string, txHash: string): Promise<{ success: boolean }>;
+  submitDeposit(
+    depositAddress: string,
+    txHash: string
+  ): Promise<{ success: boolean }>;
   getSwapStatus(depositAddress: string): Promise<StatusResponse>;
   pollSwapStatus(
     depositAddress: string,
@@ -118,7 +121,7 @@ class IntentsClient {
 Type-safe price representation supporting both stable currency and NEAR pricing:
 
 ```typescript
-type PriceMode = 
+type PriceMode =
   | { type: 'Currency'; amount: string; currency: string }
   | { type: 'NEAR'; priceNear: string };
 ```
@@ -136,7 +139,11 @@ function convertToNear(
 function getPrice(params: PriceRequest): Promise<string>;
 
 // Format prices for display
-function formatCurrency(amount: string, currency: string, decimals?: number): string;
+function formatCurrency(
+  amount: string,
+  currency: string,
+  decimals?: number
+): string;
 function formatNear(yoctoNear: string): string;
 ```
 
@@ -163,6 +170,7 @@ function formatNear(yoctoNear: string): string;
 ### Cross-Chain Support
 
 NEAR Intents supports 100+ tokens across 15+ blockchains including:
+
 - **Ethereum**: USDC, USDT, DAI, WETH
 - **Arbitrum**: USDC, USDT, ARB
 - **Base**: USDC, cbETH
@@ -250,7 +258,7 @@ import { convertToNear, PriceMode } from 'onsocial-intents';
 // Update NEAR prices every 30 seconds for Currency-mode listings
 setInterval(async () => {
   const listings = await db.getActiveCurrencyListings();
-  
+
   for (const listing of listings) {
     const currentNearPrice = await convertToNear(listing.price);
     await db.updateListingPrice(listing.id, currentNearPrice);

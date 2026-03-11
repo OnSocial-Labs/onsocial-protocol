@@ -19,13 +19,15 @@ const MOCK_TOKENS: Token[] = [
     contractAddress: 'wrap.near',
   },
   {
-    assetId: 'nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+    assetId:
+      'nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
     decimals: 6,
     blockchain: 'near',
     symbol: 'USDC',
     price: 1.0,
     priceUpdatedAt: '2025-03-28T12:23:00.070Z',
-    contractAddress: '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+    contractAddress:
+      '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
   },
   {
     assetId: 'nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near',
@@ -69,7 +71,9 @@ describe('TokenRegistry', () => {
     const registry = new TokenRegistry();
     const tokens = await registry.getTokens();
     expect(tokens).toHaveLength(4);
-    expect(fetch).toHaveBeenCalledWith('https://1click.chaindefuser.com/v0/tokens');
+    expect(fetch).toHaveBeenCalledWith(
+      'https://1click.chaindefuser.com/v0/tokens'
+    );
   });
 
   it('caches tokens on second call', async () => {
@@ -101,7 +105,9 @@ describe('TokenRegistry', () => {
     }) as unknown as typeof fetch;
 
     const registry = new TokenRegistry();
-    await expect(registry.getTokens()).rejects.toThrow('Failed to fetch tokens');
+    await expect(registry.getTokens()).rejects.toThrow(
+      'Failed to fetch tokens'
+    );
   });
 });
 
@@ -186,7 +192,9 @@ describe('TokenRegistry.resolve', () => {
 
   it('throws for unknown token', async () => {
     const registry = new TokenRegistry();
-    await expect(registry.resolve('INVALID')).rejects.toThrow('Token not found');
+    await expect(registry.resolve('INVALID')).rejects.toThrow(
+      'Token not found'
+    );
   });
 
   it('returns deterministic result for multi-match', async () => {

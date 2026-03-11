@@ -12,7 +12,11 @@
 // ── Enums (union types for tree-shaking) ────────────────────────────────────
 
 /** How to interpret `amount` in a quote request. */
-export type SwapType = 'EXACT_INPUT' | 'EXACT_OUTPUT' | 'FLEX_INPUT' | 'ANY_INPUT';
+export type SwapType =
+  | 'EXACT_INPUT'
+  | 'EXACT_OUTPUT'
+  | 'FLEX_INPUT'
+  | 'ANY_INPUT';
 
 /**
  * Address type for deposit / recipient / refund.
@@ -46,10 +50,33 @@ export type SwapStatus =
  * The `(string & {})` union allows future chains without a type error.
  */
 export type Blockchain =
-  | 'near' | 'eth' | 'base' | 'arb' | 'btc' | 'sol' | 'ton'
-  | 'doge' | 'xrp' | 'zec' | 'gnosis' | 'bera' | 'bsc' | 'pol'
-  | 'tron' | 'sui' | 'op' | 'avax' | 'cardano' | 'ltc' | 'xlayer'
-  | 'monad' | 'bch' | 'adi' | 'plasma' | 'starknet' | 'aleo'
+  | 'near'
+  | 'eth'
+  | 'base'
+  | 'arb'
+  | 'btc'
+  | 'sol'
+  | 'ton'
+  | 'doge'
+  | 'xrp'
+  | 'zec'
+  | 'gnosis'
+  | 'bera'
+  | 'bsc'
+  | 'pol'
+  | 'tron'
+  | 'sui'
+  | 'op'
+  | 'avax'
+  | 'cardano'
+  | 'ltc'
+  | 'xlayer'
+  | 'monad'
+  | 'bch'
+  | 'adi'
+  | 'plasma'
+  | 'starknet'
+  | 'aleo'
   | (string & {});
 
 // ── Token (GET /v0/tokens) ──────────────────────────────────────────────────
