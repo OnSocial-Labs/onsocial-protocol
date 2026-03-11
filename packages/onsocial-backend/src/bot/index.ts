@@ -20,7 +20,7 @@ import {
   toYoctoString,
   compareYocto,
 } from './claim.js';
-import { handleHelp, HELP_TEXT } from './help.js';
+import { handleHelp, buildHelpText } from './help.js';
 import { handleActivity } from '../handlers/activity.js';
 import { getUserLink } from '../db/queries.js';
 import { viewClaimable } from '../services/near.js';
@@ -200,7 +200,7 @@ bot.callbackQuery('cb:help', async (ctx) => {
     .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim');
 
-  await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
+  await ctx.reply(await buildHelpText(), { reply_markup: keyboard });
 });
 
 // -- Private chat: account linking via plain text ----------------------------

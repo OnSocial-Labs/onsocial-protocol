@@ -5,26 +5,33 @@
 import { InlineKeyboard } from 'grammy';
 import type { CommandContext, Context } from 'grammy';
 import { config } from '../config/index.js';
+import { getAppConfig } from './appConfig.js';
 
-const HELP_TEXT =
-  '🤝 Powered by OnSocial\n\n' +
-  '❓ How Rewards Work\n\n' +
-  '1️⃣ Be active in the group — send meaningful messages\n' +
-  '2️⃣ Earn SOCIAL tokens automatically for qualifying contributions\n' +
-  '3️⃣ Once you reach the minimum, claim your tokens with /claim\n\n' +
-  '📋 Qualifying messages:\n' +
-  `  • Text only (no stickers or media)\n` +
-  `  • At least ${config.rewards.minMessageLength} characters\n` +
-  `  • ${config.rewards.messageCooldownSec}s cooldown between rewards\n\n` +
-  '💰 Reward rates:\n' +
-  `  • ${config.rewards.messageReward} SOCIAL per message\n` +
-  `  • ${config.rewards.dailyCap} SOCIAL daily cap\n` +
-  `  • ${config.rewards.minClaimAmount} SOCIAL minimum to claim\n\n` +
-  '🔗 Commands:\n' +
-  `  /start — Link your NEAR account\n` +
-  '  /balance — Check your rewards\n' +
-  '  /claim — Withdraw your tokens\n' +
-  '  /help — Show this message';
+/** Build the help text dynamically using on-chain rates. */
+export async function buildHelpText(): Promise<string> {
+  const { messageReward, dailyCap } = await getAppConfig();
+
+  return (
+    '🤝 Powered by OnSocial\n\n' +
+    '❓ How Rewards Work\n\n' +
+    '1️⃣ Be active in the group — send meaningful messages\n' +
+    '2️⃣ Earn SOCIAL tokens automatically for qualifying contributions\n' +
+    '3️⃣ Once you reach the minimum, claim your tokens with /claim\n\n' +
+    '📋 Qualifying messages:\n' +
+    `  • Text only (no stickers or media)\n` +
+    `  • At least ${config.rewards.minMessageLength} characters\n` +
+    `  • ${config.rewards.messageCooldownSec}s cooldown between rewards\n\n` +
+    '💰 Reward rates:\n' +
+    `  • ${messageReward} SOCIAL per message\n` +
+    `  • ${dailyCap} SOCIAL daily cap\n` +
+    `  • ${config.rewards.minClaimAmount} SOCIAL minimum to claim\n\n` +
+    '🔗 Commands:\n' +
+    `  /start — Link your NEAR account\n` +
+    '  /balance — Check your rewards\n' +
+    '  /claim — Withdraw your tokens\n' +
+    '  /help — Show this message'
+  );
+}
 
 export async function handleHelp(ctx: CommandContext<Context>): Promise<void> {
   // Only respond in private chats — don't spam groups with help text
@@ -34,8 +41,5 @@ export async function handleHelp(ctx: CommandContext<Context>): Promise<void> {
     .text('⭐ Balance', 'cb:balance')
     .text('💎 Claim', 'cb:claim');
 
-  await ctx.reply(HELP_TEXT, { reply_markup: keyboard });
+  await ctx.reply(await buildHelpText(), { reply_markup: keyboard });
 }
-
-/** The help text, exported for use by the callback handler. */
-export { HELP_TEXT };

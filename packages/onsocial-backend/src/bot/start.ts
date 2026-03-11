@@ -20,6 +20,7 @@ import { accountExists, viewUserReward } from '../services/near.js';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
 import { formatSocial } from './balance.js';
+import { getAppConfig } from './appConfig.js';
 
 export const NEAR_ACCOUNT_REGEX = /^[a-z0-9._-]+\.(near|testnet)$/;
 
@@ -65,10 +66,12 @@ export async function handleStart(ctx: CommandContext<Context>): Promise<void> {
       .row()
       .text('❓ How it works', 'cb:help');
 
+    const { messageReward, dailyCap } = await getAppConfig();
+
     let message =
       '🤝 Powered by OnSocial\n\n' +
       '👋 Welcome!\n\n' +
-      `Earn ${config.rewards.messageReward} SOCIAL per message (up to ${config.rewards.dailyCap}/day) for being active in the group.\n\n`;
+      `Earn ${messageReward} SOCIAL per message (up to ${dailyCap}/day) for being active in the group.\n\n`;
 
     if (pendingCount > 0) {
       message +=

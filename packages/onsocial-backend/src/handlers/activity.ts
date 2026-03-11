@@ -137,7 +137,8 @@ async function trackPendingActivity(
         `https://t.me/${config.botUsername}?start=link`
       );
 
-      const { messageReward, dailyCap } = config.rewards;
+      const { getAppConfig } = await import('../bot/appConfig.js');
+      const { messageReward, dailyCap } = await getAppConfig();
       const rateHint =
         messageReward && dailyCap
           ? ` Earn ${messageReward} SOCIAL per message (up to ${dailyCap}/day).`

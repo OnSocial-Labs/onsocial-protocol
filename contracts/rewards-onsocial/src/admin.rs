@@ -205,12 +205,20 @@ impl RewardsContract {
             config.daily_budget = db.0;
         }
 
-        self.app_configs.insert(update.app_id.clone(), config);
+        self.app_configs
+            .insert(update.app_id.clone(), config.clone());
 
         events::emit(
             "APP_UPDATED",
             &self.owner_id.clone(),
-            near_sdk::serde_json::json!({ "app_id": update.app_id }),
+            near_sdk::serde_json::json!({
+                "app_id": update.app_id,
+                "daily_cap": config.daily_cap.to_string(),
+                "reward_per_action": config.reward_per_action.to_string(),
+                "active": config.active,
+                "total_budget": config.total_budget.to_string(),
+                "daily_budget": config.daily_budget.to_string(),
+            }),
         );
         Ok(())
     }
@@ -225,7 +233,13 @@ impl RewardsContract {
             .cloned()
             .ok_or_else(|| RewardsError::AppNotFound(app_id.clone()))?;
         config.active = false;
-        self.app_configs.insert(app_id, config);
+        self.app_configs.insert(app_id.clone(), config);
+
+        events::emit(
+            "APP_DEACTIVATED",
+            &self.owner_id.clone(),
+            near_sdk::serde_json::json!({ "app_id": app_id }),
+        );
         Ok(())
     }
 }
