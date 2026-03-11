@@ -304,7 +304,9 @@ router.post(
     }
 
     if (!currentKey) {
-      res.status(401).json({ success: false, error: 'X-Api-Key header required' });
+      res
+        .status(401)
+        .json({ success: false, error: 'X-Api-Key header required' });
       return;
     }
 
@@ -318,26 +320,38 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        res.status(404).json({ success: false, error: 'No active partner found for this wallet' });
+        res
+          .status(404)
+          .json({
+            success: false,
+            error: 'No active partner found for this wallet',
+          });
         return;
       }
 
-      const row = result.rows[0] as { id: number; app_id: string; api_key: string };
+      const row = result.rows[0] as {
+        id: number;
+        app_id: string;
+        api_key: string;
+      };
 
       // Constant-time comparison of current key
       const storedBuf = Buffer.from(row.api_key);
       const providedBuf = Buffer.from(currentKey);
-      if (storedBuf.length !== providedBuf.length || !timingSafeEqual(storedBuf, providedBuf)) {
+      if (
+        storedBuf.length !== providedBuf.length ||
+        !timingSafeEqual(storedBuf, providedBuf)
+      ) {
         res.status(403).json({ success: false, error: 'Invalid API key' });
         return;
       }
 
       // Generate new key and update
       const newKey = generateApiKey();
-      await query(
-        `UPDATE partner_keys SET api_key = $1 WHERE id = $2`,
-        [newKey, row.id]
-      );
+      await query(`UPDATE partner_keys SET api_key = $1 WHERE id = $2`, [
+        newKey,
+        row.id,
+      ]);
 
       logger.info({ appId: row.app_id, wallet }, 'Partner API key rotated');
 

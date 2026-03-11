@@ -54,17 +54,13 @@ describe('POST /v1/admin/apply', () => {
   });
 
   it('rejects missing label', async () => {
-    const res = await request(app)
-      .post('/v1/admin/apply')
-      .send({});
+    const res = await request(app).post('/v1/admin/apply').send({});
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/label is required/);
   });
 
   it('rejects label that produces too-short slug', async () => {
-    const res = await request(app)
-      .post('/v1/admin/apply')
-      .send({ label: 'A' });
+    const res = await request(app).post('/v1/admin/apply').send({ label: 'A' });
     expect(res.status).toBe(400);
     // Single char label → slug "a" → fails 3-char minimum on app_id
     expect(res.body.error).toMatch(/app_id must be/);
@@ -103,13 +99,11 @@ describe('POST /v1/admin/apply', () => {
     // Second query: insert
     mockQuery.mockResolvedValueOnce(makeRows([]));
 
-    const res = await request(app)
-      .post('/v1/admin/apply')
-      .send({
-        label: 'My Awesome Bot',
-        description: 'A Telegram bot',
-        wallet_id: 'alice.testnet',
-      });
+    const res = await request(app).post('/v1/admin/apply').send({
+      label: 'My Awesome Bot',
+      description: 'A Telegram bot',
+      wallet_id: 'alice.testnet',
+    });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.app_id).toBe('my_awesome_bot');
@@ -148,13 +142,15 @@ describe('GET /v1/admin/status/:wallet', () => {
 
   it('hides api_key for pending apps', async () => {
     mockQuery.mockResolvedValueOnce(
-      makeRows([{
-        app_id: 'test_app',
-        label: 'Test',
-        status: 'pending',
-        api_key: null,
-        created_at: '2026-01-01',
-      }])
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test',
+          status: 'pending',
+          api_key: null,
+          created_at: '2026-01-01',
+        },
+      ])
     );
 
     const res = await request(app).get('/v1/admin/status/alice.testnet');
@@ -165,13 +161,15 @@ describe('GET /v1/admin/status/:wallet', () => {
 
   it('reveals api_key for approved apps', async () => {
     mockQuery.mockResolvedValueOnce(
-      makeRows([{
-        app_id: 'test_app',
-        label: 'Test',
-        status: 'approved',
-        api_key: 'os_live_abc123',
-        created_at: '2026-01-01',
-      }])
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test',
+          status: 'approved',
+          api_key: 'os_live_abc123',
+          created_at: '2026-01-01',
+        },
+      ])
     );
 
     const res = await request(app).get('/v1/admin/status/alice.testnet');
@@ -228,8 +226,7 @@ describe('POST /v1/admin/approve/:appId', () => {
   });
 
   it('rejects without admin secret', async () => {
-    const res = await request(app)
-      .post('/v1/admin/approve/test_app');
+    const res = await request(app).post('/v1/admin/approve/test_app');
     expect(res.status).toBe(403);
   });
 
@@ -271,8 +268,7 @@ describe('POST /v1/admin/reject/:appId', () => {
   });
 
   it('rejects without admin secret', async () => {
-    const res = await request(app)
-      .post('/v1/admin/reject/test_app');
+    const res = await request(app).post('/v1/admin/reject/test_app');
     expect(res.status).toBe(403);
   });
 
@@ -294,7 +290,8 @@ describe('POST /v1/admin/reject/:appId', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /v1/admin/rotate-key/:wallet', () => {
-  const STORED_KEY = 'os_live_abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+  const STORED_KEY =
+    'os_live_abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
 
   beforeEach(() => {
     mockQuery.mockReset();
@@ -302,8 +299,7 @@ describe('POST /v1/admin/rotate-key/:wallet', () => {
   });
 
   it('rejects without X-Api-Key header', async () => {
-    const res = await request(app)
-      .post('/v1/admin/rotate-key/alice.testnet');
+    const res = await request(app).post('/v1/admin/rotate-key/alice.testnet');
     expect(res.status).toBe(401);
     expect(res.body.error).toMatch(/X-Api-Key header required/);
   });
@@ -325,7 +321,10 @@ describe('POST /v1/admin/rotate-key/:wallet', () => {
 
     const res = await request(app)
       .post('/v1/admin/rotate-key/alice.testnet')
-      .set('X-Api-Key', 'os_live_wrong_key_0000000000000000000000000000000000000000000000000000');
+      .set(
+        'X-Api-Key',
+        'os_live_wrong_key_0000000000000000000000000000000000000000000000000000'
+      );
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/Invalid API key/);
   });
@@ -388,9 +387,7 @@ describe('POST /v1/admin/register (legacy)', () => {
   });
 
   it('rejects missing label', async () => {
-    const res = await request(app)
-      .post('/v1/admin/register')
-      .send({});
+    const res = await request(app).post('/v1/admin/register').send({});
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/label is required/);
   });
