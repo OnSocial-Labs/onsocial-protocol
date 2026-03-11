@@ -58,10 +58,7 @@ const PATH_CHARS = /^[a-zA-Z0-9_.\-/]+$/;
  * The contract allows trailing slashes (subtree-style) so we do too.
  * See contracts/core-onsocial/src/validation/path.rs for the canonical checks.
  */
-export function validatePath(
-  path: string,
-  accountId?: string
-): string | null {
+export function validatePath(path: string, accountId?: string): string | null {
   if (!path) return 'Path must not be empty';
   if (path.length > MAX_PATH_LENGTH)
     return `Path exceeds ${MAX_PATH_LENGTH} characters`;
@@ -69,20 +66,29 @@ export function validatePath(
   // Traversal / back-slash protection (is_safe_path)
   if (path.includes('..')) return 'Path must not contain ".."';
   if (path.includes('\\')) return 'Path must not contain backslashes';
-  if (path === '.' || path.startsWith('./') || path.includes('/./') || path.endsWith('/.'))
+  if (
+    path === '.' ||
+    path.startsWith('./') ||
+    path.includes('/./') ||
+    path.endsWith('/.')
+  )
     return 'Path must not contain dot-segments';
   // Character whitelist
-  if (!PATH_CHARS.test(path)) return 'Path contains invalid characters (allowed: a-z A-Z 0-9 _ . - /)';
+  if (!PATH_CHARS.test(path))
+    return 'Path contains invalid characters (allowed: a-z A-Z 0-9 _ . - /)';
   // Consecutive slashes
   if (path.includes('//')) return 'Path must not contain empty segments (//) ';
   // Reserved bare paths
-  if (path === 'groups' || path === 'groups/') return '"groups" is not a valid data path';
+  if (path === 'groups' || path === 'groups/')
+    return '"groups" is not a valid data path';
   // Full path length (account_id/path) — contract prepends account if needed
   if (accountId) {
     const needsPrefix =
       !path.startsWith('groups/') &&
       !(path.startsWith(accountId) && path[accountId.length] === '/');
-    const fullLen = needsPrefix ? accountId.length + 1 + path.length : path.length;
+    const fullLen = needsPrefix
+      ? accountId.length + 1 + path.length
+      : path.length;
     if (fullLen > MAX_PATH_LENGTH)
       return `Full path (account + path) exceeds ${MAX_PATH_LENGTH} characters`;
   }

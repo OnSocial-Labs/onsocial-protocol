@@ -163,7 +163,10 @@ export async function buildMintAction(
     };
 
     // Validate serialised metadata size (contract limit MAX_METADATA_LEN = 16 KB)
-    const metadataBytes = Buffer.byteLength(JSON.stringify(tokenMetadata), 'utf-8');
+    const metadataBytes = Buffer.byteLength(
+      JSON.stringify(tokenMetadata),
+      'utf-8'
+    );
     if (metadataBytes > MAX_METADATA_LEN) {
       throw new ComposeError(
         400,

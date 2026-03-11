@@ -78,9 +78,7 @@ setRouter.post('/set', upload.any(), async (req: Request, res: Response) => {
     const mediaField = req.body.mediaField || undefined;
     const targetAccount = req.body.targetAccount || undefined;
 
-    const files = collectFiles(
-      req.files as Express.Multer.File[] | undefined
-    );
+    const files = collectFiles(req.files as Express.Multer.File[] | undefined);
 
     const result = await composeSet(
       accountId,

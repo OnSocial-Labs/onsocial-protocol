@@ -45,8 +45,7 @@ const updateTiming = actionHandlers(
   (b) =>
     buildUpdateCollectionTimingAction({
       collectionId: String(b.collectionId || ''),
-      startTime:
-        b.startTime != null ? Number(b.startTime) : undefined,
+      startTime: b.startTime != null ? Number(b.startTime) : undefined,
       endTime: b.endTime != null ? Number(b.endTime) : undefined,
       targetAccount: b.targetAccount ? String(b.targetAccount) : undefined,
     }),
@@ -204,10 +203,7 @@ const removeAl = actionHandlers(
   'remove-from-allowlist'
 );
 collectionManageRouter.post('/remove-from-allowlist', removeAl.relay);
-collectionManageRouter.post(
-  '/prepare/remove-from-allowlist',
-  removeAl.prepare
-);
+collectionManageRouter.post('/prepare/remove-from-allowlist', removeAl.prepare);
 
 // ── Set Collection Metadata ─────────────────────────────────────────────────
 const setMeta = actionHandlers(

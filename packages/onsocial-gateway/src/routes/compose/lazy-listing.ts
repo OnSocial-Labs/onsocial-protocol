@@ -341,9 +341,7 @@ lazyListingRouter.post(
         return;
       }
       if (!newPriceNear || typeof newPriceNear !== 'string') {
-        res
-          .status(400)
-          .json({ error: 'Missing required field: newPriceNear' });
+        res.status(400).json({ error: 'Missing required field: newPriceNear' });
         return;
       }
 

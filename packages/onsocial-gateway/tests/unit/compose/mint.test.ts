@@ -349,11 +349,7 @@ describe('buildMintAction', () => {
     const royalty: Record<string, number> = {};
     for (let i = 0; i < 11; i++) royalty[`r${i}.testnet`] = 100;
     await expect(
-      buildMintAction(
-        'alice.testnet',
-        { title: 'Bad', royalty },
-        undefined
-      )
+      buildMintAction('alice.testnet', { title: 'Bad', royalty }, undefined)
     ).rejects.toThrow('Maximum 10 royalty recipients');
   });
 

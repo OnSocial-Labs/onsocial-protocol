@@ -337,10 +337,7 @@ describe('buildCancelLazyListingAction', () => {
 
 describe('buildUpdateLazyListingPriceAction', () => {
   it('builds update-price action', () => {
-    const result = buildUpdateLazyListingPriceAction(
-      'll:bob.testnet:1',
-      '10'
-    );
+    const result = buildUpdateLazyListingPriceAction('ll:bob.testnet:1', '10');
     expect(result.action).toEqual({
       type: 'update_lazy_listing_price',
       listing_id: 'll:bob.testnet:1',

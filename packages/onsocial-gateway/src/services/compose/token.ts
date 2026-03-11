@@ -46,10 +46,15 @@ export function buildBatchTransferAction(params: {
   targetAccount?: string;
 }): SimpleActionResult {
   if (!params.transfers?.length)
-    throw new ComposeError(400, 'transfers array is required and must not be empty');
+    throw new ComposeError(
+      400,
+      'transfers array is required and must not be empty'
+    );
   for (const t of params.transfers) {
-    if (!t.token_id) throw new ComposeError(400, 'Each transfer must have token_id');
-    if (!t.receiver_id) throw new ComposeError(400, 'Each transfer must have receiver_id');
+    if (!t.token_id)
+      throw new ComposeError(400, 'Each transfer must have token_id');
+    if (!t.receiver_id)
+      throw new ComposeError(400, 'Each transfer must have receiver_id');
   }
   return {
     action: {

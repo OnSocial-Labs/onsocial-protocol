@@ -136,6 +136,8 @@ describe('validateRoyalty', () => {
   });
 
   it('accepts exactly 5000 bps total', () => {
-    expect(validateRoyalty({ 'a.testnet': 2500, 'b.testnet': 2500 })).toBeNull();
+    expect(
+      validateRoyalty({ 'a.testnet': 2500, 'b.testnet': 2500 })
+    ).toBeNull();
   });
 });

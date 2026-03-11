@@ -42,9 +42,9 @@ describe('buildApproveAction', () => {
   });
 
   it('throws on missing accountId', () => {
-    expect(() =>
-      buildApproveAction({ tokenId: 's:1', accountId: '' })
-    ).toThrow(ComposeError);
+    expect(() => buildApproveAction({ tokenId: 's:1', accountId: '' })).toThrow(
+      ComposeError
+    );
   });
 });
 
@@ -78,8 +78,8 @@ describe('buildRevokeAllApprovalsAction', () => {
   });
 
   it('throws on missing tokenId', () => {
-    expect(() =>
-      buildRevokeAllApprovalsAction({ tokenId: '' })
-    ).toThrow(ComposeError);
+    expect(() => buildRevokeAllApprovalsAction({ tokenId: '' })).toThrow(
+      ComposeError
+    );
   });
 });

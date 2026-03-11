@@ -66,8 +66,7 @@ export function buildMintFromCollectionAction(params: {
 }): SimpleActionResult {
   if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
   const qty = params.quantity ?? 1;
-  if (qty < 1 || qty > 10)
-    throw new ComposeError(400, 'Quantity must be 1-10');
+  if (qty < 1 || qty > 10) throw new ComposeError(400, 'Quantity must be 1-10');
   return {
     action: {
       type: 'mint_from_collection',
@@ -87,7 +86,10 @@ export function buildAirdropFromCollectionAction(params: {
 }): SimpleActionResult {
   if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
   if (!params.receivers?.length)
-    throw new ComposeError(400, 'receivers array is required and must not be empty');
+    throw new ComposeError(
+      400,
+      'receivers array is required and must not be empty'
+    );
   return {
     action: {
       type: 'airdrop_from_collection',
@@ -113,8 +115,7 @@ export function buildPurchaseFromCollectionAction(params: {
   if (!params.maxPricePerTokenNear)
     throw new ComposeError(400, 'Missing maxPricePerTokenNear');
   const qty = params.quantity ?? 1;
-  if (qty < 1 || qty > 10)
-    throw new ComposeError(400, 'Quantity must be 1-10');
+  if (qty < 1 || qty > 10) throw new ComposeError(400, 'Quantity must be 1-10');
   return {
     action: {
       type: 'purchase_from_collection',
@@ -216,7 +217,10 @@ export function buildSetAllowlistAction(params: {
 }): SimpleActionResult {
   if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
   if (!params.entries?.length)
-    throw new ComposeError(400, 'entries array is required and must not be empty');
+    throw new ComposeError(
+      400,
+      'entries array is required and must not be empty'
+    );
   return {
     action: {
       type: 'set_allowlist',
@@ -235,7 +239,10 @@ export function buildRemoveFromAllowlistAction(params: {
 }): SimpleActionResult {
   if (!params.collectionId) throw new ComposeError(400, 'Missing collectionId');
   if (!params.accounts?.length)
-    throw new ComposeError(400, 'accounts array is required and must not be empty');
+    throw new ComposeError(
+      400,
+      'accounts array is required and must not be empty'
+    );
   return {
     action: {
       type: 'remove_from_allowlist',

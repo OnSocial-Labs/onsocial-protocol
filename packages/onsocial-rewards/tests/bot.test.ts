@@ -16,7 +16,11 @@ vi.mock('grammy', () => {
     on = mockOn;
     catch = mockCatch;
     start = mockStart;
-    api = { setWebhook: vi.fn(), deleteWebhook: vi.fn(), getMe: vi.fn().mockResolvedValue({ username: 'test_bot' }) };
+    api = {
+      setWebhook: vi.fn(),
+      deleteWebhook: vi.fn(),
+      getMe: vi.fn().mockResolvedValue({ username: 'test_bot' }),
+    };
   }
   class FakeInlineKeyboard {
     private buttons: { text: string; data?: string; url?: string }[][] = [[]];
@@ -717,7 +721,9 @@ describe('createRewardsBot config options', () => {
       mockAppConfig();
 
       // Mock bot.api.getMe for the nudge
-      const botInstance = { api: { getMe: vi.fn().mockResolvedValue({ username: 'test_bot' }) } };
+      const botInstance = {
+        api: { getMe: vi.fn().mockResolvedValue({ username: 'test_bot' }) },
+      };
       // The bot instance isn't directly accessible, but the nudge triggers ctx.reply
       // We send 3 qualifying messages from an unlinked user
 
