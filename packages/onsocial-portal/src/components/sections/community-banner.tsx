@@ -24,7 +24,7 @@ export function CommunityBanner() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
         >
-          <RiTelegram2Line className="w-4 h-4 text-[#3B82F6]" />
+          <RiTelegram2Line className="w-4 h-4 text-[#60A5FA]" />
           Join builders, earn $SOCIAL
         </a>
         <span className="text-border">·</span>
@@ -44,7 +44,7 @@ export function CommunityBanner() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
         >
-          <Github className="w-3.5 h-3.5 text-[#A855F7]" />
+          <Github className="w-3.5 h-3.5 text-[#C084FC]" />
           Read the code
         </a>
       </motion.div>

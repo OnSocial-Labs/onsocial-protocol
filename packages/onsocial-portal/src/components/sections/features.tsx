@@ -16,7 +16,7 @@ const tools = [
     title: 'Gateway API',
     description: 'Auth, GraphQL, relay, compose, storage — one endpoint at api.onsocial.id. JWT-based with tier rate limiting.',
     icon: Globe,
-    color: '#3B82F6',
+    color: '#60A5FA',
     status: 'Live',
   },
   {
@@ -30,14 +30,14 @@ const tools = [
     title: 'Smart Contracts',
     description: 'Core, Token, Staking, Scarces, Rewards — 6 contracts on testnet, token verified on mainnet.',
     icon: FileCode2,
-    color: '#A855F7',
+    color: '#C084FC',
     status: 'Live',
   },
   {
     title: 'Compose API',
     description: 'One-call endpoints: mint, collection, marketplace, offers, approvals, storage uploads via Lighthouse IPFS.',
     icon: Layers,
-    color: '#3B82F6',
+    color: '#60A5FA',
     status: 'Live',
   },
   {
@@ -51,7 +51,7 @@ const tools = [
     title: 'Playground',
     description: 'Browser code editor with live testnet execution. Connect wallet, run real transactions, test your integration.',
     icon: Terminal,
-    color: '#A855F7',
+    color: '#C084FC',
     status: 'Live',
   },
 ]

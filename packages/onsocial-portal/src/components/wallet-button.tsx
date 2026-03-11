@@ -35,7 +35,7 @@ export function WalletButton() {
 		return (
 			<button
 				onClick={() => connect()}
-				className="flex items-center gap-2 border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground px-4 py-2 rounded-full font-medium transition-all hover:border-[#3B82F6]/60 hover:shadow-md hover:shadow-[#3B82F6]/20 text-sm"
+				className="flex items-center gap-2 border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground px-4 py-2 rounded-full font-medium transition-all hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20 text-sm"
 			>
 				<Wallet className="w-4 h-4" />
 				<span className="hidden sm:inline">Let's connect</span>

@@ -51,8 +51,8 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.15 }}
             className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed"
           >
-            Shared social infrastructure on NEAR — <span className="text-[#4ADE80]">profiles</span>, <span className="text-[#3B82F6]">groups</span>,{' '}
-            <span className="text-[#A855F7]">Scarces</span>, and gasless interactions across every dapp on the protocol.
+            Shared social infrastructure on NEAR — <span className="text-[#4ADE80]">profiles</span>, <span className="text-[#60A5FA]">groups</span>,{' '}
+            <span className="text-[#C084FC]">Scarces</span>, and gasless interactions across every dapp on the protocol.
           </motion.p>
 
           {/* Single CTA */}

@@ -6,10 +6,10 @@ import { Lock, Key, Gift, Layers, ExternalLink } from 'lucide-react'
 
 // ─── Tokenomics Distribution ──────────────────────────────────
 const TOKEN_DISTRIBUTION = [
-	{ label: 'Dapp Rewards', pct: 40, tokens: '400M', color: '#A855F7', note: 'rewards.onsocial.near' },
-	{ label: 'Treasury (DAO)', pct: 20, tokens: '200M', color: '#3B82F6', note: 'onsocial.sputnik-dao.near' },
+	{ label: 'Dapp Rewards', pct: 40, tokens: '400M', color: '#C084FC', note: 'rewards.onsocial.near' },
+	{ label: 'Treasury (DAO)', pct: 20, tokens: '200M', color: '#60A5FA', note: 'onsocial.sputnik-dao.near' },
 	{ label: 'Staking Rewards', pct: 15, tokens: '150M', color: '#4ADE80', note: 'staking.onsocial.near' },
-	{ label: 'Founder', pct: 15, tokens: '150M', color: '#F59E0B', note: 'vesting.onsocial.near · 4yr vest' },
+	{ label: 'Founder', pct: 15, tokens: '150M', color: '#FBBF24', note: 'vesting.onsocial.near · 4yr vest' },
 	{ label: 'Liquidity', pct: 5, tokens: '50M', color: '#EC4899', note: 'Ref Finance · NEAR + USDC pools' },
 	{ label: 'Development', pct: 5, tokens: '50M', color: '#6B7280', note: 'dev.onsocial.near' },
 ]
@@ -158,7 +158,7 @@ export default function TransparencyPage() {
 											href={`https://nearblocks.io/address/${account}`}
 											target="_blank"
 											rel="noopener noreferrer"
-											className="font-mono text-xs text-[#3B82F6] hover:underline inline-flex items-center gap-1"
+											className="font-mono text-xs text-[#60A5FA] hover:underline inline-flex items-center gap-1"
 										>
 											{account}
 											<ExternalLink className="w-3 h-3" />

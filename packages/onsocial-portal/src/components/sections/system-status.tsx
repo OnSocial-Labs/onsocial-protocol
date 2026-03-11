@@ -12,8 +12,8 @@ import {
   Network,
   CheckCircle2,
   XCircle,
-  Loader2,
 } from 'lucide-react'
+import { PulsingDots } from '@/components/ui/pulsing-dots'
 
 interface HealthData {
   gateway: { status: 'up' | 'down'; responseTime: number } | null
@@ -143,7 +143,7 @@ export function SystemStatus() {
                     <div className="flex items-start justify-between mb-4">
                       <Icon className="w-5 h-5 text-muted-foreground" />
                       {loading ? (
-                        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
+                        <PulsingDots size="sm" className="text-muted-foreground" />
                       ) : service.status === 'up' ? (
                         <CheckCircle2 className="w-4 h-4 text-[#4ADE80]" />
                       ) : (

@@ -34,7 +34,7 @@ const API_TIERS = [
 		complexity: 1000,
 		rowLimit: '10,000',
 		aggregations: true,
-		color: '#3B82F6',
+		color: '#60A5FA',
 		available: false,
 	},
 	{
@@ -46,7 +46,7 @@ const API_TIERS = [
 		complexity: 5000,
 		rowLimit: '50,000',
 		aggregations: true,
-		color: '#A855F7',
+		color: '#C084FC',
 		available: false,
 	},
 ]
@@ -94,8 +94,8 @@ export default function OnApiPage() {
 									</p>
 								</div>
 								<div className="flex flex-col items-center text-center">
-									<div className="w-10 h-10 rounded-xl border border-[#3B82F6]/30 flex items-center justify-center mb-3">
-										<Server className="w-5 h-5 text-[#3B82F6]" />
+									<div className="w-10 h-10 rounded-xl border border-[#60A5FA]/30 flex items-center justify-center mb-3">
+										<Server className="w-5 h-5 text-[#60A5FA]" />
 									</div>
 									<h4 className="text-sm font-semibold mb-1">2. Credits Allocated</h4>
 									<p className="text-xs text-muted-foreground">
@@ -103,8 +103,8 @@ export default function OnApiPage() {
 									</p>
 								</div>
 								<div className="flex flex-col items-center text-center">
-									<div className="w-10 h-10 rounded-xl border border-[#A855F7]/30 flex items-center justify-center mb-3">
-										<Zap className="w-5 h-5 text-[#A855F7]" />
+									<div className="w-10 h-10 rounded-xl border border-[#C084FC]/30 flex items-center justify-center mb-3">
+										<Zap className="w-5 h-5 text-[#C084FC]" />
 									</div>
 									<h4 className="text-sm font-semibold mb-1">3. Use the API</h4>
 									<p className="text-xs text-muted-foreground">
@@ -129,7 +129,7 @@ export default function OnApiPage() {
 							className="relative border border-border/50 rounded-2xl p-6 bg-muted/30 hover:border-border transition-colors flex flex-col"
 						>
 							{!tier.available && (
-								<div className="absolute -top-3 right-4 px-3 py-1 border border-[#A855F7]/40 bg-[#A855F7]/[0.06] text-foreground rounded-full text-xs font-medium">
+								<div className="absolute -top-3 right-4 px-3 py-1 border border-[#C084FC]/40 bg-[#C084FC]/[0.06] text-foreground rounded-full text-xs font-medium">
 									Coming Soon
 								</div>
 							)}

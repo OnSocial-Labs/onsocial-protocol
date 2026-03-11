@@ -35,8 +35,8 @@ export function CTA() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="border border-border/50 rounded-2xl p-8 bg-muted/30 flex flex-col"
           >
-            <div className="w-12 h-12 rounded-xl border border-[#3B82F6]/30 flex items-center justify-center mb-5">
-              <Coins className="w-6 h-6 text-[#3B82F6]" />
+            <div className="w-12 h-12 rounded-xl border border-[#60A5FA]/30 flex items-center justify-center mb-5">
+              <Coins className="w-6 h-6 text-[#60A5FA]" />
             </div>
             <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">For Token Holders</h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-1">
@@ -57,12 +57,12 @@ export function CTA() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="border border-border/50 rounded-2xl p-8 bg-muted/30 flex flex-col"
           >
-            <div className="w-12 h-12 rounded-xl border border-[#A855F7]/30 flex items-center justify-center mb-5">
-              <Handshake className="w-6 h-6 text-[#A855F7]" />
+            <div className="w-12 h-12 rounded-xl border border-[#C084FC]/30 flex items-center justify-center mb-5">
+              <Handshake className="w-6 h-6 text-[#C084FC]" />
             </div>
-            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">For Dapp Builders</h3>
+            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">For Builders & Communities</h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-1">
-              Register your dapp, get an API key, and integrate OnSocial rewards into your platform.
+              Register your project, get an API key, and reward your community with $SOCIAL tokens.
             </p>
             <Button variant="secondary" asChild className="group w-full">
               <Link href="/partners">

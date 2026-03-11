@@ -111,7 +111,7 @@ export function Navigation() {
 							onClick={(e) => item.isAnchor && handleSmoothScroll(e, item.href)}
 							className={cn(
 								'text-sm text-muted-foreground hover:text-foreground transition-colors',
-								item.label === 'Admin' && 'text-[#A855F7] hover:text-[#A855F7]/80',
+								item.label === 'Admin' && 'text-[#C084FC] hover:text-[#C084FC]/80',
 							)}
 						>
 							{item.label}
@@ -200,7 +200,7 @@ export function Navigation() {
 											}}
 											className={cn(
 											'block text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2',
-											item.label === 'Admin' && 'text-[#A855F7] hover:text-[#A855F7]/80',
+											item.label === 'Admin' && 'text-[#C084FC] hover:text-[#C084FC]/80',
 										)}
 										>
 											{item.label}

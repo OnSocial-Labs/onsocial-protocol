@@ -10,14 +10,14 @@ const USE_CASES = [
     title: 'NFT Marketplace',
     description: 'Mint, list, and trade NFTs with built-in royalties. One API call via /compose/mint.',
     icon: Palette,
-    color: '#A855F7',
+    color: '#C084FC',
     apis: ['Compose API', 'Scarces Contract', 'IPFS Storage'],
   },
   {
     title: 'Event Ticketing',
     description: 'Issue NFT tickets with on-chain verification. Gate access with token ownership.',
     icon: Ticket,
-    color: '#3B82F6',
+    color: '#60A5FA',
     apis: ['Compose API', 'Token Gates', 'Gasless Claims'],
   },
   {
@@ -31,7 +31,7 @@ const USE_CASES = [
     title: 'Company Profiles',
     description: 'Verified business identities with on-chain reputation and team management.',
     icon: Building2,
-    color: '#3B82F6',
+    color: '#60A5FA',
     apis: ['Core Contract', 'Stores API', 'Permissions'],
   },
 ] as const

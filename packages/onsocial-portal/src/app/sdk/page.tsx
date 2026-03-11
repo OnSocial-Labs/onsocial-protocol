@@ -15,13 +15,13 @@ const SDK_PACKAGES = [
 		name: '@onsocial/auth',
 		desc: 'Passwordless NEAR auth with JWT — social login, session management, key rotation.',
 		status: 'development' as const,
-		color: '#3B82F6',
+		color: '#60A5FA',
 	},
 	{
 		name: '@onsocial/intents',
 		desc: 'Cross-chain intent execution — bridge, swap, and transact across chains.',
 		status: 'development' as const,
-		color: '#A855F7',
+		color: '#C084FC',
 	},
 ]
 
@@ -143,7 +143,7 @@ export default function SDKPage() {
 							>
 								<h3 className="text-sm font-semibold mb-2">{ex.title}</h3>
 								<p className="text-xs text-muted-foreground mb-4">{ex.desc}</p>
-								<span className="text-xs text-[#3B82F6] font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all">
+								<span className="text-xs text-[#60A5FA] font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all">
 									{ex.linkText}
 									<ArrowRight className="w-3 h-3" />
 								</span>

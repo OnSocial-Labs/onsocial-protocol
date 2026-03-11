@@ -3,8 +3,8 @@
 import { motion, useInView } from 'framer-motion'
 import { useRef } from 'react'
 import {
-  User, Users, Palette, ShoppingCart,
-  Zap, Database, Shield, Layers, KeyRound
+  User, Users, Palette, Shield,
+  Zap, Database, Layers, Puzzle
 } from 'lucide-react'
 
 // What the protocol actually enables (backed by real contracts)
@@ -13,7 +13,7 @@ const PROTOCOL_LAYERS = [
     title: 'Identity & Data',
     description: 'One on-chain profile shared across every dapp. Store profiles, posts, and dapp data with fine-grained permissions.',
     icon: User,
-    color: '#3B82F6',
+    color: '#60A5FA',
     contract: 'core-onsocial',
     capabilities: ['Social profiles', 'Key-value storage', 'Permissions'],
   },
@@ -21,7 +21,7 @@ const PROTOCOL_LAYERS = [
     title: 'Groups & Governance',
     description: 'Create communities with membership, permission controls, proposals, and on-chain voting.',
     icon: Users,
-    color: '#A855F7',
+    color: '#C084FC',
     contract: 'core-onsocial',
     capabilities: ['Group management', 'Proposals & voting', 'Role-based access'],
   },
@@ -34,21 +34,20 @@ const PROTOCOL_LAYERS = [
     capabilities: ['Minting & collections', 'Auctions & offers', 'Royalties'],
   },
   {
-    title: 'Social Commerce',
-    description: 'Buy and sell directly from social feeds. Multi-token payments via NEAR Intents, stores, and seamless checkout.',
-    icon: ShoppingCart,
-    color: '#3B82F6',
+    title: 'Flexible Auth',
+    description: 'Four on-chain auth models — direct calls, signed payloads, meta-transactions, and NEAR Intents.',
+    icon: Shield,
+    color: '#60A5FA',
     contract: 'core-onsocial',
-    capabilities: ['Feed-based shopping', 'Multi-token payments', 'Stores'],
+    capabilities: ['Meta-transactions', 'Signed payloads', 'Intents support'],
   },
 ] as const
 
 const INFRA_FEATURES = [
-  { title: 'Gasless', icon: Zap, color: '#4ADE80' },
-  { title: 'Sponsored Storage', icon: Database, color: '#3B82F6' },
-  { title: 'Dapp Rewards', icon: Shield, color: '#A855F7' },
-  { title: 'Composable', icon: Layers, color: '#4ADE80' },
-  { title: 'Indexers', icon: Database, color: '#3B82F6' },
+  { title: 'Gasless transactions', icon: Zap, color: '#4ADE80' },
+  { title: 'Sponsored storage', icon: Database, color: '#60A5FA' },
+  { title: 'Composable data', icon: Layers, color: '#4ADE80' },
+  { title: 'Real-time indexers', icon: Database, color: '#60A5FA' },
 ] as const
 
 export function Vision() {
@@ -69,7 +68,7 @@ export function Vision() {
             What you can build
           </h2>
           <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Dapps with seamless onboarding — shared profiles, organizations, and commerce. One OnApi key to integrate.
+            Dapps with seamless onboarding — shared profiles, organizations, and commerce.
           </p>
         </motion.div>
 
@@ -119,8 +118,8 @@ export function Vision() {
           className="max-w-3xl mx-auto border border-border/50 rounded-2xl p-8 bg-muted/30"
         >
           <div className="flex items-center justify-center gap-2 mb-4">
-            <KeyRound className="w-4 h-4 text-[#4ADE80]" />
-            <span className="text-sm font-semibold tracking-[-0.02em]">One OnApi key. Everything included.</span>
+            <Puzzle className="w-4 h-4 text-[#4ADE80]" />
+            <span className="text-sm font-semibold tracking-[-0.02em]">Built into every dapp. Zero config.</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
             {INFRA_FEATURES.map((feature) => (

@@ -162,7 +162,7 @@ function PlaygroundContent() {
                 disabled={useTestnet && !isConnected}
                 className={`px-4 py-2 rounded-full font-medium transition-all ${
                   useTestnet && isConnected
-                    ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground hover:border-[#3B82F6]/60 hover:shadow-md hover:shadow-[#3B82F6]/20'
+                    ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20'
                     : useTestnet && !isConnected
                     ? 'border border-border/50 bg-muted/50 text-muted-foreground cursor-not-allowed'
                     : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
@@ -195,7 +195,7 @@ function PlaygroundContent() {
           <div className="lg:col-span-1">
             <div className="border border-border/50 rounded-2xl p-4 sticky top-24 bg-muted/30">
               <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-[#3B82F6]" />
+                <Terminal className="w-5 h-5 text-[#60A5FA]" />
                 Examples
               </h2>
 
@@ -205,7 +205,7 @@ function PlaygroundContent() {
                   onClick={() => setSelectedCategory('all')}
                   className={`px-3 py-1 rounded-full text-sm transition-all ${
                     selectedCategory === 'all'
-                      ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground'
+                      ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground'
                       : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
                   }`}
                 >
@@ -219,7 +219,7 @@ function PlaygroundContent() {
                       onClick={() => setSelectedCategory(cat.id)}
                       className={`px-3 py-1 rounded-full text-sm transition-all flex items-center gap-1.5 ${
                         selectedCategory === cat.id
-                          ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground'
+                          ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground'
                           : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
                       }`}
                       title={cat.name}
@@ -238,7 +238,7 @@ function PlaygroundContent() {
                     onClick={() => handleExampleSelect(example)}
                     className={`w-full text-left p-3 rounded-xl transition-all ${
                       selectedExample.id === example.id
-                        ? 'border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground'
+                        ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground'
                         : 'border border-border/50 bg-muted/50 text-muted-foreground hover:bg-muted/80 hover:text-foreground hover:border-border'
                     }`}
                   >
@@ -283,7 +283,7 @@ function PlaygroundContent() {
                   <button
                     onClick={handleRun}
                     disabled={isRunning}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#3B82F6]/40 bg-[#3B82F6]/[0.06] text-foreground hover:border-[#3B82F6]/60 hover:shadow-md hover:shadow-[#3B82F6]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
                   >
                     <Play className="w-4 h-4" />
                     {isRunning ? 'Running...' : 'Run Code'}
