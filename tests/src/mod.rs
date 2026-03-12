@@ -59,4 +59,6 @@ pub mod storage_batch_tests;
 #[cfg(test)]
 pub mod token_onsocial_tests;
 #[cfg(test)]
+pub mod vesting;
+#[cfg(test)]
 pub mod utils;

@@ -17,6 +17,7 @@ members = [
     "crates/onsocial-auth",
     "contracts/scarces-onsocial",
     "contracts/staking-onsocial",
+    "contracts/vesting-onsocial",
     "contracts/core-onsocial",
     "contracts/manager-proxy-onsocial",
     "contracts/mock-ft",

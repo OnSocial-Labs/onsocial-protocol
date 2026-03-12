@@ -12,6 +12,12 @@
         "init": "new '{\"token_id\": \"token.${AUTH_ACCOUNT}\", \"owner_id\": \"${AUTH_ACCOUNT}\"}'"
     },
     {
+        "name": "vesting-onsocial",
+        "id": "founder-vesting.${AUTH_ACCOUNT}",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"token_id\": \"token.${AUTH_ACCOUNT}\", \"beneficiary_id\": \"${AUTH_ACCOUNT}\", \"total_amount\": \"125000000000000000000000000\", \"start_at_ns\": 1735689600000000000, \"cliff_at_ns\": 1767225600000000000, \"end_at_ns\": 1861920000000000000}'"
+    },
+    {
         "name": "core-onsocial",
         "id": "core.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",

@@ -69,6 +69,8 @@ test-integration-contract-%-no-run: build-docker-contracts ensure-scripts-execut
 		$(MAKE) test-integration-contract-staking-onsocial-no-run; \
 	elif [ "$*" = "scarces-onsocial" ]; then \
 		$(MAKE) test-integration-contract-scarces-onsocial-no-run; \
+	elif [ "$*" = "vesting-onsocial" ]; then \
+		$(MAKE) test-integration-contract-vesting-onsocial-no-run; \
 	elif [ "$*" = "rewards-onsocial" ]; then \
 		$(MAKE) test-integration-contract-rewards-onsocial-no-run; \
 	else \
@@ -102,6 +104,15 @@ test-integration-contract-rewards-onsocial-no-run: build-docker-contracts ensure
 		cd /code; \
 		cargo test -p onsocial-integration-tests --release --color always --no-run)
 	@echo "✅ Integration tests compiled for contract rewards-onsocial (no-run)"
+
+.PHONY: test-integration-contract-vesting-onsocial-no-run
+test-integration-contract-vesting-onsocial-no-run: build-docker-contracts ensure-scripts-executable
+	$(call docker_run_contracts,set -euo pipefail; \
+		cd /code/contracts/vesting-onsocial; \
+		cargo build --release --target wasm32-unknown-unknown; \
+		cd /code; \
+		cargo test -p onsocial-integration-tests --release --color always --no-run)
+	@echo "✅ Integration tests compiled for contract vesting-onsocial (no-run)"
 
 .PHONY: test-integration-contract-scarces-onsocial-no-run
 test-integration-contract-scarces-onsocial-no-run: build-docker-contracts ensure-scripts-executable
