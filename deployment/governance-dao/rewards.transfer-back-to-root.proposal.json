@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Transfer rewards ownership back to onsocial.testnet",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "rewards.onsocial.testnet",
+        "actions": [
+          {
+            "method_name": "transfer_ownership",
+            "args": "eyJuZXdfb3duZXIiOiJvbnNvY2lhbC50ZXN0bmV0In0=",
+            "deposit": "0",
+            "gas": 300000000000000
+          }
+        ]
+      }
+    }
+  }
+}

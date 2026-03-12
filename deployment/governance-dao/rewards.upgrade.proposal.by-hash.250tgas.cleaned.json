@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Upgrade rewards contract by published code hash (250 TGas, cleaned artifact)",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "rewards.onsocial.testnet",
+        "actions": [
+          {
+            "method_name": "update_contract_from_hash",
+            "args": "eyJjb2RlX2hhc2giOiI4NWE5a2RXYXRjSEhrcG1OdTNwRHlMdlo5d0prbVRxaFhWTGhHc2QxN3kxNiJ9",
+            "deposit": "0",
+            "gas": 250000000000000
+          }
+        ]
+      }
+    }
+  }
+}

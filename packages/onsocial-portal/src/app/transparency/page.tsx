@@ -8,18 +8,18 @@ import { PageShell } from '@/components/layout/page-shell';
 // ─── Tokenomics Distribution ──────────────────────────────────
 const TOKEN_DISTRIBUTION = [
   {
-    label: 'Dapp Rewards',
+    label: 'Ecosystem & App Rewards',
     pct: 40,
     tokens: '400M',
     color: '#C084FC',
     note: 'rewards.onsocial.near',
   },
   {
-    label: 'Treasury (DAO)',
-    pct: 20,
-    tokens: '200M',
+    label: 'Treasury & Operations',
+    pct: 10,
+    tokens: '100M',
     color: '#60A5FA',
-    note: 'onsocial.sputnik-dao.near',
+    note: 'treasury.onsocial.near',
   },
   {
     label: 'Staking Rewards',
@@ -29,25 +29,32 @@ const TOKEN_DISTRIBUTION = [
     note: 'staking.onsocial.near',
   },
   {
-    label: 'Founder',
-    pct: 15,
-    tokens: '150M',
+    label: 'Founder Vesting',
+    pct: 12.5,
+    tokens: '125M',
     color: '#FBBF24',
-    note: 'vesting.onsocial.near · 4yr vest',
+    note: 'founder-vesting.onsocial.near · 4yr vest · 1yr cliff',
   },
   {
-    label: 'Liquidity',
+    label: 'Future Team & Contributors',
+    pct: 12.5,
+    tokens: '125M',
+    color: '#F87171',
+    note: 'Reserved for future contributor vesting grants',
+  },
+  {
+    label: 'Liquidity Reserve',
     pct: 5,
     tokens: '50M',
     color: '#EC4899',
-    note: 'Ref Finance · NEAR + USDC pools',
+    note: '200K SOCIAL initially deployed · additional liquidity over time',
   },
   {
-    label: 'Development',
+    label: 'Development & Strategic Growth',
     pct: 5,
     tokens: '50M',
     color: '#6B7280',
-    note: 'dev.onsocial.near',
+    note: 'dev.onsocial.near · audits, tooling, partnerships',
   },
 ];
 

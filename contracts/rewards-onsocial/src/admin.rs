@@ -1,5 +1,5 @@
 use crate::*;
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{Base58CryptoHash, U128};
 
 const MAX_APPS: usize = 100;
 const MAX_APP_ID_LEN: usize = 64;
@@ -122,6 +122,19 @@ impl RewardsContract {
         let code = env::input().expect("No input").to_vec();
         Promise::new(env::current_account_id())
             .deploy_contract(code)
+            .function_call(
+                "migrate".to_string(),
+                vec![],
+                NearToken::from_near(0),
+                GAS_MIGRATE,
+            )
+            .as_return()
+    }
+
+    pub fn update_contract_from_hash(&self, code_hash: Base58CryptoHash) -> Promise {
+        require!(env::predecessor_account_id() == self.owner_id, "Not owner");
+        Promise::new(env::current_account_id())
+            .use_global_contract(code_hash)
             .function_call(
                 "migrate".to_string(),
                 vec![],

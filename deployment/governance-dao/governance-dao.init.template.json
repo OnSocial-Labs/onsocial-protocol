@@ -1,0 +1,10 @@
+{
+  "config": {
+    "name": "OnSocial Governance",
+    "purpose": "Governance DAO for OnSocial",
+    "metadata": ""
+  },
+  "policy": [
+    "greenghost.onsocial.testnet"
+  ]
+}

@@ -1,0 +1,6 @@
+repo=https://github.com/near-daos/sputnik-dao-contract
+ref=main
+commit=2b0f34a3860460f285307ec2ccf36345acbe05a2
+dao_wasm=sputnikdao2.wasm
+staking_wasm=sputnik_staking.wasm
+factory_wasm=sputnikdao_factory2.wasm

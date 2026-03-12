@@ -1,0 +1,10 @@
+{
+  "proposal": {
+    "description": "Set governance staking contract",
+    "kind": {
+      "SetStakingContract": {
+        "staking_id": "staking-governance.onsocial.testnet"
+      }
+    }
+  }
+}

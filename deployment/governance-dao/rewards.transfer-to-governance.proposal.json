@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Transfer rewards ownership to governance DAO",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "rewards.onsocial.testnet",
+        "actions": [
+          {
+            "method_name": "transfer_ownership",
+            "args": "eyJuZXdfb3duZXIiOiJnb3Zlcm5hbmNlLm9uc29jaWFsLnRlc3RuZXQifQ==",
+            "deposit": "0",
+            "gas": 300000000000000
+          }
+        ]
+      }
+    }
+  }
+}

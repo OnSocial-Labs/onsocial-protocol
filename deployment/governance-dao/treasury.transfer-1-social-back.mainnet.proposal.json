@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Treasury smoke test: return 1 SOCIAL to onsocial.near",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "token.onsocial.near",
+        "actions": [
+          {
+            "method_name": "ft_transfer",
+            "args": "eyJyZWNlaXZlcl9pZCI6Im9uc29jaWFsLm5lYXIiLCJhbW91bnQiOiIxMDAwMDAwMDAwMDAwMDAwMDAwIiwibWVtbyI6IlRyZWFzdXJ5IHNtb2tlIHRlc3QgcmV0dXJuIn0=",
+            "deposit": "1",
+            "gas": 100000000000000
+          }
+        ]
+      }
+    }
+  }
+}

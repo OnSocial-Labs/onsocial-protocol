@@ -1,0 +1,10 @@
+{
+  "config": {
+    "name": "OnSocial Treasury",
+    "purpose": "Treasury DAO for OnSocial reserves and operational custody",
+    "metadata": ""
+  },
+  "policy": [
+    "onsocial.testnet"
+  ]
+}

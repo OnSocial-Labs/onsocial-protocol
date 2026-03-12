@@ -1,0 +1,38 @@
+{
+  "proposal": {
+    "description": "Switch governance DAO to token-weight voting",
+    "kind": {
+      "ChangePolicy": {
+        "policy": {
+          "roles": [
+            {
+              "name": "all",
+              "kind": {
+                "Group": [
+                  "greenghost.onsocial.testnet"
+                ]
+              },
+              "permissions": [
+                "*:AddProposal",
+                "*:VoteApprove",
+                "*:VoteReject",
+                "*:VoteRemove",
+                "*:Finalize"
+              ],
+              "vote_policy": {}
+            }
+          ],
+          "default_vote_policy": {
+            "weight_kind": "TokenWeight",
+            "quorum": "1",
+            "threshold": "1000000000000000000"
+          },
+          "proposal_bond": "1000000000000000000000000",
+          "proposal_period": "604800000000000",
+          "bounty_bond": "1000000000000000000000000",
+          "bounty_forgiveness_period": "86400000000000"
+        }
+      }
+    }
+  }
+}
