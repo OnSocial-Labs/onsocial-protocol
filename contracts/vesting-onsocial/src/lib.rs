@@ -1,11 +1,11 @@
 use near_sdk::json_types::U128;
-use near_sdk::store::LookupMap;
 use near_sdk::serde_json::{self, Value};
-use near_sdk_macros::NearSchema;
+use near_sdk::store::LookupMap;
 use near_sdk::{
-    AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError,
-    env, near, require,
+    AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env, near,
+    require,
 };
+use near_sdk_macros::NearSchema;
 
 const EVENT_STANDARD: &str = "onsocial";
 const EVENT_VERSION: &str = "1.0.0";
@@ -20,6 +20,8 @@ const FT_STORAGE_DEPOSIT: NearToken = NearToken::from_millinear(2);
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum VestingError {
     Unauthorized(String),
+    InvalidInput(String),
+    InvalidAmount,
     NotFunded,
     ClaimPending,
     NothingToClaim,
@@ -29,6 +31,8 @@ impl std::fmt::Display for VestingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            Self::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            Self::InvalidAmount => write!(f, "Invalid amount"),
             Self::NotFunded => write!(f, "Contract not funded"),
             Self::ClaimPending => write!(f, "Claim already pending"),
             Self::NothingToClaim => write!(f, "Nothing to claim"),
@@ -74,6 +78,18 @@ pub struct VestingStatusView {
     pub now_ns: u64,
 }
 
+#[near(serializers = [json])]
+#[derive(Clone, Debug)]
+pub struct VestingInitConfig {
+    pub owner_id: AccountId,
+    pub token_id: AccountId,
+    pub beneficiary_id: AccountId,
+    pub total_amount: U128,
+    pub start_at_ns: u64,
+    pub cliff_at_ns: u64,
+    pub end_at_ns: u64,
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct VestingContract {
@@ -92,29 +108,24 @@ pub struct VestingContract {
 #[near]
 impl VestingContract {
     #[init]
-    pub fn new(
-        owner_id: AccountId,
-        token_id: AccountId,
-        beneficiary_id: AccountId,
-        total_amount: U128,
-        start_at_ns: u64,
-        cliff_at_ns: u64,
-        end_at_ns: u64,
-    ) -> Self {
-        require!(total_amount.0 > 0, "Invalid vesting schedule");
-        require!(cliff_at_ns >= start_at_ns, "Cliff must be >= start");
-        require!(end_at_ns > cliff_at_ns, "End must be > cliff");
+    pub fn new(config: VestingInitConfig) -> Self {
+        require!(config.total_amount.0 > 0, "Invalid vesting schedule");
+        require!(
+            config.cliff_at_ns >= config.start_at_ns,
+            "Cliff must be >= start"
+        );
+        require!(config.end_at_ns > config.cliff_at_ns, "End must be > cliff");
 
         let contract = Self {
-            owner_id,
-            token_id,
-            beneficiary_id,
-            total_amount: total_amount.0,
+            owner_id: config.owner_id,
+            token_id: config.token_id,
+            beneficiary_id: config.beneficiary_id,
+            total_amount: config.total_amount.0,
             claimed_amount: 0,
             pending_claims: LookupMap::new(StorageKey::PendingClaims),
-            start_at_ns,
-            cliff_at_ns,
-            end_at_ns,
+            start_at_ns: config.start_at_ns,
+            cliff_at_ns: config.cliff_at_ns,
+            end_at_ns: config.end_at_ns,
             funded: false,
         };
 
@@ -204,17 +215,16 @@ impl VestingContract {
             return Err(VestingError::ClaimPending);
         }
 
-        let claimable = self.compute_vested(env::block_timestamp())
+        let claimable = self
+            .compute_vested(env::block_timestamp())
             .saturating_sub(self.claimed_amount);
         if claimable == 0 {
             return Err(VestingError::NothingToClaim);
         }
 
         self.claimed_amount = self.claimed_amount.saturating_add(claimable);
-        self.pending_claims.insert(
-            account_id.clone(),
-            PendingClaim { amount: claimable },
-        );
+        self.pending_claims
+            .insert(account_id.clone(), PendingClaim { amount: claimable });
 
         Ok(self.ft_transfer_with_callback(
             account_id.clone(),
@@ -227,23 +237,29 @@ impl VestingContract {
         ))
     }
 
+    #[handle_result]
     pub fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
         amount: U128,
         msg: String,
-    ) -> U128 {
+    ) -> Result<U128, VestingError> {
         let _ = msg;
-        require!(
-            env::predecessor_account_id() == self.token_id,
-            "Wrong token"
-        );
-        require!(sender_id == self.owner_id, "Only owner can fund");
-        require!(!self.funded, "Already funded");
-        require!(
-            amount.0 == self.total_amount,
-            "Funding amount mismatch"
-        );
+        if env::predecessor_account_id() != self.token_id {
+            return Err(VestingError::InvalidInput("Wrong token".into()));
+        }
+        if amount.0 == 0 {
+            return Err(VestingError::InvalidAmount);
+        }
+        if sender_id != self.owner_id {
+            return Err(VestingError::Unauthorized("Only owner can fund".into()));
+        }
+        if self.funded {
+            return Err(VestingError::InvalidInput("Already funded".into()));
+        }
+        if amount.0 != self.total_amount {
+            return Err(VestingError::InvalidInput("Funding amount mismatch".into()));
+        }
 
         self.funded = true;
         self.emit_event(
@@ -254,7 +270,7 @@ impl VestingContract {
                 "total_amount": self.total_amount.to_string(),
             }),
         );
-        U128(0)
+        Ok(U128(0))
     }
 
     #[private]
@@ -323,7 +339,10 @@ impl VestingContract {
 
     fn emit_event(&self, event: &str, account_id: &AccountId, mut data: Value) {
         if let Value::Object(ref mut map) = data {
-            map.insert("account_id".into(), serde_json::json!(account_id.to_string()));
+            map.insert(
+                "account_id".into(),
+                serde_json::json!(account_id.to_string()),
+            );
         }
         let log = serde_json::json!({
             "standard": EVENT_STANDARD,

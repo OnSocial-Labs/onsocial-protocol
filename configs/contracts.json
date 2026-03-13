@@ -15,7 +15,7 @@
         "name": "vesting-onsocial",
         "id": "founder-vesting.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",
-        "init": "new '{\"owner_id\": \"${AUTH_ACCOUNT}\", \"token_id\": \"token.${AUTH_ACCOUNT}\", \"beneficiary_id\": \"${AUTH_ACCOUNT}\", \"total_amount\": \"125000000000000000000000000\", \"start_at_ns\": 1735689600000000000, \"cliff_at_ns\": 1767225600000000000, \"end_at_ns\": 1861920000000000000}'"
+        "init": "new '{\"config\": {\"owner_id\": \"${AUTH_ACCOUNT}\", \"token_id\": \"token.${AUTH_ACCOUNT}\", \"beneficiary_id\": \"greenghost.${AUTH_ACCOUNT}\", \"total_amount\": \"125000000000000000000000000\", \"start_at_ns\": 1773273600000000000, \"cliff_at_ns\": 1804809600000000000, \"end_at_ns\": 1899504000000000000}}'"
     },
     {
         "name": "core-onsocial",

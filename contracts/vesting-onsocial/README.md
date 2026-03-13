@@ -56,7 +56,7 @@ Recommended invariant:
 
 Initializer:
 
-- `new(owner_id, token_id, beneficiary_id, total_amount, start_at_ns, cliff_at_ns, end_at_ns)`
+- `new(config)` where `config = { owner_id, token_id, beneficiary_id, total_amount, start_at_ns, cliff_at_ns, end_at_ns }`
 
 Views:
 

@@ -86,13 +86,15 @@ pub async fn deploy_vesting(
     owner
         .call(contract.id(), "new")
         .args_json(json!({
-            "owner_id": owner.id().to_string(),
-            "token_id": token.id().to_string(),
-            "beneficiary_id": beneficiary.id().to_string(),
-            "total_amount": VESTING_TOTAL.to_string(),
-            "start_at_ns": start_at_ns,
-            "cliff_at_ns": cliff_at_ns,
-            "end_at_ns": end_at_ns,
+            "config": {
+                "owner_id": owner.id().to_string(),
+                "token_id": token.id().to_string(),
+                "beneficiary_id": beneficiary.id().to_string(),
+                "total_amount": VESTING_TOTAL.to_string(),
+                "start_at_ns": start_at_ns,
+                "cliff_at_ns": cliff_at_ns,
+                "end_at_ns": end_at_ns,
+            }
         }))
         .transact()
         .await?

@@ -1,6 +1,6 @@
 use crate::*;
 use near_sdk::json_types::U128;
-use near_sdk::test_utils::{get_logs, VMContextBuilder};
+use near_sdk::test_utils::{VMContextBuilder, get_logs};
 use near_sdk::testing_env;
 
 fn account(id: &str) -> AccountId {
@@ -27,10 +27,27 @@ fn context(predecessor: &AccountId, timestamp: u64) -> VMContextBuilder {
     builder
 }
 
+fn init_config(
+    total_amount: u128,
+    start_at_ns: u64,
+    cliff_at_ns: u64,
+    end_at_ns: u64,
+) -> VestingInitConfig {
+    VestingInitConfig {
+        owner_id: owner(),
+        token_id: token(),
+        beneficiary_id: beneficiary(),
+        total_amount: U128(total_amount),
+        start_at_ns,
+        cliff_at_ns,
+        end_at_ns,
+    }
+}
+
 fn new_contract() -> VestingContract {
     let owner = owner();
     testing_env!(context(&owner, 1).build());
-    VestingContract::new(owner, token(), beneficiary(), U128(100), 10, 20, 110)
+    VestingContract::new(init_config(100, 10, 20, 110))
 }
 
 #[test]
@@ -38,7 +55,7 @@ fn new_contract() -> VestingContract {
 fn init_rejects_zero_total_amount() {
     let owner = owner();
     testing_env!(context(&owner, 1).build());
-    let _ = VestingContract::new(owner, token(), beneficiary(), U128(0), 10, 20, 110);
+    let _ = VestingContract::new(init_config(0, 10, 20, 110));
 }
 
 #[test]
@@ -46,7 +63,7 @@ fn init_rejects_zero_total_amount() {
 fn init_rejects_cliff_before_start() {
     let owner = owner();
     testing_env!(context(&owner, 1).build());
-    let _ = VestingContract::new(owner, token(), beneficiary(), U128(100), 20, 10, 110);
+    let _ = VestingContract::new(init_config(100, 20, 10, 110));
 }
 
 #[test]
@@ -54,7 +71,7 @@ fn init_rejects_cliff_before_start() {
 fn init_rejects_end_not_after_cliff() {
     let owner = owner();
     testing_env!(context(&owner, 1).build());
-    let _ = VestingContract::new(owner, token(), beneficiary(), U128(100), 10, 20, 20);
+    let _ = VestingContract::new(init_config(100, 10, 20, 20));
 }
 
 #[test]
@@ -63,7 +80,9 @@ fn emits_funded_event() {
     testing_env!(context(&token(), 1).build());
     let _ = get_logs();
 
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
     let logs = get_logs();
 
     assert_eq!(logs.len(), 1);
@@ -96,13 +115,54 @@ fn computes_full_amount_after_end() {
     assert_eq!(contract.get_vested_amount().0, 100);
 }
 
-// NOTE: ft_on_transfer uses require! / env::panic_str which aborts in
-// release mode, so negative cases must be tested in integration tests
-// (sandbox), not with #[should_panic]:
-// - ft_on_transfer with wrong amount (Funding amount mismatch)
-// - ft_on_transfer from wrong token (Wrong token)
-// - ft_on_transfer from non-owner sender (Only owner can fund)
-// - ft_on_transfer when already funded (Already funded)
+#[test]
+fn ft_on_transfer_rejects_wrong_amount() {
+    let mut contract = new_contract();
+    testing_env!(context(&token(), 1).build());
+
+    let result = contract.ft_on_transfer(owner(), U128(99), String::new());
+
+    assert!(
+        matches!(result, Err(VestingError::InvalidInput(message)) if message == "Funding amount mismatch")
+    );
+}
+
+#[test]
+fn ft_on_transfer_rejects_wrong_token() {
+    let mut contract = new_contract();
+    testing_env!(context(&owner(), 1).build());
+
+    let result = contract.ft_on_transfer(owner(), U128(100), String::new());
+
+    assert!(matches!(result, Err(VestingError::InvalidInput(message)) if message == "Wrong token"));
+}
+
+#[test]
+fn ft_on_transfer_rejects_non_owner_sender() {
+    let mut contract = new_contract();
+    testing_env!(context(&token(), 1).build());
+
+    let result = contract.ft_on_transfer(beneficiary(), U128(100), String::new());
+
+    assert!(
+        matches!(result, Err(VestingError::Unauthorized(message)) if message == "Only owner can fund")
+    );
+}
+
+#[test]
+fn ft_on_transfer_rejects_second_funding() {
+    let mut contract = new_contract();
+    testing_env!(context(&token(), 1).build());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
+
+    let result = contract.ft_on_transfer(owner(), U128(100), String::new());
+
+    assert!(
+        matches!(result, Err(VestingError::InvalidInput(message)) if message == "Already funded")
+    );
+}
 
 #[test]
 fn claim_before_funding_fails() {
@@ -118,7 +178,9 @@ fn claim_before_funding_fails() {
 fn claim_before_cliff_fails() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 15).build());
     let result = contract.claim();
@@ -130,7 +192,9 @@ fn claim_before_cliff_fails() {
 fn non_beneficiary_cannot_claim() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&owner(), 65).build());
     let result = contract.claim();
@@ -142,7 +206,9 @@ fn non_beneficiary_cannot_claim() {
 fn second_claim_while_pending_fails() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let _ = contract.claim().unwrap();
@@ -155,7 +221,9 @@ fn second_claim_while_pending_fails() {
 fn repeated_claims_only_release_delta() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let _ = contract.claim().unwrap();
@@ -197,7 +265,9 @@ fn get_config_returns_expected_values() {
 fn get_status_returns_expected_values_after_funding() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let status = contract.get_status();
@@ -215,7 +285,9 @@ fn get_status_returns_expected_values_after_funding() {
 fn get_status_reflects_claimed_amount_after_successful_claim() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let _ = contract.claim().unwrap();
@@ -237,7 +309,7 @@ fn emits_created_event() {
     testing_env!(context(&owner, 1).build());
     let _ = get_logs();
 
-    let _ = VestingContract::new(owner, token(), beneficiary(), U128(100), 10, 20, 110);
+    let _ = VestingContract::new(init_config(100, 10, 20, 110));
     let logs = get_logs();
 
     assert_eq!(logs.len(), 1);
@@ -277,7 +349,9 @@ fn old_beneficiary_loses_access_after_rotation() {
     contract.set_beneficiary(new_beneficiary.clone()).unwrap();
 
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let old_result = contract.claim();
@@ -292,7 +366,9 @@ fn old_beneficiary_loses_access_after_rotation() {
 fn claim_sets_pending_and_claimed_amount() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let result = contract.claim();
@@ -306,7 +382,9 @@ fn claim_sets_pending_and_claimed_amount() {
 fn claim_callback_failure_rolls_back_state() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let _ = contract.claim().unwrap();
@@ -324,7 +402,9 @@ fn claim_callback_failure_rolls_back_state() {
 fn claim_callback_success_clears_pending() {
     let mut contract = new_contract();
     testing_env!(context(&token(), 1).build());
-    contract.ft_on_transfer(owner(), U128(100), String::new());
+    contract
+        .ft_on_transfer(owner(), U128(100), String::new())
+        .unwrap();
 
     testing_env!(context(&beneficiary(), 65).build());
     let _ = contract.claim().unwrap();
