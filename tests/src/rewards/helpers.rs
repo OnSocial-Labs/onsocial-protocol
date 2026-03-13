@@ -13,7 +13,7 @@
 use anyhow::Result;
 use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 
 use crate::utils::get_wasm_path;
@@ -61,11 +61,32 @@ pub struct ContractInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserReward {
+    #[serde(deserialize_with = "deserialize_u128_value")]
     pub claimable: u128,
+    #[serde(deserialize_with = "deserialize_u128_value")]
     pub daily_earned: u128,
     pub last_day: u64,
+    #[serde(deserialize_with = "deserialize_u128_value")]
     pub total_earned: u128,
+    #[serde(deserialize_with = "deserialize_u128_value")]
     pub total_claimed: u128,
+}
+
+fn deserialize_u128_value<'de, D>(deserializer: D) -> Result<u128, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::String(text) => text.parse::<u128>().map_err(serde::de::Error::custom),
+        Value::Number(number) => number
+            .as_u64()
+            .map(u128::from)
+            .ok_or_else(|| serde::de::Error::custom("invalid u128 number")),
+        other => Err(serde::de::Error::custom(format!(
+            "expected string or number for u128, got {other}"
+        ))),
+    }
 }
 
 // =============================================================================

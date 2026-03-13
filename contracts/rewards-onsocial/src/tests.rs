@@ -53,7 +53,9 @@ mod unit {
         let mut c = new_contract();
         testing_env!(context(token()).build());
 
-        let result = c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        let result = c
+            .ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         assert_eq!(c.pool_balance, 50_000);
         assert_eq!(result.0, 0);
@@ -62,17 +64,55 @@ mod unit {
     // =================================================================
     // NEGATIVE TESTS (ft_on_transfer)
     // =================================================================
-    // NOTE: ft_on_transfer uses require! / env::panic_str which aborts in
-    // release mode, so negative cases must be tested in integration tests
-    // (sandbox) where contract panics are caught as transaction failures.
-    // All admin validation uses Result<(), RewardsError> + #[handle_result],
-    // so those negative cases are fully covered in unit tests below.
-    //
-    // ft_on_transfer negative cases to test in integration tests:
-    // - ft_on_transfer from non-owner sender (Only owner can deposit)
-    // - ft_on_transfer from wrong token contract (Wrong token)
-    // - ft_on_transfer with invalid JSON message
-    // - ft_on_transfer with unknown action
+    #[test]
+    fn test_ft_on_transfer_rejects_wrong_token() {
+        let mut c = new_contract();
+        testing_env!(context(bot()).build());
+
+        let err = c
+            .ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap_err();
+
+        assert!(matches!(err, RewardsError::InvalidInput(message) if message == "Wrong token"));
+    }
+
+    #[test]
+    fn test_ft_on_transfer_rejects_non_owner_deposit() {
+        let mut c = new_contract();
+        testing_env!(context(token()).build());
+
+        let err = c
+            .ft_on_transfer(user(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap_err();
+
+        assert!(
+            matches!(err, RewardsError::Unauthorized(message) if message == "Only owner can deposit to pool")
+        );
+    }
+
+    #[test]
+    fn test_ft_on_transfer_rejects_invalid_json() {
+        let mut c = new_contract();
+        testing_env!(context(token()).build());
+
+        let err = c
+            .ft_on_transfer(owner(), U128(50_000), "not-json".into())
+            .unwrap_err();
+
+        assert!(matches!(err, RewardsError::InvalidInput(message) if message == "Invalid JSON"));
+    }
+
+    #[test]
+    fn test_ft_on_transfer_rejects_unknown_action() {
+        let mut c = new_contract();
+        testing_env!(context(token()).build());
+
+        let err = c
+            .ft_on_transfer(owner(), U128(50_000), r#"{"action":"other"}"#.into())
+            .unwrap_err();
+
+        assert!(matches!(err, RewardsError::InvalidInput(message) if message == "Unknown action"));
+    }
 
     // ── Credit reward (direct call) ──────────────────────────────────
 
@@ -82,7 +122,9 @@ mod unit {
 
         // Deposit first
         testing_env!(context(token()).build());
-        let _ = c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        let _ = c
+            .ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Credit via dispatch
         testing_env!(context(owner()).build());
@@ -110,7 +152,9 @@ mod unit {
 
         // Deposit
         testing_env!(context(token()).build());
-        let _ = c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        let _ = c
+            .ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Add bot as authorized caller
         testing_env!(context(owner()).build());
@@ -135,7 +179,9 @@ mod unit {
         let mut c = new_contract();
 
         testing_env!(context(token()).build());
-        let _ = c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        let _ = c
+            .ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
         let result = c.dispatch_action(
@@ -157,7 +203,9 @@ mod unit {
         let mut c = new_contract();
 
         testing_env!(context(token()).build());
-        let _ = c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        let _ = c
+            .ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
 
@@ -191,7 +239,9 @@ mod unit {
         let mut c = new_contract();
 
         testing_env!(context(token()).build());
-        let _ = c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        let _ = c
+            .ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Day 1: credit to cap
         testing_env!(context(owner()).build());
@@ -285,7 +335,8 @@ mod unit {
 
         // Deposit tokens into pool
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(100_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(100_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Partner credits user via app
         testing_env!(context(owner()).build());
@@ -322,7 +373,8 @@ mod unit {
         setup_app(&mut c); // daily_cap = 10_000
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
 
@@ -357,7 +409,8 @@ mod unit {
         setup_app(&mut c);
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
         // bot() is NOT in game_xyz's authorized_callers
@@ -378,7 +431,8 @@ mod unit {
         let mut c = new_contract();
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
         let r = c.dispatch_action(
@@ -402,7 +456,8 @@ mod unit {
         c.deactivate_app("game_xyz".into()).unwrap();
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
         let r = c.dispatch_action(
@@ -423,7 +478,8 @@ mod unit {
         setup_app(&mut c); // game_xyz daily_cap = 10_000
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Credit via app (doesn't consume global daily budget)
         testing_env!(context(owner()).build());
@@ -492,7 +548,8 @@ mod unit {
         .unwrap();
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Credit 4,000 — should succeed
         testing_env!(context(owner()).build());
@@ -642,7 +699,8 @@ mod unit {
         .unwrap();
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Credit 2,000 for user — should succeed
         testing_env!(context(owner()).build());
@@ -716,7 +774,8 @@ mod unit {
     fn test_credit_zero_amount() {
         let mut c = new_contract();
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         testing_env!(context(owner()).build());
         let r = c.dispatch_action(
@@ -737,7 +796,8 @@ mod unit {
         setup_app(&mut c); // authorized_callers = [partner()]
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Owner is NOT in app's authorized_callers but should still succeed
         testing_env!(context(owner()).build());
@@ -760,7 +820,8 @@ mod unit {
         setup_app(&mut c); // daily_cap = 10_000
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Day 1: exhaust per-user app cap
         testing_env!(context(owner()).build());
@@ -809,7 +870,8 @@ mod unit {
         let mut c = new_contract(); // max_daily = 100_000
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Credit 80k first
         testing_env!(context(owner()).build());
@@ -849,7 +911,8 @@ mod unit {
 
         // Deposit and credit
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
         testing_env!(context(owner()).build());
         c.dispatch_action(
             Action::CreditReward {
@@ -896,7 +959,8 @@ mod unit {
 
         // Deposit and credit
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(50_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
         testing_env!(context(owner()).build());
         c.dispatch_action(
             Action::CreditReward {
@@ -961,7 +1025,8 @@ mod unit {
         .unwrap();
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Credit via app_a
         testing_env!(context(owner()).build());
@@ -1043,7 +1108,8 @@ mod unit {
         .unwrap();
 
         testing_env!(context(token()).build());
-        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into());
+        c.ft_on_transfer(owner(), U128(500_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
 
         // Day 1: credit 3,000 — within both budgets
         testing_env!(context(owner()).build());

@@ -3,34 +3,45 @@ use crate::*;
 #[near]
 impl RewardsContract {
     /// NEP-141 receiver. Only accepts `social_token`. Only owner can deposit to pool.
-    pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
-        require!(
-            env::predecessor_account_id() == self.social_token,
-            "Wrong token"
-        );
-        require!(amount.0 > 0, "Amount must be positive");
+    #[handle_result]
+    pub fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> Result<U128, RewardsError> {
+        if env::predecessor_account_id() != self.social_token {
+            return Err(RewardsError::InvalidInput("Wrong token".into()));
+        }
+        if amount.0 == 0 {
+            return Err(RewardsError::InvalidAmount);
+        }
 
-        let parsed: near_sdk::serde_json::Value =
-            near_sdk::serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str("Invalid JSON"));
+        let parsed: near_sdk::serde_json::Value = near_sdk::serde_json::from_str(&msg)
+            .map_err(|_| RewardsError::InvalidInput("Invalid JSON".into()))?;
 
         let action = parsed["action"]
             .as_str()
-            .unwrap_or_else(|| env::panic_str("Missing action"));
+            .ok_or_else(|| RewardsError::InvalidInput("Missing action".into()))?;
 
         match action {
             "deposit" => {
-                require!(sender_id == self.owner_id, "Only owner can deposit to pool");
+                if sender_id != self.owner_id {
+                    return Err(RewardsError::Unauthorized(
+                        "Only owner can deposit to pool".into(),
+                    ));
+                }
 
                 self.pool_balance = self
                     .pool_balance
                     .checked_add(amount.0)
-                    .expect("Pool balance overflow");
+                    .ok_or_else(|| RewardsError::InternalError("Pool balance overflow".into()))?;
 
                 events::emit_pool_deposit(&sender_id, amount.0, self.pool_balance);
             }
-            _ => env::panic_str("Unknown action"),
+            _ => return Err(RewardsError::InvalidInput("Unknown action".into())),
         }
 
-        U128(0)
+        Ok(U128(0))
     }
 }

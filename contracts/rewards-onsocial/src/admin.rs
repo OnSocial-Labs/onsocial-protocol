@@ -117,10 +117,11 @@ impl RewardsContract {
         Ok(())
     }
 
-    pub fn update_contract(&self) -> Promise {
-        require!(env::predecessor_account_id() == self.owner_id, "Not owner");
+    #[handle_result]
+    pub fn update_contract(&self) -> Result<Promise, RewardsError> {
+        self.check_owner()?;
         let code = env::input().expect("No input").to_vec();
-        Promise::new(env::current_account_id())
+        Ok(Promise::new(env::current_account_id())
             .deploy_contract(code)
             .function_call(
                 "migrate".to_string(),
@@ -128,12 +129,16 @@ impl RewardsContract {
                 NearToken::from_near(0),
                 GAS_MIGRATE,
             )
-            .as_return()
+            .as_return())
     }
 
-    pub fn update_contract_from_hash(&self, code_hash: Base58CryptoHash) -> Promise {
-        require!(env::predecessor_account_id() == self.owner_id, "Not owner");
-        Promise::new(env::current_account_id())
+    #[handle_result]
+    pub fn update_contract_from_hash(
+        &self,
+        code_hash: Base58CryptoHash,
+    ) -> Result<Promise, RewardsError> {
+        self.check_owner()?;
+        Ok(Promise::new(env::current_account_id())
             .use_global_contract(code_hash)
             .function_call(
                 "migrate".to_string(),
@@ -141,7 +146,7 @@ impl RewardsContract {
                 NearToken::from_near(0),
                 GAS_MIGRATE,
             )
-            .as_return()
+            .as_return())
     }
 
     #[private]

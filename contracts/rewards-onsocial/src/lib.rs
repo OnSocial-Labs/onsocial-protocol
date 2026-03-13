@@ -7,9 +7,7 @@
 
 use near_sdk::json_types::U128;
 use near_sdk::store::LookupMap;
-use near_sdk::{
-    AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env, near, require,
-};
+use near_sdk::{AccountId, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env, near};
 
 mod admin;
 mod dispatch;
