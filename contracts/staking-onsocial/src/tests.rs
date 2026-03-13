@@ -49,7 +49,7 @@ fn setup_with_storage(contract: &mut OnsocialStaking, account: &str) {
     let mut context = get_context(account);
     context.attached_deposit(NearToken::from_yoctonear(STORAGE_DEPOSIT));
     testing_env!(context.build());
-    contract.storage_deposit(None, None);
+    contract.storage_deposit(None, None).unwrap();
 }
 
 fn lock_tokens(contract: &mut OnsocialStaking, sender: &str, amount: u128, months: u64) {
@@ -58,7 +58,9 @@ fn lock_tokens(contract: &mut OnsocialStaking, sender: &str, amount: u128, month
     testing_env!(context.build());
 
     let msg = format!(r#"{{"action":"lock","months":{}}}"#, months);
-    contract.ft_on_transfer(sender.parse().unwrap(), U128(amount), msg);
+    contract
+        .ft_on_transfer(sender.parse().unwrap(), U128(amount), msg)
+        .unwrap();
 }
 
 fn lock_tokens_at(
@@ -73,7 +75,9 @@ fn lock_tokens_at(
     testing_env!(context.build());
 
     let msg = format!(r#"{{"action":"lock","months":{}}}"#, months);
-    contract.ft_on_transfer(sender.parse().unwrap(), U128(amount), msg);
+    contract
+        .ft_on_transfer(sender.parse().unwrap(), U128(amount), msg)
+        .unwrap();
 }
 
 fn fund_pool(contract: &mut OnsocialStaking, amount: u128) {
@@ -81,11 +85,13 @@ fn fund_pool(contract: &mut OnsocialStaking, amount: u128) {
     testing_env!(context.build());
 
     let msg = r#"{"action":"fund_scheduled"}"#;
-    contract.ft_on_transfer(
-        "funder.near".parse().unwrap(),
-        U128(amount),
-        msg.to_string(),
-    );
+    contract
+        .ft_on_transfer(
+            "funder.near".parse().unwrap(),
+            U128(amount),
+            msg.to_string(),
+        )
+        .unwrap();
 }
 
 fn fund_pool_at(contract: &mut OnsocialStaking, amount: u128, timestamp: u64) {
@@ -94,11 +100,13 @@ fn fund_pool_at(contract: &mut OnsocialStaking, amount: u128, timestamp: u64) {
     testing_env!(context.build());
 
     let msg = r#"{"action":"fund_scheduled"}"#;
-    contract.ft_on_transfer(
-        "funder.near".parse().unwrap(),
-        U128(amount),
-        msg.to_string(),
-    );
+    contract
+        .ft_on_transfer(
+            "funder.near".parse().unwrap(),
+            U128(amount),
+            msg.to_string(),
+        )
+        .unwrap();
 }
 
 fn purchase_credits(contract: &mut OnsocialStaking, sender: &str, amount: u128) {
@@ -106,7 +114,9 @@ fn purchase_credits(contract: &mut OnsocialStaking, sender: &str, amount: u128) 
     testing_env!(context.build());
 
     let msg = r#"{"action":"credits"}"#;
-    contract.ft_on_transfer(sender.parse().unwrap(), U128(amount), msg.to_string());
+    contract
+        .ft_on_transfer(sender.parse().unwrap(), U128(amount), msg.to_string())
+        .unwrap();
 }
 
 // =============================================================================
@@ -152,7 +162,7 @@ fn test_storage_deposit() {
     context.attached_deposit(NearToken::from_yoctonear(STORAGE_DEPOSIT));
     testing_env!(context.build());
 
-    let balance = contract.storage_deposit(None, None);
+    let balance = contract.storage_deposit(None, None).unwrap();
     assert_eq!(balance.total.0, STORAGE_DEPOSIT);
     assert_eq!(balance.available.0, 0);
 
@@ -169,7 +179,7 @@ fn test_storage_deposit_with_refund() {
     context.attached_deposit(NearToken::from_yoctonear(STORAGE_DEPOSIT * 2));
     testing_env!(context.build());
 
-    let balance = contract.storage_deposit(None, None);
+    let balance = contract.storage_deposit(None, None).unwrap();
     assert_eq!(balance.total.0, STORAGE_DEPOSIT);
 }
 
@@ -183,7 +193,7 @@ fn test_storage_deposit_already_registered() {
     context.attached_deposit(NearToken::from_yoctonear(STORAGE_DEPOSIT));
     testing_env!(context.build());
 
-    let balance = contract.storage_deposit(None, None);
+    let balance = contract.storage_deposit(None, None).unwrap();
     assert_eq!(balance.total.0, STORAGE_DEPOSIT);
 }
 
@@ -281,7 +291,7 @@ fn test_lock_succeeds_with_manual_storage_when_subsidy_empty() {
     testing_env!(context.build());
 
     let msg = r#"{"action":"lock","months":6}"#;
-    contract.ft_on_transfer(
+    let _ = contract.ft_on_transfer(
         "alice.near".parse().unwrap(),
         U128(ONE_SOCIAL),
         msg.to_string(),
@@ -350,7 +360,7 @@ fn test_extend_lock() {
     context.block_timestamp(1_000_000_000_000_000_000);
     testing_env!(context.build());
 
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
 
     let new_account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(new_account.lock_months, 12);
@@ -376,7 +386,7 @@ fn test_renew_lock() {
     context.block_timestamp(start_time + MONTH_NS);
     testing_env!(context.build());
 
-    contract.renew_lock();
+    contract.renew_lock().unwrap();
 
     let new_account = contract.get_account("alice.near".parse().unwrap());
     assert!(new_account.unlock_at > old_unlock);
@@ -628,7 +638,7 @@ fn test_credits_60_40_split() {
     testing_env!(context.build());
 
     let msg = r#"{"action":"credits"}"#;
-    contract.ft_on_transfer(
+    let _ = contract.ft_on_transfer(
         "buyer.near".parse().unwrap(),
         U128(100 * ONE_SOCIAL),
         msg.to_string(),
@@ -882,7 +892,9 @@ fn test_set_owner() {
     context.attached_deposit(NearToken::from_yoctonear(1));
     testing_env!(context.build());
 
-    contract.set_owner("new_owner.near".parse().unwrap());
+    contract
+        .set_owner("new_owner.near".parse().unwrap())
+        .unwrap();
 
     assert_eq!(contract.owner_id.as_str(), "new_owner.near");
 }
@@ -2062,7 +2074,7 @@ fn test_lock_6mo_extend_to_48mo_then_unlock() {
     context.block_timestamp(start_time + MONTH_NS); // 1 month later
     testing_env!(context.build());
 
-    contract.extend_lock(48);
+    contract.extend_lock(48).unwrap();
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.lock_months, 48);
@@ -2106,22 +2118,22 @@ fn test_extend_across_all_tiers() {
     let mut context = get_context("alice.near");
     context.block_timestamp(start_time);
     testing_env!(context.build());
-    contract.extend_lock(6);
+    contract.extend_lock(6).unwrap();
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.effective_stake.0, ONE_SOCIAL * 110 / 100);
 
     // Extend to 12 months (20% bonus)
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.effective_stake.0, ONE_SOCIAL * 120 / 100);
 
     // Extend to 24 months (35% bonus)
-    contract.extend_lock(24);
+    contract.extend_lock(24).unwrap();
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.effective_stake.0, ONE_SOCIAL * 135 / 100);
 
     // Extend to 48 months (50% bonus)
-    contract.extend_lock(48);
+    contract.extend_lock(48).unwrap();
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.effective_stake.0, ONE_SOCIAL * 150 / 100);
 }
@@ -2144,7 +2156,7 @@ fn test_extend_within_same_tier() {
     context.block_timestamp(start_time);
     testing_env!(context.build());
 
-    contract.extend_lock(6);
+    contract.extend_lock(6).unwrap();
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.lock_months, 6);
@@ -2172,7 +2184,7 @@ fn test_extend_at_expiry_boundary() {
     testing_env!(context.build());
 
     // Extend to 12 months - should still work (can extend even after expiry)
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.lock_months, 12);
@@ -2197,7 +2209,7 @@ fn test_extend_just_before_expiry() {
     context.block_timestamp(unlock_at - NS_PER_SEC);
     testing_env!(context.build());
 
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.lock_months, 12);
@@ -2209,7 +2221,8 @@ fn test_extend_just_before_expiry() {
 // NOTE: Tests using #[should_panic] are not compatible with NEAR SDK's
 // env::panic_str() in release mode (abort vs unwind). These negative test
 // cases should be covered in integration tests (sandbox) where contract
-// panics are properly caught as transaction failures.
+// panics are properly caught as transaction failures. The ft_on_transfer
+// validation path now returns typed errors directly and is covered below.
 //
 // Negative cases to test in integration tests:
 // - extend_lock to shorter period (New period must be >= current)
@@ -2224,14 +2237,9 @@ fn test_extend_just_before_expiry() {
 // - extend with zero locked (No tokens locked)
 // - renew with zero locked (No tokens locked)
 // - unlock with zero locked (No tokens to unlock)
-// - ft_on_transfer from wrong token (Wrong token)
-// - ft_on_transfer invalid JSON (Invalid JSON)
-// - ft_on_transfer missing action (Missing action)
-// - ft_on_transfer unknown action (Unknown action)
-// - ft_on_transfer lock missing months (Missing months)
 // - withdraw_infra exceeds balance (Insufficient balance)
-// - withdraw_infra not owner (Not owner)
-// - set_owner not owner (Not owner)
+// - withdraw_infra not owner (Only owner)
+// - set_owner not owner (Only owner)
 // - set_owner without deposit (Attach 1 yoctoNEAR)
 // - withdraw_infra without deposit (Attach 1 yoctoNEAR)
 // - claim with no rewards (No rewards to claim)
@@ -2239,6 +2247,110 @@ fn test_extend_just_before_expiry() {
 // - extend_lock while unlock pending (Unlock pending)
 // - renew_lock while unlock pending (Unlock pending)
 // - claim_rewards while unlock pending (Unlock pending)
+
+#[test]
+fn test_ft_on_transfer_rejects_wrong_token() {
+    let mut contract = setup_contract();
+
+    let context = get_context("wrong.token.near");
+    testing_env!(context.build());
+
+    let result = contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(ONE_SOCIAL),
+        r#"{"action":"credits"}"#.to_string(),
+    );
+
+    assert!(matches!(result, Err(StakingError::InvalidInput(message)) if message == "Wrong token"));
+}
+
+#[test]
+fn test_ft_on_transfer_rejects_invalid_json() {
+    let mut contract = setup_contract();
+
+    let context = get_context("social.token.near");
+    testing_env!(context.build());
+
+    let result = contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(ONE_SOCIAL),
+        "not-json".to_string(),
+    );
+
+    assert!(
+        matches!(result, Err(StakingError::InvalidInput(message)) if message == "Invalid JSON")
+    );
+}
+
+#[test]
+fn test_ft_on_transfer_rejects_missing_action() {
+    let mut contract = setup_contract();
+
+    let context = get_context("social.token.near");
+    testing_env!(context.build());
+
+    let result = contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(ONE_SOCIAL),
+        "{}".to_string(),
+    );
+
+    assert!(
+        matches!(result, Err(StakingError::InvalidInput(message)) if message == "Missing action")
+    );
+}
+
+#[test]
+fn test_ft_on_transfer_rejects_unknown_action() {
+    let mut contract = setup_contract();
+
+    let context = get_context("social.token.near");
+    testing_env!(context.build());
+
+    let result = contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(ONE_SOCIAL),
+        r#"{"action":"unknown"}"#.to_string(),
+    );
+
+    assert!(
+        matches!(result, Err(StakingError::InvalidInput(message)) if message == "Unknown action")
+    );
+}
+
+#[test]
+fn test_ft_on_transfer_rejects_missing_months() {
+    let mut contract = setup_contract();
+
+    let context = get_context("social.token.near");
+    testing_env!(context.build());
+
+    let result = contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(ONE_SOCIAL),
+        r#"{"action":"lock"}"#.to_string(),
+    );
+
+    assert!(
+        matches!(result, Err(StakingError::InvalidInput(message)) if message == "Missing months")
+    );
+}
+
+#[test]
+fn test_ft_on_transfer_rejects_zero_amount() {
+    let mut contract = setup_contract();
+
+    let context = get_context("social.token.near");
+    testing_env!(context.build());
+
+    let result = contract.ft_on_transfer(
+        "alice.near".parse().unwrap(),
+        U128(0),
+        r#"{"action":"credits"}"#.to_string(),
+    );
+
+    assert!(matches!(result, Err(StakingError::InvalidAmount)));
+}
 
 // =============================================================================
 // REWARDS AFTER UNLOCK TESTS
@@ -2401,7 +2513,7 @@ fn test_renew_after_expiry() {
         .unlock_at;
 
     // Renew should reset the lock from current time
-    contract.renew_lock();
+    contract.renew_lock().unwrap();
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert!(
@@ -2431,7 +2543,7 @@ fn test_renew_at_exact_expiry() {
     context.block_timestamp(unlock_at);
     testing_env!(context.build());
 
-    contract.renew_lock();
+    contract.renew_lock().unwrap();
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert!(account.unlock_at > unlock_at);
@@ -2460,21 +2572,21 @@ fn test_multiple_users_different_extends() {
     testing_env!(context.build());
 
     // Alice extends to 12mo (20%)
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
 
     let mut context = get_context("bob.near");
     context.block_timestamp(start_time);
     testing_env!(context.build());
 
     // Bob extends to 24mo (35%)
-    contract.extend_lock(24);
+    contract.extend_lock(24).unwrap();
 
     let mut context = get_context("carol.near");
     context.block_timestamp(start_time);
     testing_env!(context.build());
 
     // Carol extends to 48mo (50%)
-    contract.extend_lock(48);
+    contract.extend_lock(48).unwrap();
 
     // Final: Alice 1.2 + Bob 1.35 + Carol 1.5 = 4.05 effective
     let expected = ONE_SOCIAL * 120 / 100 + ONE_SOCIAL * 135 / 100 + ONE_SOCIAL * 150 / 100;
@@ -2498,16 +2610,16 @@ fn test_effective_stake_after_multiple_extends() {
     context.block_timestamp(start_time);
     testing_env!(context.build());
 
-    contract.extend_lock(6);
+    contract.extend_lock(6).unwrap();
     assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 110 / 100); // 11 SOCIAL (6mo = 10%)
 
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
     assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 120 / 100); // 12 SOCIAL
 
-    contract.extend_lock(24);
+    contract.extend_lock(24).unwrap();
     assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 135 / 100); // 13.5 SOCIAL
 
-    contract.extend_lock(48);
+    contract.extend_lock(48).unwrap();
     assert_eq!(contract.total_effective_stake, 10 * ONE_SOCIAL * 150 / 100); // 15 SOCIAL
 }
 
@@ -2806,7 +2918,9 @@ fn test_ownership_transfer() {
     context.attached_deposit(NearToken::from_yoctonear(1));
     testing_env!(context.build());
 
-    contract.set_owner("new_owner.near".parse().unwrap());
+    contract
+        .set_owner("new_owner.near".parse().unwrap())
+        .unwrap();
 
     assert_eq!(contract.owner_id.as_str(), "new_owner.near");
 
@@ -2815,7 +2929,7 @@ fn test_ownership_transfer() {
     context.attached_deposit(NearToken::from_yoctonear(1));
     testing_env!(context.build());
 
-    // This would panic with "Not owner" if we called set_owner again
+    // This would panic with "Only owner" if we called set_owner again
 }
 
 /// Test new owner can perform owner actions
@@ -2829,7 +2943,9 @@ fn test_new_owner_can_act() {
     let mut context = get_context("owner.near");
     context.attached_deposit(NearToken::from_yoctonear(1));
     testing_env!(context.build());
-    contract.set_owner("new_owner.near".parse().unwrap());
+    contract
+        .set_owner("new_owner.near".parse().unwrap())
+        .unwrap();
 
     // New owner can withdraw
     let mut context = get_context("new_owner.near");
@@ -2861,7 +2977,7 @@ fn test_stake_seconds_exactness_after_rapid_operations() {
     testing_env!(context.build());
 
     // Extend in same block
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
 
     // Sync in same block
     contract.sync_account(&"alice.near".parse().unwrap());
@@ -3116,7 +3232,7 @@ fn test_extend_resets_unlock_from_current_time() {
     testing_env!(context.build());
 
     // Extend to 12 months
-    contract.extend_lock(12);
+    contract.extend_lock(12).unwrap();
 
     let new_unlock = contract
         .get_account("alice.near".parse().unwrap())
@@ -3243,7 +3359,9 @@ fn test_storage_deposit_for_another() {
     context.attached_deposit(NearToken::from_yoctonear(STORAGE_DEPOSIT));
     testing_env!(context.build());
 
-    let balance = contract.storage_deposit(Some("bob.near".parse().unwrap()), None);
+    let balance = contract
+        .storage_deposit(Some("bob.near".parse().unwrap()), None)
+        .unwrap();
     assert_eq!(balance.total.0, STORAGE_DEPOSIT);
 
     // Bob should now be registered
@@ -3379,7 +3497,9 @@ fn test_credits_no_rounding_loss() {
     testing_env!(context.build());
 
     let msg = r#"{"action":"credits"}"#;
-    contract.ft_on_transfer("buyer.near".parse().unwrap(), U128(amount), msg.to_string());
+    contract
+        .ft_on_transfer("buyer.near".parse().unwrap(), U128(amount), msg.to_string())
+        .unwrap();
 
     // 60/40 split
     let infra = amount * 60 / 100;

@@ -3218,7 +3218,7 @@ async fn test_bonus_percentages_all_tiers() -> Result<()> {
 
     // Test each valid lock period
     let test_cases: [(u64, u32, u128); 5] = [
-        (1, 10, 110),  // 1 month: 10% bonus = 100 * 1.10 = 110
+        (1, 5, 105),   // 1 month: 5% bonus = 100 * 1.05 = 105
         (6, 10, 110),  // 6 months: 10% bonus
         (12, 20, 120), // 12 months: 20% bonus
         (24, 35, 135), // 24 months: 35% bonus

@@ -6,8 +6,9 @@
 
 use near_sdk::{
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env,
-    json_types::U128, near, require, serde_json, store::LookupMap,
+    json_types::U128, near, serde_json, store::LookupMap,
 };
+use near_sdk_macros::NearSchema;
 use primitive_types::U256;
 
 // --- Constants ---
@@ -25,6 +26,29 @@ const VALID_LOCK_PERIODS: [u64; 5] = [1, 6, 12, 24, 48];
 const MIN_STAKE: u128 = 10_000_000_000_000_000;
 const EVENT_STANDARD: &str = "onsocial";
 const EVENT_VERSION: &str = "1.0.0";
+
+#[derive(NearSchema, near_sdk::FunctionError)]
+#[abi(json)]
+#[derive(Debug, Clone, serde::Serialize)]
+pub enum StakingError {
+    Unauthorized(String),
+    InvalidInput(String),
+    InvalidAmount,
+    NothingToClaim,
+    InsufficientBalance(String),
+}
+
+impl std::fmt::Display for StakingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            Self::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
+            Self::InvalidAmount => write!(f, "Invalid amount"),
+            Self::NothingToClaim => write!(f, "Nothing to claim"),
+            Self::InsufficientBalance(msg) => write!(f, "Insufficient balance: {}", msg),
+        }
+    }
+}
 
 // --- Storage Keys ---
 
@@ -109,11 +133,12 @@ impl OnsocialStaking {
 
     /// Fixed storage; excess deposit is refunded.
     #[payable]
+    #[handle_result]
     pub fn storage_deposit(
         &mut self,
         account_id: Option<AccountId>,
         #[allow(unused_variables)] registration_only: Option<bool>,
-    ) -> StorageBalance {
+    ) -> Result<StorageBalance, StakingError> {
         let account_id = account_id.unwrap_or_else(env::predecessor_account_id);
         let deposit = env::attached_deposit().as_yoctonear();
 
@@ -122,13 +147,17 @@ impl OnsocialStaking {
                 let _ = Promise::new(env::predecessor_account_id())
                     .transfer(NearToken::from_yoctonear(deposit));
             }
-            return StorageBalance {
+            return Ok(StorageBalance {
                 total: U128(STORAGE_DEPOSIT),
                 available: U128(0),
-            };
+            });
         }
 
-        require!(deposit >= STORAGE_DEPOSIT, "Attach at least 0.005 NEAR");
+        if deposit < STORAGE_DEPOSIT {
+            return Err(StakingError::InvalidInput(
+                "Attach at least 0.005 NEAR".into(),
+            ));
+        }
         self.storage_paid.insert(account_id.clone(), true);
 
         self.emit_event(
@@ -145,10 +174,10 @@ impl OnsocialStaking {
                 .transfer(NearToken::from_yoctonear(refund));
         }
 
-        StorageBalance {
+        Ok(StorageBalance {
             total: U128(STORAGE_DEPOSIT),
             available: U128(0),
-        }
+        })
     }
 
     pub fn storage_balance_bounds(&self) -> StorageBalanceBounds {
@@ -169,19 +198,26 @@ impl OnsocialStaking {
 
     // --- NEP-141 Token Receiver ---
 
-    pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
-        require!(
-            env::predecessor_account_id() == self.token_id,
-            "Wrong token"
-        );
-        require!(amount.0 > 0, "Amount must be positive");
+    #[handle_result]
+    pub fn ft_on_transfer(
+        &mut self,
+        sender_id: AccountId,
+        amount: U128,
+        msg: String,
+    ) -> Result<U128, StakingError> {
+        if env::predecessor_account_id() != self.token_id {
+            return Err(StakingError::InvalidInput("Wrong token".into()));
+        }
+        if amount.0 == 0 {
+            return Err(StakingError::InvalidAmount);
+        }
 
-        let parsed: serde_json::Value =
-            serde_json::from_str(&msg).unwrap_or_else(|_| env::panic_str("Invalid JSON"));
+        let parsed: serde_json::Value = serde_json::from_str(&msg)
+            .map_err(|_| StakingError::InvalidInput("Invalid JSON".into()))?;
 
         let action = parsed["action"]
             .as_str()
-            .unwrap_or_else(|| env::panic_str("Missing action"));
+            .ok_or_else(|| StakingError::InvalidInput("Missing action".into()))?;
 
         match action {
             "lock" => {
@@ -189,24 +225,28 @@ impl OnsocialStaking {
                 // Subsidised by the contract's own NEAR balance; if depleted the
                 // user can fall back to calling storage_deposit() manually.
                 if !self.storage_paid.contains_key(&sender_id) {
-                    require!(
-                        self.free_balance() >= STORAGE_DEPOSIT,
-                        "Storage subsidy exhausted: call storage_deposit() with 0.005 NEAR first"
-                    );
+                    if self.free_balance() < STORAGE_DEPOSIT {
+                        return Err(StakingError::InvalidInput(
+                            "Storage subsidy exhausted: call storage_deposit() with 0.005 NEAR first"
+                                .into(),
+                        ));
+                    }
                     self.storage_paid.insert(sender_id.clone(), true);
                 }
                 let months = parsed["months"]
                     .as_u64()
-                    .unwrap_or_else(|| env::panic_str("Missing months"));
-                require!(VALID_LOCK_PERIODS.contains(&months), "Invalid lock period");
-                self.internal_lock(sender_id, amount.0, months);
+                    .ok_or_else(|| StakingError::InvalidInput("Missing months".into()))?;
+                if !VALID_LOCK_PERIODS.contains(&months) {
+                    return Err(StakingError::InvalidInput("Invalid lock period".into()));
+                }
+                self.internal_lock(sender_id, amount.0, months)?;
             }
             "credits" => self.internal_purchase_credits(sender_id, amount.0),
             "fund_scheduled" => self.internal_fund_scheduled(amount.0),
-            _ => env::panic_str("Unknown action"),
+            _ => return Err(StakingError::InvalidInput("Unknown action".into())),
         }
 
-        U128(0)
+        Ok(U128(0))
     }
 
     // --- Core: Rewards Release ---
@@ -307,18 +347,28 @@ impl OnsocialStaking {
 
     // --- Staking Operations ---
 
-    fn internal_lock(&mut self, account_id: AccountId, amount: u128, months: u64) {
-        require!(amount >= MIN_STAKE, "Minimum stake is 0.01 SOCIAL");
-        require!(
-            !self.pending_unlocks.contains_key(&account_id),
-            "Unlock pending"
-        );
+    fn internal_lock(
+        &mut self,
+        account_id: AccountId,
+        amount: u128,
+        months: u64,
+    ) -> Result<(), StakingError> {
+        if amount < MIN_STAKE {
+            return Err(StakingError::InvalidInput(
+                "Minimum stake is 0.01 SOCIAL".into(),
+            ));
+        }
+        if self.pending_unlocks.contains_key(&account_id) {
+            return Err(StakingError::InvalidInput("Unlock pending".into()));
+        }
         self.sync_account(&account_id);
 
         let mut account = self.accounts.get(&account_id).cloned().unwrap_or_default();
 
         if account.locked_amount > 0 && account.lock_months != months {
-            env::panic_str("Cannot add with different lock period. Use extend_lock first.");
+            return Err(StakingError::InvalidInput(
+                "Cannot add with different lock period. Use extend_lock first.".into(),
+            ));
         }
 
         let now = env::block_timestamp();
@@ -349,31 +399,41 @@ impl OnsocialStaking {
                 "effective_stake": new_effective.to_string()
             }),
         );
+        Ok(())
     }
 
-    pub fn extend_lock(&mut self, months: u64) {
-        require!(VALID_LOCK_PERIODS.contains(&months), "Invalid lock period");
+    #[handle_result]
+    pub fn extend_lock(&mut self, months: u64) -> Result<(), StakingError> {
+        if !VALID_LOCK_PERIODS.contains(&months) {
+            return Err(StakingError::InvalidInput("Invalid lock period".into()));
+        }
         let account_id = env::predecessor_account_id();
-        require!(
-            !self.pending_unlocks.contains_key(&account_id),
-            "Unlock pending"
-        );
+        if self.pending_unlocks.contains_key(&account_id) {
+            return Err(StakingError::InvalidInput("Unlock pending".into()));
+        }
         self.sync_account(&account_id);
 
         let mut account = self
             .accounts
             .get(&account_id)
             .cloned()
-            .unwrap_or_else(|| env::panic_str("No account"));
-        require!(account.locked_amount > 0, "No tokens locked");
-        require!(
-            months >= account.lock_months,
-            "New period must be >= current"
-        );
+            .ok_or_else(|| StakingError::InvalidInput("No account".into()))?;
+        if account.locked_amount == 0 {
+            return Err(StakingError::InvalidInput("No tokens locked".into()));
+        }
+        if months < account.lock_months {
+            return Err(StakingError::InvalidInput(
+                "New period must be >= current".into(),
+            ));
+        }
 
         let now = env::block_timestamp();
         let new_unlock = now.saturating_add(months.saturating_mul(MONTH_NS));
-        require!(new_unlock > account.unlock_at, "New unlock must be later");
+        if new_unlock <= account.unlock_at {
+            return Err(StakingError::InvalidInput(
+                "New unlock must be later".into(),
+            ));
+        }
 
         let old_effective = account.tracked_effective_stake;
         account.unlock_at = new_unlock;
@@ -397,23 +457,27 @@ impl OnsocialStaking {
                 "new_effective": new_effective.to_string()
             }),
         );
+        Ok(())
     }
 
-    pub fn renew_lock(&mut self) {
+    #[handle_result]
+    pub fn renew_lock(&mut self) -> Result<(), StakingError> {
         let account_id = env::predecessor_account_id();
-        require!(
-            !self.pending_unlocks.contains_key(&account_id),
-            "Unlock pending"
-        );
+        if self.pending_unlocks.contains_key(&account_id) {
+            return Err(StakingError::InvalidInput("Unlock pending".into()));
+        }
         let account = self
             .accounts
             .get(&account_id)
-            .unwrap_or_else(|| env::panic_str("No account"));
-        require!(account.locked_amount > 0, "No tokens locked");
-        self.extend_lock(account.lock_months);
+            .ok_or_else(|| StakingError::InvalidInput("No account".into()))?;
+        if account.locked_amount == 0 {
+            return Err(StakingError::InvalidInput("No tokens locked".into()));
+        }
+        self.extend_lock(account.lock_months)
     }
 
-    pub fn unlock(&mut self) -> Promise {
+    #[handle_result]
+    pub fn unlock(&mut self) -> Result<Promise, StakingError> {
         let account_id = env::predecessor_account_id();
         self.sync_account(&account_id);
 
@@ -421,12 +485,13 @@ impl OnsocialStaking {
             .accounts
             .get(&account_id)
             .cloned()
-            .unwrap_or_else(|| env::panic_str("No account"));
-        require!(
-            env::block_timestamp() >= account.unlock_at,
-            "Lock not expired"
-        );
-        require!(account.locked_amount > 0, "No tokens to unlock");
+            .ok_or_else(|| StakingError::InvalidInput("No account".into()))?;
+        if env::block_timestamp() < account.unlock_at {
+            return Err(StakingError::InvalidInput("Lock not expired".into()));
+        }
+        if account.locked_amount == 0 {
+            return Err(StakingError::InvalidInput("No tokens to unlock".into()));
+        }
 
         let amount = account.locked_amount;
         let effective = account.tracked_effective_stake;
@@ -453,12 +518,12 @@ impl OnsocialStaking {
         account.tracked_effective_stake = 0;
         self.accounts.insert(account_id.clone(), account);
 
-        self.ft_transfer_with_callback(
+        Ok(self.ft_transfer_with_callback(
             account_id.clone(),
             amount,
             "on_unlock_callback",
             serde_json::json!({ "account_id": account_id }),
-        )
+        ))
     }
 
     #[private]
@@ -560,27 +625,29 @@ impl OnsocialStaking {
         self.total_rewards_released.saturating_add(released)
     }
 
-    pub fn claim_rewards(&mut self) -> Promise {
+    #[handle_result]
+    pub fn claim_rewards(&mut self) -> Result<Promise, StakingError> {
         let account_id = env::predecessor_account_id();
-        require!(
-            !self.pending_unlocks.contains_key(&account_id),
-            "Unlock pending"
-        );
+        if self.pending_unlocks.contains_key(&account_id) {
+            return Err(StakingError::InvalidInput("Unlock pending".into()));
+        }
         self.sync_account(&account_id);
 
         let account = self
             .accounts
             .get(&account_id)
-            .unwrap_or_else(|| env::panic_str("No account"));
+            .ok_or_else(|| StakingError::InvalidInput("No account".into()))?;
 
         let claimable = self.calculate_claimable_internal(account, false);
-        require!(claimable > 0, "No rewards to claim");
+        if claimable == 0 {
+            return Err(StakingError::NothingToClaim);
+        }
 
         let mut account = account.clone();
         account.rewards_claimed = account.rewards_claimed.saturating_add(claimable);
         self.accounts.insert(account_id.clone(), account);
 
-        self.ft_transfer_with_callback(
+        Ok(self.ft_transfer_with_callback(
             account_id.clone(),
             claimable,
             "on_claim_callback",
@@ -588,7 +655,7 @@ impl OnsocialStaking {
                 "account_id": account_id,
                 "amount": U128(claimable)
             }),
-        )
+        ))
     }
 
     #[private]
@@ -657,22 +724,28 @@ impl OnsocialStaking {
     // --- Owner Functions ---
 
     #[payable]
-    pub fn withdraw_infra(&mut self, amount: U128, receiver_id: AccountId) -> Promise {
-        require!(
-            env::attached_deposit().as_yoctonear() == 1,
-            "Attach 1 yoctoNEAR"
-        );
-        require!(env::predecessor_account_id() == self.owner_id, "Not owner");
-        require!(amount.0 <= self.infra_pool, "Insufficient balance");
+    #[handle_result]
+    pub fn withdraw_infra(
+        &mut self,
+        amount: U128,
+        receiver_id: AccountId,
+    ) -> Result<Promise, StakingError> {
+        if env::attached_deposit().as_yoctonear() != 1 {
+            return Err(StakingError::InvalidInput("Attach 1 yoctoNEAR".into()));
+        }
+        self.assert_owner()?;
+        if amount.0 > self.infra_pool {
+            return Err(StakingError::InsufficientBalance("infra pool".into()));
+        }
 
         self.infra_pool = self.infra_pool.saturating_sub(amount.0);
 
-        self.ft_transfer_with_callback(
+        Ok(self.ft_transfer_with_callback(
             receiver_id.clone(),
             amount.0,
             "on_withdraw_infra_callback",
             serde_json::json!({ "amount": amount, "receiver_id": receiver_id }),
-        )
+        ))
     }
 
     #[private]
@@ -704,12 +777,12 @@ impl OnsocialStaking {
     }
 
     #[payable]
-    pub fn set_owner(&mut self, new_owner: AccountId) {
-        require!(
-            env::attached_deposit().as_yoctonear() == 1,
-            "Attach 1 yoctoNEAR"
-        );
-        require!(env::predecessor_account_id() == self.owner_id, "Not owner");
+    #[handle_result]
+    pub fn set_owner(&mut self, new_owner: AccountId) -> Result<(), StakingError> {
+        if env::attached_deposit().as_yoctonear() != 1 {
+            return Err(StakingError::InvalidInput("Attach 1 yoctoNEAR".into()));
+        }
+        self.assert_owner()?;
         let old = self.owner_id.clone();
         self.owner_id = new_owner.clone();
         self.emit_event(
@@ -719,12 +792,14 @@ impl OnsocialStaking {
                 "old_owner": old, "new_owner": new_owner
             }),
         );
+        Ok(())
     }
 
-    pub fn update_contract(&self) -> Promise {
-        require!(env::predecessor_account_id() == self.owner_id, "Not owner");
+    #[handle_result]
+    pub fn update_contract(&self) -> Result<Promise, StakingError> {
+        self.assert_owner()?;
         let code = env::input().expect("No input").to_vec();
-        Promise::new(env::current_account_id())
+        Ok(Promise::new(env::current_account_id())
             .deploy_contract(code)
             .function_call(
                 "migrate".to_string(),
@@ -732,7 +807,7 @@ impl OnsocialStaking {
                 NearToken::from_near(0),
                 GAS_MIGRATE,
             )
-            .as_return()
+            .as_return())
     }
 
     #[private]
@@ -861,6 +936,13 @@ impl OnsocialStaking {
         env::account_balance()
             .as_yoctonear()
             .saturating_sub(used_bytes * byte_cost)
+    }
+
+    fn assert_owner(&self) -> Result<(), StakingError> {
+        if env::predecessor_account_id() != self.owner_id {
+            return Err(StakingError::Unauthorized("Only owner".into()));
+        }
+        Ok(())
     }
 
     fn effective_stake(&self, account: &Account) -> u128 {

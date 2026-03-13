@@ -19,6 +19,45 @@ log_info() {
   echo -e "${INFO}$1${RESET}"
 }
 
+confirm_deploy() {
+  if [ "$DRY_RUN" = "1" ]; then
+    return 0
+  fi
+
+  if [ "$AUTO_CONFIRM" = "1" ]; then
+    log_info "Auto-confirm enabled (AUTO_CONFIRM=1)"
+    return 0
+  fi
+
+  if [ ! -t 0 ]; then
+    handle_error "Deployment confirmation requires an interactive terminal or AUTO_CONFIRM=1"
+  fi
+
+  echo -e "${WARNING}WARNING: Deploying to $NETWORK${RESET}"
+  echo "Contract: $contract"
+  echo "Contract ID: $contract_id"
+  echo "Deployer: $AUTH_ACCOUNT"
+  echo "Confirm deployment (y/N):"
+  read -r confirm
+  [ "$confirm" != "y" ] && handle_error "$NETWORK deployment aborted"
+}
+
+expand_env_placeholders() {
+  local template="$1"
+  local expanded="$template"
+  local remaining="$template"
+
+  while [[ "$remaining" =~ (\$\{[A-Za-z_][A-Za-z0-9_]*\}) ]]; do
+    local placeholder="${BASH_REMATCH[1]}"
+    local var_name="${placeholder:2:${#placeholder}-3}"
+    local var_value="${!var_name-}"
+    expanded="${expanded//${placeholder}/${var_value}}"
+    remaining="${remaining#*${placeholder}}"
+  done
+
+  printf '%s' "$expanded"
+}
+
 # Parse Makefile-style environment variables for unified interface
 parse_makefile_params() {
   if [ "$INIT" = "1" ]; then
@@ -135,15 +174,7 @@ deploy_contract() {
 
   # Confirmation for testnet or mainnet
   if [ "$NETWORK" = "mainnet" ] || [ "$NETWORK" = "testnet" ]; then
-    if [ "$DRY_RUN" != "1" ]; then
-      echo -e "${WARNING}WARNING: Deploying to $NETWORK${RESET}"
-      echo "Contract: $contract"
-      echo "Contract ID: $contract_id" 
-      echo "Deployer: $AUTH_ACCOUNT"
-      echo "Confirm deployment (y/N):"
-      read -r confirm
-      [ "$confirm" != "y" ] && handle_error "$NETWORK deployment aborted"
-    fi
+    confirm_deploy
   fi
 
   # Dry-run mode
@@ -159,7 +190,7 @@ deploy_contract() {
       init_raw=$(echo "$contract_config" | jq -r '.init')
       init_method=$(echo "$init_raw" | awk '{print $1}')
       init_json=$(echo "$init_raw" | sed "s/^$init_method //" | sed "s/^'//;s/'$//")
-      init_json=$(echo "$init_json" | envsubst)
+      init_json=$(expand_env_placeholders "$init_json")
       echo "  Init method: $init_method"
       echo "  Init args: $init_json"
     fi
@@ -206,15 +237,18 @@ deploy_contract() {
     init_json=$(echo "$init_raw" | sed "s/^$init_method //" | sed "s/^'//;s/'$//")
     
     # Expand environment variables (e.g. ${AUTH_ACCOUNT} → onsocial.testnet)
-    init_json=$(echo "$init_json" | envsubst)
+    init_json=$(expand_env_placeholders "$init_json")
     
     [ "$VERBOSE" = "1" ] && echo "Running: near call $contract_id $init_method '$init_json' --accountId $AUTH_ACCOUNT --networkId $NETWORK ..."
-    
+
+    local init_result=0
     if [ "$VERBOSE" = "1" ]; then
-      near call "$contract_id" "$init_method" "$init_json" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK"
+      near call "$contract_id" "$init_method" "$init_json" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK" || init_result=$?
     else
-      near call "$contract_id" "$init_method" "$init_json" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK" >/dev/null
+      near call "$contract_id" "$init_method" "$init_json" --accountId "$AUTH_ACCOUNT" --networkId "$NETWORK" >/dev/null 2>&1 || init_result=$?
     fi
+
+    [ "$init_result" -ne 0 ] && handle_error "Initialization failed with exit code $init_result"
     
     echo -e "${SUCCESS}$contract initialized successfully${RESET}"
   fi
