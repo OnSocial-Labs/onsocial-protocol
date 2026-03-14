@@ -11,6 +11,7 @@
 //   GET    /v1/admin/applications          — list all applications
 //   POST   /v1/admin/approve/:appId        — approve + issue API key
 //   POST   /v1/admin/reject/:appId         — reject application
+//   POST   /v1/admin/reopen/:appId         — reopen rejected application
 // ---------------------------------------------------------------------------
 
 import { Router } from 'express';
@@ -98,11 +99,57 @@ router.post('/apply', async (req: Request, res: Response): Promise<void> => {
   try {
     // Check if app_id already exists
     const existing = await query(
-      `SELECT id, status FROM partner_keys WHERE app_id = $1`,
+      `SELECT id, status, wallet_id FROM partner_keys WHERE app_id = $1`,
       [app_id]
     );
     if (existing.rows.length > 0) {
-      const row = existing.rows[0] as { status: string };
+      const row = existing.rows[0] as {
+        status: string;
+        wallet_id: string | null;
+      };
+
+      if (
+        row.status === 'reopened' &&
+        row.wallet_id === (body.wallet_id || null)
+      ) {
+        await query(
+          `UPDATE partner_keys
+           SET label = $1,
+               status = 'pending',
+               wallet_id = $2,
+               description = $3,
+               expected_users = $4,
+               contact = $5,
+               active = false,
+               api_key = NULL,
+               admin_notes = '',
+               reviewed_at = NULL,
+               created_at = now()
+           WHERE app_id = $6`,
+          [
+            label,
+            body.wallet_id || null,
+            body.description || '',
+            body.expected_users || '',
+            body.contact || '',
+            app_id,
+          ]
+        );
+
+        logger.info(
+          { appId: app_id, label, wallet: body.wallet_id },
+          'Partner application resubmitted'
+        );
+
+        res.json({
+          success: true,
+          app_id,
+          label,
+          status: 'pending',
+        });
+        return;
+      }
+
       res.status(409).json({
         success: false,
         error: `app_id already ${row.status}`,
@@ -176,7 +223,7 @@ router.get(
         success: true,
         app_id: row.app_id,
         label: row.label,
-        status: row.status,
+        status: row.status === 'reopened' ? 'none' : row.status,
         // Only reveal API key if approved
         api_key: row.status === 'approved' ? row.api_key : undefined,
         applied_at: row.created_at,
@@ -286,6 +333,55 @@ router.post(
 );
 
 // ---------------------------------------------------------------------------
+// POST /v1/admin/reopen/:appId — reopen rejected application for resubmission
+// ---------------------------------------------------------------------------
+
+router.post(
+  '/reopen/:appId',
+  requireAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const { appId } = req.params;
+
+    try {
+      const existing = await query(
+        `SELECT id, status FROM partner_keys WHERE app_id = $1`,
+        [appId]
+      );
+
+      if (existing.rows.length === 0) {
+        res
+          .status(404)
+          .json({ success: false, error: 'Application not found' });
+        return;
+      }
+
+      const row = existing.rows[0] as { status: string };
+      if (row.status !== 'rejected') {
+        res.status(409).json({
+          success: false,
+          error: 'Only rejected applications can be reopened',
+        });
+        return;
+      }
+
+      await query(
+        `UPDATE partner_keys
+         SET status = 'reopened', active = false, api_key = NULL, reviewed_at = NULL
+         WHERE app_id = $1`,
+        [appId]
+      );
+
+      logger.info({ appId }, 'Partner application reopened');
+
+      res.json({ success: true, app_id: appId, status: 'reopened' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: msg });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // POST /v1/admin/rotate-key/:wallet — rotate API key (wallet-authenticated)
 // ---------------------------------------------------------------------------
 // The partner portal calls this when the user clicks "Rotate Key".
@@ -320,12 +416,10 @@ router.post(
       );
 
       if (result.rows.length === 0) {
-        res
-          .status(404)
-          .json({
-            success: false,
-            error: 'No active partner found for this wallet',
-          });
+        res.status(404).json({
+          success: false,
+          error: 'No active partner found for this wallet',
+        });
         return;
       }
 

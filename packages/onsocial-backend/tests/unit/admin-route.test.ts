@@ -93,6 +93,25 @@ describe('POST /v1/admin/apply', () => {
     expect(res.body.error).toMatch(/already pending/);
   });
 
+  it('reuses reopened application for the same wallet', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([{ id: 1, status: 'reopened', wallet_id: 'alice.testnet' }])
+    );
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(app).post('/v1/admin/apply').send({
+      label: 'Test App',
+      app_id: 'test_app',
+      wallet_id: 'alice.testnet',
+      description: 'Updated description',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.app_id).toBe('test_app');
+    expect(res.body.status).toBe('pending');
+  });
+
   it('creates pending application successfully', async () => {
     // First query: check existing (none)
     mockQuery.mockResolvedValueOnce(makeRows([]));
@@ -176,6 +195,25 @@ describe('GET /v1/admin/status/:wallet', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('approved');
     expect(res.body.api_key).toBe('os_live_abc123');
+  });
+
+  it('treats reopened apps as none for the partner status check', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test',
+          status: 'reopened',
+          api_key: null,
+          created_at: '2026-01-01',
+        },
+      ])
+    );
+
+    const res = await request(app).get('/v1/admin/status/alice.testnet');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('none');
+    expect(res.body.api_key).toBeUndefined();
   });
 });
 
@@ -282,6 +320,55 @@ describe('POST /v1/admin/reject/:appId', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.status).toBe('rejected');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /v1/admin/reopen/:appId (admin-only)
+// ---------------------------------------------------------------------------
+
+describe('POST /v1/admin/reopen/:appId', () => {
+  beforeEach(() => {
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue(makeRows([]));
+  });
+
+  it('rejects without admin secret', async () => {
+    const res = await request(app).post('/v1/admin/reopen/test_app');
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 for unknown app', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(app)
+      .post('/v1/admin/reopen/unknown_app')
+      .set(ADMIN_HEADER);
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 409 if app is not rejected', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([{ id: 1, status: 'pending' }]));
+
+    const res = await request(app)
+      .post('/v1/admin/reopen/test_app')
+      .set(ADMIN_HEADER);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(
+      /Only rejected applications can be reopened/
+    );
+  });
+
+  it('reopens a rejected application', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([{ id: 1, status: 'rejected' }]));
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(app)
+      .post('/v1/admin/reopen/test_app')
+      .set(ADMIN_HEADER);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.status).toBe('reopened');
   });
 });
 
