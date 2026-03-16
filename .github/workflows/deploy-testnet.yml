@@ -10,6 +10,7 @@ on:
       - 'packages/onsocial-rpc/**'
       - 'docker/**'
       - 'deployment/**'
+      - 'scripts/pull-secrets.sh'
       - '.github/workflows/deploy-testnet.yml'
   workflow_dispatch:
 
