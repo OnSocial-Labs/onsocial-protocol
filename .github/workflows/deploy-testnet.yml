@@ -281,7 +281,7 @@ jobs:
             if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
               FINAL_SERVICES="$FINAL_SERVICES backend"
             fi
-            docker compose up -d $FINAL_SERVICES
+            docker compose up -d --no-deps $FINAL_SERVICES
 
             echo ""
             docker compose ps --format "table {{.Name}}\t{{.Status}}"
