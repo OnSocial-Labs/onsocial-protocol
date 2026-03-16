@@ -96,7 +96,10 @@ export const config = {
 
   // Nearblocks — optional API key for higher limits
   nearblocksApiUrl:
-    process.env.NEARBLOCKS_API_URL || 'https://api.nearblocks.io',
+    process.env.NEARBLOCKS_API_URL ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'https://api.nearblocks.io'
+      : 'https://api-testnet.nearblocks.io'),
   nearblocksApiKey: env('NEARBLOCKS_API_KEY'),
 
   // Lighthouse (storage) — auto-pulled from GSM in dev

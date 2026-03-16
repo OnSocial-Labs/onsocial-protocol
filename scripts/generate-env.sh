@@ -60,7 +60,7 @@ echo ""
 
 # Pull secrets from GSM
 echo -e "Pulling secrets from Google Secret Manager..."
-SECRETS=$("$SCRIPT_DIR/pull-secrets.sh" 2>/tmp/gsm-warnings.txt) || {
+SECRETS=$(NEAR_NETWORK="$NETWORK" "$SCRIPT_DIR/pull-secrets.sh" 2>/tmp/gsm-warnings.txt) || {
   echo -e "${RED}❌ Failed to pull secrets from GSM${NC}"
   echo "Make sure you're authenticated: gcloud auth login"
   echo "And secrets exist: scripts/setup-secrets.sh"

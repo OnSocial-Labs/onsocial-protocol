@@ -14,6 +14,7 @@
 set -euo pipefail
 
 PROJECT="${GCP_PROJECT:-onsocial-protocol}"
+NEAR_NETWORK="${NEAR_NETWORK:-testnet}"
 
 # Secrets stored in GSM
 SECRETS=(
@@ -61,5 +62,5 @@ echo "RELAYER_MIN_KEYS=${RELAYER_MIN_KEYS:-30}"
 echo "RELAYER_MAX_KEYS=${RELAYER_MAX_KEYS:-200}"
 echo "RELAYER_WARM_BUFFER=${RELAYER_WARM_BUFFER:-2}"
 echo "PUBLIC_DOMAIN=${PUBLIC_DOMAIN:-testnet.onsocial.id}"
-echo "NEARBLOCKS_API_URL=${NEARBLOCKS_API_URL:-https://api.nearblocks.io}"
+echo "NEARBLOCKS_API_URL=${NEARBLOCKS_API_URL:-$([ \"$NEAR_NETWORK\" = \"mainnet\" ] && echo https://api.nearblocks.io || echo https://api-testnet.nearblocks.io)}"
 echo "RELAYER_MAX_KEY_AGE=${RELAYER_MAX_KEY_AGE:-86400}"

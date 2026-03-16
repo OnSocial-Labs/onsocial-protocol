@@ -182,7 +182,7 @@ ENVEOF
 
   # Append secrets from GSM
   echo "# --- Secrets (from Google Secret Manager) ---" >> .env.production
-  ./pull-secrets.sh >> .env.production
+  NEAR_NETWORK="$NETWORK" ./pull-secrets.sh >> .env.production
 
   # Verify no placeholders
   if grep -q "CHANGE_ME" .env.production; then

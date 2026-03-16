@@ -77,6 +77,7 @@ describe('config network defaults', () => {
     });
 
     expect(config.socialTokenContract).toBe('token.onsocial.testnet');
+    expect(config.nearblocksApiUrl).toBe('https://api-testnet.nearblocks.io');
   });
 
   it('defaults to the mainnet token contract', async () => {
@@ -89,6 +90,7 @@ describe('config network defaults', () => {
     });
 
     expect(config.socialTokenContract).toBe('token.onsocial.near');
+    expect(config.nearblocksApiUrl).toBe('https://api.nearblocks.io');
   });
 
   it('honors an explicit token contract override', async () => {
