@@ -136,6 +136,33 @@ jobs:
             set -euo pipefail
             cd /opt/onsocial
 
+            upsert_env() {
+              local key="$1" value="$2"
+              if grep -q "^${key}=" .env.production; then
+                sed -i "s|^${key}=.*|${key}=${value}|" .env.production
+              else
+                printf '%s=%s\n' "$key" "$value" >> .env.production
+              fi
+            }
+
+            if [ ! -f .env.production ]; then
+              echo "❌ Missing /opt/onsocial/.env.production"
+              exit 1
+            fi
+
+            upsert_env "NEAR_NETWORK" "testnet"
+            upsert_env "RELAYER_ACCOUNT_ID" "relayer.onsocial.testnet"
+            upsert_env "RELAYER_CONTRACT_ID" "core.onsocial.testnet"
+            upsert_env "SOCIAL_TOKEN_CONTRACT" "token.onsocial.testnet"
+            upsert_env "STAKING_CONTRACT" "staking.onsocial.testnet"
+            upsert_env "MARKETPLACE_CONTRACT" "marketplace.onsocial.testnet"
+            upsert_env "GCP_KMS_KEYRING_0" "relayer-keys-testnet"
+            upsert_env "GCP_KMS_KEYRING_1" "relayer-keys-inst-1"
+            upsert_env "PUBLIC_DOMAIN" "testnet.onsocial.id"
+            upsert_env "CORS_ORIGINS" "https://testnet.onsocial.id,http://localhost:3000,http://localhost:4000"
+            upsert_env "HASURA_GRAPHQL_CORS_DOMAIN" "https://testnet.onsocial.id,http://localhost:3000"
+            upsert_env "NEARBLOCKS_API_URL" "https://api-testnet.nearblocks.io"
+
             # ── Health check helpers ─────────────────────────────────
             check_health() {
               local name="$1" url="$2" retries="${3:-20}" delay="${4:-3}"
