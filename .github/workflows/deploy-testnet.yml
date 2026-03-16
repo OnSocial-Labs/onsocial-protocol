@@ -91,7 +91,7 @@ jobs:
         run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Authenticate to GCP (Workload Identity Federation)
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
           service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
@@ -192,6 +192,12 @@ jobs:
               echo "  ❌ $name failed after $retries attempts"
               return 1
             }
+            print_service_logs() {
+              local service="$1"
+              echo "----- ${service} logs (last 200 lines) -----"
+              docker compose logs --tail=200 "$service" || true
+              echo "----- end ${service} logs -----"
+            }
 
             # ── Rollback helper (skips if no previous tag) ───────────
             rollback() {
@@ -257,16 +263,25 @@ jobs:
             fi
 
             # ── Backend (Telegram rewards bot) ───────────────────────
-            echo "Rolling backend..."
-            docker compose up -d --no-deps backend
-            if ! check_container_health "backend" "backend" "http://localhost:4001/health" 10 3; then
-              echo "❌ Backend health check failed — rolling back"
-              rollback "backend gateway relayer-0 relayer-1"
-              exit 1
+            if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+              echo "Rolling backend..."
+              docker compose up -d --no-deps backend
+              if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
+                print_service_logs "backend"
+                echo "❌ Backend health check failed — rolling back"
+                rollback "backend gateway relayer-0 relayer-1"
+                exit 1
+              fi
+            else
+              echo "⚠️  TELEGRAM_BOT_TOKEN is not set — skipping backend rollout and health check"
             fi
 
             # ── Bring up any remaining services ──────────────────────
-            docker compose up -d
+            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway caddy"
+            if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+              FINAL_SERVICES="$FINAL_SERVICES backend"
+            fi
+            docker compose up -d $FINAL_SERVICES
 
             echo ""
             docker compose ps --format "table {{.Name}}\t{{.Status}}"

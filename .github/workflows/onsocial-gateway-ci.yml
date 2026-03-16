@@ -65,7 +65,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Authenticate to GCP (Workload Identity Federation)
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
           service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
