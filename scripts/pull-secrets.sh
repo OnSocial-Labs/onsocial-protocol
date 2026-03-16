@@ -35,17 +35,40 @@ OPTIONAL_SECRETS=(
   NEARBLOCKS_API_KEY
 )
 
-for name in "${SECRETS[@]}"; do
-  value=$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || echo "")
-  if [ -z "$value" ]; then
-    echo "# WARNING: $name — not found or empty in GSM" >&2
+fetch_secret() {
+  local name="$1"
+  local err_file
+  local value
+  local err
+
+  err_file="$(mktemp)"
+  if value="$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>"$err_file")"; then
+    rm -f "$err_file"
+    printf '%s' "$value"
+    return 0
+  fi
+
+  err="$(tr '\n' ' ' < "$err_file" | sed 's/[[:space:]]\+/ /g; s/^ //; s/ $//')"
+  rm -f "$err_file"
+
+  if [ -n "$err" ]; then
+    echo "# WARNING: $name — $err" >&2
   else
+    echo "# WARNING: $name — not found or empty in GSM" >&2
+  fi
+
+  return 1
+}
+
+for name in "${SECRETS[@]}"; do
+  value="$(fetch_secret "$name" || true)"
+  if [ -n "$value" ]; then
     echo "$name=$value"
   fi
 done
 
 for name in "${OPTIONAL_SECRETS[@]}"; do
-  value=$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || echo "")
+  value="$(fetch_secret "$name" || true)"
   if [ -n "$value" ]; then
     echo "$name=$value"
   fi
