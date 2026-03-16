@@ -13,25 +13,8 @@
 
 set -euo pipefail
 
-PROJECT="${GCP_PROJECT:-${GOOGLE_CLOUD_PROJECT:-}}"
-if [ -z "$PROJECT" ]; then
-  PROJECT="$(gcloud config get-value project 2>/dev/null || true)"
-fi
-if [ "$PROJECT" = "(unset)" ]; then
-  PROJECT=""
-fi
+PROJECT="${GCP_PROJECT:-onsocial-protocol}"
 NEAR_NETWORK="${NEAR_NETWORK:-testnet}"
-
-fetch_secret() {
-  local name="$1"
-
-  if [ -n "$PROJECT" ]; then
-    gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || true
-    return
-  fi
-
-  gcloud secrets versions access latest --secret="$name" 2>/dev/null || true
-}
 
 # Secrets stored in GSM
 SECRETS=(
@@ -53,7 +36,7 @@ OPTIONAL_SECRETS=(
 )
 
 for name in "${SECRETS[@]}"; do
-  value="$(fetch_secret "$name")"
+  value=$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || echo "")
   if [ -z "$value" ]; then
     echo "# WARNING: $name — not found or empty in GSM" >&2
   else
@@ -62,7 +45,7 @@ for name in "${SECRETS[@]}"; do
 done
 
 for name in "${OPTIONAL_SECRETS[@]}"; do
-  value="$(fetch_secret "$name")"
+  value=$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || echo "")
   if [ -n "$value" ]; then
     echo "$name=$value"
   fi
