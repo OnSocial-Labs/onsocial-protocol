@@ -111,6 +111,13 @@ jobs:
           echo "SSHEOF" >> "$GITHUB_OUTPUT"
           rm -f /tmp/deploy_key
 
+      - name: Generate deploy env from GSM
+        run: |
+          NEAR_NETWORK=testnet \
+          PUBLIC_DOMAIN=testnet.onsocial.id \
+          bash scripts/pull-secrets.sh > /tmp/deploy_gsm.env
+          chmod 600 /tmp/deploy_gsm.env
+
       - name: Sync config files to server
         run: |
           mkdir -p ~/.ssh
@@ -122,9 +129,10 @@ jobs:
             deployment/Caddyfile \
             deployment/Caddyfile.relayer \
             deployment/init-extra-dbs.sh \
+            /tmp/deploy_gsm.env \
             root@135.181.110.183:/opt/onsocial/
           ssh -i ~/.ssh/deploy_key root@135.181.110.183 \
-            'chmod +x /opt/onsocial/init-extra-dbs.sh'
+            'chmod 600 /opt/onsocial/deploy_gsm.env && chmod +x /opt/onsocial/init-extra-dbs.sh'
           echo "✅ Config files synced to server"
 
       - name: Deploy via SSH
@@ -149,6 +157,20 @@ jobs:
             if [ ! -f .env.production ]; then
               echo "❌ Missing /opt/onsocial/.env.production"
               exit 1
+            fi
+
+            if [ -f deploy_gsm.env ]; then
+              while IFS= read -r line; do
+                [ -z "$line" ] && continue
+                case "$line" in
+                  \#*) continue ;;
+                esac
+                key="${line%%=*}"
+                value="${line#*=}"
+                upsert_env "$key" "$value"
+              done < deploy_gsm.env
+            else
+              echo "⚠️  /opt/onsocial/deploy_gsm.env not found — GSM secrets not refreshed"
             fi
 
             upsert_env "NEAR_NETWORK" "testnet"
@@ -286,6 +308,7 @@ jobs:
             echo ""
             docker compose ps --format "table {{.Name}}\t{{.Status}}"
             echo ""
+            rm -f deploy_gsm.env
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"
 
       - name: Notify deploy result
