@@ -127,6 +127,8 @@ jobs:
           PUBLIC_DOMAIN=api.onsocial.id \
           bash scripts/pull-secrets.sh > /tmp/deploy_gsm.env
           chmod 600 /tmp/deploy_gsm.env
+          grep -q '^TELEGRAM_BOT_TOKEN=' /tmp/deploy_gsm.env || { echo '❌ TELEGRAM_BOT_TOKEN missing in GSM output'; exit 1; }
+          grep -q '^ADMIN_SECRET=' /tmp/deploy_gsm.env || { echo '❌ ADMIN_SECRET missing in GSM output'; exit 1; }
 
       - name: Sync config files to server
         run: |
@@ -284,23 +286,28 @@ jobs:
               echo "⚠️  Public health check failed — services may still be starting"
             fi
 
+            if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
+              echo "❌ TELEGRAM_BOT_TOKEN is not set after GSM refresh"
+              exit 1
+            fi
+
+            if [ -z "${ADMIN_SECRET:-}" ]; then
+              echo "❌ ADMIN_SECRET is not set after GSM refresh"
+              exit 1
+            fi
+
             # ── Backend (Telegram rewards bot) ───────────────────────
-            if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-              echo "Rolling backend..."
-              docker compose up -d --no-deps backend
-              if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
-                print_service_logs "backend"
-                echo "⚠️  Backend health check failed — bot may need manual restart"
-              fi
-            else
-              echo "⚠️  TELEGRAM_BOT_TOKEN is not set — skipping backend rollout and health check"
+            echo "Rolling backend..."
+            docker compose up -d --no-deps backend
+            if ! check_container_health "backend" "backend" "http://localhost:4001/health" 24 5; then
+              print_service_logs "backend"
+              echo "❌ Backend health check failed — rolling back"
+              rollback "backend gateway relayer-0 relayer-1"
+              exit 1
             fi
 
             # ── Bring up any remaining services ──────────────────────
-            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway caddy"
-            if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-              FINAL_SERVICES="$FINAL_SERVICES backend"
-            fi
+            FINAL_SERVICES="postgres hasura relayer-lb relayer-0 relayer-1 gateway caddy backend"
             docker compose up -d --no-deps $FINAL_SERVICES
 
             echo ""
