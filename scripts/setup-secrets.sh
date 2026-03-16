@@ -34,6 +34,9 @@ SECRETS=(
   "LIGHTHOUSE_API_KEY:Lighthouse storage API key"
   "RELAYER_API_KEY:Relayer authentication key (min 32 chars)"
   "LAVA_API_KEY:Lava RPC private endpoint key"
+  "GRAPH_API_KEY:Graph indexer API key"
+  "GRAPH_DEPLOY_KEY:Graph deploy key"
+  "SUBSTREAMS_API_TOKEN:StreamingFast Substreams API token"
   "TELEGRAM_BOT_TOKEN:Telegram bot token for OnSocial Pulse rewards bot"
   "ADMIN_SECRET:Backend admin API secret for partner approval (min 32 chars)"
 )
