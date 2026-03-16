@@ -94,6 +94,11 @@ export const config = {
   // Lava RPC — private endpoint key, auto-pulled from GSM in dev
   lavaApiKey: env('LAVA_API_KEY'),
 
+  // Nearblocks — optional API key for higher limits
+  nearblocksApiUrl:
+    process.env.NEARBLOCKS_API_URL || 'https://api.nearblocks.io',
+  nearblocksApiKey: env('NEARBLOCKS_API_KEY'),
+
   // Lighthouse (storage) — auto-pulled from GSM in dev
   lighthouseApiKey: env('LIGHTHOUSE_API_KEY'),
 

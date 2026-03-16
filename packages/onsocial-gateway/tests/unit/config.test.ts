@@ -1,4 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const ORIGINAL_ENV = { ...process.env };
+
+async function loadConfig(
+  overrides: Record<string, string | undefined> = {}
+) {
+  vi.resetModules();
+
+  const nextEnv = { ...ORIGINAL_ENV };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) {
+      delete nextEnv[key];
+    } else {
+      nextEnv[key] = value;
+    }
+  }
+
+  process.env = nextEnv;
+
+  return import('../../src/config/index.js');
+}
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV };
+  vi.resetModules();
+});
 
 /**
  * Config enforcement tests — verifies the production guard logic
@@ -37,5 +63,43 @@ describe('config production guards', () => {
     expect(makeHasuraSecret('production', 'hasura-secret')).toBe(
       'hasura-secret'
     );
+  });
+});
+
+describe('config network defaults', () => {
+  it('defaults to the testnet token contract', async () => {
+    const { config } = await loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'test-jwt-secret',
+      HASURA_ADMIN_SECRET: 'test-hasura-secret',
+      NEAR_NETWORK: 'testnet',
+      SOCIAL_TOKEN_CONTRACT: undefined,
+    });
+
+    expect(config.socialTokenContract).toBe('token.onsocial.testnet');
+  });
+
+  it('defaults to the mainnet token contract', async () => {
+    const { config } = await loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'test-jwt-secret',
+      HASURA_ADMIN_SECRET: 'test-hasura-secret',
+      NEAR_NETWORK: 'mainnet',
+      SOCIAL_TOKEN_CONTRACT: undefined,
+    });
+
+    expect(config.socialTokenContract).toBe('token.onsocial.near');
+  });
+
+  it('honors an explicit token contract override', async () => {
+    const { config } = await loadConfig({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'test-jwt-secret',
+      HASURA_ADMIN_SECRET: 'test-hasura-secret',
+      NEAR_NETWORK: 'mainnet',
+      SOCIAL_TOKEN_CONTRACT: 'custom-token.near',
+    });
+
+    expect(config.socialTokenContract).toBe('custom-token.near');
   });
 });

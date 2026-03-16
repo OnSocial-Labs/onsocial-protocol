@@ -36,10 +36,11 @@ pnpm dev
 
 ### Graph (Hasura Proxy)
 
-| Endpoint        | Method | Description         |
-| --------------- | ------ | ------------------- |
-| `/graph/query`  | POST   | GraphQL query       |
-| `/graph/health` | GET    | Hasura health check |
+| Endpoint             | Method | Description                      |
+| -------------------- | ------ | -------------------------------- |
+| `/graph/query`       | POST   | GraphQL query                    |
+| `/graph/health`      | GET    | Hasura health check              |
+| `/graph/token-stats` | GET    | Public SOCIAL token holder stats |
 
 ### Storage (Lighthouse/IPFS)
 
@@ -97,6 +98,7 @@ The GitHub Actions workflow requires these secrets:
 
 - `LIGHTHOUSE_API_KEY`: Lighthouse storage API key
 - `HASURA_ADMIN_SECRET`: Hasura admin secret for GraphQL access
+- `NEARBLOCKS_API_KEY`: Optional Nearblocks API key for higher token stats rate limits
 
 ## Development
 

@@ -30,11 +30,22 @@ SECRETS=(
   ADMIN_SECRET
 )
 
+OPTIONAL_SECRETS=(
+  NEARBLOCKS_API_KEY
+)
+
 for name in "${SECRETS[@]}"; do
   value=$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || echo "")
   if [ -z "$value" ]; then
     echo "# WARNING: $name — not found or empty in GSM" >&2
   else
+    echo "$name=$value"
+  fi
+done
+
+for name in "${OPTIONAL_SECRETS[@]}"; do
+  value=$(gcloud secrets versions access latest --secret="$name" --project="$PROJECT" 2>/dev/null || echo "")
+  if [ -n "$value" ]; then
     echo "$name=$value"
   fi
 done
@@ -50,4 +61,5 @@ echo "RELAYER_MIN_KEYS=${RELAYER_MIN_KEYS:-30}"
 echo "RELAYER_MAX_KEYS=${RELAYER_MAX_KEYS:-200}"
 echo "RELAYER_WARM_BUFFER=${RELAYER_WARM_BUFFER:-2}"
 echo "PUBLIC_DOMAIN=${PUBLIC_DOMAIN:-testnet.onsocial.id}"
+echo "NEARBLOCKS_API_URL=${NEARBLOCKS_API_URL:-https://api.nearblocks.io}"
 echo "RELAYER_MAX_KEY_AGE=${RELAYER_MAX_KEY_AGE:-86400}"

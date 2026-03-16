@@ -11,6 +11,13 @@ import type { Tier } from '../types/index.js';
 
 export const graphRouter = Router();
 
+const TOKEN_STATS_TTL_MS = 5 * 60 * 1000;
+
+let cachedTokenStats: {
+  holders: number;
+  fetchedAt: number;
+} | null = null;
+
 // Health check registered BEFORE auth middleware — must stay public for Docker/Caddy probes
 graphRouter.get('/health', async (_req: Request, res: Response) => {
   try {
@@ -36,6 +43,69 @@ graphRouter.get('/health', async (_req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Hasura health check error');
     res.status(502).json({ status: 'error', hasura: 'unreachable' });
+  }
+});
+
+graphRouter.get('/token-stats', async (_req: Request, res: Response) => {
+  if (
+    cachedTokenStats &&
+    Date.now() - cachedTokenStats.fetchedAt < TOKEN_STATS_TTL_MS
+  ) {
+    res.json({
+      contract: config.socialTokenContract,
+      holders: cachedTokenStats.holders,
+      source: 'nearblocks',
+      cached: true,
+    });
+    return;
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (config.nearblocksApiKey) {
+      headers.Authorization = `Bearer ${config.nearblocksApiKey}`;
+    }
+
+    const response = await fetch(
+      `${config.nearblocksApiUrl}/v1/fts/${config.socialTokenContract}/holders/count`,
+      {
+        headers,
+        signal: AbortSignal.timeout(5_000),
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      logger.error(
+        { status: response.status, body },
+        'Nearblocks token stats request failed'
+      );
+      res.status(502).json({ error: 'Failed to fetch token stats' });
+      return;
+    }
+
+    const data = (await response.json()) as {
+      holders?: Array<{ count?: string }>;
+    };
+    const holders = Number.parseInt(data.holders?.[0]?.count ?? '0', 10);
+
+    cachedTokenStats = {
+      holders: Number.isFinite(holders) ? holders : 0,
+      fetchedAt: Date.now(),
+    };
+
+    res.json({
+      contract: config.socialTokenContract,
+      holders: cachedTokenStats.holders,
+      source: 'nearblocks',
+      cached: false,
+    });
+  } catch (error) {
+    logger.error({ error }, 'Nearblocks token stats error');
+    res.status(502).json({ error: 'Failed to fetch token stats' });
   }
 });
 
