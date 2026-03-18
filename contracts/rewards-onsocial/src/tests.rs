@@ -632,6 +632,20 @@ mod unit {
         assert_eq!(c.max_daily, 200_000);
     }
 
+    #[test]
+    fn test_set_max_daily_rejects_over_hard_cap() {
+        let mut c = new_contract();
+        testing_env!(context(owner()).build());
+
+        let err = c
+            .set_max_daily(U128(10_000_000_000_000_000_001))
+            .unwrap_err();
+
+        assert!(
+            matches!(err, RewardsError::InvalidInput(message) if message == "max_daily exceeds max (10 SOCIAL)")
+        );
+    }
+
     // NOTE: test_set_max_daily_non_owner now tested via check_owner() returning
     // Err(RewardsError::Unauthorized) — see test_register_app_not_owner below.
 
@@ -679,6 +693,121 @@ mod unit {
         let c = new_contract();
         testing_env!(context(owner()).build());
         assert!(c.get_user_reward(user()).is_none());
+    }
+
+    #[test]
+    fn test_get_app_metrics_returns_remaining_budget_fields() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+
+        testing_env!(context(token()).build());
+        c.ft_on_transfer(owner(), U128(100_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
+
+        testing_env!(context(owner()).build());
+        c.dispatch_action(
+            Action::CreditReward {
+                account_id: user(),
+                amount: U128(2_000),
+                source: None,
+                app_id: Some("game_xyz".into()),
+            },
+            &partner(),
+        )
+        .unwrap();
+
+        let metrics = c.get_app_metrics("game_xyz".into()).unwrap();
+        assert_eq!(metrics.reward_per_action.0, 500);
+        assert_eq!(metrics.daily_cap.0, 10_000);
+        assert_eq!(metrics.total_budget.0, 1_000_000);
+        assert_eq!(metrics.total_credited.0, 2_000);
+        assert_eq!(metrics.total_budget_remaining.0, 998_000);
+        assert_eq!(metrics.daily_budget.0, 0);
+        assert_eq!(metrics.daily_budget_spent.0, 2_000);
+        assert_eq!(metrics.daily_budget_remaining.0, 0);
+    }
+
+    #[test]
+    fn test_get_user_rewards_overview_returns_global_and_app_metrics() {
+        let mut c = new_contract();
+        setup_app(&mut c);
+
+        testing_env!(context(owner()).build());
+        c.set_max_daily(U128(10_000)).unwrap();
+
+        testing_env!(context(token()).build());
+        c.ft_on_transfer(owner(), U128(100_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
+
+        testing_env!(context(owner()).build());
+        c.dispatch_action(
+            Action::CreditReward {
+                account_id: user(),
+                amount: U128(1_500),
+                source: None,
+                app_id: None,
+            },
+            &owner(),
+        )
+        .unwrap();
+        c.dispatch_action(
+            Action::CreditReward {
+                account_id: user(),
+                amount: U128(2_000),
+                source: None,
+                app_id: Some("game_xyz".into()),
+            },
+            &partner(),
+        )
+        .unwrap();
+
+        let overview = c.get_user_rewards_overview(user(), Some("game_xyz".into()));
+        assert_eq!(overview.claimable.0, 3_500);
+        assert_eq!(overview.total_earned.0, 3_500);
+        assert_eq!(overview.total_claimed.0, 0);
+        assert_eq!(overview.global_daily_earned.0, 1_500);
+        assert_eq!(overview.global_daily_remaining.0, 8_500);
+
+        let app = overview.app.unwrap();
+        assert_eq!(app.app_id, "game_xyz");
+        assert!(app.app_active);
+        assert_eq!(app.daily_earned.0, 2_000);
+        assert_eq!(app.daily_remaining.0, 8_000);
+        assert_eq!(app.total_earned.0, 2_000);
+    }
+
+    #[test]
+    fn test_get_user_rewards_overview_resets_daily_when_day_changes() {
+        let mut c = new_contract();
+
+        testing_env!(context(owner()).build());
+        c.set_max_daily(U128(10_000)).unwrap();
+
+        testing_env!(context(token()).build());
+        c.ft_on_transfer(owner(), U128(100_000), r#"{"action":"deposit"}"#.into())
+            .unwrap();
+
+        testing_env!(context(owner()).build());
+        c.dispatch_action(
+            Action::CreditReward {
+                account_id: user(),
+                amount: U128(1_500),
+                source: None,
+                app_id: None,
+            },
+            &owner(),
+        )
+        .unwrap();
+
+        let mut ctx = context(owner());
+        ctx.block_timestamp(1_700_000_000_000_000_000 + NS_PER_DAY);
+        testing_env!(ctx.build());
+
+        let overview = c.get_user_rewards_overview(user(), None);
+        assert_eq!(overview.claimable.0, 1_500);
+        assert_eq!(overview.global_daily_earned.0, 0);
+        assert_eq!(overview.global_daily_remaining.0, 10_000);
+        assert!(overview.app.is_none());
     }
 
     #[test]
@@ -788,6 +917,39 @@ mod unit {
             &owner(),
         );
         assert!(matches!(r, Err(RewardsError::InvalidAmount)));
+    }
+
+    #[test]
+    fn test_global_credit_rejects_over_per_action_hard_cap() {
+        let mut c = new_contract();
+
+        testing_env!(context(owner()).build());
+        c.set_max_daily(U128(10_000_000_000_000_000_000)).unwrap();
+
+        testing_env!(context(token()).build());
+        c.ft_on_transfer(
+            owner(),
+            U128(20_000_000_000_000_000_000),
+            r#"{"action":"deposit"}"#.into(),
+        )
+        .unwrap();
+
+        testing_env!(context(owner()).build());
+        let err = c
+            .dispatch_action(
+                Action::CreditReward {
+                    account_id: user(),
+                    amount: U128(1_000_000_000_000_000_001),
+                    source: None,
+                    app_id: None,
+                },
+                &owner(),
+            )
+            .unwrap_err();
+
+        assert!(
+            matches!(err, RewardsError::InvalidInput(message) if message == "amount exceeds max per action (1 SOCIAL)")
+        );
     }
 
     #[test]

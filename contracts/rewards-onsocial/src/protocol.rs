@@ -2,7 +2,7 @@ use near_sdk::json_types::U128;
 use near_sdk::{AccountId, near};
 pub use onsocial_auth::Auth;
 
-/// Must be unique across all contracts sharing the same nonce store.
+/// Must stay unique across contracts that share the nonce store.
 pub const NONCE_PREFIX: u8 = 0x07;
 pub const DOMAIN_PREFIX: &str = "onsocial:rewards";
 
@@ -15,7 +15,6 @@ pub enum Action {
         amount: U128,
         #[serde(default)]
         source: Option<String>,
-        /// When set, enforces per-app daily cap and caller authorization.
         #[serde(default)]
         app_id: Option<String>,
     },
@@ -23,7 +22,6 @@ pub enum Action {
 }
 
 impl Action {
-    /// No action requires confirmation deposit; authorization is caller-based.
     pub fn requires_confirmation(&self) -> bool {
         false
     }

@@ -25,18 +25,7 @@ impl RewardsContract {
         }
     }
 
-    /// Deducts from `pool_balance`, credits to user. Enforces daily cap per user.
-    ///
-    /// If `app_id` is provided:
-    ///   - Validates the app exists and is active.
-    ///   - Validates the caller is in the app's `authorized_callers`.
-    ///   - Enforces the app's per-user `daily_cap` via `UserAppReward`.
-    ///
-    /// Otherwise:
-    ///   - Validates the caller is owner or in global `authorized_callers`.
-    ///   - Enforces global `max_daily` via `UserReward.daily_earned`.
-    ///
-    /// In both cases, credits flow into the user's global `UserReward.claimable`.
+    /// Credits rewards from the pool while enforcing either app-specific or global caps.
     fn handle_credit_reward(
         &mut self,
         caller: &AccountId,
@@ -47,6 +36,11 @@ impl RewardsContract {
     ) -> Result<Value, RewardsError> {
         if amount == 0 {
             return Err(RewardsError::InvalidAmount);
+        }
+        if amount > admin::MAX_REWARD_PER_ACTION {
+            return Err(RewardsError::InvalidInput(
+                "amount exceeds max per action (1 SOCIAL)".into(),
+            ));
         }
 
         if self.pool_balance < amount {
@@ -82,7 +76,6 @@ impl RewardsContract {
                 return Err(RewardsError::AppDailyBudgetExhausted(aid.to_string()));
             }
 
-            // App-level caller authorization (owner always allowed).
             if *caller != self.owner_id && !config.authorized_callers.contains(caller) {
                 return Err(RewardsError::Unauthorized(format!(
                     "Caller {} not authorized for app '{}'",
@@ -156,7 +149,6 @@ impl RewardsContract {
             user.last_day = today;
         }
         user.claimable = user.claimable.saturating_add(allowed);
-        // Only bump global daily_earned when using global cap (no app_id).
         if app_id.is_none() {
             user.daily_earned = user.daily_earned.saturating_add(allowed);
         }
@@ -206,7 +198,7 @@ impl RewardsContract {
         Ok(result)
     }
 
-    /// Optimistic: zeros `claimable`, stores `PendingClaim`, batches `storage_deposit` + `ft_transfer`. Callback rolls back on failure.
+    /// Optimistically clears claimable balance and restores it in the callback if transfer fails.
     fn handle_claim(&mut self, actor_id: &AccountId) -> Result<Value, RewardsError> {
         if self.pending_claims.contains_key(actor_id) {
             return Err(RewardsError::ClaimPending);
@@ -231,7 +223,6 @@ impl RewardsContract {
             .insert(actor_id.clone(), PendingClaim { amount });
         self.total_claimed = self.total_claimed.saturating_add(amount);
 
-        // Batched storage_deposit + ft_transfer: atomic unit, NEP-145 idempotent registration.
         let _ = Promise::new(self.social_token.clone())
             .function_call(
                 "storage_deposit".to_string(),
@@ -272,7 +263,6 @@ impl RewardsContract {
 
 #[near]
 impl RewardsContract {
-    /// Rolls back `claimable` and `total_claimed` if `ft_transfer` failed.
     #[private]
     pub fn on_claim_callback(
         &mut self,

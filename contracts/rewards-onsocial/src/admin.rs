@@ -1,15 +1,14 @@
 use crate::*;
-use near_sdk::json_types::{Base58CryptoHash, U128};
+use near_sdk::json_types::U128;
 
 const MAX_APPS: usize = 100;
 const MAX_APP_ID_LEN: usize = 64;
 const MAX_LABEL_LEN: usize = 128;
 
-// --- Safety ceilings (SOCIAL token = 18 decimals) ---
-/// Prevents draining: max 1 SOCIAL credited per single action.
-const MAX_REWARD_PER_ACTION: u128 = 1_000_000_000_000_000_000;
-/// Prevents draining: max 10 SOCIAL per user per day per app.
-const MAX_DAILY_CAP: u128 = 10_000_000_000_000_000_000;
+/// Limits single-action issuance to 1 SOCIAL.
+pub(crate) const MAX_REWARD_PER_ACTION: u128 = 1_000_000_000_000_000_000;
+/// Limits per-user daily app issuance to 10 SOCIAL.
+pub(crate) const MAX_DAILY_CAP: u128 = 10_000_000_000_000_000_000;
 
 #[near(serializers = [json])]
 pub struct ContractInfo {
@@ -33,10 +32,8 @@ pub struct RegisterApp {
     pub daily_cap: U128,
     pub reward_per_action: U128,
     pub authorized_callers: Vec<AccountId>,
-    /// Lifetime token budget; 0 = unlimited.
     #[serde(default)]
     pub total_budget: U128,
-    /// Aggregate daily spend across all users; 0 = unlimited.
     #[serde(default)]
     pub daily_budget: U128,
 }
@@ -53,10 +50,8 @@ pub struct UpdateApp {
     pub active: Option<bool>,
     #[serde(default)]
     pub authorized_callers: Option<Vec<AccountId>>,
-    /// Lifetime token budget; 0 = unlimited.
     #[serde(default)]
     pub total_budget: Option<U128>,
-    /// Aggregate daily spend across all users; 0 = unlimited.
     #[serde(default)]
     pub daily_budget: Option<U128>,
 }
@@ -75,6 +70,11 @@ impl RewardsContract {
     #[handle_result]
     pub fn set_max_daily(&mut self, new_max: U128) -> Result<(), RewardsError> {
         self.check_owner()?;
+        if new_max.0 > MAX_DAILY_CAP {
+            return Err(RewardsError::InvalidInput(
+                "max_daily exceeds max (10 SOCIAL)".into(),
+            ));
+        }
         let old_max = self.max_daily;
         self.max_daily = new_max.0;
         events::emit_max_daily_updated(&self.owner_id, old_max, new_max.0);
@@ -118,48 +118,6 @@ impl RewardsContract {
     }
 
     #[handle_result]
-    pub fn update_contract(&self) -> Result<Promise, RewardsError> {
-        self.check_owner()?;
-        let code = env::input().expect("No input").to_vec();
-        Ok(Promise::new(env::current_account_id())
-            .deploy_contract(code)
-            .function_call(
-                "migrate".to_string(),
-                vec![],
-                NearToken::from_near(0),
-                GAS_MIGRATE,
-            )
-            .as_return())
-    }
-
-    #[handle_result]
-    pub fn update_contract_from_hash(
-        &self,
-        code_hash: Base58CryptoHash,
-    ) -> Result<Promise, RewardsError> {
-        self.check_owner()?;
-        Ok(Promise::new(env::current_account_id())
-            .use_global_contract(code_hash)
-            .function_call(
-                "migrate".to_string(),
-                vec![],
-                NearToken::from_near(0),
-                GAS_MIGRATE,
-            )
-            .as_return())
-    }
-
-    #[private]
-    #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        let mut contract: Self = env::state_read().expect("State read failed");
-        let old = contract.version.clone();
-        contract.version = CONTRACT_VERSION.to_string();
-        events::emit_contract_upgraded(&contract.owner_id, &old, CONTRACT_VERSION);
-        contract
-    }
-
-    #[handle_result]
     pub fn register_app(&mut self, config: RegisterApp) -> Result<(), RewardsError> {
         self.check_owner()?;
         self.validate_register_app(&config)?;
@@ -196,7 +154,6 @@ impl RewardsContract {
         Ok(())
     }
 
-    /// Partial update; validates safety ceilings and cross-field invariants.
     #[handle_result]
     pub fn update_app(&mut self, update: UpdateApp) -> Result<(), RewardsError> {
         self.check_owner()?;
@@ -241,7 +198,6 @@ impl RewardsContract {
         Ok(())
     }
 
-    /// Stops new credits; already-credited balances remain claimable.
     #[handle_result]
     pub fn deactivate_app(&mut self, app_id: String) -> Result<(), RewardsError> {
         self.check_owner()?;
@@ -262,10 +218,7 @@ impl RewardsContract {
     }
 }
 
-// --- Validation ---
-
 impl RewardsContract {
-    /// Enforces safety ceilings, length limits, and uniqueness.
     pub(crate) fn validate_register_app(&self, config: &RegisterApp) -> Result<(), RewardsError> {
         if config.app_id.is_empty() {
             return Err(RewardsError::InvalidInput("app_id cannot be empty".into()));

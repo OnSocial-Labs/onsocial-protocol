@@ -2,7 +2,6 @@ use crate::*;
 
 #[near]
 impl RewardsContract {
-    /// NEP-141 receiver. Only accepts `social_token`. Only owner can deposit to pool.
     #[handle_result]
     pub fn ft_on_transfer(
         &mut self,

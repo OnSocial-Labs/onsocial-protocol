@@ -28,7 +28,6 @@ pub use protocol::{Action, Auth, Options, Request};
 pub const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 pub const GAS_STORAGE_DEPOSIT: Gas = Gas::from_tgas(10);
 pub const GAS_CALLBACK: Gas = Gas::from_tgas(10);
-pub const GAS_MIGRATE: Gas = Gas::from_tgas(200);
 pub const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 /// NEP-145 registration deposit for the SOCIAL token contract.
 /// Standard FT registration costs ~1.25 milliNEAR; we send 2 milliNEAR for safety margin.
@@ -50,29 +49,22 @@ enum StorageKey {
 #[derive(Clone, Default)]
 pub struct UserReward {
     pub claimable: u128,
-    /// Resets when `last_day` changes (global daily across all apps).
     pub daily_earned: u128,
     pub last_day: u64,
     pub total_earned: u128,
     pub total_claimed: u128,
 }
 
-/// Per-app configuration. Owner registers apps with individual daily caps.
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Default)]
 pub struct AppConfig {
-    /// Display label (e.g. "OnSocial Telegram", "Partner Game").
     pub label: String,
-    /// Per-user daily cap for this app. 0 = paused.
     pub daily_cap: u128,
     pub reward_per_action: u128,
-    /// Only these callers can credit for this app.
     pub authorized_callers: Vec<AccountId>,
     pub active: bool,
-    /// Lifetime token budget for this app. 0 = unlimited.
     pub total_budget: u128,
     pub total_credited: u128,
-    /// Aggregate daily budget across all users for this app. 0 = unlimited.
     #[serde(default)]
     pub daily_budget: u128,
     #[serde(default)]
@@ -81,7 +73,6 @@ pub struct AppConfig {
     pub budget_last_day: u64,
 }
 
-/// Per-user per-app daily tracking. Keyed by `"{account_id}:{app_id}"`.
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Default)]
 pub struct UserAppReward {
@@ -90,7 +81,6 @@ pub struct UserAppReward {
     pub total_earned: u128,
 }
 
-/// Stored during claim; used to rollback if `ft_transfer` fails.
 #[near(serializers = [borsh])]
 #[derive(Clone)]
 pub struct PendingClaim {
@@ -102,23 +92,18 @@ pub struct PendingClaim {
 pub struct RewardsContract {
     pub version: String,
     pub owner_id: AccountId,
-    /// Only this token is accepted in `ft_on_transfer` and used in `ft_transfer`.
     pub social_token: AccountId,
-    /// Global per-user per-day earning cap (applies when no app_id is specified).
     pub max_daily: u128,
     pub(crate) users: LookupMap<AccountId, UserReward>,
     pub authorized_callers: Vec<AccountId>,
     /// Enables optimistic claim with rollback on cross-contract failure.
     pub(crate) pending_claims: LookupMap<AccountId, PendingClaim>,
-    /// Must be `Vec` — `onsocial_auth::authenticate` expects `&[AccountId]`.
     pub intents_executors: Vec<AccountId>,
     /// Tracked separately from on-chain balance for accounting safety.
     pub pool_balance: u128,
     pub total_credited: u128,
     pub total_claimed: u128,
-    /// Per-app reward config. Keyed by app_id (e.g. "onsocial_telegram").
     pub(crate) app_configs: LookupMap<String, AppConfig>,
-    /// Per-user per-app daily tracking. Key = "{account_id}:{app_id}".
     pub(crate) user_app_rewards: LookupMap<String, UserAppReward>,
     pub app_ids: Vec<String>,
 }

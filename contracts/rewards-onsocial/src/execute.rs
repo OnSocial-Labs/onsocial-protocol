@@ -3,7 +3,6 @@ use near_sdk::serde_json::Value;
 
 #[near]
 impl RewardsContract {
-    /// Authenticates via `onsocial-auth` (Direct, SignedPayload, Intent), records nonce, dispatches.
     #[handle_result]
     pub fn execute(&mut self, request: Request) -> Result<Value, RewardsError> {
         let Request {
