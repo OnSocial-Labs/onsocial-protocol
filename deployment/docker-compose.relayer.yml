@@ -1,0 +1,36 @@
+services:
+  relayer:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/relayer:${IMAGE_TAG:-latest}
+    container_name: ${RELAYER_INSTANCE_NAME:-relayer}
+    restart: unless-stopped
+    ports:
+      - "${RELAYER_BIND_IP:-0.0.0.0}:${RELAYER_PORT:-3040}:3040"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+      RELAYER_SIGNER_MODE: kms
+      RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.near}
+      RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-rewards.onsocial.near}
+      RELAYER_RPC_URL: ${RELAYER_RPC_URL:-}
+      RELAYER_FALLBACK_RPC_URL: ${RELAYER_FALLBACK_RPC_URL:-}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
+      GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}
+      GCP_KMS_ADMIN_KEY: ${GCP_KMS_ADMIN_KEY:-admin-key}
+      GCP_KMS_POOL_SIZE: ${GCP_KMS_POOL_SIZE:-30}
+      RELAYER_MIN_KEYS: ${RELAYER_MIN_KEYS:-30}
+      RELAYER_MAX_KEYS: ${RELAYER_MAX_KEYS:-200}
+      RELAYER_WARM_BUFFER: ${RELAYER_WARM_BUFFER:-2}
+      RELAYER_MAX_KEY_AGE: ${RELAYER_MAX_KEY_AGE:-86400}
+      LAVA_API_KEY: ${LAVA_API_KEY:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-sa.json
+      GCP_KMS_KEYRING: ${GCP_KMS_KEYRING:?set GCP_KMS_KEYRING in the env file}
+    volumes:
+      - ./secrets/relayer-signer.json:/run/secrets/gcp-sa.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/3040'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 1.0

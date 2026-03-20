@@ -1,0 +1,419 @@
+name: Deploy Mainnet Relayers (Private)
+
+'on':
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-mainnet-relayers" to confirm'
+        required: true
+      dry_run:
+        description: 'Set to true to run private-network preflight only'
+        required: true
+        default: 'false'
+      deploy_target:
+        description: 'Which relayer host(s) to deploy'
+        required: true
+        default: 'both'
+      relayer0_host:
+        description: 'Optional override for mainnet-relayer-0 private IP or hostname'
+        required: false
+      relayer1_host:
+        description: 'Optional override for mainnet-relayer-1 private IP or hostname'
+        required: false
+      relayer0_ssh_secret_name:
+        description: 'GSM secret name for relayer-0 SSH key'
+        required: true
+        default: 'hetzner-mainnet-relayer-0-ssh-key'
+      relayer1_ssh_secret_name:
+        description: 'GSM secret name for relayer-1 SSH key'
+        required: true
+        default: 'hetzner-mainnet-relayer-1-ssh-key'
+      signer_secret_name:
+        description: 'GSM secret name for relayer signer JSON'
+        required: true
+        default: 'relayer-mainnet-signer-json'
+      image_tag:
+        description: 'Optional image tag override (defaults to current short SHA)'
+        required: false
+      allowed_contracts:
+        description: 'Comma-separated mainnet allowlist'
+        required: true
+        default: 'rewards.onsocial.near'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
+  RELAYER0_HOST: ${{ github.event.inputs.relayer0_host || secrets.MAINNET_RELAYER_0_HOST }}
+  RELAYER1_HOST: ${{ github.event.inputs.relayer1_host || secrets.MAINNET_RELAYER_1_HOST }}
+
+concurrency:
+  group: mainnet-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy-mainnet-relayers" ]; then
+            echo "❌ Confirmation failed. Type 'deploy-mainnet-relayers' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation accepted"
+
+      - name: Check relayer hosts
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          TARGET="${{ github.event.inputs.deploy_target }}"
+          ALLOWED_CONTRACTS="${{ github.event.inputs.allowed_contracts }}"
+
+          if [ "$DRY_RUN" != "true" ] && [ "$DRY_RUN" != "false" ]; then
+            echo "❌ dry_run must be true or false"
+            exit 1
+          fi
+
+          if [ "$TARGET" != "relayer-0" ] && [ "$TARGET" != "relayer-1" ] && [ "$TARGET" != "both" ]; then
+            echo "❌ deploy_target must be one of: relayer-0, relayer-1, both"
+            exit 1
+          fi
+
+          if [ -z "$ALLOWED_CONTRACTS" ]; then
+            echo "❌ allowed_contracts must not be empty"
+            exit 1
+          fi
+
+          if [ "$TARGET" != "relayer-1" ] && [ -z "${{ env.RELAYER0_HOST }}" ]; then
+            echo "❌ RELAYER0 host is not set. Provide relayer0_host or configure MAINNET_RELAYER_0_HOST."
+            exit 1
+          fi
+
+          if [ "$TARGET" != "relayer-0" ] && [ -z "${{ env.RELAYER1_HOST }}" ]; then
+            echo "❌ RELAYER1 host is not set. Provide relayer1_host or configure MAINNET_RELAYER_1_HOST."
+            exit 1
+          fi
+
+          if [ "$TARGET" = "both" ] && [ "${{ env.RELAYER0_HOST }}" = "${{ env.RELAYER1_HOST }}" ]; then
+            echo "❌ relayer-0 and relayer-1 must resolve to different hosts"
+            exit 1
+          fi
+
+          echo "✅ Relayer hosts resolved for target: $TARGET (dry_run=$DRY_RUN)"
+
+  preflight-relayer-1:
+    name: Preflight mainnet-relayer-1
+    needs: validate
+    if: ${{ github.event.inputs.deploy_target == 'relayer-1' || github.event.inputs.deploy_target == 'both' }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch relayer-1 SSH key
+        run: |
+          mkdir -p ~/.ssh
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" > ~/.ssh/relayer1_deploy_key
+          chmod 600 ~/.ssh/relayer1_deploy_key
+          ssh-keyscan -H "${{ env.RELAYER1_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Fetch shared signer JSON
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
+          chmod 600 /tmp/relayer-signer.json
+
+      - name: Run relayer-1 preflight
+        run: |
+          DEPLOY_SSH_KEY=~/.ssh/relayer1_deploy_key \
+          bash deployment/deploy-relayer-host.sh \
+            --host "${{ env.RELAYER1_HOST }}" \
+            --instance-name relayer-1 \
+            --keyring relayer-keys-mainnet-1 \
+            --signer-file /tmp/relayer-signer.json \
+            --network mainnet \
+            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
+            --dry-run
+
+  preflight-relayer-0:
+    name: Preflight mainnet-relayer-0
+    needs: validate
+    if: ${{ github.event.inputs.deploy_target == 'relayer-0' || github.event.inputs.deploy_target == 'both' }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch relayer-0 SSH key
+        run: |
+          mkdir -p ~/.ssh
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" > ~/.ssh/relayer0_deploy_key
+          chmod 600 ~/.ssh/relayer0_deploy_key
+          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Fetch shared signer JSON
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
+          chmod 600 /tmp/relayer-signer.json
+
+      - name: Run relayer-0 preflight
+        run: |
+          DEPLOY_SSH_KEY=~/.ssh/relayer0_deploy_key \
+          bash deployment/deploy-relayer-host.sh \
+            --host "${{ env.RELAYER0_HOST }}" \
+            --instance-name relayer-0 \
+            --keyring relayer-keys-mainnet \
+            --signer-file /tmp/relayer-signer.json \
+            --network mainnet \
+            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
+            --dry-run
+
+  build:
+    name: Build Relayer Image
+    needs: validate
+    if: ${{ github.event.inputs.dry_run != 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "value=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push relayer image
+        uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_SUMMARY: false
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: .
+          file: docker/Dockerfile.relayer
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/relayer:${{ steps.tag.outputs.value }}
+            ${{ env.IMAGE_PREFIX }}/relayer:mainnet-relayer-latest
+
+  deploy-relayer-1:
+    name: Deploy mainnet-relayer-1
+    needs: [build, preflight-relayer-1]
+    if: ${{ github.event.inputs.dry_run != 'true' && (github.event.inputs.deploy_target == 'relayer-1' || github.event.inputs.deploy_target == 'both') }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch relayer-1 SSH key
+        run: |
+          mkdir -p ~/.ssh
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" > ~/.ssh/relayer1_deploy_key
+          chmod 600 ~/.ssh/relayer1_deploy_key
+          ssh-keyscan -H "${{ env.RELAYER1_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Fetch shared signer JSON
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
+          chmod 600 /tmp/relayer-signer.json
+
+      - name: Deploy relayer-1
+        run: |
+          DEPLOY_SSH_KEY=~/.ssh/relayer1_deploy_key \
+          bash deployment/deploy-relayer-host.sh \
+            --host "${{ env.RELAYER1_HOST }}" \
+            --instance-name relayer-1 \
+            --keyring relayer-keys-mainnet-1 \
+            --signer-file /tmp/relayer-signer.json \
+            --image-tag "${{ needs.build.outputs.image_tag }}" \
+            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+
+  deploy-relayer-0-only:
+    name: Deploy mainnet-relayer-0
+    needs: [build, preflight-relayer-0]
+    if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.deploy_target == 'relayer-0' }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch relayer-0 SSH key
+        run: |
+          mkdir -p ~/.ssh
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" > ~/.ssh/relayer0_deploy_key
+          chmod 600 ~/.ssh/relayer0_deploy_key
+          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Fetch shared signer JSON
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
+          chmod 600 /tmp/relayer-signer.json
+
+      - name: Deploy relayer-0
+        run: |
+          DEPLOY_SSH_KEY=~/.ssh/relayer0_deploy_key \
+          bash deployment/deploy-relayer-host.sh \
+            --host "${{ env.RELAYER0_HOST }}" \
+            --instance-name relayer-0 \
+            --keyring relayer-keys-mainnet \
+            --signer-file /tmp/relayer-signer.json \
+            --image-tag "${{ needs.build.outputs.image_tag }}" \
+            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+
+  deploy-relayer-0-after-relayer-1:
+    name: Deploy mainnet-relayer-0
+    needs: [build, preflight-relayer-0, deploy-relayer-1]
+    if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.deploy_target == 'both' }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch relayer-0 SSH key
+        run: |
+          mkdir -p ~/.ssh
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" > ~/.ssh/relayer0_deploy_key
+          chmod 600 ~/.ssh/relayer0_deploy_key
+          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Fetch shared signer JSON
+        run: |
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
+          chmod 600 /tmp/relayer-signer.json
+
+      - name: Deploy relayer-0
+        run: |
+          DEPLOY_SSH_KEY=~/.ssh/relayer0_deploy_key \
+          bash deployment/deploy-relayer-host.sh \
+            --host "${{ env.RELAYER0_HOST }}" \
+            --instance-name relayer-0 \
+            --keyring relayer-keys-mainnet \
+            --signer-file /tmp/relayer-signer.json \
+            --image-tag "${{ needs.build.outputs.image_tag }}" \
+            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+
+  verify-relayer-1:
+    name: Verify mainnet-relayer-1
+    needs: deploy-relayer-1
+    if: ${{ github.event.inputs.dry_run != 'true' && (github.event.inputs.deploy_target == 'relayer-1' || github.event.inputs.deploy_target == 'both') }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    steps:
+      - name: Verify relayer-1
+        run: |
+          curl -sf "http://${{ env.RELAYER1_HOST }}:3040/health" | tee /tmp/relayer1-health.json
+          IFS=',' read -ra contracts <<< "${{ github.event.inputs.allowed_contracts }}"
+          for contract in "${contracts[@]}"; do
+            contract="$(echo "$contract" | xargs)"
+            [ -n "$contract" ] || continue
+            grep -q "$contract" /tmp/relayer1-health.json
+          done
+
+  verify-relayer-0-only:
+    name: Verify mainnet-relayer-0
+    needs: deploy-relayer-0-only
+    if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.deploy_target == 'relayer-0' }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    steps:
+      - name: Verify relayer-0
+        run: |
+          curl -sf "http://${{ env.RELAYER0_HOST }}:3040/health" | tee /tmp/relayer0-health.json
+          IFS=',' read -ra contracts <<< "${{ github.event.inputs.allowed_contracts }}"
+          for contract in "${contracts[@]}"; do
+            contract="$(echo "$contract" | xargs)"
+            [ -n "$contract" ] || continue
+            grep -q "$contract" /tmp/relayer0-health.json
+          done
+
+  verify-relayer-0-after-relayer-1:
+    name: Verify mainnet-relayer-0
+    needs: deploy-relayer-0-after-relayer-1
+    if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.deploy_target == 'both' }}
+    runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
+    steps:
+      - name: Verify relayer-0
+        run: |
+          curl -sf "http://${{ env.RELAYER0_HOST }}:3040/health" | tee /tmp/relayer0-health.json
+          IFS=',' read -ra contracts <<< "${{ github.event.inputs.allowed_contracts }}"
+          for contract in "${contracts[@]}"; do
+            contract="$(echo "$contract" | xargs)"
+            [ -n "$contract" ] || continue
+            grep -q "$contract" /tmp/relayer0-health.json
+          done
