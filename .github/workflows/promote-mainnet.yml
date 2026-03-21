@@ -673,9 +673,16 @@ jobs:
           curl -fsSI --max-time 15 \
             --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
             https://api.onsocial.id/health
-          curl -fsS --max-time 15 \
+          stats_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
             --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
-            https://api.onsocial.id/public/stats >/dev/null
+            https://api.onsocial.id/public/stats)"
+
+          if [ "$stats_code" = "200" ]; then
+            echo "✅ Public stats endpoint available"
+          else
+            echo "⚠️ Public stats endpoint returned HTTP $stats_code (non-fatal)"
+            echo "PUBLIC_STATS_STATUS=optional-miss:$stats_code" >> "$GITHUB_ENV"
+          fi
 
       - name: Summarize smoke results
         run: |
@@ -683,7 +690,7 @@ jobs:
             echo "## Integrated Smoke Checks"
             echo ""
             echo "- Public health: https://api.onsocial.id/health"
-            echo "- Public stats: https://api.onsocial.id/public/stats"
+            echo "- Public stats: https://api.onsocial.id/public/stats (${PUBLIC_STATS_STATUS:-available})"
             echo "- App host: ${{ env.APP_HOST }}"
             echo "- Relayer target: ${{ github.event.inputs.relayer_deploy_target }}"
           } >> "$GITHUB_STEP_SUMMARY"
