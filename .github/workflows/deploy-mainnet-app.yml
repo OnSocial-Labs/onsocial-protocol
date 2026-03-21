@@ -30,6 +30,10 @@ on:
         description: 'GSM secret name for the mainnet app host SSH key'
         required: true
         default: 'hetzner-mainnet-app-0-ssh-key'
+      remote_gcloud_key_file:
+        description: 'Path on the app host to the service-account key used for remote secret pulls'
+        required: false
+        default: '/root/onsocial-app-deploy-key.json'
 
 env:
   APP_HOST: ${{ github.event.inputs.app_host != '' && github.event.inputs.app_host || vars.MAINNET_APP_HOST }}
@@ -134,6 +138,7 @@ jobs:
 
       - name: Deploy app tier
         run: |
+          REMOTE_GCLOUD_KEY_FILE="${{ github.event.inputs.remote_gcloud_key_file }}" \
           DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/app_deploy_key" \
           DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-app-production.sh \
