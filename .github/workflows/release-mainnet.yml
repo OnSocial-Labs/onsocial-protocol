@@ -195,7 +195,7 @@ jobs:
     needs:
       - validate
       - data_before
-    if: ${{ needs.validate.outputs.run_app_release == 'true' && (needs.data_before.result == 'success' || needs.data_before.result == 'skipped') }}
+    if: ${{ always() && needs.validate.outputs.run_app_release == 'true' && (needs.data_before.result == 'success' || needs.data_before.result == 'skipped') }}
     uses: ./.github/workflows/promote-mainnet.yml
     with:
       confirm: promote-mainnet
@@ -221,7 +221,7 @@ jobs:
     needs:
       - validate
       - app_release
-    if: ${{ needs.validate.outputs.run_data_after == 'true' && (needs.app_release.result == 'success' || needs.app_release.result == 'skipped') }}
+    if: ${{ always() && needs.validate.outputs.run_data_after == 'true' && (needs.app_release.result == 'success' || needs.app_release.result == 'skipped') }}
     uses: ./.github/workflows/deploy-mainnet-data.yml
     with:
       confirm: deploy-mainnet-data
