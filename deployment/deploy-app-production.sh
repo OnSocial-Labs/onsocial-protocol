@@ -244,8 +244,8 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s \
   RELAYER0_URL="$9"
   RELAYER1_URL="${10}"
   DEPLOY_TARGET="${11}"
-  GCP_PROJECT="${12}"
-  GCLOUD_KEY_FILE="${13}"
+  GCP_PROJECT="${12:-onsocial-protocol}"
+  GCLOUD_KEY_FILE="${13:-}"
 
   if ! command -v gcloud >/dev/null 2>&1; then
     echo "❌ gcloud CLI not found on server. Run with --init first."

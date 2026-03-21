@@ -176,8 +176,8 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s \
   NETWORK="$1"
   PRIVATE_BIND_IP="$2"
   HASURA_CORS="$3"
-  GCP_PROJECT="$4"
-  GCLOUD_KEY_FILE="$5"
+  GCP_PROJECT="${4:-onsocial-protocol}"
+  GCLOUD_KEY_FILE="${5:-}"
 
   if ! command -v gcloud >/dev/null 2>&1; then
     echo "❌ gcloud CLI not found on server. Run with --init first."

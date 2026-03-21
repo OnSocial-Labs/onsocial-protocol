@@ -159,8 +159,8 @@ ssh "root@$SERVER_IP" bash -s \
   HASURA_CORS="$5"
   KMS_KEYRING_0="$6"
   KMS_KEYRING_1="$7"
-  GCP_PROJECT="$8"
-  GCLOUD_KEY_FILE="$9"
+  GCP_PROJECT="${8:-onsocial-protocol}"
+  GCLOUD_KEY_FILE="${9:-}"
 
   # Verify gcloud is available and authenticated
   if ! command -v gcloud &>/dev/null; then
