@@ -1,0 +1,122 @@
+# =============================================================================
+# OnSocial Production Data Stack — Data Tier Only
+# =============================================================================
+#
+# Architecture: Private network only
+#   - Postgres bound to the private network IP
+#   - Hasura bound to the private network IP
+#   - Daily logical backups on the data host
+#
+# This compose file is intended for the dedicated data host only.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "${PRIVATE_BIND_IP}:5432:5432"
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-extra-dbs.sh:/docker-entrypoint-initdb.d/02-extra-dbs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    shm_size: 256mb
+    mem_limit: 8g
+    cpus: 3.0
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=4GB"
+      - "-c"
+      - "effective_cache_size=10GB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=1GB"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "wal_buffers=64MB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "log_min_duration_statement=1000"
+
+  hasura:
+    image: hasura/graphql-engine:v2.40.0
+    container_name: hasura
+    ports:
+      - "${PRIVATE_BIND_IP}:8080:8080"
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: ${HASURA_ENABLE_CONSOLE:-false}
+      HASURA_GRAPHQL_ENABLE_TELEMETRY: "false"
+      HASURA_GRAPHQL_EXPERIMENTAL_FEATURES: "naming_convention"
+      HASURA_GRAPHQL_DEFAULT_NAMING_CONVENTION: "graphql-default"
+      HASURA_GRAPHQL_PG_CONNECTIONS: ${HASURA_GRAPHQL_PG_CONNECTIONS:-50}
+      HASURA_GRAPHQL_CORS_DOMAIN: ${HASURA_GRAPHQL_CORS_DOMAIN}
+      HASURA_GRAPHQL_LOG_LEVEL: "warn"
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: "anonymous"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 1g
+    cpus: 1.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres-backup:
+    image: postgres:15-alpine
+    container_name: postgres-backup
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - postgres_backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Postgres backup cron: daily at 03:00 UTC, 7-day retention"
+        while true; do
+          NOW=$$(date +%s)
+          NEXT=$$(date -d "tomorrow 03:00" +%s 2>/dev/null || date -d "03:00" +%s)
+          [ "$$NEXT" -le "$$NOW" ] && NEXT=$$((NEXT + 86400))
+          DELAY=$$((NEXT - NOW))
+          sleep "$$DELAY"
+          STAMP=$$(date -u '+%Y%m%d-%H%M%S')
+          if pg_dump --clean --if-exists | gzip > "/backups/onsocial-$$STAMP.sql.gz"; then
+            cp "/backups/onsocial-$$STAMP.sql.gz" /backups/latest.sql.gz
+          fi
+          find /backups -name 'onsocial-*.sql.gz' -mtime +7 -delete
+        done
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.25
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  postgres_backups:

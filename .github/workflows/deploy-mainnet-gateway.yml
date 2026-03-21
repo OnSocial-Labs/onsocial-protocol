@@ -1,0 +1,59 @@
+name: Deploy Mainnet Gateway
+
+'on':
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-mainnet-gateway" to confirm'
+        required: true
+      image_tag:
+        description: 'Optional image tag override (defaults to current short SHA)'
+        required: false
+      app_host:
+        description: 'Optional override for mainnet app host/IP'
+        required: false
+      data_host:
+        description: 'Optional override for mainnet data private IP/hostname'
+        required: false
+      relayer0_host:
+        description: 'Optional override for mainnet relayer-0 private IP/hostname'
+        required: false
+      relayer1_host:
+        description: 'Optional override for mainnet relayer-1 private IP/hostname'
+        required: false
+      app_ssh_secret_name:
+        description: 'GSM secret name for the mainnet app host SSH key'
+        required: true
+        default: 'hetzner-mainnet-app-0-ssh-key'
+      remote_gcloud_key_file:
+        description: 'Path on the app host to the service-account key used for remote secret pulls'
+        required: false
+        default: '/root/onsocial-app-deploy-key.json'
+
+jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "deploy-mainnet-gateway" ]; then
+            echo "❌ Confirmation failed. Type 'deploy-mainnet-gateway' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation accepted"
+
+  deploy:
+    name: Deploy Mainnet Gateway
+    needs: validate
+    uses: ./.github/workflows/deploy-mainnet-app.yml
+    with:
+      deploy_target: gateway
+      image_tag: ${{ inputs.image_tag }}
+      app_host: ${{ inputs.app_host }}
+      data_host: ${{ inputs.data_host }}
+      relayer0_host: ${{ inputs.relayer0_host }}
+      relayer1_host: ${{ inputs.relayer1_host }}
+      app_ssh_secret_name: ${{ inputs.app_ssh_secret_name }}
+      remote_gcloud_key_file: ${{ inputs.remote_gcloud_key_file }}
+    secrets: inherit

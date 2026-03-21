@@ -1,5 +1,8 @@
 name: Social Post
 
+env:
+  ENABLE_SOCIAL_POST: 'false'
+
 on:
   push:
     branches: [main]
@@ -16,8 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     # Post by default on every push; skip with [no-post] in commit message
     if: >
-      github.event_name == 'workflow_dispatch' ||
-      !contains(github.event.head_commit.message, '[no-post]')
+      env.ENABLE_SOCIAL_POST == 'true' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        !contains(github.event.head_commit.message, '[no-post]')
+      )
 
     steps:
       - name: Checkout

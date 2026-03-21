@@ -17,6 +17,9 @@ permissions:
   actions: read
   id-token: write
 
+env:
+  ENABLE_DEPLOY_TELEGRAM_UPDATE: 'false'
+
 jobs:
   deploy:
     name: Deploy spkg to Hetzner
@@ -272,7 +275,7 @@ jobs:
             echo "✅ Deploy complete — $ACTIVE/$TOTAL sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
 
       - name: Notify Telegram
-        if: always()
+        if: ${{ always() && env.ENABLE_DEPLOY_TELEGRAM_UPDATE == 'true' }}
         run: |
           STATUS="${{ job.status }}"
           SHA="${{ steps.sha.outputs.short }}"

@@ -50,6 +50,10 @@ jobs:
         working-directory: packages/onsocial-relayer
         run: cargo fmt -- --check
 
+      - name: Build
+        working-directory: packages/onsocial-relayer
+        run: cargo build --features gcp --lib --bins
+
       - name: Unit tests
         working-directory: packages/onsocial-relayer
         run: cargo test --lib --bins

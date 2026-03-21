@@ -1,45 +1,44 @@
-name: Deploy Mainnet App
+name: Deploy Mainnet App (Reusable)
 
-# Manual trigger only — mainnet app deploys require explicit human action.
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      confirm:
-        description: 'Type "deploy-mainnet-app" to confirm'
-        required: true
       deploy_target:
-        description: 'Which app tier to deploy'
         required: true
-        default: 'backend'
+        type: string
       image_tag:
-        description: 'Optional image tag override (defaults to current short SHA)'
         required: false
+        type: string
+        default: ''
       app_host:
-        description: 'Optional override for mainnet app host/IP'
         required: false
+        type: string
+        default: ''
       data_host:
-        description: 'Optional override for mainnet data private IP/hostname'
         required: false
+        type: string
+        default: ''
       relayer0_host:
-        description: 'Optional override for mainnet relayer-0 private IP/hostname'
         required: false
+        type: string
+        default: ''
       relayer1_host:
-        description: 'Optional override for mainnet relayer-1 private IP/hostname'
         required: false
+        type: string
+        default: ''
       app_ssh_secret_name:
-        description: 'GSM secret name for the mainnet app host SSH key'
-        required: true
+        required: false
+        type: string
         default: 'hetzner-mainnet-app-0-ssh-key'
       remote_gcloud_key_file:
-        description: 'Path on the app host to the service-account key used for remote secret pulls'
         required: false
+        type: string
         default: '/root/onsocial-app-deploy-key.json'
-
 env:
-  APP_HOST: ${{ github.event.inputs.app_host != '' && github.event.inputs.app_host || vars.MAINNET_APP_HOST }}
-  DATA_HOST: ${{ github.event.inputs.data_host != '' && github.event.inputs.data_host || vars.MAINNET_DATA_HOST }}
-  RELAYER0_HOST: ${{ github.event.inputs.relayer0_host != '' && github.event.inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
-  RELAYER1_HOST: ${{ github.event.inputs.relayer1_host != '' && github.event.inputs.relayer1_host || vars.MAINNET_RELAYER_1_HOST }}
+  APP_HOST: ${{ inputs.app_host != '' && inputs.app_host || vars.MAINNET_APP_HOST }}
+  DATA_HOST: ${{ inputs.data_host != '' && inputs.data_host || vars.MAINNET_DATA_HOST }}
+  RELAYER0_HOST: ${{ inputs.relayer0_host != '' && inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
+  RELAYER1_HOST: ${{ inputs.relayer1_host != '' && inputs.relayer1_host || vars.MAINNET_RELAYER_1_HOST }}
 
 concurrency:
   group: mainnet-app-deploy
@@ -54,17 +53,9 @@ jobs:
     name: Validate Inputs
     runs-on: ubuntu-latest
     steps:
-      - name: Check confirmation
-        run: |
-          if [ "${{ github.event.inputs.confirm }}" != "deploy-mainnet-app" ]; then
-            echo "❌ Confirmation failed. Type 'deploy-mainnet-app' to proceed."
-            exit 1
-          fi
-          echo "✅ Confirmation accepted"
-
       - name: Check deploy target
         run: |
-          case "${{ github.event.inputs.deploy_target }}" in
+          case "${{ inputs.deploy_target }}" in
             backend|gateway|all)
               ;;
             *)
@@ -115,8 +106,8 @@ jobs:
       - name: Resolve image tag
         id: image
         run: |
-          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
-            echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           fi
@@ -126,7 +117,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ssh"
           chmod 700 "$RUNNER_TEMP/ssh"
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.app_ssh_secret_name }}" \
+            --secret="${{ inputs.app_ssh_secret_name }}" \
             --out-file="$RUNNER_TEMP/ssh/app_deploy_key"
           test -s "$RUNNER_TEMP/ssh/app_deploy_key"
           chmod 600 "$RUNNER_TEMP/ssh/app_deploy_key"
@@ -138,7 +129,7 @@ jobs:
 
       - name: Deploy app tier
         run: |
-          REMOTE_GCLOUD_KEY_FILE="${{ github.event.inputs.remote_gcloud_key_file }}" \
+          REMOTE_GCLOUD_KEY_FILE="${{ inputs.remote_gcloud_key_file }}" \
           DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/app_deploy_key" \
           DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-app-production.sh \
@@ -147,7 +138,7 @@ jobs:
             --postgres-host "${{ env.DATA_HOST }}" \
             --relayer0-url "http://${{ env.RELAYER0_HOST }}:3040" \
             --relayer1-url "http://${{ env.RELAYER1_HOST }}:3040" \
-            --target "${{ github.event.inputs.deploy_target }}" \
+            --target "${{ inputs.deploy_target }}" \
             --tag "${{ steps.image.outputs.tag }}"
 
       - name: Verify mainnet HTTPS health
@@ -173,7 +164,7 @@ jobs:
             echo "- Data host: ${{ env.DATA_HOST }}"
             echo "- Relayer-0 host: ${{ env.RELAYER0_HOST }}"
             echo "- Relayer-1 host: ${{ env.RELAYER1_HOST }}"
-            echo "- Deploy target: ${{ github.event.inputs.deploy_target }}"
+            echo "- Deploy target: ${{ inputs.deploy_target }}"
             echo "- Image tag: ${{ steps.image.outputs.tag }}"
             echo "- Active backend slot: ${{ steps.slots.outputs.backend }}"
             echo "- Active gateway slot: ${{ steps.slots.outputs.gateway }}"

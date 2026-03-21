@@ -288,6 +288,7 @@ define deploy_contract_unified
 		-e CONTRACT_NAME=$(2) \
 		-e INIT=$(INIT) \
 		-e REPRODUCIBLE=$(REPRODUCIBLE) \
+		-e AUTO_CONFIRM=$(AUTO_CONFIRM) \
 		-e DRY_RUN=$(DRY_RUN) \
 		-e VERBOSE=$(VERBOSE) \
 		$(CONTRACTS_DOCKER_IMAGE) \

@@ -9,14 +9,14 @@ name: Promote Mainnet
       image_tag:
         description: 'Existing image tag to promote to mainnet'
         required: true
-      promote_app:
-        description: 'Deploy app tier using this image tag'
+      promote_backend:
+        description: 'Deploy backend using this image tag'
         required: true
         default: 'true'
-      app_deploy_target:
-        description: 'App tier scope when promote_app=true'
+      promote_gateway:
+        description: 'Deploy gateway using this image tag'
         required: true
-        default: 'backend'
+        default: 'false'
       promote_relayers:
         description: 'Deploy relayer hosts using this image tag'
         required: true
@@ -105,34 +105,25 @@ jobs:
 
       - name: Check promotion scope
         run: |
-          PROMOTE_APP="${{ github.event.inputs.promote_app }}"
+          PROMOTE_BACKEND="${{ github.event.inputs.promote_backend }}"
+          PROMOTE_GATEWAY="${{ github.event.inputs.promote_gateway }}"
           PROMOTE_RELAYERS="${{ github.event.inputs.promote_relayers }}"
-          APP_TARGET="${{ github.event.inputs.app_deploy_target }}"
           RELAYER_TARGET="${{ github.event.inputs.relayer_deploy_target }}"
           ALLOWED_CONTRACTS="${{ github.event.inputs.allowed_contracts }}"
 
-          for value in "$PROMOTE_APP" "$PROMOTE_RELAYERS"; do
+          for value in "$PROMOTE_BACKEND" "$PROMOTE_GATEWAY" "$PROMOTE_RELAYERS"; do
             if [ "$value" != "true" ] && [ "$value" != "false" ]; then
-              echo "❌ promote_app and promote_relayers must be true or false"
+              echo "❌ promote_backend, promote_gateway, and promote_relayers must be true or false"
               exit 1
             fi
           done
 
-          if [ "$PROMOTE_APP" != "true" ] && [ "$PROMOTE_RELAYERS" != "true" ]; then
-            echo "❌ Enable at least one of promote_app or promote_relayers"
+          if [ "$PROMOTE_BACKEND" != "true" ] && [ "$PROMOTE_GATEWAY" != "true" ] && [ "$PROMOTE_RELAYERS" != "true" ]; then
+            echo "❌ Enable at least one of promote_backend, promote_gateway, or promote_relayers"
             exit 1
           fi
 
-          if [ "$PROMOTE_APP" = "true" ]; then
-            case "$APP_TARGET" in
-              backend|gateway|all)
-                ;;
-              *)
-                echo "❌ app_deploy_target must be one of: backend, gateway, all"
-                exit 1
-                ;;
-            esac
-
+          if [ "$PROMOTE_BACKEND" = "true" ] || [ "$PROMOTE_GATEWAY" = "true" ]; then
             if [ -z "${{ env.APP_HOST }}" ] || [ -z "${{ env.DATA_HOST }}" ] || [ -z "${{ env.RELAYER0_HOST }}" ] || [ -z "${{ env.RELAYER1_HOST }}" ]; then
               echo "❌ Mainnet app topology is incomplete. Configure vars.MAINNET_APP_HOST, vars.MAINNET_DATA_HOST, vars.MAINNET_RELAYER_0_HOST, and vars.MAINNET_RELAYER_1_HOST or pass overrides."
               exit 1
@@ -172,87 +163,39 @@ jobs:
 
           echo "✅ Promotion scope accepted"
 
-  deploy-app:
-    name: Promote App Tier
+  deploy-backend:
+    name: Promote Backend
     needs: validate
-    if: ${{ github.event.inputs.promote_app == 'true' }}
-    runs-on: ubuntu-latest
-    environment:
-      name: mainnet
-    steps:
-      - uses: actions/checkout@v5
+    if: ${{ github.event.inputs.promote_backend == 'true' }}
+    uses: ./.github/workflows/deploy-mainnet-app.yml
+    with:
+      deploy_target: backend
+      image_tag: ${{ github.event.inputs.image_tag }}
+      app_host: ${{ github.event.inputs.app_host }}
+      data_host: ${{ github.event.inputs.data_host }}
+      relayer0_host: ${{ github.event.inputs.relayer0_host }}
+      relayer1_host: ${{ github.event.inputs.relayer1_host }}
+      app_ssh_secret_name: ${{ github.event.inputs.app_ssh_secret_name }}
+      remote_gcloud_key_file: ${{ github.event.inputs.app_remote_gcloud_key_file }}
+    secrets: inherit
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
-          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
-
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Fetch app SSH key from Secret Manager
-        run: |
-          mkdir -p "$RUNNER_TEMP/ssh"
-          chmod 700 "$RUNNER_TEMP/ssh"
-          gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.app_ssh_secret_name }}" \
-            --out-file="$RUNNER_TEMP/ssh/app_deploy_key"
-          test -s "$RUNNER_TEMP/ssh/app_deploy_key"
-          chmod 600 "$RUNNER_TEMP/ssh/app_deploy_key"
-
-      - name: Trust app host key
-        run: |
-          ssh-keyscan -H "${{ env.APP_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
-          test -s "$RUNNER_TEMP/ssh/known_hosts"
-
-      - name: Deploy app tier
-        run: |
-          REMOTE_GCLOUD_KEY_FILE="${{ github.event.inputs.app_remote_gcloud_key_file }}" \
-          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/app_deploy_key" \
-          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
-          bash deployment/deploy-app-production.sh \
-            mainnet "${{ env.APP_HOST }}" \
-            --hasura-url "http://${{ env.DATA_HOST }}:8080/v1/graphql" \
-            --postgres-host "${{ env.DATA_HOST }}" \
-            --relayer0-url "http://${{ env.RELAYER0_HOST }}:3040" \
-            --relayer1-url "http://${{ env.RELAYER1_HOST }}:3040" \
-            --target "${{ github.event.inputs.app_deploy_target }}" \
-            --tag "${{ github.event.inputs.image_tag }}"
-
-      - name: Verify mainnet HTTPS health
-        run: |
-          curl -fsSI --max-time 15 \
-            --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
-            https://api.onsocial.id/health
-
-      - name: Read active app slots
-        id: slots
-        run: |
-          backend_slot="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && cat .backend-slot 2>/dev/null || echo blue")"
-          gateway_slot="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && cat .gateway-slot 2>/dev/null || echo blue")"
-          echo "backend=$backend_slot" >> "$GITHUB_OUTPUT"
-          echo "gateway=$gateway_slot" >> "$GITHUB_OUTPUT"
-
-      - name: Summarize app promotion
-        run: |
-          {
-            echo "## Mainnet App Promotion"
-            echo ""
-            echo "- Image tag: ${{ github.event.inputs.image_tag }}"
-            echo "- App host: ${{ env.APP_HOST }}"
-            echo "- Data host: ${{ env.DATA_HOST }}"
-            echo "- Relayer-0 host: ${{ env.RELAYER0_HOST }}"
-            echo "- Relayer-1 host: ${{ env.RELAYER1_HOST }}"
-            echo "- Deploy target: ${{ github.event.inputs.app_deploy_target }}"
-            echo "- Active backend slot: ${{ steps.slots.outputs.backend }}"
-            echo "- Active gateway slot: ${{ steps.slots.outputs.gateway }}"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Cleanup SSH material
-        if: always()
-        run: |
-          rm -f "$RUNNER_TEMP/ssh/app_deploy_key" "$RUNNER_TEMP/ssh/known_hosts"
+  deploy-gateway:
+    name: Promote Gateway
+    needs:
+      - validate
+      - deploy-backend
+    if: ${{ always() && github.event.inputs.promote_gateway == 'true' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') }}
+    uses: ./.github/workflows/deploy-mainnet-app.yml
+    with:
+      deploy_target: gateway
+      image_tag: ${{ github.event.inputs.image_tag }}
+      app_host: ${{ github.event.inputs.app_host }}
+      data_host: ${{ github.event.inputs.data_host }}
+      relayer0_host: ${{ github.event.inputs.relayer0_host }}
+      relayer1_host: ${{ github.event.inputs.relayer1_host }}
+      app_ssh_secret_name: ${{ github.event.inputs.app_ssh_secret_name }}
+      remote_gcloud_key_file: ${{ github.event.inputs.app_remote_gcloud_key_file }}
+    secrets: inherit
 
   deploy-relayer-1:
     name: Promote mainnet-relayer-1

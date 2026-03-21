@@ -17,6 +17,8 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
+  DEPLOY_HOST: 135.181.110.183
+  ENABLE_DEPLOY_TELEGRAM_UPDATE: 'false'
 
 permissions:
   contents: read
@@ -126,22 +128,22 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ steps.ssh.outputs.key }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 135.181.110.183 >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
           scp -i ~/.ssh/deploy_key \
             deployment/docker-compose.yml \
             deployment/Caddyfile \
             deployment/Caddyfile.relayer \
             deployment/init-extra-dbs.sh \
             /tmp/deploy_gsm.env \
-            root@135.181.110.183:/opt/onsocial/
-          ssh -i ~/.ssh/deploy_key root@135.181.110.183 \
+            "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/"
+          ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" \
             'chmod 600 /opt/onsocial/deploy_gsm.env && chmod +x /opt/onsocial/init-extra-dbs.sh'
           echo "✅ Config files synced to server"
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
-          host: 135.181.110.183
+          host: ${{ env.DEPLOY_HOST }}
           username: root
           key: ${{ steps.ssh.outputs.key }}
           script: |
@@ -178,6 +180,7 @@ jobs:
 
             upsert_env "NEAR_NETWORK" "testnet"
             upsert_env "RELAYER_ACCOUNT_ID" "relayer.onsocial.testnet"
+            upsert_env "RELAYER_ALLOWED_CONTRACTS" "core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet"
             upsert_env "RELAYER_CONTRACT_ID" "core.onsocial.testnet"
             upsert_env "SOCIAL_TOKEN_CONTRACT" "token.onsocial.testnet"
             upsert_env "STAKING_CONTRACT" "staking.onsocial.testnet"
@@ -318,7 +321,7 @@ jobs:
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"
 
       - name: Notify deploy result
-        if: always()
+        if: ${{ always() && env.ENABLE_DEPLOY_TELEGRAM_UPDATE == 'true' }}
         run: |
           STATUS="${{ job.status }}"
           SHA="${{ steps.sha.outputs.short }}"

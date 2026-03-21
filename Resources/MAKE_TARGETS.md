@@ -203,7 +203,6 @@ make test-all-contracts  # Run all tests
 | Target | Description |
 |--------|-------------|
 | `help` | Show main help with common targets |
-| `help-deployment` | Show deployment-specific help |
 | `targets-count` | Show number of available make targets |
 
 ### ⚙️ **Advanced Options**
@@ -218,7 +217,7 @@ REPRODUCIBLE=1          # Use reproducible builds
 ```
 
 #### Credentials
-All deployments use `~/.near-credentials/` (the standard NEAR CLI credential store).
+Contract deployments use `~/.near-credentials/` (the standard NEAR CLI credential store).
 ```bash
 # Login to testnet
 near login --networkId testnet
@@ -227,7 +226,7 @@ near login --networkId testnet
 near login --networkId mainnet
 ```
 
-#### Deployment Examples
+#### Contract Deployment Examples
 ```bash
 # Standard deployment
 make deploy-contract-social-onsocial NETWORK=testnet
@@ -241,6 +240,7 @@ make deploy-contract-social-onsocial NETWORK=testnet REPRODUCIBLE=1
 # Dry-run simulation
 make deploy-contract-social-onsocial NETWORK=testnet DRY_RUN=1
 ```
+
 
 ### 🔍 **Debugging Tips**
 

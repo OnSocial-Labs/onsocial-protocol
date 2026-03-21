@@ -46,48 +46,6 @@ lint: lint-all-contracts lint-all-js lint-relayer
 	$(call log_complete,All linting completed)
 
 # =============================================================================
-# PRODUCTION DEPLOYMENT
-# =============================================================================
-
-.PHONY: generate-env-testnet
-generate-env-testnet:
-	@$(call log_start,Generating testnet production env)
-	@scripts/generate-env.sh testnet
-	@$(call log_complete,Testnet env generated)
-
-.PHONY: generate-env-mainnet
-generate-env-mainnet:
-	@$(call log_start,Generating mainnet production env)
-	@scripts/generate-env.sh mainnet
-	@$(call log_complete,Mainnet env generated)
-
-.PHONY: deploy-testnet
-deploy-testnet: generate-env-testnet
-	@$(call log_start,Deploying to testnet)
-	@test -n "$(SERVER_IP)" || { echo "$(ERROR)SERVER_IP required: make deploy-testnet SERVER_IP=1.2.3.4$(RESET)"; exit 1; }
-	@deployment/deploy-production.sh $(SERVER_IP) $(if $(BUILD),--build,)
-	@$(call log_complete,Testnet deployment complete)
-
-.PHONY: deploy-mainnet
-deploy-mainnet: generate-env-mainnet
-	@$(call log_start,Deploying to mainnet)
-	@test -n "$(SERVER_IP)" || { echo "$(ERROR)SERVER_IP required: make deploy-mainnet SERVER_IP=1.2.3.4$(RESET)"; exit 1; }
-	@echo "$(WARNING)MAINNET deployment — are you sure? Press Ctrl+C to abort, Enter to continue$(RESET)"
-	@read -r _
-	@deployment/deploy-production.sh $(SERVER_IP) $(if $(BUILD),--build,)
-	@$(call log_complete,Mainnet deployment complete)
-
-.PHONY: setup-kms-mainnet
-setup-kms-mainnet:
-	@$(call log_start,Setting up GCP KMS for mainnet)
-	@scripts/setup-kms-mainnet.sh
-	@$(call log_complete,KMS mainnet setup complete)
-
-.PHONY: setup-kms-mainnet-dry-run
-setup-kms-mainnet-dry-run:
-	@scripts/setup-kms-mainnet.sh --dry-run
-
-# =============================================================================
 # HELP SYSTEM
 # =============================================================================
 
@@ -143,38 +101,10 @@ help:
 	@echo "  upgrade-deps-js               # Interactively upgrade JavaScript dependencies"
 	@echo "  cargo-update                  # Simple cargo update (refresh Cargo.lock)"
 	@echo ""
-	@echo "$(ROCKET) **Production Deployment:**"
-	@echo "  generate-env-testnet          # Generate .env.production for testnet"
-	@echo "  generate-env-mainnet          # Generate .env.production for mainnet"
-	@echo "  deploy-testnet SERVER_IP=x    # Deploy full stack to testnet"
-	@echo "  deploy-mainnet SERVER_IP=x    # Deploy full stack to mainnet (with confirmation)"
-	@echo "  setup-kms-mainnet             # Create GCP KMS keyrings for mainnet"
-	@echo "  setup-kms-mainnet-dry-run     # Preview KMS setup without changes"
-	@echo ""
 	@echo "$(INFO) **For detailed documentation:** Resources/MAKE_TARGETS.md$(RESET)"
 	@echo ""
 	@echo "$(SUCCESS)Use VERBOSE=1 for detailed output$(RESET)"
 	@echo "$(SUCCESS)Use -j$(shell nproc) for parallel builds$(RESET)"
-
-.PHONY: help-deployment
-help-deployment:
-	@echo "$(ROCKET) OnSocial Protocol - Deployment Guide"
-	@echo "=============================================="
-	@echo ""
-	@echo "$(BUILD) **Available Contracts:**"
-	@echo "  $(VALID_CONTRACTS)"
-	@echo ""
-	@echo "$(TOOLS) **Deployment Modes:**"
-	@echo "  Standard:      make deploy-contract-<name> NETWORK=testnet"
-	@echo "  With Init:     make deploy-contract-<name> NETWORK=testnet INIT=1"
-	@echo "  Reproducible:  make deploy-contract-<name> NETWORK=testnet REPRODUCIBLE=1"
-	@echo "  Dry Run:       make deploy-contract-<name> NETWORK=testnet DRY_RUN=1"
-	@echo ""
-	@echo "$(TOOLS) **Deployment Credentials:**"
-	@echo "  Uses ~/.near-credentials/ (standard NEAR CLI store)"
-	@echo "  Login: near login --networkId testnet"
-	@echo ""
-	@echo "$(INFO) **Documentation:** See Resources/MAKE_TARGETS.md for complete reference$(RESET)"
 
 # Include target count for reference
 .PHONY: targets-count

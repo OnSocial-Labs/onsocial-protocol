@@ -90,6 +90,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm --filter onsocial-gateway lint
+
+      - name: Format check
+        run: pnpm --filter onsocial-gateway exec prettier --check .
+
       - name: Build
         run: pnpm --filter @onsocial/rpc build && pnpm --filter onsocial-gateway build
 

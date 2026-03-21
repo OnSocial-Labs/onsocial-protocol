@@ -62,6 +62,9 @@ jobs:
       - name: Lint
         run: pnpm --filter onsocial-backend lint
 
+      - name: Format check
+        run: pnpm --filter onsocial-backend exec prettier --check .
+
       - name: Build
         run: pnpm --filter onsocial-backend build
 

@@ -20,6 +20,7 @@ env:
   RELAYER_MAINNET: relayer.onsocial.near
   MIN_BALANCE_TESTNET: ${{ inputs.threshold_testnet || '5' }}
   MIN_BALANCE_MAINNET: ${{ inputs.threshold_mainnet || '20' }}
+  ENABLE_TELEGRAM_ALERTS: 'false'
 
 jobs:
   check-balance:
@@ -118,7 +119,7 @@ jobs:
           key: relayer-balances-${{ github.run_id }}
 
       - name: Notify Telegram (balance changed & low)
-        if: steps.balance.outputs.alerts != ''
+        if: ${{ steps.balance.outputs.alerts != '' && env.ENABLE_TELEGRAM_ALERTS == 'true' }}
         run: |
           TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
           CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"

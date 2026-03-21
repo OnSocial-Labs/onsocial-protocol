@@ -1,0 +1,129 @@
+name: Deploy Mainnet Data
+
+# Manual trigger only — mainnet data deploys require explicit human action.
+'on':
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-mainnet-data" to confirm'
+        required: true
+      deploy_target:
+        description: 'Which data tier to deploy'
+        required: true
+        default: 'postgres'
+      deploy_host:
+        description: 'Optional override for mainnet data deploy host/IP'
+        required: false
+      private_bind_ip:
+        description: 'Optional override for mainnet data private bind IP'
+        required: false
+      data_ssh_secret_name:
+        description: 'GSM secret name for the mainnet data host SSH key'
+        required: true
+        default: 'hetzner-mainnet-data-0-ssh-key'
+
+env:
+  DATA_DEPLOY_HOST: ${{ github.event.inputs.deploy_host != '' && github.event.inputs.deploy_host || vars.MAINNET_DATA_DEPLOY_HOST }}
+  DATA_PRIVATE_BIND_IP: ${{ github.event.inputs.private_bind_ip != '' && github.event.inputs.private_bind_ip || vars.MAINNET_DATA_HOST }}
+
+concurrency:
+  group: mainnet-data-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy-mainnet-data" ]; then
+            echo "❌ Confirmation failed. Type 'deploy-mainnet-data' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation accepted"
+
+      - name: Check deploy target
+        run: |
+          case "${{ github.event.inputs.deploy_target }}" in
+            postgres|all)
+              ;;
+            *)
+              echo "❌ deploy_target must be one of: postgres, all"
+              exit 1
+              ;;
+          esac
+          echo "✅ Deploy target accepted"
+
+      - name: Check host configuration
+        run: |
+          if [ -z "${{ env.DATA_DEPLOY_HOST }}" ]; then
+            echo "❌ DATA_DEPLOY_HOST is not set. Provide deploy_host or configure MAINNET_DATA_DEPLOY_HOST."
+            exit 1
+          fi
+          if [ -z "${{ env.DATA_PRIVATE_BIND_IP }}" ]; then
+            echo "❌ DATA_PRIVATE_BIND_IP is not set. Provide private_bind_ip or configure MAINNET_DATA_HOST."
+            exit 1
+          fi
+          echo "✅ Mainnet data topology resolved"
+
+  deploy:
+    name: Deploy Mainnet Data Tier
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch data SSH key from Secret Manager
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.data_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/data_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/data_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/data_deploy_key"
+
+      - name: Trust data host key
+        run: |
+          ssh-keyscan -H "${{ env.DATA_DEPLOY_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
+
+      - name: Deploy data tier
+        run: |
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/data_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
+          bash deployment/deploy-data-production.sh \
+            mainnet "${{ env.DATA_DEPLOY_HOST }}" \
+            --private-bind-ip "${{ env.DATA_PRIVATE_BIND_IP }}" \
+            --target "${{ github.event.inputs.deploy_target }}"
+
+      - name: Summarize deployment
+        run: |
+          {
+            echo "## Mainnet Data Deploy"
+            echo ""
+            echo "- Data deploy host: ${{ env.DATA_DEPLOY_HOST }}"
+            echo "- Private bind IP: ${{ env.DATA_PRIVATE_BIND_IP }}"
+            echo "- Deploy target: ${{ github.event.inputs.deploy_target }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/data_deploy_key" "$RUNNER_TEMP/ssh/known_hosts"

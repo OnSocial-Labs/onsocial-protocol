@@ -137,3 +137,4 @@ packages/**/*.md
 deployment/.env.production
 deployment/.Caddyfile.generated
 .env.secrets
+deployment/cloud-init-mainnet-private-runner.rendered.yaml
