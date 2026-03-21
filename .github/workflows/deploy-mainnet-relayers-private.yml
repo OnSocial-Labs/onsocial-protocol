@@ -43,8 +43,8 @@ name: Deploy Mainnet Relayers (Private)
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
-  RELAYER0_HOST: ${{ github.event.inputs.relayer0_host || secrets.MAINNET_RELAYER_0_HOST }}
-  RELAYER1_HOST: ${{ github.event.inputs.relayer1_host || secrets.MAINNET_RELAYER_1_HOST }}
+  RELAYER0_HOST: ${{ github.event.inputs.relayer0_host != '' && github.event.inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
+  RELAYER1_HOST: ${{ github.event.inputs.relayer1_host != '' && github.event.inputs.relayer1_host || vars.MAINNET_RELAYER_1_HOST }}
 
 concurrency:
   group: mainnet-deploy
