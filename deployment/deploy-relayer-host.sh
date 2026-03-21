@@ -224,7 +224,10 @@ else
 fi
 
 mv .env.relayer .env.relayer.current
-chmod 600 .env.relayer.current secrets/relayer-signer.json
+chmod 600 .env.relayer.current
+# The relayer container runs as a non-root user, so the mounted GCP signer
+# file must be world-readable inside the bind mount.
+chmod 644 secrets/relayer-signer.json
 
 rollback() {
   if [[ -f .env.relayer.previous ]]; then
