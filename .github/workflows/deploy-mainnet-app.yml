@@ -65,10 +65,10 @@ jobs:
       - name: Check deploy target
         run: |
           case "${{ github.event.inputs.deploy_target }}" in
-            backend|all)
+            backend|gateway|all)
               ;;
             *)
-              echo "❌ deploy_target must be one of: backend, all"
+              echo "❌ deploy_target must be one of: backend, gateway, all"
               exit 1
               ;;
           esac

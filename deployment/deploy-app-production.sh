@@ -60,7 +60,7 @@ Usage:
     [--backend-db-name <onsocial_backend>] \
     [--relayer0-url <http://10.1.0.2:3040>] \
     [--relayer1-url <http://10.1.0.3:3040>] \
-    [--target <backend|all>] \
+    [--target <backend|gateway|all>] \
     [--tag <sha>] \
     [--init]
 
@@ -152,10 +152,10 @@ if [[ -z "$NETWORK" || -z "$SERVER_IP" || -z "$HASURA_URL" || -z "$POSTGRES_HOST
 fi
 
 case "$DEPLOY_TARGET" in
-  backend|all)
+  backend|gateway|all)
     ;;
   *)
-    error "--target must be backend or all"
+    error "--target must be backend, gateway, or all"
     ;;
 esac
 
@@ -540,6 +540,27 @@ ssh "${SSH_OPTIONS[@]}" "root@$SERVER_IP" bash -s "$IMAGE_TAG" "$DEPLOY_TARGET" 
     echo "$current_gateway_slot" > "$GATEWAY_SLOT_FILE"
     docker compose -f docker-compose.app.yml stop "$(slot_service_name backend "$current_backend_slot")" >/dev/null 2>&1 || true
     report_active_state "$next_backend_slot" "$current_gateway_slot"
+  elif [[ "$DEPLOY_TARGET" = "gateway" ]]; then
+    pending_gateway_slot="$next_gateway_slot"
+    docker compose -f docker-compose.app.yml pull "$(slot_service_name gateway "$next_gateway_slot")"
+    docker compose -f docker-compose.app.yml up -d "$(slot_service_name gateway "$next_gateway_slot")"
+    check_health "gateway-$next_gateway_slot" "$(slot_health_url gateway "$next_gateway_slot")" 25 4
+
+    if ! is_service_running "$(slot_service_name backend "$current_backend_slot")"; then
+      pending_backend_slot="$current_backend_slot"
+      docker compose -f docker-compose.app.yml pull "$(slot_service_name backend "$current_backend_slot")"
+      docker compose -f docker-compose.app.yml up -d "$(slot_service_name backend "$current_backend_slot")"
+      check_health "backend-$current_backend_slot" "$(slot_health_url backend "$current_backend_slot")" 25 4
+    fi
+
+    render_caddyfile "$current_backend_slot" "$next_gateway_slot"
+    mv -f "$CADDY_RENDERED_FILE" "$CADDY_ACTIVE_FILE"
+    reload_caddy "$current_backend_slot" "$next_gateway_slot"
+
+    echo "$current_backend_slot" > "$BACKEND_SLOT_FILE"
+    echo "$next_gateway_slot" > "$GATEWAY_SLOT_FILE"
+    docker compose -f docker-compose.app.yml stop "$(slot_service_name gateway "$current_gateway_slot")" >/dev/null 2>&1 || true
+    report_active_state "$current_backend_slot" "$next_gateway_slot"
   else
     pending_backend_slot="$next_backend_slot"
     pending_gateway_slot="$next_gateway_slot"

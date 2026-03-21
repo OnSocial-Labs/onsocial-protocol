@@ -125,10 +125,10 @@ jobs:
 
           if [ "$PROMOTE_APP" = "true" ]; then
             case "$APP_TARGET" in
-              backend|all)
+              backend|gateway|all)
                 ;;
               *)
-                echo "❌ app_deploy_target must be one of: backend, all"
+                echo "❌ app_deploy_target must be one of: backend, gateway, all"
                 exit 1
                 ;;
             esac
