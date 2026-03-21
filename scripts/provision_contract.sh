@@ -114,7 +114,7 @@ GCP_KMS_LOCATION="${GCP_KMS_LOCATION:-global}"
 
 # Keyrings per instance
 if $IS_MAINNET; then
-  KEYRINGS=("relayer-keys-mainnet" "relayer-keys-mainnet-inst-1")
+  KEYRINGS=("relayer-keys-mainnet" "relayer-keys-mainnet-1")
 else
   KEYRINGS=("relayer-keys-testnet" "relayer-keys-inst-1")
 fi

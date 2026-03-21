@@ -32,8 +32,8 @@ const RELAYER_ACCOUNT = process.env.RELAYER_ACCOUNT_ID
 const RPC_URL = process.env.RELAYER_RPC_URL
   || (IS_MAINNET ? 'https://free.rpc.fastnear.com' : 'https://test.rpc.fastnear.com');
 
-// ── Contracts — all treated equally ─────────────────────────────────────
-const CONTRACTS = IS_MAINNET
+// ── Contracts — all treated equally unless explicitly overridden ───────
+const DEFAULT_CONTRACTS = IS_MAINNET
   ? [
       'core.onsocial.near',
       'scarces.onsocial.near',
@@ -44,6 +44,15 @@ const CONTRACTS = IS_MAINNET
       'scarces.onsocial.testnet',
       'rewards.onsocial.testnet',
     ];
+
+const CONTRACTS = (process.env.RELAYER_ALLOWED_CONTRACTS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+if (CONTRACTS.length === 0) {
+  CONTRACTS.push(...DEFAULT_CONTRACTS);
+}
 
 // ── Keyrings (one per relayer instance) ──────────────────────────────────
 const KEYRINGS = IS_MAINNET
@@ -60,7 +69,8 @@ const KEYRINGS = IS_MAINNET
 
 const GCP_PROJECT  = process.env.GCP_KMS_PROJECT  || 'onsocial-protocol';
 const GCP_LOCATION = process.env.GCP_KMS_LOCATION || 'global';
-const POOL_SIZE    = parseInt(process.env.GCP_KMS_POOL_SIZE || '30', 10);
+const DEFAULT_POOL_SIZE = IS_MAINNET ? 50 : 30;
+const POOL_SIZE    = parseInt(process.env.GCP_KMS_POOL_SIZE || String(DEFAULT_POOL_SIZE), 10);
 const KMS_BASE     = 'https://cloudkms.googleapis.com/v1';
 
 const ALLOWED_METHODS = ['execute'];

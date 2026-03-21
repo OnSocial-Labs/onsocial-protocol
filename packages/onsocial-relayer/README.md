@@ -17,8 +17,11 @@ docker compose up relayer
 Configure via `relayer.toml` or environment variables:
 
 ```toml
-rpc_url = "https://neart.lava.build"
-contract_id = "core.onsocial.testnet"
+allowed_contracts = [
+  "core.onsocial.testnet",
+  "scarces.onsocial.testnet",
+  "rewards.onsocial.testnet",
+]
 keys_path = "./account_keys/relayer.onsocial.testnet.json"
 bind_address = "0.0.0.0:3040"
 gas_tgas = 100
@@ -26,8 +29,23 @@ gas_tgas = 100
 
 Environment variables use `RELAYER_` prefix:
 ```bash
-export RELAYER_RPC_URL=https://near.lava.build
-export RELAYER_CONTRACT_ID=core.onsocial.near
+export LAVA_API_KEY=your-lava-key
+export RELAYER_ALLOWED_CONTRACTS=core.onsocial.near,scarces.onsocial.near,rewards.onsocial.near
+```
+
+`RELAYER_ALLOWED_CONTRACTS` is the canonical contract allowlist. Every relayed
+request must set `target_account`, and that target must be present in this list.
+
+RPC resolution order:
+
+1. `RELAYER_RPC_URL`
+2. keyed Lava URL built from `LAVA_API_KEY`
+3. FastNEAR default for the active network
+
+Optional fallback override:
+
+```bash
+export RELAYER_FALLBACK_RPC_URL=https://free.rpc.fastnear.com
 ```
 
 ## API
@@ -40,7 +58,11 @@ Health check with metrics.
 {
   "status": "ok",
   "relayer_account": "relayer.onsocial.testnet",
-  "contract_id": "core.onsocial.testnet",
+  "allowed_contracts": [
+    "core.onsocial.testnet",
+    "scarces.onsocial.testnet",
+    "rewards.onsocial.testnet"
+  ],
   "uptime_secs": 3600,
   "requests": 1234
 }
@@ -87,7 +109,7 @@ docker compose build relayer
 docker compose up -d relayer
 ```
 
-Secrets are managed via `.env.production` (RELAYER_KEYS_JSON, RELAYER_RPC_URL, etc.).
+Secrets are managed via `.env.production` (`RELAYER_KEYS_JSON`, `LAVA_API_KEY`, optional `RELAYER_RPC_URL`, etc.).
 
 ### Docker (Local)
 

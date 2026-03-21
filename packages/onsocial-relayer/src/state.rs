@@ -16,7 +16,6 @@ pub struct AppState {
     pub config: Config,
     pub rpc: RpcClient,
     pub key_pool: Arc<KeyPool>,
-    pub contract_id: near_primitives::types::AccountId,
     pub allowed_contracts: Vec<near_primitives::types::AccountId>,
     pub start_time: Instant,
     pub request_count: AtomicU64,
@@ -30,13 +29,8 @@ impl AppState {
     pub async fn new(config: Config) -> Result<Self, crate::Error> {
         let rpc = RpcClient::new(&config.rpc_url, &config.fallback_rpc_url);
 
-        let contract_id: near_primitives::types::AccountId = config
-            .contract_id
-            .parse()
-            .map_err(|e| crate::Error::Config(format!("Invalid contract_id: {e}")))?;
-
-        // Parse allowed contracts. contract_id is always included (backward compat).
-        let mut allowed_contracts: Vec<near_primitives::types::AccountId> = config
+        // Parse the canonical allowlist.
+        let allowed_contracts: Vec<near_primitives::types::AccountId> = config
             .allowed_contracts
             .iter()
             .filter_map(|s| {
@@ -48,10 +42,14 @@ impl AppState {
                     .ok()
             })
             .collect();
-        if !allowed_contracts.contains(&contract_id) {
-            allowed_contracts.push(contract_id.clone());
+
+        if allowed_contracts.is_empty() {
+            return Err(crate::Error::Config(
+                "No valid contracts configured in RELAYER_ALLOWED_CONTRACTS".into(),
+            ));
         }
-        info!(contracts = ?allowed_contracts, "Allowed contracts (all equal)");
+
+        info!(contracts = ?allowed_contracts, "Allowed contracts");
 
         let scaling = ScalingConfig::default();
         let scaling_min_keys = scaling.min_keys as usize;
@@ -134,7 +132,6 @@ impl AppState {
 
         Ok(Self {
             rpc,
-            contract_id,
             allowed_contracts,
             config,
             key_pool,

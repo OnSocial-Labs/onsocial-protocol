@@ -1,6 +1,6 @@
 //! Relayer configuration.
 
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::time::Duration;
 
 /// Signing backend.
@@ -19,9 +19,6 @@ pub struct Config {
 
     #[serde(default = "defaults::fallback_rpc_url")]
     pub fallback_rpc_url: String,
-
-    #[serde(default = "defaults::contract_id")]
-    pub contract_id: String,
 
     #[serde(default = "defaults::relayer_account_id")]
     pub relayer_account_id: String,
@@ -67,8 +64,11 @@ pub struct Config {
     #[serde(default = "defaults::allowed_methods")]
     pub allowed_methods: Vec<String>,
 
-    /// Extra contract accounts (comma-separated env `RELAYER_ALLOWED_CONTRACTS`).
-    #[serde(default = "defaults::allowed_contracts")]
+    /// Canonical contract allowlist.
+    #[serde(
+        default = "defaults::allowed_contracts",
+        deserialize_with = "deserialize_allowed_contracts"
+    )]
     pub allowed_contracts: Vec<String>,
 }
 
@@ -77,7 +77,6 @@ impl Default for Config {
         Self {
             rpc_url: defaults::rpc_url(),
             fallback_rpc_url: defaults::fallback_rpc_url(),
-            contract_id: defaults::contract_id(),
             relayer_account_id: defaults::relayer_account_id(),
             keys_path: defaults::keys_path(),
             bind_address: defaults::bind_address(),
@@ -95,6 +94,30 @@ impl Default for Config {
             allowed_contracts: defaults::allowed_contracts(),
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum AllowedContractsInput {
+    List(Vec<String>),
+    String(String),
+}
+
+fn deserialize_allowed_contracts<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let input = AllowedContractsInput::deserialize(deserializer)?;
+
+    Ok(match input {
+        AllowedContractsInput::List(contracts) => contracts,
+        AllowedContractsInput::String(contracts) => contracts
+            .split(',')
+            .map(str::trim)
+            .filter(|contract| !contract.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+    })
 }
 
 /// Autoscaling thresholds for the key pool.
@@ -168,8 +191,8 @@ impl Default for ScalingConfig {
 }
 
 mod defaults {
-    fn build_lava_url(network: &str) -> Option<String> {
-        let key = std::env::var("LAVA_API_KEY").ok()?;
+    fn build_lava_url(network: &str, lava_api_key: Option<&str>) -> Option<String> {
+        let key = lava_api_key?;
         if key.is_empty() {
             return None;
         }
@@ -189,41 +212,42 @@ mod defaults {
             .unwrap_or_else(|_| "testnet".into())
     }
 
-    pub fn rpc_url() -> String {
-        if let Ok(url) = std::env::var("RELAYER_RPC_URL") {
-            if !url.is_empty() {
-                return url;
-            }
-        }
-        let net = network();
-        if let Some(url) = build_lava_url(&net) {
-            return url;
-        }
-        if net.contains("mainnet") {
-            "https://near.lava.build".into()
-        } else {
-            "https://neart.lava.build".into()
-        }
-    }
-
-    pub fn fallback_rpc_url() -> String {
-        let net = network();
-        if net.contains("mainnet") {
+    fn default_fastnear_url(network: &str) -> String {
+        if network.contains("mainnet") {
             "https://free.rpc.fastnear.com".into()
         } else {
             "https://test.rpc.fastnear.com".into()
         }
     }
 
-    pub fn contract_id() -> String {
-        std::env::var("RELAYER_CONTRACT_ID").unwrap_or_else(|_| {
-            let net = network();
-            if net.contains("mainnet") {
-                "core.onsocial.near".into()
-            } else {
-                "core.onsocial.testnet".into()
-            }
-        })
+    pub(super) fn resolve_rpc_url(
+        network: &str,
+        explicit_url: Option<String>,
+        lava_api_key: Option<String>,
+    ) -> String {
+        if let Some(url) = explicit_url.filter(|url| !url.is_empty()) {
+            return url;
+        }
+
+        if let Some(url) = build_lava_url(network, lava_api_key.as_deref()) {
+            return url;
+        }
+
+        default_fastnear_url(network)
+    }
+
+    pub fn rpc_url() -> String {
+        let net = network();
+        resolve_rpc_url(
+            &net,
+            std::env::var("RELAYER_RPC_URL").ok(),
+            std::env::var("LAVA_API_KEY").ok(),
+        )
+    }
+
+    pub fn fallback_rpc_url() -> String {
+        let net = network();
+        resolve_rpc_url(&net, std::env::var("RELAYER_FALLBACK_RPC_URL").ok(), None)
     }
 
     pub fn relayer_account_id() -> String {
@@ -283,10 +307,15 @@ mod defaults {
     }
 
     pub fn gcp_kms_pool_size() -> u32 {
+        let default_size = if network().contains("mainnet") {
+            50
+        } else {
+            30
+        };
         std::env::var("GCP_KMS_POOL_SIZE")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(30)
+            .unwrap_or(default_size)
     }
 
     pub fn gcp_kms_admin_key() -> String {
@@ -300,15 +329,115 @@ mod defaults {
     pub fn allowed_contracts() -> Vec<String> {
         let net = network();
         if net.contains("mainnet") {
-            vec![
-                "scarces.onsocial.near".into(),
-                "rewards.onsocial.near".into(),
-            ]
+            vec!["rewards.onsocial.near".into()]
         } else {
             vec![
+                "core.onsocial.testnet".into(),
                 "scarces.onsocial.testnet".into(),
                 "rewards.onsocial.testnet".into(),
             ]
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::defaults;
+
+    #[test]
+    fn resolve_rpc_url_prefers_explicit_env_override() {
+        let url = defaults::resolve_rpc_url(
+            "mainnet",
+            Some("https://custom-rpc.example.com".into()),
+            Some("lava-key".into()),
+        );
+
+        assert_eq!(url, "https://custom-rpc.example.com");
+    }
+
+    #[test]
+    fn resolve_rpc_url_uses_keyed_lava_before_fastnear() {
+        let url = defaults::resolve_rpc_url("mainnet", None, Some("lava-key".into()));
+
+        assert_eq!(
+            url,
+            "https://g.w.lavanet.xyz/gateway/near/rpc-http/lava-key"
+        );
+    }
+
+    #[test]
+    fn resolve_rpc_url_falls_back_to_fastnear_without_lava_key() {
+        let url = defaults::resolve_rpc_url("mainnet", None, None);
+
+        assert_eq!(url, "https://free.rpc.fastnear.com");
+    }
+
+    #[test]
+    fn resolve_rpc_url_uses_testnet_fastnear_without_lava_key() {
+        let url = defaults::resolve_rpc_url("testnet", None, None);
+
+        assert_eq!(url, "https://test.rpc.fastnear.com");
+    }
+
+    #[test]
+    fn default_allowed_contracts_include_all_testnet_contracts() {
+        let contracts = defaults::allowed_contracts();
+
+        assert!(contracts
+            .iter()
+            .any(|contract| contract == "core.onsocial.testnet"));
+        assert!(contracts
+            .iter()
+            .any(|contract| contract == "scarces.onsocial.testnet"));
+        assert!(contracts
+            .iter()
+            .any(|contract| contract == "rewards.onsocial.testnet"));
+    }
+
+    #[test]
+    fn default_allowed_contracts_only_include_rewards_on_mainnet() {
+        unsafe {
+            std::env::set_var("NEAR_NETWORK", "mainnet");
+        }
+
+        let contracts = defaults::allowed_contracts();
+
+        assert_eq!(contracts, vec!["rewards.onsocial.near".to_string()]);
+
+        unsafe {
+            std::env::remove_var("NEAR_NETWORK");
+        }
+    }
+
+    #[test]
+    fn config_parses_allowed_contracts_from_csv_string() {
+        let config: super::Config = serde_json::from_value(serde_json::json!({
+            "allowed_contracts": "rewards.onsocial.near, core.onsocial.near"
+        }))
+        .expect("config should deserialize");
+
+        assert_eq!(
+            config.allowed_contracts,
+            vec![
+                "rewards.onsocial.near".to_string(),
+                "core.onsocial.near".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn config_parses_allowed_contracts_from_array() {
+        let config: super::Config = serde_json::from_value(serde_json::json!({
+            "allowed_contracts": ["rewards.onsocial.near", "core.onsocial.near"]
+        }))
+        .expect("config should deserialize");
+
+        assert_eq!(
+            config.allowed_contracts,
+            vec![
+                "rewards.onsocial.near".to_string(),
+                "core.onsocial.near".to_string()
+            ]
+        );
     }
 }

@@ -84,7 +84,11 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Json(HealthResponse {
         status,
         relayer_account: pool.relayer_account().to_string(),
-        contract_id: state.contract_id.to_string(),
+        allowed_contracts: state
+            .allowed_contracts
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
         uptime_secs: state.start_time.elapsed().as_secs(),
         requests: state.request_count.load(Ordering::Relaxed),
         active_rpc: state.rpc.active_url().to_string(),

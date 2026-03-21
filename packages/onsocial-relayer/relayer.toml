@@ -6,6 +6,7 @@ bind_address = "0.0.0.0:3040"
 gas_tgas = 100
 
 # Defaults are set in config.rs. These are shown for reference:
-# rpc_url — auto-built from LAVA_API_KEY, or RELAYER_RPC_URL env var
-# contract_id — RELAYER_CONTRACT_ID env var
+# rpc_url — RELAYER_RPC_URL env var, then keyed Lava from LAVA_API_KEY, then FastNEAR
+# fallback_rpc_url — RELAYER_FALLBACK_RPC_URL env var, otherwise FastNEAR
+# allowed_contracts — RELAYER_ALLOWED_CONTRACTS env var; canonical contract allowlist
 # signer_mode — RELAYER_SIGNER_MODE ("kms" or "local")

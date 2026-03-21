@@ -47,7 +47,7 @@ case "$NETWORK" in
     CORS_ORIGINS="https://onsocial.id,https://app.onsocial.id"
     HASURA_CORS="https://onsocial.id,https://app.onsocial.id"
     KMS_KEYRING_0="relayer-keys-mainnet"
-    KMS_KEYRING_1="relayer-keys-mainnet-inst-1"
+    KMS_KEYRING_1="relayer-keys-mainnet-1"
     ;;
   *)
     echo -e "${RED}❌ Unknown network: $NETWORK (expected testnet or mainnet)${NC}"
@@ -87,7 +87,7 @@ cat > "$OUTPUT_FILE" << EOF
 # --- Network config (derived from NETWORK=${NETWORK}) ---
 NEAR_NETWORK=${NETWORK}
 RELAYER_ACCOUNT_ID=relayer.${NEAR_SUFFIX}
-RELAYER_CONTRACT_ID=core.${NEAR_SUFFIX}
+RELAYER_ALLOWED_CONTRACTS=core.${NEAR_SUFFIX},scarces.${NEAR_SUFFIX},rewards.${NEAR_SUFFIX}
 SOCIAL_TOKEN_CONTRACT=token.${NEAR_SUFFIX}
 STAKING_CONTRACT=staking.${NEAR_SUFFIX}
 MARKETPLACE_CONTRACT=marketplace.${NEAR_SUFFIX}

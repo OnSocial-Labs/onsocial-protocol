@@ -146,7 +146,7 @@ services:
       NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
       NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
       LAVA_API_KEY: ${LAVA_API_KEY:-}
-      RELAYER_URL: http://relayer-lb:3040
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
     depends_on:
@@ -180,7 +180,7 @@ services:
       TELEGRAM_GROUP_IDS: "-1002402150258"
       BOT_USERNAME: ${BOT_USERNAME:-onsocial_pulse_bot}
       NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
-      RELAYER_URL: http://relayer-lb:3040
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
       ADMIN_SECRET: ${ADMIN_SECRET}
@@ -231,8 +231,9 @@ services:
       RUST_LOG: info
       RELAYER_SIGNER_MODE: kms
       RELAYER_ACCOUNT_ID: ${RELAYER_ACCOUNT_ID:-relayer.onsocial.testnet}
-      RELAYER_CONTRACT_ID: ${RELAYER_CONTRACT_ID:-core.onsocial.testnet}
-      RELAYER_RPC_URL: ${RELAYER_RPC_URL:-https://test.rpc.fastnear.com}
+      RELAYER_ALLOWED_CONTRACTS: ${RELAYER_ALLOWED_CONTRACTS:-core.onsocial.testnet,scarces.onsocial.testnet,rewards.onsocial.testnet}
+      RELAYER_RPC_URL: ${RELAYER_RPC_URL:-}
+      RELAYER_FALLBACK_RPC_URL: ${RELAYER_FALLBACK_RPC_URL:-}
       RELAYER_API_KEY: ${RELAYER_API_KEY}
       GCP_KMS_PROJECT: ${GCP_KMS_PROJECT:-onsocial-protocol}
       GCP_KMS_LOCATION: ${GCP_KMS_LOCATION:-global}

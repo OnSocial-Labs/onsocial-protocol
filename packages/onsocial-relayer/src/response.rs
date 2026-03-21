@@ -122,7 +122,7 @@ pub struct KeyPoolStats {
 pub struct HealthResponse {
     pub status: &'static str,
     pub relayer_account: String,
-    pub contract_id: String,
+    pub allowed_contracts: Vec<String>,
     pub uptime_secs: u64,
     pub requests: u64,
     pub active_rpc: String,

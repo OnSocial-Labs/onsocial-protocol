@@ -33,7 +33,13 @@ NC='\033[0m'
 NETWORK="${NEAR_NETWORK:-testnet}"
 PROJECT="${GCP_KMS_PROJECT:-onsocial-protocol}"
 LOCATION="${GCP_KMS_LOCATION:-global}"
-POOL_SIZE="${GCP_KMS_POOL_SIZE:-30}"
+DEFAULT_POOL_SIZE="30"
+
+if [ "$NETWORK" = "mainnet" ]; then
+  DEFAULT_POOL_SIZE="50"
+fi
+
+POOL_SIZE="${GCP_KMS_POOL_SIZE:-$DEFAULT_POOL_SIZE}"
 DRY_RUN=false
 
 if [ "${1:-}" = "--dry-run" ]; then
@@ -45,7 +51,7 @@ fi
 if [ "$NETWORK" = "mainnet" ]; then
   KEYRINGS=(
     "relayer-keys-mainnet"
-    "relayer-keys-mainnet-inst-1"
+    "relayer-keys-mainnet-1"
   )
 else
   KEYRINGS=(
