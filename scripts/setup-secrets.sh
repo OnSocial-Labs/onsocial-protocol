@@ -37,7 +37,8 @@ SECRETS=(
   "GRAPH_API_KEY:Graph indexer API key"
   "GRAPH_DEPLOY_KEY:Graph deploy key"
   "SUBSTREAMS_API_TOKEN:StreamingFast Substreams API token"
-  "TELEGRAM_BOT_TOKEN:Telegram bot token for OnSocial Pulse rewards bot"
+  "TELEGRAM_BOT_TOKEN_TESTNET:Telegram bot token for the testnet OnSocial Pulse rewards bot"
+  "TELEGRAM_BOT_TOKEN_MAINNET:Telegram bot token for the mainnet OnSocial Pulse rewards bot"
   "ADMIN_SECRET:Backend admin API secret for partner approval (min 32 chars)"
 )
 

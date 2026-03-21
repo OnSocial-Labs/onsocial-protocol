@@ -16,9 +16,11 @@ set -euo pipefail
 PROJECT="${GCP_PROJECT:-onsocial-protocol}"
 NEAR_NETWORK="${NEAR_NETWORK:-testnet}"
 DEFAULT_KMS_POOL_SIZE="30"
+TELEGRAM_BOT_SECRET_NAME="TELEGRAM_BOT_TOKEN_TESTNET"
 
 if [ "$NEAR_NETWORK" = "mainnet" ]; then
   DEFAULT_KMS_POOL_SIZE="50"
+  TELEGRAM_BOT_SECRET_NAME="TELEGRAM_BOT_TOKEN_MAINNET"
 fi
 
 # Secrets stored in GSM
@@ -32,7 +34,6 @@ SECRETS=(
   GRAPH_API_KEY
   GRAPH_DEPLOY_KEY
   SUBSTREAMS_API_TOKEN
-  TELEGRAM_BOT_TOKEN
   ADMIN_SECRET
 )
 
@@ -71,6 +72,11 @@ for name in "${SECRETS[@]}"; do
     echo "$name=$value"
   fi
 done
+
+value="$(fetch_secret "$TELEGRAM_BOT_SECRET_NAME" || true)"
+if [ -n "$value" ]; then
+  echo "TELEGRAM_BOT_TOKEN=$value"
+fi
 
 for name in "${OPTIONAL_SECRETS[@]}"; do
   value="$(fetch_secret "$name" || true)"

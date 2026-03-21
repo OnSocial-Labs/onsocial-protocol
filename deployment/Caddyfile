@@ -8,13 +8,12 @@
 #   ssh -L 8080:localhost:8080 your-server   # Hasura Console
 #   ssh -L 5432:localhost:5432 your-server   # Postgres
 #
-# DNS records required (A records → server IP):
-#   api.onsocial.id       — current unified endpoint
-#   testnet.onsocial.id   — testnet alias
-#   mainnet.onsocial.id   — mainnet alias (future: separate server)
+# DNS records are injected by the deploy scripts.
+# The generated Caddyfile should only contain the hostnames for the target
+# environment so testnet and mainnet stay explicitly separated.
 
 # ---------- API Gateway (sole public surface) ----------
-api.onsocial.id, testnet.onsocial.id, mainnet.onsocial.id {
+__SERVER_NAMES__ {
 	# 100 req/s per IP — protects infra before requests reach the app
 	rate_limit {
 		zone per_ip {
@@ -26,17 +25,17 @@ api.onsocial.id, testnet.onsocial.id, mainnet.onsocial.id {
 
 	# Telegram webhook → backend (must be before catch-all)
 	handle /webhooks/telegram {
-		reverse_proxy backend:4001
+		reverse_proxy __BACKEND_UPSTREAM__
 	}
 
 	# Partner Rewards SDK API → backend
 	handle /v1/* {
-		reverse_proxy backend:4001
+		reverse_proxy __BACKEND_UPSTREAM__
 	}
 
 	# Everything else → gateway
 	handle {
-		reverse_proxy gateway:8080
+		reverse_proxy __GATEWAY_UPSTREAM__
 	}
 
 	header {

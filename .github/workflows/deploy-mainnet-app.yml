@@ -1,0 +1,180 @@
+name: Deploy Mainnet App
+
+# Manual trigger only — mainnet app deploys require explicit human action.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy-mainnet-app" to confirm'
+        required: true
+      deploy_target:
+        description: 'Which app tier to deploy'
+        required: true
+        default: 'backend'
+      image_tag:
+        description: 'Optional image tag override (defaults to current short SHA)'
+        required: false
+      app_host:
+        description: 'Optional override for mainnet app host/IP'
+        required: false
+      data_host:
+        description: 'Optional override for mainnet data private IP/hostname'
+        required: false
+      relayer0_host:
+        description: 'Optional override for mainnet relayer-0 private IP/hostname'
+        required: false
+      relayer1_host:
+        description: 'Optional override for mainnet relayer-1 private IP/hostname'
+        required: false
+      app_ssh_secret_name:
+        description: 'GSM secret name for the mainnet app host SSH key'
+        required: true
+        default: 'hetzner-mainnet-app-0-ssh-key'
+
+env:
+  APP_HOST: ${{ github.event.inputs.app_host != '' && github.event.inputs.app_host || vars.MAINNET_APP_HOST }}
+  DATA_HOST: ${{ github.event.inputs.data_host != '' && github.event.inputs.data_host || vars.MAINNET_DATA_HOST }}
+  RELAYER0_HOST: ${{ github.event.inputs.relayer0_host != '' && github.event.inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
+  RELAYER1_HOST: ${{ github.event.inputs.relayer1_host != '' && github.event.inputs.relayer1_host || vars.MAINNET_RELAYER_1_HOST }}
+
+concurrency:
+  group: mainnet-app-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy-mainnet-app" ]; then
+            echo "❌ Confirmation failed. Type 'deploy-mainnet-app' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation accepted"
+
+      - name: Check deploy target
+        run: |
+          case "${{ github.event.inputs.deploy_target }}" in
+            backend|all)
+              ;;
+            *)
+              echo "❌ deploy_target must be one of: backend, all"
+              exit 1
+              ;;
+          esac
+          echo "✅ Deploy target accepted"
+
+      - name: Check host configuration
+        run: |
+          if [ -z "${{ env.APP_HOST }}" ]; then
+            echo "❌ APP_HOST is not set. Provide app_host or configure MAINNET_APP_HOST."
+            exit 1
+          fi
+          if [ -z "${{ env.DATA_HOST }}" ]; then
+            echo "❌ DATA_HOST is not set. Provide data_host or configure MAINNET_DATA_HOST."
+            exit 1
+          fi
+          if [ -z "${{ env.RELAYER0_HOST }}" ]; then
+            echo "❌ RELAYER0_HOST is not set. Provide relayer0_host or configure MAINNET_RELAYER_0_HOST."
+            exit 1
+          fi
+          if [ -z "${{ env.RELAYER1_HOST }}" ]; then
+            echo "❌ RELAYER1_HOST is not set. Provide relayer1_host or configure MAINNET_RELAYER_1_HOST."
+            exit 1
+          fi
+          echo "✅ Mainnet app topology resolved"
+
+  deploy:
+    name: Deploy Mainnet App Tier
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: mainnet
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve image tag
+        id: image
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch app SSH key from Secret Manager
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.app_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/app_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/app_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/app_deploy_key"
+
+      - name: Trust app host key
+        run: |
+          ssh-keyscan -H "${{ env.APP_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
+
+      - name: Deploy app tier
+        run: |
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/app_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
+          bash deployment/deploy-app-production.sh \
+            mainnet "${{ env.APP_HOST }}" \
+            --hasura-url "http://${{ env.DATA_HOST }}:8080/v1/graphql" \
+            --postgres-host "${{ env.DATA_HOST }}" \
+            --relayer0-url "http://${{ env.RELAYER0_HOST }}:3040" \
+            --relayer1-url "http://${{ env.RELAYER1_HOST }}:3040" \
+            --target "${{ github.event.inputs.deploy_target }}" \
+            --tag "${{ steps.image.outputs.tag }}"
+
+      - name: Verify mainnet HTTPS health
+        run: |
+          curl -fsSI --max-time 15 \
+            --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
+            https://api.onsocial.id/health
+
+      - name: Read active app slots
+        id: slots
+        run: |
+          backend_slot="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && cat .backend-slot 2>/dev/null || echo blue")"
+          gateway_slot="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && cat .gateway-slot 2>/dev/null || echo blue")"
+          echo "backend=$backend_slot" >> "$GITHUB_OUTPUT"
+          echo "gateway=$gateway_slot" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize deployment
+        run: |
+          {
+            echo "## Mainnet App Deploy"
+            echo ""
+            echo "- App host: ${{ env.APP_HOST }}"
+            echo "- Data host: ${{ env.DATA_HOST }}"
+            echo "- Relayer-0 host: ${{ env.RELAYER0_HOST }}"
+            echo "- Relayer-1 host: ${{ env.RELAYER1_HOST }}"
+            echo "- Deploy target: ${{ github.event.inputs.deploy_target }}"
+            echo "- Image tag: ${{ steps.image.outputs.tag }}"
+            echo "- Active backend slot: ${{ steps.slots.outputs.backend }}"
+            echo "- Active gateway slot: ${{ steps.slots.outputs.gateway }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/app_deploy_key" "$RUNNER_TEMP/ssh/known_hosts"

@@ -1,0 +1,177 @@
+# =============================================================================
+# OnSocial Production App Stack — App Tier Only
+# =============================================================================
+#
+# Architecture: Internet -> Caddy -> Gateway / Backend
+#               Gateway -> remote Hasura
+#               Backend -> remote Postgres
+#               Gateway + Backend -> local relayer-lb -> private relayer hosts
+#
+# This compose file is intended for the dedicated app host only.
+
+services:
+  caddy:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/caddy:${IMAGE_TAG:-latest}
+    container_name: app-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    depends_on:
+      relayer-lb:
+        condition: service_healthy
+
+  gateway-blue:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
+    container_name: gateway-blue
+    ports:
+      - "127.0.0.1:18080:8080"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HASURA_URL: ${HASURA_URL}
+      HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      SOCIAL_TOKEN_CONTRACT: ${SOCIAL_TOKEN_CONTRACT:-}
+      STAKING_CONTRACT: ${STAKING_CONTRACT:-}
+      NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
+      NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
+      LAVA_API_KEY: ${LAVA_API_KEY:-}
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on:
+      relayer-lb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 512m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  gateway-green:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/gateway:${IMAGE_TAG:-latest}
+    container_name: gateway-green
+    ports:
+      - "127.0.0.1:28080:8080"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HASURA_URL: ${HASURA_URL}
+      HASURA_ADMIN_SECRET: ${HASURA_ADMIN_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      LIGHTHOUSE_API_KEY: ${LIGHTHOUSE_API_KEY}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      SOCIAL_TOKEN_CONTRACT: ${SOCIAL_TOKEN_CONTRACT:-}
+      STAKING_CONTRACT: ${STAKING_CONTRACT:-}
+      NEARBLOCKS_API_URL: ${NEARBLOCKS_API_URL:-https://api.nearblocks.io}
+      NEARBLOCKS_API_KEY: ${NEARBLOCKS_API_KEY:-}
+      LAVA_API_KEY: ${LAVA_API_KEY:-}
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+    depends_on:
+      relayer-lb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 512m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  backend-blue:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/backend:${IMAGE_TAG:-latest}
+    container_name: backend-blue
+    ports:
+      - "127.0.0.1:14001:4001"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4001"
+      DATABASE_URL: ${BACKEND_DATABASE_URL}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_GROUP_IDS: ${TELEGRAM_GROUP_IDS:--1002402150258}
+      BOT_USERNAME: ${BOT_USERNAME:-onsocial_pulse_bot}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
+      ADMIN_SECRET: ${ADMIN_SECRET}
+    depends_on:
+      relayer-lb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 256m
+    cpus: 0.5
+
+  backend-green:
+    image: ghcr.io/onsocial-labs/onsocial-protocol/backend:${IMAGE_TAG:-latest}
+    container_name: backend-green
+    ports:
+      - "127.0.0.1:24001:4001"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4001"
+      DATABASE_URL: ${BACKEND_DATABASE_URL}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_GROUP_IDS: ${TELEGRAM_GROUP_IDS:--1002402150258}
+      BOT_USERNAME: ${BOT_USERNAME:-onsocial_pulse_bot}
+      NEAR_NETWORK: ${NEAR_NETWORK:-testnet}
+      RELAYER_URL: ${RELAYER_URL:-http://relayer-lb:3040}
+      RELAYER_API_KEY: ${RELAYER_API_KEY}
+      WEBHOOK_URL: https://${PUBLIC_DOMAIN}/webhooks/telegram
+      ADMIN_SECRET: ${ADMIN_SECRET}
+    depends_on:
+      relayer-lb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    mem_limit: 256m
+    cpus: 0.5
+
+  relayer-lb:
+    image: caddy:2-alpine
+    container_name: relayer-lb
+    ports:
+      - "127.0.0.1:3040:3040"
+    environment:
+      RELAYER0_URL: ${RELAYER0_URL:-http://10.1.0.2:3040}
+      RELAYER1_URL: ${RELAYER1_URL:-http://10.1.0.3:3040}
+    volumes:
+      - ./Caddyfile.relayer.remote:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+
+volumes:
+  caddy_data:
+  caddy_config:
