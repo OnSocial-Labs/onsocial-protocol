@@ -63,6 +63,8 @@ name: Promote Mainnet
         default: 'relayer-mainnet-signer-json'
 
 env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
   APP_HOST: ${{ github.event.inputs.app_host != '' && github.event.inputs.app_host || vars.MAINNET_APP_HOST }}
   DATA_HOST: ${{ github.event.inputs.data_host != '' && github.event.inputs.data_host || vars.MAINNET_DATA_HOST }}
   RELAYER0_HOST: ${{ github.event.inputs.relayer0_host != '' && github.event.inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
@@ -74,6 +76,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
   id-token: write
 
 jobs:
@@ -162,6 +165,45 @@ jobs:
           fi
 
           echo "✅ Promotion scope accepted"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate image availability
+        run: |
+          set -euo pipefail
+
+          tag="${{ github.event.inputs.image_tag }}"
+          required_images=()
+
+          if [ "${{ github.event.inputs.promote_backend }}" = "true" ] || [ "${{ github.event.inputs.promote_gateway }}" = "true" ]; then
+            required_images+=(caddy)
+          fi
+
+          if [ "${{ github.event.inputs.promote_backend }}" = "true" ]; then
+            required_images+=(backend)
+          fi
+
+          if [ "${{ github.event.inputs.promote_gateway }}" = "true" ]; then
+            required_images+=(gateway)
+          fi
+
+          if [ "${{ github.event.inputs.promote_relayers }}" = "true" ]; then
+            required_images+=(relayer)
+          fi
+
+          for image in "${required_images[@]}"; do
+            ref="${{ env.IMAGE_PREFIX }}/${image}:${tag}"
+            if ! docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "❌ Required image tag not found: $ref"
+              exit 1
+            fi
+            echo "✅ Found image: $ref"
+          done
 
   deploy-backend:
     name: Promote Backend
@@ -514,3 +556,139 @@ jobs:
         if: always()
         run: |
           rm -f "$RUNNER_TEMP/ssh/relayer0_deploy_key" "$RUNNER_TEMP/ssh/known_hosts" "$RUNNER_TEMP/relayer-signer.json"
+
+  smoke:
+    name: Integrated Smoke Checks
+    needs:
+      - validate
+      - deploy-backend
+      - deploy-gateway
+      - deploy-relayer-1
+      - deploy-relayer-0-only
+      - deploy-relayer-0-after-relayer-1
+    if: ${{ always() && (needs.validate.result == 'success') && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') && (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') && (needs.deploy-relayer-1.result == 'success' || needs.deploy-relayer-1.result == 'skipped') && (needs.deploy-relayer-0-only.result == 'success' || needs.deploy-relayer-0-only.result == 'skipped') && (needs.deploy-relayer-0-after-relayer-1.result == 'success' || needs.deploy-relayer-0-after-relayer-1.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: mainnet
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: "projects/87856119115/locations/global/workloadIdentityPools/github-ci/providers/github-oidc"
+          service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch app SSH key from Secret Manager
+        run: |
+          test -n "${{ env.APP_HOST }}" || { echo "❌ APP_HOST is required for integrated smoke checks"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+          gcloud secrets versions access latest \
+            --secret="${{ github.event.inputs.app_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/app_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/app_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/app_deploy_key"
+
+      - name: Trust app host key
+        run: |
+          ssh-keyscan -H "${{ env.APP_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
+
+      - name: Check local app host services
+        run: |
+          printf '%s\n' \
+            'set -euo pipefail' \
+            '' \
+            'PROMOTE_RELAYERS="$1"' \
+            'RELAYER_TARGET="$2"' \
+            'RELAYER0_HOST="$3"' \
+            'RELAYER1_HOST="$4"' \
+            'ALLOWED_CONTRACTS="$5"' \
+            '' \
+            'check_url() {' \
+            '  local name="$1"' \
+            '  local url="$2"' \
+            '  curl -sf --max-time 10 "$url" >/dev/null' \
+            '  echo "✅ $name healthy"' \
+            '}' \
+            '' \
+            'backend_slot="$(cat /opt/onsocial/.backend-slot 2>/dev/null || echo blue)"' \
+            'gateway_slot="$(cat /opt/onsocial/.gateway-slot 2>/dev/null || echo blue)"' \
+            '' \
+            'if [ "$backend_slot" = "blue" ]; then' \
+            '  backend_url="http://127.0.0.1:14001/health"' \
+            'else' \
+            '  backend_url="http://127.0.0.1:24001/health"' \
+            'fi' \
+            '' \
+            'if [ "$gateway_slot" = "blue" ]; then' \
+            '  gateway_url="http://127.0.0.1:18080/health"' \
+            'else' \
+            '  gateway_url="http://127.0.0.1:28080/health"' \
+            'fi' \
+            '' \
+            'check_url "backend-${backend_slot}" "$backend_url"' \
+            'check_url "gateway-${gateway_slot}" "$gateway_url"' \
+            'check_url "relayer-lb" "http://127.0.0.1:3040/health"' \
+            '' \
+            'if [ "$PROMOTE_RELAYERS" = "true" ]; then' \
+            '  if [ "$RELAYER_TARGET" = "relayer-0" ] || [ "$RELAYER_TARGET" = "both" ]; then' \
+            '    curl -sf --max-time 10 "http://${RELAYER0_HOST}:3040/health" | tee /tmp/relayer0-health.json >/dev/null' \
+            '    IFS='"'"','"'"' read -ra contracts <<< "$ALLOWED_CONTRACTS"' \
+            '    for contract in "${contracts[@]}"; do' \
+            '      contract="$(echo "$contract" | xargs)"' \
+            '      [ -n "$contract" ] || continue' \
+            '      grep -q "$contract" /tmp/relayer0-health.json' \
+            '    done' \
+            '    echo "✅ relayer-0 health and allowlist verified"' \
+            '  fi' \
+            '' \
+            '  if [ "$RELAYER_TARGET" = "relayer-1" ] || [ "$RELAYER_TARGET" = "both" ]; then' \
+            '    curl -sf --max-time 10 "http://${RELAYER1_HOST}:3040/health" | tee /tmp/relayer1-health.json >/dev/null' \
+            '    IFS='"'"','"'"' read -ra contracts <<< "$ALLOWED_CONTRACTS"' \
+            '    for contract in "${contracts[@]}"; do' \
+            '      contract="$(echo "$contract" | xargs)"' \
+            '      [ -n "$contract" ] || continue' \
+            '      grep -q "$contract" /tmp/relayer1-health.json' \
+            '    done' \
+            '    echo "✅ relayer-1 health and allowlist verified"' \
+            '  fi' \
+            'fi' \
+            | ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" \
+              "root@${{ env.APP_HOST }}" \
+              bash -s -- \
+              "${{ github.event.inputs.promote_relayers }}" \
+              "${{ github.event.inputs.relayer_deploy_target }}" \
+              "${{ env.RELAYER0_HOST }}" \
+              "${{ env.RELAYER1_HOST }}" \
+              "${{ github.event.inputs.allowed_contracts }}"
+
+      - name: Check public gateway endpoints
+        run: |
+          curl -fsSI --max-time 15 \
+            --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
+            https://api.onsocial.id/health
+          curl -fsS --max-time 15 \
+            --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
+            https://api.onsocial.id/public/stats >/dev/null
+
+      - name: Summarize smoke results
+        run: |
+          {
+            echo "## Integrated Smoke Checks"
+            echo ""
+            echo "- Public health: https://api.onsocial.id/health"
+            echo "- Public stats: https://api.onsocial.id/public/stats"
+            echo "- App host: ${{ env.APP_HOST }}"
+            echo "- Relayer target: ${{ github.event.inputs.relayer_deploy_target }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/app_deploy_key" "$RUNNER_TEMP/ssh/known_hosts"

@@ -35,6 +35,8 @@ on:
         type: string
         default: '/root/onsocial-app-deploy-key.json'
 env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
   APP_HOST: ${{ inputs.app_host != '' && inputs.app_host || vars.MAINNET_APP_HOST }}
   DATA_HOST: ${{ inputs.data_host != '' && inputs.data_host || vars.MAINNET_DATA_HOST }}
   RELAYER0_HOST: ${{ inputs.relayer0_host != '' && inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
@@ -46,6 +48,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
   id-token: write
 
 jobs:
@@ -111,6 +114,41 @@ jobs:
           else
             echo "tag=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate image availability
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.image.outputs.tag }}"
+          required_images=(caddy)
+
+          case "${{ inputs.deploy_target }}" in
+            backend)
+              required_images+=(backend)
+              ;;
+            gateway)
+              required_images+=(gateway)
+              ;;
+            all)
+              required_images+=(backend gateway)
+              ;;
+          esac
+
+          for image in "${required_images[@]}"; do
+            ref="${{ env.IMAGE_PREFIX }}/${image}:${tag}"
+            if ! docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "❌ Required image tag not found: $ref"
+              exit 1
+            fi
+            echo "✅ Found image: $ref"
+          done
 
       - name: Fetch app SSH key from Secret Manager
         run: |
