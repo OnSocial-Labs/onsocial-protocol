@@ -1,0 +1,20 @@
+# Internal load balancer for remote private relayer hosts.
+# Upstreams are injected via environment variables on the app host.
+
+:3040 {
+	reverse_proxy {$RELAYER0_URL} {$RELAYER1_URL} {
+		lb_policy round_robin
+
+		health_interval 5s
+		health_timeout 3s
+		health_uri /ready
+		fail_duration 10s
+		max_fails 2
+		unhealthy_status 503
+	}
+
+	log {
+		output stderr
+		level WARN
+	}
+}
