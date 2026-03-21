@@ -19,7 +19,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name("relayer").required(false))
-        .add_source(config::Environment::with_prefix("RELAYER"))
+        .add_source(
+            config::Environment::with_prefix("RELAYER")
+                .try_parsing(true)
+                .list_separator(",")
+                .with_list_parse_key("allowed_contracts"),
+        )
         .build()
         .and_then(|c| c.try_deserialize())
         .unwrap_or_else(|e| {
@@ -43,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         warn!("RELAYER_API_KEY not set — /execute is unprotected (dev mode)");
     }
 
-    info!(contract = %config.contract_id, rpc = %config.rpc_url, mode = ?config.signer_mode, "Configuration loaded");
+    info!(contracts = ?config.allowed_contracts, rpc = %config.rpc_url, mode = ?config.signer_mode, "Configuration loaded");
 
     let bind_address = config.bind_address.clone();
     let state = Arc::new(AppState::new(config).await?);
