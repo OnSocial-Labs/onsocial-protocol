@@ -125,31 +125,59 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify relayer-1 deploy secrets
+        run: |
+          for secret in \
+            "${{ github.event.inputs.relayer1_ssh_secret_name }}" \
+            "${{ github.event.inputs.signer_secret_name }}" \
+            RELAYER_API_KEY \
+            LAVA_API_KEY; do
+            gcloud secrets versions access latest --secret="$secret" >/dev/null
+          done
+
+      - name: Prepare relayer-1 SSH material
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+
       - name: Fetch relayer-1 SSH key
         run: |
-          mkdir -p ~/.ssh
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" > ~/.ssh/relayer1_deploy_key
-          chmod 600 ~/.ssh/relayer1_deploy_key
-          ssh-keyscan -H "${{ env.RELAYER1_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/relayer1_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/relayer1_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/relayer1_deploy_key"
+
+      - name: Trust relayer-1 host key
+        run: |
+          ssh-keyscan -H "${{ env.RELAYER1_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
 
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
-          chmod 600 /tmp/relayer-signer.json
+            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --out-file="$RUNNER_TEMP/relayer-signer.json"
+          test -s "$RUNNER_TEMP/relayer-signer.json"
+          chmod 600 "$RUNNER_TEMP/relayer-signer.json"
 
       - name: Run relayer-1 preflight
         run: |
-          DEPLOY_SSH_KEY=~/.ssh/relayer1_deploy_key \
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/relayer1_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-relayer-host.sh \
             --host "${{ env.RELAYER1_HOST }}" \
             --instance-name relayer-1 \
             --keyring relayer-keys-mainnet-1 \
-            --signer-file /tmp/relayer-signer.json \
+            --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
             --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
             --dry-run
+
+      - name: Cleanup relayer-1 SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/relayer1_deploy_key" "$RUNNER_TEMP/ssh/known_hosts" "$RUNNER_TEMP/relayer-signer.json"
 
   preflight-relayer-0:
     name: Preflight mainnet-relayer-0
@@ -170,31 +198,59 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify relayer-0 deploy secrets
+        run: |
+          for secret in \
+            "${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            "${{ github.event.inputs.signer_secret_name }}" \
+            RELAYER_API_KEY \
+            LAVA_API_KEY; do
+            gcloud secrets versions access latest --secret="$secret" >/dev/null
+          done
+
+      - name: Prepare relayer-0 SSH material
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+
       - name: Fetch relayer-0 SSH key
         run: |
-          mkdir -p ~/.ssh
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" > ~/.ssh/relayer0_deploy_key
-          chmod 600 ~/.ssh/relayer0_deploy_key
-          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/relayer0_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/relayer0_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/relayer0_deploy_key"
+
+      - name: Trust relayer-0 host key
+        run: |
+          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
 
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
-          chmod 600 /tmp/relayer-signer.json
+            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --out-file="$RUNNER_TEMP/relayer-signer.json"
+          test -s "$RUNNER_TEMP/relayer-signer.json"
+          chmod 600 "$RUNNER_TEMP/relayer-signer.json"
 
       - name: Run relayer-0 preflight
         run: |
-          DEPLOY_SSH_KEY=~/.ssh/relayer0_deploy_key \
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/relayer0_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-relayer-host.sh \
             --host "${{ env.RELAYER0_HOST }}" \
             --instance-name relayer-0 \
             --keyring relayer-keys-mainnet \
-            --signer-file /tmp/relayer-signer.json \
+            --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
             --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
             --dry-run
+
+      - name: Cleanup relayer-0 SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/relayer0_deploy_key" "$RUNNER_TEMP/ssh/known_hosts" "$RUNNER_TEMP/relayer-signer.json"
 
   build:
     name: Build Relayer Image
@@ -257,30 +313,58 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify relayer-1 deploy secrets
+        run: |
+          for secret in \
+            "${{ github.event.inputs.relayer1_ssh_secret_name }}" \
+            "${{ github.event.inputs.signer_secret_name }}" \
+            RELAYER_API_KEY \
+            LAVA_API_KEY; do
+            gcloud secrets versions access latest --secret="$secret" >/dev/null
+          done
+
+      - name: Prepare relayer-1 SSH material
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+
       - name: Fetch relayer-1 SSH key
         run: |
-          mkdir -p ~/.ssh
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" > ~/.ssh/relayer1_deploy_key
-          chmod 600 ~/.ssh/relayer1_deploy_key
-          ssh-keyscan -H "${{ env.RELAYER1_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/relayer1_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/relayer1_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/relayer1_deploy_key"
+
+      - name: Trust relayer-1 host key
+        run: |
+          ssh-keyscan -H "${{ env.RELAYER1_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
 
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
-          chmod 600 /tmp/relayer-signer.json
+            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --out-file="$RUNNER_TEMP/relayer-signer.json"
+          test -s "$RUNNER_TEMP/relayer-signer.json"
+          chmod 600 "$RUNNER_TEMP/relayer-signer.json"
 
       - name: Deploy relayer-1
         run: |
-          DEPLOY_SSH_KEY=~/.ssh/relayer1_deploy_key \
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/relayer1_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-relayer-host.sh \
             --host "${{ env.RELAYER1_HOST }}" \
             --instance-name relayer-1 \
             --keyring relayer-keys-mainnet-1 \
-            --signer-file /tmp/relayer-signer.json \
+            --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --image-tag "${{ needs.build.outputs.image_tag }}" \
             --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+
+      - name: Cleanup relayer-1 SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/relayer1_deploy_key" "$RUNNER_TEMP/ssh/known_hosts" "$RUNNER_TEMP/relayer-signer.json"
 
   deploy-relayer-0-only:
     name: Deploy mainnet-relayer-0
@@ -301,30 +385,58 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify relayer-0 deploy secrets
+        run: |
+          for secret in \
+            "${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            "${{ github.event.inputs.signer_secret_name }}" \
+            RELAYER_API_KEY \
+            LAVA_API_KEY; do
+            gcloud secrets versions access latest --secret="$secret" >/dev/null
+          done
+
+      - name: Prepare relayer-0 SSH material
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+
       - name: Fetch relayer-0 SSH key
         run: |
-          mkdir -p ~/.ssh
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" > ~/.ssh/relayer0_deploy_key
-          chmod 600 ~/.ssh/relayer0_deploy_key
-          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/relayer0_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/relayer0_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/relayer0_deploy_key"
+
+      - name: Trust relayer-0 host key
+        run: |
+          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
 
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
-          chmod 600 /tmp/relayer-signer.json
+            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --out-file="$RUNNER_TEMP/relayer-signer.json"
+          test -s "$RUNNER_TEMP/relayer-signer.json"
+          chmod 600 "$RUNNER_TEMP/relayer-signer.json"
 
       - name: Deploy relayer-0
         run: |
-          DEPLOY_SSH_KEY=~/.ssh/relayer0_deploy_key \
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/relayer0_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-relayer-host.sh \
             --host "${{ env.RELAYER0_HOST }}" \
             --instance-name relayer-0 \
             --keyring relayer-keys-mainnet \
-            --signer-file /tmp/relayer-signer.json \
+            --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --image-tag "${{ needs.build.outputs.image_tag }}" \
             --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+
+      - name: Cleanup relayer-0 SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/relayer0_deploy_key" "$RUNNER_TEMP/ssh/known_hosts" "$RUNNER_TEMP/relayer-signer.json"
 
   deploy-relayer-0-after-relayer-1:
     name: Deploy mainnet-relayer-0
@@ -345,30 +457,58 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify relayer-0 deploy secrets
+        run: |
+          for secret in \
+            "${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            "${{ github.event.inputs.signer_secret_name }}" \
+            RELAYER_API_KEY \
+            LAVA_API_KEY; do
+            gcloud secrets versions access latest --secret="$secret" >/dev/null
+          done
+
+      - name: Prepare relayer-0 SSH material
+        run: |
+          mkdir -p "$RUNNER_TEMP/ssh"
+          chmod 700 "$RUNNER_TEMP/ssh"
+
       - name: Fetch relayer-0 SSH key
         run: |
-          mkdir -p ~/.ssh
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" > ~/.ssh/relayer0_deploy_key
-          chmod 600 ~/.ssh/relayer0_deploy_key
-          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            --out-file="$RUNNER_TEMP/ssh/relayer0_deploy_key"
+          test -s "$RUNNER_TEMP/ssh/relayer0_deploy_key"
+          chmod 600 "$RUNNER_TEMP/ssh/relayer0_deploy_key"
+
+      - name: Trust relayer-0 host key
+        run: |
+          ssh-keyscan -H "${{ env.RELAYER0_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
+          test -s "$RUNNER_TEMP/ssh/known_hosts"
 
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" > /tmp/relayer-signer.json
-          chmod 600 /tmp/relayer-signer.json
+            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --out-file="$RUNNER_TEMP/relayer-signer.json"
+          test -s "$RUNNER_TEMP/relayer-signer.json"
+          chmod 600 "$RUNNER_TEMP/relayer-signer.json"
 
       - name: Deploy relayer-0
         run: |
-          DEPLOY_SSH_KEY=~/.ssh/relayer0_deploy_key \
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/relayer0_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
           bash deployment/deploy-relayer-host.sh \
             --host "${{ env.RELAYER0_HOST }}" \
             --instance-name relayer-0 \
             --keyring relayer-keys-mainnet \
-            --signer-file /tmp/relayer-signer.json \
+            --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --image-tag "${{ needs.build.outputs.image_tag }}" \
             --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+
+      - name: Cleanup relayer-0 SSH material
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/ssh/relayer0_deploy_key" "$RUNNER_TEMP/ssh/known_hosts" "$RUNNER_TEMP/relayer-signer.json"
 
   verify-relayer-1:
     name: Verify mainnet-relayer-1

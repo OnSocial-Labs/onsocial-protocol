@@ -49,6 +49,7 @@ DEPLOY_USER="root"
 REMOTE_DIR="/opt/onsocial-relayer"
 RELAYER_BIND_IP="0.0.0.0"
 DEPLOY_SSH_KEY="${DEPLOY_SSH_KEY:-}"
+DEPLOY_SSH_KNOWN_HOSTS="${DEPLOY_SSH_KNOWN_HOSTS:-}"
 DRY_RUN="false"
 
 SSH_OPTIONS=()
@@ -56,8 +57,14 @@ SCP_OPTIONS=()
 
 if [[ -n "$DEPLOY_SSH_KEY" ]]; then
   [[ -f "$DEPLOY_SSH_KEY" ]] || error "DEPLOY_SSH_KEY does not exist: $DEPLOY_SSH_KEY"
-  SSH_OPTIONS=(-i "$DEPLOY_SSH_KEY" -o IdentitiesOnly=yes)
-  SCP_OPTIONS=(-i "$DEPLOY_SSH_KEY" -o IdentitiesOnly=yes)
+  SSH_OPTIONS+=( -i "$DEPLOY_SSH_KEY" -o IdentitiesOnly=yes )
+  SCP_OPTIONS+=( -i "$DEPLOY_SSH_KEY" -o IdentitiesOnly=yes )
+fi
+
+if [[ -n "$DEPLOY_SSH_KNOWN_HOSTS" ]]; then
+  [[ -f "$DEPLOY_SSH_KNOWN_HOSTS" ]] || error "DEPLOY_SSH_KNOWN_HOSTS does not exist: $DEPLOY_SSH_KNOWN_HOSTS"
+  SSH_OPTIONS+=( -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$DEPLOY_SSH_KNOWN_HOSTS" )
+  SCP_OPTIONS+=( -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$DEPLOY_SSH_KNOWN_HOSTS" )
 fi
 
 while [[ $# -gt 0 ]]; do
