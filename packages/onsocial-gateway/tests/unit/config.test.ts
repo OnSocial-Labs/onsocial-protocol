@@ -2,9 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const ORIGINAL_ENV = { ...process.env };
 
-async function loadConfig(
-  overrides: Record<string, string | undefined> = {}
-) {
+async function loadConfig(overrides: Record<string, string | undefined> = {}) {
   vi.resetModules();
 
   const nextEnv = { ...ORIGINAL_ENV };
