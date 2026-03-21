@@ -30,6 +30,10 @@ on:
         required: false
         default: '/root/onsocial-app-deploy-key.json'
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   validate:
     name: Validate Inputs
