@@ -1,6 +1,71 @@
 name: Promote Mainnet
 
 'on':
+  workflow_call:
+    inputs:
+      confirm:
+        required: false
+        type: string
+        default: 'promote-mainnet'
+      image_tag:
+        required: true
+        type: string
+      promote_backend:
+        required: false
+        type: string
+        default: 'true'
+      promote_gateway:
+        required: false
+        type: string
+        default: 'false'
+      promote_relayers:
+        required: false
+        type: string
+        default: 'false'
+      relayer_deploy_target:
+        required: false
+        type: string
+        default: 'both'
+      allowed_contracts:
+        required: false
+        type: string
+        default: 'rewards.onsocial.near'
+      app_host:
+        required: false
+        type: string
+        default: ''
+      data_host:
+        required: false
+        type: string
+        default: ''
+      relayer0_host:
+        required: false
+        type: string
+        default: ''
+      relayer1_host:
+        required: false
+        type: string
+        default: ''
+      app_ssh_secret_name:
+        required: false
+        type: string
+        default: 'hetzner-mainnet-app-0-ssh-key'
+      app_remote_gcloud_key_file:
+        required: false
+        type: string
+        default: '/root/onsocial-app-deploy-key.json'
+      relayer0_ssh_secret_name:
+        required: false
+        type: string
+        default: 'hetzner-mainnet-relayer-0-ssh-key'
+      relayer1_ssh_secret_name:
+        required: false
+        type: string
+        default: 'hetzner-mainnet-relayer-1-ssh-key'
+      signer_secret_name:
+        required: false
+        type: string
+        default: 'relayer-mainnet-signer-json'
   workflow_dispatch:
     inputs:
       confirm:
@@ -65,10 +130,10 @@ name: Promote Mainnet
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
-  APP_HOST: ${{ github.event.inputs.app_host != '' && github.event.inputs.app_host || vars.MAINNET_APP_HOST }}
-  DATA_HOST: ${{ github.event.inputs.data_host != '' && github.event.inputs.data_host || vars.MAINNET_DATA_HOST }}
-  RELAYER0_HOST: ${{ github.event.inputs.relayer0_host != '' && github.event.inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
-  RELAYER1_HOST: ${{ github.event.inputs.relayer1_host != '' && github.event.inputs.relayer1_host || vars.MAINNET_RELAYER_1_HOST }}
+  APP_HOST: ${{ inputs.app_host != '' && inputs.app_host || vars.MAINNET_APP_HOST }}
+  DATA_HOST: ${{ inputs.data_host != '' && inputs.data_host || vars.MAINNET_DATA_HOST }}
+  RELAYER0_HOST: ${{ inputs.relayer0_host != '' && inputs.relayer0_host || vars.MAINNET_RELAYER_0_HOST }}
+  RELAYER1_HOST: ${{ inputs.relayer1_host != '' && inputs.relayer1_host || vars.MAINNET_RELAYER_1_HOST }}
 
 concurrency:
   group: mainnet-promotion
@@ -86,12 +151,12 @@ jobs:
     steps:
       - name: Check confirmation and tag
         run: |
-          if [ "${{ github.event.inputs.confirm }}" != "promote-mainnet" ]; then
+          if [ "${{ inputs.confirm }}" != "promote-mainnet" ]; then
             echo "❌ Confirmation failed. Type 'promote-mainnet' to proceed."
             exit 1
           fi
 
-          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          IMAGE_TAG="${{ inputs.image_tag }}"
           if [ -z "$IMAGE_TAG" ]; then
             echo "❌ image_tag is required"
             exit 1
@@ -108,11 +173,11 @@ jobs:
 
       - name: Check promotion scope
         run: |
-          PROMOTE_BACKEND="${{ github.event.inputs.promote_backend }}"
-          PROMOTE_GATEWAY="${{ github.event.inputs.promote_gateway }}"
-          PROMOTE_RELAYERS="${{ github.event.inputs.promote_relayers }}"
-          RELAYER_TARGET="${{ github.event.inputs.relayer_deploy_target }}"
-          ALLOWED_CONTRACTS="${{ github.event.inputs.allowed_contracts }}"
+          PROMOTE_BACKEND="${{ inputs.promote_backend }}"
+          PROMOTE_GATEWAY="${{ inputs.promote_gateway }}"
+          PROMOTE_RELAYERS="${{ inputs.promote_relayers }}"
+          RELAYER_TARGET="${{ inputs.relayer_deploy_target }}"
+          ALLOWED_CONTRACTS="${{ inputs.allowed_contracts }}"
 
           for value in "$PROMOTE_BACKEND" "$PROMOTE_GATEWAY" "$PROMOTE_RELAYERS"; do
             if [ "$value" != "true" ] && [ "$value" != "false" ]; then
@@ -177,22 +242,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          tag="${{ github.event.inputs.image_tag }}"
+          tag="${{ inputs.image_tag }}"
           required_images=()
 
-          if [ "${{ github.event.inputs.promote_backend }}" = "true" ] || [ "${{ github.event.inputs.promote_gateway }}" = "true" ]; then
+          if [ "${{ inputs.promote_backend }}" = "true" ] || [ "${{ inputs.promote_gateway }}" = "true" ]; then
             required_images+=(caddy)
           fi
 
-          if [ "${{ github.event.inputs.promote_backend }}" = "true" ]; then
+          if [ "${{ inputs.promote_backend }}" = "true" ]; then
             required_images+=(backend)
           fi
 
-          if [ "${{ github.event.inputs.promote_gateway }}" = "true" ]; then
+          if [ "${{ inputs.promote_gateway }}" = "true" ]; then
             required_images+=(gateway)
           fi
 
-          if [ "${{ github.event.inputs.promote_relayers }}" = "true" ]; then
+          if [ "${{ inputs.promote_relayers }}" = "true" ]; then
             required_images+=(relayer)
           fi
 
@@ -208,17 +273,17 @@ jobs:
   deploy-backend:
     name: Promote Backend
     needs: validate
-    if: ${{ github.event.inputs.promote_backend == 'true' }}
+    if: ${{ inputs.promote_backend == 'true' }}
     uses: ./.github/workflows/deploy-mainnet-app.yml
     with:
       deploy_target: backend
-      image_tag: ${{ github.event.inputs.image_tag }}
-      app_host: ${{ github.event.inputs.app_host }}
-      data_host: ${{ github.event.inputs.data_host }}
-      relayer0_host: ${{ github.event.inputs.relayer0_host }}
-      relayer1_host: ${{ github.event.inputs.relayer1_host }}
-      app_ssh_secret_name: ${{ github.event.inputs.app_ssh_secret_name }}
-      remote_gcloud_key_file: ${{ github.event.inputs.app_remote_gcloud_key_file }}
+      image_tag: ${{ inputs.image_tag }}
+      app_host: ${{ inputs.app_host }}
+      data_host: ${{ inputs.data_host }}
+      relayer0_host: ${{ inputs.relayer0_host }}
+      relayer1_host: ${{ inputs.relayer1_host }}
+      app_ssh_secret_name: ${{ inputs.app_ssh_secret_name }}
+      remote_gcloud_key_file: ${{ inputs.app_remote_gcloud_key_file }}
     secrets: inherit
 
   deploy-gateway:
@@ -226,23 +291,23 @@ jobs:
     needs:
       - validate
       - deploy-backend
-    if: ${{ always() && github.event.inputs.promote_gateway == 'true' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') }}
+    if: ${{ always() && inputs.promote_gateway == 'true' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') }}
     uses: ./.github/workflows/deploy-mainnet-app.yml
     with:
       deploy_target: gateway
-      image_tag: ${{ github.event.inputs.image_tag }}
-      app_host: ${{ github.event.inputs.app_host }}
-      data_host: ${{ github.event.inputs.data_host }}
-      relayer0_host: ${{ github.event.inputs.relayer0_host }}
-      relayer1_host: ${{ github.event.inputs.relayer1_host }}
-      app_ssh_secret_name: ${{ github.event.inputs.app_ssh_secret_name }}
-      remote_gcloud_key_file: ${{ github.event.inputs.app_remote_gcloud_key_file }}
+      image_tag: ${{ inputs.image_tag }}
+      app_host: ${{ inputs.app_host }}
+      data_host: ${{ inputs.data_host }}
+      relayer0_host: ${{ inputs.relayer0_host }}
+      relayer1_host: ${{ inputs.relayer1_host }}
+      app_ssh_secret_name: ${{ inputs.app_ssh_secret_name }}
+      remote_gcloud_key_file: ${{ inputs.app_remote_gcloud_key_file }}
     secrets: inherit
 
   deploy-relayer-1:
     name: Promote mainnet-relayer-1
     needs: validate
-    if: ${{ github.event.inputs.promote_relayers == 'true' && (github.event.inputs.relayer_deploy_target == 'relayer-1' || github.event.inputs.relayer_deploy_target == 'both') }}
+    if: ${{ inputs.promote_relayers == 'true' && (inputs.relayer_deploy_target == 'relayer-1' || inputs.relayer_deploy_target == 'both') }}
     runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
     environment:
       name: mainnet
@@ -261,8 +326,8 @@ jobs:
       - name: Verify relayer-1 deploy secrets
         run: |
           for secret in \
-            "${{ github.event.inputs.relayer1_ssh_secret_name }}" \
-            "${{ github.event.inputs.signer_secret_name }}" \
+            "${{ inputs.relayer1_ssh_secret_name }}" \
+            "${{ inputs.signer_secret_name }}" \
             RELAYER_API_KEY \
             LAVA_API_KEY; do
             gcloud secrets versions access latest --secret="$secret" >/dev/null
@@ -276,7 +341,7 @@ jobs:
       - name: Fetch relayer-1 SSH key
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer1_ssh_secret_name }}" \
+            --secret="${{ inputs.relayer1_ssh_secret_name }}" \
             --out-file="$RUNNER_TEMP/ssh/relayer1_deploy_key"
           test -s "$RUNNER_TEMP/ssh/relayer1_deploy_key"
           chmod 600 "$RUNNER_TEMP/ssh/relayer1_deploy_key"
@@ -289,7 +354,7 @@ jobs:
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --secret="${{ inputs.signer_secret_name }}" \
             --out-file="$RUNNER_TEMP/relayer-signer.json"
           test -s "$RUNNER_TEMP/relayer-signer.json"
           chmod 600 "$RUNNER_TEMP/relayer-signer.json"
@@ -304,7 +369,7 @@ jobs:
             --keyring relayer-keys-mainnet-1 \
             --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
-            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
+            --allowed-contracts "${{ inputs.allowed_contracts }}" \
             --dry-run
 
       - name: Deploy relayer-1
@@ -317,13 +382,13 @@ jobs:
             --keyring relayer-keys-mainnet-1 \
             --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
-            --image-tag "${{ github.event.inputs.image_tag }}" \
-            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+            --image-tag "${{ inputs.image_tag }}" \
+            --allowed-contracts "${{ inputs.allowed_contracts }}"
 
       - name: Verify relayer-1
         run: |
           curl -sf "http://${{ env.RELAYER1_HOST }}:3040/health" | tee /tmp/relayer1-health.json
-          IFS=',' read -ra contracts <<< "${{ github.event.inputs.allowed_contracts }}"
+          IFS=',' read -ra contracts <<< "${{ inputs.allowed_contracts }}"
           for contract in "${contracts[@]}"; do
             contract="$(echo "$contract" | xargs)"
             [ -n "$contract" ] || continue
@@ -335,9 +400,9 @@ jobs:
           {
             echo "## Mainnet Relayer-1 Promotion"
             echo ""
-            echo "- Image tag: ${{ github.event.inputs.image_tag }}"
+            echo "- Image tag: ${{ inputs.image_tag }}"
             echo "- Host: ${{ env.RELAYER1_HOST }}"
-            echo "- Allowed contracts: ${{ github.event.inputs.allowed_contracts }}"
+            echo "- Allowed contracts: ${{ inputs.allowed_contracts }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup relayer-1 SSH material
@@ -348,7 +413,7 @@ jobs:
   deploy-relayer-0-only:
     name: Promote mainnet-relayer-0
     needs: validate
-    if: ${{ github.event.inputs.promote_relayers == 'true' && github.event.inputs.relayer_deploy_target == 'relayer-0' }}
+    if: ${{ inputs.promote_relayers == 'true' && inputs.relayer_deploy_target == 'relayer-0' }}
     runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
     environment:
       name: mainnet
@@ -367,8 +432,8 @@ jobs:
       - name: Verify relayer-0 deploy secrets
         run: |
           for secret in \
-            "${{ github.event.inputs.relayer0_ssh_secret_name }}" \
-            "${{ github.event.inputs.signer_secret_name }}" \
+            "${{ inputs.relayer0_ssh_secret_name }}" \
+            "${{ inputs.signer_secret_name }}" \
             RELAYER_API_KEY \
             LAVA_API_KEY; do
             gcloud secrets versions access latest --secret="$secret" >/dev/null
@@ -382,7 +447,7 @@ jobs:
       - name: Fetch relayer-0 SSH key
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            --secret="${{ inputs.relayer0_ssh_secret_name }}" \
             --out-file="$RUNNER_TEMP/ssh/relayer0_deploy_key"
           test -s "$RUNNER_TEMP/ssh/relayer0_deploy_key"
           chmod 600 "$RUNNER_TEMP/ssh/relayer0_deploy_key"
@@ -395,7 +460,7 @@ jobs:
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --secret="${{ inputs.signer_secret_name }}" \
             --out-file="$RUNNER_TEMP/relayer-signer.json"
           test -s "$RUNNER_TEMP/relayer-signer.json"
           chmod 600 "$RUNNER_TEMP/relayer-signer.json"
@@ -410,7 +475,7 @@ jobs:
             --keyring relayer-keys-mainnet \
             --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
-            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
+            --allowed-contracts "${{ inputs.allowed_contracts }}" \
             --dry-run
 
       - name: Deploy relayer-0
@@ -423,13 +488,13 @@ jobs:
             --keyring relayer-keys-mainnet \
             --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
-            --image-tag "${{ github.event.inputs.image_tag }}" \
-            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+            --image-tag "${{ inputs.image_tag }}" \
+            --allowed-contracts "${{ inputs.allowed_contracts }}"
 
       - name: Verify relayer-0
         run: |
           curl -sf "http://${{ env.RELAYER0_HOST }}:3040/health" | tee /tmp/relayer0-health.json
-          IFS=',' read -ra contracts <<< "${{ github.event.inputs.allowed_contracts }}"
+          IFS=',' read -ra contracts <<< "${{ inputs.allowed_contracts }}"
           for contract in "${contracts[@]}"; do
             contract="$(echo "$contract" | xargs)"
             [ -n "$contract" ] || continue
@@ -441,9 +506,9 @@ jobs:
           {
             echo "## Mainnet Relayer-0 Promotion"
             echo ""
-            echo "- Image tag: ${{ github.event.inputs.image_tag }}"
+            echo "- Image tag: ${{ inputs.image_tag }}"
             echo "- Host: ${{ env.RELAYER0_HOST }}"
-            echo "- Allowed contracts: ${{ github.event.inputs.allowed_contracts }}"
+            echo "- Allowed contracts: ${{ inputs.allowed_contracts }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup relayer-0 SSH material
@@ -454,7 +519,7 @@ jobs:
   deploy-relayer-0-after-relayer-1:
     name: Promote mainnet-relayer-0
     needs: [validate, deploy-relayer-1]
-    if: ${{ github.event.inputs.promote_relayers == 'true' && github.event.inputs.relayer_deploy_target == 'both' }}
+    if: ${{ inputs.promote_relayers == 'true' && inputs.relayer_deploy_target == 'both' }}
     runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
     environment:
       name: mainnet
@@ -473,8 +538,8 @@ jobs:
       - name: Verify relayer-0 deploy secrets
         run: |
           for secret in \
-            "${{ github.event.inputs.relayer0_ssh_secret_name }}" \
-            "${{ github.event.inputs.signer_secret_name }}" \
+            "${{ inputs.relayer0_ssh_secret_name }}" \
+            "${{ inputs.signer_secret_name }}" \
             RELAYER_API_KEY \
             LAVA_API_KEY; do
             gcloud secrets versions access latest --secret="$secret" >/dev/null
@@ -488,7 +553,7 @@ jobs:
       - name: Fetch relayer-0 SSH key
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.relayer0_ssh_secret_name }}" \
+            --secret="${{ inputs.relayer0_ssh_secret_name }}" \
             --out-file="$RUNNER_TEMP/ssh/relayer0_deploy_key"
           test -s "$RUNNER_TEMP/ssh/relayer0_deploy_key"
           chmod 600 "$RUNNER_TEMP/ssh/relayer0_deploy_key"
@@ -501,7 +566,7 @@ jobs:
       - name: Fetch shared signer JSON
         run: |
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.signer_secret_name }}" \
+            --secret="${{ inputs.signer_secret_name }}" \
             --out-file="$RUNNER_TEMP/relayer-signer.json"
           test -s "$RUNNER_TEMP/relayer-signer.json"
           chmod 600 "$RUNNER_TEMP/relayer-signer.json"
@@ -516,7 +581,7 @@ jobs:
             --keyring relayer-keys-mainnet \
             --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
-            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}" \
+            --allowed-contracts "${{ inputs.allowed_contracts }}" \
             --dry-run
 
       - name: Deploy relayer-0
@@ -529,13 +594,13 @@ jobs:
             --keyring relayer-keys-mainnet \
             --signer-file "$RUNNER_TEMP/relayer-signer.json" \
             --network mainnet \
-            --image-tag "${{ github.event.inputs.image_tag }}" \
-            --allowed-contracts "${{ github.event.inputs.allowed_contracts }}"
+            --image-tag "${{ inputs.image_tag }}" \
+            --allowed-contracts "${{ inputs.allowed_contracts }}"
 
       - name: Verify relayer-0
         run: |
           curl -sf "http://${{ env.RELAYER0_HOST }}:3040/health" | tee /tmp/relayer0-health.json
-          IFS=',' read -ra contracts <<< "${{ github.event.inputs.allowed_contracts }}"
+          IFS=',' read -ra contracts <<< "${{ inputs.allowed_contracts }}"
           for contract in "${contracts[@]}"; do
             contract="$(echo "$contract" | xargs)"
             [ -n "$contract" ] || continue
@@ -547,9 +612,9 @@ jobs:
           {
             echo "## Mainnet Relayer-0 Promotion"
             echo ""
-            echo "- Image tag: ${{ github.event.inputs.image_tag }}"
+            echo "- Image tag: ${{ inputs.image_tag }}"
             echo "- Host: ${{ env.RELAYER0_HOST }}"
-            echo "- Allowed contracts: ${{ github.event.inputs.allowed_contracts }}"
+            echo "- Allowed contracts: ${{ inputs.allowed_contracts }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup relayer-0 SSH material
@@ -586,7 +651,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ssh"
           chmod 700 "$RUNNER_TEMP/ssh"
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.app_ssh_secret_name }}" \
+            --secret="${{ inputs.app_ssh_secret_name }}" \
             --out-file="$RUNNER_TEMP/ssh/app_deploy_key"
           test -s "$RUNNER_TEMP/ssh/app_deploy_key"
           chmod 600 "$RUNNER_TEMP/ssh/app_deploy_key"
@@ -662,11 +727,11 @@ jobs:
               -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" \
               "root@${{ env.APP_HOST }}" \
               bash -s -- \
-              "${{ github.event.inputs.promote_relayers }}" \
-              "${{ github.event.inputs.relayer_deploy_target }}" \
+              "${{ inputs.promote_relayers }}" \
+              "${{ inputs.relayer_deploy_target }}" \
               "${{ env.RELAYER0_HOST }}" \
               "${{ env.RELAYER1_HOST }}" \
-              "${{ github.event.inputs.allowed_contracts }}"
+              "${{ inputs.allowed_contracts }}"
 
       - name: Check public gateway endpoints
         run: |
@@ -692,7 +757,7 @@ jobs:
             echo "- Public health: https://api.onsocial.id/health"
             echo "- Public stats: https://api.onsocial.id/public/stats (${PUBLIC_STATS_STATUS:-available})"
             echo "- App host: ${{ env.APP_HOST }}"
-            echo "- Relayer target: ${{ github.event.inputs.relayer_deploy_target }}"
+            echo "- Relayer target: ${{ inputs.relayer_deploy_target }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup SSH material

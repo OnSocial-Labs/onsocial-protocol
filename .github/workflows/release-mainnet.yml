@@ -1,0 +1,258 @@
+name: Release Mainnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "release-mainnet" to confirm'
+        required: true
+      image_tag:
+        description: 'Existing image tag to release for app-tier components'
+        required: false
+      data_release_order:
+        description: 'When to run the optional data deployment'
+        required: true
+        type: choice
+        default: skip
+        options:
+          - skip
+          - before-app
+          - after-app
+      data_deploy_target:
+        description: 'Which data tier to deploy when data_release_order is not skip'
+        required: true
+        type: choice
+        default: postgres
+        options:
+          - postgres
+          - all
+      promote_backend:
+        description: 'Deploy backend during app promotion'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+      promote_gateway:
+        description: 'Deploy gateway during app promotion'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+      promote_relayers:
+        description: 'Deploy relayers during app promotion'
+        required: true
+        type: choice
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
+      relayer_deploy_target:
+        description: 'Which relayer host(s) to deploy when promote_relayers=true'
+        required: true
+        type: choice
+        default: both
+        options:
+          - relayer-0
+          - relayer-1
+          - both
+      allowed_contracts:
+        description: 'Comma-separated mainnet allowlist when promote_relayers=true'
+        required: true
+        default: 'rewards.onsocial.near'
+      app_host:
+        description: 'Optional override for mainnet app host/IP'
+        required: false
+      data_host:
+        description: 'Optional override for mainnet data private IP/hostname'
+        required: false
+      data_deploy_host:
+        description: 'Optional override for mainnet data deploy host/IP'
+        required: false
+      relayer0_host:
+        description: 'Optional override for mainnet relayer-0 private IP/hostname'
+        required: false
+      relayer1_host:
+        description: 'Optional override for mainnet relayer-1 private IP/hostname'
+        required: false
+      app_ssh_secret_name:
+        description: 'GSM secret name for the mainnet app host SSH key'
+        required: true
+        default: 'hetzner-mainnet-app-0-ssh-key'
+      data_ssh_secret_name:
+        description: 'GSM secret name for the mainnet data host SSH key'
+        required: true
+        default: 'hetzner-mainnet-data-0-ssh-key'
+      app_remote_gcloud_key_file:
+        description: 'Path on the app host to the service-account key used for remote secret pulls'
+        required: false
+        default: '/root/onsocial-app-deploy-key.json'
+      relayer0_ssh_secret_name:
+        description: 'GSM secret name for relayer-0 SSH key'
+        required: true
+        default: 'hetzner-mainnet-relayer-0-ssh-key'
+      relayer1_ssh_secret_name:
+        description: 'GSM secret name for relayer-1 SSH key'
+        required: true
+        default: 'hetzner-mainnet-relayer-1-ssh-key'
+      signer_secret_name:
+        description: 'GSM secret name for relayer signer JSON'
+        required: true
+        default: 'relayer-mainnet-signer-json'
+
+concurrency:
+  group: mainnet-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Release Request
+    runs-on: ubuntu-latest
+    outputs:
+      run_data_before: ${{ steps.flags.outputs.run_data_before }}
+      run_app_release: ${{ steps.flags.outputs.run_app_release }}
+      run_data_after: ${{ steps.flags.outputs.run_data_after }}
+    steps:
+      - name: Check confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "release-mainnet" ]; then
+            echo "❌ Confirmation failed. Type 'release-mainnet' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation accepted"
+
+      - name: Check release scope
+        id: flags
+        run: |
+          set -euo pipefail
+
+          DATA_ORDER="${{ inputs.data_release_order }}"
+          PROMOTE_BACKEND="${{ inputs.promote_backend }}"
+          PROMOTE_GATEWAY="${{ inputs.promote_gateway }}"
+          PROMOTE_RELAYERS="${{ inputs.promote_relayers }}"
+          IMAGE_TAG="${{ inputs.image_tag }}"
+
+          case "$DATA_ORDER" in
+            skip|before-app|after-app)
+              ;;
+            *)
+              echo "❌ data_release_order must be one of: skip, before-app, after-app"
+              exit 1
+              ;;
+          esac
+
+          for value in "$PROMOTE_BACKEND" "$PROMOTE_GATEWAY" "$PROMOTE_RELAYERS"; do
+            if [ "$value" != "true" ] && [ "$value" != "false" ]; then
+              echo "❌ promote_backend, promote_gateway, and promote_relayers must be true or false"
+              exit 1
+            fi
+          done
+
+          run_app_release=false
+          if [ "$PROMOTE_BACKEND" = "true" ] || [ "$PROMOTE_GATEWAY" = "true" ] || [ "$PROMOTE_RELAYERS" = "true" ]; then
+            run_app_release=true
+          fi
+
+          if [ "$run_app_release" = true ] && [ -z "$IMAGE_TAG" ]; then
+            echo "❌ image_tag is required when app promotion is enabled"
+            exit 1
+          fi
+
+          if [ "$DATA_ORDER" = "skip" ] && [ "$run_app_release" = false ]; then
+            echo "❌ Nothing selected. Enable data deployment and/or app promotion."
+            exit 1
+          fi
+
+          echo "run_data_before=$([ "$DATA_ORDER" = "before-app" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "run_app_release=$run_app_release" >> "$GITHUB_OUTPUT"
+          echo "run_data_after=$([ "$DATA_ORDER" = "after-app" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+          echo "✅ Release scope accepted"
+
+  data_before:
+    name: Release Data Before App
+    needs: validate
+    if: ${{ needs.validate.outputs.run_data_before == 'true' }}
+    uses: ./.github/workflows/deploy-mainnet-data.yml
+    with:
+      confirm: deploy-mainnet-data
+      deploy_target: ${{ inputs.data_deploy_target }}
+      deploy_host: ${{ inputs.data_deploy_host }}
+      private_bind_ip: ${{ inputs.data_host }}
+      data_ssh_secret_name: ${{ inputs.data_ssh_secret_name }}
+    secrets: inherit
+
+  app_release:
+    name: Release App Tier
+    needs:
+      - validate
+      - data_before
+    if: ${{ needs.validate.outputs.run_app_release == 'true' && (needs.data_before.result == 'success' || needs.data_before.result == 'skipped') }}
+    uses: ./.github/workflows/promote-mainnet.yml
+    with:
+      confirm: promote-mainnet
+      image_tag: ${{ inputs.image_tag }}
+      promote_backend: ${{ inputs.promote_backend }}
+      promote_gateway: ${{ inputs.promote_gateway }}
+      promote_relayers: ${{ inputs.promote_relayers }}
+      relayer_deploy_target: ${{ inputs.relayer_deploy_target }}
+      allowed_contracts: ${{ inputs.allowed_contracts }}
+      app_host: ${{ inputs.app_host }}
+      data_host: ${{ inputs.data_host }}
+      relayer0_host: ${{ inputs.relayer0_host }}
+      relayer1_host: ${{ inputs.relayer1_host }}
+      app_ssh_secret_name: ${{ inputs.app_ssh_secret_name }}
+      app_remote_gcloud_key_file: ${{ inputs.app_remote_gcloud_key_file }}
+      relayer0_ssh_secret_name: ${{ inputs.relayer0_ssh_secret_name }}
+      relayer1_ssh_secret_name: ${{ inputs.relayer1_ssh_secret_name }}
+      signer_secret_name: ${{ inputs.signer_secret_name }}
+    secrets: inherit
+
+  data_after:
+    name: Release Data After App
+    needs:
+      - validate
+      - app_release
+    if: ${{ needs.validate.outputs.run_data_after == 'true' && (needs.app_release.result == 'success' || needs.app_release.result == 'skipped') }}
+    uses: ./.github/workflows/deploy-mainnet-data.yml
+    with:
+      confirm: deploy-mainnet-data
+      deploy_target: ${{ inputs.data_deploy_target }}
+      deploy_host: ${{ inputs.data_deploy_host }}
+      private_bind_ip: ${{ inputs.data_host }}
+      data_ssh_secret_name: ${{ inputs.data_ssh_secret_name }}
+    secrets: inherit
+
+  summarize:
+    name: Summarize Release
+    needs:
+      - validate
+      - data_before
+      - app_release
+      - data_after
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write release summary
+        run: |
+          {
+            echo "## Mainnet Release"
+            echo ""
+            echo "- Image tag: ${{ inputs.image_tag != '' && inputs.image_tag || 'n/a (data-only release)' }}"
+            echo "- Data release order: ${{ inputs.data_release_order }}"
+            echo "- Data target: ${{ inputs.data_deploy_target }}"
+            echo "- Promote backend: ${{ inputs.promote_backend }}"
+            echo "- Promote gateway: ${{ inputs.promote_gateway }}"
+            echo "- Promote relayers: ${{ inputs.promote_relayers }}"
+            echo "- Data before app result: ${{ needs.data_before.result || 'skipped' }}"
+            echo "- App release result: ${{ needs.app_release.result || 'skipped' }}"
+            echo "- Data after app result: ${{ needs.data_after.result || 'skipped' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

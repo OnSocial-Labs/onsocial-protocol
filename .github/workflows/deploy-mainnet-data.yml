@@ -2,6 +2,28 @@ name: Deploy Mainnet Data
 
 # Manual trigger only — mainnet data deploys require explicit human action.
 'on':
+  workflow_call:
+    inputs:
+      confirm:
+        required: false
+        type: string
+        default: 'deploy-mainnet-data'
+      deploy_target:
+        required: false
+        type: string
+        default: 'postgres'
+      deploy_host:
+        required: false
+        type: string
+        default: ''
+      private_bind_ip:
+        required: false
+        type: string
+        default: ''
+      data_ssh_secret_name:
+        required: false
+        type: string
+        default: 'hetzner-mainnet-data-0-ssh-key'
   workflow_dispatch:
     inputs:
       confirm:
@@ -23,8 +45,8 @@ name: Deploy Mainnet Data
         default: 'hetzner-mainnet-data-0-ssh-key'
 
 env:
-  DATA_DEPLOY_HOST: ${{ github.event.inputs.deploy_host != '' && github.event.inputs.deploy_host || vars.MAINNET_DATA_DEPLOY_HOST }}
-  DATA_PRIVATE_BIND_IP: ${{ github.event.inputs.private_bind_ip != '' && github.event.inputs.private_bind_ip || vars.MAINNET_DATA_HOST }}
+  DATA_DEPLOY_HOST: ${{ inputs.deploy_host != '' && inputs.deploy_host || vars.MAINNET_DATA_DEPLOY_HOST }}
+  DATA_PRIVATE_BIND_IP: ${{ inputs.private_bind_ip != '' && inputs.private_bind_ip || vars.MAINNET_DATA_HOST }}
 
 concurrency:
   group: mainnet-data-deploy
@@ -41,7 +63,7 @@ jobs:
     steps:
       - name: Check confirmation
         run: |
-          if [ "${{ github.event.inputs.confirm }}" != "deploy-mainnet-data" ]; then
+          if [ "${{ inputs.confirm }}" != "deploy-mainnet-data" ]; then
             echo "❌ Confirmation failed. Type 'deploy-mainnet-data' to proceed."
             exit 1
           fi
@@ -49,7 +71,7 @@ jobs:
 
       - name: Check deploy target
         run: |
-          case "${{ github.event.inputs.deploy_target }}" in
+          case "${{ inputs.deploy_target }}" in
             postgres|all)
               ;;
             *)
@@ -94,7 +116,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ssh"
           chmod 700 "$RUNNER_TEMP/ssh"
           gcloud secrets versions access latest \
-            --secret="${{ github.event.inputs.data_ssh_secret_name }}" \
+            --secret="${{ inputs.data_ssh_secret_name }}" \
             --out-file="$RUNNER_TEMP/ssh/data_deploy_key"
           test -s "$RUNNER_TEMP/ssh/data_deploy_key"
           chmod 600 "$RUNNER_TEMP/ssh/data_deploy_key"
@@ -111,7 +133,7 @@ jobs:
           bash deployment/deploy-data-production.sh \
             mainnet "${{ env.DATA_DEPLOY_HOST }}" \
             --private-bind-ip "${{ env.DATA_PRIVATE_BIND_IP }}" \
-            --target "${{ github.event.inputs.deploy_target }}"
+            --target "${{ inputs.deploy_target }}"
 
       - name: Summarize deployment
         run: |
@@ -120,7 +142,7 @@ jobs:
             echo ""
             echo "- Data deploy host: ${{ env.DATA_DEPLOY_HOST }}"
             echo "- Private bind IP: ${{ env.DATA_PRIVATE_BIND_IP }}"
-            echo "- Deploy target: ${{ github.event.inputs.deploy_target }}"
+            echo "- Deploy target: ${{ inputs.deploy_target }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Cleanup SSH material
