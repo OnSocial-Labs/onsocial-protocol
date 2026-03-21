@@ -233,6 +233,19 @@ rollback() {
   fi
 }
 
+print_failure_diagnostics() {
+  echo "=== relayer deployment diagnostics ===" >&2
+  docker compose -f docker-compose.relayer.yml --env-file .env.relayer.current ps >&2 || true
+
+  echo "--- relayer /health ---" >&2
+  curl -sS --max-time 5 http://127.0.0.1:3040/health >&2 || \
+    wget -qO- --timeout=5 http://127.0.0.1:3040/health >&2 || true
+  echo >&2
+
+  echo "--- relayer logs (tail 200) ---" >&2
+  docker compose -f docker-compose.relayer.yml --env-file .env.relayer.current logs --tail 200 relayer >&2 || true
+}
+
 check_ready() {
   local retries="${1:-30}"
   local delay="${2:-5}"
@@ -261,6 +274,7 @@ docker compose -f docker-compose.relayer.yml --env-file .env.relayer.current up 
 
 if ! check_ready 36 5; then
   echo "Relayer failed readiness check; rolling back" >&2
+  print_failure_diagnostics
   rollback
   exit 1
 fi

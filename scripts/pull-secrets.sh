@@ -15,6 +15,11 @@ set -euo pipefail
 
 PROJECT="${GCP_PROJECT:-onsocial-protocol}"
 NEAR_NETWORK="${NEAR_NETWORK:-testnet}"
+DEFAULT_KMS_POOL_SIZE="30"
+
+if [ "$NEAR_NETWORK" = "mainnet" ]; then
+  DEFAULT_KMS_POOL_SIZE="50"
+fi
 
 # Secrets stored in GSM
 SECRETS=(
@@ -79,9 +84,9 @@ echo "POSTGRES_USER=onsocial"
 echo "POSTGRES_DB=onsocial_indexer"
 echo "GCP_KMS_PROJECT=${PROJECT:-onsocial-protocol}"
 echo "GCP_KMS_LOCATION=global"
-echo "GCP_KMS_POOL_SIZE=${GCP_KMS_POOL_SIZE:-30}"
+echo "GCP_KMS_POOL_SIZE=${GCP_KMS_POOL_SIZE:-$DEFAULT_KMS_POOL_SIZE}"
 echo "GCP_KMS_ADMIN_KEY=${GCP_KMS_ADMIN_KEY:-admin-key}"
-echo "RELAYER_MIN_KEYS=${RELAYER_MIN_KEYS:-30}"
+echo "RELAYER_MIN_KEYS=${RELAYER_MIN_KEYS:-$DEFAULT_KMS_POOL_SIZE}"
 echo "RELAYER_MAX_KEYS=${RELAYER_MAX_KEYS:-200}"
 echo "RELAYER_WARM_BUFFER=${RELAYER_WARM_BUFFER:-2}"
 echo "PUBLIC_DOMAIN=${PUBLIC_DOMAIN:-testnet.onsocial.id}"
