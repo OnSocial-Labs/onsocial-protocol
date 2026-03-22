@@ -109,7 +109,7 @@ jobs:
           service_account: "github-ci-deploy@onsocial-protocol.iam.gserviceaccount.com"
 
       - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Fetch data SSH key from Secret Manager
         run: |
