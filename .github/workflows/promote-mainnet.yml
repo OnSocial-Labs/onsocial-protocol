@@ -306,8 +306,11 @@ jobs:
 
   deploy-relayer-1:
     name: Promote mainnet-relayer-1
-    needs: validate
-    if: ${{ inputs.promote_relayers == 'true' && (inputs.relayer_deploy_target == 'relayer-1' || inputs.relayer_deploy_target == 'both') }}
+    needs:
+      - validate
+      - deploy-backend
+      - deploy-gateway
+    if: ${{ always() && inputs.promote_relayers == 'true' && (inputs.relayer_deploy_target == 'relayer-1' || inputs.relayer_deploy_target == 'both') && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') && (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') }}
     runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
     environment:
       name: mainnet
@@ -412,8 +415,11 @@ jobs:
 
   deploy-relayer-0-only:
     name: Promote mainnet-relayer-0
-    needs: validate
-    if: ${{ inputs.promote_relayers == 'true' && inputs.relayer_deploy_target == 'relayer-0' }}
+    needs:
+      - validate
+      - deploy-backend
+      - deploy-gateway
+    if: ${{ always() && inputs.promote_relayers == 'true' && inputs.relayer_deploy_target == 'relayer-0' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') && (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') }}
     runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
     environment:
       name: mainnet
@@ -518,8 +524,12 @@ jobs:
 
   deploy-relayer-0-after-relayer-1:
     name: Promote mainnet-relayer-0
-    needs: [validate, deploy-relayer-1]
-    if: ${{ inputs.promote_relayers == 'true' && inputs.relayer_deploy_target == 'both' }}
+    needs:
+      - validate
+      - deploy-backend
+      - deploy-gateway
+      - deploy-relayer-1
+    if: ${{ always() && inputs.promote_relayers == 'true' && inputs.relayer_deploy_target == 'both' && (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') && (needs.deploy-gateway.result == 'success' || needs.deploy-gateway.result == 'skipped') && needs.deploy-relayer-1.result == 'success' }}
     runs-on: [self-hosted, linux, x64, onsocial-mainnet-private]
     environment:
       name: mainnet

@@ -165,7 +165,18 @@ jobs:
           ssh-keyscan -H "${{ env.APP_HOST }}" >> "$RUNNER_TEMP/ssh/known_hosts" 2>/dev/null
           test -s "$RUNNER_TEMP/ssh/known_hosts"
 
+      - name: Record active app state
+        id: previous_state
+        run: |
+          backend_slot="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && cat .backend-slot 2>/dev/null || echo blue")"
+          gateway_slot="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && cat .gateway-slot 2>/dev/null || echo blue")"
+          previous_image_tag="$(ssh -i "$RUNNER_TEMP/ssh/app_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/ssh/known_hosts" root@${{ env.APP_HOST }} "cd /opt/onsocial && sed -n 's/^IMAGE_TAG=//p' .env.image 2>/dev/null | head -n1")"
+          echo "backend=$backend_slot" >> "$GITHUB_OUTPUT"
+          echo "gateway=$gateway_slot" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$previous_image_tag" >> "$GITHUB_OUTPUT"
+
       - name: Deploy app tier
+        id: deploy_app
         run: |
           REMOTE_GCLOUD_KEY_FILE="${{ inputs.remote_gcloud_key_file }}" \
           DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/app_deploy_key" \
@@ -180,10 +191,23 @@ jobs:
             --tag "${{ steps.image.outputs.tag }}"
 
       - name: Verify mainnet HTTPS health
+        id: verify_public_health
         run: |
           curl -fsSI --max-time 15 \
             --resolve api.onsocial.id:443:${{ env.APP_HOST }} \
             https://api.onsocial.id/health
+
+      - name: Roll back app tier after failed verification
+        if: ${{ failure() && steps.deploy_app.outcome == 'success' && steps.previous_state.outcome == 'success' }}
+        run: |
+          DEPLOY_SSH_KEY="$RUNNER_TEMP/ssh/app_deploy_key" \
+          DEPLOY_SSH_KNOWN_HOSTS="$RUNNER_TEMP/ssh/known_hosts" \
+          bash deployment/rollback-app-production.sh \
+            "${{ env.APP_HOST }}" \
+            --target "${{ inputs.deploy_target }}" \
+            --backend-slot "${{ steps.previous_state.outputs.backend }}" \
+            --gateway-slot "${{ steps.previous_state.outputs.gateway }}" \
+            --image-tag "${{ steps.previous_state.outputs.image_tag }}"
 
       - name: Read active app slots
         id: slots
