@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   Key,
+  Sparkles,
   MessageSquare,
   RefreshCw,
   Rocket,
@@ -19,11 +20,13 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
+import { RiTelegram2Line } from 'react-icons/ri';
 import { useWallet } from '@/contexts/wallet-context';
 import { Button } from '@/components/ui/button';
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { viewContract, yoctoToSocial, type OnChainAppConfig } from '@/lib/near-rpc';
+import { portalColors, portalFrameStyle, type PortalAccent } from '@/lib/portal-colors';
 import { rotateKey } from '@/features/partners/api';
 import {
   botSnippet,
@@ -37,19 +40,23 @@ import { CodeBlock, CopyButton, DownloadButton } from '@/features/partners/ui-he
 
 export function PendingState({ appId, label }: { appId: string; label: string }) {
   return (
-    <div className="text-center py-12">
-      <Clock className="w-16 h-16 mx-auto mb-4 text-[#60A5FA]" />
+    <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-12 text-center">
+      <div className="mb-4 flex justify-center">
+        <span className="portal-blue-badge rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]">
+          In Queue
+        </span>
+      </div>
+      <Clock className="portal-blue-icon mx-auto mb-4 h-16 w-16" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
-        Application Under Review
+        Application Received
       </h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
-        Your application for{' '}
         <span className="font-semibold text-foreground">{label}</span> (
-        <span className="font-mono text-[#60A5FA]">{appId}</span>) is under
-        review.
+        <span className="portal-blue-text font-mono">{appId}</span>) is
+        currently in the approval queue.
       </p>
       <p className="text-sm text-muted-foreground">
-        Check back here after connecting your wallet to see your status.
+        The next step will appear here once processing is complete.
       </p>
     </div>
   );
@@ -57,19 +64,34 @@ export function PendingState({ appId, label }: { appId: string; label: string })
 
 export function RejectedState({ appId, label }: { appId: string; label: string }) {
   return (
-    <div className="text-center py-12">
-      <XCircle className="w-16 h-16 mx-auto mb-4 text-red-400" />
+    <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-12 text-center">
+      <div className="mb-4 flex justify-center">
+        <span className="portal-red-badge rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]">
+          Review Complete
+        </span>
+      </div>
+      <XCircle className="portal-red-icon w-16 h-16 mx-auto mb-4" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
         Application Not Approved
       </h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
         Your application for{' '}
         <span className="font-semibold text-foreground">{label}</span> (
-        <span className="font-mono text-[#60A5FA]">{appId}</span>) was not
+        <span className="portal-blue-text font-mono">{appId}</span>) was not
         approved at this time.
       </p>
       <p className="text-sm text-muted-foreground">
-        Contact the OnSocial team if you have questions.
+        For feedback before reapplying, contact OnSocial on{' '}
+        <a
+          href="https://t.me/onsocialprotocol"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex whitespace-nowrap align-middle items-center gap-1 font-medium portal-link"
+        >
+          <RiTelegram2Line className="h-3.5 w-3.5 shrink-0 translate-y-[0.5px]" />
+          Telegram
+        </a>
+        .
       </p>
     </div>
   );
@@ -123,17 +145,17 @@ export function ApprovedDashboard({
 
   return (
     <div className="space-y-8">
-      <div className="border border-[#4ADE80]/20 rounded-2xl p-6 bg-[#4ADE80]/[0.03]">
+      <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
         <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-full border border-border/50 flex items-center justify-center flex-shrink-0">
-            <Key className="w-5 h-5 text-[#4ADE80]" />
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border" style={portalFrameStyle('green')}>
+            <Key className="portal-green-icon w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-semibold tracking-[-0.02em]">Your OnApi Key</h3>
               <button
                 onClick={() => setShowRotateConfirm(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/50 bg-muted/40 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
+                className="portal-purple-surface inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
                 title="Rotate API key"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -147,7 +169,7 @@ export function ApprovedDashboard({
               Label: <span className="text-foreground">{registration.label}</span>
             </p>
             <div className="relative">
-              <code className="block bg-muted/40 rounded-xl px-4 py-3 pr-20 font-mono text-sm text-[#4ADE80] break-all border border-border/50 select-none">
+              <code className="portal-green-text block break-all rounded-[1rem] border border-border/50 bg-background/50 px-4 py-3 pr-20 font-mono text-sm select-none">
                 {keyRevealed
                   ? registration.apiKey
                   : `${registration.apiKey.slice(0, 10)}${'•'.repeat(32)}${registration.apiKey.slice(-4)}`}
@@ -167,24 +189,24 @@ export function ApprovedDashboard({
                 <CopyButton text={registration.apiKey} className="" />
               </div>
             </div>
-            <p className="text-xs text-yellow-500/80 mt-2">
+            <p className="portal-amber-text text-xs mt-2">
               ⚠️ Store this securely — treat it like a password.
             </p>
 
             {showRotateConfirm && (
-              <div className="mt-4 border border-yellow-500/30 rounded-xl p-4 bg-yellow-500/[0.05]">
+              <div className="portal-amber-panel mt-4 rounded-[1rem] border p-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="portal-amber-icon w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium mb-1">Rotate API Key?</p>
                     <p className="text-xs text-muted-foreground mb-3">
                       This will invalidate your current key immediately. Update
                       your bot&apos;s
-                      <code className="text-[#60A5FA]"> ONSOCIAL_API_KEY</code>{' '}
+                      <code className="portal-blue-text"> ONSOCIAL_API_KEY</code>{' '}
                       env var with the new key.
                     </p>
                     {rotateError && (
-                      <p className="text-xs text-red-400 mb-3">{rotateError}</p>
+                      <p className="portal-red-text text-xs mb-3">{rotateError}</p>
                     )}
                     <div className="flex gap-2">
                       <Button
@@ -223,9 +245,10 @@ export function ApprovedDashboard({
         </div>
       </div>
 
-      <div className="border border-[#C084FC]/15 rounded-2xl p-6 bg-[#C084FC]/[0.02]">
-        <h3 className="text-sm font-semibold text-[#C084FC] mb-4 uppercase tracking-wider">
-          Your App Rules · On-Chain
+      <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          <Sparkles className="portal-purple-icon h-4 w-4" />
+          <span>Your App Rules · On-Chain</span>
         </h3>
         {configLoading && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -233,8 +256,8 @@ export function ApprovedDashboard({
           </div>
         )}
         {!configLoading && !onChainConfig && (
-          <p className="text-xs text-yellow-500/80">
-            <AlertTriangle className="w-3 h-3 inline mr-1" />
+          <p className="portal-amber-text text-xs">
+            <AlertTriangle className="portal-amber-icon w-3 h-3 inline mr-1" />
             App not yet registered on-chain. Contact the OnSocial team.
           </p>
         )}
@@ -243,15 +266,17 @@ export function ApprovedDashboard({
         )}
       </div>
 
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Integration Guide</h3>
-        <div className="flex gap-1 p-1 border border-border/50 rounded-full mb-4 max-w-xs bg-muted/30">
+      <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+        <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Integration Guide
+        </h3>
+        <div className="mb-4 flex max-w-xs gap-1 rounded-full border border-border/50 bg-muted/20 p-1">
           <button
             onClick={() => setTab('bot')}
-            className={`flex-1 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
               tab === 'bot'
-                ? 'bg-muted/80 text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'portal-blue-surface'
+                : 'portal-neutral-control'
             }`}
           >
             <Terminal className="w-4 h-4 inline mr-1.5" />
@@ -259,10 +284,10 @@ export function ApprovedDashboard({
           </button>
           <button
             onClick={() => setTab('sdk')}
-            className={`flex-1 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
               tab === 'sdk'
-                ? 'bg-muted/80 text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'portal-blue-surface'
+                : 'portal-neutral-control'
             }`}
           >
             <Code2 className="w-4 h-4 inline mr-1.5" />
@@ -295,17 +320,19 @@ export function ApprovedDashboard({
             />
           </div>
           <CodeBlock
-            code={envSnippet(registration.appId, registration.apiKey, tab)}
+            code={envSnippet(registration.appId, registration.apiKey, tab, {
+              maskApiKey: true,
+            })}
             language="bash"
           />
           {tab === 'bot' && (
             <p className="text-xs text-muted-foreground">
-              Get your <code className="text-[#60A5FA]">BOT_TOKEN</code> from{' '}
+              Get your <code className="portal-blue-text">BOT_TOKEN</code> from{' '}
               <a
                 href="https://t.me/BotFather"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#60A5FA] hover:underline"
+                className="portal-action-link"
               >
                 @BotFather
               </a>{' '}
@@ -342,13 +369,13 @@ export function ApprovedDashboard({
         </div>
 
         {tab === 'bot' && (
-          <div className="mt-6 pt-6 border-t border-border/30">
+          <div className="mt-6 border-t border-border/30 pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-medium mb-1">Download full project</h4>
                 <p className="text-xs text-muted-foreground">
                   Get package.json + .env + bot.ts — ready to{' '}
-                  <code className="text-[#60A5FA]">
+                  <code className="portal-blue-text">
                     npm install &amp;&amp; npm start
                   </code>
                 </p>
@@ -372,19 +399,21 @@ export function ApprovedDashboard({
       </div>
 
       {tab === 'bot' && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Deploy</h3>
-          <p className="text-sm text-muted-foreground mb-3">
+        <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+          <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Deploy
+          </h3>
+          <p className="mb-3 text-sm text-muted-foreground">
             Your bot needs a persistent process. Example:
           </p>
           <a
             href="https://fly.io"
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-border/50 rounded-2xl p-4 bg-muted/30 hover:border-border transition-colors flex items-center gap-4"
+            className="flex items-center gap-4 rounded-[1.25rem] border border-border/50 bg-background/30 p-4 transition-colors hover:border-border"
           >
-            <div className="w-10 h-10 rounded-full border border-[#C084FC]/30 flex items-center justify-center flex-shrink-0">
-              <Cloud className="w-5 h-5 text-[#C084FC]" />
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border" style={portalFrameStyle('purple')}>
+              <Cloud className="portal-purple-icon w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm">Fly.io</h4>
@@ -398,19 +427,21 @@ export function ApprovedDashboard({
       )}
 
       {tab === 'bot' && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4">
-            <MessageSquare className="w-5 h-5 inline mr-2 text-[#60A5FA]" />
+        <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+          <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <MessageSquare className="portal-blue-icon mr-2 inline h-5 w-5" />
             Preview
           </h3>
-          <p className="text-xs text-muted-foreground mb-4">
+          <p className="mb-4 text-xs text-muted-foreground">
             This is how your bot will look in Telegram — fully branded, zero
             custom code needed.
           </p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="border border-border/50 rounded-2xl p-4 bg-muted/20">
-              <p className="text-xs font-medium text-muted-foreground mb-2">/start</p>
-              <div className="bg-[#1a1a2e] rounded-xl p-3 text-sm text-gray-200 leading-relaxed font-mono space-y-1">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                /start
+              </p>
+              <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
                 <p>🤝 OnSocial stands with {registration.label}</p>
                 <p className="mt-2">👋 Welcome!</p>
                 <p className="mt-2 text-gray-400">
@@ -421,33 +452,35 @@ export function ApprovedDashboard({
                   Tap below to link your NEAR account and start earning 👇
                 </p>
                 <div className="mt-3 flex gap-2">
-                  <span className="px-2.5 py-1 rounded-full border border-[#60A5FA]/40 text-[#60A5FA] text-xs">
+                  <span className="portal-blue-badge rounded-full border px-2.5 py-1 text-xs">
                     🔗 Link Account
                   </span>
-                  <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">
+                  <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-gray-400">
                     ❓ How it works
                   </span>
                 </div>
               </div>
             </div>
-            <div className="border border-border/50 rounded-2xl p-4 bg-muted/20">
-              <p className="text-xs font-medium text-muted-foreground mb-2">/balance</p>
-              <div className="bg-[#1a1a2e] rounded-xl p-3 text-sm text-gray-200 leading-relaxed font-mono space-y-1">
+            <div className="rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                /balance
+              </p>
+              <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
                 <p>🤝 OnSocial stands with {registration.label}</p>
                 <p className="mt-2">
-                  ⭐ Rewards for <span className="text-[#4ADE80]">alice.near</span>
+                  ⭐ Rewards for <span className="portal-green-text">alice.near</span>
                 </p>
                 <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
-                <p className="text-[#4ADE80] text-xs">(ready to claim!)</p>
+                <p className="portal-green-text text-xs">(ready to claim!)</p>
                 <p className="mt-1 text-gray-400">
                   📈 Daily progress: 0.5 / 1 SOCIAL
                 </p>
                 <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
                 <div className="mt-3 flex gap-2">
-                  <span className="px-2.5 py-1 rounded-full border border-[#C084FC]/40 text-[#C084FC] text-xs">
+                  <span className="portal-purple-badge rounded-full border px-2.5 py-1 text-xs">
                     💎 Claim
                   </span>
-                  <span className="px-2.5 py-1 rounded-full border border-border/50 text-gray-400 text-xs">
+                  <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-gray-400">
                     🔄 Refresh
                   </span>
                 </div>
@@ -457,36 +490,36 @@ export function ApprovedDashboard({
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         {[
           {
             icon: Zap,
             title: 'Auto-rewarding',
             desc: 'Messages in groups earn SOCIAL tokens automatically',
-            color: '#4ADE80',
+            color: portalColors.green,
           },
           {
             icon: Shield,
-            title: 'Gasless claims',
-            desc: 'Users claim tokens in-bot with zero gas fees',
-            color: '#60A5FA',
+            title: 'Seamless claims',
+            desc: 'Users claim rewards in-bot without gas fees or wallet popups.',
+            color: portalColors.blue,
           },
           {
             icon: Users,
             title: 'Account linking',
             desc: '/start → link NEAR account → start earning',
-            color: '#C084FC',
+            color: portalColors.purple,
           },
           {
             icon: Rocket,
             title: 'Branded UX',
             desc: `"🤝 OnSocial stands with ${registration.label}"`,
-            color: '#4ADE80',
+            color: portalColors.green,
           },
         ].map((item) => (
           <div
             key={item.title}
-            className="border border-border/50 rounded-2xl p-4 bg-muted/30 hover:border-border transition-colors"
+            className="rounded-[1.25rem] border border-border/50 bg-background/30 p-4 transition-colors hover:border-border"
           >
             <item.icon className="w-5 h-5 mb-2" style={{ color: item.color }} />
             <h4 className="font-medium text-sm mb-1">{item.title}</h4>

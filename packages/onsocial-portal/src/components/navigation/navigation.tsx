@@ -2,19 +2,15 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
+import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { WalletButton } from '@/components/wallet-button';
 import { useWallet } from '@/contexts/wallet-context';
+import { ADMIN_WALLETS } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
-
-const ADMIN_WALLETS = (
-  process.env.NEXT_PUBLIC_ADMIN_WALLETS ??
-  'onsocial.near,onsocial.testnet,greenghost.near,test01greenghost.testnet'
-)
-  .split(',')
-  .map((w) => w.trim().toLowerCase());
 
 const navItems = [
   { label: 'Home', href: '/', isAnchor: false },
@@ -28,6 +24,7 @@ const navItems = [
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const { accountId } = useWallet();
+  const pathname = usePathname();
 
   const isAdmin = accountId && ADMIN_WALLETS.includes(accountId.toLowerCase());
 
@@ -69,6 +66,14 @@ export function Navigation() {
     }
   };
 
+  const isActiveItem = (href: string) => {
+    if (href === '/') {
+      return pathname === '/';
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   return (
     <motion.header
       initial={{ y: -100 }}
@@ -91,19 +96,9 @@ export function Navigation() {
             }
             setIsOpen(false);
           }}
-          className="flex items-center cursor-pointer"
+          className="flex items-center"
         >
-          {/* Light mode: black icon, Dark mode: white icon */}
-          <img
-            src="/onsocial_icon.svg"
-            alt="OnSocial"
-            className="w-10 h-10 dark:hidden"
-          />
-          <img
-            src="/onsocial_icon_dark.svg"
-            alt="OnSocial"
-            className="w-10 h-10 hidden dark:block"
-          />
+          <BrandLogo className="h-10 w-10" />
         </Link>
 
         <div className="hidden md:flex items-center space-x-6">
@@ -113,10 +108,14 @@ export function Navigation() {
               href={item.href}
               onClick={(e) => item.isAnchor && handleSmoothScroll(e, item.href)}
               className={cn(
-                'text-sm text-muted-foreground hover:text-foreground transition-colors',
-                item.label === 'Admin' &&
-                  'text-[#C084FC] hover:text-[#C084FC]/80'
+                'text-sm transition-colors',
+                isActiveItem(item.href)
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+                item.label === 'Admin' && !isActiveItem(item.href) &&
+                  'portal-purple-text'
               )}
+              aria-current={isActiveItem(item.href) ? 'page' : undefined}
             >
               {item.label}
             </Link>
@@ -203,10 +202,14 @@ export function Navigation() {
                         }
                       }}
                       className={cn(
-                        'block text-lg font-medium text-muted-foreground hover:text-foreground transition-colors py-2',
-                        item.label === 'Admin' &&
-                          'text-[#C084FC] hover:text-[#C084FC]/80'
+                        'block text-lg font-medium transition-colors py-2',
+                        isActiveItem(item.href)
+                          ? 'text-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                        item.label === 'Admin' && !isActiveItem(item.href) &&
+                          'portal-purple-text'
                       )}
+                      aria-current={isActiveItem(item.href) ? 'page' : undefined}
                     >
                       {item.label}
                     </Link>

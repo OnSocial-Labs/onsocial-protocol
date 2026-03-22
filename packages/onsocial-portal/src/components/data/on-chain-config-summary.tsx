@@ -1,16 +1,17 @@
 import { yoctoToSocial, type OnChainAppConfig } from '@/lib/near-rpc';
+import { portalColors } from '@/lib/portal-colors';
 
 function ProgressRow({
   label,
   value,
   detail,
-  accentClass,
+  accentColor,
   progress,
 }: {
   label: string;
   value: string;
   detail?: string;
-  accentClass: string;
+  accentColor: string;
   progress?: number;
 }) {
   return (
@@ -25,8 +26,8 @@ function ProgressRow({
       {typeof progress === 'number' && (
         <div className="h-1.5 overflow-hidden rounded-full bg-muted/30">
           <div
-            className={`h-full rounded-full transition-all ${accentClass}`}
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-full transition-all"
+            style={{ width: `${progress}%`, backgroundColor: accentColor }}
           />
         </div>
       )}
@@ -46,12 +47,16 @@ function StatCard({
   emphasized?: boolean;
 }) {
   return (
-    <div className={align === 'right' ? 'text-left sm:text-right' : 'text-left'}>
-      <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+    <div
+      className={`flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left sm:block ${
+        align === 'right' ? 'sm:text-right' : 'sm:text-left'
+      }`}
+    >
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground sm:mb-1">
         {label}
       </p>
       <p
-        className={`font-mono text-sm ${
+        className={`font-mono text-sm whitespace-nowrap ${
           emphasized ? 'text-foreground' : 'text-foreground'
         }`}
       >
@@ -79,19 +84,19 @@ export function OnChainConfigSummary({
       ? Math.min((dailySpent / dailyBudget) * 100, 100)
       : 0;
 
-  const totalAccentClass =
+  const totalAccentColor =
     totalPct >= 90
-      ? 'bg-red-500'
+      ? portalColors.red
       : totalPct >= 70
-        ? 'bg-yellow-500'
-        : 'bg-[#4ADE80]';
+        ? 'rgb(234 179 8)'
+        : portalColors.green;
 
-  const dailyAccentClass =
+  const dailyAccentColor =
     dailyPct >= 90
-      ? 'bg-red-500'
+      ? portalColors.red
       : dailyPct >= 70
-        ? 'bg-yellow-500'
-        : 'bg-[#60A5FA]';
+        ? 'rgb(234 179 8)'
+        : portalColors.blue;
 
   return (
     <div className="space-y-4">
@@ -99,7 +104,7 @@ export function OnChainConfigSummary({
         label="Budget Used"
         value={`${totalUsed.toLocaleString()} / ${totalBudget.toLocaleString()} SOCIAL`}
         detail={`(${totalPct.toFixed(1)}%)`}
-        accentClass={totalAccentClass}
+        accentColor={totalAccentColor}
         progress={totalPct}
       />
 
@@ -113,7 +118,7 @@ export function OnChainConfigSummary({
         detail={
           dailyUnlimited ? '(no daily limit)' : `(${dailyPct.toFixed(1)}%)`
         }
-        accentClass={dailyAccentClass}
+        accentColor={dailyAccentColor}
         progress={dailyUnlimited ? undefined : dailyPct}
       />
 

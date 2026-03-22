@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check, CheckCircle2, Copy, Download, type LucideIcon } from 'lucide-react';
+import { portalColors } from '@/lib/portal-colors';
 
 export function CopyButton({
   text,
@@ -25,7 +26,7 @@ export function CopyButton({
       title="Copy to clipboard"
     >
       {copied ? (
-        <Check className="w-4 h-4 text-[#4ADE80]" />
+        <Check className="w-4 h-4" style={{ color: portalColors.green }} />
       ) : (
         <Copy className="w-4 h-4" />
       )}
@@ -55,7 +56,7 @@ export function DownloadButton({
   return (
     <button
       onClick={handleDownload}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/50 bg-muted/40 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
+      className="portal-blue-surface inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
     >
       <Download className="w-3.5 h-3.5" />
       {label}
@@ -80,7 +81,7 @@ export function CodeBlock({
   );
 }
 
-const STEP_COLORS = ['#4ADE80', '#60A5FA', '#C084FC'] as const;
+const STEP_COLORS = [portalColors.green, portalColors.blue, portalColors.purple] as const;
 
 export function StepIndicator({
   steps,
@@ -90,16 +91,16 @@ export function StepIndicator({
   current: number;
 }) {
   return (
-    <div className="flex items-center justify-center gap-2 mb-12">
+    <div className="flex flex-wrap items-center justify-center gap-2">
       {steps.map((step, index) => {
         const color = STEP_COLORS[index % 3];
         const active = index <= current;
         return (
           <div key={index} className="flex items-center gap-2">
             <div
-              className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all ${
+              className={`flex h-10 w-10 items-center justify-center rounded-full border bg-background/60 transition-all ${
                 active
-                  ? 'border-border'
+                  ? 'border-border shadow-sm'
                   : 'border-border/50 text-muted-foreground'
               }`}
               style={active ? { color, borderColor: `${color}40` } : undefined}
@@ -112,7 +113,7 @@ export function StepIndicator({
             </div>
             {index < steps.length - 1 && (
               <div
-                className={`w-16 h-0.5 transition-colors ${
+                className={`h-px w-10 md:w-16 transition-colors ${
                   index < current ? '' : 'bg-border/50'
                 }`}
                 style={index < current ? { backgroundColor: color } : undefined}

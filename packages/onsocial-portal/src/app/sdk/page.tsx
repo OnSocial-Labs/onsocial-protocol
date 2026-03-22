@@ -7,28 +7,59 @@ import {
   ExternalLink,
   Package,
   BookOpen,
+  Layers,
+  Shield,
+  Gift,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PageShell } from '@/components/layout/page-shell';
+import { Button } from '@/components/ui/button';
+import {
+  portalBadgeStyle,
+  portalColors,
+  portalFrameStyle,
+  type PortalAccent,
+} from '@/lib/portal-colors';
+
+const SDK_CAPABILITIES = [
+  {
+    title: 'Integrate modular packages',
+    desc: 'Adopt rewards, auth, and intents independently instead of onboarding a monolithic stack all at once.',
+    accent: 'blue' as PortalAccent,
+    icon: Layers,
+  },
+  {
+    title: 'Ship user-facing flows faster',
+    desc: 'Move from raw protocol calls to higher-level building blocks that match common product surfaces.',
+    accent: 'green' as PortalAccent,
+    icon: Gift,
+  },
+  {
+    title: 'Keep protocol-level guarantees',
+    desc: 'SDK packages still align with the same on-chain contracts and transparent protocol primitives underneath.',
+    accent: 'slate' as PortalAccent,
+    icon: Shield,
+  },
+];
 
 const SDK_PACKAGES = [
   {
     name: '@onsocial-id/rewards',
     desc: 'Reward users with $SOCIAL tokens — gasless claims, per-dapp pools, daily caps.',
     status: 'beta' as const,
-    color: '#4ADE80',
+    accent: 'green' as PortalAccent,
   },
   {
     name: '@onsocial/auth',
     desc: 'Passwordless NEAR auth with JWT — social login, session management, key rotation.',
     status: 'development' as const,
-    color: '#60A5FA',
+    accent: 'blue' as PortalAccent,
   },
   {
     name: '@onsocial/intents',
     desc: 'Cross-chain intent execution — bridge, swap, and transact across chains.',
     status: 'development' as const,
-    color: '#C084FC',
+    accent: 'purple' as PortalAccent,
   },
 ];
 
@@ -55,147 +86,229 @@ const EXAMPLES = [
 
 export default function SDKPage() {
   return (
-    <PageShell>
-        {/* Hero */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 border border-[#4ADE80]/30 bg-[#4ADE80]/[0.04] rounded-full text-sm text-foreground mb-6">
-            <Terminal className="w-4 h-4" />
-            In Development
+    <PageShell className="max-w-5xl">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative mb-8 px-2 py-4 text-center md:py-6"
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-44 opacity-80 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(circle at 20% 18%, rgba(96,165,250,0.16), transparent 34%), radial-gradient(circle at 50% 20%, rgba(74,222,128,0.14), transparent 36%), radial-gradient(circle at 82% 22%, rgba(192,132,252,0.16), transparent 32%)',
+          }}
+        />
+        <div className="relative z-10 mx-auto max-w-4xl text-center">
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
+            <div className="portal-green-frame inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm text-foreground">
+              <Terminal className="h-4 w-4" />
+              In development
+            </div>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-[-0.03em]">
-            OnSocial SDK
+          <h1 className="mx-auto max-w-3xl text-4xl font-bold tracking-[-0.03em] md:text-6xl">
+            OnSocial SDK for auth, rewards, and intents
           </h1>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Build on NEAR with authentication, rewards, and cross-chain intents
-            — all from one SDK.
+          <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
+            Build on NEAR with modular packages for common OnSocial app flows.
           </p>
-        </motion.div>
+        </div>
+      </motion.div>
 
-        {/* Packages */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-16"
-        >
-          <h2 className="text-2xl font-bold tracking-[-0.03em] mb-6">
-            Packages
-          </h2>
-          <div className="space-y-3">
-            {SDK_PACKAGES.map((pkg) => (
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.08 }}
+        className="mb-8"
+      >
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Why this SDK
+            </span>
+            <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
+              Fewer moving parts for app builders
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm text-muted-foreground md:text-right">
+            Use higher-level packages instead of wiring the same protocol pieces
+            yourself.
+          </p>
+        </div>
+
+        <div className="grid gap-6 border-t border-border/50 pt-6 md:grid-cols-3 md:gap-8">
+          {SDK_CAPABILITIES.map((item) => {
+            const Icon = item.icon;
+            return (
               <div
-                key={pkg.name}
-                className="border border-border/50 rounded-2xl p-6 bg-muted/30 hover:border-border transition-colors"
+                key={item.title}
+                className="relative border-l border-border/50 pl-5 md:pl-6"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Package
-                        className="w-5 h-5 flex-shrink-0"
-                        style={{ color: pkg.color }}
-                      />
-                      <span className="font-mono text-base font-semibold">
+                <div
+                  className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl border"
+                  style={portalFrameStyle(item.accent)}
+                >
+                  <Icon className="h-5 w-5" style={{ color: portalColors[item.accent] }} />
+                </div>
+                <h3 className="text-base font-semibold md:text-lg">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {item.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.12 }}
+        className="mb-8"
+      >
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Packages
+            </span>
+            <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
+              Start with the package you need
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm text-muted-foreground md:text-right">
+            Rewards is closest to beta. Auth and intents stay visible as the
+            roadmap fills out.
+          </p>
+        </div>
+
+        <div className="grid gap-3">
+          {SDK_PACKAGES.map((pkg) => (
+            <div
+              key={pkg.name}
+              className="rounded-[1.5rem] border border-border/50 bg-background/45 p-5 md:p-6"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl border"
+                      style={portalFrameStyle(pkg.accent)}
+                    >
+                      <Package className="h-5 w-5" style={{ color: portalColors[pkg.accent] }} />
+                    </div>
+                    <div>
+                      <span className="font-mono text-base font-semibold md:text-lg">
                         {pkg.name}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{pkg.desc}</p>
                   </div>
-                  <div
-                    className="px-3 py-1 rounded-full border text-xs font-medium flex-shrink-0"
-                    style={{
-                      borderColor:
-                        pkg.status === 'beta'
-                          ? '#4ADE80' + '40'
-                          : '#6B7280' + '40',
-                      color: pkg.status === 'beta' ? '#4ADE80' : '#6B7280',
-                      backgroundColor:
-                        pkg.status === 'beta'
-                          ? '#4ADE80' + '08'
-                          : '#6B7280' + '08',
-                    }}
-                  >
-                    {pkg.status === 'beta' ? 'Beta' : 'Coming Soon'}
-                  </div>
+                  <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                    {pkg.desc}
+                  </p>
+                </div>
+                <div
+                  className="rounded-full border px-3 py-1 text-xs font-medium"
+                  style={
+                    pkg.status === 'beta'
+                      ? portalBadgeStyle('green')
+                      : portalBadgeStyle('slate')
+                  }
+                >
+                  {pkg.status === 'beta' ? 'Beta' : 'Coming soon'}
                 </div>
               </div>
-            ))}
-          </div>
-        </motion.div>
+            </div>
+          ))}
+        </div>
+      </motion.section>
 
-        {/* Quick Install */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="mb-16"
-        >
-          <h2 className="text-2xl font-bold tracking-[-0.03em] mb-6">
-            Quick Start
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.16 }}
+        className="mb-8 grid gap-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-start"
+      >
+        <div className="rounded-[1.6rem] border border-border/50 bg-background/45 p-5 md:p-6">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Quick start
+          </span>
+          <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
+            Install the first live package
           </h2>
-          <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50">
-              <Terminal className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground font-mono">
+          <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-border/50 bg-muted/20">
+            <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3">
+              <Terminal className="h-4 w-4 text-muted-foreground" />
+              <span className="font-mono text-xs text-muted-foreground">
                 terminal
               </span>
             </div>
-            <pre className="p-4 overflow-x-auto text-sm font-mono text-muted-foreground">
+            <pre className="overflow-x-auto p-4 text-sm font-mono text-foreground/85">
               <code>npm install @onsocial-id/rewards</code>
             </pre>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Examples */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-16"
-        >
-          <h2 className="text-2xl font-bold tracking-[-0.03em] mb-6">
-            Examples
+        <div className="border-t border-border/50 pt-5 lg:pt-2">
+          <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Source
+          </span>
+          <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
+            Source and docs in one repo
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {EXAMPLES.map((ex) => (
-              <Link
-                key={ex.title}
-                href={ex.href}
-                className="group border border-border/50 rounded-2xl p-6 bg-muted/30 hover:border-border transition-colors"
-              >
-                <h3 className="text-sm font-semibold mb-2">{ex.title}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{ex.desc}</p>
-                <span className="text-xs text-[#60A5FA] font-medium inline-flex items-center gap-1 group-hover:gap-2 transition-all">
-                  {ex.linkText}
-                  <ArrowRight className="w-3 h-3" />
-                </span>
-              </Link>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Source */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-          className="text-center"
-        >
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Docs, examples, and package work ship alongside the protocol code.
+          </p>
           <a
             href="https://github.com/OnSocial-Labs/onsocial-protocol"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-6 py-3 border border-border/50 hover:border-border rounded-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="portal-action-link mt-5 inline-flex items-center gap-2 text-sm font-medium"
           >
-            <BookOpen className="w-4 h-4" />
-            View Source & Docs
-            <ExternalLink className="w-3 h-3" />
+            <BookOpen className="h-4 w-4" />
+            View source and docs
+            <ExternalLink className="h-3.5 w-3.5" />
           </a>
-        </motion.div>
+        </div>
+      </motion.section>
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="mb-4"
+      >
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Examples
+            </span>
+            <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
+              See real product surfaces
+            </h2>
+          </div>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {EXAMPLES.map((ex) => (
+            <Link
+              key={ex.title}
+              href={ex.href}
+              className="group rounded-[1.5rem] border border-border/50 bg-background/45 p-5 transition-colors hover:border-border"
+            >
+              <h3 className="text-sm font-semibold md:text-base">{ex.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {ex.desc}
+              </p>
+              <div className="mt-5">
+                <Button variant="outline" size="sm" className="gap-2">
+                  {ex.linkText}
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Button>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </motion.section>
     </PageShell>
   );
 }

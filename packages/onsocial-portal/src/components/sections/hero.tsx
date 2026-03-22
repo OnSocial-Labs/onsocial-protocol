@@ -5,9 +5,9 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function Hero() {
-  const scrollToProtocol = (e: React.MouseEvent) => {
+  const scrollToPaths = (e: React.MouseEvent) => {
     e.preventDefault();
-    const el = document.getElementById('protocol');
+    const el = document.getElementById('paths');
     if (el) {
       const offset = 80;
       const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
@@ -16,60 +16,45 @@ export function Hero() {
   };
 
   return (
-    <section className="relative min-h-[80vh] flex items-center justify-center pt-24 md:pt-16">
-      {/* Subtle dot grid background */}
+    <section className="relative min-h-[72vh] flex items-center justify-center pt-24 md:pt-16 overflow-hidden">
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage:
-            'radial-gradient(circle, currentColor 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-          opacity: 0.04,
-          maskImage:
-            'radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%), linear-gradient(to bottom, black 40%, transparent 85%)',
-          WebkitMaskImage:
-            'radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%), linear-gradient(to bottom, black 40%, transparent 85%)',
-          maskComposite: 'intersect',
-          WebkitMaskComposite: 'source-in',
+          background:
+            'radial-gradient(circle at 50% 30%, rgba(74,222,128,0.10), transparent 32%), radial-gradient(circle at 70% 20%, rgba(96,165,250,0.08), transparent 26%)',
         }}
       />
       <div className="container mx-auto px-4 relative z-10">
-        <div className="max-w-3xl mx-auto text-center space-y-8">
-          {/* Main heading */}
+        <div className="max-w-3xl mx-auto text-center space-y-7">
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45 }}
+            className="text-xs uppercase tracking-[0.24em] text-muted-foreground"
+          >
+            OnSocial Protocol
+          </motion.p>
+
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-[-0.03em] leading-[0.9]"
+            className="text-5xl md:text-7xl lg:text-[5.5rem] font-bold tracking-[-0.05em] leading-[0.92]"
           >
-            One Profile.
+            Shared identity.
             <br />
-            <span className="text-[#4ADE80]">Every App.</span>
+            <span className="portal-green-text">Every app.</span>
           </motion.h1>
 
-          {/* Description */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-            className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed"
-          >
-            Shared social infrastructure on NEAR —{' '}
-            <span className="text-[#4ADE80]">profiles</span>,{' '}
-            <span className="text-[#60A5FA]">groups</span>,{' '}
-            <span className="text-[#C084FC]">Scarces</span>, and gasless
-            interactions across every dapp on the protocol.
-          </motion.p>
-
-          {/* Single CTA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="flex items-center gap-4 justify-center"
           >
             <Button size="lg" variant="accent" asChild className="group">
-              <a href="#protocol" onClick={scrollToProtocol}>
-                Explore Protocol
+              <a href="#paths" onClick={scrollToPaths}>
+                See what's live
                 <ChevronDown className="w-4 h-4 ml-2 group-hover:translate-y-0.5 transition-transform" />
               </a>
             </Button>

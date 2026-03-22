@@ -3,30 +3,13 @@
 import Link from 'next/link';
 import { Github, Code } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
-import { IoMdHeart } from 'react-icons/io';
 import { RiTelegram2Line } from 'react-icons/ri';
-
-const footerLinks = {
-  Product: [
-    { label: 'SDK', href: '/sdk' },
-    { label: 'Transparency', href: '/transparency' },
-    { label: 'OnApi', href: '/onapi' },
-    { label: 'Staking', href: '/staking' },
-    { label: 'Partners', href: '/partners' },
-  ],
-  Resources: [
-    { label: 'GitHub', href: 'https://github.com/OnSocial-Labs' },
-    { label: 'License', href: '/LICENSE.md' },
-  ],
-};
 
 export function Footer() {
   return (
     <footer className="border-t border-border/50 bg-background">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-1">
+        <div className="mb-8">
             <div className="flex items-center space-x-2 mb-4">
               <img
                 src="/onsocial_icon.svg"
@@ -43,7 +26,15 @@ export function Footer() {
               </span>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Building the future of decentralized social.
+              Open social infrastructure on{' '}
+              <Link
+                href="https://near.org"
+                target="_blank"
+                className="hover:text-foreground transition-colors"
+              >
+                NEAR
+              </Link>
+              .
             </p>
             <div className="flex items-center space-x-4">
               <Link
@@ -66,26 +57,6 @@ export function Footer() {
                 <RiTelegram2Line className="w-6 h-6" />
               </Link>
             </div>
-          </div>
-
-          {/* Links */}
-          {Object.entries(footerLinks).map(([category, links]) => (
-            <div key={category}>
-              <h3 className="font-semibold mb-4">{category}</h3>
-              <ul className="space-y-2">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
         </div>
 
         {/* Bottom */}
@@ -95,10 +66,6 @@ export function Footer() {
             <Code className="w-3.5 h-3.5" />
             <span>Open source</span>
           </div>
-          <p className="text-sm text-muted-foreground flex items-center gap-1">
-            Built with <IoMdHeart className="text-[#4ADE80] w-4 h-4" /> on NEAR
-            Protocol
-          </p>
         </div>
       </div>
     </footer>

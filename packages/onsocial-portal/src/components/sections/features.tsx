@@ -3,6 +3,7 @@
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { Globe, Zap, FileCode2, Layers, Package, Terminal } from 'lucide-react';
+import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
 const tools = [
   {
@@ -10,7 +11,7 @@ const tools = [
     description:
       'Auth, GraphQL, relay, compose, storage — one endpoint at api.onsocial.id. JWT-based with tier rate limiting.',
     icon: Globe,
-    color: '#60A5FA',
+    accent: 'blue' as PortalAccent,
     status: 'Live',
   },
   {
@@ -18,7 +19,7 @@ const tools = [
     description:
       'Users never pay gas. 2-instance HA with GCP Cloud KMS signing and automatic key pool management.',
     icon: Zap,
-    color: '#4ADE80',
+    accent: 'green' as PortalAccent,
     status: 'Live',
   },
   {
@@ -26,7 +27,7 @@ const tools = [
     description:
       'Core, Token, Staking, Scarces, Rewards — 6 contracts on testnet, token verified on mainnet.',
     icon: FileCode2,
-    color: '#C084FC',
+    accent: 'purple' as PortalAccent,
     status: 'Live',
   },
   {
@@ -34,7 +35,7 @@ const tools = [
     description:
       'One-call endpoints: mint, collection, marketplace, offers, approvals, storage uploads via Lighthouse IPFS.',
     icon: Layers,
-    color: '#60A5FA',
+    accent: 'blue' as PortalAccent,
     status: 'Live',
   },
   {
@@ -42,7 +43,7 @@ const tools = [
     description:
       '@onsocial-id/rewards for token rewards, @onsocial-id/rpc for resilient NEAR calls, partner API for app registration.',
     icon: Package,
-    color: '#4ADE80',
+    accent: 'green' as PortalAccent,
     status: 'Live',
   },
   {
@@ -50,7 +51,7 @@ const tools = [
     description:
       'Browser code editor with live testnet execution. Connect wallet, run real transactions, test your integration.',
     icon: Terminal,
-    color: '#C084FC',
+    accent: 'purple' as PortalAccent,
     status: 'Live',
   },
 ];
@@ -88,8 +89,8 @@ export function Features() {
               >
                 <div className="border border-border/50 rounded-2xl p-8 hover:border-border transition-colors bg-muted/30 h-full">
                   <div className="flex items-start justify-between mb-5">
-                    <Icon className="w-10 h-10" style={{ color: tool.color }} />
-                    <span className="text-xs px-2.5 py-1 rounded-full border border-[#4ADE80]/30 text-[#4ADE80] font-medium">
+                    <Icon className="w-10 h-10" style={{ color: portalColors[tool.accent] }} />
+                    <span className="portal-green-badge text-xs px-2.5 py-1 rounded-full border font-medium">
                       {tool.status}
                     </span>
                   </div>

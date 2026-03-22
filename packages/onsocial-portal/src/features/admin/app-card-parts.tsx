@@ -5,7 +5,10 @@ import { AlertTriangle, CheckCircle2, Clock, Link2, XCircle } from 'lucide-react
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
 import { Button } from '@/components/ui/button';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
-import { RELAYER_ACCOUNT } from '@/features/admin/constants';
+import {
+  CONTRACT_OWNER_WALLET,
+  RELAYER_ACCOUNT,
+} from '@/features/admin/constants';
 import {
   cleanNumeric,
   normalizeNumeric,
@@ -22,24 +25,25 @@ import { REWARDS_CONTRACT, type OnChainAppConfig } from '@/lib/near-rpc';
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<
     string,
-    { bg: string; text: string; icon: typeof Clock }
+    { badgeClass: string; iconClass: string; icon: typeof Clock }
   > = {
-    pending: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', icon: Clock },
+    pending: { badgeClass: 'portal-amber-badge', iconClass: 'portal-amber-icon', icon: Clock },
     approved: {
-      bg: 'bg-[#4ADE80]/10',
-      text: 'text-[#4ADE80]',
+      badgeClass: 'portal-green-badge',
+      iconClass: 'portal-green-icon',
       icon: CheckCircle2,
     },
-    rejected: { bg: 'bg-red-400/10', text: 'text-red-400', icon: XCircle },
+    rejected: { badgeClass: 'portal-red-badge', iconClass: 'portal-red-icon', icon: XCircle },
+    reopened: { badgeClass: 'portal-blue-badge', iconClass: 'portal-blue-icon', icon: Link2 },
   };
   const resolved = styles[status] ?? styles.pending;
   const Icon = resolved.icon;
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${resolved.bg} ${resolved.text}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${resolved.badgeClass}`}
     >
-      <Icon className="w-3 h-3" />
+      <Icon className={`w-3 h-3 ${resolved.iconClass}`} />
       {status}
     </span>
   );
@@ -72,10 +76,10 @@ function ParamField({
           value={value}
           onChange={(e) => onChange(cleanNumeric(e.target.value))}
           onBlur={() => onChange(normalizeNumeric(value))}
-          className={`flex-1 px-3 py-1.5 rounded-lg bg-muted/40 border outline-none transition-colors text-sm font-mono ${
+          className={`flex-1 rounded-xl border bg-muted/20 px-3 py-2 outline-none transition-colors text-sm font-mono ${
             error
-              ? 'border-red-400 focus:border-red-400'
-              : 'border-border/50 focus:border-[#60A5FA]'
+              ? 'border-[var(--portal-red)] focus:border-[var(--portal-red)]'
+              : 'border-border/50 focus:border-[var(--portal-blue-focus-border)]'
           }`}
         />
         {suffix && (
@@ -85,7 +89,7 @@ function ParamField({
         )}
       </div>
       {error ? (
-        <p className="text-[11px] text-red-400 mt-0.5">{error}</p>
+        <p className="portal-red-text text-[11px] mt-0.5">{error}</p>
       ) : (
         <p className="text-[11px] text-muted-foreground/60 mt-0.5">{hint}</p>
       )}
@@ -143,8 +147,8 @@ export function PendingControls({
 
   return (
     <>
-      <div className="border border-[#C084FC]/15 rounded-xl p-4 bg-[#C084FC]/[0.02] mb-4">
-        <p className="text-xs font-semibold text-[#C084FC] mb-3 uppercase tracking-wider">
+      <div className="mb-4 rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
+        <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Contract Registration · {REWARDS_CONTRACT}
         </p>
 
@@ -160,7 +164,7 @@ export function PendingControls({
         </div>
 
         {isContractOwner && (
-          <div className="space-y-3 pt-3 border-t border-border/30">
+          <div className="space-y-3 border-t border-border/30 pt-3">
             <div className="grid grid-cols-2 gap-3">
               <ParamField
                 label="reward_per_action"
@@ -200,7 +204,7 @@ export function PendingControls({
 
             <div className="text-xs text-muted-foreground">
               <span className="font-medium">authorized_callers:</span>{' '}
-              <span className="font-mono text-[#60A5FA]">{RELAYER_ACCOUNT}</span>
+              <span className="portal-blue-text font-mono">{RELAYER_ACCOUNT}</span>
               <span className="text-muted-foreground/60 ml-1">
                 (relayer — auto-set)
               </span>
@@ -209,10 +213,13 @@ export function PendingControls({
         )}
 
         {!isContractOwner && (
-          <p className="text-xs text-yellow-500/80 mt-2">
-            <AlertTriangle className="w-3 h-3 inline mr-1" />
-            Connect as <span className="font-mono text-[#C084FC]">onsocial.testnet</span>{' '}
-            to configure & register on-chain.
+          <p className="portal-amber-text text-xs mt-2">
+            <AlertTriangle className="portal-amber-icon w-3 h-3 inline mr-1" />
+            Connect as{' '}
+            <span className="portal-purple-text font-mono">
+              {CONTRACT_OWNER_WALLET}
+            </span>{' '}
+            to configure and register on-chain.
           </p>
         )}
       </div>
@@ -226,11 +233,11 @@ export function PendingControls({
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Optional notes…"
           rows={2}
-          className="w-full px-3 py-2 rounded-xl bg-muted/40 border border-border/50 focus:border-border outline-none transition-colors text-sm resize-none"
+          className="portal-blue-focus w-full resize-none rounded-[1rem] border border-border/50 bg-muted/20 px-3 py-2.5 text-sm outline-none"
         />
       </div>
 
-      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
+      {error && <p className="portal-red-text text-xs mb-2">{error}</p>}
 
       <div className="flex gap-2">
         <Button
@@ -250,8 +257,8 @@ export function PendingControls({
           onClick={onReject}
           disabled={acting}
           size="sm"
-          variant="outline"
-          className="font-semibold text-red-400 hover:text-red-300"
+          variant="destructive"
+          className="font-semibold"
         >
           <XCircle className="w-3 h-3 mr-1.5" />
           Reject
@@ -276,9 +283,9 @@ export function ChainStatusPanel({
 
   if (chainStatus === 'registering') {
     return (
-      <div className="border border-[#60A5FA]/20 rounded-xl p-4 bg-[#60A5FA]/[0.03] mb-4">
+      <div className="portal-blue-panel mb-4 rounded-[1rem] border p-4">
         <div className="flex items-center gap-2">
-          <PulsingDots size="md" className="text-[#60A5FA]" />
+          <PulsingDots size="md" className="portal-blue-text" />
           <span className="text-sm">
             Registering on <span className="font-mono">{REWARDS_CONTRACT}</span>…
           </span>
@@ -289,9 +296,9 @@ export function ChainStatusPanel({
 
   if (chainStatus === 'done') {
     return (
-      <div className="border border-[#4ADE80]/20 rounded-xl p-4 bg-[#4ADE80]/[0.03] mb-4">
+      <div className="portal-green-panel mb-4 rounded-[1rem] border p-4">
         <div className="flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-[#4ADE80]" />
+          <Link2 className="portal-green-icon w-4 h-4" />
           <span className="text-sm font-semibold">Registered on-chain</span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
@@ -304,12 +311,12 @@ export function ChainStatusPanel({
 
   if (chainStatus === 'error') {
     return (
-      <div className="border border-red-400/20 rounded-xl p-4 bg-red-400/[0.03] mb-4">
+      <div className="portal-red-panel mb-4 rounded-[1rem] border p-4">
         <div className="flex items-center gap-2 mb-1">
-          <XCircle className="w-4 h-4 text-red-400" />
+          <XCircle className="portal-red-icon w-4 h-4" />
           <span className="text-sm font-semibold">On-chain registration failed</span>
         </div>
-        <p className="text-xs text-red-400">{chainError}</p>
+        <p className="portal-red-text text-xs">{chainError}</p>
         <Button onClick={onRetry} size="sm" variant="outline" className="mt-2 text-xs">
           Retry On-Chain Registration
         </Button>
@@ -318,13 +325,14 @@ export function ChainStatusPanel({
   }
 
   return (
-    <div className="border border-yellow-500/20 rounded-xl p-4 bg-yellow-500/[0.03] mb-4">
+    <div className="portal-amber-panel mb-4 rounded-[1rem] border p-4">
       <div className="flex items-center gap-2">
-        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+        <AlertTriangle className="portal-amber-icon w-4 h-4" />
         <span className="text-sm font-semibold">On-chain registration needed</span>
       </div>
       <p className="text-xs text-muted-foreground mt-1">
-        Connect as <span className="font-mono text-[#C084FC]">onsocial.testnet</span>{' '}
+        Connect as{' '}
+        <span className="portal-purple-text font-mono">{CONTRACT_OWNER_WALLET}</span>{' '}
         to register <span className="font-mono">{appId}</span> on the rewards
         contract.
       </p>
@@ -340,8 +348,8 @@ export function ApprovedConfigPanel({
   onChainConfig: OnChainAppConfig | null;
 }) {
   return (
-    <div className="border border-[#C084FC]/15 rounded-xl p-4 bg-[#C084FC]/[0.02] mt-4">
-      <p className="text-xs font-semibold text-[#C084FC] mb-3 uppercase tracking-wider">
+    <div className="mt-4 rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
+      <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
         On-Chain Config · {REWARDS_CONTRACT}
       </p>
       {configLoading && (
@@ -350,8 +358,8 @@ export function ApprovedConfigPanel({
         </div>
       )}
       {!configLoading && !onChainConfig && (
-        <p className="text-xs text-yellow-500/80">
-          <AlertTriangle className="w-3 h-3 inline mr-1" />
+        <p className="portal-amber-text text-xs">
+          <AlertTriangle className="portal-amber-icon w-3 h-3 inline mr-1" />
           Not registered on-chain yet.
         </p>
       )}

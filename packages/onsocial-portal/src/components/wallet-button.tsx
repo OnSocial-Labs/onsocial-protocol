@@ -10,6 +10,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/near-network';
 
 export function WalletButton() {
   const { accountId, isConnected, connect, disconnect } = useWallet();
@@ -33,16 +34,15 @@ export function WalletButton() {
   };
 
   const handleSwitchWallet = async () => {
-    await disconnect();
-    await connect();
     setShowMenu(false);
+    await connect();
   };
 
   if (!isConnected) {
     return (
       <button
         onClick={() => connect()}
-        className="flex items-center gap-2 border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground px-4 py-2 rounded-full font-medium transition-all hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20 text-sm"
+        className="portal-blue-surface flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all"
       >
         <Wallet className="w-4 h-4" />
         <span className="hidden sm:inline">Let's connect</span>
@@ -54,11 +54,11 @@ export function WalletButton() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setShowMenu(!showMenu)}
-        className="flex items-center gap-2 rounded-full px-3 py-2 border border-border/50 hover:border-border transition-all bg-muted/30"
+        className="portal-green-surface flex items-center gap-2 rounded-full border px-3 py-2"
       >
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-[#4ADE80] rounded-full animate-pulse"></div>
-          <Wallet className="w-4 h-4 text-[#4ADE80]" />
+          <div className="portal-green-dot h-2 w-2 rounded-full animate-pulse"></div>
+          <Wallet className="portal-green-icon h-4 w-4" />
           <span className="text-foreground text-sm font-medium max-w-[100px] truncate hidden sm:block">
             {accountId}
           </span>
@@ -83,10 +83,7 @@ export function WalletButton() {
           <div className="py-1">
             <button
               onClick={() => {
-                window.open(
-                  `https://testnet.nearblocks.io/address/${accountId}`,
-                  '_blank'
-                );
+                window.open(`${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`, '_blank');
                 setShowMenu(false);
               }}
               className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
@@ -112,10 +109,10 @@ export function WalletButton() {
 
             <button
               onClick={handleDisconnect}
-              className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-red-500/5 transition-colors text-left"
+              className="w-full px-4 py-2.5 flex items-center gap-3 transition-colors text-left hover:bg-[var(--portal-red-bg)]"
             >
-              <LogOut className="w-4 h-4 text-red-500" />
-              <span className="text-sm text-red-500">Disconnect</span>
+              <LogOut className="portal-red-icon w-4 h-4" />
+              <span className="portal-red-text text-sm">Disconnect</span>
             </button>
           </div>
         </div>

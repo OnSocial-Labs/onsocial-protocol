@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import type { NearWalletBase } from '@hot-labs/near-connect';
 import { CheckCircle2 } from 'lucide-react';
-import { approveApp, rejectApp } from '@/features/admin/api';
+import { approveApp, rejectApp, reopenApp } from '@/features/admin/api';
 import {
   CONTRACT_OWNER_WALLETS,
+  RELAYER_ACCOUNT,
 } from '@/features/admin/constants';
 import {
   ApprovedConfigPanel,
@@ -86,11 +87,7 @@ export function AppCard({
                 label: app.label,
                 daily_cap: socialToYocto(params.dailyCap),
                 reward_per_action: socialToYocto(params.rewardPerAction),
-                authorized_callers: [
-                  process.env.NEXT_PUBLIC_NEAR_NETWORK === 'mainnet'
-                    ? 'relayer.onsocial.near'
-                    : 'relayer.onsocial.testnet',
-                ],
+                authorized_callers: [RELAYER_ACCOUNT],
                 total_budget: socialToYocto(params.totalBudget),
                 daily_budget: socialToYocto(params.dailyBudget),
               },
@@ -169,9 +166,22 @@ export function AppCard({
     }
   };
 
+  const handleReopen = async () => {
+    setActing(true);
+    setError('');
+    try {
+      await reopenApp(wallet, app.app_id);
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setActing(false);
+    }
+  };
+
   return (
-    <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
-      <div className="flex items-start justify-between gap-4 mb-4">
+    <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+      <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h3 className="font-semibold tracking-[-0.02em]">{app.label}</h3>
           <p className="text-sm text-muted-foreground font-mono">{app.app_id}</p>
@@ -179,11 +189,11 @@ export function AppCard({
         <StatusBadge status={app.status} />
       </div>
 
-      <div className="space-y-2 text-sm mb-4">
+      <div className="mb-4 grid gap-2 text-sm">
         {app.wallet_id && (
           <p>
             <span className="text-muted-foreground">Wallet:</span>{' '}
-            <span className="font-mono text-[#4ADE80]">{app.wallet_id}</span>
+            <span className="portal-green-text font-mono">{app.wallet_id}</span>
           </p>
         )}
         {app.description && (
@@ -227,10 +237,27 @@ export function AppCard({
         />
       )}
 
+      {app.status === 'rejected' && (
+        <div className="mb-4 rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Reopen this application to let the same wallet submit an updated
+            version and re-enter review.
+          </p>
+          {error && <p className="portal-red-text text-xs mb-2">{error}</p>}
+          <button
+            onClick={handleReopen}
+            disabled={acting}
+            className="portal-purple-surface inline-flex h-9 items-center justify-center rounded-full border px-4 text-sm font-medium disabled:pointer-events-none disabled:opacity-50"
+          >
+            {acting ? 'Reopening…' : 'Reopen for reapply'}
+          </button>
+        </div>
+      )}
+
       {result && (
-        <div className="border border-[#4ADE80]/20 rounded-xl p-4 bg-[#4ADE80]/[0.03] mb-4">
+        <div className="portal-green-panel mb-4 rounded-[1rem] border p-4">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#4ADE80]" />
+            <CheckCircle2 className="portal-green-icon w-4 h-4" />
             <span className="text-sm font-semibold">
               Approved — API key sent to partner
             </span>

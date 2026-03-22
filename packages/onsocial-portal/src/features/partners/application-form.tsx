@@ -85,11 +85,11 @@ export function ApplicationForm({
   if (!accountId) {
     return (
       <div className="text-center py-12">
-        <Shield className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
-        <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
+        <Shield className="mx-auto mb-4 h-16 w-16 text-muted-foreground/40" />
+        <h3 className="mb-2 text-xl font-semibold tracking-[-0.02em]">
           Connect Your Wallet
         </h3>
-        <p className="text-muted-foreground mb-6">
+        <p className="mb-6 text-muted-foreground">
           Sign in with your NEAR wallet to apply as a partner.
         </p>
         <Button
@@ -104,69 +104,77 @@ export function ApplicationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto space-y-5">
-      <div className="text-center mb-6">
-        <p className="text-sm text-muted-foreground">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-6">
+      <div className="mb-1 flex items-center justify-center">
+        <p className="rounded-full border border-border/50 bg-muted/20 px-4 py-2 text-sm text-muted-foreground">
           Signed in as{' '}
-          <span className="text-[#4ADE80] font-mono">{accountId}</span>
+          <span className="font-mono text-foreground">{accountId}</span>
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Project Name *</label>
+        <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Project Name
+        </label>
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="My Community"
           maxLength={MAX_LABEL_LEN}
-          className="w-full px-4 py-3 rounded-full bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm"
+          className="portal-blue-focus w-full rounded-2xl border border-border/60 bg-muted/20 px-4 py-3.5 text-sm outline-none"
           required
         />
         {appId && (
-          <p className="text-xs text-muted-foreground mt-1">
-            App ID: <span className="font-mono text-[#60A5FA]">{appId}</span>
+          <p className="mt-2 text-xs text-muted-foreground">
+            App ID: <span className="font-mono text-foreground/85">{appId}</span>
           </p>
         )}
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Description *</label>
+        <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Description
+        </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Tell us about your project and why you want to reward your community with $SOCIAL."
           rows={3}
-          className="w-full px-4 py-3 rounded-2xl bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm resize-none"
+          className="portal-blue-focus w-full resize-none rounded-2xl border border-border/60 bg-muted/20 px-4 py-3.5 text-sm outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Community Size</label>
+        <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Community Size
+        </label>
         <input
           type="text"
           value={expectedUsers}
           onChange={(e) => setExpectedUsers(e.target.value)}
           placeholder="e.g. 500 members, 2k followers, 10k monthly users"
-          className="w-full px-4 py-3 rounded-full bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm"
+          className="portal-blue-focus w-full rounded-2xl border border-border/60 bg-muted/20 px-4 py-3.5 text-sm outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Contact *</label>
+        <label className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          Contact
+        </label>
         <input
           type="text"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
           placeholder="@telegram, email, or X handle"
-          className="w-full px-4 py-3 rounded-full bg-muted/40 border border-border/50 focus:border-border focus:ring-1 focus:ring-border outline-none transition-colors text-sm"
+          className="portal-blue-focus w-full rounded-2xl border border-border/60 bg-muted/20 px-4 py-3.5 text-sm outline-none"
         />
       </div>
 
       {error && (
-        <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-4 py-2">
+        <div className="portal-red-panel portal-red-text rounded-2xl border px-4 py-3 text-sm">
           {error}
-        </p>
+        </div>
       )}
 
       <Button
@@ -190,7 +198,7 @@ export function ApplicationForm({
         )}
       </Button>
 
-      <p className="text-xs text-center text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground">
         Applications are reviewed within 24 hours. Reward rules are recorded
         on-chain for full transparency.
       </p>

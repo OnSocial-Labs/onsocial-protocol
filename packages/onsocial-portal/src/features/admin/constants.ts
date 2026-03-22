@@ -1,13 +1,9 @@
-export const ADMIN_WALLETS = (
-  process.env.NEXT_PUBLIC_ADMIN_WALLETS ??
-  'onsocial.near,onsocial.testnet,greenghost.near,test01greenghost.testnet'
-)
-  .split(',')
-  .map((wallet) => wallet.trim().toLowerCase());
+import {
+  ADMIN_WALLETS,
+  CONTRACT_OWNER_WALLET,
+  RELAYER_ACCOUNT,
+} from '@/lib/portal-config';
 
-export const CONTRACT_OWNER_WALLETS = ['onsocial.testnet', 'onsocial.near'];
+export const CONTRACT_OWNER_WALLETS = [CONTRACT_OWNER_WALLET];
 
-export const RELAYER_ACCOUNT =
-  process.env.NEXT_PUBLIC_NEAR_NETWORK === 'mainnet'
-    ? 'relayer.onsocial.near'
-    : 'relayer.onsocial.testnet';
+export { ADMIN_WALLETS, CONTRACT_OWNER_WALLET, RELAYER_ACCOUNT };

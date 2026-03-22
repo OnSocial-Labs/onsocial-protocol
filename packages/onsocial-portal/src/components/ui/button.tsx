@@ -4,18 +4,18 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex cursor-pointer items-center justify-center whitespace-nowrap rounded-full text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20',
+          'border portal-blue-surface',
         secondary:
-          'border border-[#C084FC]/40 bg-[#C084FC]/[0.06] text-foreground hover:border-[#C084FC]/60 hover:shadow-md hover:shadow-[#C084FC]/20',
+          'border portal-purple-surface',
         accent:
-          'border border-[#4ADE80]/40 bg-[#4ADE80]/[0.06] text-foreground hover:border-[#4ADE80]/60 hover:shadow-md hover:shadow-[#4ADE80]/20',
+          'border portal-green-surface',
         destructive:
-          'border border-red-500/40 bg-red-500/[0.06] text-red-400 hover:border-red-500/60 hover:shadow-md hover:shadow-red-500/20',
+          'border portal-red-surface',
         outline:
           'border border-border/50 bg-transparent text-muted-foreground hover:border-border hover:text-foreground',
         ghost: 'hover:bg-muted/50 text-foreground',

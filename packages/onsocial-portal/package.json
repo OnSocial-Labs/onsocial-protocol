@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:testnet": "PORT=3000 NEXT_DIST_DIR=.next-testnet NEXT_PUBLIC_NEAR_NETWORK=testnet NEXT_PUBLIC_API_URL=https://testnet.onsocial.id NEXT_PUBLIC_BACKEND_URL=https://testnet.onsocial.id BACKEND_URL=https://testnet.onsocial.id next dev -p 3000",
+    "dev:mainnet": "PORT=3001 NEXT_DIST_DIR=.next-mainnet NEXT_PUBLIC_NEAR_NETWORK=mainnet NEXT_PUBLIC_API_URL=https://api.onsocial.id NEXT_PUBLIC_BACKEND_URL=https://api.onsocial.id BACKEND_URL=https://api.onsocial.id next dev -p 3001",
+    "dev:both": "concurrently -k -n testnet,mainnet -c blue,green \"pnpm run dev:testnet\" \"pnpm run dev:mainnet\"",
     "build": "next build",
     "start": "next start",
     "format": "prettier --write .",
@@ -35,6 +38,7 @@
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.57.0",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.5.8",

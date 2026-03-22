@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  ADMIN_PROXY_BACKEND_URL,
+  ADMIN_SECRET,
+  isAdminWallet,
+} from '@/lib/portal-server-config';
 
 // ---------------------------------------------------------------------------
 // Server-side admin API proxy
@@ -7,22 +12,9 @@ import { NextRequest, NextResponse } from 'next/server';
 // The portal admin page calls this route instead of the backend directly.
 // ---------------------------------------------------------------------------
 
-const BACKEND_URL =
-  process.env.BACKEND_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  'https://backend.onsocial.id';
-
-const ADMIN_SECRET = process.env.ADMIN_SECRET ?? '';
-
-const ADMIN_WALLETS = (
-  process.env.NEXT_PUBLIC_ADMIN_WALLETS ??
-  'onsocial.near,onsocial.testnet,greenghost.near,test01greenghost.testnet'
-)
-  .split(',')
-  .map((w) => w.trim().toLowerCase());
 
 function isAdmin(wallet: string | null): boolean {
-  return !!wallet && ADMIN_WALLETS.includes(wallet.toLowerCase());
+  return isAdminWallet(wallet);
 }
 
 // GET /api/admin?wallet=xxx — list applications
@@ -41,13 +33,13 @@ export async function GET(req: NextRequest) {
 
   try {
     if (action === 'status' && target) {
-      const res = await fetch(`${BACKEND_URL}/v1/admin/status/${target}`);
+      const res = await fetch(`${ADMIN_PROXY_BACKEND_URL}/v1/admin/status/${target}`);
       const data = await res.json();
       return NextResponse.json(data);
     }
 
     // Default: list applications
-    const res = await fetch(`${BACKEND_URL}/v1/admin/applications`, {
+    const res = await fetch(`${ADMIN_PROXY_BACKEND_URL}/v1/admin/applications`, {
       headers: { 'X-Admin-Secret': ADMIN_SECRET },
     });
     if (!res.ok) {
@@ -66,8 +58,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/admin — approve or reject
-// Body: { wallet, action: 'approve' | 'reject', appId, admin_notes? }
+// POST /api/admin — approve, reject, or reopen
+// Body: { wallet, action: 'approve' | 'reject' | 'reopen', appId, admin_notes? }
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as {
     wallet?: string;
@@ -90,25 +82,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (body.action !== 'approve' && body.action !== 'reject') {
+  if (
+    body.action !== 'approve' &&
+    body.action !== 'reject' &&
+    body.action !== 'reopen'
+  ) {
     return NextResponse.json(
-      { success: false, error: 'action must be approve or reject' },
+      { success: false, error: 'action must be approve, reject, or reopen' },
       { status: 400 }
     );
   }
 
   try {
-    const res = await fetch(
-      `${BACKEND_URL}/v1/admin/${body.action}/${body.appId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Secret': ADMIN_SECRET,
-        },
-        body: JSON.stringify({ admin_notes: body.admin_notes ?? '' }),
-      }
-    );
+    const res = await fetch(`${ADMIN_PROXY_BACKEND_URL}/v1/admin/${body.action}/${body.appId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Secret': ADMIN_SECRET,
+      },
+      body: JSON.stringify({ admin_notes: body.admin_notes ?? '' }),
+    });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

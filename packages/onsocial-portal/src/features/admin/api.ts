@@ -46,3 +46,16 @@ export async function rejectApp(
   });
   if (!res.ok) throw new Error('Rejection failed');
 }
+
+export async function reopenApp(wallet: string, appId: string): Promise<void> {
+  const res = await fetch('/api/admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      wallet,
+      action: 'reopen',
+      appId,
+    }),
+  });
+  if (!res.ok) throw new Error('Reopen failed');
+}

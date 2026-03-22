@@ -113,33 +113,45 @@ export default function PartnersPage() {
           : 0;
 
   return (
-    <PageShell>
+    <PageShell className="max-w-5xl">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center mb-16"
+        className="relative mb-10 px-2 py-4 text-center md:py-6"
       >
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
-          Partner Integration
-        </h1>
-        <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-          Reward your community with $SOCIAL tokens — fully on-chain, gasless,
-          and live in minutes.
-        </p>
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-70 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 20%, rgba(96,165,250,0.18), transparent 45%), radial-gradient(circle at 75% 25%, rgba(74,222,128,0.12), transparent 38%)',
+          }}
+        />
+        <div className="relative z-10 mx-auto max-w-3xl">
+          <h1 className="mb-3 text-4xl font-bold tracking-[-0.03em] md:text-5xl">
+            Grow together
+            <br />
+            <span className="portal-green-text">With SOCIAL rewards</span>
+          </h1>
+          <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
+            Launch on-chain incentives for your Telegram group or app.
+          </p>
+        </div>
       </motion.div>
 
-      <StepIndicator steps={STEPS} current={currentStep} />
+      <div className="mb-8 rounded-[1.5rem] border border-border/50 bg-background/30 px-4 py-5 md:px-6">
+        <StepIndicator steps={STEPS} current={currentStep} />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="border border-border/50 rounded-2xl p-8 bg-muted/30"
+        className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-8"
       >
         {loading && (
           <div className="text-center py-12">
-            <div className="mb-4 text-[#60A5FA]">
+            <div className="portal-blue-text mb-4">
               <PulsingDots size="lg" />
             </div>
             <p className="text-sm text-muted-foreground">
@@ -149,13 +161,13 @@ export default function PartnersPage() {
         )}
         {!loading && step === 'apply' && <ApplicationForm onSubmit={handleApply} />}
         {!loading && step === 'apply' && pageError && (
-          <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-4 py-2 mt-4 text-center">
+          <p className="portal-red-panel portal-red-text rounded-lg px-4 py-2 mt-4 text-center text-sm">
             {pageError}
           </p>
         )}
         {step === 'submitting' && (
           <div className="text-center py-12">
-            <div className="mb-4 text-[#60A5FA]">
+            <div className="portal-blue-text mb-4">
               <PulsingDots size="lg" />
             </div>
             <h3 className="text-lg font-semibold mb-2">Submitting application…</h3>

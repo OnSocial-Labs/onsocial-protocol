@@ -7,16 +7,22 @@ import {
   type NearRpc,
   type Network,
 } from '@onsocial/rpc';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-const NETWORK: Network =
-  (process.env.NEXT_PUBLIC_NEAR_NETWORK as Network) ?? 'testnet';
+const NETWORK: Network = ACTIVE_NEAR_NETWORK;
 
 export const REWARDS_CONTRACT =
   NETWORK === 'mainnet' ? 'rewards.onsocial.near' : 'rewards.onsocial.testnet';
+
+export const CORE_CONTRACT =
+  NETWORK === 'mainnet' ? 'core.onsocial.near' : 'core.onsocial.testnet';
+
+export const SCARCES_CONTRACT =
+  NETWORK === 'mainnet' ? 'scarces.onsocial.near' : 'scarces.onsocial.testnet';
 
 export const STAKING_CONTRACT =
   NETWORK === 'mainnet' ? 'staking.onsocial.near' : 'staking.onsocial.testnet';
@@ -24,11 +30,17 @@ export const STAKING_CONTRACT =
 export const TOKEN_CONTRACT =
   NETWORK === 'mainnet' ? 'token.onsocial.near' : 'token.onsocial.testnet';
 
+export const VESTING_CONTRACT =
+  NETWORK === 'mainnet'
+    ? 'founder-vesting.onsocial.near'
+    : 'founder-vesting.onsocial.testnet';
+
 // ---------------------------------------------------------------------------
 // Singleton — circuit breaker state persists across renders
 // ---------------------------------------------------------------------------
 
 let _rpc: NearRpc | null = null;
+const _rpcsByNetwork: Partial<Record<Network, NearRpc>> = {};
 
 function getRpc(): NearRpc {
   if (!_rpc) {
@@ -40,6 +52,27 @@ function getRpc(): NearRpc {
     });
   }
   return _rpc;
+}
+
+function getRpcForNetwork(network: Network): NearRpc {
+  if (network === NETWORK) {
+    return getRpc();
+  }
+
+  const existing = _rpcsByNetwork[network];
+  if (existing) {
+    return existing;
+  }
+
+  const rpc = createNearRpc({
+    primaryUrl: FALLBACK_RPC_URLS[network],
+    network,
+    timeoutMs: 8_000,
+    maxRetries: 2,
+  });
+
+  _rpcsByNetwork[network] = rpc;
+  return rpc;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +101,47 @@ export async function viewContractAt<T>(
   if (!bytes) return null;
   const decoded = new TextDecoder().decode(new Uint8Array(bytes));
   return JSON.parse(decoded) as T;
+}
+
+export async function viewContractAtOnNetwork<T>(
+  network: Network,
+  contractId: string,
+  method: string,
+  args: Record<string, unknown> = {}
+): Promise<T | null> {
+  const rpc = getRpcForNetwork(network);
+  const res = await rpc.call<{ result?: number[] }>('query', {
+    request_type: 'call_function',
+    finality: 'final',
+    account_id: contractId,
+    method_name: method,
+    args_base64: btoa(JSON.stringify(args)),
+  });
+
+  const bytes = res.result?.result;
+  if (!bytes) return null;
+  const decoded = new TextDecoder().decode(new Uint8Array(bytes));
+  return JSON.parse(decoded) as T;
+}
+
+export interface NearAccountView {
+  amount: string;
+  code_hash: string;
+  locked: string;
+  storage_paid_at: number;
+  storage_usage: number;
+}
+
+export async function viewAccount(
+  accountId: string
+): Promise<NearAccountView | null> {
+  const rpc = getRpc();
+  const res = await rpc.call<NearAccountView>('query', {
+    request_type: 'view_account',
+    finality: 'final',
+    account_id: accountId,
+  });
+  return res.result ?? null;
 }
 
 /**
@@ -167,4 +241,16 @@ export interface StakingRewardRate {
   effective_stake: string;
   total_effective_stake: string;
   weekly_pool_release: string;
+}
+
+export interface StakingLockStatus {
+  is_locked: boolean;
+  locked_amount: string;
+  lock_months: number;
+  unlock_at: number;
+  can_unlock: boolean;
+  time_remaining_ns: string;
+  bonus_percent: number;
+  effective_stake: string;
+  lock_expired: boolean;
 }

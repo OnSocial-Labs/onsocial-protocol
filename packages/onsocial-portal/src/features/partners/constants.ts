@@ -1,7 +1,7 @@
 import { Clock, Key, Users } from 'lucide-react';
+import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
 
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://backend.onsocial.id';
+export const BACKEND_URL = ACTIVE_BACKEND_URL;
 
 export const STEPS = [
   {

@@ -7,9 +7,12 @@ export function installSnippet(tab: 'bot' | 'sdk') {
 export function envSnippet(
   appId: string,
   apiKey: string,
-  tab: 'bot' | 'sdk'
+  tab: 'bot' | 'sdk',
+  options?: { maskApiKey?: boolean }
 ) {
-  const lines = [`ONSOCIAL_API_KEY=${apiKey}`, `ONSOCIAL_APP_ID=${appId}`];
+  const maskedApiKey = `${apiKey.slice(0, 10)}${'•'.repeat(24)}${apiKey.slice(-4)}`;
+  const resolvedApiKey = options?.maskApiKey ? maskedApiKey : apiKey;
+  const lines = [`ONSOCIAL_API_KEY=${resolvedApiKey}`, `ONSOCIAL_APP_ID=${appId}`];
   if (tab === 'bot') {
     lines.unshift(`BOT_TOKEN=your-telegram-bot-token`);
     lines.push(`# MIN_MESSAGE_LENGTH=10   # min chars to earn a reward`);

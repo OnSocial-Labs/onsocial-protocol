@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { RuntimeConfigWarnings } from '@/components/providers/runtime-config-warnings';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { SmoothScrollProvider } from '@/components/providers/smooth-scroll-provider';
 import { WalletProvider } from '@/contexts/wallet-context';
 import { Navigation } from '@/components/navigation/navigation';
 import { Footer } from '@/components/footer';
+import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -43,7 +45,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <WalletProvider network="testnet">
+          <RuntimeConfigWarnings />
+          <WalletProvider network={ACTIVE_NEAR_NETWORK}>
             <SmoothScrollProvider>
               <Navigation />
               <main>{children}</main>

@@ -4,6 +4,7 @@ import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import Link from 'next/link';
 import { Palette, Ticket, Users, Building2, ArrowUpRight } from 'lucide-react';
+import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
 const USE_CASES = [
   {
@@ -11,7 +12,7 @@ const USE_CASES = [
     description:
       'Mint, list, and trade NFTs with built-in royalties. One API call via /compose/mint.',
     icon: Palette,
-    color: '#C084FC',
+    accent: 'purple' as PortalAccent,
     apis: ['Compose API', 'Scarces Contract', 'IPFS Storage'],
   },
   {
@@ -19,7 +20,7 @@ const USE_CASES = [
     description:
       'Issue NFT tickets with on-chain verification. Gate access with token ownership.',
     icon: Ticket,
-    color: '#60A5FA',
+    accent: 'blue' as PortalAccent,
     apis: ['Compose API', 'Token Gates', 'Gasless Claims'],
   },
   {
@@ -27,7 +28,7 @@ const USE_CASES = [
     description:
       'Token-gated groups with on-chain social graph. Posts, follows, likes — all composable.',
     icon: Users,
-    color: '#4ADE80',
+    accent: 'green' as PortalAccent,
     apis: ['Core Contract', 'Groups API', 'Social Graph'],
   },
   {
@@ -35,7 +36,7 @@ const USE_CASES = [
     description:
       'Verified business identities with on-chain reputation and team management.',
     icon: Building2,
-    color: '#60A5FA',
+    accent: 'blue' as PortalAccent,
     apis: ['Core Contract', 'Stores API', 'Permissions'],
   },
 ] as const;
@@ -75,7 +76,7 @@ export function BuilderShowcase() {
                   <div className="flex items-start justify-between mb-4">
                     <Icon
                       className="w-8 h-8"
-                      style={{ color: useCase.color }}
+                      style={{ color: portalColors[useCase.accent] }}
                     />
                     <Link
                       href="/playground"

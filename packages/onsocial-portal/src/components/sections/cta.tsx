@@ -3,7 +3,7 @@
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Coins, Handshake, Github } from 'lucide-react';
+import { ArrowRight, Coins, Handshake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function CTA() {
@@ -11,93 +11,76 @@ export function CTA() {
   const isInView = useInView(ref, { once: true, amount: 0.3 });
 
   return (
-    <section ref={ref} className="py-24 relative">
+    <section id="paths" ref={ref} className="py-20 relative">
       <div className="container mx-auto px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl md:text-5xl font-bold tracking-[-0.03em] mb-4">
-            Get Involved
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-            Whether you&apos;re here to earn or to build — there&apos;s a place
-            for you.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
-          {/* For Users */}
+        <div className="max-w-5xl mx-auto border-y border-border/50 divide-y divide-border/50">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="border border-border/50 rounded-2xl p-8 bg-muted/30 flex flex-col"
+            className="grid gap-5 py-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6 lg:py-8"
           >
-            <div className="w-12 h-12 rounded-xl border border-[#60A5FA]/30 flex items-center justify-center mb-5">
-              <Coins className="w-6 h-6 text-[#60A5FA]" />
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-3">
+                <div className="portal-purple-frame flex h-10 w-10 items-center justify-center rounded-2xl border md:h-12 md:w-12">
+                  <Handshake className="portal-purple-icon h-5 w-5 md:h-6 md:w-6" />
+                </div>
+                <h3 className="text-xl font-bold tracking-[-0.02em] md:text-2xl">
+                  OnSocial rewards
+                </h3>
+              </div>
+
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                Already running in the OnSocial Telegram channel. Bring them to your community.
+              </p>
             </div>
-            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">
-              For Token Holders
-            </h3>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-1">
-              Stake your $SOCIAL tokens and earn rewards. Choose your lock
-              period for higher effective stake.
-            </p>
-            <Button asChild className="group w-full">
-              <Link href="/staking">
-                Stake $SOCIAL
+
+            <Button
+              variant="secondary"
+              asChild
+              className="group w-full lg:w-auto lg:justify-self-end"
+            >
+              <Link href="/partners">
+                Rewards setup
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </Button>
           </motion.div>
 
-          {/* For Builders */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="border border-border/50 rounded-2xl p-8 bg-muted/30 flex flex-col"
+            className="grid gap-5 py-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-6 lg:py-8"
           >
-            <div className="w-12 h-12 rounded-xl border border-[#C084FC]/30 flex items-center justify-center mb-5">
-              <Handshake className="w-6 h-6 text-[#C084FC]" />
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-3">
+                <div className="portal-blue-frame flex h-10 w-10 items-center justify-center rounded-2xl border md:h-12 md:w-12">
+                  <Coins className="portal-blue-icon h-5 w-5 md:h-6 md:w-6" />
+                </div>
+                <h3 className="text-xl font-bold tracking-[-0.02em] md:text-2xl">
+                  Staking
+                </h3>
+              </div>
+
+              <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                Lock SOCIAL for protocol rewards.
+              </p>
             </div>
-            <h3 className="text-xl font-bold tracking-[-0.02em] mb-2">
-              For Builders & Communities
-            </h3>
-            <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-1">
-              Register your project, get an API key, and reward your community
-              with $SOCIAL tokens.
-            </p>
-            <Button variant="secondary" asChild className="group w-full">
-              <Link href="/partners">
-                Become a Partner
+
+            <Button
+              asChild
+              className="group w-full lg:w-auto lg:justify-self-end"
+            >
+              <Link href="/staking">
+                Staking
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </Button>
           </motion.div>
         </div>
 
-        {/* Open source note */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={isInView ? { opacity: 1 } : {}}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="flex items-center justify-center gap-4 mt-8 text-sm text-muted-foreground"
-        >
-          <span>100% open source</span>
-          <span className="text-border">|</span>
-          <Link
-            href="https://github.com/OnSocial-Labs"
-            target="_blank"
-            className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
-          >
-            <Github className="w-4 h-4" />
-            View on GitHub
-          </Link>
-        </motion.div>
+
       </div>
     </section>
   );

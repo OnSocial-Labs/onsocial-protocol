@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
 import { executeOnTestnet } from '@/lib/testnet-executor';
+import { portalBadgeStyle } from '@/lib/portal-colors';
 
 function PlaygroundContent() {
   const { accountId, isConnected, wallet } = useWallet();
@@ -105,118 +106,123 @@ function PlaygroundContent() {
 
   return (
     <PageShell size="wide">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 pb-1 tracking-[-0.03em]">
-            OnSocial Playground
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="relative mb-8 px-2 py-4 md:py-6"
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-70 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(circle at 22% 18%, rgba(96,165,250,0.18), transparent 38%), radial-gradient(circle at 56% 20%, rgba(74,222,128,0.12), transparent 34%), radial-gradient(circle at 82% 24%, rgba(192,132,252,0.14), transparent 30%)',
+          }}
+        />
+        <div className="relative z-10 mx-auto max-w-4xl">
+          <div className="mb-4 flex justify-center md:justify-start">
+            <span
+              className="rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em]"
+              style={portalBadgeStyle('blue')}
+            >
+              Interactive sandbox
+            </span>
+          </div>
+          <h1 className="max-w-3xl text-4xl font-bold tracking-[-0.03em] md:text-5xl">
+            Try protocol flows in real time
           </h1>
-          <p className="text-muted-foreground text-lg max-w-3xl leading-relaxed">
-            Experiment with OnSocial Protocol in real-time. Try out examples or
-            write your own code to interact with the decentralized social
-            platform.
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
+            Explore example snippets, edit code live, and move from simulated
+            runs into real NEAR testnet execution when your wallet is connected.
           </p>
-        </motion.div>
 
-        {/* Quick Links */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex flex-wrap gap-3 mb-6"
-        >
-          <a
-            href="/docs"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-all bg-muted/30"
-          >
-            <Book className="w-4 h-4" />
-            Documentation
-          </a>
-          <a
-            href="https://github.com/OnSocial-Labs/onsocial-protocol"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-all bg-muted/30"
-          >
-            <Github className="w-4 h-4" />
-            GitHub
-          </a>
-          <a
-            href="/docs/api"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 text-muted-foreground hover:text-foreground hover:border-border transition-all bg-muted/30"
-          >
-            <Code2 className="w-4 h-4" />
-            API Reference
-          </a>
-        </motion.div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <a
+              href="/docs"
+              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
+            >
+              <Book className="h-4 w-4" />
+              Documentation
+            </a>
+            <a
+              href="https://github.com/OnSocial-Labs/onsocial-protocol"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
+            >
+              <Github className="h-4 w-4" />
+              GitHub
+            </a>
+            <a
+              href="/docs/api"
+              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
+            >
+              <Code2 className="h-4 w-4" />
+              API Reference
+            </a>
+          </div>
+        </div>
+      </motion.div>
 
-        {/* Execution Mode Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="border border-border/50 rounded-2xl p-4 mb-6 bg-muted/30"
-        >
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-2 h-2 rounded-full ${useTestnet && isConnected ? 'bg-[#4ADE80] animate-pulse' : 'bg-muted-foreground/40'}`}
-              ></div>
-              <div>
-                <h3 className="text-foreground font-semibold tracking-[-0.02em]">
-                  {useTestnet && isConnected
-                    ? '🚀 Testnet Mode (Real Execution)'
-                    : '📺 Demo Mode (Simulation)'}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {useTestnet && isConnected
-                    ? 'Code executes on NEAR testnet with your wallet'
-                    : useTestnet && !isConnected
-                      ? 'Connect wallet to enable testnet execution'
-                      : 'Code execution is simulated'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setUseTestnet(!useTestnet)}
-                disabled={useTestnet && !isConnected}
-                className={`px-4 py-2 rounded-full font-medium transition-all ${
-                  useTestnet && isConnected
-                    ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20'
-                    : useTestnet && !isConnected
-                      ? 'border border-border/50 bg-muted/50 text-muted-foreground cursor-not-allowed'
-                      : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
-                }`}
-              >
-                {useTestnet ? 'Disable Testnet' : 'Enable Testnet'}
-              </button>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="mb-6 rounded-[1.5rem] border border-border/50 bg-background/40 p-4 md:p-5"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={`h-2.5 w-2.5 rounded-full ${useTestnet && isConnected ? 'portal-green-dot animate-pulse' : 'bg-muted-foreground/40'}`}
+            />
+            <div>
+              <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">
+                {useTestnet && isConnected
+                  ? 'Testnet mode'
+                  : 'Demo mode'}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {useTestnet && isConnected
+                  ? 'Run code on NEAR testnet with your connected wallet.'
+                  : useTestnet && !isConnected
+                    ? 'Connect a wallet first to unlock real testnet execution.'
+                    : 'Use simulated execution while you explore examples and edit code.'}
+              </p>
             </div>
           </div>
-          {useTestnet && !isConnected && (
-            <div className="mt-3 pt-3 border-t border-border/50">
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
-                <Wallet className="w-4 h-4" />
-                Connect your wallet above to execute on NEAR testnet
-              </p>
-            </div>
-          )}
-          {useTestnet && isConnected && (
-            <div className="mt-3 pt-3 border-t border-border/50">
-              <p className="text-xs text-muted-foreground">
-                ⚠️ Testnet mode active • Network:{' '}
-                <span className="text-[#4ADE80]">testnet</span> •{' '}
-                <span className="text-yellow-500">
-                  Note: Deploy your contract first for real execution
-                </span>
-              </p>
-            </div>
-          )}
-        </motion.div>
+          <button
+            onClick={() => setUseTestnet(!useTestnet)}
+            disabled={useTestnet && !isConnected}
+            className={`rounded-full px-4 py-2 font-medium transition-all ${
+              useTestnet && isConnected
+                ? 'portal-blue-surface border'
+                : useTestnet && !isConnected
+                  ? 'cursor-not-allowed border border-border/50 bg-muted/50 text-muted-foreground'
+                  : 'portal-neutral-control border'
+            }`}
+          >
+            {useTestnet ? 'Disable testnet' : 'Enable testnet'}
+          </button>
+        </div>
+        {useTestnet && !isConnected && (
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <p className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Wallet className="h-4 w-4" />
+              Connect your wallet above to execute on NEAR testnet.
+            </p>
+          </div>
+        )}
+        {useTestnet && isConnected && (
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <p className="text-xs text-muted-foreground">
+              Network: <span className="portal-green-text">testnet</span> ·{' '}
+              <span className="portal-amber-text">
+                Deploy your contract first for real execution.
+              </span>
+            </p>
+          </div>
+        )}
+      </motion.div>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -224,7 +230,7 @@ function PlaygroundContent() {
           <div className="lg:col-span-1">
             <div className="border border-border/50 rounded-2xl p-4 sticky top-24 bg-muted/30">
               <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-[#60A5FA]" />
+                <Terminal className="portal-blue-icon w-5 h-5" />
                 Examples
               </h2>
 
@@ -234,8 +240,8 @@ function PlaygroundContent() {
                   onClick={() => setSelectedCategory('all')}
                   className={`px-3 py-1 rounded-full text-sm transition-all ${
                     selectedCategory === 'all'
-                      ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground'
-                      : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
+                      ? 'portal-blue-surface border'
+                      : 'portal-neutral-control border'
                   }`}
                 >
                   All
@@ -248,8 +254,8 @@ function PlaygroundContent() {
                       onClick={() => setSelectedCategory(cat.id)}
                       className={`px-3 py-1 rounded-full text-sm transition-all flex items-center gap-1.5 ${
                         selectedCategory === cat.id
-                          ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground'
-                          : 'border border-border/50 bg-muted/50 text-muted-foreground hover:text-foreground hover:border-border'
+                          ? 'portal-blue-surface border'
+                          : 'portal-neutral-control border'
                       }`}
                       title={cat.name}
                     >
@@ -267,8 +273,8 @@ function PlaygroundContent() {
                     onClick={() => handleExampleSelect(example)}
                     className={`w-full text-left p-3 rounded-xl transition-all ${
                       selectedExample.id === example.id
-                        ? 'border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground'
-                        : 'border border-border/50 bg-muted/50 text-muted-foreground hover:bg-muted/80 hover:text-foreground hover:border-border'
+                        ? 'portal-blue-surface border'
+                        : 'portal-neutral-control border'
                     }`}
                   >
                     <div className="font-medium mb-1">{example.title}</div>
@@ -307,7 +313,7 @@ function PlaygroundContent() {
                     title={copied ? 'Copied!' : 'Copy code'}
                   >
                     {copied ? (
-                      <Check className="w-4 h-4 text-[#4ADE80]" />
+                      <Check className="portal-green-icon w-4 h-4" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
@@ -318,7 +324,7 @@ function PlaygroundContent() {
                     title={reset ? 'Reset!' : 'Reset to example'}
                   >
                     {reset ? (
-                      <Check className="w-4 h-4 text-[#4ADE80]" />
+                      <Check className="portal-green-icon w-4 h-4" />
                     ) : (
                       <RotateCcw className="w-4 h-4" />
                     )}
@@ -326,7 +332,7 @@ function PlaygroundContent() {
                   <button
                     onClick={handleRun}
                     disabled={isRunning}
-                    className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#60A5FA]/40 bg-[#60A5FA]/[0.06] text-foreground hover:border-[#60A5FA]/60 hover:shadow-md hover:shadow-[#60A5FA]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                    className="portal-blue-surface flex items-center gap-2 rounded-full border px-4 py-2 font-medium transition-all disabled:opacity-50"
                   >
                     <Play className="w-4 h-4" />
                     {isRunning ? 'Running...' : 'Run Code'}
@@ -372,7 +378,7 @@ function PlaygroundContent() {
                           href={`https://testnet.nearblocks.io/txns/${txHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-[#4ADE80] hover:text-[#4ADE80]/80 text-sm transition-colors"
+                          className="portal-action-link inline-flex items-center gap-2 text-sm transition-colors"
                         >
                           <ExternalLink className="w-4 h-4" />
                           View on NEAR Explorer
@@ -401,7 +407,7 @@ function PlaygroundContent() {
             <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
               <div className="flex items-start gap-3">
                 <div className="p-2 rounded-full border border-border/50">
-                  <CheckCircle2 className="w-5 h-5 text-[#4ADE80]" />
+                  <CheckCircle2 className="portal-green-icon w-5 h-5" />
                 </div>
                 <div className="flex-1">
                   <h4 className="text-foreground font-semibold mb-2 tracking-[-0.02em]">
