@@ -63,7 +63,7 @@ jobs:
         run: pnpm --filter onsocial-backend lint
 
       - name: Format check
-        run: pnpm --filter onsocial-backend exec prettier --check .
+        run: pnpm --filter onsocial-backend format:check
 
       - name: Build
         run: pnpm --filter onsocial-backend build

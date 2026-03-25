@@ -22,7 +22,9 @@ function resolveWebhookUrl(): string | null {
     return null;
   }
 
-  const normalizedDomain = publicDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const normalizedDomain = publicDomain
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
   if (!normalizedDomain) {
     return null;
   }
