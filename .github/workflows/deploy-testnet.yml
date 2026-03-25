@@ -130,11 +130,13 @@ jobs:
           ssh-keyscan -H "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
           scp -i ~/.ssh/deploy_key \
             deployment/docker-compose.yml \
-            deployment/Caddyfile \
             deployment/Caddyfile.relayer \
             deployment/init-extra-dbs.sh \
             /tmp/deploy_gsm.env \
             "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/"
+          scp -i ~/.ssh/deploy_key \
+            deployment/Caddyfile \
+            "root@${{ env.DEPLOY_HOST }}:/opt/onsocial/Caddyfile.template"
           ssh -i ~/.ssh/deploy_key "root@${{ env.DEPLOY_HOST }}" \
             'chmod 600 /opt/onsocial/deploy_gsm.env && chmod +x /opt/onsocial/init-extra-dbs.sh'
           echo "✅ Config files synced to server"
@@ -249,6 +251,13 @@ jobs:
             # ── Set new image tag ────────────────────────────────────
             echo "IMAGE_TAG=${{ steps.sha.outputs.short }}" > .env.image
             set -a && source .env.production && source .env.image && set +a
+
+            # ── Render live Caddyfile from template ──────────────────
+            sed \
+              -e 's/__SERVER_NAMES__/testnet.onsocial.id/g' \
+              -e 's/__BACKEND_UPSTREAM__/backend:4001/g' \
+              -e 's/__GATEWAY_UPSTREAM__/gateway:8080/g' \
+              Caddyfile.template > Caddyfile
 
             # ── Pull new images ──────────────────────────────────────
             docker compose pull caddy gateway relayer-0 relayer-1 backend
