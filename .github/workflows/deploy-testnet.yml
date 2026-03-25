@@ -18,7 +18,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/onsocial-labs/onsocial-protocol
   DEPLOY_HOST: 135.181.110.183
-  ENABLE_DEPLOY_TELEGRAM_UPDATE: 'false'
 
 permissions:
   contents: read
@@ -188,6 +187,7 @@ jobs:
             upsert_env "GCP_KMS_KEYRING_0" "relayer-keys-testnet"
             upsert_env "GCP_KMS_KEYRING_1" "relayer-keys-inst-1"
             upsert_env "PUBLIC_DOMAIN" "testnet.onsocial.id"
+            upsert_env "WEBHOOK_URL" "https://testnet.onsocial.id/webhooks/telegram"
             upsert_env "CORS_ORIGINS" "https://testnet.onsocial.id,http://localhost:3000,http://localhost:4000"
             upsert_env "HASURA_GRAPHQL_CORS_DOMAIN" "https://testnet.onsocial.id,http://localhost:3000"
             upsert_env "NEARBLOCKS_API_URL" "https://api-testnet.nearblocks.io"
@@ -287,7 +287,9 @@ jobs:
             echo "Reloading caddy..."
             docker compose up -d --no-deps caddy
             if ! check_health "caddy (public)" "https://testnet.onsocial.id/health" 10 5; then
-              echo "⚠️  Public health check failed — services may still be starting"
+              echo "❌ Public health check failed — rolling back"
+              rollback "caddy gateway relayer-0 relayer-1"
+              exit 1
             fi
 
             if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then
@@ -319,29 +321,3 @@ jobs:
             echo ""
             rm -f deploy_gsm.env
             echo "✅ Testnet deploy complete — ${{ steps.sha.outputs.short }} (prev: $PREV_TAG)"
-
-      - name: Notify deploy result
-        if: ${{ always() && env.ENABLE_DEPLOY_TELEGRAM_UPDATE == 'true' }}
-        run: |
-          STATUS="${{ job.status }}"
-          SHA="${{ steps.sha.outputs.short }}"
-          TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
-          CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
-          TOPIC_ID="${{ secrets.TELEGRAM_OPS_TOPIC_ID }}"
-          [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
-          if [ "$STATUS" = "success" ]; then
-            EMOJI="✅" MSG="Testnet deploy succeeded"
-          else
-            EMOJI="❌" MSG="Testnet deploy FAILED"
-          fi
-          TEXT="$EMOJI *$MSG* — \`$SHA\` [run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-
-          PAYLOAD="{\"chat_id\": \"$CHAT_ID\", \"text\": \"$TEXT\", \"parse_mode\": \"Markdown\""
-          if [ -n "$TOPIC_ID" ]; then
-            PAYLOAD="$PAYLOAD, \"message_thread_id\": $TOPIC_ID"
-          fi
-          PAYLOAD="$PAYLOAD}"
-
-          curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-            -H 'Content-Type: application/json' \
-            -d "$PAYLOAD" || true

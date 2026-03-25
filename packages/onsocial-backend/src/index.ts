@@ -11,6 +11,25 @@ import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 
 const app = express();
 
+function resolveWebhookUrl(): string | null {
+  const configuredWebhookUrl = process.env.WEBHOOK_URL?.trim();
+  if (configuredWebhookUrl) {
+    return configuredWebhookUrl;
+  }
+
+  const publicDomain = process.env.PUBLIC_DOMAIN?.trim();
+  if (!publicDomain) {
+    return null;
+  }
+
+  const normalizedDomain = publicDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  if (!normalizedDomain) {
+    return null;
+  }
+
+  return `https://${normalizedDomain}/webhooks/telegram`;
+}
+
 // ---------------------------------------------------------------------------
 // Middleware
 // ---------------------------------------------------------------------------
@@ -102,11 +121,13 @@ const server = app.listen(config.port, async () => {
 
   // Telegram: webhook in production, long-polling in dev
   if (config.nodeEnv === 'production') {
-    const webhookUrl = process.env.WEBHOOK_URL;
+    const webhookUrl = resolveWebhookUrl();
     if (webhookUrl) {
       await setupWebhook(webhookUrl);
     } else {
-      logger.warn('WEBHOOK_URL not set — Telegram webhook not configured');
+      logger.warn(
+        'WEBHOOK_URL/PUBLIC_DOMAIN not set — Telegram webhook not configured'
+      );
     }
   } else if (process.env.SKIP_BOT) {
     logger.info('SKIP_BOT set — running API server only (no Telegram polling)');
