@@ -177,9 +177,7 @@ function PlaygroundContent() {
             />
             <div>
               <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">
-                {useTestnet && isConnected
-                  ? 'Testnet mode'
-                  : 'Demo mode'}
+                {useTestnet && isConnected ? 'Testnet mode' : 'Demo mode'}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {useTestnet && isConnected
@@ -224,214 +222,212 @@ function PlaygroundContent() {
         )}
       </motion.div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Examples */}
-          <div className="lg:col-span-1">
-            <div className="border border-border/50 rounded-2xl p-4 sticky top-24 bg-muted/30">
-              <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">
-                <Terminal className="portal-blue-icon w-5 h-5" />
-                Examples
-              </h2>
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar - Examples */}
+        <div className="lg:col-span-1">
+          <div className="border border-border/50 rounded-2xl p-4 sticky top-24 bg-muted/30">
+            <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">
+              <Terminal className="portal-blue-icon w-5 h-5" />
+              Examples
+            </h2>
 
-              {/* Category Filter */}
-              <div className="flex flex-wrap gap-2 mb-4">
+            {/* Category Filter */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                  selectedCategory === 'all'
+                    ? 'portal-blue-surface border'
+                    : 'portal-neutral-control border'
+                }`}
+              >
+                All
+              </button>
+              {categories.map((cat) => {
+                const IconComponent = cat.icon;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3 py-1 rounded-full text-sm transition-all flex items-center gap-1.5 ${
+                      selectedCategory === cat.id
+                        ? 'portal-blue-surface border'
+                        : 'portal-neutral-control border'
+                    }`}
+                    title={cat.name}
+                  >
+                    <IconComponent className="w-3.5 h-3.5" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Example List */}
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              {filteredExamples.map((example) => (
                 <button
-                  onClick={() => setSelectedCategory('all')}
-                  className={`px-3 py-1 rounded-full text-sm transition-all ${
-                    selectedCategory === 'all'
+                  key={example.id}
+                  onClick={() => handleExampleSelect(example)}
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                    selectedExample.id === example.id
                       ? 'portal-blue-surface border'
                       : 'portal-neutral-control border'
                   }`}
                 >
-                  All
+                  <div className="font-medium mb-1">{example.title}</div>
+                  <div className="text-xs opacity-80">
+                    {example.description}
+                  </div>
                 </button>
-                {categories.map((cat) => {
-                  const IconComponent = cat.icon;
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`px-3 py-1 rounded-full text-sm transition-all flex items-center gap-1.5 ${
-                        selectedCategory === cat.id
-                          ? 'portal-blue-surface border'
-                          : 'portal-neutral-control border'
-                      }`}
-                      title={cat.name}
-                    >
-                      <IconComponent className="w-3.5 h-3.5" />
-                    </button>
-                  );
-                })}
-              </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
-              {/* Example List */}
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
-                {filteredExamples.map((example) => (
-                  <button
-                    key={example.id}
-                    onClick={() => handleExampleSelect(example)}
-                    className={`w-full text-left p-3 rounded-xl transition-all ${
-                      selectedExample.id === example.id
-                        ? 'portal-blue-surface border'
-                        : 'portal-neutral-control border'
-                    }`}
-                  >
-                    <div className="font-medium mb-1">{example.title}</div>
-                    <div className="text-xs opacity-80">
-                      {example.description}
-                    </div>
-                  </button>
-                ))}
+        {/* Main Editor Area */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Selected Example Info */}
+          <div className="border border-border/50 rounded-2xl p-4 bg-muted/30">
+            <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">
+              {selectedExample.title}
+            </h3>
+            <p className="text-muted-foreground">
+              {selectedExample.description}
+            </p>
+          </div>
+
+          {/* Code Editor */}
+          <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Code2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Code Editor</span>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopy}
+                  className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                  title={copied ? 'Copied!' : 'Copy code'}
+                >
+                  {copied ? (
+                    <Check className="portal-green-icon w-4 h-4" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                  title={reset ? 'Reset!' : 'Reset to example'}
+                >
+                  {reset ? (
+                    <Check className="portal-green-icon w-4 h-4" />
+                  ) : (
+                    <RotateCcw className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  onClick={handleRun}
+                  disabled={isRunning}
+                  className="portal-blue-surface flex items-center gap-2 rounded-full border px-4 py-2 font-medium transition-all disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4" />
+                  {isRunning ? 'Running...' : 'Run Code'}
+                </button>
+              </div>
+            </div>
+            <div className="h-[400px]">
+              <Editor
+                height="100%"
+                defaultLanguage="typescript"
+                value={code}
+                onChange={(value) => setCode(value || '')}
+                theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: 'on',
+                  padding: { top: 16, bottom: 16 },
+                }}
+              />
             </div>
           </div>
 
-          {/* Main Editor Area */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Selected Example Info */}
-            <div className="border border-border/50 rounded-2xl p-4 bg-muted/30">
-              <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">
-                {selectedExample.title}
-              </h3>
-              <p className="text-muted-foreground">
-                {selectedExample.description}
-              </p>
+          {/* Output Panel */}
+          <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 text-muted-foreground">
+              <Terminal className="w-4 h-4" />
+              <span className="text-sm font-medium">Output</span>
             </div>
-
-            {/* Code Editor */}
-            <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Code2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">Code Editor</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCopy}
-                    className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                    title={copied ? 'Copied!' : 'Copy code'}
-                  >
-                    {copied ? (
-                      <Check className="portal-green-icon w-4 h-4" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                    title={reset ? 'Reset!' : 'Reset to example'}
-                  >
-                    {reset ? (
-                      <Check className="portal-green-icon w-4 h-4" />
-                    ) : (
-                      <RotateCcw className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={handleRun}
-                    disabled={isRunning}
-                    className="portal-blue-surface flex items-center gap-2 rounded-full border px-4 py-2 font-medium transition-all disabled:opacity-50"
-                  >
-                    <Play className="w-4 h-4" />
-                    {isRunning ? 'Running...' : 'Run Code'}
-                  </button>
-                </div>
-              </div>
-              <div className="h-[400px]">
-                <Editor
-                  height="100%"
-                  defaultLanguage="typescript"
-                  value={code}
-                  onChange={(value) => setCode(value || '')}
-                  theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    tabSize: 2,
-                    wordWrap: 'on',
-                    padding: { top: 16, bottom: 16 },
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Output Panel */}
-            <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 text-muted-foreground">
-                <Terminal className="w-4 h-4" />
-                <span className="text-sm font-medium">Output</span>
-              </div>
-              <div className="p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
-                {output ? (
-                  <>
-                    <pre className="text-sm text-muted-foreground font-mono whitespace-pre-wrap">
-                      {output}
-                    </pre>
-                    {txHash && (
-                      <div className="mt-4 pt-4 border-t border-border/50">
-                        <a
-                          href={`https://testnet.nearblocks.io/txns/${txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="portal-action-link inline-flex items-center gap-2 text-sm transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          View on NEAR Explorer
-                        </a>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-muted-foreground text-sm">
-                    <p className="mb-2">
-                      Click "Run Code" to execute your code.
-                    </p>
-                    <p className="text-xs">
-                      💡 Tip:{' '}
-                      {isConnected
-                        ? 'Enable testnet mode for real execution'
-                        : 'Connect wallet and enable testnet for real execution'}
-                      .
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Info Card */}
-            <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-full border border-border/50">
-                  <CheckCircle2 className="portal-green-icon w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-foreground font-semibold mb-2 tracking-[-0.02em]">
-                    About the Playground
-                  </h4>
-                  <p className="text-muted-foreground text-sm mb-3">
-                    This playground lets you experiment with OnSocial Protocol.
-                    Connect your wallet and enable testnet mode to execute real
-                    transactions on NEAR testnet blockchain.
+            <div className="p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+              {output ? (
+                <>
+                  <pre className="text-sm text-muted-foreground font-mono whitespace-pre-wrap">
+                    {output}
+                  </pre>
+                  {txHash && (
+                    <div className="mt-4 pt-4 border-t border-border/50">
+                      <a
+                        href={`https://testnet.nearblocks.io/txns/${txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="portal-action-link inline-flex items-center gap-2 text-sm transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View on NEAR Explorer
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-muted-foreground text-sm">
+                  <p className="mb-2">Click "Run Code" to execute your code.</p>
+                  <p className="text-xs">
+                    💡 Tip:{' '}
+                    {isConnected
+                      ? 'Enable testnet mode for real execution'
+                      : 'Connect wallet and enable testnet for real execution'}
+                    .
                   </p>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>
-                      • {isConnected ? '✅' : '○'} Connect wallet for real
-                      testnet execution
-                    </p>
-                    <p>• All examples use TypeScript and the OnSocial SDK</p>
-                    <p>• Storage deposits are required for most operations</p>
-                    <p>• Check the documentation for detailed API references</p>
-                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Info Card */}
+          <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full border border-border/50">
+                <CheckCircle2 className="portal-green-icon w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-foreground font-semibold mb-2 tracking-[-0.02em]">
+                  About the Playground
+                </h4>
+                <p className="text-muted-foreground text-sm mb-3">
+                  This playground lets you experiment with OnSocial Protocol.
+                  Connect your wallet and enable testnet mode to execute real
+                  transactions on NEAR testnet blockchain.
+                </p>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p>
+                    • {isConnected ? '✅' : '○'} Connect wallet for real testnet
+                    execution
+                  </p>
+                  <p>• All examples use TypeScript and the OnSocial SDK</p>
+                  <p>• Storage deposits are required for most operations</p>
+                  <p>• Check the documentation for detailed API references</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
     </PageShell>
   );
 }

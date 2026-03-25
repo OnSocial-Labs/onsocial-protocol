@@ -6,7 +6,7 @@ import { logger } from './logger.js';
 import { webhookHandler, setupWebhook, startPolling } from './bot/index.js';
 import { close as closeDb } from './db/index.js';
 import partnerRoutes from './routes/partner.js';
-import adminRoutes from './routes/admin.js';
+import partnerGovernanceRoutes from './routes/partner-governance.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
 
 const app = express();
@@ -20,6 +20,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin ?? '';
   const allowed = [
     'http://localhost:3000',
+    'https://testnet.onsocial.id',
     'https://portal.onsocial.id',
     'https://onsocial.id',
   ];
@@ -27,10 +28,7 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, X-Admin-Secret, X-Api-Key'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key');
   if (req.method === 'OPTIONS') {
     res.status(204).end();
     return;
@@ -59,9 +57,9 @@ app.post('/webhooks/telegram', webhookHandler);
 // Partner Rewards API (SDK consumers)
 // ---------------------------------------------------------------------------
 
-// Admin routes MUST be registered before partner routes, because
+// Partner governance routes MUST be registered before SDK partner routes, because
 // partnerRoutes applies partnerAuth to all /v1/* sub-routes.
-app.use('/v1/admin', adminRoutes);
+app.use('/v1/partners', partnerGovernanceRoutes);
 app.use('/v1', partnerRoutes);
 
 // ---------------------------------------------------------------------------

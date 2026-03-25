@@ -31,7 +31,8 @@ export function CTA() {
               </div>
 
               <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                Already running in the OnSocial Telegram channel. Bring them to your community.
+                Already running in the OnSocial Telegram channel. Bring them to
+                your community.
               </p>
             </div>
 
@@ -79,8 +80,6 @@ export function CTA() {
             </Button>
           </motion.div>
         </div>
-
-
       </div>
     </section>
   );

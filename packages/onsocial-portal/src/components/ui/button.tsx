@@ -8,14 +8,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          'border portal-blue-surface',
-        secondary:
-          'border portal-purple-surface',
-        accent:
-          'border portal-green-surface',
-        destructive:
-          'border portal-red-surface',
+        default: 'border portal-blue-surface',
+        secondary: 'border portal-purple-surface',
+        accent: 'border portal-green-surface',
+        destructive: 'border portal-red-surface',
         outline:
           'border border-border/50 bg-transparent text-muted-foreground hover:border-border hover:text-foreground',
         ghost: 'hover:bg-muted/50 text-foreground',

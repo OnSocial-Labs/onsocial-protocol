@@ -83,7 +83,10 @@ export function WalletButton() {
           <div className="py-1">
             <button
               onClick={() => {
-                window.open(`${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`, '_blank');
+                window.open(
+                  `${ACTIVE_NEAR_EXPLORER_URL}/address/${accountId}`,
+                  '_blank'
+                );
                 setShowMenu(false);
               }}
               className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"

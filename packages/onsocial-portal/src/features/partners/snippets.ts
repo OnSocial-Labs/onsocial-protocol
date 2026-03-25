@@ -12,7 +12,10 @@ export function envSnippet(
 ) {
   const maskedApiKey = `${apiKey.slice(0, 10)}${'•'.repeat(24)}${apiKey.slice(-4)}`;
   const resolvedApiKey = options?.maskApiKey ? maskedApiKey : apiKey;
-  const lines = [`ONSOCIAL_API_KEY=${resolvedApiKey}`, `ONSOCIAL_APP_ID=${appId}`];
+  const lines = [
+    `ONSOCIAL_API_KEY=${resolvedApiKey}`,
+    `ONSOCIAL_APP_ID=${appId}`,
+  ];
   if (tab === 'bot') {
     lines.unshift(`BOT_TOKEN=your-telegram-bot-token`);
     lines.push(`# MIN_MESSAGE_LENGTH=10   # min chars to earn a reward`);

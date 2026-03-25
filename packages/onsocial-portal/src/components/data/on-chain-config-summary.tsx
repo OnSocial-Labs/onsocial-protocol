@@ -20,7 +20,9 @@ function ProgressRow({
         <span className="text-muted-foreground">{label}</span>
         <span className="font-mono text-foreground">
           {value}
-          {detail && <span className="ml-1 text-muted-foreground">{detail}</span>}
+          {detail && (
+            <span className="ml-1 text-muted-foreground">{detail}</span>
+          )}
         </span>
       </div>
       {typeof progress === 'number' && (
@@ -66,11 +68,7 @@ function StatCard({
   );
 }
 
-export function OnChainConfigSummary({
-  config,
-}: {
-  config: OnChainAppConfig;
-}) {
+export function OnChainConfigSummary({ config }: { config: OnChainAppConfig }) {
   const totalUsed = parseFloat(yoctoToSocial(config.total_credited));
   const totalBudget = parseFloat(yoctoToSocial(config.total_budget));
   const totalPct =

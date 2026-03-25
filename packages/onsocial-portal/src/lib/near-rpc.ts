@@ -8,6 +8,7 @@ import {
   type Network,
 } from '@onsocial/rpc';
 import { ACTIVE_NEAR_NETWORK } from '@/lib/near-network';
+import { GOVERNANCE_DAO_ACCOUNT } from '@/lib/portal-config';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -34,6 +35,8 @@ export const VESTING_CONTRACT =
   NETWORK === 'mainnet'
     ? 'founder-vesting.onsocial.near'
     : 'founder-vesting.onsocial.testnet';
+
+const DEFAULT_GOVERNANCE_PROPOSER_THRESHOLD = '100000000000000000000';
 
 // ---------------------------------------------------------------------------
 // Singleton — circuit breaker state persists across renders
@@ -155,6 +158,18 @@ export async function viewContract<T>(
   return viewContractAt<T>(REWARDS_CONTRACT, method, args);
 }
 
+async function tryViewContractAt<T>(
+  contractId: string,
+  method: string,
+  args: Record<string, unknown> = {}
+): Promise<T | null> {
+  try {
+    return await viewContractAt<T>(contractId, method, args);
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
@@ -190,6 +205,16 @@ export function socialToYocto(input: string): string {
   const padded = frac.padEnd(SOCIAL_DECIMALS, '0').slice(0, SOCIAL_DECIMALS);
   const raw = whole + padded;
   return raw.replace(/^0+/, '') || '0';
+}
+
+function sumYocto(values: string[]): string {
+  return values.reduce((total, value) => {
+    return (BigInt(total) + BigInt(value || '0')).toString();
+  }, '0');
+}
+
+function maxYocto(value: bigint): string {
+  return (value > 0n ? value : 0n).toString();
 }
 
 // ---------------------------------------------------------------------------
@@ -253,4 +278,159 @@ export interface StakingLockStatus {
   bonus_percent: number;
   effective_stake: string;
   lock_expired: boolean;
+}
+
+interface GovernanceRole {
+  name?: string;
+  kind?: {
+    Group?: string[];
+    Member?: string;
+  };
+  permissions?: string[];
+}
+
+interface GovernancePolicy {
+  roles?: GovernanceRole[];
+}
+
+interface GovernanceStorageBalance {
+  total: string;
+  available: string;
+}
+
+export interface GovernanceStakingUser {
+  storage_used: number;
+  near_amount: string;
+  vote_amount: string;
+  next_action_timestamp: string | number;
+  delegated_amounts: Array<[string, string]>;
+}
+
+export interface GovernanceEligibilitySnapshot {
+  daoAccountId: string;
+  stakingContractId: string | null;
+  requiredWeight: string;
+  delegatedWeight: string;
+  remainingToThreshold: string;
+  walletBalance: string;
+  voteAmount: string;
+  availableToDelegate: string;
+  selfDelegatedWeight: string;
+  isRegistered: boolean;
+  storageDeposit: string;
+  depositNeeded: string;
+  delegateNeeded: string;
+  canPropose: boolean;
+}
+
+function getGovernanceThreshold(policy: GovernancePolicy | null): string {
+  const proposerRole = policy?.roles?.find((role) => {
+    if (role.name === 'partner_proposers') {
+      return true;
+    }
+
+    return role.permissions?.includes('call:AddProposal') ?? false;
+  });
+
+  return proposerRole?.kind?.Member ?? DEFAULT_GOVERNANCE_PROPOSER_THRESHOLD;
+}
+
+export async function getGovernanceEligibility(
+  accountId: string,
+  daoAccountId = GOVERNANCE_DAO_ACCOUNT
+): Promise<GovernanceEligibilitySnapshot> {
+  const [policy, stakingContractId, delegatedWeight, walletBalance] =
+    await Promise.all([
+      tryViewContractAt<GovernancePolicy>(daoAccountId, 'get_policy'),
+      tryViewContractAt<string>(daoAccountId, 'get_staking_contract'),
+      tryViewContractAt<string>(daoAccountId, 'delegation_balance_of', {
+        account_id: accountId,
+      }),
+      tryViewContractAt<string>(TOKEN_CONTRACT, 'ft_balance_of', {
+        account_id: accountId,
+      }),
+    ]);
+
+  const requiredWeight = getGovernanceThreshold(policy);
+  const normalizedDelegatedWeight = delegatedWeight ?? '0';
+  const normalizedWalletBalance = walletBalance ?? '0';
+
+  if (!stakingContractId) {
+    const remainingToThreshold = maxYocto(
+      BigInt(requiredWeight) - BigInt(normalizedDelegatedWeight)
+    );
+
+    return {
+      daoAccountId,
+      stakingContractId: null,
+      requiredWeight,
+      delegatedWeight: normalizedDelegatedWeight,
+      remainingToThreshold,
+      walletBalance: normalizedWalletBalance,
+      voteAmount: '0',
+      availableToDelegate: '0',
+      selfDelegatedWeight: '0',
+      isRegistered: false,
+      storageDeposit: '0',
+      depositNeeded: remainingToThreshold,
+      delegateNeeded: '0',
+      canPropose: BigInt(normalizedDelegatedWeight) >= BigInt(requiredWeight),
+    };
+  }
+
+  const [storageBalance, storageBounds, user] = await Promise.all([
+    tryViewContractAt<GovernanceStorageBalance>(
+      stakingContractId,
+      'storage_balance_of',
+      { account_id: accountId }
+    ),
+    tryViewContractAt<{ min: string }>(
+      stakingContractId,
+      'storage_balance_bounds'
+    ),
+    tryViewContractAt<GovernanceStakingUser>(stakingContractId, 'get_user', {
+      account_id: accountId,
+    }),
+  ]);
+
+  const isRegistered = !!storageBalance;
+  const voteAmount = user?.vote_amount ?? '0';
+  const delegatedAmounts = user?.delegated_amounts ?? [];
+  const totalDelegatedFromStaking = sumYocto(
+    delegatedAmounts.map(([, amount]) => amount)
+  );
+  const selfDelegatedWeight = sumYocto(
+    delegatedAmounts
+      .filter(([delegateId]) => delegateId === accountId)
+      .map(([, amount]) => amount)
+  );
+  const availableToDelegate = maxYocto(
+    BigInt(voteAmount) - BigInt(totalDelegatedFromStaking)
+  );
+  const remainingToThreshold = maxYocto(
+    BigInt(requiredWeight) - BigInt(normalizedDelegatedWeight)
+  );
+  const depositNeeded = maxYocto(
+    BigInt(remainingToThreshold) - BigInt(availableToDelegate)
+  );
+  const delegateNeeded = maxYocto(
+    BigInt(remainingToThreshold) - BigInt(depositNeeded)
+  );
+
+  return {
+    daoAccountId,
+    stakingContractId,
+    requiredWeight,
+    delegatedWeight: normalizedDelegatedWeight,
+    remainingToThreshold,
+    walletBalance: normalizedWalletBalance,
+    voteAmount,
+    availableToDelegate,
+    selfDelegatedWeight,
+    isRegistered,
+    storageDeposit: storageBounds?.min ?? '0',
+    depositNeeded,
+    delegateNeeded,
+    canPropose: BigInt(normalizedDelegatedWeight) >= BigInt(requiredWeight),
+  };
 }

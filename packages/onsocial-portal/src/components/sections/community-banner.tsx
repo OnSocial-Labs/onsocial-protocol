@@ -35,8 +35,7 @@ export function CommunityBanner() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
           >
-            <FaXTwitter className="portal-slate-icon w-3 h-3" />
-            X
+            <FaXTwitter className="portal-slate-icon w-3 h-3" />X
           </a>
           <span className="text-border">/</span>
           <a

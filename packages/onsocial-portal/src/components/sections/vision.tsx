@@ -12,7 +12,11 @@ import {
   Layers,
   Puzzle,
 } from 'lucide-react';
-import { portalColors, portalFrameStyle, type PortalAccent } from '@/lib/portal-colors';
+import {
+  portalColors,
+  portalFrameStyle,
+  type PortalAccent,
+} from '@/lib/portal-colors';
 
 // What the protocol actually enables (backed by real contracts)
 const PROTOCOL_LAYERS = [
@@ -60,9 +64,17 @@ const PROTOCOL_LAYERS = [
 
 const INFRA_FEATURES = [
   { title: 'Gasless transactions', icon: Zap, accent: 'slate' as PortalAccent },
-  { title: 'Sponsored storage', icon: Database, accent: 'blue' as PortalAccent },
+  {
+    title: 'Sponsored storage',
+    icon: Database,
+    accent: 'blue' as PortalAccent,
+  },
   { title: 'Composable data', icon: Layers, accent: 'blue' as PortalAccent },
-  { title: 'Real-time indexers', icon: Database, accent: 'blue' as PortalAccent },
+  {
+    title: 'Real-time indexers',
+    icon: Database,
+    accent: 'blue' as PortalAccent,
+  },
 ] as const;
 
 export function Vision() {

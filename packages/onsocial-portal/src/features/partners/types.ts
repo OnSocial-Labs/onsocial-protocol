@@ -1,4 +1,12 @@
-export type Step = 'apply' | 'submitting' | 'pending' | 'approved' | 'rejected';
+export type Step =
+  | 'apply'
+  | 'submitting'
+  | 'pending'
+  | 'eligibility'
+  | 'governance'
+  | 'claiming'
+  | 'approved'
+  | 'rejected';
 
 export interface AppRegistration {
   appId: string;
@@ -6,13 +14,72 @@ export interface AppRegistration {
   label: string;
 }
 
+export interface GovernanceProposalAction {
+  method_name: string;
+  args: string;
+  deposit: string;
+  gas: number;
+}
+
+export interface GovernanceProposalPayload {
+  proposal: {
+    description: string;
+    kind: {
+      FunctionCall: {
+        receiver_id: string;
+        actions: GovernanceProposalAction[];
+      };
+    };
+  };
+}
+
+export interface GovernanceProposal {
+  proposal_id: number | null;
+  status: string;
+  description: string | null;
+  dao_account: string | null;
+  tx_hash: string | null;
+  submitted_at: string | null;
+  payload?: GovernanceProposalPayload | null;
+}
+
 export interface StatusResponse {
   success: boolean;
-  status: 'none' | 'pending' | 'approved' | 'rejected';
+  status:
+    | 'none'
+    | 'pending'
+    | 'ready_for_governance'
+    | 'proposal_submitted'
+    | 'approved'
+    | 'rejected';
+  app_id?: string;
+  label?: string;
+  applied_at?: string;
+  governance_proposal?: GovernanceProposal | null;
+  error?: string;
+}
+
+export interface KeyChallenge {
+  app_id: string;
+  wallet_id: string;
+  recipient: string;
+  nonce: string;
+  message: string;
+  issued_at: string;
+  expires_at: string;
+}
+
+export interface KeyChallengeResponse {
+  success: boolean;
+  challenge?: KeyChallenge;
+  error?: string;
+}
+
+export interface ClaimKeyResponse {
+  success: boolean;
   app_id?: string;
   label?: string;
   api_key?: string;
-  applied_at?: string;
   error?: string;
 }
 
@@ -27,9 +94,11 @@ export interface ApplyBody {
   app_id?: string;
   label: string;
   description: string;
-  expected_users: string;
-  contact: string;
   wallet_id: string;
+  audience_band: string;
+  website_url?: string;
+  telegram_handle?: string;
+  x_handle?: string;
 }
 
 export interface ApplyResponse {
@@ -37,6 +106,15 @@ export interface ApplyResponse {
   app_id: string;
   label: string;
   status: string;
+  governance_proposal?: GovernanceProposal | null;
+  error?: string;
+}
+
+export interface ProposalSubmissionResponse {
+  success: boolean;
+  app_id: string;
+  status: 'proposal_submitted';
+  governance_proposal?: GovernanceProposal | null;
   error?: string;
 }
 
@@ -44,6 +122,8 @@ export interface ApplicationFormData {
   appId: string;
   label: string;
   description: string;
-  expectedUsers: string;
-  contact: string;
+  audienceBand: string;
+  websiteUrl: string;
+  telegramHandle: string;
+  xHandle: string;
 }

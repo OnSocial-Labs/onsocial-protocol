@@ -30,7 +30,11 @@ import {
   ACTIVE_NEAR_NETWORK,
   NEAR_ACCOUNT_SUFFIX,
 } from '@/lib/portal-config';
-import { portalColors, portalFrameStyle, type PortalAccent } from '@/lib/portal-colors';
+import {
+  portalColors,
+  portalFrameStyle,
+  type PortalAccent,
+} from '@/lib/portal-colors';
 
 const NETWORK = ACTIVE_NEAR_NETWORK;
 const API_URL = ACTIVE_API_URL;
@@ -39,8 +43,7 @@ const TOKEN_NEARBLOCKS_URL = `${NEARBLOCKS_BASE_URL}/token/${TOKEN_CONTRACT}`;
 const TOKEN_HOLDERS_URL = `${TOKEN_NEARBLOCKS_URL}?tab=holders`;
 const INITIAL_SUPPLY_TOKENS = 1_000_000_000n;
 const TOKEN_DECIMALS = 18n;
-const INITIAL_SUPPLY_YOCTO =
-  INITIAL_SUPPLY_TOKENS * 10n ** TOKEN_DECIMALS;
+const INITIAL_SUPPLY_YOCTO = INITIAL_SUPPLY_TOKENS * 10n ** TOKEN_DECIMALS;
 
 function allocationAccount(name: string): string {
   return `${name}.${NEAR_ACCOUNT_SUFFIX}`;
@@ -187,9 +190,9 @@ export default function TransparencyPage() {
   const [copiedTokenContract, setCopiedTokenContract] = useState(false);
   const [holderCount, setHolderCount] = useState<number | null>(null);
   const [holderCountLoaded, setHolderCountLoaded] = useState(false);
-  const [currentSupplyDisplay, setCurrentSupplyDisplay] = useState<string | null>(
-    null
-  );
+  const [currentSupplyDisplay, setCurrentSupplyDisplay] = useState<
+    string | null
+  >(null);
   const [burnedDisplay, setBurnedDisplay] = useState<string | null>(null);
   const [supplyLoaded, setSupplyLoaded] = useState(false);
 
@@ -319,8 +322,8 @@ export default function TransparencyPage() {
             <span className="portal-green-text">Visible allocation</span>
           </h1>
           <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-            1 billion initial supply — every major allocation mapped to an on-chain
-            account or published reserve plan.
+            1 billion initial supply — every major allocation mapped to an
+            on-chain account or published reserve plan.
           </p>
 
           {/* Token Contract Badge */}
@@ -469,7 +472,9 @@ export default function TransparencyPage() {
               <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/95 px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: portalColors[activeDistribution.accent] }}
+                  style={{
+                    backgroundColor: portalColors[activeDistribution.accent],
+                  }}
                 />
                 <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/85">
                   {activeDistribution.label}
@@ -632,7 +637,10 @@ export default function TransparencyPage() {
                     className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border"
                     style={portalFrameStyle(u.accent)}
                   >
-                    <u.icon className="h-4 w-4" style={{ color: portalColors[u.accent] }} />
+                    <u.icon
+                      className="h-4 w-4"
+                      style={{ color: portalColors[u.accent] }}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="mb-1 text-sm font-semibold">{u.label}</h3>

@@ -8,8 +8,6 @@ import { Menu, X } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { WalletButton } from '@/components/wallet-button';
-import { useWallet } from '@/contexts/wallet-context';
-import { ADMIN_WALLETS } from '@/lib/portal-config';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -19,22 +17,13 @@ const navItems = [
   { label: 'OnApi', href: '/onapi', isAnchor: false },
   { label: 'Staking', href: '/staking', isAnchor: false },
   { label: 'Partners', href: '/partners', isAnchor: false },
+  { label: 'Governance', href: '/governance', isAnchor: false },
 ];
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
-  const { accountId } = useWallet();
   const pathname = usePathname();
-
-  const isAdmin = accountId && ADMIN_WALLETS.includes(accountId.toLowerCase());
-
-  const visibleNavItems = useMemo(
-    () =>
-      isAdmin
-        ? [...navItems, { label: 'Admin', href: '/admin', isAnchor: false }]
-        : navItems,
-    [isAdmin]
-  );
+  const visibleNavItems = useMemo(() => navItems, []);
 
   const handleSmoothScroll = (
     e: React.MouseEvent<HTMLAnchorElement>,
@@ -111,9 +100,7 @@ export function Navigation() {
                 'text-sm transition-colors',
                 isActiveItem(item.href)
                   ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-                item.label === 'Admin' && !isActiveItem(item.href) &&
-                  'portal-purple-text'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               aria-current={isActiveItem(item.href) ? 'page' : undefined}
             >
@@ -205,11 +192,11 @@ export function Navigation() {
                         'block text-lg font-medium transition-colors py-2',
                         isActiveItem(item.href)
                           ? 'text-foreground'
-                          : 'text-muted-foreground hover:text-foreground',
-                        item.label === 'Admin' && !isActiveItem(item.href) &&
-                          'portal-purple-text'
+                          : 'text-muted-foreground hover:text-foreground'
                       )}
-                      aria-current={isActiveItem(item.href) ? 'page' : undefined}
+                      aria-current={
+                        isActiveItem(item.href) ? 'page' : undefined
+                      }
                     >
                       {item.label}
                     </Link>

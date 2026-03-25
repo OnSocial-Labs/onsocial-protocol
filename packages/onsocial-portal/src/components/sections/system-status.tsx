@@ -45,7 +45,8 @@ const CONTRACT_PROBES = [
   {
     name: 'Core',
     accountId: CORE_CONTRACT,
-    probe: () => viewContractAt<{ version: string }>(CORE_CONTRACT, 'get_version', {}),
+    probe: () =>
+      viewContractAt<{ version: string }>(CORE_CONTRACT, 'get_version', {}),
   },
   {
     name: 'Staking',
@@ -88,7 +89,9 @@ export function SystemStatus() {
   const [contractsOpen, setContractsOpen] = useState(false);
   const [contractsLoading, setContractsLoading] = useState(false);
   const [contracts, setContracts] = useState<ContractHealth[] | null>(null);
-  const [contractsCheckedAt, setContractsCheckedAt] = useState<number | null>(null);
+  const [contractsCheckedAt, setContractsCheckedAt] = useState<number | null>(
+    null
+  );
 
   const checkHealth = useCallback(async () => {
     const apiUrl = ACTIVE_API_URL;
@@ -113,7 +116,9 @@ export function SystemStatus() {
         const data = await res.json();
         results.gateway = { status: 'up', responseTime: elapsed };
         results.gatewayVersion = data.version ?? null;
-        results.gatewayServices = Array.isArray(data.services) ? data.services : null;
+        results.gatewayServices = Array.isArray(data.services)
+          ? data.services
+          : null;
       } else {
         results.gateway = { status: 'down', responseTime: elapsed };
       }
@@ -175,75 +180,83 @@ export function SystemStatus() {
     return () => clearInterval(interval);
   }, [checkHealth]);
 
-  const checkContracts = useCallback(async (force = false) => {
-    const isFresh =
-      !force &&
-      contracts &&
-      contractsCheckedAt &&
-      Date.now() - contractsCheckedAt < 60_000;
+  const checkContracts = useCallback(
+    async (force = false) => {
+      const isFresh =
+        !force &&
+        contracts &&
+        contractsCheckedAt &&
+        Date.now() - contractsCheckedAt < 60_000;
 
-    if (isFresh) return;
+      if (isFresh) return;
 
-    setContractsLoading(true);
+      setContractsLoading(true);
 
-    const results = await Promise.all(
-      CONTRACT_PROBES.map(async ({ name, accountId, probe }) => {
-        const start = performance.now();
+      const results = await Promise.all(
+        CONTRACT_PROBES.map(async ({ name, accountId, probe }) => {
+          const start = performance.now();
 
-        try {
-          await viewAccount(accountId);
-        } catch {
-          return {
-            name,
-            accountId,
-            status: 'down' as const,
-            responseTime: Math.round(performance.now() - start),
-            detail: 'Account unavailable',
-          };
-        }
+          try {
+            await viewAccount(accountId);
+          } catch {
+            return {
+              name,
+              accountId,
+              status: 'down' as const,
+              responseTime: Math.round(performance.now() - start),
+              detail: 'Account unavailable',
+            };
+          }
 
-        try {
-          const probeResult = await probe();
-          const elapsed = Math.round(performance.now() - start);
+          try {
+            const probeResult = await probe();
+            const elapsed = Math.round(performance.now() - start);
 
-          if (probeResult === null) {
+            if (probeResult === null) {
+              return {
+                name,
+                accountId,
+                status: 'degraded' as const,
+                responseTime: elapsed,
+                detail: 'Account online · empty probe',
+              };
+            }
+
+            return {
+              name,
+              accountId,
+              status: 'up' as const,
+              responseTime: elapsed,
+              detail: 'View OK',
+            };
+          } catch {
             return {
               name,
               accountId,
               status: 'degraded' as const,
-              responseTime: elapsed,
-              detail: 'Account online · empty probe',
+              responseTime: Math.round(performance.now() - start),
+              detail: 'Account online · probe failed',
             };
           }
+        })
+      );
 
-          return {
-            name,
-            accountId,
-            status: 'up' as const,
-            responseTime: elapsed,
-            detail: 'View OK',
-          };
-        } catch {
-          return {
-            name,
-            accountId,
-            status: 'degraded' as const,
-            responseTime: Math.round(performance.now() - start),
-            detail: 'Account online · probe failed',
-          };
-        }
-      })
-    );
+      setContracts(results);
+      setContractsCheckedAt(Date.now());
+      setContractsLoading(false);
+    },
+    [contracts, contractsCheckedAt]
+  );
 
-    setContracts(results);
-    setContractsCheckedAt(Date.now());
-    setContractsLoading(false);
-  }, [contracts, contractsCheckedAt]);
-
-  useEffect(() => {
-    if (!contractsOpen) return;
-    void checkContracts();
-  }, [checkContracts, contractsOpen]);
+  const toggleContractsOpen = useCallback(() => {
+    setContractsOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) {
+        void checkContracts();
+      }
+      return nextOpen;
+    });
+  }, [checkContracts]);
 
   const services = [
     {
@@ -318,7 +331,9 @@ export function SystemStatus() {
       path: '/health',
       status: health.gateway?.status,
       responseTime: health.gateway?.responseTime,
-      detail: health.gatewayVersion ? `v${health.gatewayVersion}` : 'Root health',
+      detail: health.gatewayVersion
+        ? `v${health.gatewayVersion}`
+        : 'Root health',
     },
     {
       name: 'Graph',
@@ -384,7 +399,6 @@ export function SystemStatus() {
                   <p className="text-base md:text-lg font-semibold tracking-[-0.02em]">
                     {headline}
                   </p>
-
                 </div>
               </div>
 
@@ -400,7 +414,9 @@ export function SystemStatus() {
                       >
                         <Icon className="w-4 h-4 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{service.name}</p>
+                          <p className="text-sm font-medium truncate">
+                            {service.name}
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {getServiceSummary(service)}
                           </p>
@@ -440,7 +456,9 @@ export function SystemStatus() {
                           >
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">{service.name}</span>
+                                <span className="text-sm font-medium">
+                                  {service.name}
+                                </span>
                                 <span
                                   className={`h-2 w-2 rounded-full ${getEndpointTone(service.status)}`}
                                 />
@@ -450,7 +468,9 @@ export function SystemStatus() {
                               </p>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground md:text-sm">
-                              <span>{loading ? 'Checking' : service.detail}</span>
+                              <span>
+                                {loading ? 'Checking' : service.detail}
+                              </span>
                               <span className="font-mono text-foreground/80">
                                 {loading || service.responseTime === undefined
                                   ? '--'
@@ -460,21 +480,22 @@ export function SystemStatus() {
                           </div>
                         ))}
 
-                        {health.gatewayServices && health.gatewayServices.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
-                            <span className="uppercase tracking-[0.14em] text-muted-foreground/80">
-                              Registered
-                            </span>
-                            {health.gatewayServices.map((service) => (
-                              <span
-                                key={service}
-                                className="rounded-full border border-border/40 px-2.5 py-1"
-                              >
-                                {service}
+                        {health.gatewayServices &&
+                          health.gatewayServices.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+                              <span className="uppercase tracking-[0.14em] text-muted-foreground/80">
+                                Registered
                               </span>
-                            ))}
-                          </div>
-                        )}
+                              {health.gatewayServices.map((service) => (
+                                <span
+                                  key={service}
+                                  className="rounded-full border border-border/40 px-2.5 py-1"
+                                >
+                                  {service}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                       </div>
                     </div>
                   )}
@@ -483,7 +504,7 @@ export function SystemStatus() {
                 <div className="rounded-2xl border border-border/40 bg-background/40">
                   <button
                     type="button"
-                    onClick={() => setContractsOpen((open) => !open)}
+                    onClick={toggleContractsOpen}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-background/50"
                   >
                     <div className="flex min-w-0 items-center gap-3">
@@ -504,7 +525,10 @@ export function SystemStatus() {
                     <div className="border-t border-border/40 px-4 py-3">
                       {contractsLoading ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <PulsingDots size="sm" className="text-muted-foreground" />
+                          <PulsingDots
+                            size="sm"
+                            className="text-muted-foreground"
+                          />
                           Checking direct NEAR RPC probes
                         </div>
                       ) : contracts ? (
@@ -516,7 +540,9 @@ export function SystemStatus() {
                             >
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium">{contract.name}</span>
+                                  <span className="text-sm font-medium">
+                                    {contract.name}
+                                  </span>
                                   <span
                                     className={`h-2 w-2 rounded-full ${getContractTone(contract.status)}`}
                                   />

@@ -44,6 +44,16 @@ export const config = {
     ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
       ? 'https://free.rpc.fastnear.com'
       : 'https://test.rpc.fastnear.com'),
+  governanceDao:
+    process.env.GOVERNANCE_DAO_ACCOUNT ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'governance.onsocial.near'
+      : 'governance.onsocial.testnet'),
+  relayerAccount:
+    process.env.RELAYER_ACCOUNT ||
+    ((process.env.NEAR_NETWORK || 'testnet') === 'mainnet'
+      ? 'relayer.onsocial.near'
+      : 'relayer.onsocial.testnet'),
 
   // Postgres
   databaseUrl:

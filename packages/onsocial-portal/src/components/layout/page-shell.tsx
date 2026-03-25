@@ -24,11 +24,7 @@ export function PageShell({
   return (
     <div className="min-h-screen pt-24 pb-16">
       <div
-        className={cn(
-          'w-full mx-auto px-4',
-          pageShellClasses[size],
-          className
-        )}
+        className={cn('w-full mx-auto px-4', pageShellClasses[size], className)}
       >
         {children}
       </div>

@@ -25,8 +25,14 @@ import { useWallet } from '@/contexts/wallet-context';
 import { Button } from '@/components/ui/button';
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
-import { viewContract, yoctoToSocial, type OnChainAppConfig } from '@/lib/near-rpc';
-import { portalColors, portalFrameStyle, type PortalAccent } from '@/lib/portal-colors';
+import {
+  viewContract,
+  yoctoToSocial,
+  type GovernanceEligibilitySnapshot,
+  type OnChainAppConfig,
+} from '@/lib/near-rpc';
+import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
+import { portalColors, portalFrameStyle } from '@/lib/portal-colors';
 import { rotateKey } from '@/features/partners/api';
 import {
   botSnippet,
@@ -35,47 +41,438 @@ import {
   packageJsonSnippet,
   sdkOnlySnippet,
 } from '@/features/partners/snippets';
-import type { AppRegistration } from '@/features/partners/types';
-import { CodeBlock, CopyButton, DownloadButton } from '@/features/partners/ui-helpers';
+import type {
+  AppRegistration,
+  GovernanceProposal,
+} from '@/features/partners/types';
+import {
+  CodeBlock,
+  CopyButton,
+  DownloadButton,
+} from '@/features/partners/ui-helpers';
 
-export function PendingState({ appId, label }: { appId: string; label: string }) {
+function formatSocialAmount(value: string, maximumFractionDigits = 2): string {
+  const numeric = Number(yoctoToSocial(value));
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits,
+  }).format(numeric);
+}
+
+export function PendingState({
+  appId,
+  label,
+  phase = 'review',
+  proposal,
+  acting = false,
+  actionError = '',
+  onSubmitProposal,
+}: {
+  appId: string;
+  label: string;
+  phase?: 'review' | 'ready' | 'governance' | 'eligibility';
+  proposal?: GovernanceProposal | null;
+  acting?: boolean;
+  actionError?: string;
+  onSubmitProposal?: () => void | Promise<void>;
+}) {
+  const isReady = phase === 'ready';
+  const isGovernance = phase === 'governance';
+  const isEligibility = phase === 'eligibility';
+  const explorerHref = proposal?.tx_hash
+    ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
+    : null;
+
   return (
     <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-12 text-center">
-      <div className="mb-4 flex justify-center">
-        <span className="portal-blue-badge rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]">
-          In Queue
-        </span>
-      </div>
+      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        {isEligibility
+          ? 'Eligibility'
+          : isReady
+            ? 'Proposal Ready'
+            : isGovernance
+              ? 'In Governance'
+              : 'Under Review'}
+      </p>
       <Clock className="portal-blue-icon mx-auto mb-4 h-16 w-16" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
-        Application Received
+        {isEligibility
+          ? 'Proposal access'
+          : isReady
+            ? 'Proposal ready'
+            : isGovernance
+              ? 'Proposal in governance'
+              : 'Application received'}
       </h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
         <span className="font-semibold text-foreground">{label}</span> (
         <span className="portal-blue-text font-mono">{appId}</span>) is
-        currently in the approval queue.
+        {isEligibility
+          ? ' ready for a quick governance eligibility check.'
+          : isReady
+            ? ' ready for the final DAO proposal from the connected wallet.'
+            : isGovernance
+              ? ' now waiting for DAO approval and execution.'
+              : ' now in review.'}
       </p>
-      <p className="text-sm text-muted-foreground">
-        The next step will appear here once processing is complete.
-      </p>
+
+      {proposal?.description && (
+        <p className="mx-auto mb-4 max-w-xl text-sm text-muted-foreground">
+          Proposal:{' '}
+          <span className="text-foreground">{proposal.description}</span>
+        </p>
+      )}
+
+      {isEligibility && (
+        <p className="text-sm text-muted-foreground">
+          A quick check confirms whether this wallet has enough delegated
+          governance weight for the final DAO proposal.
+        </p>
+      )}
+
+      {isReady && onSubmitProposal && (
+        <div className="space-y-3">
+          <Button onClick={onSubmitProposal} disabled={acting} size="lg">
+            {acting ? 'Opening wallet…' : 'Open DAO Proposal'}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            The final proposal opens in the wallet and is sent to the governance
+            DAO.
+          </p>
+        </div>
+      )}
+
+      {isGovernance && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Once executed, a quick wallet confirmation reveals the API key for
+            this app.
+          </p>
+          {explorerHref && (
+            <a
+              href={explorerHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+            >
+              Open transaction
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+        </div>
+      )}
+
+      {!isReady && !isGovernance && (
+        <p className="text-sm text-muted-foreground">
+          The next step appears here as soon as the draft is ready.
+        </p>
+      )}
+
+      {actionError && (
+        <p className="portal-red-text mx-auto mt-4 max-w-xl text-sm">
+          {actionError}
+        </p>
+      )}
     </div>
   );
 }
 
-export function RejectedState({ appId, label }: { appId: string; label: string }) {
+export function GovernanceEligibilityState({
+  appId,
+  label,
+  eligibility,
+  acting = false,
+  actionLabel = '',
+  actionError = '',
+  onRefresh,
+  onRegister,
+  onDeposit,
+  onDelegate,
+  onSubmitProposal,
+}: {
+  appId: string;
+  label: string;
+  eligibility: GovernanceEligibilitySnapshot | null;
+  acting?: boolean;
+  actionLabel?: string;
+  actionError?: string;
+  onRefresh?: () => void | Promise<void>;
+  onRegister?: () => void | Promise<void>;
+  onDeposit?: () => void | Promise<void>;
+  onDelegate?: () => void | Promise<void>;
+  onSubmitProposal?: () => void | Promise<void>;
+}) {
+  const requiredWeight = formatSocialAmount(eligibility?.requiredWeight ?? '0');
+  const delegatedWeight = formatSocialAmount(
+    eligibility?.delegatedWeight ?? '0'
+  );
+  const remainingWeight = formatSocialAmount(
+    eligibility?.remainingToThreshold ?? '0'
+  );
+  const availableToDelegate = formatSocialAmount(
+    eligibility?.availableToDelegate ?? '0'
+  );
+  const walletBalance = formatSocialAmount(eligibility?.walletBalance ?? '0');
+  const depositNeeded = formatSocialAmount(eligibility?.depositNeeded ?? '0');
+  const delegateNeeded = formatSocialAmount(eligibility?.delegateNeeded ?? '0');
+  const canCoverDeposit = eligibility
+    ? BigInt(eligibility.walletBalance) >= BigInt(eligibility.depositNeeded)
+    : false;
+
+  let nextActionTitle = 'Checking governance setup';
+  let nextActionBody =
+    'We are checking what this wallet still needs before the proposal can open.';
+  let nextActionLabel = 'Checking status…';
+  let nextActionNote = '';
+  let nextActionHandler = onRefresh;
+  let nextActionDisabled = acting || !onRefresh;
+
+  if (eligibility) {
+    if (eligibility.canPropose) {
+      nextActionTitle = 'Open your application proposal';
+      nextActionBody =
+        'This wallet already has enough delegated SOCIAL to open the proposal in the DAO.';
+      nextActionLabel = 'Open proposal';
+      nextActionNote = `${delegatedWeight} delegated SOCIAL is ready on this wallet.`;
+      nextActionHandler = onSubmitProposal;
+      nextActionDisabled = acting || !onSubmitProposal;
+    } else if (!eligibility.isRegistered) {
+      nextActionTitle = 'Connect this wallet to governance';
+      nextActionBody =
+        'Register this wallet once so it can hold and delegate the SOCIAL needed to continue.';
+      nextActionLabel = 'Register wallet';
+      nextActionNote = `Storage deposit: ${eligibility.storageDeposit} yoctoNEAR.`;
+      nextActionHandler = onRegister;
+      nextActionDisabled = acting || !onRegister;
+    } else if (eligibility.depositNeeded !== '0') {
+      nextActionTitle = 'Add the SOCIAL needed to continue';
+      nextActionBody =
+        'Deposit only the missing SOCIAL needed before this wallet can open the proposal.';
+      nextActionLabel = canCoverDeposit
+        ? `Deposit ${depositNeeded} SOCIAL`
+        : `Need ${depositNeeded} SOCIAL`;
+      nextActionNote = canCoverDeposit
+        ? `${walletBalance} SOCIAL is available in this wallet.`
+        : `This wallet still needs ${depositNeeded} SOCIAL before it can continue.`;
+      nextActionHandler = onDeposit;
+      nextActionDisabled = acting || !canCoverDeposit || !onDeposit;
+    } else if (eligibility.delegateNeeded !== '0') {
+      nextActionTitle = 'Delegate the required SOCIAL to this wallet';
+      nextActionBody =
+        'Assign the staked SOCIAL back to this wallet so it counts toward opening the proposal.';
+      nextActionLabel = `Delegate ${delegateNeeded} SOCIAL`;
+      nextActionNote = `${availableToDelegate} SOCIAL is ready to delegate from governance staking.`;
+      nextActionHandler = onDelegate;
+      nextActionDisabled = acting || !onDelegate;
+    } else {
+      nextActionTitle = 'Refresh governance status';
+      nextActionBody =
+        'This wallet looks almost ready. Refresh once to confirm the latest delegated balance before opening the proposal.';
+      nextActionLabel = 'Refresh';
+      nextActionNote = `${remainingWeight} SOCIAL still shows as missing on the latest check.`;
+      nextActionHandler = onRefresh;
+      nextActionDisabled = acting || !onRefresh;
+    }
+  }
+
+  return (
+    <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-8 md:px-8 md:py-10">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Proposal Setup
+          </p>
+          <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em]">
+            Final step for {label}
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            App <span className="portal-blue-text font-mono">{appId}</span>{' '}
+            already has a draft. This wallet needs at least {requiredWeight}{' '}
+            delegated SOCIAL before it can open the proposal.
+          </p>
+        </div>
+        {onRefresh && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRefresh}
+            disabled={acting}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        )}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            Required
+          </p>
+          <p className="mt-2 text-2xl font-semibold">{requiredWeight}</p>
+          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+        </div>
+        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            Delegated To You
+          </p>
+          <p className="mt-2 text-2xl font-semibold">{delegatedWeight}</p>
+          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+        </div>
+        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            Ready To Delegate
+          </p>
+          <p className="mt-2 text-2xl font-semibold">{availableToDelegate}</p>
+          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+        </div>
+        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+            Wallet Balance
+          </p>
+          <p className="mt-2 text-2xl font-semibold">{walletBalance}</p>
+          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+        </div>
+      </div>
+
+      {!eligibility && (
+        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+          <PulsingDots size="sm" /> Checking governance status…
+        </div>
+      )}
+
+      {eligibility && (
+        <div className="mt-6 space-y-4">
+          <div className="rounded-[1.25rem] border border-border/50 bg-background/45 p-5 md:p-6">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              Current Action
+            </p>
+            <h4 className="mt-2 text-lg font-semibold tracking-[-0.02em]">
+              {nextActionTitle}
+            </h4>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              {nextActionBody}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                onClick={nextActionHandler}
+                disabled={nextActionDisabled}
+                size="lg"
+              >
+                {nextActionLabel}
+              </Button>
+              {nextActionNote && (
+                <p className="text-xs text-muted-foreground">
+                  {nextActionNote}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                Required
+              </p>
+              <p className="mt-2 text-2xl font-semibold">{requiredWeight}</p>
+              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+            </div>
+            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                Delegated Here
+              </p>
+              <p className="mt-2 text-2xl font-semibold">{delegatedWeight}</p>
+              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+            </div>
+            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                Ready To Delegate
+              </p>
+              <p className="mt-2 text-2xl font-semibold">
+                {availableToDelegate}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+            </div>
+            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                Wallet Balance
+              </p>
+              <p className="mt-2 text-2xl font-semibold">{walletBalance}</p>
+              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
+            </div>
+          </div>
+
+          <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Need a closer look?</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Remaining to unlock this proposal: {remainingWeight} SOCIAL.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <a
+                  href={`${ACTIVE_NEAR_EXPLORER_URL}/accounts/${eligibility.daoAccountId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="portal-action-link inline-flex items-center gap-1.5"
+                >
+                  View DAO
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                {eligibility.stakingContractId && (
+                  <a
+                    href={`${ACTIVE_NEAR_EXPLORER_URL}/accounts/${eligibility.stakingContractId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="portal-action-link inline-flex items-center gap-1.5"
+                  >
+                    View governance staking
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionLabel && (
+        <p className="mt-4 text-sm text-muted-foreground">{actionLabel}</p>
+      )}
+
+      {actionError && (
+        <p className="portal-red-text mt-4 text-sm">{actionError}</p>
+      )}
+    </div>
+  );
+}
+
+export function RejectedState({
+  appId,
+  label,
+}: {
+  appId: string;
+  label: string;
+}) {
   return (
     <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-12 text-center">
       <div className="mb-4 flex justify-center">
         <span className="portal-red-badge rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]">
-          Review Complete
+          Review Update
         </span>
       </div>
       <XCircle className="portal-red-icon w-16 h-16 mx-auto mb-4" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
-        Application Not Approved
+        Not approved this round
       </h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
-        Your application for{' '}
+        The application for{' '}
         <span className="font-semibold text-foreground">{label}</span> (
         <span className="portal-blue-text font-mono">{appId}</span>) was not
         approved at this time.
@@ -147,12 +544,15 @@ export function ApprovedDashboard({
     <div className="space-y-8">
       <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
         <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border" style={portalFrameStyle('green')}>
+          <div
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border"
+            style={portalFrameStyle('green')}
+          >
             <Key className="portal-green-icon w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold tracking-[-0.02em]">Your OnApi Key</h3>
+              <h3 className="font-semibold tracking-[-0.02em]">OnApi key</h3>
               <button
                 onClick={() => setShowRotateConfirm(true)}
                 className="portal-purple-surface inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
@@ -164,9 +564,12 @@ export function ApprovedDashboard({
             </div>
             <p className="text-xs text-muted-foreground mb-3">
               App:{' '}
-              <span className="font-mono text-foreground">{registration.appId}</span>
+              <span className="font-mono text-foreground">
+                {registration.appId}
+              </span>
               {' · '}
-              Label: <span className="text-foreground">{registration.label}</span>
+              Label:{' '}
+              <span className="text-foreground">{registration.label}</span>
             </p>
             <div className="relative">
               <code className="portal-green-text block break-all rounded-[1rem] border border-border/50 bg-background/50 px-4 py-3 pr-20 font-mono text-sm select-none">
@@ -190,7 +593,7 @@ export function ApprovedDashboard({
               </div>
             </div>
             <p className="portal-amber-text text-xs mt-2">
-              ⚠️ Store this securely — treat it like a password.
+              Keep this private and store it somewhere safe.
             </p>
 
             {showRotateConfirm && (
@@ -198,15 +601,20 @@ export function ApprovedDashboard({
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="portal-amber-icon w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium mb-1">Rotate API Key?</p>
+                    <p className="text-sm font-medium mb-1">Rotate key?</p>
                     <p className="text-xs text-muted-foreground mb-3">
-                      This will invalidate your current key immediately. Update
-                      your bot&apos;s
-                      <code className="portal-blue-text"> ONSOCIAL_API_KEY</code>{' '}
-                      env var with the new key.
+                      The current key stops working immediately. Update the
+                      bot&apos;s
+                      <code className="portal-blue-text">
+                        {' '}
+                        ONSOCIAL_API_KEY
+                      </code>{' '}
+                      env var with the new value.
                     </p>
                     {rotateError && (
-                      <p className="portal-red-text text-xs mb-3">{rotateError}</p>
+                      <p className="portal-red-text text-xs mb-3">
+                        {rotateError}
+                      </p>
                     )}
                     <div className="flex gap-2">
                       <Button
@@ -221,7 +629,7 @@ export function ApprovedDashboard({
                             Rotating…
                           </>
                         ) : (
-                          'Yes, rotate key'
+                          'Rotate key'
                         )}
                       </Button>
                       <Button
@@ -248,7 +656,7 @@ export function ApprovedDashboard({
       <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           <Sparkles className="portal-purple-icon h-4 w-4" />
-          <span>Your App Rules · On-Chain</span>
+          <span>App Rules · On-Chain</span>
         </h3>
         {configLoading && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -258,7 +666,7 @@ export function ApprovedDashboard({
         {!configLoading && !onChainConfig && (
           <p className="portal-amber-text text-xs">
             <AlertTriangle className="portal-amber-icon w-3 h-3 inline mr-1" />
-            App not yet registered on-chain. Contact the OnSocial team.
+            App rules are not visible on-chain yet. Contact the OnSocial team.
           </p>
         )}
         {!configLoading && onChainConfig && (
@@ -268,15 +676,13 @@ export function ApprovedDashboard({
 
       <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
         <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Integration Guide
+          Setup Guide
         </h3>
         <div className="mb-4 flex max-w-xs gap-1 rounded-full border border-border/50 bg-muted/20 p-1">
           <button
             onClick={() => setTab('bot')}
             className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-              tab === 'bot'
-                ? 'portal-blue-surface'
-                : 'portal-neutral-control'
+              tab === 'bot' ? 'portal-blue-surface' : 'portal-neutral-control'
             }`}
           >
             <Terminal className="w-4 h-4 inline mr-1.5" />
@@ -285,9 +691,7 @@ export function ApprovedDashboard({
           <button
             onClick={() => setTab('sdk')}
             className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-              tab === 'sdk'
-                ? 'portal-blue-surface'
-                : 'portal-neutral-control'
+              tab === 'sdk' ? 'portal-blue-surface' : 'portal-neutral-control'
             }`}
           >
             <Code2 className="w-4 h-4 inline mr-1.5" />
@@ -311,7 +715,7 @@ export function ApprovedDashboard({
               <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">
                 2
               </span>
-              Create .env
+              Add .env
             </div>
             <DownloadButton
               filename=".env"
@@ -327,7 +731,7 @@ export function ApprovedDashboard({
           />
           {tab === 'bot' && (
             <p className="text-xs text-muted-foreground">
-              Get your <code className="portal-blue-text">BOT_TOKEN</code> from{' '}
+              A <code className="portal-blue-text">BOT_TOKEN</code> comes from{' '}
               <a
                 href="https://t.me/BotFather"
                 target="_blank"
@@ -372,9 +776,11 @@ export function ApprovedDashboard({
           <div className="mt-6 border-t border-border/30 pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-medium mb-1">Download full project</h4>
+                <h4 className="text-sm font-medium mb-1">
+                  Download starter project
+                </h4>
                 <p className="text-xs text-muted-foreground">
-                  Get package.json + .env + bot.ts — ready to{' '}
+                  package.json + .env + bot.ts, ready for{' '}
                   <code className="portal-blue-text">
                     npm install &amp;&amp; npm start
                   </code>
@@ -386,10 +792,18 @@ export function ApprovedDashboard({
                   content={packageJsonSnippet()}
                   label="package.json"
                 />
-                <DownloadButton filename="bot.ts" content={botSnippet()} label="bot.ts" />
+                <DownloadButton
+                  filename="bot.ts"
+                  content={botSnippet()}
+                  label="bot.ts"
+                />
                 <DownloadButton
                   filename=".env"
-                  content={envSnippet(registration.appId, registration.apiKey, 'bot')}
+                  content={envSnippet(
+                    registration.appId,
+                    registration.apiKey,
+                    'bot'
+                  )}
                   label=".env"
                 />
               </div>
@@ -404,7 +818,7 @@ export function ApprovedDashboard({
             Deploy
           </h3>
           <p className="mb-3 text-sm text-muted-foreground">
-            Your bot needs a persistent process. Example:
+            A persistent process is needed for a Telegram bot. One example:
           </p>
           <a
             href="https://fly.io"
@@ -412,13 +826,16 @@ export function ApprovedDashboard({
             rel="noopener noreferrer"
             className="flex items-center gap-4 rounded-[1.25rem] border border-border/50 bg-background/30 p-4 transition-colors hover:border-border"
           >
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border" style={portalFrameStyle('purple')}>
+            <div
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border"
+              style={portalFrameStyle('purple')}
+            >
               <Cloud className="portal-purple-icon w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm">Fly.io</h4>
               <p className="text-xs text-muted-foreground">
-                Push to GitHub → always-on deploy. Free tier available.
+                Push to GitHub for an always-on deploy. Free tier available.
               </p>
             </div>
             <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -468,7 +885,8 @@ export function ApprovedDashboard({
               <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
                 <p>🤝 OnSocial stands with {registration.label}</p>
                 <p className="mt-2">
-                  ⭐ Rewards for <span className="portal-green-text">alice.near</span>
+                  ⭐ Rewards for{' '}
+                  <span className="portal-green-text">alice.near</span>
                 </p>
                 <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
                 <p className="portal-green-text text-xs">(ready to claim!)</p>

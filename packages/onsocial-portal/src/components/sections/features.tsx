@@ -89,7 +89,10 @@ export function Features() {
               >
                 <div className="border border-border/50 rounded-2xl p-8 hover:border-border transition-colors bg-muted/30 h-full">
                   <div className="flex items-start justify-between mb-5">
-                    <Icon className="w-10 h-10" style={{ color: portalColors[tool.accent] }} />
+                    <Icon
+                      className="w-10 h-10"
+                      style={{ color: portalColors[tool.accent] }}
+                    />
                     <span className="portal-green-badge text-xs px-2.5 py-1 rounded-full border font-medium">
                       {tool.status}
                     </span>

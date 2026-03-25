@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+} from 'react';
 import { motion, useInView, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
@@ -34,7 +40,7 @@ import {
   type StakingStats,
   type StakingRewardRate,
 } from '@/lib/near-rpc';
-import { portalColors, type PortalAccent } from '@/lib/portal-colors';
+import { portalColors } from '@/lib/portal-colors';
 import { cn } from '@/lib/utils';
 
 // ─── Lock Periods (matches VALID_LOCK_PERIODS in contract) ──
@@ -87,7 +93,10 @@ const MIN_STAKE_AMOUNT = '0.01';
 // ─── Helpers ─────────────────────────────────────────────────
 
 function normalizeStakeAmountInput(raw: string): string {
-  let value = raw.replace(/,/g, '.').replace(/\s+/g, '').replace(/[^\d.]/g, '');
+  let value = raw
+    .replace(/,/g, '.')
+    .replace(/\s+/g, '')
+    .replace(/[^\d.]/g, '');
   if (!value) return '';
 
   const firstDotIndex = value.indexOf('.');
@@ -197,7 +206,9 @@ function formatTimeRemaining(nsTimestamp: number): string {
 
 /** Display yocto-SOCIAL as a clean human number. */
 function formatSocial(yocto: string | bigint, maxDec = 4): string {
-  const raw = yoctoToSocial(typeof yocto === 'bigint' ? yocto.toString() : yocto);
+  const raw = yoctoToSocial(
+    typeof yocto === 'bigint' ? yocto.toString() : yocto
+  );
   return formatDecimalString(raw, maxDec);
 }
 
@@ -251,20 +262,24 @@ export default function StakingPage() {
   const hasStake = account && BigInt(account.locked_amount) > 0n;
   const lockedAmountYocto = hasStake ? BigInt(account.locked_amount) : 0n;
   const newTotalLockedYocto = lockedAmountYocto + stakeAmountYocto;
-  const newEffectiveStakeYocto = applyLockBonus(newTotalLockedYocto, period.bonus);
-  const isBelowMinimumStake = enteredStakeAmount && stakeAmountYocto < minimumStakeYocto;
+  const newEffectiveStakeYocto = applyLockBonus(
+    newTotalLockedYocto,
+    period.bonus
+  );
+  const isBelowMinimumStake =
+    enteredStakeAmount && stakeAmountYocto < minimumStakeYocto;
   const lockExpired =
     hasStake &&
     (lockStatus?.lock_expired ??
       (account.unlock_at > 0 && Date.now() * 1_000_000 >= account.unlock_at));
   const canUnlock = hasStake && (lockStatus?.can_unlock ?? lockExpired);
   const currentPeriodIdx = hasStake ? periodIndex(account.lock_months) : -1;
-  const currentPeriod = currentPeriodIdx >= 0 ? LOCK_PERIODS[currentPeriodIdx] : null;
   const canAddStake = !hasStake || currentPeriodIdx >= 0;
   const showPositionPanel = isConnected && (dataLoading || hasStake);
   const balanceYocto = BigInt(tokenBalance);
   const balanceDisplay = formatSocial(balanceYocto);
-  const hasInsufficientBalance = enteredStakeAmount && stakeAmountYocto > balanceYocto;
+  const hasInsufficientBalance =
+    enteredStakeAmount && stakeAmountYocto > balanceYocto;
   const hasZeroBalance = balanceYocto === 0n;
   const isStakeInputMissing = !enteredStakeAmount;
   const isStakeActionDisabled =
@@ -285,15 +300,6 @@ export default function StakingPage() {
           : hasStake
             ? `Add & Re-lock for ${period.label}`
             : `Lock for ${period.label}`;
-  const accountBonusPct =
-    hasStake && BigInt(account.locked_amount) > 0n
-      ? Number(
-          (BigInt(account.effective_stake) * 10000n) /
-            BigInt(account.locked_amount)
-        ) /
-          100 -
-        100
-      : 0;
 
   useLayoutEffect(() => {
     if (accountId) return;
@@ -465,27 +471,33 @@ export default function StakingPage() {
       return;
     }
 
-    runTx(`Locked ${normalizedStakeAmount} SOCIAL for ${period.label}`, async () => {
-      await wallet.signAndSendTransaction({
-        receiverId: TOKEN_CONTRACT,
-        actions: [
-          {
-            type: 'FunctionCall',
-            params: {
-              methodName: 'ft_transfer_call',
-              args: {
-                receiver_id: STAKING_CONTRACT,
-                amount: yocto,
-                msg: JSON.stringify({ action: 'lock', months: period.months }),
+    runTx(
+      `Locked ${normalizedStakeAmount} SOCIAL for ${period.label}`,
+      async () => {
+        await wallet.signAndSendTransaction({
+          receiverId: TOKEN_CONTRACT,
+          actions: [
+            {
+              type: 'FunctionCall',
+              params: {
+                methodName: 'ft_transfer_call',
+                args: {
+                  receiver_id: STAKING_CONTRACT,
+                  amount: yocto,
+                  msg: JSON.stringify({
+                    action: 'lock',
+                    months: period.months,
+                  }),
+                },
+                gas: '80000000000000',
+                deposit: '1',
               },
-              gas: '80000000000000',
-              deposit: '1',
             },
-          },
-        ],
-      });
-      setStakeAmount('');
-    });
+          ],
+        });
+        setStakeAmount('');
+      }
+    );
   };
 
   const handleClaim = () => {
@@ -674,171 +686,184 @@ export default function StakingPage() {
                 transition={{ duration: 0.28 }}
                 className="h-full rounded-[1.5rem] border border-border/50 bg-background/40 p-4 md:p-5"
               >
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Your Position
-              </h2>
-              {canUnlock ? (
-                <span className="portal-amber-badge rounded-full border px-3 py-1 text-xs font-medium">
-                  Lock Expired
-                </span>
-              ) : (
-                <span className="portal-slate-surface inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-all">
-                  <Timer className="h-3 w-3" />
-                  {formatTimeRemaining(account.unlock_at)}
-                </span>
-              )}
-            </div>
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                    Your Position
+                  </h2>
+                  {canUnlock ? (
+                    <span className="portal-amber-badge rounded-full border px-3 py-1 text-xs font-medium">
+                      Lock Expired
+                    </span>
+                  ) : (
+                    <span className="portal-slate-surface inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-all">
+                      <Timer className="h-3 w-3" />
+                      {formatTimeRemaining(account.unlock_at)}
+                    </span>
+                  )}
+                </div>
 
-            <div className="relative rounded-[1.25rem] bg-background/50 px-4 py-4 md:px-5">
-              <div className="pr-24 md:pr-28">
-                <div className="min-w-0">
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Gift className="h-3 w-3" /> Claimable Rewards
-                  </span>
-                  <div className="mt-1">
-                    <p className="portal-green-text truncate font-mono text-2xl font-bold tracking-[-0.03em] md:text-3xl">
-                      {liveClaimable.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 6,
-                      })}{' '}
-                      <span className="portal-green-text text-sm font-medium tracking-normal opacity-80 md:text-base">
-                        $SOCIAL
+                <div className="relative rounded-[1.25rem] bg-background/50 px-4 py-4 md:px-5">
+                  <div className="pr-24 md:pr-28">
+                    <div className="min-w-0">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Gift className="h-3 w-3" /> Claimable Rewards
                       </span>
-                    </p>
-                    {perSecond > 0 && (
-                      <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                        +{perSecond.toFixed(8)}/sec
+                      <div className="mt-1">
+                        <p className="portal-green-text truncate font-mono text-2xl font-bold tracking-[-0.03em] md:text-3xl">
+                          {liveClaimable.toLocaleString('en-US', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 6,
+                          })}{' '}
+                          <span className="portal-green-text text-sm font-medium tracking-normal opacity-80 md:text-base">
+                            $SOCIAL
+                          </span>
+                        </p>
+                        {perSecond > 0 && (
+                          <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                            +{perSecond.toFixed(8)}/sec
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleClaim}
+                    disabled={txPending || liveClaimable <= 0}
+                    variant="accent"
+                    size="sm"
+                    className="absolute right-4 top-4 min-w-[7.5rem] justify-center md:right-5"
+                  >
+                    {txPending ? <PulsingDots size="sm" /> : 'Claim'}
+                  </Button>
+                </div>
+
+                <div className="mt-4 border-y border-border/40">
+                  <div className="grid grid-cols-3 text-center">
+                    <div className="relative px-2 py-3">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        Locked
+                      </span>
+                      <p className="portal-slate-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base">
+                        {formatSocial(account.locked_amount)}
                       </p>
-                    )}
+                      <span className="absolute bottom-3 right-0 top-3 w-px bg-border/40" />
+                    </div>
+                    <div className="relative px-2 py-3">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        Effective
+                      </span>
+                      <p className="portal-green-text mt-1 font-mono text-base font-bold tracking-tight md:text-lg">
+                        {formatSocial(account.effective_stake)}
+                      </p>
+                      <span className="absolute bottom-3 right-0 top-3 w-px bg-border/40" />
+                    </div>
+                    <div className="px-2 py-3">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        Lock
+                      </span>
+                      <p className="portal-slate-text mt-1 text-sm font-semibold md:text-base">
+                        {account.lock_months}{' '}
+                        {account.lock_months === 1 ? 'month' : 'months'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <Button
-                onClick={handleClaim}
-                disabled={txPending || liveClaimable <= 0}
-                variant="accent"
-                size="sm"
-                className="absolute right-4 top-4 min-w-[7.5rem] justify-center md:right-5"
-              >
-                {txPending ? <PulsingDots size="sm" /> : 'Claim'}
-              </Button>
-            </div>
 
-            <div className="mt-4 border-y border-border/40">
-              <div className="grid grid-cols-3 text-center">
-                <div className="relative px-2 py-3">
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Locked
+                <div className="mt-3 grid gap-1 text-[11px] text-muted-foreground md:grid-cols-2 md:gap-4">
+                  <span>
+                    Pool share:{' '}
+                    {userSharePct > 0 ? `${userSharePct.toFixed(2)}%` : '—'}
                   </span>
-                  <p className="portal-slate-text mt-1 font-mono text-sm font-semibold tracking-tight md:text-base">
-                    {formatSocial(account.locked_amount)}
-                  </p>
-                  <span className="absolute bottom-3 right-0 top-3 w-px bg-border/40" />
+                  {account.rewards_claimed !== '0' && (
+                    <span className="md:text-right">
+                      Previously claimed:{' '}
+                      {formatSocial(account.rewards_claimed)}
+                    </span>
+                  )}
                 </div>
-                <div className="relative px-2 py-3">
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Effective
-                  </span>
-                  <p className="portal-green-text mt-1 font-mono text-base font-bold tracking-tight md:text-lg">
-                    {formatSocial(account.effective_stake)}
-                  </p>
-                  <span className="absolute bottom-3 right-0 top-3 w-px bg-border/40" />
-                </div>
-                <div className="px-2 py-3">
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Lock
-                  </span>
-                  <p className="portal-slate-text mt-1 text-sm font-semibold md:text-base">
-                    {account.lock_months}{' '}
-                    {account.lock_months === 1 ? 'month' : 'months'}
-                  </p>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-3 grid gap-1 text-[11px] text-muted-foreground md:grid-cols-2 md:gap-4">
-              <span>
-                Pool share: {userSharePct > 0 ? `${userSharePct.toFixed(2)}%` : '—'}
-              </span>
-              {account.rewards_claimed !== '0' && (
-                <span className="md:text-right">
-                  Previously claimed: {formatSocial(account.rewards_claimed)}
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 border-t border-border/40 pt-4">
-              <div className="flex flex-wrap gap-2">
-                {canUnlock ? (
-                  <Button onClick={handleUnlock} disabled={txPending} className="gap-1.5">
-                    <Unlock className="h-4 w-4" />
-                    {txPending ? <PulsingDots size="sm" /> : 'Unlock & Withdraw'}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={handleRenew}
-                      disabled={txPending}
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Renew Lock
-                    </Button>
-                    {extendOptions.length > 0 && (
+                <div className="mt-4 border-t border-border/40 pt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {canUnlock ? (
                       <Button
-                        onClick={() => setShowExtend(!showExtend)}
+                        onClick={handleUnlock}
                         disabled={txPending}
-                        variant="outline"
-                        size="sm"
                         className="gap-1.5"
                       >
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                        Extend Lock
-                        <ChevronDown
-                          className={`h-3 w-3 transition-transform ${showExtend ? 'rotate-180' : ''}`}
-                        />
+                        <Unlock className="h-4 w-4" />
+                        {txPending ? (
+                          <PulsingDots size="sm" />
+                        ) : (
+                          'Unlock & Withdraw'
+                        )}
                       </Button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <AnimatePresence>
-                {showExtend && extendOptions.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="mt-4 border-t border-border/40 pt-4">
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        Extend to a longer period (resets lock timer):
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {extendOptions.map((lp) => (
+                    ) : (
+                      <>
+                        <Button
+                          onClick={handleRenew}
+                          disabled={txPending}
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Renew Lock
+                        </Button>
+                        {extendOptions.length > 0 && (
                           <Button
-                            key={lp.months}
-                            onClick={() => handleExtend(lp.months)}
+                            onClick={() => setShowExtend(!showExtend)}
                             disabled={txPending}
                             variant="outline"
                             size="sm"
+                            className="gap-1.5"
                           >
-                            {lp.label}{' '}
-                            <span className="ml-1 font-mono" style={{ color: lp.color }}>
-                              +{lp.bonus}%
-                            </span>
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                            Extend Lock
+                            <ChevronDown
+                              className={`h-3 w-3 transition-transform ${showExtend ? 'rotate-180' : ''}`}
+                            />
                           </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <AnimatePresence>
+                    {showExtend && extendOptions.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-4 border-t border-border/40 pt-4">
+                          <p className="mb-3 text-xs text-muted-foreground">
+                            Extend to a longer period (resets lock timer):
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {extendOptions.map((lp) => (
+                              <Button
+                                key={lp.months}
+                                onClick={() => handleExtend(lp.months)}
+                                disabled={txPending}
+                                variant="outline"
+                                size="sm"
+                              >
+                                {lp.label}{' '}
+                                <span
+                                  className="ml-1 font-mono"
+                                  style={{ color: lp.color }}
+                                >
+                                  +{lp.bonus}%
+                                </span>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </motion.div>
             ) : null}
           </AnimatePresence>
@@ -881,9 +906,16 @@ export default function StakingPage() {
                     </span>
                   )}
                   <div>
-                    <div className="mb-1 text-sm font-semibold sm:hidden">{lp.short}</div>
-                    <div className="mb-1 hidden text-sm font-semibold sm:block">{lp.label}</div>
-                    <div className="text-lg font-bold" style={{ color: disabled ? undefined : lp.color }}>
+                    <div className="mb-1 text-sm font-semibold sm:hidden">
+                      {lp.short}
+                    </div>
+                    <div className="mb-1 hidden text-sm font-semibold sm:block">
+                      {lp.label}
+                    </div>
+                    <div
+                      className="text-lg font-bold"
+                      style={{ color: disabled ? undefined : lp.color }}
+                    >
                       +{lp.bonus}%
                     </div>
                   </div>
@@ -893,30 +925,35 @@ export default function StakingPage() {
           </div>
           {hasStake && currentPeriodIdx < 0 && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Your active lock period ({account.lock_months}mo) is not in the preset list.
-              Adding stake is blocked on-chain until your period is migrated to a supported value.
-              Use <strong>Extend Lock</strong> if available, or unlock when eligible.
+              Your active lock period ({account.lock_months}mo) is not in the
+              preset list. Adding stake is blocked on-chain until your period is
+              migrated to a supported value. Use <strong>Extend Lock</strong> if
+              available, or unlock when eligible.
             </p>
           )}
         </div>
 
         <div className="mt-6 border-t border-border/50 pt-6">
           <div className="mb-4 flex items-center justify-between">
-            <label htmlFor="stake-amount" className="text-sm text-muted-foreground">
+            <label
+              htmlFor="stake-amount"
+              className="text-sm text-muted-foreground"
+            >
               Amount
             </label>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               {isConnected && (
                 <>
                   <span>
-                    Balance:{' '}
-                    <span className="font-mono">{balanceDisplay}</span>
+                    Balance: <span className="font-mono">{balanceDisplay}</span>
                   </span>
                   {balanceYocto > 0n && (
                     <button
                       className="portal-action-link"
                       onClick={() =>
-                        setStakeAmount(finalizeStakeAmountInput(yoctoToSocial(tokenBalance)))
+                        setStakeAmount(
+                          finalizeStakeAmountInput(yoctoToSocial(tokenBalance))
+                        )
                       }
                     >
                       Max
@@ -975,7 +1012,9 @@ export default function StakingPage() {
             {hasStake && enteredStakeAmount && (
               <>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Current Locked</span>
+                  <span className="text-sm text-muted-foreground">
+                    Current Locked
+                  </span>
                   <span className="ml-2 truncate font-mono text-base font-semibold">
                     {formatSocial(account.locked_amount)}
                   </span>
@@ -991,7 +1030,9 @@ export default function StakingPage() {
             )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                {hasStake && enteredStakeAmount ? 'New Total Locked' : 'Locked Amount'}
+                {hasStake && enteredStakeAmount
+                  ? 'New Total Locked'
+                  : 'Locked Amount'}
               </span>
               <span className="ml-2 truncate text-base font-semibold text-foreground/85">
                 {enteredStakeAmount
@@ -1002,14 +1043,21 @@ export default function StakingPage() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Lock Bonus ({period.label})</span>
-              <span className="text-base font-semibold" style={{ color: period.color }}>
+              <span className="text-sm text-muted-foreground">
+                Lock Bonus ({period.label})
+              </span>
+              <span
+                className="text-base font-semibold"
+                style={{ color: period.color }}
+              >
                 +{period.bonus}%
               </span>
             </div>
             <div className="h-px bg-border/50" />
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground">Effective Stake</span>
+              <span className="font-semibold text-foreground">
+                Effective Stake
+              </span>
               <span className="ml-2 truncate text-xl font-bold tracking-[-0.02em] text-foreground md:text-2xl">
                 {enteredStakeAmount
                   ? hasStake
@@ -1032,7 +1080,9 @@ export default function StakingPage() {
                   day: 'numeric',
                 });
               })()}{' '}
-              <span className="text-muted-foreground/60">(~{period.months * 30}d on-chain)</span>
+              <span className="text-muted-foreground/60">
+                (~{period.months * 30}d on-chain)
+              </span>
             </span>
           </div>
         </div>
@@ -1064,13 +1114,14 @@ export default function StakingPage() {
           <div>
             {hasStake ? (
               <>
-                Additional stake keeps the same period and restarts your {period.label} timer from
-                today. Rewards stay claimable during the lock.
+                Additional stake keeps the same period and restarts your{' '}
+                {period.label} timer from today. Rewards stay claimable during
+                the lock.
               </>
             ) : (
               <>
-                Tokens stay locked for the full period. You can extend later, but not shorten it.
-                Rewards stay claimable during the lock.
+                Tokens stay locked for the full period. You can extend later,
+                but not shorten it. Rewards stay claimable during the lock.
               </>
             )}
           </div>
@@ -1141,8 +1192,8 @@ export default function StakingPage() {
                   <Zap className="portal-green-icon mb-3 h-4 w-4" />
                   <h3 className="mb-1 text-sm font-semibold">Compound Decay</h3>
                   <p className="text-xs text-muted-foreground">
-                    0.2% of the scheduled pool releases weekly. Your share = your stake-seconds ÷ total.
-                    Rewards never run out abruptly.
+                    0.2% of the scheduled pool releases weekly. Your share =
+                    your stake-seconds ÷ total. Rewards never run out abruptly.
                   </p>
                   <span className="absolute bottom-5 right-0 top-5 hidden w-px bg-border/40 md:block" />
                 </div>
@@ -1150,16 +1201,23 @@ export default function StakingPage() {
                   <TrendingUp className="portal-purple-icon mb-3 h-4 w-4" />
                   <h3 className="mb-1 text-sm font-semibold">Growing Pool</h3>
                   <p className="text-xs text-muted-foreground">
-                    40% of every API credit purchase flows into the reward pool — more usage, more rewards.
+                    40% of every API credit purchase flows into the reward pool
+                    — more usage, more rewards.
                   </p>
                   <span className="absolute bottom-5 right-0 top-5 hidden w-px bg-border/40 md:block" />
                 </div>
                 <div className="px-0 py-5 md:pl-6">
                   <Shield className="portal-blue-icon mb-3 h-4 w-4" />
-                  <h3 className="mb-1 text-sm font-semibold">On-Chain & Trustless</h3>
+                  <h3 className="mb-1 text-sm font-semibold">
+                    On-Chain & Trustless
+                  </h3>
                   <p className="text-xs text-muted-foreground">
-                    All logic runs on <span className="font-mono text-foreground/70">{STAKING_CONTRACT}</span>.
-                    Auto-registered on first stake — no separate storage deposit.
+                    All logic runs on{' '}
+                    <span className="font-mono text-foreground/70">
+                      {STAKING_CONTRACT}
+                    </span>
+                    . Auto-registered on first stake — no separate storage
+                    deposit.
                   </p>
                 </div>
               </div>

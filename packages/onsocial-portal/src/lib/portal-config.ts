@@ -1,6 +1,6 @@
 export type PortalNearNetwork = 'testnet' | 'mainnet';
 
-const DEFAULT_ADMIN_WALLETS =
+const DEFAULT_GOVERNANCE_WALLETS =
   'onsocial.near,onsocial.testnet,greenghost.near,test01greenghost.testnet';
 
 function parseWalletList(value: string): string[] {
@@ -60,9 +60,19 @@ export const ACTIVE_API_URL =
 export const ACTIVE_BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? 'https://api.onsocial.id';
 
-export const ADMIN_WALLETS = parseWalletList(
-  process.env.NEXT_PUBLIC_ADMIN_WALLETS ?? DEFAULT_ADMIN_WALLETS
+export const GOVERNANCE_WALLETS = parseWalletList(
+  process.env.NEXT_PUBLIC_GOVERNANCE_WALLETS ?? DEFAULT_GOVERNANCE_WALLETS
 );
+
+export const GOVERNANCE_DAO_ACCOUNT =
+  process.env.NEXT_PUBLIC_GOVERNANCE_DAO_ACCOUNT ??
+  (ACTIVE_NEAR_NETWORK === 'mainnet'
+    ? 'governance.onsocial.near'
+    : 'governance.onsocial.testnet');
+
+export const GOVERNANCE_PROPOSAL_BOND =
+  process.env.NEXT_PUBLIC_GOVERNANCE_PROPOSAL_BOND ??
+  '1000000000000000000000000';
 
 export const CONTRACT_OWNER_WALLET =
   ACTIVE_NEAR_NETWORK === 'mainnet' ? 'onsocial.near' : 'onsocial.testnet';
@@ -76,7 +86,9 @@ export const NEAR_ACCOUNT_SUFFIX =
   ACTIVE_NEAR_NETWORK === 'mainnet' ? 'onsocial.near' : 'onsocial.testnet';
 
 const apiEnvironment = classifyEnvironmentHost(getHostname(ACTIVE_API_URL));
-const backendEnvironment = classifyEnvironmentHost(getHostname(ACTIVE_BACKEND_URL));
+const backendEnvironment = classifyEnvironmentHost(
+  getHostname(ACTIVE_BACKEND_URL)
+);
 
 export const PORTAL_RUNTIME_WARNINGS = [
   apiEnvironment !== 'unknown' &&
@@ -98,11 +110,10 @@ export const PORTAL_RUNTIME_WARNINGS = [
     : null,
 ].filter((warning): warning is string => Boolean(warning));
 
-export function isAdminWallet(wallet: string | null | undefined): boolean {
-  return !!wallet && ADMIN_WALLETS.includes(wallet.toLowerCase());
+export function isGovernanceWallet(wallet: string | null | undefined): boolean {
+  return !!wallet && GOVERNANCE_WALLETS.includes(wallet.toLowerCase());
 }
 
 export function hasRuntimeConfigWarnings(): boolean {
   return PORTAL_RUNTIME_WARNINGS.length > 0;
 }
-

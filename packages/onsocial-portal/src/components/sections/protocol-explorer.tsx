@@ -113,28 +113,44 @@ type ExplorerItem = (typeof EXPLORER_ITEMS)[number];
 type ExplorerItemId = (typeof EXPLORER_ITEMS)[number]['id'];
 
 const SYSTEM_RAIL = [
-  { label: 'Gateway', description: 'Auth, compose, public reads', icon: Layers },
+  {
+    label: 'Gateway',
+    description: 'Auth, compose, public reads',
+    icon: Layers,
+  },
   { label: 'Relayer', description: 'Gas sponsorship and signing', icon: Zap },
-  { label: 'Contracts', description: 'Protocol state and rules', icon: Database },
+  {
+    label: 'Contracts',
+    description: 'Protocol state and rules',
+    icon: Database,
+  },
 ] as const;
 
 const EXPLORER_ACTIVE_SHADOWS: Record<PortalAccent, string> = {
   blue: '0 2px 4px -2px var(--portal-blue-shadow), 0 12px 24px -22px var(--portal-blue-shadow)',
-  green: '0 2px 4px -2px var(--portal-green-shadow), 0 12px 24px -22px var(--portal-green-shadow)',
-  purple: '0 2px 4px -2px var(--portal-purple-shadow), 0 12px 24px -22px var(--portal-purple-shadow)',
-  amber: '0 2px 4px -2px var(--portal-amber-shadow), 0 12px 24px -22px var(--portal-amber-shadow)',
+  green:
+    '0 2px 4px -2px var(--portal-green-shadow), 0 12px 24px -22px var(--portal-green-shadow)',
+  purple:
+    '0 2px 4px -2px var(--portal-purple-shadow), 0 12px 24px -22px var(--portal-purple-shadow)',
+  amber:
+    '0 2px 4px -2px var(--portal-amber-shadow), 0 12px 24px -22px var(--portal-amber-shadow)',
   pink: '0 2px 4px -2px rgb(236 72 153 / 0.18), 0 12px 24px -22px rgb(236 72 153 / 0.18)',
-  slate: '0 2px 4px -2px rgb(107 114 128 / 0.18), 0 12px 24px -22px rgb(107 114 128 / 0.18)',
+  slate:
+    '0 2px 4px -2px rgb(107 114 128 / 0.18), 0 12px 24px -22px rgb(107 114 128 / 0.18)',
   red: '0 2px 4px -2px rgb(248 113 113 / 0.18), 0 12px 24px -22px rgb(248 113 113 / 0.18)',
 };
 
 const EXPLORER_PANEL_WASHES: Record<PortalAccent, string> = {
   blue: 'radial-gradient(circle at 18% 16%, rgba(96,165,250,0.16), transparent 42%)',
-  green: 'radial-gradient(circle at 18% 16%, rgba(74,222,128,0.16), transparent 42%)',
-  purple: 'radial-gradient(circle at 18% 16%, rgba(192,132,252,0.16), transparent 42%)',
-  amber: 'radial-gradient(circle at 18% 16%, rgba(251,191,36,0.16), transparent 42%)',
+  green:
+    'radial-gradient(circle at 18% 16%, rgba(74,222,128,0.16), transparent 42%)',
+  purple:
+    'radial-gradient(circle at 18% 16%, rgba(192,132,252,0.16), transparent 42%)',
+  amber:
+    'radial-gradient(circle at 18% 16%, rgba(251,191,36,0.16), transparent 42%)',
   pink: 'radial-gradient(circle at 18% 16%, rgba(236,72,153,0.16), transparent 42%)',
-  slate: 'radial-gradient(circle at 18% 16%, rgba(148,163,184,0.16), transparent 42%)',
+  slate:
+    'radial-gradient(circle at 18% 16%, rgba(148,163,184,0.16), transparent 42%)',
   red: 'radial-gradient(circle at 18% 16%, rgba(248,113,113,0.16), transparent 42%)',
 };
 
@@ -148,7 +164,9 @@ function ExplorerDetails({
   const ActiveIcon = item.icon;
 
   return (
-    <div className={cn('grid', !mobile && 'xl:grid-cols-[minmax(0,1.2fr)_320px]')}>
+    <div
+      className={cn('grid', !mobile && 'xl:grid-cols-[minmax(0,1.2fr)_320px]')}
+    >
       <div
         className={cn(
           'border-border/50',
@@ -157,12 +175,22 @@ function ExplorerDetails({
             : 'border-b p-6 md:p-8 lg:p-10 xl:border-b-0 xl:border-r'
         )}
       >
-        <div className={cn('flex items-start justify-between gap-4', mobile ? 'mb-5' : 'mb-8')}>
+        <div
+          className={cn(
+            'flex items-start justify-between gap-4',
+            mobile ? 'mb-5' : 'mb-8'
+          )}
+        >
           <div>
             <p className="text-sm uppercase tracking-[0.24em] text-muted-foreground mb-2.5">
               {item.eyebrow}
             </p>
-            <h3 className={cn('font-bold tracking-[-0.04em] mb-3', mobile ? 'text-[1.625rem]' : 'text-3xl md:text-4xl')}>
+            <h3
+              className={cn(
+                'font-bold tracking-[-0.04em] mb-3',
+                mobile ? 'text-[1.625rem]' : 'text-3xl md:text-4xl'
+              )}
+            >
               {item.title}
             </h3>
             <p
@@ -190,7 +218,12 @@ function ExplorerDetails({
           </div>
         </div>
 
-        <div className={cn('grid', mobile ? 'gap-5' : 'gap-8 md:grid-cols-[1.2fr_0.8fr]')}>
+        <div
+          className={cn(
+            'grid',
+            mobile ? 'gap-5' : 'gap-8 md:grid-cols-[1.2fr_0.8fr]'
+          )}
+        >
           <div>
             <p className="text-sm font-semibold mb-4">What it gives you</p>
             <div className={cn(mobile ? 'space-y-2.5' : 'space-y-4')}>
@@ -203,7 +236,14 @@ function ExplorerDetails({
                   <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">
                     0{index + 1}
                   </p>
-                  <p className={cn('font-medium leading-relaxed', mobile ? 'text-[0.9375rem]' : '')}>{proofItem}</p>
+                  <p
+                    className={cn(
+                      'font-medium leading-relaxed',
+                      mobile ? 'text-[0.9375rem]' : ''
+                    )}
+                  >
+                    {proofItem}
+                  </p>
                 </div>
               ))}
             </div>
@@ -220,7 +260,9 @@ function ExplorerDetails({
                     <div
                       className={cn(
                         'flex items-center justify-center border',
-                        mobile ? 'h-8.5 w-8.5 rounded-xl' : 'h-10 w-10 rounded-2xl'
+                        mobile
+                          ? 'h-8.5 w-8.5 rounded-xl'
+                          : 'h-10 w-10 rounded-2xl'
                       )}
                       style={portalFrameStyle(item.accent)}
                     >
@@ -233,10 +275,14 @@ function ExplorerDetails({
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{rail.label}</p>
                         {index < SYSTEM_RAIL.length - 1 && (
-                          <span className="text-xs text-muted-foreground">{'->'}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {'->'}
+                          </span>
                         )}
                       </div>
-                      <p className="text-sm text-muted-foreground">{rail.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {rail.description}
+                      </p>
                     </div>
                   </div>
                 );
@@ -266,7 +312,12 @@ function ExplorerDetails({
                 <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">
                   {metric.label}
                 </p>
-                <p className={cn('font-semibold tracking-[-0.02em]', mobile ? 'text-base' : 'text-lg')}>
+                <p
+                  className={cn(
+                    'font-semibold tracking-[-0.02em]',
+                    mobile ? 'text-base' : 'text-lg'
+                  )}
+                >
                   {metric.value}
                 </p>
               </div>
@@ -275,7 +326,12 @@ function ExplorerDetails({
         </div>
 
         <div className={cn(mobile ? 'mt-6' : 'mt-8')}>
-          <Button asChild variant="accent" size="lg" className="w-full sm:w-auto">
+          <Button
+            asChild
+            variant="accent"
+            size="lg"
+            className="w-full sm:w-auto"
+          >
             <Link href={item.ctaHref}>
               {item.ctaLabel}
               <ArrowUpRight className="w-4 h-4 ml-2" />
@@ -288,7 +344,9 @@ function ExplorerDetails({
 }
 
 export function ProtocolExplorer() {
-  const [activeId, setActiveId] = useState<ExplorerItemId>(EXPLORER_ITEMS[0].id);
+  const [activeId, setActiveId] = useState<ExplorerItemId>(
+    EXPLORER_ITEMS[0].id
+  );
   const [mobileOpenId, setMobileOpenId] = useState<ExplorerItemId | null>(
     EXPLORER_ITEMS[0].id
   );
@@ -324,11 +382,6 @@ export function ProtocolExplorer() {
             const isHovered = item.id === hoveredId;
             const isPressed = item.id === pressedId;
             const isHighlighted = isActive || isHovered || isPressed;
-            const borderColor = isActive
-              ? `var(--portal-${item.accent}-border-strong)`
-              : isHovered || isPressed
-                ? `var(--portal-${item.accent}-border)`
-                : undefined;
 
             return (
               <motion.div
@@ -344,14 +397,30 @@ export function ProtocolExplorer() {
                   transition={{ duration: 0.35, delay: index * 0.06 }}
                   whileTap={{ scale: 0.992 }}
                   onMouseEnter={() => setHoveredId(item.id)}
-                  onMouseLeave={() => setHoveredId((current) => (current === item.id ? null : current))}
+                  onMouseLeave={() =>
+                    setHoveredId((current) =>
+                      current === item.id ? null : current
+                    )
+                  }
                   onPointerDown={() => setPressedId(item.id)}
-                  onPointerUp={() => setPressedId((current) => (current === item.id ? null : current))}
-                  onPointerCancel={() => setPressedId((current) => (current === item.id ? null : current))}
+                  onPointerUp={() =>
+                    setPressedId((current) =>
+                      current === item.id ? null : current
+                    )
+                  }
+                  onPointerCancel={() =>
+                    setPressedId((current) =>
+                      current === item.id ? null : current
+                    )
+                  }
                   onFocus={() => setHoveredId(item.id)}
                   onBlur={() => {
-                    setHoveredId((current) => (current === item.id ? null : current));
-                    setPressedId((current) => (current === item.id ? null : current));
+                    setHoveredId((current) =>
+                      current === item.id ? null : current
+                    );
+                    setPressedId((current) =>
+                      current === item.id ? null : current
+                    );
                   }}
                   onClick={(event) => {
                     setActiveId(item.id);
@@ -381,13 +450,18 @@ export function ProtocolExplorer() {
                       className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-2xl border sm:h-10 sm:w-10"
                       style={portalFrameStyle(item.accent)}
                     >
-                      <Icon className="h-4 w-4" style={{ color: portalColors[item.accent] }} />
+                      <Icon
+                        className="h-4 w-4"
+                        style={{ color: portalColors[item.accent] }}
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">
                         {item.eyebrow}
                       </p>
-                      <p className="text-[0.9375rem] font-semibold tracking-[-0.02em] sm:text-base">{item.title}</p>
+                      <p className="text-[0.9375rem] font-semibold tracking-[-0.02em] sm:text-base">
+                        {item.title}
+                      </p>
                     </div>
                     <ChevronDown
                       className={cn(
@@ -409,7 +483,10 @@ export function ProtocolExplorer() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.34, ease: [0.25, 0.1, 0.25, 1] }}
+                      transition={{
+                        duration: 0.34,
+                        ease: [0.25, 0.1, 0.25, 1],
+                      }}
                       className="overflow-hidden"
                     >
                       <motion.div
@@ -421,10 +498,12 @@ export function ProtocolExplorer() {
                       >
                         <div
                           className="pointer-events-none absolute inset-0 opacity-60"
-                          style={{ background: EXPLORER_PANEL_WASHES[item.accent] }}
+                          style={{
+                            background: EXPLORER_PANEL_WASHES[item.accent],
+                          }}
                         />
                         <div className="relative z-10">
-                        <ExplorerDetails item={item} mobile />
+                          <ExplorerDetails item={item} mobile />
                         </div>
                       </motion.div>
                     </motion.div>
@@ -442,11 +521,6 @@ export function ProtocolExplorer() {
               const isActive = item.id === activeId;
               const isHovered = item.id === hoveredId;
               const isHighlighted = isActive || isHovered;
-              const borderColor = isActive
-                ? `var(--portal-${item.accent}-border-strong)`
-                : isHovered
-                  ? `var(--portal-${item.accent}-border)`
-                  : undefined;
 
               return (
                 <motion.button
@@ -458,9 +532,17 @@ export function ProtocolExplorer() {
                   transition={{ duration: 0.35, delay: index * 0.06 }}
                   onClick={() => setActiveId(item.id)}
                   onMouseEnter={() => setHoveredId(item.id)}
-                  onMouseLeave={() => setHoveredId((current) => (current === item.id ? null : current))}
+                  onMouseLeave={() =>
+                    setHoveredId((current) =>
+                      current === item.id ? null : current
+                    )
+                  }
                   onFocus={() => setHoveredId(item.id)}
-                  onBlur={() => setHoveredId((current) => (current === item.id ? null : current))}
+                  onBlur={() =>
+                    setHoveredId((current) =>
+                      current === item.id ? null : current
+                    )
+                  }
                   className={cn(
                     'w-full rounded-[1.75rem] px-4 py-4 text-left backdrop-blur-sm transition-all',
                     'bg-background/55',
@@ -480,7 +562,10 @@ export function ProtocolExplorer() {
                       className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl border"
                       style={portalFrameStyle(item.accent)}
                     >
-                      <Icon className="h-4 w-4" style={{ color: portalColors[item.accent] }} />
+                      <Icon
+                        className="h-4 w-4"
+                        style={{ color: portalColors[item.accent] }}
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">

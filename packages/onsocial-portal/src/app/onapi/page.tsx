@@ -149,13 +149,18 @@ export default function OnApiPage() {
                       className="flex h-11 w-11 items-center justify-center rounded-2xl border"
                       style={portalFrameStyle(item.accent)}
                     >
-                      <Icon className="h-5 w-5" style={{ color: portalColors[item.accent] }} />
+                      <Icon
+                        className="h-5 w-5"
+                        style={{ color: portalColors[item.accent] }}
+                      />
                     </div>
                     <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                       {item.step}
                     </span>
                   </div>
-                  <h3 className="text-base font-semibold md:text-lg">{item.title}</h3>
+                  <h3 className="text-base font-semibold md:text-lg">
+                    {item.title}
+                  </h3>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
                     {item.desc}
                   </p>
@@ -205,16 +210,27 @@ export default function OnApiPage() {
                     style={portalFrameStyle(tier.accent)}
                   >
                     {tier.accent === 'green' ? (
-                      <Coins className="h-5 w-5" style={{ color: portalColors[tier.accent] }} />
+                      <Coins
+                        className="h-5 w-5"
+                        style={{ color: portalColors[tier.accent] }}
+                      />
                     ) : tier.accent === 'blue' ? (
-                      <Server className="h-5 w-5" style={{ color: portalColors[tier.accent] }} />
+                      <Server
+                        className="h-5 w-5"
+                        style={{ color: portalColors[tier.accent] }}
+                      />
                     ) : (
-                      <Layers className="h-5 w-5" style={{ color: portalColors[tier.accent] }} />
+                      <Layers
+                        className="h-5 w-5"
+                        style={{ color: portalColors[tier.accent] }}
+                      />
                     )}
                   </div>
                   <span
                     className="rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em]"
-                    style={portalBadgeStyle(tier.available ? 'green' : tier.accent)}
+                    style={portalBadgeStyle(
+                      tier.available ? 'green' : tier.accent
+                    )}
                   >
                     {tier.available ? 'Live now' : 'Coming soon'}
                   </span>

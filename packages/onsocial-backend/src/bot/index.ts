@@ -13,6 +13,7 @@ import {
   buildBalanceKeyboard,
   formatSocial,
 } from './balance.js';
+import { handleBudget } from './budget.js';
 
 import {
   handleClaim,
@@ -47,6 +48,7 @@ export const bot = new Bot(config.telegramBotToken, {
 
 bot.command('start', handleStart);
 bot.command('balance', handleBalance);
+bot.command('budget', handleBudget);
 bot.command('claim', handleClaim);
 bot.command('help', handleHelp);
 

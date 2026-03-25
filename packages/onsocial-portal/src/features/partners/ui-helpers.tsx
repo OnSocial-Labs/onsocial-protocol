@@ -1,7 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, CheckCircle2, Copy, Download, type LucideIcon } from 'lucide-react';
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  Download,
+  type LucideIcon,
+} from 'lucide-react';
 import { portalColors } from '@/lib/portal-colors';
 
 export function CopyButton({
@@ -81,7 +87,11 @@ export function CodeBlock({
   );
 }
 
-const STEP_COLORS = [portalColors.green, portalColors.blue, portalColors.purple] as const;
+const STEP_COLORS = [
+  portalColors.green,
+  portalColors.blue,
+  portalColors.purple,
+] as const;
 
 export function StepIndicator({
   steps,
