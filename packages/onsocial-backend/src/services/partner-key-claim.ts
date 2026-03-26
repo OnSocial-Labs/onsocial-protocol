@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import nacl from 'tweetnacl';
 import { config } from '../config/index.js';
 import { logger } from '../logger.js';
@@ -60,6 +60,65 @@ function base58Decode(value: string): Uint8Array {
 
 function decodeBase64(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value, 'base64'));
+}
+
+function encodeU32(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  new DataView(buffer).setUint32(0, value, true);
+  return new Uint8Array(buffer);
+}
+
+function encodeString(value: string): Uint8Array {
+  const bytes = new TextEncoder().encode(value);
+  const encodedLength = encodeU32(bytes.length);
+  const output = new Uint8Array(encodedLength.length + bytes.length);
+  output.set(encodedLength);
+  output.set(bytes, encodedLength.length);
+  return output;
+}
+
+function encodeOptionalString(value: string | null): Uint8Array {
+  if (value == null) {
+    return new Uint8Array([0]);
+  }
+
+  const encodedValue = encodeString(value);
+  const output = new Uint8Array(1 + encodedValue.length);
+  output[0] = 1;
+  output.set(encodedValue, 1);
+  return output;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+
+  return output;
+}
+
+function serializeNep413Payload(input: {
+  message: string;
+  nonce: Uint8Array;
+  recipient: string;
+  callbackUrl: string | null;
+}): Uint8Array {
+  const prefix = encodeU32(2 ** 31 + 413);
+  const payload = concatBytes([
+    encodeString(input.message),
+    input.nonce,
+    encodeString(input.recipient),
+    encodeOptionalString(input.callbackUrl),
+  ]);
+
+  return createHash('sha256')
+    .update(Buffer.from(concatBytes([prefix, payload])))
+    .digest();
 }
 
 function parsePublicKey(publicKey: string): Uint8Array | null {
@@ -268,7 +327,12 @@ export async function verifyPartnerKeyClaim(input: {
     return { valid: false, error: 'Invalid signature length' };
   }
 
-  const messageBytes = new TextEncoder().encode(input.message);
+  const messageBytes = serializeNep413Payload({
+    message: input.message,
+    nonce: nonceBytes,
+    recipient: CLAIM_RECIPIENT,
+    callbackUrl: null,
+  });
   const isValidSignature = nacl.sign.detached.verify(
     messageBytes,
     signatureBytes,

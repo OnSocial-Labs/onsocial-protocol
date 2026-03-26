@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'crypto';
 import nacl from 'tweetnacl';
 
 const mockQuery = vi.fn();
@@ -66,6 +67,65 @@ function buildApp() {
 
 function makeRows(rows: Record<string, unknown>[]) {
   return { rows };
+}
+
+function encodeU32(value: number): Uint8Array {
+  const buffer = new ArrayBuffer(4);
+  new DataView(buffer).setUint32(0, value, true);
+  return new Uint8Array(buffer);
+}
+
+function encodeString(value: string): Uint8Array {
+  const bytes = new TextEncoder().encode(value);
+  const encodedLength = encodeU32(bytes.length);
+  const output = new Uint8Array(encodedLength.length + bytes.length);
+  output.set(encodedLength);
+  output.set(bytes, encodedLength.length);
+  return output;
+}
+
+function encodeOptionalString(value: string | null): Uint8Array {
+  if (value == null) {
+    return new Uint8Array([0]);
+  }
+
+  const encodedValue = encodeString(value);
+  const output = new Uint8Array(1 + encodedValue.length);
+  output[0] = 1;
+  output.set(encodedValue, 1);
+  return output;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(totalLength);
+  let offset = 0;
+
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+
+  return output;
+}
+
+function serializeNep413Payload(input: {
+  message: string;
+  nonce: Uint8Array;
+  recipient: string;
+  callbackUrl: string | null;
+}): Uint8Array {
+  const prefix = encodeU32(2 ** 31 + 413);
+  const payload = concatBytes([
+    encodeString(input.message),
+    input.nonce,
+    encodeString(input.recipient),
+    encodeOptionalString(input.callbackUrl),
+  ]);
+
+  return createHash('sha256')
+    .update(Buffer.from(concatBytes([prefix, payload])))
+    .digest();
 }
 
 const DRAFT_PROPOSAL = {
@@ -651,8 +711,20 @@ describe('Partner key claim flow', () => {
     );
 
     const message = challengeRes.body.challenge.message as string;
+    const nonce = Buffer.from(
+      challengeRes.body.challenge.nonce as string,
+      'base64'
+    );
     const signature = Buffer.from(
-      nacl.sign.detached(new TextEncoder().encode(message), keyPair.secretKey)
+      nacl.sign.detached(
+        serializeNep413Payload({
+          message,
+          nonce,
+          recipient: challengeRes.body.challenge.recipient as string,
+          callbackUrl: null,
+        }),
+        keyPair.secretKey
+      )
     ).toString('base64');
 
     mockQuery.mockResolvedValueOnce(
