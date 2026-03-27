@@ -69,6 +69,17 @@ function makeRows(rows: Record<string, unknown>[]) {
   return { rows };
 }
 
+function mockRpcViewResult(value: unknown) {
+  return {
+    ok: true,
+    json: async () => ({
+      result: {
+        result: Array.from(Buffer.from(JSON.stringify(value))),
+      },
+    }),
+  };
+}
+
 function encodeU32(value: number): Uint8Array {
   const buffer = new ArrayBuffer(4);
   new DataView(buffer).setUint32(0, value, true);
@@ -521,6 +532,80 @@ describe('GET /v1/partners/status/:wallet', () => {
     );
   });
 
+  it('marks rejected DAO proposals as rejected in the partner flow', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test App',
+          status: 'proposal_submitted',
+          api_key: null,
+          created_at: '2026-01-01',
+          governance_proposal_id: 21,
+          governance_proposal_status: 'submitted',
+          governance_proposal_description: 'Register test app',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: JSON.stringify(DRAFT_PROPOSAL.payload),
+          governance_proposal_tx_hash: 'tx-hash-123',
+          governance_proposal_submitted_at: '2026-03-23T00:00:00.000Z',
+        },
+      ])
+    );
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult({ status: 'Rejected' }));
+
+    const res = await request(buildApp()).get(
+      '/v1/partners/status/alice.testnet'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('rejected');
+    expect(res.body.governance_proposal).toEqual(
+      expect.objectContaining({
+        proposal_id: 21,
+        status: 'rejected',
+      })
+    );
+    expect(mockQuery.mock.calls[1]?.[0]).toMatch(/SET status = 'rejected'/);
+  });
+
+  it('returns expired DAO proposals to the apply flow', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test App',
+          status: 'proposal_submitted',
+          api_key: null,
+          created_at: '2026-01-01',
+          governance_proposal_id: 22,
+          governance_proposal_status: 'submitted',
+          governance_proposal_description: 'Register test app',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: JSON.stringify(DRAFT_PROPOSAL.payload),
+          governance_proposal_tx_hash: 'tx-hash-456',
+          governance_proposal_submitted_at: '2026-03-24T00:00:00.000Z',
+        },
+      ])
+    );
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult({ status: 'Expired' }));
+
+    const res = await request(buildApp()).get(
+      '/v1/partners/status/alice.testnet'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('none');
+    expect(res.body.governance_proposal).toEqual(
+      expect.objectContaining({
+        proposal_id: 22,
+        status: 'expired',
+      })
+    );
+    expect(mockQuery.mock.calls[1]?.[0]).toMatch(/SET status = 'reopened'/);
+  });
+
   it('maps reopened applications to none for the partner flow', async () => {
     mockQuery.mockResolvedValueOnce(
       makeRows([
@@ -530,6 +615,12 @@ describe('GET /v1/partners/status/:wallet', () => {
           status: 'reopened',
           api_key: null,
           created_at: '2026-01-01',
+          description: 'Partner app for community growth rewards.',
+          website_url: 'https://example.com/',
+          telegram_handle: '@onsocial',
+          x_handle: '@onsocial_app',
+          governance_proposal_description:
+            'Register test app\nAudience band: 10k-50k\nDescription: Partner app for community growth rewards.',
         },
       ])
     );
@@ -541,10 +632,60 @@ describe('GET /v1/partners/status/:wallet', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('none');
     expect(res.body.api_key).toBeUndefined();
+    expect(res.body.application_form).toEqual(
+      expect.objectContaining({
+        appId: 'test_app',
+        label: 'Test App',
+        description: 'Partner app for community growth rewards.',
+        audienceBand: '10k-50k',
+        websiteUrl: 'https://example.com/',
+        telegramHandle: '@onsocial',
+        xHandle: '@onsocial_app',
+      })
+    );
   });
 });
 
 describe('POST /v1/partners/proposal-submitted/:appId', () => {
+  it('returns a governance-ready application to the apply form', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          status: 'ready_for_governance',
+          wallet_id: 'alice.testnet',
+        },
+      ])
+    );
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(buildApp())
+      .post('/v1/partners/cancel/test_app')
+      .send({ wallet_id: 'alice.testnet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.status).toBe('none');
+    expect(mockQuery.mock.calls[1]?.[0]).toMatch(/SET status = 'reopened'/);
+  });
+
+  it('rejects cancel when the application is already in governance', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          status: 'proposal_submitted',
+          wallet_id: 'alice.testnet',
+        },
+      ])
+    );
+
+    const res = await request(buildApp())
+      .post('/v1/partners/cancel/test_app')
+      .send({ wallet_id: 'alice.testnet' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/Only governance-ready applications/);
+  });
+
   it('requires both wallet_id and tx_hash', async () => {
     const res = await request(buildApp())
       .post('/v1/partners/proposal-submitted/test_app')

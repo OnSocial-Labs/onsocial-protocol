@@ -6,6 +6,7 @@
 //   POST /v1/partners/apply              — submit a partner application
 //   GET  /v1/partners/governance-feed    — list public governance applications
 //   GET  /v1/partners/status/:wallet     — check application status by wallet
+//   POST /v1/partners/cancel/:appId      — return a governance-ready app to form state
 //   POST /v1/partners/proposal-submitted/:appId — record direct DAO submission
 //   POST /v1/partners/rotate-key/:wallet — rotate API key
 // ---------------------------------------------------------------------------
@@ -14,7 +15,9 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { query } from '../db/index.js';
+import { config } from '../config/index.js';
 import { logger } from '../logger.js';
+import { viewContractAt } from '../services/near.js';
 import {
   buildRegisterAppGovernanceProposal,
   getPartnerGovernanceParamsForAudienceBand,
@@ -109,6 +112,74 @@ function mapPublicApplication(row: Record<string, unknown>) {
   };
 }
 
+function parseAudienceBandFromGovernanceDescription(
+  value: unknown
+): PartnerAudienceBand | null {
+  if (typeof value !== 'string' || !value) {
+    return null;
+  }
+
+  const match = value.match(/^Audience band: (.+)$/m);
+  if (!match) {
+    return null;
+  }
+
+  const audienceBand = match[1]?.trim();
+  return PARTNER_AUDIENCE_BANDS.includes(audienceBand as PartnerAudienceBand)
+    ? (audienceBand as PartnerAudienceBand)
+    : null;
+}
+
+function mapApplicationForm(row: Record<string, unknown>) {
+  return {
+    appId: typeof row.app_id === 'string' ? row.app_id : '',
+    label: typeof row.label === 'string' ? row.label : '',
+    description: typeof row.description === 'string' ? row.description : '',
+    audienceBand:
+      parseAudienceBandFromGovernanceDescription(
+        row.governance_proposal_description
+      ) ?? '1k-10k',
+    websiteUrl: typeof row.website_url === 'string' ? row.website_url : '',
+    telegramHandle:
+      typeof row.telegram_handle === 'string' ? row.telegram_handle : '',
+    xHandle: typeof row.x_handle === 'string' ? row.x_handle : '',
+  };
+}
+
+const REJECTED_GOVERNANCE_STATUSES = new Set(['Rejected', 'Removed']);
+const REOPENED_GOVERNANCE_STATUSES = new Set(['Expired']);
+
+function normalizeProposalId(
+  value: number | string | null | undefined
+): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(numericValue) || numericValue < 0) {
+    return null;
+  }
+
+  return numericValue;
+}
+
+async function fetchDaoProposalStatus(
+  daoAccountId: string,
+  proposalId: number
+): Promise<string | null> {
+  try {
+    const proposal = await viewContractAt<{ status?: string }>(
+      daoAccountId,
+      'get_proposal',
+      { id: proposalId }
+    );
+
+    return typeof proposal?.status === 'string' ? proposal.status : null;
+  } catch {
+    return null;
+  }
+}
 // ---------------------------------------------------------------------------
 // POST /v1/partners/apply — partner submits application (creates pending entry)
 // ---------------------------------------------------------------------------
@@ -265,14 +336,70 @@ function sanitizeHandle(
   return `@${candidate}`;
 }
 
-async function syncExecutedProposalIfRegistered(row: {
+async function syncGovernanceProposalState(row: {
   app_id: string;
   status: string;
   api_key?: string | null;
+  governance_proposal_id?: number | string | null;
   governance_proposal_status?: string | null;
+  governance_proposal_dao?: string | null;
 }): Promise<typeof row> {
   if (row.status !== 'proposal_submitted') {
     return row;
+  }
+
+  const proposalId = normalizeProposalId(row.governance_proposal_id);
+  const daoAccountId = row.governance_proposal_dao ?? config.governanceDao;
+
+  if (proposalId !== null) {
+    const liveProposalStatus = await fetchDaoProposalStatus(
+      daoAccountId,
+      proposalId
+    );
+
+    if (
+      liveProposalStatus &&
+      REJECTED_GOVERNANCE_STATUSES.has(liveProposalStatus)
+    ) {
+      const normalizedStatus = liveProposalStatus.toLowerCase();
+
+      await query(
+        `UPDATE partner_keys
+         SET status = 'rejected',
+             active = false,
+             governance_proposal_status = $1
+         WHERE app_id = $2`,
+        [normalizedStatus, row.app_id]
+      );
+
+      return {
+        ...row,
+        status: 'rejected',
+        governance_proposal_status: normalizedStatus,
+      };
+    }
+
+    if (
+      liveProposalStatus &&
+      REOPENED_GOVERNANCE_STATUSES.has(liveProposalStatus)
+    ) {
+      const normalizedStatus = liveProposalStatus.toLowerCase();
+
+      await query(
+        `UPDATE partner_keys
+         SET status = 'reopened',
+             active = false,
+             governance_proposal_status = $1
+         WHERE app_id = $2`,
+        [normalizedStatus, row.app_id]
+      );
+
+      return {
+        ...row,
+        status: 'reopened',
+        governance_proposal_status: normalizedStatus,
+      };
+    }
   }
 
   const isRegistered = await isRewardsAppRegistered(row.app_id);
@@ -628,12 +755,14 @@ router.get(
 
       const syncedRows = await Promise.all(
         result.rows.map((row) =>
-          syncExecutedProposalIfRegistered(
+          syncGovernanceProposalState(
             row as {
               app_id: string;
               status: string;
               api_key?: string | null;
+              governance_proposal_id?: number | string | null;
               governance_proposal_status?: string | null;
+              governance_proposal_dao?: string | null;
             }
           )
         )
@@ -704,7 +833,7 @@ router.get(
         governance_proposal_submitted_at: string | null;
       };
 
-      const syncedRow = await syncExecutedProposalIfRegistered(row);
+      const syncedRow = await syncGovernanceProposalState(row);
 
       res.json({
         success: true,
@@ -713,6 +842,81 @@ router.get(
         status: syncedRow.status === 'reopened' ? 'none' : syncedRow.status,
         applied_at: row.created_at,
         governance_proposal: mapGovernanceProposal(syncedRow, true),
+        application_form: mapApplicationForm(row),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: msg });
+    }
+  }
+);
+
+router.post(
+  '/cancel/:appId',
+  async (req: Request, res: Response): Promise<void> => {
+    const { appId } = req.params;
+    const { wallet_id } = (req.body ?? {}) as {
+      wallet_id?: string;
+    };
+
+    if (!wallet_id || typeof wallet_id !== 'string') {
+      res.status(400).json({ success: false, error: 'wallet_id is required' });
+      return;
+    }
+
+    try {
+      const existing = await query(
+        `SELECT status, wallet_id
+         FROM partner_keys
+         WHERE app_id = $1`,
+        [appId]
+      );
+
+      if (existing.rows.length === 0) {
+        res
+          .status(404)
+          .json({ success: false, error: 'Application not found' });
+        return;
+      }
+
+      const row = existing.rows[0] as {
+        status: string;
+        wallet_id: string | null;
+      };
+
+      if (row.wallet_id !== wallet_id) {
+        res.status(403).json({ success: false, error: 'Wallet mismatch' });
+        return;
+      }
+
+      if (row.status !== 'ready_for_governance') {
+        res.status(409).json({
+          success: false,
+          error:
+            'Only governance-ready applications can be returned to the form',
+        });
+        return;
+      }
+
+      await query(
+        `UPDATE partner_keys
+         SET status = 'reopened',
+             active = false,
+             governance_proposal_id = NULL,
+             governance_proposal_status = NULL,
+             governance_proposal_description = NULL,
+             governance_proposal_dao = NULL,
+             governance_proposal_payload = NULL,
+             governance_proposal_tx_hash = NULL,
+             governance_proposal_submitted_at = NULL
+         WHERE app_id = $1`,
+        [appId]
+      );
+
+      res.json({
+        success: true,
+        app_id: appId,
+        status: 'none',
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -738,6 +942,8 @@ router.post(
                 status,
                 api_key,
                 created_at,
+                  governance_proposal_id,
+                  governance_proposal_dao,
                 governance_proposal_status
          FROM partner_keys
          WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT 1`,
@@ -757,10 +963,12 @@ router.post(
         status: string;
         api_key: string | null;
         created_at: string;
+        governance_proposal_id: number | string | null;
+        governance_proposal_dao: string | null;
         governance_proposal_status: string | null;
       };
 
-      const syncedRow = await syncExecutedProposalIfRegistered(row);
+      const syncedRow = await syncGovernanceProposalState(row);
       if (syncedRow.status !== 'approved') {
         res.status(409).json({
           success: false,
@@ -812,6 +1020,8 @@ router.post(
                 status,
                 api_key,
                 created_at,
+                  governance_proposal_id,
+                  governance_proposal_dao,
                 governance_proposal_status
          FROM partner_keys
          WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT 1`,
@@ -831,10 +1041,12 @@ router.post(
         status: string;
         api_key: string | null;
         created_at: string;
+        governance_proposal_id: number | string | null;
+        governance_proposal_dao: string | null;
         governance_proposal_status: string | null;
       };
 
-      const syncedRow = await syncExecutedProposalIfRegistered(row);
+      const syncedRow = await syncGovernanceProposalState(row);
       if (syncedRow.status !== 'approved' || !syncedRow.api_key) {
         res.status(409).json({
           success: false,

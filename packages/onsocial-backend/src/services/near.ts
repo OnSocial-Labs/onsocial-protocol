@@ -205,11 +205,37 @@ export async function viewContract<T = unknown>(
   methodName: string,
   args: Record<string, string>
 ): Promise<T> {
-  return viewMethod<T>(methodName, args);
+  return viewContractAt<T>(config.rewardsContract, methodName, args);
+}
+
+/** Public wrapper for view calls against an explicit contract account. */
+export async function viewContractAt<T = unknown>(
+  accountId: string,
+  methodName: string,
+  args: Record<string, unknown>
+): Promise<T> {
+  return viewMethodAt<T>(accountId, methodName, args);
 }
 
 /** Call a view method and return the raw UTF-8 string (before JSON.parse). */
 async function viewMethodRaw(
+  methodName: string,
+  args: object
+): Promise<string> {
+  return viewMethodRawAt(config.rewardsContract, methodName, args);
+}
+
+async function viewMethodAt<T>(
+  accountId: string,
+  methodName: string,
+  args: object
+): Promise<T> {
+  const raw = await viewMethodRawAt(accountId, methodName, args);
+  return JSON.parse(raw) as T;
+}
+
+async function viewMethodRawAt(
+  accountId: string,
   methodName: string,
   args: object
 ): Promise<string> {
@@ -224,7 +250,7 @@ async function viewMethodRaw(
       params: {
         request_type: 'call_function',
         finality: 'final',
-        account_id: config.rewardsContract,
+        account_id: accountId,
         method_name: methodName,
         args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
       },
