@@ -436,6 +436,116 @@ describe('GET /v1/partners/governance-feed', () => {
     );
   });
 
+  it('keeps rejected governance proposals visible in the public feed', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test App',
+          status: 'rejected',
+          wallet_id: 'alice.testnet',
+          description: 'Partner app for community growth rewards.',
+          created_at: '2026-01-01',
+          governance_proposal_id: 21,
+          governance_proposal_status: 'rejected',
+          governance_proposal_description: 'Register test app',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: JSON.stringify(DRAFT_PROPOSAL.payload),
+          governance_proposal_tx_hash: 'tx-hash-123',
+          governance_proposal_submitted_at: '2026-03-23T00:00:00.000Z',
+        },
+      ])
+    );
+
+    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        app_id: 'test_app',
+        status: 'rejected',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 21,
+          status: 'rejected',
+        }),
+      })
+    );
+  });
+
+  it('keeps removed governance proposals visible in the public feed', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test App',
+          status: 'rejected',
+          wallet_id: 'alice.testnet',
+          description: 'Partner app for community growth rewards.',
+          created_at: '2026-01-01',
+          governance_proposal_id: 21,
+          governance_proposal_status: 'removed',
+          governance_proposal_description: 'Register test app',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: JSON.stringify(DRAFT_PROPOSAL.payload),
+          governance_proposal_tx_hash: 'tx-hash-123',
+          governance_proposal_submitted_at: '2026-03-23T00:00:00.000Z',
+        },
+      ])
+    );
+
+    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        status: 'rejected',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 21,
+          status: 'removed',
+        }),
+      })
+    );
+  });
+
+  it('keeps expired governance proposals visible in the public feed', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test App',
+          status: 'reopened',
+          wallet_id: 'alice.testnet',
+          description: 'Partner app for community growth rewards.',
+          created_at: '2026-01-01',
+          governance_proposal_id: 22,
+          governance_proposal_status: 'expired',
+          governance_proposal_description: 'Register test app',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: JSON.stringify(DRAFT_PROPOSAL.payload),
+          governance_proposal_tx_hash: 'tx-hash-456',
+          governance_proposal_submitted_at: '2026-03-24T00:00:00.000Z',
+        },
+      ])
+    );
+
+    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        status: 'reopened',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 22,
+          status: 'expired',
+        }),
+      })
+    );
+  });
+
   it('auto-approves executed proposals when the app is already on-chain', async () => {
     mockQuery.mockResolvedValueOnce(
       makeRows([
