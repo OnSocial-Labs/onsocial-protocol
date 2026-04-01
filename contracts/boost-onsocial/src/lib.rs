@@ -4,6 +4,7 @@
 //! steps upward over time, and caps at 0.2%/week by default.
 //! Time-lock bonuses: 1mo=5%, 2-6mo=10%, 7-12mo=20%, 13-24mo=35%, 25+mo=50%
 //! Reward formula: (user_boost_seconds / total_boost_seconds) × total_released - claimed
+//! Effective boost uses tiered amount weighting plus the existing lock bonus.
 
 use near_sdk::{
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise, PromiseError, env,
@@ -27,9 +28,12 @@ const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_CALLBACK: Gas = Gas::from_tgas(15);
 const GAS_MIGRATE: Gas = Gas::from_tgas(200);
 const STORAGE_DEPOSIT: u128 = 5_000_000_000_000_000_000_000;
-const CONTRACT_VERSION: u32 = 1;
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const VALID_LOCK_PERIODS: [u64; 5] = [1, 6, 12, 24, 48];
 const MIN_BOOST_LOCK: u128 = 10_000_000_000_000_000;
+const SOCIAL_UNIT: u128 = 1_000_000_000_000_000_000;
+const FULL_WEIGHT_CAP: u128 = 1_000 * SOCIAL_UNIT;
+const HALF_WEIGHT_CAP: u128 = 5_000 * SOCIAL_UNIT;
 const EVENT_STANDARD: &str = "onsocial";
 const EVENT_VERSION: &str = "1.0.0";
 
@@ -107,7 +111,7 @@ pub struct BoostInitConfig {
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct OnsocialBoost {
-    version: u32,
+    version: String,
     token_id: AccountId,
     owner_id: AccountId,
     release_schedule_start_ns: u64,
@@ -162,7 +166,7 @@ impl OnsocialBoost {
         );
 
         Self {
-            version: CONTRACT_VERSION,
+            version: CONTRACT_VERSION.to_string(),
             token_id: config.token_id,
             owner_id: config.owner_id,
             release_schedule_start_ns: config.release_schedule_start_ns,
@@ -886,8 +890,8 @@ impl OnsocialBoost {
     #[init(ignore_state)]
     pub fn migrate() -> Self {
         let mut contract: Self = env::state_read().expect("State read failed");
-        let old = contract.version;
-        contract.version = CONTRACT_VERSION;
+        let old = contract.version.clone();
+        contract.version = CONTRACT_VERSION.to_string();
         contract.emit_event(
             "CONTRACT_UPGRADE",
             &contract.owner_id.clone(),
@@ -922,7 +926,7 @@ impl OnsocialBoost {
         let projected_pool = self.scheduled_pool.saturating_sub(release_delta);
 
         ContractStats {
-            version: self.version,
+            version: self.version.clone(),
             token_id: self.token_id.clone(),
             owner_id: self.owner_id.clone(),
             total_locked: U128(self.total_locked),
@@ -1103,6 +1107,8 @@ impl OnsocialBoost {
         if account.locked_amount == 0 {
             return 0;
         }
+
+        let weighted_amount = self.weighted_locked_amount(account.locked_amount);
         let bonus: u128 = match account.lock_months {
             0 => 0,
             1 => 5,
@@ -1111,7 +1117,19 @@ impl OnsocialBoost {
             13..=24 => 35,
             _ => 50,
         };
-        u256_mul_div(account.locked_amount, 100 + bonus, 100)
+        u256_mul_div(weighted_amount, 100 + bonus, 100)
+    }
+
+    fn weighted_locked_amount(&self, amount: u128) -> u128 {
+        let full_weight = amount.min(FULL_WEIGHT_CAP);
+        let half_weight_raw = amount
+            .saturating_sub(FULL_WEIGHT_CAP)
+            .min(HALF_WEIGHT_CAP.saturating_sub(FULL_WEIGHT_CAP));
+        let quarter_weight_raw = amount.saturating_sub(HALF_WEIGHT_CAP);
+
+        full_weight
+            .saturating_add(u256_mul_div(half_weight_raw, 50, 100))
+            .saturating_add(u256_mul_div(quarter_weight_raw, 25, 100))
     }
 
     fn emit_event(&self, event: &str, account_id: &AccountId, mut data: serde_json::Value) {
@@ -1259,7 +1277,7 @@ pub struct AccountView {
 
 #[near(serializers = [json])]
 pub struct ContractStats {
-    pub version: u32,
+    pub version: String,
     pub token_id: AccountId,
     pub owner_id: AccountId,
     pub total_locked: U128,

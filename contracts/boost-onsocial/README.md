@@ -6,7 +6,7 @@ NEAR smart contract for SOCIAL token boost locking with time-based reward releas
 
 `boost-onsocial` lets users lock SOCIAL for fixed periods and receive a boosted share of a scheduled reward pool. Rewards are not split by raw deposit alone. They are split by accumulated `boost_seconds`, which combines:
 
-- locked amount
+- tier-weighted locked amount
 - lock-duration bonus
 - time spent active in the pool
 
@@ -15,7 +15,8 @@ The default release schedule starts at `0.01%` per week, increases by `0.01%` ev
 ## Features
 
 - Fixed lock periods: `1`, `6`, `12`, `24`, `48` months
-- Lock bonuses applied to effective boost, not token principal
+- Tiered amount weighting to soften whale dominance
+- Lock bonuses applied to weighted boost, not raw token principal
 - Boost-seconds reward accounting for fair time-weighted distribution
 - Stepped reward release schedule with configurable start, step, interval, and cap
 - Reward clock pauses when there are no active participants
@@ -46,9 +47,17 @@ Rewards are distributed using:
 
 Where:
 
-- `effective_boost = locked_amount * (100 + bonus) / 100`
+- `weighted_amount = 100% of first 1,000 SOCIAL + 50% of next 4,000 + 25% above 5,000`
+- `effective_boost = weighted_amount * (100 + bonus) / 100`
 - `boost_seconds` accumulates over time while the position remains active
 - released rewards come from the scheduled pool according to the current weekly rate
+
+Examples before lock bonus:
+
+- `100 SOCIAL -> 100 weighted`
+- `1,000 SOCIAL -> 1,000 weighted`
+- `3,000 SOCIAL -> 2,000 weighted`
+- `10,000 SOCIAL -> 4,250 weighted`
 
 ## Build
 

@@ -166,7 +166,7 @@ fn purchase_credits(contract: &mut OnsocialBoost, sender: &str, amount: u128) {
 fn test_init() {
     let contract = setup_contract();
 
-    assert_eq!(contract.version, 1);
+    assert_eq!(contract.version, CONTRACT_VERSION);
     assert_eq!(contract.token_id.as_str(), TEST_TOKEN_ID);
     assert_eq!(contract.owner_id.as_str(), "owner.near");
     assert_eq!(contract.total_locked, 0);
@@ -403,7 +403,7 @@ fn test_get_stats_initial() {
     let contract = setup_contract();
     let stats = contract.get_stats();
 
-    assert_eq!(stats.version, 1);
+    assert_eq!(stats.version, CONTRACT_VERSION);
     assert_eq!(stats.total_locked.0, 0);
     assert_eq!(stats.total_effective_boost.0, 0);
     assert_eq!(stats.scheduled_pool.0, 0);
@@ -725,6 +725,58 @@ fn test_effective_boost_keeps_bonus_until_unlock() {
 
     let account = contract.get_account("alice.near".parse().unwrap());
     assert_eq!(account.effective_boost.0, ONE_SOCIAL * 105 / 100); // Bonus kept until unlock
+}
+
+#[test]
+fn test_effective_boost_applies_tiered_amount_weighting() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+    lock_tokens_at(
+        &mut contract,
+        "alice.near",
+        10_000 * ONE_SOCIAL,
+        12,
+        start_time,
+    );
+
+    let account = contract.get_account("alice.near".parse().unwrap());
+
+    let weighted_amount = 4_250 * ONE_SOCIAL;
+    assert_eq!(account.effective_boost.0, weighted_amount * 120 / 100);
+}
+
+#[test]
+fn test_effective_boost_tier_boundaries_are_exact() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    lock_tokens_at(
+        &mut contract,
+        "alice.near",
+        1_000 * ONE_SOCIAL,
+        6,
+        start_time,
+    );
+    let account = contract.get_account("alice.near".parse().unwrap());
+    assert_eq!(account.effective_boost.0, 1_100 * ONE_SOCIAL);
+
+    lock_tokens_at(&mut contract, "alice.near", ONE_SOCIAL, 6, start_time);
+    let account = contract.get_account("alice.near".parse().unwrap());
+    assert_eq!(account.effective_boost.0, 1_100_550_000_000_000_000_000);
+
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "bob.near");
+    lock_tokens_at(&mut contract, "bob.near", 5_000 * ONE_SOCIAL, 6, start_time);
+    let account = contract.get_account("bob.near".parse().unwrap());
+    assert_eq!(account.effective_boost.0, 3_300 * ONE_SOCIAL);
+
+    lock_tokens_at(&mut contract, "bob.near", ONE_SOCIAL, 6, start_time);
+    let account = contract.get_account("bob.near".parse().unwrap());
+    assert_eq!(account.effective_boost.0, 3_300_275_000_000_000_000_000);
 }
 
 // =============================================================================
@@ -1061,6 +1113,40 @@ fn test_rewards_respect_effective_boost_bonus() {
     );
 }
 
+#[test]
+fn test_large_stakes_have_diminishing_reward_weight() {
+    let mut contract = setup_contract();
+    setup_with_storage(&mut contract, "alice.near");
+    setup_with_storage(&mut contract, "bob.near");
+
+    let start_time = 1_000_000_000_000_000_000u64;
+
+    fund_pool_at(&mut contract, 1000 * ONE_SOCIAL, start_time);
+
+    lock_tokens_at(
+        &mut contract,
+        "alice.near",
+        10_000 * ONE_SOCIAL,
+        6,
+        start_time,
+    );
+    lock_tokens_at(&mut contract, "bob.near", 1_000 * ONE_SOCIAL, 6, start_time);
+
+    let mut context = get_context("anyone.near");
+    context.block_timestamp(start_time + WEEK_NS);
+    testing_env!(context.build());
+
+    let alice = contract.get_account("alice.near".parse().unwrap());
+    let bob = contract.get_account("bob.near".parse().unwrap());
+
+    let ratio = alice.claimable_rewards.0 * 100 / bob.claimable_rewards.0;
+    assert!(
+        (420..=430).contains(&ratio),
+        "Alice should have ~4.25x Bob's rewards under tiered weighting, got {}%",
+        ratio
+    );
+}
+
 // =============================================================================
 // Get Reward Rate Tests
 // =============================================================================
@@ -1277,7 +1363,7 @@ fn test_contract_stats_complete() {
 
     let stats = contract.get_stats();
 
-    assert_eq!(stats.version, 1);
+    assert_eq!(stats.version, CONTRACT_VERSION);
     assert_eq!(stats.total_locked.0, ONE_SOCIAL);
     assert_eq!(stats.total_effective_boost.0, ONE_SOCIAL * 110 / 100);
     assert_eq!(stats.scheduled_pool.0, 100 * ONE_SOCIAL + 20 * ONE_SOCIAL); // 100 funded + 40% of 50
@@ -3656,11 +3742,10 @@ fn test_storage_deposit_for_another() {
 fn test_version_tracking() {
     let contract = setup_contract();
 
-    // Initial version should be 1
-    assert_eq!(contract.version, 1);
+    assert_eq!(contract.version, CONTRACT_VERSION);
 
     let stats = contract.get_stats();
-    assert_eq!(stats.version, 1);
+    assert_eq!(stats.version, CONTRACT_VERSION);
 }
 
 // =============================================================================

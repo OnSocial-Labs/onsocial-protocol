@@ -28,7 +28,7 @@ pub struct AccountView {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractStats {
-    pub version: u32,
+    pub version: String,
     pub token_id: String,
     pub owner_id: String,
     pub total_locked: String,
@@ -240,7 +240,7 @@ async fn test_init_boost_contract() -> Result<()> {
     let boost = setup_boost_contract(&worker, ft.id().as_str(), &owner).await?;
 
     let stats = get_stats(&boost).await?;
-    assert_eq!(stats.version, 1);
+    assert_eq!(stats.version, "1.0.0");
     assert_eq!(stats.token_id, ft.id().to_string());
     assert_eq!(stats.owner_id, owner.id().to_string());
     assert_eq!(stats.total_locked, "0");
@@ -290,6 +290,40 @@ async fn test_lock_tokens_updates_boost_views() -> Result<()> {
 
     assert_eq!(stats.total_locked, (50 * ONE_SOCIAL).to_string());
     assert_eq!(stats.total_effective_boost, (55 * ONE_SOCIAL).to_string());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_large_lock_uses_tiered_weighting_end_to_end() -> Result<()> {
+    let worker = setup_sandbox().await?;
+    let owner = worker.dev_create_account().await?;
+    let user = worker.dev_create_account().await?;
+
+    let ft = setup_mock_ft_contract(&worker, &owner, 20_000_000 * ONE_SOCIAL).await?;
+    let boost = setup_boost_contract(&worker, ft.id().as_str(), &owner).await?;
+
+    register_common_storage(&ft, &boost, &owner).await?;
+    ft_storage_deposit(&ft, &user).await?;
+    ft_transfer(&ft, &owner, user.id().as_str(), 20_000 * ONE_SOCIAL).await?;
+
+    user.call(boost.id(), "storage_deposit")
+        .args_json(json!({}))
+        .deposit(NearToken::from_millinear(10))
+        .transact()
+        .await?
+        .into_result()?;
+
+    lock_tokens(&ft, &boost, &user, 10_000 * ONE_SOCIAL, 6).await?;
+
+    let account = get_account(&boost, user.id().as_str()).await?;
+    let stats = get_stats(&boost).await?;
+
+    let effective_boost: u128 = account.effective_boost.parse()?;
+    assert_eq!(effective_boost, 4_675 * ONE_SOCIAL);
+
+    assert_eq!(stats.total_locked, (10_000 * ONE_SOCIAL).to_string());
+    assert_eq!(stats.total_effective_boost, (4_675 * ONE_SOCIAL).to_string());
 
     Ok(())
 }

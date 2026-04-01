@@ -1,0 +1,18 @@
+{
+  "proposal": {
+    "description": "Transfer boost ownership to governance DAO",
+    "kind": {
+      "FunctionCall": {
+        "receiver_id": "boost.onsocial.testnet",
+        "actions": [
+          {
+            "method_name": "set_owner",
+            "args": "eyJuZXdfb3duZXIiOiJnb3Zlcm5hbmNlLm9uc29jaWFsLnRlc3RuZXQifQ==",
+            "deposit": "1",
+            "gas": 100000000000000
+          }
+        ]
+      }
+    }
+  }
+}
