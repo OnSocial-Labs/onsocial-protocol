@@ -6,6 +6,12 @@
         "init": "new '{}'"
     },
     {
+        "name": "boost-onsocial",
+        "id": "boost.${AUTH_ACCOUNT}",
+        "account": "${AUTH_ACCOUNT}",
+        "init": "new '{\"token_id\": \"token.${AUTH_ACCOUNT}\", \"owner_id\": \"${AUTH_ACCOUNT}\"}'"
+    },
+    {
         "name": "staking-onsocial",
         "id": "staking.${AUTH_ACCOUNT}",
         "account": "${AUTH_ACCOUNT}",

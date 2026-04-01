@@ -15,6 +15,7 @@
 members = [
     "crates/onsocial-types",
     "crates/onsocial-auth",
+    "contracts/boost-onsocial",
     "contracts/scarces-onsocial",
     "contracts/staking-onsocial",
     "contracts/vesting-onsocial",

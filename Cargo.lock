@@ -296,6 +296,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "boost-onsocial"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.2.16",
+ "near-sdk",
+ "near-sdk-macros",
+ "primitive-types 0.14.0",
+ "serde",
+]
+
+[[package]]
 name = "borsh"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2257,9 +2268,9 @@ dependencies = [
 
 [[package]]
 name = "near-contract-standards"
-version = "5.24.0"
+version = "5.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284205bef7d7140d9754897729c6d04e47b3dec4bd7de83dd818e3ac7f58418a"
+checksum = "20703cabfa9d4f17bf00abd6a5c34bbeec347eb577cda4e8b8ff30e9cbaccd40"
 dependencies = [
  "near-sdk",
 ]
@@ -2651,9 +2662,9 @@ checksum = "42ff9a4b5c2a27926b14465dd7cc06a9f801f8892de9ee8576b421c7d00f6320"
 
 [[package]]
 name = "near-sdk"
-version = "5.24.0"
+version = "5.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5188eba9ee0383c2a28afee994e65c21e98823d18a32b8b3a7c8d6cdedfb119"
+checksum = "6f0f1ced7eaa04d4748c5ac6af772efae250f574a0a2c60e912f967871dfb6ff"
 dependencies = [
  "base64 0.22.1",
  "borsh",
@@ -2672,14 +2683,15 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "unicode-segmentation",
  "wee_alloc",
 ]
 
 [[package]]
 name = "near-sdk-macros"
-version = "5.24.0"
+version = "5.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4339b75a514ca2e6b67379be62a441f7e99a2c3813278f1b23d233b300f9f4f"
+checksum = "0b7ed880b3ec75d5818dd0475855f9a936ad8d9e0b5ecab20143993d393ed16e"
 dependencies = [
  "Inflector",
  "darling 0.20.11",
@@ -2706,9 +2718,9 @@ checksum = "b28b47d44e10c45054bcc023dfda154f13f5b8e980ad25ee94cd32207d463b78"
 
 [[package]]
 name = "near-sys"
-version = "0.2.6"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b99e9ce0020190ea152f70d1849e54fc8fc123738e7447800ad818c78f5167cc"
+checksum = "4e31458b18c7d880beea4372bd1a704679713a36165048961cd593ff8df46002"
 
 [[package]]
 name = "near-time"

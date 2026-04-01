@@ -1,4 +1,6 @@
 #[cfg(test)]
+pub mod boost_onsocial_tests;
+#[cfg(test)]
 pub mod account_storage_tests;
 #[cfg(test)]
 pub mod actions_group_tests;

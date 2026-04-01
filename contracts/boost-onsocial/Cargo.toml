@@ -1,0 +1,18 @@
+[package]
+name = "boost-onsocial"
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/OnSocial-Labs/onsocial-protocol"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+near-sdk = { version = "5.25.0", features = ["global-contracts"] }
+near-sdk-macros = "5.25.0"
+primitive-types = "0.14"
+serde = { version = "1.0", features = ["derive"] }
+getrandom = { version = "0.2", features = ["custom"] }
+
+[dev-dependencies]
+near-sdk = { version = "5.25.0", features = ["unit-testing", "global-contracts"] }
