@@ -39,17 +39,15 @@ type PublicGovernanceApplication = {
   protocol_subject?: string;
   protocol_target_account?: string | null;
   protocol_target_method?: string | null;
-  governance_proposal:
-    | {
-        proposal_id: number | null;
-        status: string;
-        proposer?: string | null;
-        description: string | null;
-        dao_account: string;
-        tx_hash: string | null;
-        submitted_at: string | null;
-      }
-    | null;
+  governance_proposal: {
+    proposal_id: number | null;
+    status: string;
+    proposer?: string | null;
+    description: string | null;
+    dao_account: string;
+    tx_hash: string | null;
+    submitted_at: string | null;
+  } | null;
 };
 
 type PublicGovernanceProposal = NonNullable<
@@ -86,7 +84,9 @@ function parseGovernancePayload(
 export function mapGovernanceProposal(
   row: Record<string, unknown>,
   includePayload = false
-): (PublicGovernanceProposal & { payload?: GovernanceProposalPayload | null }) | null {
+):
+  | (PublicGovernanceProposal & { payload?: GovernanceProposalPayload | null })
+  | null {
   if (!row.governance_proposal_status) {
     return null;
   }
@@ -275,7 +275,11 @@ function getPartnerProposalDetails(proposal: GovernanceDaoProposalRecord): {
   }
 
   const configValue = args?.config;
-  if (configValue && typeof configValue === 'object' && !Array.isArray(configValue)) {
+  if (
+    configValue &&
+    typeof configValue === 'object' &&
+    !Array.isArray(configValue)
+  ) {
     const appId =
       'app_id' in configValue && typeof configValue.app_id === 'string'
         ? configValue.app_id
@@ -320,7 +324,8 @@ function mapPartnerProposalToFeedItem(
   const description = proposal.description?.trim() || null;
 
   return {
-    app_id: partnerDetails.appId ?? `partner-proposal-${proposal.id ?? 'unknown'}`,
+    app_id:
+      partnerDetails.appId ?? `partner-proposal-${proposal.id ?? 'unknown'}`,
     label:
       partnerDetails.label ??
       description?.split('\n')[0]?.trim() ??
@@ -710,9 +715,10 @@ export async function getGovernanceFeedApplications(
       })()
     : [];
 
-  const daoFeed = includePartners || includeProtocol
-    ? await fetchDaoGovernanceFeed()
-    : { partnerItems: [], protocolItems: [] };
+  const daoFeed =
+    includePartners || includeProtocol
+      ? await fetchDaoGovernanceFeed()
+      : { partnerItems: [], protocolItems: [] };
 
   const scannedPartnerItems = includePartners
     ? dedupePartnerItems(partnerItems, daoFeed.partnerItems)
