@@ -57,10 +57,14 @@ import request from 'supertest';
 const { default: partnerGovernanceRouter } = await import(
   '../../src/routes/partner-governance.js'
 );
+const { default: governanceRouter } = await import(
+  '../../src/routes/governance.js'
+);
 
 function buildApp() {
   const app = express();
   app.use(express.json());
+  app.use('/v1/governance', governanceRouter);
   app.use('/v1/partners', partnerGovernanceRouter);
   return app;
 }
@@ -162,7 +166,9 @@ const DRAFT_PROPOSAL = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  mockQuery.mockReset();
+  mockBuildRegisterAppGovernanceProposal.mockReset();
+  mockIsRewardsAppRegistered.mockReset();
   mockQuery.mockResolvedValue(makeRows([]));
   mockBuildRegisterAppGovernanceProposal.mockReturnValue(DRAFT_PROPOSAL);
   mockIsRewardsAppRegistered.mockResolvedValue(false);
@@ -401,7 +407,7 @@ describe('POST /v1/partners/apply', () => {
   });
 });
 
-describe('GET /v1/partners/governance-feed', () => {
+describe('GET /v1/governance/feed scoped results', () => {
   it('returns the public governance feed with parsed payloads', async () => {
     mockQuery.mockResolvedValueOnce(
       makeRows([
@@ -423,7 +429,9 @@ describe('GET /v1/partners/governance-feed', () => {
       ])
     );
 
-    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -457,7 +465,9 @@ describe('GET /v1/partners/governance-feed', () => {
       ])
     );
 
-    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -495,7 +505,9 @@ describe('GET /v1/partners/governance-feed', () => {
       ])
     );
 
-    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.applications).toHaveLength(1);
@@ -531,7 +543,9 @@ describe('GET /v1/partners/governance-feed', () => {
       ])
     );
 
-    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.applications).toHaveLength(1);
@@ -561,12 +575,289 @@ describe('GET /v1/partners/governance-feed', () => {
     mockQuery.mockResolvedValueOnce(makeRows([]));
     mockIsRewardsAppRegistered.mockResolvedValueOnce(true);
 
-    const res = await request(buildApp()).get('/v1/partners/governance-feed');
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.applications[0].status).toBe('approved');
     expect(res.body.applications[0].api_key).toBeUndefined();
     expect(mockQuery.mock.calls[1]?.[0]).toMatch(/UPDATE partner_keys/);
+  });
+
+  it('adds allowlisted protocol proposals to the public governance feed', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(25))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          {
+            id: 25,
+            proposer: 'voter2.onsocial.testnet',
+            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'boost.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'update_contract_from_hash',
+                  },
+                ],
+              },
+            },
+            status: 'Approved',
+            submission_time: '1773316924632618708',
+          },
+        ])
+      );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=protocol'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        governance_scope: 'protocol',
+        protocol_kind: 'upgrade',
+        protocol_subject: 'Boost contract',
+        protocol_target_account: 'boost.onsocial.testnet',
+        protocol_target_method: 'update_contract_from_hash',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 25,
+          proposer: 'voter2.onsocial.testnet',
+          status: 'Approved',
+        }),
+      })
+    );
+  });
+
+  it('classifies rewards register_app proposals as partner governance, not protocol governance', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(27))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          {
+            id: 27,
+            proposer: 'guardian.onsocial.testnet',
+            description:
+              'Register community app Partner Alpha (partner_alpha) on rewards.onsocial.testnet.',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'rewards.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'register_app',
+                    args: Buffer.from(
+                      JSON.stringify({
+                        config: {
+                          app_id: 'partner_alpha',
+                          label: 'Partner Alpha',
+                        },
+                      })
+                    ).toString('base64'),
+                  },
+                ],
+              },
+            },
+            status: 'InProgress',
+            submission_time: '1773316924632618708',
+          },
+        ])
+      );
+
+    const partnersRes = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
+
+    expect(partnersRes.status).toBe(200);
+    expect(partnersRes.body.applications).toHaveLength(1);
+    expect(partnersRes.body.applications[0]).toEqual(
+      expect.objectContaining({
+        app_id: 'partner_alpha',
+        label: 'Partner Alpha',
+        governance_scope: 'partners',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 27,
+          proposer: 'guardian.onsocial.testnet',
+          status: 'InProgress',
+        }),
+      })
+    );
+
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(27))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          {
+            id: 27,
+            proposer: 'guardian.onsocial.testnet',
+            description:
+              'Register community app Partner Alpha (partner_alpha) on rewards.onsocial.testnet.',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'rewards.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'register_app',
+                    args: Buffer.from(
+                      JSON.stringify({
+                        config: {
+                          app_id: 'partner_alpha',
+                          label: 'Partner Alpha',
+                        },
+                      })
+                    ).toString('base64'),
+                  },
+                ],
+              },
+            },
+            status: 'InProgress',
+            submission_time: '1773316924632618708',
+          },
+        ])
+      );
+
+    const protocolRes = await request(buildApp()).get(
+      '/v1/governance/feed?scope=protocol'
+    );
+
+    expect(protocolRes.status).toBe(200);
+    expect(protocolRes.body.applications).toHaveLength(0);
+  });
+
+  it('excludes staking governance from the public governance feed', async () => {
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(26))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          {
+            id: 0,
+            proposer: 'greenghost.onsocial.testnet',
+            description: 'Set governance staking contract',
+            kind: {
+              SetStakingContract: {
+                staking_id: 'staking-governance.onsocial.testnet',
+              },
+            },
+            status: 'Approved',
+            submission_time: '1773316571093161525',
+          },
+          {
+            id: 25,
+            proposer: 'voter2.onsocial.testnet',
+            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'boost.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'update_contract_from_hash',
+                  },
+                ],
+              },
+            },
+            status: 'Approved',
+            submission_time: '1773316924632618708',
+          },
+        ])
+      );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=protocol'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0].protocol_target_account).toBe(
+      'boost.onsocial.testnet'
+    );
+  });
+});
+
+describe('GET /v1/governance/feed', () => {
+  it('returns the mixed governance feed by default', async () => {
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_app',
+          label: 'Test App',
+          status: 'ready_for_governance',
+          wallet_id: 'alice.testnet',
+          description: 'Partner app for community growth rewards.',
+          created_at: '2026-01-01',
+          governance_proposal_id: null,
+          governance_proposal_status: 'draft',
+          governance_proposal_description: 'Register test app',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: JSON.stringify(DRAFT_PROPOSAL.payload),
+          governance_proposal_tx_hash: null,
+          governance_proposal_submitted_at: null,
+        },
+      ])
+    );
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(25))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          {
+            id: 25,
+            proposer: 'voter2.onsocial.testnet',
+            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'boost.onsocial.testnet',
+                actions: [{ method_name: 'update_contract_from_hash' }],
+              },
+            },
+            status: 'Approved',
+            submission_time: '1773316924632618708',
+          },
+        ])
+      );
+
+    const res = await request(buildApp()).get('/v1/governance/feed');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.scope).toBe('all');
+    expect(res.body.applications).toHaveLength(2);
+  });
+
+  it('supports protocol-only scope', async () => {
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(25))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          {
+            id: 25,
+            proposer: 'voter2.onsocial.testnet',
+            description: 'Upgrade boost contract to cleaned 1.0.0 artifact',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'boost.onsocial.testnet',
+                actions: [{ method_name: 'update_contract_from_hash' }],
+              },
+            },
+            status: 'Approved',
+            submission_time: '1773316924632618708',
+          },
+        ])
+      );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=protocol'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.scope).toBe('protocol');
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0].governance_scope).toBe('protocol');
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 });
 

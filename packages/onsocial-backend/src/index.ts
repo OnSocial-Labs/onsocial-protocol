@@ -5,6 +5,7 @@ import { config } from './config/index.js';
 import { logger } from './logger.js';
 import { webhookHandler, setupWebhook, startPolling } from './bot/index.js';
 import { close as closeDb } from './db/index.js';
+import governanceRoutes from './routes/governance.js';
 import partnerRoutes from './routes/partner.js';
 import partnerGovernanceRoutes from './routes/partner-governance.js';
 import { initPartnerKeyCache } from './middleware/partnerAuth.js';
@@ -80,6 +81,7 @@ app.post('/webhooks/telegram', webhookHandler);
 
 // Partner governance routes MUST be registered before SDK partner routes, because
 // partnerRoutes applies partnerAuth to all /v1/* sub-routes.
+app.use('/v1/governance', governanceRoutes);
 app.use('/v1/partners', partnerGovernanceRoutes);
 app.use('/v1', partnerRoutes);
 

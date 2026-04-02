@@ -4,10 +4,11 @@
 //
 // Public (wallet-authenticated via portal):
 //   POST /v1/partners/apply              — submit a partner application
-//   GET  /v1/partners/governance-feed    — list public governance applications
 //   GET  /v1/partners/status/:wallet     — check application status by wallet
 //   POST /v1/partners/cancel/:appId      — return a governance-ready app to form state
 //   POST /v1/partners/proposal-submitted/:appId — record direct DAO submission
+//   POST /v1/partners/key-challenge/:wallet — begin API key claim flow
+//   POST /v1/partners/claim-key/:wallet  — reveal API key after signature check
 //   POST /v1/partners/rotate-key/:wallet — rotate API key
 // ---------------------------------------------------------------------------
 
@@ -15,13 +16,10 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import { query } from '../db/index.js';
-import { config } from '../config/index.js';
 import { logger } from '../logger.js';
-import { viewContractAt } from '../services/near.js';
 import {
   buildRegisterAppGovernanceProposal,
   getPartnerGovernanceParamsForAudienceBand,
-  isRewardsAppRegistered,
   PARTNER_AUDIENCE_BANDS,
   type PartnerAudienceBand,
   type GovernanceProposalDraft,
@@ -31,6 +29,10 @@ import {
   buildPartnerKeyClaimChallenge,
   verifyPartnerKeyClaim,
 } from '../services/partner-key-claim.js';
+import {
+  mapGovernanceProposal,
+  syncGovernanceProposalState,
+} from '../services/governance-feed.js';
 
 const router = Router();
 
@@ -62,54 +64,6 @@ function parseGovernancePayload(
   }
 
   return value;
-}
-
-function mapGovernanceProposal(
-  row: Record<string, unknown>,
-  includePayload = false
-) {
-  if (!row.governance_proposal_status) {
-    return null;
-  }
-
-  const payload = parseGovernancePayload(
-    row.governance_proposal_payload as
-      | GovernanceProposalPayload
-      | string
-      | null
-      | undefined
-  );
-
-  return {
-    proposal_id:
-      typeof row.governance_proposal_id === 'number'
-        ? row.governance_proposal_id
-        : row.governance_proposal_id === null ||
-            row.governance_proposal_id === undefined
-          ? null
-          : Number(row.governance_proposal_id),
-    status: row.governance_proposal_status,
-    description: row.governance_proposal_description,
-    dao_account: row.governance_proposal_dao,
-    tx_hash: row.governance_proposal_tx_hash,
-    submitted_at: row.governance_proposal_submitted_at,
-    ...(includePayload ? { payload } : {}),
-  };
-}
-
-function mapPublicApplication(row: Record<string, unknown>) {
-  return {
-    app_id: row.app_id,
-    label: row.label,
-    status: row.status,
-    wallet_id: row.wallet_id,
-    description: row.description,
-    website_url: row.website_url,
-    telegram_handle: row.telegram_handle,
-    x_handle: row.x_handle,
-    created_at: row.created_at,
-    governance_proposal: mapGovernanceProposal(row, true),
-  };
 }
 
 function parseAudienceBandFromGovernanceDescription(
@@ -146,40 +100,23 @@ function mapApplicationForm(row: Record<string, unknown>) {
   };
 }
 
-const REJECTED_GOVERNANCE_STATUSES = new Set(['Rejected', 'Removed']);
-const REOPENED_GOVERNANCE_STATUSES = new Set(['Expired']);
-
-function normalizeProposalId(
-  value: number | string | null | undefined
-): number | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  const numericValue = typeof value === 'number' ? value : Number(value);
-  if (!Number.isInteger(numericValue) || numericValue < 0) {
-    return null;
-  }
-
-  return numericValue;
-}
-
-async function fetchDaoProposalStatus(
-  daoAccountId: string,
-  proposalId: number
-): Promise<string | null> {
-  try {
-    const proposal = await viewContractAt<{ status?: string }>(
-      daoAccountId,
-      'get_proposal',
-      { id: proposalId }
-    );
-
-    return typeof proposal?.status === 'string' ? proposal.status : null;
-  } catch {
-    return null;
-  }
-}
+type PartnerStatusRow = {
+  app_id: string;
+  label: string;
+  status: string;
+  api_key: string | null;
+  created_at: string;
+  website_url: string;
+  telegram_handle: string;
+  x_handle: string;
+  governance_proposal_id: number | string | null;
+  governance_proposal_status: string | null;
+  governance_proposal_description: string | null;
+  governance_proposal_dao: string | null;
+  governance_proposal_payload: GovernanceProposalPayload | string | null;
+  governance_proposal_tx_hash: string | null;
+  governance_proposal_submitted_at: string | null;
+};
 // ---------------------------------------------------------------------------
 // POST /v1/partners/apply — partner submits application (creates pending entry)
 // ---------------------------------------------------------------------------
@@ -334,97 +271,6 @@ function sanitizeHandle(
   }
 
   return `@${candidate}`;
-}
-
-async function syncGovernanceProposalState(row: {
-  app_id: string;
-  status: string;
-  api_key?: string | null;
-  governance_proposal_id?: number | string | null;
-  governance_proposal_status?: string | null;
-  governance_proposal_dao?: string | null;
-}): Promise<typeof row> {
-  if (row.status !== 'proposal_submitted') {
-    return row;
-  }
-
-  const proposalId = normalizeProposalId(row.governance_proposal_id);
-  const daoAccountId = row.governance_proposal_dao ?? config.governanceDao;
-
-  if (proposalId !== null) {
-    const liveProposalStatus = await fetchDaoProposalStatus(
-      daoAccountId,
-      proposalId
-    );
-
-    if (
-      liveProposalStatus &&
-      REJECTED_GOVERNANCE_STATUSES.has(liveProposalStatus)
-    ) {
-      const normalizedStatus = liveProposalStatus.toLowerCase();
-
-      await query(
-        `UPDATE partner_keys
-         SET status = 'rejected',
-             active = false,
-             governance_proposal_status = $1
-         WHERE app_id = $2`,
-        [normalizedStatus, row.app_id]
-      );
-
-      return {
-        ...row,
-        status: 'rejected',
-        governance_proposal_status: normalizedStatus,
-      };
-    }
-
-    if (
-      liveProposalStatus &&
-      REOPENED_GOVERNANCE_STATUSES.has(liveProposalStatus)
-    ) {
-      const normalizedStatus = liveProposalStatus.toLowerCase();
-
-      await query(
-        `UPDATE partner_keys
-         SET status = 'reopened',
-             active = false,
-             governance_proposal_status = $1
-         WHERE app_id = $2`,
-        [normalizedStatus, row.app_id]
-      );
-
-      return {
-        ...row,
-        status: 'reopened',
-        governance_proposal_status: normalizedStatus,
-      };
-    }
-  }
-
-  const isRegistered = await isRewardsAppRegistered(row.app_id);
-  if (!isRegistered) {
-    return row;
-  }
-
-  const apiKey = row.api_key ?? generateApiKey();
-
-  await query(
-    `UPDATE partner_keys
-     SET status = 'approved',
-         api_key = $1,
-         active = true,
-         governance_proposal_status = 'executed'
-     WHERE app_id = $2`,
-    [apiKey, row.app_id]
-  );
-
-  return {
-    ...row,
-    status: 'approved',
-    api_key: apiKey,
-    governance_proposal_status: 'executed',
-  };
 }
 
 router.post('/apply', async (req: Request, res: Response): Promise<void> => {
@@ -728,63 +574,6 @@ router.post('/apply', async (req: Request, res: Response): Promise<void> => {
 // ---------------------------------------------------------------------------
 
 router.get(
-  '/governance-feed',
-  async (_req: Request, res: Response): Promise<void> => {
-    try {
-      const result = await query(
-        `SELECT app_id,
-                label,
-                status,
-                wallet_id,
-                description,
-                website_url,
-                telegram_handle,
-                x_handle,
-                created_at,
-                governance_proposal_id,
-                governance_proposal_status,
-                governance_proposal_description,
-                governance_proposal_dao,
-                governance_proposal_payload,
-                governance_proposal_tx_hash,
-                governance_proposal_submitted_at
-         FROM partner_keys
-        WHERE status IN ('ready_for_governance', 'proposal_submitted', 'approved', 'rejected')
-          OR (status = 'reopened' AND governance_proposal_status IS NOT NULL)
-         ORDER BY created_at DESC`
-      );
-
-      const syncedRows = await Promise.all(
-        result.rows.map((row) =>
-          syncGovernanceProposalState(
-            row as {
-              app_id: string;
-              status: string;
-              api_key?: string | null;
-              governance_proposal_id?: number | string | null;
-              governance_proposal_status?: string | null;
-              governance_proposal_dao?: string | null;
-            }
-          )
-        )
-      );
-
-      res.json({
-        success: true,
-        applications: syncedRows.map((row) => mapPublicApplication(row)),
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ success: false, error: msg });
-    }
-  }
-);
-
-// ---------------------------------------------------------------------------
-// GET /v1/partners/status/:wallet — check application status by wallet address
-// ---------------------------------------------------------------------------
-
-router.get(
   '/status/:wallet',
   async (req: Request, res: Response): Promise<void> => {
     const { wallet } = req.params;
@@ -816,23 +605,7 @@ router.get(
         return;
       }
 
-      const row = result.rows[0] as {
-        app_id: string;
-        label: string;
-        status: string;
-        api_key: string | null;
-        created_at: string;
-        website_url: string;
-        telegram_handle: string;
-        x_handle: string;
-        governance_proposal_id: number | string | null;
-        governance_proposal_status: string | null;
-        governance_proposal_description: string | null;
-        governance_proposal_dao: string | null;
-        governance_proposal_payload: GovernanceProposalPayload | string | null;
-        governance_proposal_tx_hash: string | null;
-        governance_proposal_submitted_at: string | null;
-      };
+      const row = result.rows[0] as PartnerStatusRow;
 
       const syncedRow = await syncGovernanceProposalState(row);
 

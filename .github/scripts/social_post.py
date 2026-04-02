@@ -9,6 +9,7 @@ Triggered by GitHub Actions when a commit message contains [post].
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -32,6 +33,9 @@ def parse_args() -> object:
 # =============================================================================
 
 NEAR_AI_API_KEY = os.environ.get("NEAR_AI_API_KEY", "")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY", "OnSocial-Labs/onsocial-protocol")
+GITHUB_API_URL = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 
 X_API_KEY = os.environ.get("X_API_KEY", "")
 X_API_SECRET = os.environ.get("X_API_SECRET", "")
@@ -42,9 +46,16 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 TELEGRAM_TOPIC_ID = os.environ.get("TELEGRAM_TOPIC_ID", "")
 
-# Strip the [post] tag from the message — it's a trigger, not content
-COMMIT_MESSAGE = os.environ.get("COMMIT_MESSAGE", "").replace("[post]", "").strip()
-COMMIT_SHA = os.environ.get("COMMIT_SHA", "")[:7]
+
+def strip_control_tags(message: str) -> str:
+    return re.sub(r"\[(?:post|no-post)\]", "", message, flags=re.IGNORECASE).strip()
+
+
+RAW_COMMIT_MESSAGE = os.environ.get("COMMIT_MESSAGE", "")
+FORCE_POST = bool(re.search(r"\[post\]", RAW_COMMIT_MESSAGE, re.IGNORECASE))
+COMMIT_MESSAGE = strip_control_tags(RAW_COMMIT_MESSAGE)
+FULL_COMMIT_SHA = os.environ.get("COMMIT_SHA", "")
+COMMIT_SHA = FULL_COMMIT_SHA[:7]
 REPO_URL = os.environ.get(
     "REPO_URL", "https://github.com/OnSocial-Labs/onsocial-protocol"
 )
@@ -57,13 +68,15 @@ DISCUSSIONS_URL = "https://github.com/orgs/OnSocial-Labs/discussions"
 # Map top-level directories to human-readable component names
 COMPONENT_MAP = {
     "contracts/scarces-onsocial": "NFT marketplace contract (scarces-onsocial)",
+    "contracts/boost-onsocial": "boost contract (boost-onsocial)",
     "contracts/core-onsocial": "social data contract (core-onsocial)",
     "contracts/token-onsocial": "SOCIAL token contract (token-onsocial)",
     "contracts/staking-onsocial": "staking contract (staking-onsocial)",
-    "contracts/rewards.onsocial": "rewards contract (rewards.onsocial)",
+    "contracts/rewards-onsocial": "rewards contract (rewards-onsocial)",
     "contracts/manager-proxy-onsocial": "manager proxy contract",
     "packages/onsocial-relayer": "gasless transaction relayer",
     "packages/onsocial-gateway": "API gateway",
+    "packages/onsocial-backend": "backend API service",
     "packages/onsocial-portal": "React frontend (portal)",
     "packages/onsocial-app": "web app",
     "packages/onsocial-rpc": "RPC package",
@@ -74,20 +87,152 @@ COMPONENT_MAP = {
     "tests": "integration tests",
 }
 
+MAX_CHANGED_FILES = 12
+MAX_DIFF_SNIPPET_LINES = 36
+MAX_DIFF_SNIPPET_CHARS = 2400
+MAX_TITLE_LENGTH = 120
+HYPE_WORDS = (
+    "excited",
+    "thrilled",
+    "game-changing",
+    "revolutionary",
+    "huge",
+    "dropped",
+)
+SKIP_LABELS = {"no-social-post", "skip-social-post", "internal-only"}
+
+
+def run_git_command(*args: str) -> str:
+    """Run a git command and return stdout, or an empty string on failure."""
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except Exception:
+        return ""
+
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def get_changed_files() -> list[str]:
+    output = run_git_command("diff", "--name-only", "HEAD~1", "HEAD")
+    if not output:
+        return []
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def fetch_json(url: str, headers: dict[str, str] | None = None) -> object | None:
+    request_headers = {"Accept": "application/vnd.github+json"}
+    if headers:
+        request_headers.update(headers)
+
+    try:
+        response = requests.get(url, headers=request_headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        print(f"⚠️  GitHub metadata lookup failed: {exc}")
+        return None
+
+
+def fetch_associated_pr() -> dict[str, object] | None:
+    if not GITHUB_TOKEN or not FULL_COMMIT_SHA or not GITHUB_REPOSITORY:
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    pulls_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/commits/{FULL_COMMIT_SHA}/pulls"
+    payload = fetch_json(pulls_url, headers=headers)
+    if not isinstance(payload, list) or not payload:
+        return None
+
+    pull = payload[0]
+    if not isinstance(pull, dict):
+        return None
+    return pull
+
+
+def normalize_title(text: str) -> str:
+    cleaned = strip_control_tags(text)
+    cleaned = re.sub(r"^(feat|fix|chore|docs|refactor|test|ci|build|perf)(\([^)]*\))?!?:\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .")
+    return cleaned[:MAX_TITLE_LENGTH].strip()
+
+
+def is_docs_only_file(path: str) -> bool:
+    doc_prefixes = (
+        "Resources/",
+        "docs/",
+    )
+    doc_files = {"README.md", "CONTRIBUTING.md", "LICENSE.md"}
+    return path.endswith(".md") or path.startswith(doc_prefixes) or path in doc_files
+
+
+def is_test_only_file(path: str) -> bool:
+    return (
+        path.startswith(("tests/", "test-core/", "test-partner-sdk/"))
+        or "/tests/" in path
+        or path.endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"))
+    )
+
+
+def is_ci_only_file(path: str) -> bool:
+    return path.startswith(".github/") or path in {"pnpm-lock.yaml", "Cargo.lock"}
+
+
+def detect_change_kind(files: list[str]) -> str:
+    if any(path.startswith("contracts/") for path in files):
+        return "contract change"
+    if any(path.startswith("packages/onsocial-backend/") for path in files):
+        return "backend change"
+    if any(path.startswith("packages/onsocial-portal/") for path in files):
+        return "portal change"
+    if any(path.startswith("packages/") for path in files):
+        return "package change"
+    if any(path.startswith("deployment/") for path in files):
+        return "deployment change"
+    return "repo change"
+
+
+def should_skip_post(files: list[str], pr_labels: set[str]) -> tuple[bool, str]:
+    if FORCE_POST:
+        return False, "[post] tag present"
+    if pr_labels & SKIP_LABELS:
+        labels = ", ".join(sorted(pr_labels & SKIP_LABELS))
+        return True, f"PR labeled to skip social posting ({labels})"
+    if not files:
+        return False, "No changed files detected"
+    if all(is_docs_only_file(path) for path in files):
+        return True, "Docs-only change"
+    if all(is_test_only_file(path) for path in files):
+        return True, "Test-only change"
+    if all(is_ci_only_file(path) for path in files):
+        return True, "CI or lockfile-only change"
+    if all(is_docs_only_file(path) or is_ci_only_file(path) for path in files):
+        return True, "Docs/CI-only change"
+    return False, "Change is meaningful enough to post"
+
+
+def first_component_label(files: list[str]) -> str:
+    for path in files:
+        for prefix, label in COMPONENT_MAP.items():
+            if path.startswith(prefix):
+                return label
+    return "OnSocial Protocol"
+
 
 def detect_changed_components() -> str:
     """Run git diff to find which components were touched in this commit."""
-    import subprocess
-
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0:
-            return "(could not detect changed files)"
-        files = result.stdout.strip().splitlines()
-    except Exception:
+    files = get_changed_files()
+    if not files:
         return "(could not detect changed files)"
 
     components = set()
@@ -102,31 +247,38 @@ def detect_changed_components() -> str:
     return ", ".join(sorted(components))
 
 
+def summarize_changed_files() -> str:
+    files = get_changed_files()
+    if not files:
+        return "(could not detect changed files)"
+
+    visible_files = files[:MAX_CHANGED_FILES]
+    summary = "\n".join(f"- {path}" for path in visible_files)
+    remaining = len(files) - len(visible_files)
+    if remaining > 0:
+        summary += f"\n- ... and {remaining} more"
+    return summary
+
+
 CHANGED_COMPONENTS = detect_changed_components()
+CHANGED_FILES = summarize_changed_files()
+CHANGED_FILE_LIST = get_changed_files()
 
 # Map contract directories to their nearblocks URLs (testnet + mainnet)
 CONTRACT_NEARBLOCKS = {
     "contracts/scarces-onsocial": "https://testnet.nearblocks.io/address/scarces.onsocial.testnet",
+    "contracts/boost-onsocial": "https://testnet.nearblocks.io/address/boost.onsocial.testnet",
     "contracts/core-onsocial": "https://testnet.nearblocks.io/address/core.onsocial.testnet",
     "contracts/staking-onsocial": "https://testnet.nearblocks.io/address/staking.onsocial.testnet",
     "contracts/token-onsocial": "https://testnet.nearblocks.io/address/token.onsocial.testnet",
-    "contracts/rewards.onsocial": "https://testnet.nearblocks.io/address/rewards.onsocial.testnet",
+    "contracts/rewards-onsocial": "https://testnet.nearblocks.io/address/rewards.onsocial.testnet",
 }
 
 
 def detect_nearblocks_links() -> str:
     """Return nearblocks explorer links for any contracts changed in this commit."""
-    import subprocess
-
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD~1", "HEAD"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode != 0:
-            return ""
-        files = result.stdout.strip().splitlines()
-    except Exception:
+    files = get_changed_files()
+    if not files:
         return ""
 
     links = set()
@@ -143,6 +295,68 @@ def detect_nearblocks_links() -> str:
 
 NEARBLOCKS_LINKS = detect_nearblocks_links()
 
+
+def detect_diff_stat() -> str:
+    stat = run_git_command("diff", "--stat", "HEAD~1", "HEAD")
+    return stat or "(diff stat unavailable)"
+
+
+def detect_diff_snippets() -> str:
+    diff = run_git_command("diff", "--no-color", "--unified=1", "HEAD~1", "HEAD")
+    if not diff:
+        return "(diff snippets unavailable)"
+
+    lines: list[str] = []
+    snippet_chars = 0
+    for raw_line in diff.splitlines():
+        line = raw_line.rstrip()
+        if line.startswith(("diff --git", "index ", "--- ", "+++ ")):
+            continue
+        if not line.startswith(("@@", "+", "-", " ")):
+            continue
+
+        if line.startswith(" "):
+            continue
+
+        candidate = line[:220]
+        candidate_len = len(candidate) + 1
+        if len(lines) >= MAX_DIFF_SNIPPET_LINES or snippet_chars + candidate_len > MAX_DIFF_SNIPPET_CHARS:
+            lines.append("... (diff trimmed)")
+            break
+
+        lines.append(candidate)
+        snippet_chars += candidate_len
+
+    if not lines:
+        return "(diff snippets unavailable)"
+    return "\n".join(lines)
+
+
+DIFF_STAT = detect_diff_stat()
+DIFF_SNIPPETS = detect_diff_snippets()
+ASSOCIATED_PR = fetch_associated_pr()
+PR_TITLE = normalize_title(str(ASSOCIATED_PR.get("title", ""))) if ASSOCIATED_PR else ""
+PR_BODY = str(ASSOCIATED_PR.get("body", "")).strip() if ASSOCIATED_PR else ""
+PR_URL = str(ASSOCIATED_PR.get("html_url", "")).strip() if ASSOCIATED_PR else ""
+PR_NUMBER = str(ASSOCIATED_PR.get("number", "")).strip() if ASSOCIATED_PR else ""
+PR_LABELS = {
+    str(label.get("name", "")).strip().lower()
+    for label in ASSOCIATED_PR.get("labels", [])
+    if isinstance(label, dict)
+} if ASSOCIATED_PR else set()
+CHANGE_KIND = detect_change_kind(CHANGED_FILE_LIST)
+SHOULD_SKIP, SKIP_REASON = should_skip_post(CHANGED_FILE_LIST, PR_LABELS)
+
+
+def summarize_pr_body(body: str) -> str:
+    if not body:
+        return "none"
+    collapsed = re.sub(r"\s+", " ", body).strip()
+    return collapsed[:300] + ("..." if len(collapsed) > 300 else "")
+
+
+PR_BODY_SUMMARY = summarize_pr_body(PR_BODY)
+
 # =============================================================================
 # Generate posts via NEAR AI
 # =============================================================================
@@ -156,13 +370,33 @@ Commit message: {COMMIT_MESSAGE}
 Commit: {COMMIT_SHA}
 Repo: {REPO_URL}
 Discussions: {DISCUSSIONS_URL}
+Associated PR: {f'#{PR_NUMBER} {PR_TITLE}' if PR_NUMBER and PR_TITLE else 'none'}
+PR labels: {', '.join(sorted(PR_LABELS)) if PR_LABELS else 'none'}
+PR URL: {PR_URL if PR_URL else 'none'}
+PR summary: {PR_BODY_SUMMARY}
+Detected change kind: {CHANGE_KIND}
 Changed components: {CHANGED_COMPONENTS}
+Changed files:
+{CHANGED_FILES}
+Diff stat:
+{DIFF_STAT}
+Representative diff snippets:
+{DIFF_SNIPPETS}
 Nearblocks explorer links: {NEARBLOCKS_LINKS if NEARBLOCKS_LINKS else "none (no contract changes)"}
 
 This is a monorepo with multiple contracts and packages. The "Changed components" line \
 above tells you exactly which parts of the codebase were modified. Always mention the \
 specific component in both the tweet and telegram post — followers need to know which \
 part of the system changed. Use the friendly name, not the directory path.
+
+Use the changed files, diff stat, and diff snippets to infer what materially changed. \
+Treat that code context as the primary source of truth. The commit message can help with \
+framing, but if it is vague, rely on the diff context instead. Do not invent behavior that \
+is not visible in the context.
+
+If PR metadata is available, use it to understand the intent and user impact. PR title and \
+labels are usually better summaries than the raw commit message. Still prefer the diff if \
+the PR text overstates the change.
 
 Tech stack: Rust smart contracts on NEAR, TypeScript relayer/gateway, React portal, \
 gasless transactions via meta-transactions and session keys, NEAR AI integration, \
@@ -230,7 +464,7 @@ No markdown formatting.
 
 Return only the two posts with their labels, nothing else."""
 
-MAX_TWEET_LENGTH = 280
+MAX_TWEET_LENGTH = 240
 
 
 def generate_posts() -> tuple[str, str]:
@@ -294,6 +528,61 @@ def parse_posts(output: str) -> tuple[str, str]:
         print(f"⚠️  Tweet truncated to {len(tweet_text)} chars (was over {MAX_TWEET_LENGTH})")
 
     return tweet_text, telegram_text
+
+
+def contains_forbidden_language(text: str) -> str | None:
+    lowered = text.lower()
+    for word in HYPE_WORDS:
+        if word in lowered:
+            return f'hype word "{word}"'
+    if re.search(r"\b(we|our|us|team)\b", lowered):
+        return "first-person or team language"
+    if "!" in text:
+        return "exclamation mark"
+    return None
+
+
+def build_fallback_posts() -> tuple[str, str]:
+    component = first_component_label(CHANGED_FILE_LIST)
+    headline = normalize_title(PR_TITLE or COMMIT_MESSAGE)
+    if not headline:
+        headline = f"{CHANGE_KIND} in {component}"
+
+    tweet = f"{component}: {headline}."
+    if len(tweet) > MAX_TWEET_LENGTH:
+        tweet = tweet[: MAX_TWEET_LENGTH - 1].rstrip(" .,;:") + "…"
+
+    details = f"{component} changed in {COMMIT_SHA}. {headline}."
+    if CHANGED_COMPONENTS and CHANGED_COMPONENTS != "(could not detect changed files)":
+        details += f" Scope: {CHANGED_COMPONENTS}."
+
+    link = PR_URL or (NEARBLOCKS_LINKS.splitlines()[0] if NEARBLOCKS_LINKS else REPO_URL)
+    telegram = f"{details} {link}".strip()
+    return tweet, telegram
+
+
+def validate_posts(tweet_text: str, telegram_text: str) -> list[str]:
+    errors: list[str] = []
+    if len(tweet_text) > MAX_TWEET_LENGTH:
+        errors.append(f"tweet too long ({len(tweet_text)} > {MAX_TWEET_LENGTH})")
+
+    tweet_error = contains_forbidden_language(tweet_text)
+    if tweet_error:
+        errors.append(f"tweet contains {tweet_error}")
+
+    telegram_error = contains_forbidden_language(telegram_text)
+    if telegram_error:
+        errors.append(f"telegram contains {telegram_error}")
+
+    if not tweet_text.strip() or not telegram_text.strip():
+        errors.append("empty generated post")
+
+    if CHANGED_COMPONENTS != "(could not detect changed files)" and CHANGED_COMPONENTS != "misc / repo-level changes":
+        component = first_component_label(CHANGED_FILE_LIST).split(" (")[0].lower()
+        if component and component not in tweet_text.lower() and component not in telegram_text.lower():
+            errors.append("posts do not mention the primary changed component")
+
+    return errors
 
 
 # =============================================================================
@@ -369,13 +658,30 @@ def main() -> None:
         print("No commit message provided, nothing to post.")
         sys.exit(0)
 
+    if SHOULD_SKIP:
+        print(f"Skipping social post: {SKIP_REASON}")
+        sys.exit(0)
+
     if args.dry_run:
         print("🏃 DRY RUN — posts will be generated but NOT published.\n")
 
     print(f"Commit: {COMMIT_SHA}")
     print(f"Message: {COMMIT_MESSAGE}\n")
+    if PR_TITLE:
+        print(f"PR: {PR_TITLE}")
+    if PR_LABELS:
+        print(f"PR labels: {', '.join(sorted(PR_LABELS))}")
+    print(f"Detected change kind: {CHANGE_KIND}\n")
 
     tweet_text, telegram_text = generate_posts()
+
+    validation_errors = validate_posts(tweet_text, telegram_text)
+    if validation_errors:
+        print("⚠️  Generated posts failed validation:")
+        for error in validation_errors:
+            print(f"  - {error}")
+        tweet_text, telegram_text = build_fallback_posts()
+        print("⚠️  Using deterministic fallback posts instead.\n")
 
     print(f"\n--- Tweet ({len(tweet_text)} chars) ---")
     print(tweet_text)

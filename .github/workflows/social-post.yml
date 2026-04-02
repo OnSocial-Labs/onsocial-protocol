@@ -1,7 +1,11 @@
 name: Social Post
 
 env:
-  ENABLE_SOCIAL_POST: 'false'
+  ENABLE_SOCIAL_POST: 'true'
+
+permissions:
+  contents: read
+  pull-requests: read
 
 on:
   push:
@@ -12,6 +16,11 @@ on:
         description: 'Custom commit message to generate posts for'
         required: false
         type: string
+      dry_run:
+        description: 'Generate posts but do not publish them'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   post:
@@ -38,6 +47,8 @@ jobs:
       - name: Checkout
         if: steps.social_post_flag.outputs.enabled == 'true'
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
 
       - name: Setup Python
         if: steps.social_post_flag.outputs.enabled == 'true'
@@ -53,6 +64,7 @@ jobs:
         if: steps.social_post_flag.outputs.enabled == 'true'
         env:
           NEAR_AI_API_KEY: ${{ secrets.NEAR_AI_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
           X_API_KEY: ${{ secrets.X_API_KEY }}
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
@@ -63,4 +75,10 @@ jobs:
           COMMIT_MESSAGE: ${{ inputs.message || github.event.head_commit.message }}
           COMMIT_SHA: ${{ github.sha }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
-        run: python .github/scripts/social_post.py
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python .github/scripts/social_post.py --dry-run
+          else
+            python .github/scripts/social_post.py
+          fi
