@@ -100,6 +100,14 @@ HYPE_WORDS = (
     "dropped",
 )
 SKIP_LABELS = {"no-social-post", "skip-social-post", "internal-only"}
+FORMATTING_KEYWORDS = (
+    "format",
+    "formatting",
+    "prettier",
+    "code style",
+    "codestyle",
+    "lint fix",
+)
 
 
 def run_git_command(*args: str) -> str:
@@ -188,6 +196,23 @@ def is_ci_only_file(path: str) -> bool:
     return path.startswith(".github/") or path in {"pnpm-lock.yaml", "Cargo.lock"}
 
 
+def is_formatting_title(text: str) -> bool:
+    lowered = normalize_title(text).lower()
+    return any(keyword in lowered for keyword in FORMATTING_KEYWORDS)
+
+
+def has_substantive_diff() -> bool:
+    output = run_git_command(
+        "diff",
+        "--ignore-all-space",
+        "--ignore-blank-lines",
+        "--name-only",
+        "HEAD~1",
+        "HEAD",
+    )
+    return bool(output)
+
+
 def detect_change_kind(files: list[str]) -> str:
     if any(path.startswith("contracts/") for path in files):
         return "contract change"
@@ -208,6 +233,8 @@ def should_skip_post(files: list[str], pr_labels: set[str]) -> tuple[bool, str]:
     if pr_labels & SKIP_LABELS:
         labels = ", ".join(sorted(pr_labels & SKIP_LABELS))
         return True, f"PR labeled to skip social posting ({labels})"
+    if is_formatting_title(PR_TITLE or COMMIT_MESSAGE) and not has_substantive_diff():
+        return True, "Formatting-only change"
     if not files:
         return False, "No changed files detected"
     if all(is_docs_only_file(path) for path in files):
