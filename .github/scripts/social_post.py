@@ -542,25 +542,6 @@ def contains_forbidden_language(text: str) -> str | None:
     return None
 
 
-def build_fallback_posts() -> tuple[str, str]:
-    component = first_component_label(CHANGED_FILE_LIST)
-    headline = normalize_title(PR_TITLE or COMMIT_MESSAGE)
-    if not headline:
-        headline = f"{CHANGE_KIND} in {component}"
-
-    tweet = f"{component}: {headline}."
-    if len(tweet) > MAX_TWEET_LENGTH:
-        tweet = tweet[: MAX_TWEET_LENGTH - 1].rstrip(" .,;:") + "…"
-
-    details = f"{component} changed in {COMMIT_SHA}. {headline}."
-    if CHANGED_COMPONENTS and CHANGED_COMPONENTS != "(could not detect changed files)":
-        details += f" Scope: {CHANGED_COMPONENTS}."
-
-    link = PR_URL or (NEARBLOCKS_LINKS.splitlines()[0] if NEARBLOCKS_LINKS else REPO_URL)
-    telegram = f"{details} {link}".strip()
-    return tweet, telegram
-
-
 def validate_posts(tweet_text: str, telegram_text: str) -> list[str]:
     errors: list[str] = []
     if len(tweet_text) > MAX_TWEET_LENGTH:
@@ -676,16 +657,15 @@ def main() -> None:
     try:
         tweet_text, telegram_text = generate_posts()
     except RuntimeError as err:
-        print(f"⚠️  Falling back to deterministic posts: {err}")
-        tweet_text, telegram_text = build_fallback_posts()
+        print(f"Skipping social post: AI generation failed: {err}")
+        sys.exit(0)
 
     validation_errors = validate_posts(tweet_text, telegram_text)
     if validation_errors:
-        print("⚠️  Generated posts failed validation:")
+        print("Skipping social post: generated posts failed validation:")
         for error in validation_errors:
             print(f"  - {error}")
-        tweet_text, telegram_text = build_fallback_posts()
-        print("⚠️  Using deterministic fallback posts instead.\n")
+        sys.exit(0)
 
     print(f"\n--- Tweet ({len(tweet_text)} chars) ---")
     print(tweet_text)
