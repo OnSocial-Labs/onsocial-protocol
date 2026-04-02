@@ -484,7 +484,7 @@ def generate_posts() -> tuple[str, str]:
                     "model": "deepseek-ai/DeepSeek-V3.1",
                     "messages": [{"role": "user", "content": PROMPT}],
                 },
-                timeout=30,
+                timeout=45,
             )
             resp.raise_for_status()
             output = resp.json()["choices"][0]["message"]["content"]
@@ -673,7 +673,11 @@ def main() -> None:
         print(f"PR labels: {', '.join(sorted(PR_LABELS))}")
     print(f"Detected change kind: {CHANGE_KIND}\n")
 
-    tweet_text, telegram_text = generate_posts()
+    try:
+        tweet_text, telegram_text = generate_posts()
+    except RuntimeError as err:
+        print(f"⚠️  Falling back to deterministic posts: {err}")
+        tweet_text, telegram_text = build_fallback_posts()
 
     validation_errors = validate_posts(tweet_text, telegram_text)
     if validation_errors:
