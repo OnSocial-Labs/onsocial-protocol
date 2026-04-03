@@ -4,6 +4,7 @@
 //
 // Public (wallet-authenticated via portal):
 //   POST /v1/partners/apply              — submit a partner application
+//   GET  /v1/partners/app-id/:appId      — check whether an app ID is available
 //   GET  /v1/partners/status/:wallet     — check application status by wallet
 //   POST /v1/partners/cancel/:appId      — return a governance-ready app to form state
 //   POST /v1/partners/proposal-submitted/:appId — record direct DAO submission
@@ -20,6 +21,7 @@ import { logger } from '../logger.js';
 import {
   buildRegisterAppGovernanceProposal,
   getPartnerGovernanceParamsForAudienceBand,
+  isRewardsAppRegistered,
   PARTNER_AUDIENCE_BANDS,
   type PartnerAudienceBand,
   type GovernanceProposalDraft,
@@ -117,6 +119,83 @@ type PartnerStatusRow = {
   governance_proposal_tx_hash: string | null;
   governance_proposal_submitted_at: string | null;
 };
+
+type ExistingPartnerAppRow = {
+  status: string;
+  wallet_id: string | null;
+};
+
+async function getExistingPartnerApp(appId: string) {
+  const existing = await query<ExistingPartnerAppRow>(
+    `SELECT status, wallet_id FROM partner_keys WHERE app_id = $1`,
+    [appId]
+  );
+
+  return existing.rows[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// GET /v1/partners/app-id/:appId — check whether an app ID is available
+// ---------------------------------------------------------------------------
+
+router.get(
+  '/app-id/:appId',
+  async (req: Request, res: Response): Promise<void> => {
+    const appId =
+      typeof req.params.appId === 'string' ? req.params.appId.trim() : '';
+    const walletId =
+      typeof req.query.wallet_id === 'string' ? req.query.wallet_id.trim() : '';
+
+    if (!appId || !/^[a-z0-9_]{3,64}$/.test(appId)) {
+      res.status(400).json({
+        success: false,
+        error:
+          'app_id must be 3-64 characters, lowercase letters, numbers, and underscores only',
+      });
+      return;
+    }
+
+    try {
+      const existing = await getExistingPartnerApp(appId);
+      if (existing) {
+        const canReuseReopenedApp =
+          existing.status === 'reopened' &&
+          existing.wallet_id === (walletId || null);
+
+        res.json({
+          success: true,
+          app_id: appId,
+          available: canReuseReopenedApp,
+          status: canReuseReopenedApp ? 'reopened' : existing.status,
+          source: 'application',
+        });
+        return;
+      }
+
+      const onChainRegistered = await isRewardsAppRegistered(appId);
+      if (onChainRegistered) {
+        res.json({
+          success: true,
+          app_id: appId,
+          available: false,
+          status: 'registered',
+          source: 'onchain',
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        app_id: appId,
+        available: true,
+        source: 'application',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(502).json({ success: false, error: msg });
+    }
+  }
+);
 // ---------------------------------------------------------------------------
 // POST /v1/partners/apply — partner submits application (creates pending entry)
 // ---------------------------------------------------------------------------
@@ -398,16 +477,8 @@ router.post('/apply', async (req: Request, res: Response): Promise<void> => {
     const nextStatus = 'ready_for_governance';
 
     // Check if app_id already exists
-    const existing = await query(
-      `SELECT id, status, wallet_id FROM partner_keys WHERE app_id = $1`,
-      [app_id]
-    );
-    if (existing.rows.length > 0) {
-      const row = existing.rows[0] as {
-        status: string;
-        wallet_id: string | null;
-      };
-
+    const row = await getExistingPartnerApp(app_id);
+    if (row) {
       if (
         row.status === 'reopened' &&
         row.wallet_id === (body.wallet_id || null)
