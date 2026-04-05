@@ -527,7 +527,7 @@ function dedupePartnerItems(
   dbItems: PublicGovernanceApplication[],
   daoItems: PublicGovernanceApplication[]
 ) {
-  const existingAppIds = new Set(dbItems.map((item) => item.app_id));
+  const dbItemsByAppId = new Map(dbItems.map((item) => [item.app_id, item]));
   const existingProposalIds = new Set(
     dbItems
       .map((item) => item.governance_proposal?.proposal_id ?? null)
@@ -536,12 +536,21 @@ function dedupePartnerItems(
 
   return daoItems.filter((item) => {
     const proposalId = item.governance_proposal?.proposal_id ?? null;
-    if (existingAppIds.has(item.app_id)) {
+
+    // Already have this exact proposal from the DB — skip
+    if (proposalId !== null && existingProposalIds.has(proposalId)) {
       return false;
     }
 
-    if (proposalId !== null && existingProposalIds.has(proposalId)) {
-      return false;
+    const dbItem = dbItemsByAppId.get(item.app_id);
+    if (dbItem) {
+      // DB item already carries a governance proposal — skip the DAO-scanned duplicate
+      if (dbItem.governance_proposal?.proposal_id != null) {
+        return false;
+      }
+      // DB item was reopened / has no proposal link — keep the DAO-scanned
+      // historical rejected/removed entry so it remains visible in the feed
+      return true;
     }
 
     return true;
