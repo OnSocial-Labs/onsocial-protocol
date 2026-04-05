@@ -802,12 +802,10 @@ router.post(
       );
 
       if (!isCouncil) {
-        res
-          .status(403)
-          .json({
-            success: false,
-            error: 'Only DAO council members can reopen applications',
-          });
+        res.status(403).json({
+          success: false,
+          error: 'Only DAO council members can reopen applications',
+        });
         return;
       }
 
