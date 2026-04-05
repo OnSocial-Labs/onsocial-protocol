@@ -1320,7 +1320,23 @@ describe('POST /v1/partners/reopen/:appId', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.status).toBe('reopened');
+    expect(res.body.already_reopened).toBe(false);
     expect(mockQuery.mock.calls[1]?.[0]).toMatch(/SET status = 'reopened'/);
+  });
+
+  it('returns success when another guardian already reopened the application', async () => {
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult(councilPolicy));
+    mockQuery.mockResolvedValueOnce(makeRows([{ status: 'reopened' }]));
+
+    const res = await request(buildApp())
+      .post('/v1/partners/reopen/test_app')
+      .send({ wallet_id: 'guardian.testnet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.status).toBe('reopened');
+    expect(res.body.already_reopened).toBe(true);
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it('rejects missing wallet_id', async () => {

@@ -824,6 +824,16 @@ router.post(
 
       const row = existing.rows[0] as { status: string };
 
+      if (row.status === 'reopened') {
+        res.json({
+          success: true,
+          app_id: appId,
+          status: 'reopened',
+          already_reopened: true,
+        });
+        return;
+      }
+
       if (row.status !== 'rejected') {
         res.status(409).json({
           success: false,
@@ -854,6 +864,7 @@ router.post(
         success: true,
         app_id: appId,
         status: 'reopened',
+        already_reopened: false,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
