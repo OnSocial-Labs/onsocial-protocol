@@ -700,8 +700,7 @@ export async function getGovernanceFeedApplications(
                   governance_proposal_tx_hash,
                   governance_proposal_submitted_at
            FROM partner_keys
-          WHERE status IN ('ready_for_governance', 'proposal_submitted', 'approved', 'rejected')
-            OR (status = 'reopened' AND governance_proposal_status IS NOT NULL)
+          WHERE status IN ('ready_for_governance', 'proposal_submitted', 'approved', 'rejected', 'reopened')
            ORDER BY created_at DESC`
         );
 
