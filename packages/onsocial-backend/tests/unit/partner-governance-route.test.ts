@@ -264,8 +264,8 @@ describe('POST /v1/partners/apply', () => {
       expect.objectContaining({
         metadata: expect.objectContaining({
           websiteUrl: 'https://example.com/',
-          telegramHandle: '@onsocialgroup',
-          xHandle: '@onsocial',
+          telegramHandle: 'onsocialgroup',
+          xHandle: 'onsocial',
         }),
       })
     );
@@ -1300,5 +1300,70 @@ describe('Partner key claim flow', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.api_key).toBe('os_live_abc123');
+  });
+});
+
+describe('POST /v1/partners/reopen/:appId', () => {
+  const councilPolicy = {
+    roles: [{ name: 'council', kind: { Group: ['guardian.testnet'] } }],
+  };
+
+  it('allows a council member to reopen a rejected application', async () => {
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult(councilPolicy));
+    mockQuery.mockResolvedValueOnce(makeRows([{ status: 'rejected' }]));
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(buildApp())
+      .post('/v1/partners/reopen/test_app')
+      .send({ wallet_id: 'guardian.testnet' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.status).toBe('reopened');
+    expect(mockQuery.mock.calls[1]?.[0]).toMatch(/SET status = 'reopened'/);
+  });
+
+  it('rejects missing wallet_id', async () => {
+    const res = await request(buildApp())
+      .post('/v1/partners/reopen/test_app')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/wallet_id is required/);
+  });
+
+  it('rejects non-council callers', async () => {
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult(councilPolicy));
+
+    const res = await request(buildApp())
+      .post('/v1/partners/reopen/test_app')
+      .send({ wallet_id: 'random.testnet' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/Only DAO council members/);
+  });
+
+  it('rejects reopening non-rejected applications', async () => {
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult(councilPolicy));
+    mockQuery.mockResolvedValueOnce(makeRows([{ status: 'approved' }]));
+
+    const res = await request(buildApp())
+      .post('/v1/partners/reopen/test_app')
+      .send({ wallet_id: 'guardian.testnet' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/Only rejected applications/);
+  });
+
+  it('returns 404 for unknown app ids', async () => {
+    mockFetch.mockResolvedValueOnce(mockRpcViewResult(councilPolicy));
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(buildApp())
+      .post('/v1/partners/reopen/unknown_app')
+      .send({ wallet_id: 'guardian.testnet' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/Application not found/);
   });
 });

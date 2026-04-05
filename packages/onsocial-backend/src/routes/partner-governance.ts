@@ -7,6 +7,7 @@
 //   GET  /v1/partners/app-id/:appId      — check whether an app ID is available
 //   GET  /v1/partners/status/:wallet     — check application status by wallet
 //   POST /v1/partners/cancel/:appId      — return a governance-ready app to form state
+//   POST /v1/partners/reopen/:appId      — guardian reopens a rejected application
 //   POST /v1/partners/proposal-submitted/:appId — record direct DAO submission
 //   POST /v1/partners/key-challenge/:wallet — begin API key claim flow
 //   POST /v1/partners/claim-key/:wallet  — reveal API key after signature check
@@ -35,6 +36,8 @@ import {
   mapGovernanceProposal,
   syncGovernanceProposalState,
 } from '../services/governance-feed.js';
+import { viewContractAt } from '../services/near.js';
+import { config } from '../config/index.js';
 
 const router = Router();
 
@@ -349,7 +352,7 @@ function sanitizeHandle(
     );
   }
 
-  return `@${candidate}`;
+  return candidate;
 }
 
 router.post('/apply', async (req: Request, res: Response): Promise<void> => {
@@ -765,6 +768,98 @@ router.post(
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ success: false, error: msg });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Guardian: reopen a rejected application
+// ---------------------------------------------------------------------------
+
+router.post(
+  '/reopen/:appId',
+  async (req: Request, res: Response): Promise<void> => {
+    const { appId } = req.params;
+    const { wallet_id } = (req.body ?? {}) as { wallet_id?: string };
+
+    if (!wallet_id || typeof wallet_id !== 'string') {
+      res.status(400).json({ success: false, error: 'wallet_id is required' });
+      return;
+    }
+
+    try {
+      // Verify caller is a DAO council member
+      const policy = await viewContractAt<{
+        roles?: { kind?: { Group?: string[] }; name?: string }[];
+      }>(config.governanceDao, 'get_policy', {});
+
+      const callerLower = wallet_id.toLowerCase();
+      const isCouncil = (policy?.roles ?? []).some((role) =>
+        (role.kind?.Group ?? []).some(
+          (member) => member.toLowerCase() === callerLower
+        )
+      );
+
+      if (!isCouncil) {
+        res
+          .status(403)
+          .json({
+            success: false,
+            error: 'Only DAO council members can reopen applications',
+          });
+        return;
+      }
+
+      // Look up the application
+      const existing = await query(
+        `SELECT status FROM partner_keys WHERE app_id = $1`,
+        [appId]
+      );
+
+      if (existing.rows.length === 0) {
+        res
+          .status(404)
+          .json({ success: false, error: 'Application not found' });
+        return;
+      }
+
+      const row = existing.rows[0] as { status: string };
+
+      if (row.status !== 'rejected') {
+        res.status(409).json({
+          success: false,
+          error: 'Only rejected applications can be reopened',
+        });
+        return;
+      }
+
+      await query(
+        `UPDATE partner_keys
+         SET status = 'reopened',
+             active = false,
+             governance_proposal_id = NULL,
+             governance_proposal_status = NULL,
+             governance_proposal_description = NULL,
+             governance_proposal_dao = NULL,
+             governance_proposal_payload = NULL,
+             governance_proposal_tx_hash = NULL,
+             governance_proposal_submitted_at = NULL,
+             reviewed_at = NULL
+         WHERE app_id = $1`,
+        [appId]
+      );
+
+      logger.info(`Guardian ${wallet_id} reopened rejected app ${appId}`);
+
+      res.json({
+        success: true,
+        app_id: appId,
+        status: 'reopened',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to reopen app ${appId}: ${msg}`);
       res.status(500).json({ success: false, error: msg });
     }
   }
