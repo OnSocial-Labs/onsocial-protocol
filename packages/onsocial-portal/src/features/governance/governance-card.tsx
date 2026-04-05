@@ -1,23 +1,158 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ChevronDown, Globe } from 'lucide-react';
+import { FaXTwitter } from 'react-icons/fa6';
+import { RiTelegram2Line } from 'react-icons/ri';
+import { SurfacePanel } from '@/components/ui/surface-panel';
+import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
+import { useWallet } from '@/contexts/wallet-context';
 import {
   ApprovedConfigPanel,
   GovernanceStatusPanel,
-  StatusBadge,
-} from '@/features/governance/app-card-parts';
+} from '@/features/governance/governance-status-panels';
+import { actOnGovernanceProposal } from '@/features/governance/api';
+import { reopenApplication } from '@/features/partners/api';
+import {
+  buildHandleUrl,
+  deriveGovernanceCardView,
+  formatActionLabel,
+  formatIsoTimestamp,
+  HoverTimestamp,
+  loadLiveDaoState,
+  renderHighlightedJson,
+  safeJsonStringify,
+} from '@/features/governance/governance-card-helpers';
+import {
+  GovernanceGuardianActions,
+  GovernanceLiveSummary,
+  GovernanceReviewTerms,
+  GovernanceVoteActivity,
+  ShareProposal,
+} from '@/features/governance/governance-card-sections';
 import type {
   Application,
+  GovernanceDaoAction,
+  GovernanceDaoPolicy,
+  GovernanceDaoProposal,
   GovernanceProposal,
 } from '@/features/governance/types';
 import { viewContract, type OnChainAppConfig } from '@/lib/near-rpc';
+import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
+import { ProtocolGovernanceCard } from '@/features/governance/protocol-governance-card';
 
-export function GovernanceCard({ app }: { app: Application }) {
+const POST_ACTION_REFRESH_MS = 5_000;
+const POST_ACTION_REFRESH_WINDOW_MS = 60_000;
+const ONSOCIAL_TELEGRAM_URL = 'https://t.me/onsocialprotocol';
+
+function DescriptionClamp({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [clamped, setClamped] = useState(true);
+  const [needsClamp, setNeedsClamp] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) setNeedsClamp(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+
+  return (
+    <div className="mt-1.5">
+      <p
+        ref={ref}
+        className={`max-w-3xl text-xs text-muted-foreground ${clamped ? 'line-clamp-2' : ''}`}
+      >
+        {text}
+      </p>
+      {needsClamp && (
+        <button
+          type="button"
+          onClick={() => setClamped((c) => !c)}
+          className="mt-0.5 text-xs text-foreground/50 hover:text-foreground/70"
+        >
+          {clamped ? 'show more' : 'show less'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function GovernanceCard({
+  app,
+  onGovernanceUpdated,
+}: {
+  app: Application;
+  onGovernanceUpdated?: () => void | Promise<void>;
+}) {
+  if (app.governance_scope === 'protocol') {
+    return (
+      <ProtocolGovernanceCard
+        app={app}
+        onGovernanceUpdated={onGovernanceUpdated}
+      />
+    );
+  }
+
+  return (
+    <PartnerGovernanceCard
+      app={app}
+      onGovernanceUpdated={onGovernanceUpdated}
+    />
+  );
+}
+
+function PartnerGovernanceCard({
+  app,
+  onGovernanceUpdated,
+}: {
+  app: Application;
+  onGovernanceUpdated?: () => void | Promise<void>;
+}) {
+  const { wallet, accountId, isConnected } = useWallet();
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [onChainConfig, setOnChainConfig] = useState<OnChainAppConfig | null>(
     null
   );
   const [configLoading, setConfigLoading] = useState(false);
+  const [daoPolicy, setDaoPolicy] = useState<GovernanceDaoPolicy | null>(null);
+  const [liveProposal, setLiveProposal] =
+    useState<GovernanceDaoProposal | null>(null);
+  const [daoLoading, setDaoLoading] = useState(false);
+  const [actionLoading, setActionLoading] =
+    useState<GovernanceDaoAction | null>(null);
+  const [actionTxHash, setActionTxHash] = useState<string | null>(null);
+  const [reopenLoading, setReopenLoading] = useState(false);
+  const [reopenState, setReopenState] = useState<
+    'idle' | 'opened' | 'already-opened'
+  >('idle');
+  const [postActionRefreshUntil, setPostActionRefreshUntil] = useState<
+    number | null
+  >(null);
+  const [rawProposalOpen, setRawProposalOpen] = useState(false);
+  const { txResult, setTxResult, clearTxResult, trackTransaction } =
+    useNearTransactionFeedback(accountId);
   const proposal: GovernanceProposal | null = app.governance_proposal;
+  const daoAccountId = proposal?.dao_account ?? null;
+  const liveProposalId = proposal?.proposal_id ?? null;
+  const isAppWalletViewer =
+    !!accountId &&
+    !!app.wallet_id &&
+    accountId.toLowerCase() === app.wallet_id.toLowerCase();
+
+  useEffect(() => {
+    if (liveProposal?.status !== 'InProgress') {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 30_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [liveProposal?.status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,80 +195,556 @@ export function GovernanceCard({ app }: { app: Application }) {
     };
   }, [app.app_id, app.status]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDaoState() {
+      if (!daoAccountId || liveProposalId === null) {
+        if (!cancelled) {
+          setDaoPolicy(null);
+          setLiveProposal(null);
+          setDaoLoading(false);
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setDaoLoading(true);
+      }
+
+      try {
+        const { policy, proposal: nextProposal } = await loadLiveDaoState(
+          daoAccountId,
+          liveProposalId
+        );
+        if (!cancelled) {
+          setDaoPolicy(policy);
+          setLiveProposal(nextProposal);
+        }
+      } finally {
+        if (!cancelled) {
+          setDaoLoading(false);
+        }
+      }
+    }
+
+    void loadDaoState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [daoAccountId, liveProposalId]);
+
+  useEffect(() => {
+    if (!daoAccountId || liveProposalId === null || !postActionRefreshUntil) {
+      return;
+    }
+
+    const resolvedDaoAccountId = daoAccountId;
+    const resolvedProposalId = liveProposalId;
+    const refreshUntil = postActionRefreshUntil;
+
+    if (Date.now() >= refreshUntil) {
+      setPostActionRefreshUntil(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refreshLiveDaoState() {
+      try {
+        const { policy, proposal: nextProposal } = await loadLiveDaoState(
+          resolvedDaoAccountId,
+          resolvedProposalId
+        );
+        if (!cancelled) {
+          setDaoPolicy(policy);
+          setLiveProposal(nextProposal);
+        }
+      } finally {
+        if (!cancelled) {
+          if (Date.now() + POST_ACTION_REFRESH_MS >= refreshUntil) {
+            setPostActionRefreshUntil(null);
+          }
+        }
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshLiveDaoState();
+    }, POST_ACTION_REFRESH_MS);
+
+    void refreshLiveDaoState();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [daoAccountId, liveProposalId, postActionRefreshUntil]);
+
+  useEffect(() => {
+    setReopenState('idle');
+  }, [app.app_id, app.status]);
+
+  const {
+    connectedRole,
+    activeVotingRole,
+    currentVote,
+    canApprove,
+    canReject,
+    canRemove,
+    canFinalize,
+    liveStatusStyle,
+    approveVotes,
+    rejectVotes,
+    removeVotes,
+    votingProgress,
+    voteEntries,
+    submissionTime,
+    reviewExpiry,
+    statusSummary,
+    functionCallSummary,
+    rewardPerActionValue,
+    dailyCapValue,
+    dailyBudgetValue,
+    totalBudgetValue,
+    attachedDepositValue,
+    authorizedCallers,
+    proposalSummaryText,
+    proposalTxHref,
+    latestActionLink,
+    resolvedOutcomeLabel,
+    guardianDecisionSummary: rawGuardianDecisionSummary,
+    showUsageMetrics,
+    finalizeLabel,
+  } = deriveGovernanceCardView({
+    accountId,
+    isConnected,
+    daoPolicy,
+    liveProposal,
+    proposal,
+    actionTxHash,
+    isAppWalletViewer,
+    nowMs,
+  });
+
+  const canReopen =
+    !!connectedRole && app.status === 'rejected' && reopenState === 'idle';
+  const guardianDecisionSummary =
+    reopenState === 'opened' || app.status === 'reopened'
+      ? { title: 'Reapply is open', toneClass: 'portal-green-text' }
+      : reopenState === 'already-opened'
+        ? {
+            title: 'Already open for reapply',
+            toneClass: 'portal-green-text',
+          }
+        : canReopen
+          ? { title: 'Let them reapply', toneClass: 'portal-blue-text' }
+          : rawGuardianDecisionSummary;
+
+  async function handleGovernanceAction(action: GovernanceDaoAction) {
+    if (!wallet || !daoAccountId || liveProposalId === null || !liveProposal) {
+      setTxResult({
+        type: 'error',
+        msg: 'Connect an authorized guardian wallet to continue.',
+      });
+      return;
+    }
+
+    setActionLoading(action);
+    clearTxResult();
+    setActionTxHash(null);
+
+    try {
+      const txHash = await actOnGovernanceProposal(
+        wallet,
+        liveProposalId,
+        action,
+        liveProposal.kind,
+        daoAccountId
+      );
+
+      if (!txHash) {
+        throw new Error(
+          'Wallet submitted the transaction but no tx hash was returned'
+        );
+      }
+
+      setActionTxHash(txHash);
+
+      const confirmed = await trackTransaction({
+        txHashes: [txHash],
+        submittedMessage: `Your ${formatActionLabel(action)} was submitted. Confirming on-chain.`,
+        successMessage: `Your ${formatActionLabel(action)} was confirmed on-chain.`,
+        failureMessage: `Your ${formatActionLabel(action)} failed on-chain.`,
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        const { policy, proposal: nextProposal } = await loadLiveDaoState(
+          daoAccountId,
+          liveProposalId
+        );
+        setDaoPolicy(policy);
+        setLiveProposal(nextProposal);
+        await onGovernanceUpdated?.();
+      } catch {
+        setTxResult({
+          type: 'error',
+          msg: 'Governance action confirmed on-chain, but live DAO refresh failed.',
+        });
+      }
+
+      setPostActionRefreshUntil(Date.now() + POST_ACTION_REFRESH_WINDOW_MS);
+    } catch (error) {
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error ? error.message : 'Governance action failed',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  function handleAdvancedRemove() {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        'Remove is intended for exceptional cases, such as spam or an invalid proposal. Remove this proposal from active review?'
+      )
+    ) {
+      return;
+    }
+
+    void handleGovernanceAction('VoteRemove');
+  }
+
+  async function handleReopen() {
+    if (!accountId) return;
+    setReopenLoading(true);
+    clearTxResult();
+    try {
+      const result = await reopenApplication(app.app_id, accountId);
+      setReopenState(result.already_reopened ? 'already-opened' : 'opened');
+      setTxResult({
+        type: 'success',
+        msg: result.already_reopened
+          ? 'Reapply is already open for this application.'
+          : 'Reapply is open. The applicant can submit again now.',
+      });
+      await onGovernanceUpdated?.();
+    } catch (error) {
+      setTxResult({
+        type: 'error',
+        msg:
+          error instanceof Error
+            ? error.message
+            : 'Failed to reopen application',
+      });
+    } finally {
+      setReopenLoading(false);
+    }
+  }
+
+  const rawDaoProposal = liveProposal
+    ? safeJsonStringify({
+        id: liveProposalId,
+        proposer: liveProposal.proposer,
+        description: liveProposal.description,
+        status: liveProposal.status,
+        kind: liveProposal.kind,
+        vote_counts: liveProposal.vote_counts,
+        votes: liveProposal.votes,
+        submission_time: liveProposal.submission_time,
+        last_actions_log: liveProposal.last_actions_log,
+      })
+    : null;
+
+  const stripColor =
+    liveStatusStyle?.stripColor ??
+    (app.status === 'approved'
+      ? 'var(--portal-green-border-strong)'
+      : app.status === 'rejected'
+        ? 'var(--portal-red-border-strong)'
+        : 'var(--portal-blue-border-strong)');
+
+  const fallbackMetaLabel = app.status === 'approved' ? 'Approved' : 'Rejected';
+  const fallbackMetaTone =
+    app.status === 'approved' ? 'portal-green-text' : 'portal-red-text';
+  const fallbackMetaTime = formatIsoTimestamp(app.reviewed_at);
+
   return (
-    <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-semibold tracking-[-0.02em]">{app.label}</h3>
-          <p className="text-sm text-muted-foreground font-mono">
-            {app.app_id}
-          </p>
-        </div>
-        <StatusBadge status={app.status} />
-      </div>
-
-      <div className="mb-4 grid gap-2 text-sm">
-        {app.wallet_id && (
-          <p>
-            <span className="text-muted-foreground">Wallet:</span>{' '}
-            <span className="portal-green-text font-mono">{app.wallet_id}</span>
-          </p>
+    <>
+      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
+      <SurfacePanel
+        id={app.app_id}
+        radius="xl"
+        tone="solid"
+        borderTone="strong"
+        padding="roomy"
+        className="relative overflow-hidden shadow-[0_1px_0_rgba(255,255,255,0.02)_inset]"
+      >
+        <div
+          aria-hidden="true"
+          className="absolute inset-y-0 left-0 w-0.5"
+          style={{ backgroundColor: stripColor }}
+        />
+        {liveProposalId !== null ? (
+          <div className="mb-3 border-b border-fade-detail pb-3 font-mono text-xs text-muted-foreground">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="shrink-0 text-foreground/70">
+                  #{liveProposalId}
+                </span>
+                {functionCallSummary?.methodName && (
+                  <>
+                    <span className="shrink-0 text-border/40">·</span>
+                    <span className="break-all font-medium text-foreground/60">
+                      {functionCallSummary.methodName}
+                    </span>
+                  </>
+                )}
+                {submissionTime && (
+                  <>
+                    <span className="shrink-0 text-border/40">·</span>
+                    <HoverTimestamp
+                      relative={submissionTime.relative}
+                      absolute={submissionTime.absolute}
+                    />
+                  </>
+                )}
+              </div>
+              {liveStatusStyle && (
+                <div className="shrink-0 text-right">
+                  <span className={`font-medium ${liveStatusStyle.textClass}`}>
+                    {liveStatusStyle.label}
+                  </span>
+                  {reviewExpiry && (
+                    <div
+                      className={`mt-0.5 text-[10px] ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
+                    >
+                      <HoverTimestamp
+                        relative={reviewExpiry.relative}
+                        absolute={reviewExpiry.absolute}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          (app.status === 'approved' || app.status === 'rejected') && (
+            <div className="mb-3 border-b border-fade-detail pb-3 font-mono text-xs text-muted-foreground">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {fallbackMetaTime && (
+                    <HoverTimestamp
+                      relative={fallbackMetaTime.relative}
+                      absolute={fallbackMetaTime.absolute}
+                    />
+                  )}
+                </div>
+                <span className={`shrink-0 font-medium ${fallbackMetaTone}`}>
+                  {fallbackMetaLabel}
+                </span>
+              </div>
+            </div>
+          )
         )}
-        {app.description && (
-          <p>
-            <span className="text-muted-foreground">Description:</span>{' '}
-            {app.description}
-          </p>
-        )}
-        {app.website_url && (
-          <p>
-            <span className="text-muted-foreground">Website:</span>{' '}
-            <a
-              href={app.website_url}
-              target="_blank"
-              rel="noreferrer"
-              className="portal-action-link"
+        <div className="border-b border-fade-section pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href={`/governance/${encodeURIComponent(app.app_id)}`}
+              className="group"
             >
-              {app.website_url}
-            </a>
+              <h3 className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors group-hover:text-foreground/80">
+                {app.label}
+              </h3>
+            </Link>
+            {(app.website_url || app.telegram_handle || app.x_handle) && (
+              <div className="flex items-center gap-2">
+                {app.website_url && (
+                  <a
+                    href={app.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Website"
+                    className="text-muted-foreground transition-all hover:text-[var(--portal-green)] hover:brightness-125 hover:scale-110"
+                  >
+                    <Globe className="h-4 w-4" />
+                  </a>
+                )}
+                {app.telegram_handle && (
+                  <a
+                    href={buildHandleUrl(app.telegram_handle, 'telegram')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Telegram"
+                    className="text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
+                  >
+                    <RiTelegram2Line className="h-4 w-4" />
+                  </a>
+                )}
+                {app.x_handle && (
+                  <a
+                    href={buildHandleUrl(app.x_handle, 'x')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="X"
+                    className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+                  >
+                    <FaXTwitter className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
+            {app.app_id}
+            {app.wallet_id && app.wallet_id !== app.app_id && (
+              <>
+                <span className="mx-1 text-border/50">·</span>
+                {app.wallet_id}
+              </>
+            )}
           </p>
-        )}
-        {app.telegram_handle && (
-          <p>
-            <span className="text-muted-foreground">Telegram:</span>{' '}
-            <span className="portal-blue-text">{app.telegram_handle}</span>
-          </p>
-        )}
-        {app.x_handle && (
-          <p>
-            <span className="text-muted-foreground">X:</span>{' '}
-            <span className="portal-blue-text">{app.x_handle}</span>
-          </p>
-        )}
-      </div>
 
-      <GovernanceStatusPanel
-        appId={app.app_id}
-        proposal={proposal}
-        creationStatus="idle"
-        creationError=""
-      />
+          {app.description && <DescriptionClamp text={app.description} />}
+        </div>
 
-      {app.status === 'proposal_submitted' && (
-        <div className="space-y-3">
+        {!liveProposal && (
+          <div className="pt-4">
+            <GovernanceStatusPanel
+              appId={app.app_id}
+              proposal={proposal}
+              creationStatus="idle"
+              creationError=""
+            />
+          </div>
+        )}
+
+        {daoLoading && liveProposalId !== null && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Fetching live review status…
+          </p>
+        )}
+
+        {!daoLoading && liveProposal && liveStatusStyle && (
+          <div className="mt-4">
+            <GovernanceLiveSummary
+              liveProposal={liveProposal}
+              liveProposalId={liveProposalId}
+              liveStatusStyle={liveStatusStyle}
+              statusSummary={statusSummary}
+              currentVote={currentVote}
+              resolvedOutcomeLabel={resolvedOutcomeLabel}
+              functionCallSummary={functionCallSummary}
+              submissionTime={submissionTime}
+              reviewExpiry={reviewExpiry}
+              votingProgress={votingProgress}
+              activeVotingRole={activeVotingRole}
+              rejectVotes={rejectVotes}
+              removeVotes={removeVotes}
+              approveVotes={approveVotes}
+            />
+
+            <GovernanceVoteActivity
+              voteEntries={voteEntries}
+              accountId={accountId}
+              latestActionLink={latestActionLink}
+              activeVotingRole={activeVotingRole}
+            />
+
+            {functionCallSummary && (
+              <GovernanceReviewTerms
+                functionCallSummary={functionCallSummary}
+                proposalSummaryText={proposalSummaryText}
+                rewardPerActionValue={rewardPerActionValue}
+                dailyCapValue={dailyCapValue}
+                dailyBudgetValue={dailyBudgetValue}
+                totalBudgetValue={totalBudgetValue}
+                attachedDepositValue={attachedDepositValue}
+                authorizedCallers={authorizedCallers}
+              />
+            )}
+
+            {rawDaoProposal && (
+              <div className="mt-3 border-t border-fade-detail pt-3">
+                <button
+                  type="button"
+                  onClick={() => setRawProposalOpen((open) => !open)}
+                  aria-expanded={rawProposalOpen}
+                  className="group -mx-1 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-foreground/[0.03]"
+                >
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
+                    Raw proposal
+                  </p>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${rawProposalOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                <AnimatePresence initial={false}>
+                  {rawProposalOpen ? (
+                    <motion.div
+                      key="raw-proposal"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <pre className="mt-3 overflow-x-auto rounded-[1rem] border border-border/30 bg-background/70 p-4 text-xs leading-6">
+                        <code>{renderHighlightedJson(rawDaoProposal)}</code>
+                      </pre>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+            )}
+
+            <GovernanceGuardianActions
+              accountId={accountId}
+              connectedRole={connectedRole}
+              guardianDecisionSummary={guardianDecisionSummary}
+              canApprove={canApprove}
+              canReject={canReject}
+              canRemove={canRemove}
+              canFinalize={canFinalize}
+              finalizeLabel={finalizeLabel}
+              currentVote={currentVote}
+              actionLoading={actionLoading}
+              onAction={(action) => {
+                void handleGovernanceAction(action);
+              }}
+              onAdvancedRemove={handleAdvancedRemove}
+              resolvedOutcomeLabel={resolvedOutcomeLabel}
+              proposalTxHref={proposalTxHref}
+              onsocialTelegramUrl={ONSOCIAL_TELEGRAM_URL}
+              canReopen={canReopen}
+              reopenLoading={reopenLoading}
+              onReopen={() => {
+                void handleReopen();
+              }}
+            />
+          </div>
+        )}
+
+        {(app.status === 'proposal_submitted' || app.status === 'approved') && (
           <ApprovedConfigPanel
             configLoading={configLoading}
             onChainConfig={onChainConfig}
+            showUsageMetrics={showUsageMetrics}
           />
-        </div>
-      )}
+        )}
 
-      {app.status === 'approved' && (
-        <ApprovedConfigPanel
-          configLoading={configLoading}
-          onChainConfig={onChainConfig}
-        />
-      )}
-    </div>
+        <ShareProposal appId={app.app_id} label={app.label} />
+      </SurfacePanel>
+    </>
   );
 }

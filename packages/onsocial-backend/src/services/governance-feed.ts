@@ -548,8 +548,11 @@ function dedupePartnerItems(
       if (dbItem.governance_proposal?.proposal_id != null) {
         return false;
       }
-      // DB item was reopened / has no proposal link — keep the DAO-scanned
-      // historical rejected/removed entry so it remains visible in the feed
+      // DB item was reopened — keep the DAO-scanned historical entry but
+      // propagate the reopened status so the frontend hides the reopen button
+      if (dbItem.status === 'reopened') {
+        item.status = 'reopened';
+      }
       return true;
     }
 
@@ -709,8 +712,8 @@ export async function getGovernanceFeedApplications(
                   governance_proposal_tx_hash,
                   governance_proposal_submitted_at
            FROM partner_keys
-          WHERE status IN ('ready_for_governance', 'proposal_submitted', 'approved')
-            OR (status IN ('rejected', 'reopened') AND governance_proposal_status IS NOT NULL)
+          WHERE status IN ('proposal_submitted', 'approved', 'reopened')
+            OR (status = 'rejected' AND governance_proposal_status IS NOT NULL)
            ORDER BY created_at DESC`
         );
 
