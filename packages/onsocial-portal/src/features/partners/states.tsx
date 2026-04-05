@@ -1,9 +1,13 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
-  Cloud,
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
   Code2,
   Clock,
   ExternalLink,
@@ -13,26 +17,26 @@ import {
   Sparkles,
   MessageSquare,
   RefreshCw,
-  Rocket,
-  Shield,
   Terminal,
-  Users,
   XCircle,
-  Zap,
 } from 'lucide-react';
 import { RiTelegram2Line } from 'react-icons/ri';
 import { useWallet } from '@/contexts/wallet-context';
-import { Button } from '@/components/ui/button';
+import { Button, buttonArrowLeftClass } from '@/components/ui/button';
+import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import { PortalBadge } from '@/components/ui/portal-badge';
+import { SurfacePanel } from '@/components/ui/surface-panel';
 import { OnChainConfigSummary } from '@/components/data/on-chain-config-summary';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import {
   viewContract,
+  yoctoToNear,
   yoctoToSocial,
   type GovernanceEligibilitySnapshot,
   type OnChainAppConfig,
 } from '@/lib/near-rpc';
 import { ACTIVE_NEAR_EXPLORER_URL } from '@/lib/portal-config';
-import { portalColors, portalFrameStyle } from '@/lib/portal-colors';
+import { portalFrameStyle } from '@/lib/portal-colors';
 import { rotateKey } from '@/features/partners/api';
 import {
   botSnippet,
@@ -50,6 +54,7 @@ import {
   CopyButton,
   DownloadButton,
 } from '@/features/partners/ui-helpers';
+import { cn } from '@/lib/utils';
 
 function formatSocialAmount(value: string, maximumFractionDigits = 2): string {
   const numeric = Number(yoctoToSocial(value));
@@ -60,6 +65,62 @@ function formatSocialAmount(value: string, maximumFractionDigits = 2): string {
   return new Intl.NumberFormat('en-US', {
     maximumFractionDigits,
   }).format(numeric);
+}
+
+function formatNearAmount(value: string, maximumFractionDigits = 4): string {
+  const numeric = Number(yoctoToNear(value));
+  if (!Number.isFinite(numeric)) {
+    return '0';
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits,
+  }).format(numeric);
+}
+
+function PreviewPill({
+  children,
+  accent = 'neutral',
+}: {
+  children: React.ReactNode;
+  accent?: 'neutral' | 'blue' | 'purple';
+}) {
+  const accentClass =
+    accent === 'blue'
+      ? 'border-[color:var(--portal-blue-frame-border)] bg-[color:var(--portal-blue-frame-bg)] text-gray-100'
+      : accent === 'purple'
+        ? 'border-[color:var(--portal-purple-frame-border)] bg-[color:var(--portal-purple-frame-bg)] text-gray-100'
+        : 'border-white/10 bg-white/5 text-gray-300';
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs ${accentClass}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function SetupStepHeader({
+  step,
+  title,
+  action,
+}: {
+  step: number;
+  title: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border/50 text-xs">
+          {step}
+        </span>
+        {title}
+      </div>
+      {action}
+    </div>
+  );
 }
 
 export function PendingState({
@@ -82,12 +143,25 @@ export function PendingState({
   const isReady = phase === 'ready';
   const isGovernance = phase === 'governance';
   const isEligibility = phase === 'eligibility';
+  const [proposalDetailsOpen, setProposalDetailsOpen] = useState(false);
   const explorerHref = proposal?.tx_hash
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
+  const governanceHref = (() => {
+    if (!isGovernance) {
+      return null;
+    }
+
+    const query =
+      proposal?.proposal_id !== null && proposal?.proposal_id !== undefined
+        ? String(proposal.proposal_id)
+        : appId;
+
+    return `/governance?lane=partners&status=open&q=${encodeURIComponent(query)}`;
+  })();
 
   return (
-    <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-12 text-center">
+    <div className="px-1 py-2 text-center md:px-2 md:py-3">
       <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {isEligibility
           ? 'Eligibility'
@@ -97,15 +171,15 @@ export function PendingState({
               ? 'In Governance'
               : 'Under Review'}
       </p>
-      <Clock className="portal-blue-icon mx-auto mb-4 h-16 w-16" />
+      <Clock className="portal-blue-icon mx-auto mb-4 h-10 w-10" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
         {isEligibility
           ? 'Proposal access'
           : isReady
             ? 'Proposal ready'
             : isGovernance
-              ? 'Proposal in governance'
-              : 'Application received'}
+              ? 'Waiting for DAO approval'
+              : 'Launch received'}
       </h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
         <span className="font-semibold text-foreground">{label}</span> (
@@ -119,13 +193,6 @@ export function PendingState({
               : ' now in review.'}
       </p>
 
-      {proposal?.description && (
-        <p className="mx-auto mb-4 max-w-xl text-sm text-muted-foreground">
-          Proposal:{' '}
-          <span className="text-foreground">{proposal.description}</span>
-        </p>
-      )}
-
       {isEligibility && (
         <p className="text-sm text-muted-foreground">
           A quick check confirms whether this wallet has enough delegated
@@ -135,8 +202,13 @@ export function PendingState({
 
       {isReady && onSubmitProposal && (
         <div className="space-y-3">
-          <Button onClick={onSubmitProposal} disabled={acting} size="lg">
-            {acting ? 'Opening wallet…' : 'Open DAO Proposal'}
+          <Button
+            onClick={onSubmitProposal}
+            disabled={acting}
+            size="default"
+            loading={acting}
+          >
+            Open DAO Proposal
           </Button>
           <p className="text-sm text-muted-foreground">
             The final proposal opens in the wallet and is sent to the governance
@@ -148,21 +220,68 @@ export function PendingState({
       {isGovernance && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Once executed, a quick wallet confirmation reveals the API key for
-            this app.
+            After execution, reveal the API key with a wallet confirmation.
           </p>
-          {explorerHref && (
-            <a
-              href={explorerHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="portal-action-link inline-flex items-center gap-1.5 text-sm"
-            >
-              Open transaction
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {governanceHref && (
+              <Link
+                href={governanceHref}
+                className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+              >
+                View in governance
+              </Link>
+            )}
+            {explorerHref && (
+              <a
+                href={explorerHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+              >
+                View on explorer
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
+          {proposal?.description && (
+            <div className="mx-auto max-w-xl border-t border-fade-section pt-3 text-left">
+              <button
+                type="button"
+                onClick={() => setProposalDetailsOpen((open) => !open)}
+                aria-expanded={proposalDetailsOpen}
+                className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium text-foreground"
+              >
+                <span>Proposal details</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${proposalDetailsOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {proposalDetailsOpen ? (
+                  <motion.div
+                    key="proposal-details"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                      {proposal.description}
+                    </p>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
           )}
         </div>
+      )}
+
+      {!isGovernance && proposal?.description && (
+        <p className="mx-auto mb-4 max-w-xl text-sm text-muted-foreground">
+          Proposal:{' '}
+          <span className="text-foreground">{proposal.description}</span>
+        </p>
       )}
 
       {!isReady && !isGovernance && (
@@ -181,29 +300,35 @@ export function PendingState({
 }
 
 export function GovernanceEligibilityState({
-  appId,
+  appId: _appId,
   label,
   eligibility,
+  proposalBondDisplay = '1',
+  proposalBond = '0',
   acting = false,
-  actionLabel = '',
+  refreshPending = false,
+  actionKind,
   actionError = '',
   onRefresh,
-  onRegister,
-  onDeposit,
-  onDelegate,
+  onPrepare,
   onSubmitProposal,
+  onCancel,
+  onWithdrawExcess,
 }: {
   appId: string;
   label: string;
   eligibility: GovernanceEligibilitySnapshot | null;
+  proposalBondDisplay?: string;
+  proposalBond?: string;
   acting?: boolean;
-  actionLabel?: string;
+  refreshPending?: boolean;
+  actionKind?: 'prepare' | 'submit' | 'cancel' | 'withdraw';
   actionError?: string;
   onRefresh?: () => void | Promise<void>;
-  onRegister?: () => void | Promise<void>;
-  onDeposit?: () => void | Promise<void>;
-  onDelegate?: () => void | Promise<void>;
+  onPrepare?: () => void | Promise<void>;
   onSubmitProposal?: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
+  onWithdrawExcess?: () => void | Promise<void>;
 }) {
   const requiredWeight = formatSocialAmount(eligibility?.requiredWeight ?? '0');
   const delegatedWeight = formatSocialAmount(
@@ -218,232 +343,298 @@ export function GovernanceEligibilityState({
   const walletBalance = formatSocialAmount(eligibility?.walletBalance ?? '0');
   const depositNeeded = formatSocialAmount(eligibility?.depositNeeded ?? '0');
   const delegateNeeded = formatSocialAmount(eligibility?.delegateNeeded ?? '0');
+  const withdrawableAmount = formatSocialAmount(
+    eligibility?.availableToWithdraw ?? '0'
+  );
+  const nearBalance = formatNearAmount(eligibility?.nearBalance ?? '0');
+  const nearStorageNeeded = formatNearAmount(
+    eligibility?.nearStorageNeeded ?? '0'
+  );
+  const registrationStorageReserve = formatNearAmount(
+    eligibility?.registrationStorageDeposit ?? '0'
+  );
   const canCoverDeposit = eligibility
     ? BigInt(eligibility.walletBalance) >= BigInt(eligibility.depositNeeded)
     : false;
+  const canCoverStorage = eligibility
+    ? BigInt(eligibility.nearBalance) >= BigInt(eligibility.nearStorageNeeded)
+    : false;
+  const canCoverProposalBond = eligibility
+    ? BigInt(eligibility.nearBalance) >= BigInt(proposalBond)
+    : false;
+  const needsAdditionalStorage = eligibility
+    ? BigInt(eligibility.nearStorageNeeded) > 0n
+    : false;
+  const proposalSetupSummary = eligibility?.canPropose
+    ? `${delegatedWeight} SOCIAL delegated — you're above the ${requiredWeight} threshold.`
+    : `${requiredWeight} delegated SOCIAL needed to open the proposal.`;
 
-  let nextActionTitle = 'Checking governance setup';
-  let nextActionBody =
-    'We are checking what this wallet still needs before the proposal can open.';
-  let nextActionLabel = 'Checking status…';
+  let nextActionTitle = 'Checking things out';
+  let nextActionBody = 'Making sure everything is set before you can go live.';
+  let nextActionLabel = 'Checking…';
   let nextActionNote = '';
   let nextActionHandler = onRefresh;
   let nextActionDisabled = acting || !onRefresh;
+  let nextActionKind: 'prepare' | 'submit' | null = null;
 
   if (eligibility) {
     if (eligibility.canPropose) {
-      nextActionTitle = 'Open your application proposal';
+      if (canCoverProposalBond) {
+        nextActionTitle = 'All set';
+        nextActionBody =
+          'Everything checks out \u2014 go ahead and open your proposal.';
+        nextActionLabel = 'Open proposal';
+        nextActionNote = '';
+        nextActionHandler = onSubmitProposal;
+        nextActionDisabled = acting || !onSubmitProposal;
+        nextActionKind = 'submit';
+      } else {
+        nextActionTitle = `Need ${proposalBondDisplay} NEAR`;
+        nextActionBody = `The DAO requires a ${proposalBondDisplay} NEAR bond to open this proposal.`;
+        nextActionLabel = `Need ${proposalBondDisplay} NEAR bond`;
+        nextActionNote = '';
+        nextActionHandler = undefined;
+        nextActionDisabled = true;
+        nextActionKind = null;
+      }
+    } else if (eligibility.isRegistered && needsAdditionalStorage) {
+      nextActionTitle = 'Storage is full';
       nextActionBody =
-        'This wallet already has enough delegated SOCIAL to open the proposal in the DAO.';
-      nextActionLabel = 'Open proposal';
-      nextActionNote = `${delegatedWeight} delegated SOCIAL is ready on this wallet.`;
-      nextActionHandler = onSubmitProposal;
-      nextActionDisabled = acting || !onSubmitProposal;
-    } else if (!eligibility.isRegistered) {
-      nextActionTitle = 'Connect this wallet to governance';
-      nextActionBody =
-        'Register this wallet once so it can hold and delegate the SOCIAL needed to continue.';
-      nextActionLabel = 'Register wallet';
-      nextActionNote = `Storage deposit: ${eligibility.storageDeposit} yoctoNEAR.`;
-      nextActionHandler = onRegister;
-      nextActionDisabled = acting || !onRegister;
-    } else if (eligibility.depositNeeded !== '0') {
-      nextActionTitle = 'Add the SOCIAL needed to continue';
-      nextActionBody =
-        'Deposit only the missing SOCIAL needed before this wallet can open the proposal.';
-      nextActionLabel = canCoverDeposit
-        ? `Deposit ${depositNeeded} SOCIAL`
-        : `Need ${depositNeeded} SOCIAL`;
-      nextActionNote = canCoverDeposit
-        ? `${walletBalance} SOCIAL is available in this wallet.`
-        : `This wallet still needs ${depositNeeded} SOCIAL before it can continue.`;
-      nextActionHandler = onDeposit;
-      nextActionDisabled = acting || !canCoverDeposit || !onDeposit;
-    } else if (eligibility.delegateNeeded !== '0') {
-      nextActionTitle = 'Delegate the required SOCIAL to this wallet';
-      nextActionBody =
-        'Assign the staked SOCIAL back to this wallet so it counts toward opening the proposal.';
-      nextActionLabel = `Delegate ${delegateNeeded} SOCIAL`;
-      nextActionNote = `${availableToDelegate} SOCIAL is ready to delegate from governance staking.`;
-      nextActionHandler = onDelegate;
-      nextActionDisabled = acting || !onDelegate;
-    } else {
-      nextActionTitle = 'Refresh governance status';
-      nextActionBody =
-        'This wallet looks almost ready. Refresh once to confirm the latest delegated balance before opening the proposal.';
+        'No room for another delegation entry. Undelegate an existing one first.';
       nextActionLabel = 'Refresh';
-      nextActionNote = `${remainingWeight} SOCIAL still shows as missing on the latest check.`;
+      nextActionNote = '';
+      nextActionHandler = onRefresh;
+      nextActionDisabled = acting || !onRefresh;
+      nextActionTitle = 'Add NEAR to continue';
+    } else if (!eligibility.isRegistered || eligibility.depositNeeded !== '0') {
+      nextActionTitle = canCoverDeposit
+        ? 'Get governance ready'
+        : `Need ${depositNeeded} more SOCIAL`;
+      nextActionBody = canCoverDeposit
+        ? eligibility.isInCooldown
+          ? eligibility.isRegistered
+            ? 'Stakes the required SOCIAL. Delegation unlocks after cooldown.'
+            : `Sets up staking, reserves ${registrationStorageReserve} NEAR for storage, and stakes your SOCIAL. Delegation unlocks after cooldown.`
+          : eligibility.isRegistered
+            ? 'Stakes and delegates the required SOCIAL.'
+            : `Sets up staking, reserves ${registrationStorageReserve} NEAR for storage, stakes and delegates your SOCIAL.`
+        : `You need ${depositNeeded} more SOCIAL in your wallet before you can open this proposal.`;
+      nextActionLabel = canCoverDeposit
+        ? 'Prepare governance'
+        : `Add ${depositNeeded} SOCIAL`;
+      nextActionNote = '';
+      nextActionHandler = onPrepare;
+      nextActionDisabled = acting || !canCoverDeposit || !onPrepare;
+      nextActionKind = canCoverDeposit ? 'prepare' : null;
+    } else if (eligibility.delegateNeeded !== '0') {
+      nextActionTitle = `Delegate ${delegateNeeded} SOCIAL`;
+      nextActionBody = `Delegate your remaining ${delegateNeeded} SOCIAL to unlock proposal access.`;
+      nextActionLabel = `Delegate ${delegateNeeded} SOCIAL`;
+      nextActionNote = '';
+      nextActionHandler = onPrepare;
+      nextActionDisabled = acting || !onPrepare;
+      nextActionKind = 'prepare';
+    } else {
+      nextActionTitle = 'Almost there';
+      nextActionBody =
+        'Looks good — hit refresh to confirm your latest balance.';
+      nextActionLabel = 'Refresh';
+      nextActionNote = '';
       nextActionHandler = onRefresh;
       nextActionDisabled = acting || !onRefresh;
     }
   }
 
   return (
-    <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-8 md:px-8 md:py-10">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Proposal Setup
-          </p>
-          <h3 className="mt-2 text-xl font-semibold tracking-[-0.02em]">
-            Final step for {label}
-          </h3>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            App <span className="portal-blue-text font-mono">{appId}</span>{' '}
-            already has a draft. This wallet needs at least {requiredWeight}{' '}
-            delegated SOCIAL before it can open the proposal.
-          </p>
+    <div className="px-1 py-2 md:px-2 md:py-3">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Proposal Setup
+        </h2>
+        <div className="flex items-center gap-2">
+          {eligibility?.canPropose ? (
+            <PortalBadge accent="green" size="sm" className="h-8">
+              Ready
+            </PortalBadge>
+          ) : (
+            <PortalBadge accent="slate" size="sm" className="h-8">
+              In Progress
+            </PortalBadge>
+          )}
+          {onRefresh && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onRefresh}
+              disabled={acting || refreshPending}
+              title={
+                refreshPending ? 'Refreshing balances' : 'Refresh balances'
+              }
+              aria-label="Refresh balances"
+              className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshPending ? 'animate-spin' : ''}`}
+              />
+            </Button>
+          )}
         </div>
-        {onRefresh && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onRefresh}
-            disabled={acting}
-            className="gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-        )}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            Required
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{requiredWeight}</p>
-          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-        </div>
-        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            Delegated To You
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{delegatedWeight}</p>
-          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-        </div>
-        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            Ready To Delegate
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{availableToDelegate}</p>
-          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-        </div>
-        <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-            Wallet Balance
-          </p>
-          <p className="mt-2 text-2xl font-semibold">{walletBalance}</p>
-          <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-        </div>
+      {/* ── Delegation Hero ── */}
+      <div className="mt-4 flex flex-col items-center py-2 text-center">
+        <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+          Delegated
+        </span>
+        <p
+          className={cn(
+            'mt-1 font-mono text-3xl font-bold tabular-nums tracking-[-0.03em] md:text-4xl',
+            eligibility?.canPropose ? 'portal-green-text' : 'portal-blue-text'
+          )}
+        >
+          {delegatedWeight}
+        </p>
+        <span className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground opacity-70">
+          SOCIAL
+        </span>
+        <p className="mt-1.5 max-w-xs text-[13px] text-muted-foreground">
+          {proposalSetupSummary}
+        </p>
       </div>
+
+      {/* ── Metrics ── */}
+      <StatStrip groupClassName="mt-2">
+        <StatStripCell label="Threshold" showDivider>
+          <p className="portal-slate-text font-mono text-sm font-semibold tracking-tight md:text-base">
+            {requiredWeight}
+          </p>
+        </StatStripCell>
+        {eligibility && !eligibility.canPropose && (
+          <StatStripCell label="Wallet" showDivider>
+            <p className="font-mono text-sm font-semibold tracking-tight md:text-base">
+              {walletBalance}
+            </p>
+          </StatStripCell>
+        )}
+        <StatStripCell label="Bond">
+          <span
+            className={cn(
+              'font-mono text-sm font-medium tracking-tight md:text-base',
+              canCoverProposalBond ? 'portal-green-text' : 'portal-amber-text'
+            )}
+          >
+            {nearBalance} / {proposalBondDisplay} NEAR
+          </span>
+        </StatStripCell>
+      </StatStrip>
 
       {!eligibility && (
-        <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-          <PulsingDots size="sm" /> Checking governance status…
+        <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <PulsingDots size="sm" /> Checking things out…
         </div>
       )}
 
       {eligibility && (
-        <div className="mt-6 space-y-4">
-          <div className="rounded-[1.25rem] border border-border/50 bg-background/45 p-5 md:p-6">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Current Action
-            </p>
-            <h4 className="mt-2 text-lg font-semibold tracking-[-0.02em]">
-              {nextActionTitle}
-            </h4>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              {nextActionBody}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-4 border-t border-fade-detail pt-4">
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            What's next
+          </p>
+          <h4 className="mt-1.5 text-base font-semibold tracking-[-0.02em]">
+            {nextActionTitle}
+          </h4>
+          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+            {nextActionBody}
+          </p>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            {onCancel && (
               <Button
                 type="button"
-                onClick={nextActionHandler}
-                disabled={nextActionDisabled}
-                size="lg"
+                variant="outline"
+                onClick={onCancel}
+                disabled={acting}
+                size="default"
+                className="w-full sm:w-auto"
+                loading={acting && actionKind === 'cancel'}
               >
-                {nextActionLabel}
+                <ArrowLeft className={`h-4 w-4 ${buttonArrowLeftClass}`} />
+                Back to form
               </Button>
-              {nextActionNote && (
-                <p className="text-xs text-muted-foreground">
-                  {nextActionNote}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                Required
-              </p>
-              <p className="mt-2 text-2xl font-semibold">{requiredWeight}</p>
-              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-            </div>
-            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                Delegated Here
-              </p>
-              <p className="mt-2 text-2xl font-semibold">{delegatedWeight}</p>
-              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-            </div>
-            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                Ready To Delegate
-              </p>
-              <p className="mt-2 text-2xl font-semibold">
-                {availableToDelegate}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-            </div>
-            <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-              <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                Wallet Balance
-              </p>
-              <p className="mt-2 text-2xl font-semibold">{walletBalance}</p>
-              <p className="mt-1 text-xs text-muted-foreground">SOCIAL</p>
-            </div>
-          </div>
-
-          <div className="rounded-[1rem] border border-border/50 bg-background/40 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Need a closer look?</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Remaining to unlock this proposal: {remainingWeight} SOCIAL.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm">
-                <a
-                  href={`${ACTIVE_NEAR_EXPLORER_URL}/accounts/${eligibility.daoAccountId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="portal-action-link inline-flex items-center gap-1.5"
+            )}
+            <Button
+              type="button"
+              onClick={nextActionHandler}
+              disabled={nextActionDisabled}
+              size="default"
+              className="w-full sm:w-auto"
+              loading={acting && actionKind === nextActionKind}
+            >
+              {nextActionLabel}
+            </Button>
+            {eligibility.canPropose &&
+              eligibility.availableToWithdraw !== '0' &&
+              !eligibility.isInCooldown &&
+              onWithdrawExcess && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onWithdrawExcess}
+                  disabled={acting}
+                  size="default"
+                  className="w-full sm:w-auto"
+                  loading={acting && actionKind === 'withdraw'}
                 >
-                  View DAO
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-                {eligibility.stakingContractId && (
-                  <a
-                    href={`${ACTIVE_NEAR_EXPLORER_URL}/accounts/${eligibility.stakingContractId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="portal-action-link inline-flex items-center gap-1.5"
-                  >
-                    View governance staking
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                )}
-              </div>
-            </div>
+                  {`Withdraw ${withdrawableAmount} SOCIAL`}
+                </Button>
+              )}
           </div>
+          {nextActionNote && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {nextActionNote}
+            </p>
+          )}
         </div>
       )}
 
-      {actionLabel && (
-        <p className="mt-4 text-sm text-muted-foreground">{actionLabel}</p>
+      {eligibility && (
+        <StatStrip groupClassName="mt-4">
+          <StatStripCell label="DAO" showDivider size="md">
+            <a
+              href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${eligibility.daoAccountId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+            >
+              View
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </StatStripCell>
+          <StatStripCell label="Staking" showDivider size="md">
+            {eligibility.stakingContractId ? (
+              <a
+                href={`${ACTIVE_NEAR_EXPLORER_URL}/address/${eligibility.stakingContractId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+              >
+                View
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <span className="text-sm text-muted-foreground">Unavailable</span>
+            )}
+          </StatStripCell>
+          <StatStripCell label="Position" size="md">
+            <Link
+              href="/governance/manage"
+              className="portal-action-link inline-flex items-center gap-1.5 text-sm"
+            >
+              Manage
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </StatStripCell>
+        </StatStrip>
       )}
 
       {actionError && (
@@ -461,24 +652,18 @@ export function RejectedState({
   label: string;
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-border/50 bg-background/30 px-6 py-12 text-center">
-      <div className="mb-4 flex justify-center">
-        <span className="portal-red-badge rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.14em]">
-          Review Update
-        </span>
-      </div>
-      <XCircle className="portal-red-icon w-16 h-16 mx-auto mb-4" />
+    <div className="px-1 py-2 text-center md:px-2 md:py-3">
+      <XCircle className="portal-red-icon w-10 h-10 mx-auto mb-4" />
       <h3 className="text-xl font-semibold mb-2 tracking-[-0.02em]">
-        Not approved this round
+        Not approved this time
       </h3>
       <p className="text-muted-foreground mb-4 max-w-sm mx-auto">
-        The application for{' '}
         <span className="font-semibold text-foreground">{label}</span> (
-        <span className="portal-blue-text font-mono">{appId}</span>) was not
-        approved at this time.
+        <span className="portal-blue-text font-mono">{appId}</span>) didn&apos;t
+        make it through review this round.
       </p>
       <p className="text-sm text-muted-foreground">
-        For feedback before reapplying, contact OnSocial on{' '}
+        Want feedback before trying again? Reach out on{' '}
         <a
           href="https://t.me/onsocialprotocol"
           target="_blank"
@@ -496,9 +681,15 @@ export function RejectedState({
 
 export function ApprovedDashboard({
   registration,
+  revealingKey = false,
+  actionError = '',
+  onRevealKey,
   onKeyRotated,
 }: {
   registration: AppRegistration;
+  revealingKey?: boolean;
+  actionError?: string;
+  onRevealKey?: () => Promise<void>;
   onKeyRotated?: (_newKey: string) => void;
 }) {
   const { accountId } = useWallet();
@@ -511,6 +702,10 @@ export function ApprovedDashboard({
     null
   );
   const [configLoading, setConfigLoading] = useState(true);
+  const hasApiKey = Boolean(registration.apiKey);
+  const maskedKey = hasApiKey
+    ? `${registration.apiKey!.slice(0, 10)}${'•'.repeat(32)}${registration.apiKey!.slice(-4)}`
+    : '••••••••••••••••••••••••••••••••••••';
 
   useEffect(() => {
     setConfigLoading(true);
@@ -523,7 +718,7 @@ export function ApprovedDashboard({
   }, [registration.appId]);
 
   const handleRotate = async () => {
-    if (!accountId) return;
+    if (!accountId || !registration.apiKey) return;
     setRotating(true);
     setRotateError('');
     try {
@@ -541,8 +736,8 @@ export function ApprovedDashboard({
   };
 
   return (
-    <div className="space-y-8">
-      <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+    <div className="space-y-6">
+      <SurfacePanel radius="xl" tone="soft" padding="roomy">
         <div className="flex items-start gap-4">
           <div
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border"
@@ -553,14 +748,17 @@ export function ApprovedDashboard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-semibold tracking-[-0.02em]">OnApi key</h3>
-              <button
+              <Button
                 onClick={() => setShowRotateConfirm(true)}
-                className="portal-purple-surface inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 text-xs"
                 title="Rotate API key"
+                disabled={!hasApiKey}
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 Rotate
-              </button>
+              </Button>
             </div>
             <p className="text-xs text-muted-foreground mb-3">
               App:{' '}
@@ -573,87 +771,144 @@ export function ApprovedDashboard({
             </p>
             <div className="relative">
               <code className="portal-green-text block break-all rounded-[1rem] border border-border/50 bg-background/50 px-4 py-3 pr-20 font-mono text-sm select-none">
-                {keyRevealed
-                  ? registration.apiKey
-                  : `${registration.apiKey.slice(0, 10)}${'•'.repeat(32)}${registration.apiKey.slice(-4)}`}
+                {hasApiKey && keyRevealed ? registration.apiKey : maskedKey}
               </code>
-              <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                <button
-                  onClick={() => setKeyRevealed((value) => !value)}
-                  className="p-1.5 rounded-md bg-muted/50 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground"
-                  title={keyRevealed ? 'Hide key' : 'Reveal key'}
-                >
-                  {keyRevealed ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-                <CopyButton text={registration.apiKey} className="" />
-              </div>
-            </div>
-            <p className="portal-amber-text text-xs mt-2">
-              Keep this private and store it somewhere safe.
-            </p>
-
-            {showRotateConfirm && (
-              <div className="portal-amber-panel mt-4 rounded-[1rem] border p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="portal-amber-icon w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium mb-1">Rotate key?</p>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      The current key stops working immediately. Update the
-                      bot&apos;s
-                      <code className="portal-blue-text">
-                        {' '}
-                        ONSOCIAL_API_KEY
-                      </code>{' '}
-                      env var with the new value.
-                    </p>
-                    {rotateError && (
-                      <p className="portal-red-text text-xs mb-3">
-                        {rotateError}
-                      </p>
+              {hasApiKey && (
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                  <button
+                    onClick={() => setKeyRevealed((value) => !value)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-muted/50 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                    title={keyRevealed ? 'Hide key' : 'Reveal key'}
+                  >
+                    {keyRevealed ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
                     )}
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={handleRotate}
-                        disabled={rotating}
-                        size="sm"
-                        className="font-medium text-xs"
-                      >
-                        {rotating ? (
-                          <>
-                            <PulsingDots size="sm" className="mr-1.5" />
-                            Rotating…
-                          </>
-                        ) : (
-                          'Rotate key'
+                  </button>
+                  <CopyButton
+                    text={registration.apiKey!}
+                    className="inline-flex h-7 w-7 items-center justify-center"
+                  />
+                </div>
+              )}
+            </div>
+            <AnimatePresence initial={false} mode="wait">
+              {hasApiKey ? (
+                <motion.p
+                  key="api-key-note"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="portal-amber-text mt-2 text-xs"
+                >
+                  Keep this private and store it somewhere safe.
+                </motion.p>
+              ) : (
+                <motion.div
+                  key="reveal-key-cta"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="mt-3 flex flex-wrap items-center gap-3"
+                >
+                  <Button
+                    onClick={() => {
+                      onRevealKey?.().catch(() => {});
+                    }}
+                    variant="accent"
+                    size="sm"
+                    disabled={revealingKey || !onRevealKey}
+                    loading={revealingKey}
+                  >
+                    Reveal full key
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Full key access requires wallet confirmation.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence initial={false}>
+              {actionError ? (
+                <motion.p
+                  key="api-key-action-error"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
+                  className="portal-red-text mt-3 text-xs"
+                >
+                  {actionError}
+                </motion.p>
+              ) : null}
+            </AnimatePresence>
+
+            <AnimatePresence initial={false}>
+              {showRotateConfirm && hasApiKey ? (
+                <motion.div
+                  key="rotate-confirm"
+                  initial={{ opacity: 0, height: 0, y: -6 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="portal-amber-panel mt-4 rounded-[1rem] border p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="portal-amber-icon mt-0.5 h-5 w-5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="mb-1 text-sm font-medium">Rotate key?</p>
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          The current key stops working immediately. Update the
+                          bot&apos;s
+                          <code className="portal-blue-text">
+                            {' '}
+                            ONSOCIAL_API_KEY
+                          </code>{' '}
+                          env var with the new value.
+                        </p>
+                        {rotateError && (
+                          <p className="portal-red-text mb-3 text-xs">
+                            {rotateError}
+                          </p>
                         )}
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setShowRotateConfirm(false);
-                          setRotateError('');
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs"
-                        disabled={rotating}
-                      >
-                        Cancel
-                      </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleRotate}
+                            disabled={rotating}
+                            size="sm"
+                            className="text-xs font-medium"
+                            loading={rotating}
+                          >
+                            Rotate key
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setShowRotateConfirm(false);
+                              setRotateError('');
+                            }}
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs"
+                            disabled={rotating}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </div>
-      </div>
+      </SurfacePanel>
 
-      <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+      <SurfacePanel radius="xl" tone="soft" padding="roomy">
         <h3 className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           <Sparkles className="portal-purple-icon h-4 w-4" />
           <span>App Rules · On-Chain</span>
@@ -672,291 +927,232 @@ export function ApprovedDashboard({
         {!configLoading && onChainConfig && (
           <OnChainConfigSummary config={onChainConfig} />
         )}
-      </div>
+      </SurfacePanel>
 
-      <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
+      <SurfacePanel radius="xl" tone="soft" padding="roomy">
         <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Setup Guide
         </h3>
-        <div className="mb-4 flex max-w-xs gap-1 rounded-full border border-border/50 bg-muted/20 p-1">
-          <button
-            onClick={() => setTab('bot')}
-            className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-              tab === 'bot' ? 'portal-blue-surface' : 'portal-neutral-control'
-            }`}
-          >
-            <Terminal className="w-4 h-4 inline mr-1.5" />
-            Telegram Bot
-          </button>
-          <button
-            onClick={() => setTab('sdk')}
-            className={`flex-1 rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-              tab === 'sdk' ? 'portal-blue-surface' : 'portal-neutral-control'
-            }`}
-          >
-            <Code2 className="w-4 h-4 inline mr-1.5" />
-            SDK Only
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">
-              1
-            </span>
-            Install
-          </div>
-          <CodeBlock code={installSnippet(tab)} language="bash" />
-        </div>
-
-        <div className="space-y-4 mt-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">
-                2
-              </span>
-              Add .env
-            </div>
-            <DownloadButton
-              filename=".env"
-              content={envSnippet(registration.appId, registration.apiKey, tab)}
-              label="Download .env"
-            />
-          </div>
-          <CodeBlock
-            code={envSnippet(registration.appId, registration.apiKey, tab, {
-              maskApiKey: true,
-            })}
-            language="bash"
-          />
-          {tab === 'bot' && (
-            <p className="text-xs text-muted-foreground">
-              A <code className="portal-blue-text">BOT_TOKEN</code> comes from{' '}
-              <a
-                href="https://t.me/BotFather"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="portal-action-link"
+        {hasApiKey ? (
+          <>
+            <div className="mb-4 flex max-w-xs gap-1 rounded-full border border-border/50 bg-muted/20 p-1">
+              <Button
+                type="button"
+                onClick={() => setTab('bot')}
+                variant={tab === 'bot' ? 'default' : 'outline'}
+                className="h-auto flex-1 rounded-full px-4 py-2 text-sm"
               >
-                @BotFather
-              </a>{' '}
-              on Telegram.
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-4 mt-6">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">
-              3
-            </span>
-            {tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'}
-          </div>
-          <CodeBlock code={tab === 'bot' ? botSnippet() : sdkOnlySnippet()} />
-        </div>
-
-        <div className="space-y-4 mt-6">
-          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <span className="w-6 h-6 rounded-full border border-border/50 flex items-center justify-center text-xs">
-              4
-            </span>
-            Run
-          </div>
-          {tab === 'bot' ? (
-            <CodeBlock code="npm start" language="bash" />
-          ) : (
-            <CodeBlock
-              code="node --env-file=.env --import tsx app.ts"
-              language="bash"
-            />
-          )}
-        </div>
-
-        {tab === 'bot' && (
-          <div className="mt-6 border-t border-border/30 pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-medium mb-1">
-                  Download starter project
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  package.json + .env + bot.ts, ready for{' '}
-                  <code className="portal-blue-text">
-                    npm install &amp;&amp; npm start
-                  </code>
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <DownloadButton
-                  filename="package.json"
-                  content={packageJsonSnippet()}
-                  label="package.json"
-                />
-                <DownloadButton
-                  filename="bot.ts"
-                  content={botSnippet()}
-                  label="bot.ts"
-                />
-                <DownloadButton
-                  filename=".env"
-                  content={envSnippet(
-                    registration.appId,
-                    registration.apiKey,
-                    'bot'
-                  )}
-                  label=".env"
-                />
-              </div>
+                <Terminal className="w-4 h-4 inline mr-1.5" />
+                Telegram Bot
+              </Button>
+              <Button
+                type="button"
+                onClick={() => setTab('sdk')}
+                variant={tab === 'sdk' ? 'default' : 'outline'}
+                className="h-auto flex-1 rounded-full px-4 py-2 text-sm"
+              >
+                <Code2 className="w-4 h-4 inline mr-1.5" />
+                SDK Only
+              </Button>
             </div>
+
+            <AnimatePresence initial={false} mode="wait">
+              <motion.div
+                key={tab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="space-y-4">
+                  <SetupStepHeader step={1} title="Install" />
+                  <CodeBlock code={installSnippet(tab)} language="bash" />
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <SetupStepHeader
+                    step={2}
+                    title="Add .env"
+                    action={
+                      <DownloadButton
+                        filename=".env"
+                        content={envSnippet(
+                          registration.appId,
+                          registration.apiKey!,
+                          tab
+                        )}
+                        label="Download .env"
+                      />
+                    }
+                  />
+                  <CodeBlock
+                    code={envSnippet(
+                      registration.appId,
+                      registration.apiKey!,
+                      tab,
+                      {
+                        maskApiKey: true,
+                      }
+                    )}
+                    language="bash"
+                  />
+                  {tab === 'bot' && (
+                    <p className="text-xs text-muted-foreground">
+                      A <code className="portal-blue-text">BOT_TOKEN</code>{' '}
+                      comes from{' '}
+                      <a
+                        href="https://t.me/BotFather"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="portal-action-link"
+                      >
+                        @BotFather
+                      </a>{' '}
+                      on Telegram.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <SetupStepHeader
+                    step={3}
+                    title={tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'}
+                  />
+                  <CodeBlock
+                    code={tab === 'bot' ? botSnippet() : sdkOnlySnippet()}
+                  />
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <SetupStepHeader step={4} title="Run" />
+                  {tab === 'bot' ? (
+                    <CodeBlock code="npm start" language="bash" />
+                  ) : (
+                    <CodeBlock
+                      code="node --env-file=.env --import tsx app.ts"
+                      language="bash"
+                    />
+                  )}
+                </div>
+
+                {tab === 'bot' && (
+                  <div className="mt-6 border-t border-fade-detail pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="mb-1 text-sm font-medium">
+                          Download starter project
+                        </h4>
+                        <p className="text-xs text-muted-foreground">
+                          package.json + .env + bot.ts, ready for{' '}
+                          <code className="portal-blue-text">
+                            npm install &amp;&amp; npm start
+                          </code>
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <DownloadButton
+                          filename="package.json"
+                          content={packageJsonSnippet()}
+                          label="package.json"
+                        />
+                        <DownloadButton
+                          filename="bot.ts"
+                          content={botSnippet()}
+                          label="bot.ts"
+                        />
+                        <DownloadButton
+                          filename=".env"
+                          content={envSnippet(
+                            registration.appId,
+                            registration.apiKey!,
+                            tab
+                          )}
+                          label=".env"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </>
+        ) : (
+          <div className="portal-blue-panel rounded-[1rem] border px-4 py-4 text-sm">
+            Reveal the full key to unlock the setup guide, .env downloads, and
+            key rotation.
           </div>
         )}
-      </div>
+      </SurfacePanel>
 
-      {tab === 'bot' && (
-        <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
-          <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Deploy
-          </h3>
-          <p className="mb-3 text-sm text-muted-foreground">
-            A persistent process is needed for a Telegram bot. One example:
-          </p>
-          <a
-            href="https://fly.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-4 rounded-[1.25rem] border border-border/50 bg-background/30 p-4 transition-colors hover:border-border"
+      <AnimatePresence initial={false}>
+        {hasApiKey && tab === 'bot' && (
+          <motion.div
+            key="bot-preview"
+            initial={{ opacity: 0, height: 0, y: 10 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
           >
-            <div
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border"
-              style={portalFrameStyle('purple')}
-            >
-              <Cloud className="portal-purple-icon w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm">Fly.io</h4>
-              <p className="text-xs text-muted-foreground">
-                Push to GitHub for an always-on deploy. Free tier available.
+            <SurfacePanel radius="xl" tone="soft" padding="roomy">
+              <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                <MessageSquare className="portal-blue-icon mr-2 inline h-5 w-5" />
+                Preview
+              </h3>
+              <p className="mb-4 text-xs text-muted-foreground">
+                This is how your bot will look in Telegram — fully branded, zero
+                custom code needed.
               </p>
-            </div>
-            <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-          </a>
-        </div>
-      )}
-
-      {tab === 'bot' && (
-        <div className="rounded-[1.5rem] border border-border/50 bg-background/40 p-5 md:p-6">
-          <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            <MessageSquare className="portal-blue-icon mr-2 inline h-5 w-5" />
-            Preview
-          </h3>
-          <p className="mb-4 text-xs text-muted-foreground">
-            This is how your bot will look in Telegram — fully branded, zero
-            custom code needed.
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                /start
-              </p>
-              <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
-                <p>🤝 OnSocial stands with {registration.label}</p>
-                <p className="mt-2">👋 Welcome!</p>
-                <p className="mt-2 text-gray-400">
-                  Earn 0.1 SOCIAL per message (up to 1/day) for being active in
-                  the group.
-                </p>
-                <p className="mt-1 text-gray-400">
-                  Tap below to link your NEAR account and start earning 👇
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <span className="portal-blue-badge rounded-full border px-2.5 py-1 text-xs">
-                    🔗 Link Account
-                  </span>
-                  <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-gray-400">
-                    ❓ How it works
-                  </span>
-                </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SurfacePanel radius="md" tone="subtle">
+                  <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    /start
+                  </p>
+                  <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
+                    <p>🤝 OnSocial stands with {registration.label}</p>
+                    <p className="mt-2">👋 Welcome!</p>
+                    <p className="mt-2 text-gray-400">
+                      Earn 0.1 SOCIAL per message (up to 1/day) for being active
+                      in the group.
+                    </p>
+                    <p className="mt-1 text-gray-400">
+                      Tap below to link your NEAR account and start earning 👇
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <PreviewPill accent="blue">🔗 Link Account</PreviewPill>
+                      <PreviewPill>❓ How it works</PreviewPill>
+                    </div>
+                  </div>
+                </SurfacePanel>
+                <SurfacePanel radius="md" tone="subtle">
+                  <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    /balance
+                  </p>
+                  <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
+                    <p>🤝 OnSocial stands with {registration.label}</p>
+                    <p className="mt-2">
+                      ⭐ Rewards for{' '}
+                      <span className="portal-green-text">alice.near</span>
+                    </p>
+                    <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
+                    <p className="portal-green-text text-xs">
+                      (ready to claim!)
+                    </p>
+                    <p className="mt-1 text-gray-400">
+                      📈 Daily progress: 0.5 / 1 SOCIAL
+                    </p>
+                    <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
+                    <div className="mt-3 flex gap-2">
+                      <PreviewPill accent="purple">💎 Claim</PreviewPill>
+                      <PreviewPill>🔄 Refresh</PreviewPill>
+                    </div>
+                  </div>
+                </SurfacePanel>
               </div>
-            </div>
-            <div className="rounded-[1.25rem] border border-border/50 bg-background/30 p-4">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                /balance
-              </p>
-              <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
-                <p>🤝 OnSocial stands with {registration.label}</p>
-                <p className="mt-2">
-                  ⭐ Rewards for{' '}
-                  <span className="portal-green-text">alice.near</span>
-                </p>
-                <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
-                <p className="portal-green-text text-xs">(ready to claim!)</p>
-                <p className="mt-1 text-gray-400">
-                  📈 Daily progress: 0.5 / 1 SOCIAL
-                </p>
-                <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
-                <div className="mt-3 flex gap-2">
-                  <span className="portal-purple-badge rounded-full border px-2.5 py-1 text-xs">
-                    💎 Claim
-                  </span>
-                  <span className="rounded-full border border-white/10 px-2.5 py-1 text-xs text-gray-400">
-                    🔄 Refresh
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[
-          {
-            icon: Zap,
-            title: 'Auto-rewarding',
-            desc: 'Messages in groups earn SOCIAL tokens automatically',
-            color: portalColors.green,
-          },
-          {
-            icon: Shield,
-            title: 'Seamless claims',
-            desc: 'Users claim rewards in-bot without gas fees or wallet popups.',
-            color: portalColors.blue,
-          },
-          {
-            icon: Users,
-            title: 'Account linking',
-            desc: '/start → link NEAR account → start earning',
-            color: portalColors.purple,
-          },
-          {
-            icon: Rocket,
-            title: 'Branded UX',
-            desc: `"🤝 OnSocial stands with ${registration.label}"`,
-            color: portalColors.green,
-          },
-        ].map((item) => (
-          <div
-            key={item.title}
-            className="rounded-[1.25rem] border border-border/50 bg-background/30 p-4 transition-colors hover:border-border"
-          >
-            <item.icon className="w-5 h-5 mb-2" style={{ color: item.color }} />
-            <h4 className="font-medium text-sm mb-1">{item.title}</h4>
-            <p className="text-xs text-muted-foreground">{item.desc}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="text-center pt-4">
-        <a
-          href="https://github.com/OnSocial-Labs/onsocial-protocol"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1"
-        >
-          Full SDK documentation
-          <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
+            </SurfacePanel>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

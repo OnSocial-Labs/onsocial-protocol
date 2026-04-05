@@ -1,4 +1,5 @@
 use crate::*;
+use near_sdk::json_types::Base58CryptoHash;
 use near_sdk::json_types::U128;
 
 const MAX_APPS: usize = 100;
@@ -115,6 +116,48 @@ impl RewardsContract {
         self.intents_executors.retain(|e| e != &executor);
         events::emit_intents_executor_removed(&self.owner_id, &executor);
         Ok(())
+    }
+
+    #[handle_result]
+    pub fn update_contract(&self) -> Result<Promise, RewardsError> {
+        self.check_owner()?;
+        let code = env::input().expect("No input").to_vec();
+        Ok(Promise::new(env::current_account_id())
+            .deploy_contract(code)
+            .function_call(
+                "migrate".to_string(),
+                vec![],
+                NearToken::from_near(0),
+                GAS_MIGRATE,
+            )
+            .as_return())
+    }
+
+    #[handle_result]
+    pub fn update_contract_from_hash(
+        &self,
+        code_hash: Base58CryptoHash,
+    ) -> Result<Promise, RewardsError> {
+        self.check_owner()?;
+        Ok(Promise::new(env::current_account_id())
+            .use_global_contract(code_hash)
+            .function_call(
+                "migrate".to_string(),
+                vec![],
+                NearToken::from_near(0),
+                GAS_MIGRATE,
+            )
+            .as_return())
+    }
+
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let mut contract: Self = env::state_read().expect("State read failed");
+        let old = contract.version.clone();
+        contract.version = CONTRACT_VERSION.to_string();
+        events::emit_contract_upgraded(&contract.owner_id, &old, CONTRACT_VERSION);
+        contract
     }
 
     #[handle_result]

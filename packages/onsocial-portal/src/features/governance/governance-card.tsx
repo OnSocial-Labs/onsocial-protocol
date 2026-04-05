@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Globe } from 'lucide-react';
 import { FaXTwitter } from 'react-icons/fa6';
@@ -17,6 +18,7 @@ import { actOnGovernanceProposal } from '@/features/governance/api';
 import { reopenApplication } from '@/features/partners/api';
 import {
   buildHandleUrl,
+  DAO_STATUS_STYLES,
   deriveGovernanceCardView,
   formatActionLabel,
   formatIsoTimestamp,
@@ -59,12 +61,23 @@ function DescriptionClamp({ text }: { text: string }) {
 
   return (
     <div className="mt-1.5">
-      <p
-        ref={ref}
-        className={`max-w-3xl text-xs text-muted-foreground ${clamped ? 'line-clamp-2' : ''}`}
-      >
-        {text}
-      </p>
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={clamped ? 'clamped' : 'expanded'}
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+          className="overflow-hidden"
+        >
+          <p
+            ref={ref}
+            className={`max-w-3xl text-xs text-muted-foreground ${clamped ? 'line-clamp-2' : ''}`}
+          >
+            {text}
+          </p>
+        </motion.div>
+      </AnimatePresence>
       {needsClamp && (
         <button
           type="button"
@@ -110,6 +123,21 @@ function PartnerGovernanceCard({
   onGovernanceUpdated?: () => void | Promise<void>;
 }) {
   const { wallet, accountId, isConnected } = useWallet();
+  const router = useRouter();
+
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest(
+          'a, button, [role="button"], input, textarea, select, pre, code'
+        )
+      )
+        return;
+      router.push(`/governance/${encodeURIComponent(app.app_id)}`);
+    },
+    [router, app.app_id]
+  );
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [onChainConfig, setOnChainConfig] = useState<OnChainAppConfig | null>(
     null
@@ -133,6 +161,9 @@ function PartnerGovernanceCard({
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
   const proposal: GovernanceProposal | null = app.governance_proposal;
+  const proposalFallbackStyle = proposal?.status
+    ? DAO_STATUS_STYLES[proposal.status]
+    : undefined;
   const daoAccountId = proposal?.dao_account ?? null;
   const liveProposalId = proposal?.proposal_id ?? null;
   const isAppWalletViewer =
@@ -466,15 +497,20 @@ function PartnerGovernanceCard({
 
   const stripColor =
     liveStatusStyle?.stripColor ??
+    proposalFallbackStyle?.stripColor ??
     (app.status === 'approved'
       ? 'var(--portal-green-border-strong)'
       : app.status === 'rejected'
         ? 'var(--portal-red-border-strong)'
         : 'var(--portal-blue-border-strong)');
 
-  const fallbackMetaLabel = app.status === 'approved' ? 'Approved' : 'Rejected';
-  const fallbackMetaTone =
+  const fallbackBadgeBg =
+    app.status === 'approved'
+      ? 'bg-[var(--portal-green-bg)]'
+      : 'bg-[var(--portal-red-bg)]';
+  const fallbackBadgeText =
     app.status === 'approved' ? 'portal-green-text' : 'portal-red-text';
+  const fallbackMetaLabel = app.status === 'approved' ? 'Approved' : 'Rejected';
   const fallbackMetaTime = formatIsoTimestamp(app.reviewed_at);
 
   return (
@@ -486,73 +522,86 @@ function PartnerGovernanceCard({
         tone="solid"
         borderTone="strong"
         padding="roomy"
-        className="relative overflow-hidden shadow-[0_1px_0_rgba(255,255,255,0.02)_inset]"
+        className="relative cursor-pointer overflow-hidden border-l-[3px] border-t-[3px] transition-[transform,box-shadow] duration-200 [@media(hover:hover)]:hover:-translate-y-0.5 [@media(hover:hover)]:hover:shadow-lg shadow-[0_1px_0_rgba(255,255,255,0.02)_inset]"
+        style={{ borderLeftColor: stripColor, borderTopColor: stripColor }}
+        onClick={handleCardClick}
       >
-        <div
-          aria-hidden="true"
-          className="absolute inset-y-0 left-0 w-0.5"
-          style={{ backgroundColor: stripColor }}
-        />
         {liveProposalId !== null ? (
-          <div className="mb-3 border-b border-fade-detail pb-3 font-mono text-xs text-muted-foreground">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="shrink-0 text-foreground/70">
-                  #{liveProposalId}
-                </span>
-                {functionCallSummary?.methodName && (
-                  <>
-                    <span className="shrink-0 text-border/40">·</span>
-                    <span className="break-all font-medium text-foreground/60">
-                      {functionCallSummary.methodName}
-                    </span>
-                  </>
-                )}
-                {submissionTime && (
-                  <>
-                    <span className="shrink-0 text-border/40">·</span>
-                    <HoverTimestamp
-                      relative={submissionTime.relative}
-                      absolute={submissionTime.absolute}
-                    />
-                  </>
-                )}
-              </div>
-              {liveStatusStyle && (
-                <div className="shrink-0 text-right">
-                  <span className={`font-medium ${liveStatusStyle.textClass}`}>
-                    {liveStatusStyle.label}
+          <div
+            className={`-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-4 flex items-center justify-between gap-2 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2.5 pb-4 font-mono text-xs ${liveStatusStyle?.badgeBg ?? proposalFallbackStyle?.badgeBg ?? 'bg-[var(--portal-blue-bg)]'}`}
+            style={{
+              maskImage: 'linear-gradient(to bottom, black 70%, transparent)',
+              WebkitMaskImage:
+                'linear-gradient(to bottom, black 70%, transparent)',
+            }}
+          >
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span
+                className={`shrink-0 font-semibold ${liveStatusStyle?.badgeText ?? proposalFallbackStyle?.badgeText ?? 'portal-blue-text'}`}
+              >
+                #{liveProposalId}
+              </span>
+              {functionCallSummary?.methodName && (
+                <>
+                  <span className="shrink-0 text-foreground/20">·</span>
+                  <span className="break-all font-medium text-foreground/60">
+                    {functionCallSummary.methodName}
                   </span>
-                  {reviewExpiry && (
-                    <div
-                      className={`mt-0.5 text-[10px] ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
-                    >
-                      <HoverTimestamp
-                        relative={reviewExpiry.relative}
-                        absolute={reviewExpiry.absolute}
-                      />
-                    </div>
-                  )}
-                </div>
+                </>
+              )}
+              {submissionTime && (
+                <>
+                  <span className="shrink-0 text-foreground/20">·</span>
+                  <HoverTimestamp
+                    relative={submissionTime.relative}
+                    absolute={submissionTime.absolute}
+                  />
+                </>
               )}
             </div>
+            {liveStatusStyle && (
+              <div className="shrink-0 text-right">
+                <span
+                  className={`text-[11px] font-semibold uppercase tracking-wide ${liveStatusStyle.badgeText}`}
+                >
+                  {liveStatusStyle.label}
+                </span>
+                {reviewExpiry && (
+                  <div
+                    className={`mt-0.5 text-[10px] ${reviewExpiry.expired ? 'portal-amber-text' : 'text-muted-foreground'}`}
+                  >
+                    <HoverTimestamp
+                      relative={reviewExpiry.relative}
+                      absolute={reviewExpiry.absolute}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           (app.status === 'approved' || app.status === 'rejected') && (
-            <div className="mb-3 border-b border-fade-detail pb-3 font-mono text-xs text-muted-foreground">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                  {fallbackMetaTime && (
-                    <HoverTimestamp
-                      relative={fallbackMetaTime.relative}
-                      absolute={fallbackMetaTime.absolute}
-                    />
-                  )}
-                </div>
-                <span className={`shrink-0 font-medium ${fallbackMetaTone}`}>
-                  {fallbackMetaLabel}
-                </span>
+            <div
+              className={`-mx-5 -mt-5 md:-mx-6 md:-mt-6 mb-4 flex items-center justify-between gap-2 rounded-t-[calc(1.5rem-1px)] px-5 md:px-6 py-2.5 pb-4 font-mono text-xs ${fallbackBadgeBg}`}
+              style={{
+                maskImage: 'linear-gradient(to bottom, black 70%, transparent)',
+                WebkitMaskImage:
+                  'linear-gradient(to bottom, black 70%, transparent)',
+              }}
+            >
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                {fallbackMetaTime && (
+                  <HoverTimestamp
+                    relative={fallbackMetaTime.relative}
+                    absolute={fallbackMetaTime.absolute}
+                  />
+                )}
               </div>
+              <span
+                className={`text-[11px] font-semibold uppercase tracking-wide ${fallbackBadgeText}`}
+              >
+                {fallbackMetaLabel}
+              </span>
             </div>
           )
         )}
@@ -576,7 +625,7 @@ function PartnerGovernanceCard({
                     title="Website"
                     className="text-muted-foreground transition-all hover:text-[var(--portal-green)] hover:brightness-125 hover:scale-110"
                   >
-                    <Globe className="h-4 w-4" />
+                    <Globe className="h-[18px] w-[18px]" />
                   </a>
                 )}
                 {app.telegram_handle && (
@@ -587,7 +636,7 @@ function PartnerGovernanceCard({
                     title="Telegram"
                     className="text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
                   >
-                    <RiTelegram2Line className="h-4 w-4" />
+                    <RiTelegram2Line className="h-[18px] w-[18px]" />
                   </a>
                 )}
                 {app.x_handle && (
@@ -598,7 +647,7 @@ function PartnerGovernanceCard({
                     title="X"
                     className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
                   >
-                    <FaXTwitter className="h-4 w-4" />
+                    <FaXTwitter className="h-[18px] w-[18px]" />
                   </a>
                 )}
               </div>

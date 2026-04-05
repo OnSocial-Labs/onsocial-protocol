@@ -1,13 +1,30 @@
-"use client";
+'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, ChevronDown, Circle, ExternalLink, Link2, Mail, RotateCcw, XCircle, Vote } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  ExternalLink,
+  Link2,
+  Mail,
+  RotateCcw,
+  XCircle,
+  Vote,
+} from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import { Button } from '@/components/ui/button';
-import { getCounterToneClass, getVoteToneClass } from '@/features/governance/governance-card-helpers';
-import type { GovernanceDaoAction, GovernanceDaoProposal, GovernanceDaoRole } from '@/features/governance/types';
+import {
+  getCounterToneClass,
+  getVoteToneClass,
+} from '@/features/governance/governance-card-helpers';
+import type {
+  GovernanceDaoAction,
+  GovernanceDaoProposal,
+  GovernanceDaoRole,
+} from '@/features/governance/types';
 
 type LiveStatusStyle = {
   stripClass: string;
@@ -85,10 +102,7 @@ export function GovernanceLiveSummary({
     totalWeight > 0 ? (votingProgress.removes / totalWeight) * 100 : 0;
   const pendingPercent =
     totalWeight > 0
-      ? Math.max(
-          100 - approvePercent - rejectPercent - removePercent,
-          0
-        )
+      ? Math.max(100 - approvePercent - rejectPercent - removePercent, 0)
       : 0;
   const resolvedPrimaryValue =
     liveProposal.status === 'Approved'
@@ -103,20 +117,31 @@ export function GovernanceLiveSummary({
     <div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-          <span className={`inline-flex items-center gap-1 ${getCounterToneClass('approve', approveVotes)}`}>
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /><span className="break-all">{approveVotes}</span>
+          <span
+            className={`inline-flex items-center gap-1 ${getCounterToneClass('approve', approveVotes)}`}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="break-all">{approveVotes}</span>
           </span>
-          <span className={`inline-flex items-center gap-1 ${getCounterToneClass('reject', rejectVotes)}`}>
-            <XCircle className="h-3.5 w-3.5 shrink-0" /><span className="break-all">{rejectVotes}</span>
+          <span
+            className={`inline-flex items-center gap-1 ${getCounterToneClass('reject', rejectVotes)}`}
+          >
+            <XCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="break-all">{rejectVotes}</span>
           </span>
-          <span className={`inline-flex items-center gap-1 ${getCounterToneClass('remove', removeVotes)}`}>
-            <Vote className="h-3.5 w-3.5 shrink-0" /><span className="break-all">{removeVotes}</span>
+          <span
+            className={`inline-flex items-center gap-1 ${getCounterToneClass('remove', removeVotes)}`}
+          >
+            <Vote className="h-3.5 w-3.5 shrink-0" />
+            <span className="break-all">{removeVotes}</span>
           </span>
         </div>
         {votingProgress.threshold !== null && (
           <>
             <span className="text-border/40">·</span>
-            <span className={`font-medium ${isResolved || votingProgress.remaining === 0 ? liveStatusStyle.textClass : votingProgress.approvalStillPossible === false ? 'portal-red-text' : 'text-muted-foreground'}`}>
+            <span
+              className={`font-medium ${isResolved || votingProgress.remaining === 0 ? liveStatusStyle.textClass : votingProgress.approvalStillPossible === false ? 'portal-red-text' : 'text-muted-foreground'}`}
+            >
               {isResolved
                 ? resolvedPrimaryValue
                 : votingProgress.remaining === 0
@@ -129,36 +154,62 @@ export function GovernanceLiveSummary({
         )}
       </div>
 
-      {votingProgress.threshold !== null && (() => {
-        const thresholdPct = totalWeight > 0 ? (votingProgress.threshold / totalWeight) * 100 : 0;
-        const showMarker = !isResolved && thresholdPct > 0 && thresholdPct < 100;
+      {votingProgress.threshold !== null &&
+        (() => {
+          const thresholdPct =
+            totalWeight > 0
+              ? (votingProgress.threshold / totalWeight) * 100
+              : 0;
+          const showMarker =
+            !isResolved && thresholdPct > 0 && thresholdPct < 100;
 
-        return (
-          <div className="relative mt-2">
-            <div className="flex h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-              {approvePercent > 0 ? (
-                <div className="h-full shrink-0 transition-[width] duration-500 ease-out" style={{ width: `${approvePercent}%`, backgroundColor: 'var(--portal-green)' }} />
-              ) : null}
-              {rejectPercent > 0 ? (
-                <div className="h-full shrink-0 transition-[width] duration-500 ease-out" style={{ width: `${rejectPercent}%`, backgroundColor: 'var(--portal-red)' }} />
-              ) : null}
-              {removePercent > 0 ? (
-                <div className="h-full shrink-0 transition-[width] duration-500 ease-out" style={{ width: `${removePercent}%`, backgroundColor: 'var(--portal-amber)' }} />
-              ) : null}
-              {pendingPercent > 0 ? (
-                <div className="h-full shrink-0 bg-black/10 transition-[width] duration-500 ease-out dark:bg-white/10" style={{ width: `${pendingPercent}%` }} />
-              ) : null}
+          return (
+            <div className="relative mt-2">
+              <div className="flex h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                {approvePercent > 0 ? (
+                  <div
+                    className="h-full shrink-0 transition-[width] duration-500 ease-out"
+                    style={{
+                      width: `${approvePercent}%`,
+                      backgroundColor: 'var(--portal-green)',
+                    }}
+                  />
+                ) : null}
+                {rejectPercent > 0 ? (
+                  <div
+                    className="h-full shrink-0 transition-[width] duration-500 ease-out"
+                    style={{
+                      width: `${rejectPercent}%`,
+                      backgroundColor: 'var(--portal-red)',
+                    }}
+                  />
+                ) : null}
+                {removePercent > 0 ? (
+                  <div
+                    className="h-full shrink-0 transition-[width] duration-500 ease-out"
+                    style={{
+                      width: `${removePercent}%`,
+                      backgroundColor: 'var(--portal-amber)',
+                    }}
+                  />
+                ) : null}
+                {pendingPercent > 0 ? (
+                  <div
+                    className="h-full shrink-0 bg-black/10 transition-[width] duration-500 ease-out dark:bg-white/10"
+                    style={{ width: `${pendingPercent}%` }}
+                  />
+                ) : null}
+              </div>
+              {showMarker && (
+                <div
+                  className="absolute top-0 h-2 w-px bg-foreground/30"
+                  style={{ left: `${thresholdPct}%` }}
+                  title={`Threshold: ${votingProgress.threshold}/${totalWeight}`}
+                />
+              )}
             </div>
-            {showMarker && (
-              <div
-                className="absolute top-0 h-2 w-px bg-foreground/30"
-                style={{ left: `${thresholdPct}%` }}
-                title={`Threshold: ${votingProgress.threshold}/${totalWeight}`}
-              />
-            )}
-          </div>
-        );
-      })()}
+          );
+        })()}
     </div>
   );
 }
@@ -174,31 +225,51 @@ export function GovernanceVoteActivity({
   latestActionLink: { label: string; href: string } | null;
   activeVotingRole: GovernanceDaoRole | null;
 }) {
-  const groupMembers = (activeVotingRole?.kind?.Group ?? []).map((m) => m.toLowerCase());
-  const voterSet = new Set(voteEntries.map(([account]) => account.toLowerCase()));
+  const groupMembers = (activeVotingRole?.kind?.Group ?? []).map((m) =>
+    m.toLowerCase()
+  );
+  const voterSet = new Set(
+    voteEntries.map(([account]) => account.toLowerCase())
+  );
   const abstainers = groupMembers
     .filter((m) => !voterSet.has(m))
     .sort((a, b) => a.localeCompare(b));
 
   if (voteEntries.length === 0 && abstainers.length === 0) return null;
 
-  const VOTE_ICONS: Record<string, typeof CheckCircle2> = { Approve: CheckCircle2, Reject: XCircle, Remove: Vote };
+  const VOTE_ICONS: Record<string, typeof CheckCircle2> = {
+    Approve: CheckCircle2,
+    Reject: XCircle,
+    Remove: Vote,
+  };
 
   return (
     <div className="mt-3 flex flex-col gap-1.5">
       {voteEntries.map(([voterAccount, voterChoice]) => {
         const VoteIcon = VOTE_ICONS[voterChoice] ?? Vote;
         return (
-          <div key={voterAccount} className="inline-flex min-w-0 items-center gap-1.5 text-xs">
-            <VoteIcon className={`h-3.5 w-3.5 shrink-0 ${getVoteToneClass(voterChoice, accountId === voterAccount)}`} />
-            <span className="truncate font-mono text-muted-foreground">{voterAccount}</span>
+          <div
+            key={voterAccount}
+            className="inline-flex min-w-0 items-center gap-1.5 text-xs"
+          >
+            <VoteIcon
+              className={`h-3.5 w-3.5 shrink-0 ${getVoteToneClass(voterChoice, accountId === voterAccount)}`}
+            />
+            <span className="truncate font-mono text-muted-foreground">
+              {voterAccount}
+            </span>
           </div>
         );
       })}
       {abstainers.map((account) => (
-        <div key={account} className="inline-flex min-w-0 items-center gap-1.5 text-xs">
+        <div
+          key={account}
+          className="inline-flex min-w-0 items-center gap-1.5 text-xs"
+        >
           <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
-          <span className="truncate font-mono text-muted-foreground/50">{account}</span>
+          <span className="truncate font-mono text-muted-foreground/50">
+            {account}
+          </span>
         </div>
       ))}
       {latestActionLink && (
@@ -245,8 +316,12 @@ export function GovernanceReviewTerms({
         aria-expanded={detailsOpen}
         className="group -mx-1 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-foreground/[0.03]"
       >
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">Terms</p>
-        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${detailsOpen ? 'rotate-180' : ''}`} />
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
+          Terms
+        </p>
+        <ChevronDown
+          className={`h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80 ${detailsOpen ? 'rotate-180' : ''}`}
+        />
       </button>
 
       <AnimatePresence initial={false}>
@@ -263,41 +338,55 @@ export function GovernanceReviewTerms({
               {rewardPerActionValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Per Action</dt>
-                  <dd className="ml-auto font-mono font-medium text-foreground/80">{rewardPerActionValue}</dd>
+                  <dd className="ml-auto font-mono font-medium text-foreground/80">
+                    {rewardPerActionValue}
+                  </dd>
                 </div>
               )}
               {dailyCapValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Daily Cap</dt>
-                  <dd className="ml-auto font-mono font-medium text-foreground/80">{dailyCapValue}</dd>
+                  <dd className="ml-auto font-mono font-medium text-foreground/80">
+                    {dailyCapValue}
+                  </dd>
                 </div>
               )}
               {dailyBudgetValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Daily Budget</dt>
-                  <dd className="ml-auto font-mono font-medium portal-blue-text">{dailyBudgetValue}</dd>
+                  <dd className="ml-auto font-mono font-medium portal-blue-text">
+                    {dailyBudgetValue}
+                  </dd>
                 </div>
               )}
               {totalBudgetValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Total Budget</dt>
-                  <dd className="ml-auto font-mono font-medium portal-blue-text">{totalBudgetValue}</dd>
+                  <dd className="ml-auto font-mono font-medium portal-blue-text">
+                    {totalBudgetValue}
+                  </dd>
                 </div>
               )}
               {attachedDepositValue && (
                 <div className="flex items-baseline gap-2">
                   <dt className="text-muted-foreground">Deposit</dt>
-                  <dd className="ml-auto font-mono font-medium text-foreground/80">{attachedDepositValue}</dd>
+                  <dd className="ml-auto font-mono font-medium text-foreground/80">
+                    {attachedDepositValue}
+                  </dd>
                 </div>
               )}
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <dt className="shrink-0 text-muted-foreground">Contract</dt>
-                <dd className="ml-auto break-all font-mono font-medium text-foreground/80">{functionCallSummary.receiverId}</dd>
+                <dd className="ml-auto break-all font-mono font-medium text-foreground/80">
+                  {functionCallSummary.receiverId}
+                </dd>
               </div>
               {authorizedCallers.length > 0 && (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <dt className="shrink-0 text-muted-foreground">Callers</dt>
-                  <dd className="ml-auto break-all font-mono text-foreground/80">{authorizedCallers.join(', ')}</dd>
+                  <dd className="ml-auto break-all font-mono text-foreground/80">
+                    {authorizedCallers.join(', ')}
+                  </dd>
                 </div>
               )}
             </dl>
@@ -347,7 +436,8 @@ export function GovernanceGuardianActions({
   reopenLoading?: boolean;
   onReopen?: () => void;
 }) {
-  const hasActions = canApprove || canReject || canRemove || canFinalize || canReopen;
+  const hasActions =
+    canApprove || canReject || canRemove || canFinalize || canReopen;
 
   return (
     <div className="mt-3 border-t border-fade-section pt-3">
@@ -355,20 +445,36 @@ export function GovernanceGuardianActions({
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           {connectedRole && (
             <span className="shrink-0 inline-flex h-5 items-center rounded-full bg-foreground/5 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {connectedRole.name ? formatRoleLabel(connectedRole.name) : 'Guardian'}
+              {connectedRole.name
+                ? formatRoleLabel(connectedRole.name)
+                : 'Guardian'}
             </span>
           )}
           {guardianDecisionSummary.title && (
-            <p className={`text-xs font-medium ${guardianDecisionSummary.toneClass}`}>
+            <p
+              className={`text-xs font-medium ${guardianDecisionSummary.toneClass}`}
+            >
               {guardianDecisionSummary.title}
             </p>
           )}
         </div>
         {currentVote && (
-          <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium ${
-            currentVote === 'Approve' ? 'portal-green-text' : currentVote === 'Reject' ? 'portal-red-text' : 'portal-amber-text'
-          }`}>
-            {currentVote === 'Approve' ? <CheckCircle2 className="h-3 w-3" /> : currentVote === 'Reject' ? <XCircle className="h-3 w-3" /> : <Vote className="h-3 w-3" />}
+          <span
+            className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium ${
+              currentVote === 'Approve'
+                ? 'portal-green-text'
+                : currentVote === 'Reject'
+                  ? 'portal-red-text'
+                  : 'portal-amber-text'
+            }`}
+          >
+            {currentVote === 'Approve' ? (
+              <CheckCircle2 className="h-3 w-3" />
+            ) : currentVote === 'Reject' ? (
+              <XCircle className="h-3 w-3" />
+            ) : (
+              <Vote className="h-3 w-3" />
+            )}
             You voted {currentVote.toLowerCase()}
           </span>
         )}
@@ -443,7 +549,9 @@ export function GovernanceGuardianActions({
 
       {canFinalize && finalizeLabel === 'Retry' && (
         <p className="mt-2 text-[11px] leading-snug text-muted-foreground/70">
-          This one failed last time. Retrying will run the same on-chain action again &mdash; if the underlying issue isn&apos;t fixed, it&apos;ll fail again.
+          This one failed last time. Retrying will run the same on-chain action
+          again &mdash; if the underlying issue isn&apos;t fixed, it&apos;ll
+          fail again.
         </p>
       )}
 
@@ -464,12 +572,18 @@ export function GovernanceGuardianActions({
 
 /* ─── Share proposal ─── */
 
-export function ShareProposal({ appId, label }: { appId: string; label: string }) {
+export function ShareProposal({
+  appId,
+  label,
+}: {
+  appId: string;
+  label: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const getUrl = useCallback(
     () => `${window.location.origin}/governance/${encodeURIComponent(appId)}`,
-    [appId],
+    [appId]
   );
 
   const handleCopy = useCallback(async () => {
@@ -524,9 +638,7 @@ export function ShareProposal({ appId, label }: { appId: string; label: string }
         <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
       </button>
 
-      {copied && (
-        <span className="text-xs text-green-400">Copied!</span>
-      )}
+      {copied && <span className="text-xs text-green-400">Copied!</span>}
     </div>
   );
 }

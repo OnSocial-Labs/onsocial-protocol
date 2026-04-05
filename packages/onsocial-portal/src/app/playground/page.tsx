@@ -1,12 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import { useTheme } from 'next-themes';
-import Editor from '@monaco-editor/react';
 import { playgroundExamples, categories } from '@/data/playground-examples';
 import type { ExampleSnippet } from '@/data/playground-examples';
 import { PageShell } from '@/components/layout/page-shell';
+import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
+import { SectionHeader } from '@/components/layout/section-header';
+import { Button, ButtonLoadingContent } from '@/components/ui/button';
+import { SurfacePanel } from '@/components/ui/surface-panel';
+import { TransactionFeedbackToast } from '@/components/ui/transaction-feedback-toast';
 import {
   Play,
   Copy,
@@ -21,12 +26,32 @@ import {
   Check,
 } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
+import { useNearTransactionFeedback } from '@/hooks/use-near-transaction-feedback';
 import { executeOnTestnet } from '@/lib/testnet-executor';
-import { portalBadgeStyle } from '@/lib/portal-colors';
+
+const Editor = dynamic(() => import('@monaco-editor/react'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center bg-muted/10 text-muted-foreground">
+      <div className="w-full space-y-3 px-6">
+        <div className="h-4 w-28 rounded-full bg-white/8 animate-pulse" />
+        <div className="h-3 w-full rounded-full bg-white/6 animate-pulse" />
+        <div className="h-3 w-11/12 rounded-full bg-white/6 animate-pulse" />
+        <div className="h-3 w-4/5 rounded-full bg-white/6 animate-pulse" />
+        <div className="mt-5 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground/80">
+          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+          Loading editor
+        </div>
+      </div>
+    </div>
+  ),
+});
 
 function PlaygroundContent() {
   const { accountId, isConnected, wallet } = useWallet();
   const { theme } = useTheme();
+  const { txResult, setTxResult, clearTxResult, trackTransaction } =
+    useNearTransactionFeedback(accountId);
 
   const [selectedExample, setSelectedExample] = useState<ExampleSnippet>(
     playgroundExamples[0]
@@ -50,16 +75,49 @@ function PlaygroundContent() {
     setIsRunning(true);
     setOutput('⏳ Running code...\n\n');
     setTxHash(null);
+    clearTxResult();
 
     if (useTestnet && isConnected && wallet) {
       // Execute on NEAR testnet with connected wallet
       try {
         const result = await executeOnTestnet(code, accountId!, wallet);
-        setOutput(result.output);
-        if (result.txHash) {
-          setTxHash(result.txHash);
+        if (!result.success) {
+          setOutput(result.output);
+          if (result.error) {
+            setTxResult({
+              type: 'error',
+              msg: result.error,
+            });
+          }
+          return;
         }
+
+        if (result.txHash && result.actionLabel) {
+          setTxHash(result.txHash);
+          setOutput('⏳ Transaction submitted. Confirming on-chain...\n\n');
+
+          const confirmed = await trackTransaction({
+            txHashes: [result.txHash],
+            submittedMessage: `${result.actionLabel} submitted. Confirming on-chain.`,
+            successMessage: `${result.actionLabel} confirmed on-chain.`,
+            failureMessage: `${result.actionLabel} failed on-chain.`,
+          });
+
+          if (!confirmed) {
+            setOutput(
+              `❌ ${result.actionLabel} failed on-chain.\n\nCheck the linked transaction for execution details.`
+            );
+            return;
+          }
+        }
+
+        setOutput(result.output);
       } catch (error: any) {
+        setTxResult({
+          type: 'error',
+          msg:
+            error instanceof Error ? error.message : 'Testnet execution failed',
+        });
         setOutput(`❌ Testnet execution error:\n\n${error.message}`);
       } finally {
         setIsRunning(false);
@@ -106,159 +164,137 @@ function PlaygroundContent() {
 
   return (
     <PageShell size="wide">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative mb-8 px-2 py-4 md:py-6"
+      <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
+      <SecondaryPageHeader
+        badge="Interactive sandbox"
+        badgeAccent="blue"
+        glowAccents={['blue', 'green', 'purple']}
+        align="left"
+        contentClassName="max-w-5xl"
+        descriptionClassName="max-w-3xl"
+        title="Try protocol flows in real time"
+        description="Explore example snippets, edit code live, and move from simulated runs into real NEAR testnet execution when your wallet is connected."
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-70 blur-3xl"
-          style={{
-            background:
-              'radial-gradient(circle at 22% 18%, rgba(96,165,250,0.18), transparent 38%), radial-gradient(circle at 56% 20%, rgba(74,222,128,0.12), transparent 34%), radial-gradient(circle at 82% 24%, rgba(192,132,252,0.14), transparent 30%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto max-w-4xl">
-          <div className="mb-4 flex justify-center md:justify-start">
-            <span
-              className="rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em]"
-              style={portalBadgeStyle('blue')}
-            >
-              Interactive sandbox
-            </span>
-          </div>
-          <h1 className="max-w-3xl text-4xl font-bold tracking-[-0.03em] md:text-5xl">
-            Try protocol flows in real time
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
-            Explore example snippets, edit code live, and move from simulated
-            runs into real NEAR testnet execution when your wallet is connected.
-          </p>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a
-              href="/docs"
-              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
-            >
-              <Book className="h-4 w-4" />
-              Documentation
-            </a>
-            <a
-              href="https://github.com/OnSocial-Labs/onsocial-protocol"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
-            >
-              <Github className="h-4 w-4" />
-              GitHub
-            </a>
-            <a
-              href="/docs/api"
-              className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
-            >
-              <Code2 className="h-4 w-4" />
-              API Reference
-            </a>
-          </div>
-        </div>
-      </motion.div>
+        <a
+          href="/docs"
+          className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
+        >
+          <Book className="h-4 w-4" />
+          Documentation
+        </a>
+        <a
+          href="https://github.com/OnSocial-Labs/onsocial-protocol"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
+        >
+          <Github className="h-4 w-4" />
+          GitHub
+        </a>
+        <a
+          href="/docs/api"
+          className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/55 px-4 py-2 text-sm text-muted-foreground transition-all hover:border-border hover:text-foreground"
+        >
+          <Code2 className="h-4 w-4" />
+          API Reference
+        </a>
+      </SecondaryPageHeader>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="mb-6 rounded-[1.5rem] border border-border/50 bg-background/40 p-4 md:p-5"
+        className="mb-6"
       >
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              className={`h-2.5 w-2.5 rounded-full ${useTestnet && isConnected ? 'portal-green-dot animate-pulse' : 'bg-muted-foreground/40'}`}
-            />
-            <div>
-              <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">
-                {useTestnet && isConnected ? 'Testnet mode' : 'Demo mode'}
-              </h2>
-              <p className="text-sm text-muted-foreground">
+        <SurfacePanel radius="xl" tone="soft" padding="snug">
+          <SectionHeader
+            badge="Mode"
+            title={useTestnet && isConnected ? 'Testnet mode' : 'Demo mode'}
+            size="compact"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`h-2.5 w-2.5 rounded-full ${useTestnet && isConnected ? 'portal-green-dot animate-pulse' : 'bg-muted-foreground/40'}`}
+              />
+              <div className="text-sm text-muted-foreground">
                 {useTestnet && isConnected
-                  ? 'Run code on NEAR testnet with your connected wallet.'
+                  ? 'Wallet ready for live testnet calls.'
+                  : 'Choose between simulated and live execution.'}
+              </div>
+            </div>
+            <Button
+              onClick={() => setUseTestnet(!useTestnet)}
+              disabled={useTestnet && !isConnected}
+              variant={
+                useTestnet && isConnected
+                  ? 'default'
                   : useTestnet && !isConnected
-                    ? 'Connect a wallet first to unlock real testnet execution.'
-                    : 'Use simulated execution while you explore examples and edit code.'}
+                    ? 'outline'
+                    : 'outline'
+              }
+              size="sm"
+              className={
+                useTestnet && !isConnected
+                  ? 'cursor-not-allowed opacity-50'
+                  : ''
+              }
+            >
+              {useTestnet ? 'Disable testnet' : 'Enable testnet'}
+            </Button>
+          </div>
+          {useTestnet && !isConnected && (
+            <div className="mt-3 border-t border-fade-section pt-3">
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Wallet className="h-4 w-4" />
+                Connect your wallet above to execute on NEAR testnet.
               </p>
             </div>
-          </div>
-          <button
-            onClick={() => setUseTestnet(!useTestnet)}
-            disabled={useTestnet && !isConnected}
-            className={`rounded-full px-4 py-2 font-medium transition-all ${
-              useTestnet && isConnected
-                ? 'portal-blue-surface border'
-                : useTestnet && !isConnected
-                  ? 'cursor-not-allowed border border-border/50 bg-muted/50 text-muted-foreground'
-                  : 'portal-neutral-control border'
-            }`}
-          >
-            {useTestnet ? 'Disable testnet' : 'Enable testnet'}
-          </button>
-        </div>
-        {useTestnet && !isConnected && (
-          <div className="mt-3 border-t border-border/50 pt-3">
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Wallet className="h-4 w-4" />
-              Connect your wallet above to execute on NEAR testnet.
-            </p>
-          </div>
-        )}
-        {useTestnet && isConnected && (
-          <div className="mt-3 border-t border-border/50 pt-3">
-            <p className="text-xs text-muted-foreground">
-              Network: <span className="portal-green-text">testnet</span> ·{' '}
-              <span className="portal-amber-text">
-                Deploy your contract first for real execution.
-              </span>
-            </p>
-          </div>
-        )}
+          )}
+          {useTestnet && isConnected && (
+            <div className="mt-3 border-t border-fade-section pt-3">
+              <p className="text-xs text-muted-foreground">
+                Network: <span className="portal-green-text">testnet</span> ·{' '}
+                <span className="portal-amber-text">
+                  Deploy your contract first for real execution.
+                </span>
+              </p>
+            </div>
+          )}
+        </SurfacePanel>
       </motion.div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar - Examples */}
         <div className="lg:col-span-1">
-          <div className="border border-border/50 rounded-2xl p-4 sticky top-24 bg-muted/30">
-            <h2 className="text-foreground font-semibold mb-4 flex items-center gap-2">
-              <Terminal className="portal-blue-icon w-5 h-5" />
-              Examples
-            </h2>
+          <SurfacePanel tone="muted" className="sticky top-24">
+            <SectionHeader badge="Examples" size="compact" className="mb-4" />
 
             {/* Category Filter */}
             <div className="flex flex-wrap gap-2 mb-4">
-              <button
+              <Button
                 onClick={() => setSelectedCategory('all')}
-                className={`px-3 py-1 rounded-full text-sm transition-all ${
-                  selectedCategory === 'all'
-                    ? 'portal-blue-surface border'
-                    : 'portal-neutral-control border'
-                }`}
+                variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                size="xs"
               >
                 All
-              </button>
+              </Button>
               {categories.map((cat) => {
                 const IconComponent = cat.icon;
                 return (
-                  <button
+                  <Button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1 rounded-full text-sm transition-all flex items-center gap-1.5 ${
-                      selectedCategory === cat.id
-                        ? 'portal-blue-surface border'
-                        : 'portal-neutral-control border'
-                    }`}
+                    variant={
+                      selectedCategory === cat.id ? 'default' : 'outline'
+                    }
+                    size="xs"
                     title={cat.name}
+                    className="gap-1.5"
                   >
                     <IconComponent className="w-3.5 h-3.5" />
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -282,85 +318,104 @@ function PlaygroundContent() {
                 </button>
               ))}
             </div>
-          </div>
+          </SurfacePanel>
         </div>
 
         {/* Main Editor Area */}
         <div className="lg:col-span-3 space-y-6">
           {/* Selected Example Info */}
-          <div className="border border-border/50 rounded-2xl p-4 bg-muted/30">
-            <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">
-              {selectedExample.title}
-            </h3>
-            <p className="text-muted-foreground">
-              {selectedExample.description}
-            </p>
-          </div>
+          <AnimatePresence initial={false} mode="wait">
+            <motion.div
+              key={selectedExample.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="space-y-6"
+            >
+              <SurfacePanel tone="muted">
+                <h3 className="text-foreground font-semibold text-xl mb-2 tracking-[-0.02em]">
+                  {selectedExample.title}
+                </h3>
+                <p className="text-muted-foreground">
+                  {selectedExample.description}
+                </p>
+              </SurfacePanel>
 
-          {/* Code Editor */}
-          <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Code2 className="w-4 h-4" />
-                <span className="text-sm font-medium">Code Editor</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopy}
-                  className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                  title={copied ? 'Copied!' : 'Copy code'}
-                >
-                  {copied ? (
-                    <Check className="portal-green-icon w-4 h-4" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-                  title={reset ? 'Reset!' : 'Reset to example'}
-                >
-                  {reset ? (
-                    <Check className="portal-green-icon w-4 h-4" />
-                  ) : (
-                    <RotateCcw className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={handleRun}
-                  disabled={isRunning}
-                  className="portal-blue-surface flex items-center gap-2 rounded-full border px-4 py-2 font-medium transition-all disabled:opacity-50"
-                >
-                  <Play className="w-4 h-4" />
-                  {isRunning ? 'Running...' : 'Run Code'}
-                </button>
-              </div>
-            </div>
-            <div className="h-[400px]">
-              <Editor
-                height="100%"
-                defaultLanguage="typescript"
-                value={code}
-                onChange={(value) => setCode(value || '')}
-                theme={theme === 'dark' ? 'vs-dark' : 'light'}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  tabSize: 2,
-                  wordWrap: 'on',
-                  padding: { top: 16, bottom: 16 },
-                }}
-              />
-            </div>
-          </div>
+              {/* Code Editor */}
+              <SurfacePanel
+                tone="muted"
+                padding="none"
+                className="overflow-hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-fade-section">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Code2 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Code Editor</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCopy}
+                      className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                      title={copied ? 'Copied!' : 'Copy code'}
+                    >
+                      {copied ? (
+                        <Check className="portal-green-icon w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="p-2 rounded-lg bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                      title={reset ? 'Reset!' : 'Reset to example'}
+                    >
+                      {reset ? (
+                        <Check className="portal-green-icon w-4 h-4" />
+                      ) : (
+                        <RotateCcw className="w-4 h-4" />
+                      )}
+                    </button>
+                    <Button onClick={handleRun} disabled={isRunning} size="sm">
+                      <ButtonLoadingContent
+                        loading={isRunning}
+                        loadingIndicatorSize="sm"
+                        contentClassName="inline-flex items-center gap-2"
+                      >
+                        <>
+                          <Play className="w-4 h-4" />
+                          Run Code
+                        </>
+                      </ButtonLoadingContent>
+                    </Button>
+                  </div>
+                </div>
+                <div className="h-[400px]">
+                  <Editor
+                    height="100%"
+                    defaultLanguage="typescript"
+                    value={code}
+                    onChange={(value) => setCode(value || '')}
+                    theme={theme === 'dark' ? 'vs-dark' : 'light'}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize: 2,
+                      wordWrap: 'on',
+                      padding: { top: 16, bottom: 16 },
+                    }}
+                  />
+                </div>
+              </SurfacePanel>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Output Panel */}
-          <div className="border border-border/50 rounded-2xl overflow-hidden bg-muted/30">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50 text-muted-foreground">
+          <SurfacePanel tone="muted" padding="none" className="overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-fade-section text-muted-foreground">
               <Terminal className="w-4 h-4" />
               <span className="text-sm font-medium">Output</span>
             </div>
@@ -371,7 +426,7 @@ function PlaygroundContent() {
                     {output}
                   </pre>
                   {txHash && (
-                    <div className="mt-4 pt-4 border-t border-border/50">
+                    <div className="mt-4 pt-4 border-t border-fade-section">
                       <a
                         href={`https://testnet.nearblocks.io/txns/${txHash}`}
                         target="_blank"
@@ -397,10 +452,10 @@ function PlaygroundContent() {
                 </div>
               )}
             </div>
-          </div>
+          </SurfacePanel>
 
           {/* Info Card */}
-          <div className="border border-border/50 rounded-2xl p-6 bg-muted/30">
+          <SurfacePanel tone="muted" padding="roomy">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-full border border-border/50">
                 <CheckCircle2 className="portal-green-icon w-5 h-5" />
@@ -425,7 +480,7 @@ function PlaygroundContent() {
                 </div>
               </div>
             </div>
-          </div>
+          </SurfacePanel>
         </div>
       </div>
     </PageShell>

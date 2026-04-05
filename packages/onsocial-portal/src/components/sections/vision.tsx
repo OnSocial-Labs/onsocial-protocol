@@ -17,6 +17,8 @@ import {
   portalFrameStyle,
   type PortalAccent,
 } from '@/lib/portal-colors';
+import { SectionHeader } from '@/components/layout/section-header';
+import { SurfacePanel } from '@/components/ui/surface-panel';
 
 // What the protocol actually enables (backed by real contracts)
 const PROTOCOL_LAYERS = [
@@ -89,15 +91,15 @@ export function Vision() {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="text-center mb-16"
+          className="mb-16"
         >
-          <h2 className="text-3xl md:text-5xl font-bold tracking-[-0.03em] mb-4">
-            What you can build
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-            Dapps with seamless onboarding — shared profiles, organizations, and
-            commerce.
-          </p>
+          <SectionHeader
+            align="center"
+            size="display"
+            contentClassName="max-w-2xl"
+            title="What you can build"
+            description="Dapps with seamless onboarding, shared profiles, organizations, and commerce."
+          />
         </motion.div>
 
         {/* Protocol layers - 2x2 grid */}
@@ -108,37 +110,43 @@ export function Vision() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="border border-border/50 rounded-2xl p-8 bg-muted/30 hover:border-border transition-colors"
             >
-              <div className="flex items-start gap-4">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={portalFrameStyle(layer.accent)}
-                >
-                  <layer.icon
-                    className="w-5 h-5"
-                    style={{ color: portalColors[layer.accent] }}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold tracking-[-0.02em] mb-1">
-                    {layer.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                    {layer.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {layer.capabilities.map((cap) => (
-                      <span
-                        key={cap}
-                        className="text-xs px-2 py-0.5 rounded-full border border-border/50 text-muted-foreground"
-                      >
-                        {cap}
-                      </span>
-                    ))}
+              <SurfacePanel
+                radius="xl"
+                tone="muted"
+                padding="spacious"
+                interactive
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={portalFrameStyle(layer.accent)}
+                  >
+                    <layer.icon
+                      className="w-5 h-5"
+                      style={{ color: portalColors[layer.accent] }}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold tracking-[-0.02em] mb-1">
+                      {layer.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                      {layer.description}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {layer.capabilities.map((cap) => (
+                        <span
+                          key={cap}
+                          className="text-xs px-2 py-0.5 rounded-full border border-border/50 text-muted-foreground"
+                        >
+                          {cap}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </SurfacePanel>
             </motion.div>
           ))}
         </div>
@@ -148,28 +156,30 @@ export function Vision() {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="max-w-3xl mx-auto border border-border/50 rounded-2xl p-8 bg-muted/30"
+          className="max-w-3xl mx-auto"
         >
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Puzzle className="portal-green-icon w-4 h-4" />
-            <span className="text-sm font-semibold tracking-[-0.02em]">
-              Built into every dapp. Zero config.
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
-            {INFRA_FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
-              >
-                <feature.icon
-                  className="w-3.5 h-3.5"
-                  style={{ color: portalColors[feature.accent] }}
-                />
-                <span>{feature.title}</span>
-              </div>
-            ))}
-          </div>
+          <SurfacePanel radius="xl" tone="muted" padding="spacious">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Puzzle className="portal-green-icon w-4 h-4" />
+              <span className="text-sm font-semibold tracking-[-0.02em]">
+                Built into every dapp. Zero config.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5">
+              {INFRA_FEATURES.map((feature) => (
+                <div
+                  key={feature.title}
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground"
+                >
+                  <feature.icon
+                    className="w-3.5 h-3.5"
+                    style={{ color: portalColors[feature.accent] }}
+                  />
+                  <span>{feature.title}</span>
+                </div>
+              ))}
+            </div>
+          </SurfacePanel>
         </motion.div>
       </div>
     </section>

@@ -130,3 +130,14 @@ pub fn emit_authorized_caller_removed(owner_id: &AccountId, caller: &AccountId) 
         }),
     );
 }
+
+pub fn emit_contract_upgraded(account_id: &AccountId, old_version: &str, new_version: &str) {
+    emit(
+        "CONTRACT_UPGRADE",
+        account_id,
+        serde_json::json!({
+            "old_version": old_version,
+            "new_version": new_version,
+        }),
+    );
+}

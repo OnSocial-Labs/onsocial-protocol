@@ -24,6 +24,9 @@ const config = [
       'react/no-unescaped-entities': 'off',
       // Allow setState in effects for data-fetching patterns (fetch → setState)
       'react-hooks/set-state-in-effect': 'warn',
+      // useDropdown returns { isOpen, toggle, containerRef } — consumers pass
+      // containerRef to ref= props and read isOpen during render, which is safe.
+      'react-hooks/refs': 'warn',
       // Local SVG icons don't benefit from next/image optimization
       '@next/next/no-img-element': 'off',
     },

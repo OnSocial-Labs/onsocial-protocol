@@ -10,7 +10,7 @@ export type Step =
 
 export interface AppRegistration {
   appId: string;
-  apiKey: string;
+  apiKey: string | null;
   label: string;
 }
 
@@ -56,6 +56,7 @@ export interface StatusResponse {
   label?: string;
   applied_at?: string;
   governance_proposal?: GovernanceProposal | null;
+  application_form?: ApplicationFormPrefill | null;
   error?: string;
 }
 
@@ -110,6 +111,15 @@ export interface ApplyResponse {
   error?: string;
 }
 
+export interface AppIdAvailabilityResponse {
+  success: boolean;
+  app_id?: string;
+  available?: boolean;
+  status?: string;
+  source?: 'application' | 'onchain';
+  error?: string;
+}
+
 export interface ProposalSubmissionResponse {
   success: boolean;
   app_id: string;
@@ -118,7 +128,34 @@ export interface ProposalSubmissionResponse {
   error?: string;
 }
 
+export interface CancelApplicationResponse {
+  success: boolean;
+  app_id?: string;
+  status?: 'none';
+  error?: string;
+}
+
+export interface ReopenApplicationResponse {
+  success: boolean;
+  app_id?: string;
+  status?: 'reopened';
+  already_reopened?: boolean;
+  error?: string;
+}
+
 export interface ApplicationFormData {
+  appId: string;
+  label: string;
+  description: string;
+  audienceBand: string;
+  websiteUrl: string;
+  telegramHandle: string;
+  xHandle: string;
+}
+
+export interface ApplicationFormSnapshot extends ApplicationFormData {}
+
+export interface ApplicationFormPrefill {
   appId: string;
   label: string;
   description: string;

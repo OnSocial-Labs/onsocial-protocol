@@ -25,6 +25,7 @@ mod unit {
     fn context(predecessor: AccountId) -> VMContextBuilder {
         let mut b = VMContextBuilder::new();
         b.predecessor_account_id(predecessor);
+        b.current_account_id(accounts(4));
         b.block_timestamp(1_700_000_000_000_000_000); // ~2023-11-14
         b
     }
@@ -655,6 +656,33 @@ mod unit {
         testing_env!(context(owner()).build());
         c.transfer_ownership(user()).unwrap();
         assert_eq!(c.owner_id, user());
+    }
+
+    #[test]
+    fn test_update_contract_requires_owner() {
+        let c = new_contract();
+        let ctx = context(user());
+        testing_env!(ctx.build());
+
+        let result = c.update_contract();
+        assert!(
+            matches!(result, Err(RewardsError::Unauthorized(message)) if message == "Only owner")
+        );
+    }
+
+    #[test]
+    fn test_migrate_updates_version() {
+        let mut c = new_contract();
+        c.version = "0.0.0".into();
+
+        let mut ctx = context(accounts(4));
+        ctx.predecessor_account_id(accounts(4));
+        ctx.current_account_id(accounts(4));
+        testing_env!(ctx.build());
+        near_sdk::env::state_write(&c);
+
+        let migrated = RewardsContract::migrate();
+        assert_eq!(migrated.version, CONTRACT_VERSION);
     }
 
     #[test]

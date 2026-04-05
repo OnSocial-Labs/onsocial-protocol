@@ -19,6 +19,23 @@ fn test_decode_stake_lock() {
 }
 
 #[test]
+fn test_decode_boost_lock() {
+    let json = r#"{"standard":"onsocial","version":"1.0.0","event":"BOOST_LOCK","data":[{"amount":"75000000000000000000","months":48,"effective_boost":"112500000000000000000","account_id":"alice.near"}]}"#;
+    let event = decode_staking_event(json, "receipt123", 100, 1000, 0).unwrap();
+    assert_eq!(event.event_type, "BOOST_LOCK");
+    assert_eq!(event.account_id, "alice.near");
+    assert!(event.success);
+    match event.payload.unwrap() {
+        Payload::StakeLock(p) => {
+            assert_eq!(p.amount, "75000000000000000000");
+            assert_eq!(p.months, 48);
+            assert_eq!(p.effective_stake, "112500000000000000000");
+        }
+        _ => panic!("wrong payload"),
+    }
+}
+
+#[test]
 fn test_decode_credits_purchase() {
     let json = r#"{"standard":"onsocial","version":"1.0.0","event":"CREDITS_PURCHASE","data":[{"amount":"100000000000000000000","infra_share":"60000000000000000000","rewards_share":"40000000000000000000","account_id":"buyer.near"}]}"#;
     let event = decode_staking_event(json, "receipt456", 200, 2000, 1).unwrap();
@@ -154,6 +171,31 @@ fn test_decode_all_14_events() {
             "WITHDRAW_INFRA_FAILED",
             r#"{"amount":"1","account_id":"a"}"#,
         ),
+    ];
+
+    for (event_type, data_json) in events {
+        let json = format!(
+            r#"{{"standard":"onsocial","version":"1.0.0","event":"{}","data":[{}]}}"#,
+            event_type, data_json
+        );
+        let event = decode_staking_event(&json, "r", 1, 1, 0);
+        assert!(event.is_some(), "Failed to decode: {}", event_type);
+        assert_eq!(event.unwrap().event_type, event_type);
+    }
+}
+
+#[test]
+fn test_decode_boost_event_aliases() {
+    let events = vec![
+        (
+            "BOOST_LOCK",
+            r#"{"amount":"1","months":6,"effective_boost":"1","account_id":"a"}"#,
+        ),
+        (
+            "BOOST_EXTEND",
+            r#"{"new_months":12,"new_effective_boost":"1","account_id":"a"}"#,
+        ),
+        ("BOOST_UNLOCK", r#"{"amount":"1","account_id":"a"}"#),
     ];
 
     for (event_type, data_json) in events {

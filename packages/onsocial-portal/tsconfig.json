@@ -31,7 +31,9 @@
     ".next-mainnet/types/**/*.ts",
     ".next-mainnet/dev/types/**/*.ts",
     ".next-testnet/types/**/*.ts",
-    ".next-testnet/dev/types/**/*.ts"
+    ".next-testnet/dev/types/**/*.ts",
+    ".next-local-governance/types/**/*.ts",
+    ".next-local-governance/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

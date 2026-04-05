@@ -3,6 +3,7 @@ export interface ExecutionResult {
   output: string;
   txHash?: string;
   error?: string;
+  actionLabel?: string;
 }
 
 export async function executeOnTestnet(
@@ -78,6 +79,7 @@ async function executeCreateProfile(
       success: true,
       output: `✅ Profile created successfully!\n\nTransaction: ${result?.transaction?.hash || 'N/A'}\nAccount: ${accountId}\n\nYour profile has been created on NEAR testnet.`,
       txHash: result?.transaction?.hash,
+      actionLabel: 'Profile creation',
     };
   } catch (error: any) {
     return {
@@ -116,6 +118,7 @@ async function executeCreatePost(
       success: true,
       output: `✅ Post created successfully!\n\nTransaction: ${result?.transaction?.hash || 'N/A'}\nAccount: ${accountId}\n\nYour post is now on NEAR testnet.`,
       txHash: result?.transaction?.hash,
+      actionLabel: 'Post creation',
     };
   } catch (error: any) {
     return {
@@ -152,6 +155,7 @@ async function executeFollowUser(
       success: true,
       output: `✅ Follow action successful!\n\nTransaction: ${result?.transaction?.hash || 'N/A'}\nYou: ${accountId}\nFollowing: test-user.testnet`,
       txHash: result?.transaction?.hash,
+      actionLabel: 'Follow action',
     };
   } catch (error: any) {
     return {
@@ -188,6 +192,7 @@ async function executeLikePost(
       success: true,
       output: `✅ Post liked successfully!\n\nTransaction: ${result?.transaction?.hash || 'N/A'}\nYou: ${accountId}\nPost: example_post_1`,
       txHash: result?.transaction?.hash,
+      actionLabel: 'Like action',
     };
   } catch (error: any) {
     return {

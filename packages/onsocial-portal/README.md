@@ -4,7 +4,7 @@
 
 ## 🎨 Features
 
-- ⚡ **Next.js 14** - Latest App Router with React Server Components
+- ⚡ **Next.js 16** - App Router with React 19
 - 🎭 **Framer Motion** - Smooth, modern animations
 - 🪶 **Lenis** - Butter-smooth scrolling
 - 🎨 **Tailwind CSS** - Utility-first styling
@@ -143,7 +143,7 @@ Update content in:
 
 ## 📝 Tech Stack
 
-- **Framework**: Next.js 14
+- **Framework**: Next.js 16
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Animations**: Framer Motion, Lenis

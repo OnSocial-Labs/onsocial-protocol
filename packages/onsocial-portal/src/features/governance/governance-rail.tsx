@@ -68,9 +68,10 @@ export function GovernanceRail({
                     onClick={() => {
                       onLaneChange(option.value);
                     }}
-                    className={isActive
-                      ? 'border-border/60 bg-background font-medium text-foreground shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]'
-                      : 'border-transparent text-muted-foreground hover:border-border/40 hover:text-foreground'
+                    className={
+                      isActive
+                        ? 'border-border/60 bg-background font-medium text-foreground shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]'
+                        : 'border-transparent text-muted-foreground hover:border-border/40 hover:text-foreground'
                     }
                   >
                     {option.label}
@@ -82,7 +83,12 @@ export function GovernanceRail({
 
           <div className="flex shrink-0 items-center gap-2">
             <div className="flex items-center gap-2 md:hidden">
-              <Button asChild variant="outline" size="icon" className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground">
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
                 <Link href="/governance/manage" aria-label="Manage governance">
                   <Settings2 className="h-4 w-4" />
                 </Link>
@@ -97,7 +103,9 @@ export function GovernanceRail({
                 aria-label="Refresh proposals"
                 className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                />
               </Button>
             </div>
 
@@ -109,7 +117,12 @@ export function GovernanceRail({
                 </Link>
               </Button>
 
-              <Button asChild variant="outline" size="icon" className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9">
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
+              >
                 <Link href="/governance/manage" aria-label="Manage governance">
                   <Settings2 className="h-4 w-4" />
                 </Link>
@@ -125,7 +138,9 @@ export function GovernanceRail({
                 aria-label="Refresh proposals"
                 className="h-8 w-8 rounded-full border-border/40 bg-transparent text-muted-foreground hover:bg-transparent hover:text-foreground md:h-9 md:w-9"
               >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                />
               </Button>
             </div>
           </div>
@@ -138,7 +153,11 @@ export function GovernanceRail({
               onClick={statusMenu.toggle}
               aria-haspopup="listbox"
               aria-expanded={statusMenu.isOpen}
-              aria-label={statusMenu.isOpen ? 'Close status filter menu' : 'Open status filter menu'}
+              aria-label={
+                statusMenu.isOpen
+                  ? 'Close status filter menu'
+                  : 'Open status filter menu'
+              }
               className={`flex h-8 items-center gap-2 rounded-full border border-border/40 px-3 text-xs text-muted-foreground shadow-[0_10px_30px_-18px_rgba(15,23,42,0.34)] backdrop-blur-md transition-all duration-300 hover:bg-background/80 hover:text-foreground ${
                 statusMenu.isOpen
                   ? 'bg-background/88 text-foreground shadow-[0_12px_32px_-18px_rgba(15,23,42,0.38)]'

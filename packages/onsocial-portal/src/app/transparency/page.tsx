@@ -7,19 +7,25 @@ import {
   ArrowRight,
   Check,
   Copy,
-  Database,
   ExternalLink,
   Gift,
   Key,
-  Layers,
   Lock,
   PieChart,
-  Shield,
-  TrendingUp,
 } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
-import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
+import { SectionHeader } from '@/components/layout/section-header';
+import { PortalBadge } from '@/components/ui/portal-badge';
 import {
+  InsetDividerGroup,
+  InsetDividerItem,
+} from '@/components/ui/inset-divider-group';
+import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { SurfacePanel } from '@/components/ui/surface-panel';
+import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import {
+  REWARDS_CONTRACT,
   TOKEN_CONTRACT,
   viewContractAtOnNetwork,
   yoctoToSocial,
@@ -44,122 +50,188 @@ const TOKEN_HOLDERS_URL = `${TOKEN_NEARBLOCKS_URL}?tab=holders`;
 const INITIAL_SUPPLY_TOKENS = 1_000_000_000n;
 const TOKEN_DECIMALS = 18n;
 const INITIAL_SUPPLY_YOCTO = INITIAL_SUPPLY_TOKENS * 10n ** TOKEN_DECIMALS;
+const RHEA_CONTRACT = 'v2.ref-finance.near';
+const RHEA_SOCIAL_TOKEN = 'token.onsocial.near';
+const MARKET_LIQUIDITY_POOLS = [
+  {
+    label: 'SOCIAL-USDC',
+    href: 'https://app.rhea.finance/pool/6771',
+    poolId: 6771,
+  },
+  {
+    label: 'SOCIAL-wNEAR',
+    href: 'https://app.rhea.finance/pool/6783',
+    poolId: 6783,
+  },
+];
 
 function allocationAccount(name: string): string {
   return `${name}.${NEAR_ACCOUNT_SUFFIX}`;
 }
 
-// ─── Tokenomics Distribution ──────────────────────────────────
-const TOKEN_DISTRIBUTION = [
+const LIVE_ALLOCATION_ACCOUNTS = [
   {
-    label: 'Ecosystem & Partner Rewards',
-    pct: 40,
-    tokens: '400M',
+    label: 'Reward Pool',
+    account: allocationAccount('rewards'),
     accent: 'purple' as PortalAccent,
-    note: allocationAccount('rewards'),
+    desc: 'Community incentives and partner growth flows.',
   },
   {
-    label: 'Treasury & Operations',
-    pct: 10,
-    tokens: '100M',
+    label: 'Treasury',
+    account: allocationAccount('treasury'),
     accent: 'blue' as PortalAccent,
-    note: allocationAccount('treasury'),
+    desc: 'Growth, contributors, liquidity, and network buildout under one treasury wallet.',
   },
   {
-    label: 'Staking Rewards',
-    pct: 15,
-    tokens: '150M',
+    label: 'Influence Pool',
+    account: allocationAccount('boost'),
     accent: 'green' as PortalAccent,
-    note: allocationAccount('staking'),
+    desc: 'Boost commitments, influence, and participation flows.',
   },
   {
     label: 'Founder Vesting',
-    pct: 12.5,
-    tokens: '125M',
+    account: allocationAccount('founder-vesting'),
     accent: 'amber' as PortalAccent,
-    note: `${allocationAccount('founder-vesting')} · 4y vest · 1y cliff`,
-  },
-  {
-    label: 'Future Team & Contributors',
-    pct: 12.5,
-    tokens: '125M',
-    accent: 'red' as PortalAccent,
-    note: `${allocationAccount('treasury')} · per-grant vesting as approved`,
-  },
-  {
-    label: 'Liquidity Reserve',
-    pct: 5,
-    tokens: '50M',
-    accent: 'pink' as PortalAccent,
-    note: `${allocationAccount('treasury')} · 200K deployed, rest staged`,
-  },
-  {
-    label: 'Development & Strategic Growth',
-    pct: 5,
-    tokens: '50M',
-    accent: 'slate' as PortalAccent,
-    note: `${allocationAccount('treasury')} · staged ops and partnerships`,
+    desc: 'Founder allocation under long-term vesting.',
   },
 ];
 
 const TOKEN_UTILITY = [
   {
     icon: Lock,
-    label: 'Stake for rewards',
-    desc: 'Lock SOCIAL for staking rewards.',
-    accent: 'green' as PortalAccent,
-    href: '/staking',
-    ctaLabel: 'Open staking',
+    eyebrow: 'Boost',
+    label: 'Grow Your Influence',
+    desc: 'Lock SOCIAL to grow influence across the network.',
+    accent: 'blue' as PortalAccent,
+    href: '/boost',
+    ctaLabel: 'Open Boost',
   },
   {
     icon: Key,
-    label: 'Build with OnApi',
-    desc: 'Use SOCIAL to access OnApi infrastructure.',
-    accent: 'blue' as PortalAccent,
+    eyebrow: 'Infrastructure',
+    label: 'Build with SOCIAL',
+    desc: 'Use SOCIAL to unlock infrastructure and power dApps on OnSocial.',
+    accent: 'green' as PortalAccent,
     href: '/onapi',
     ctaLabel: 'Open OnApi',
   },
   {
     icon: Gift,
-    label: 'Earn with OnSocial & partners',
-    desc: 'Earn SOCIAL through OnSocial and partner apps.',
+    eyebrow: 'Participation',
+    label: 'Participate & Grow',
+    desc: 'Engage across OnSocial and partner dApps to build presence.',
     accent: 'purple' as PortalAccent,
     href: '/partners',
-    ctaLabel: 'Open partner setup',
+    ctaLabel: 'Open Partners',
   },
   {
     icon: PieChart,
-    label: 'Governance',
-    desc: 'Staked SOCIAL can carry governance weight over time.',
+    eyebrow: 'Governance',
+    label: 'Public Governance',
+    desc: 'Track proposals and review governance in the open.',
     accent: 'slate' as PortalAccent,
-    ctaLabel: 'Expanding scope',
-  },
-];
-
-const TRUST_PRINCIPLES = [
-  {
-    icon: Database,
-    title: 'On-Chain Custody',
-    desc: 'Major allocations are mapped to named NEAR accounts and published reserve plans, verifiable on-chain.',
-    accent: 'blue' as PortalAccent,
-  },
-  {
-    icon: Shield,
-    title: 'No Hidden Minting',
-    desc: 'Fixed 1B supply. Burnable, with no public mint path for additional issuance.',
-    accent: 'green' as PortalAccent,
-  },
-  {
-    icon: TrendingUp,
-    title: 'Vesting & Time-Locks',
-    desc: 'Founder tokens use a 4-year vest with a 1-year cliff. Team allocations are treasury-held for approved vesting schedules.',
-    accent: 'purple' as PortalAccent,
+    href: '/governance',
+    ctaLabel: 'Open Governance',
   },
 ];
 
 interface TokenMetadataView {
   icon?: string | null;
+  decimals?: number;
   symbol?: string;
+}
+
+interface NearBlocksFungibleTokenView {
+  contracts?: Array<{
+    coingecko_id?: string | null;
+    icon?: string | null;
+  }>;
+}
+
+interface CoinGeckoTokenView {
+  image?: {
+    large?: string;
+    small?: string;
+    thumb?: string;
+  };
+}
+
+interface RefPoolView {
+  amounts: string[];
+  shares_total_supply: string;
+  token_account_ids: string[];
+}
+
+interface RewardsContractInfoView {
+  pool_balance: string;
+}
+
+interface MarketLiquidityPool {
+  href: string;
+  lpShares: string;
+  pairedAmount: string;
+  pairedIcon: string | null;
+  pairedSymbol: string;
+  poolId: number;
+  socialAmount: string;
+  socialAmountRaw: bigint;
+}
+
+const tokenIconFallbackCache = new Map<string, Promise<string | null>>();
+
+async function fetchFallbackTokenIcon(tokenId: string): Promise<string | null> {
+  if (NETWORK !== 'mainnet') {
+    return null;
+  }
+
+  if (!tokenIconFallbackCache.has(tokenId)) {
+    tokenIconFallbackCache.set(
+      tokenId,
+      (async () => {
+        const nearBlocksResponse = await fetch(
+          `https://api.nearblocks.io/v1/fts/${tokenId}`,
+          { signal: AbortSignal.timeout(5000) }
+        ).catch(() => null);
+
+        if (!nearBlocksResponse?.ok) {
+          return null;
+        }
+
+        const nearBlocksData =
+          (await nearBlocksResponse.json()) as NearBlocksFungibleTokenView;
+        const contract = nearBlocksData.contracts?.[0];
+
+        if (contract?.icon) {
+          return contract.icon;
+        }
+
+        if (!contract?.coingecko_id) {
+          return null;
+        }
+
+        const coinGeckoResponse = await fetch(
+          `https://api.coingecko.com/api/v3/coins/${contract.coingecko_id}?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false`,
+          { signal: AbortSignal.timeout(5000) }
+        ).catch(() => null);
+
+        if (!coinGeckoResponse?.ok) {
+          return null;
+        }
+
+        const coinGeckoData =
+          (await coinGeckoResponse.json()) as CoinGeckoTokenView;
+
+        return (
+          coinGeckoData.image?.small ??
+          coinGeckoData.image?.thumb ??
+          coinGeckoData.image?.large ??
+          null
+        );
+      })()
+    );
+  }
+
+  return tokenIconFallbackCache.get(tokenId) ?? null;
 }
 
 function formatWholeTokenAmount(raw: string): string {
@@ -168,11 +240,72 @@ function formatWholeTokenAmount(raw: string): string {
   return whole.toLocaleString('en-US');
 }
 
-function getDistributionLink(note: string): string | null {
-  const account = note.split(' · ')[0];
+function formatTokenAmount(
+  raw: string,
+  decimals: number,
+  maxFractionDigits = 2
+): string {
+  if (!raw || raw === '0') {
+    return '0';
+  }
+
+  const padded = raw.padStart(decimals + 1, '0');
+  const whole = BigInt(padded.slice(0, padded.length - decimals) || '0');
+  const fraction = padded
+    .slice(padded.length - decimals)
+    .replace(/0+$/, '')
+    .slice(0, maxFractionDigits);
+
+  return fraction
+    ? `${whole.toLocaleString('en-US')}.${fraction}`
+    : whole.toLocaleString('en-US');
+}
+
+function formatPercent(numerator: bigint, denominator: bigint): string {
+  if (denominator === 0n) {
+    return '0.0';
+  }
+
+  const tenths = (numerator * 1000n) / denominator;
+  const whole = tenths / 10n;
+  const fraction = tenths % 10n;
+
+  return `${whole.toString()}.${fraction.toString()}`;
+}
+
+function getAccountLink(account: string): string | null {
   return account.endsWith('.near') || account.endsWith('.testnet')
     ? `${NEARBLOCKS_BASE_URL}/address/${account}`
     : null;
+}
+
+function MiniTokenIcon({
+  src,
+  label,
+  className = '',
+}: {
+  src?: string | null;
+  label: string;
+  className?: string;
+}) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={label}
+        className={`h-4 w-4 rounded-full object-cover ${className}`.trim()}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-label={label}
+      className={`inline-flex h-4 w-4 items-center justify-center rounded-full border border-border/50 bg-muted/40 text-[8px] font-bold uppercase text-foreground/80 ${className}`.trim()}
+    >
+      {label.slice(0, 1)}
+    </span>
+  );
 }
 
 export default function TransparencyPage() {
@@ -193,14 +326,100 @@ export default function TransparencyPage() {
   const [currentSupplyDisplay, setCurrentSupplyDisplay] = useState<
     string | null
   >(null);
+  const [currentSupplyYocto, setCurrentSupplyYocto] = useState<bigint | null>(
+    null
+  );
   const [burnedDisplay, setBurnedDisplay] = useState<string | null>(null);
   const [supplyLoaded, setSupplyLoaded] = useState(false);
+  const [liveAccountBalances, setLiveAccountBalances] = useState<
+    Record<string, bigint | null>
+  >({});
+  const [liveAccountBalancesLoaded, setLiveAccountBalancesLoaded] =
+    useState(false);
+  const [rewardsPoolBalance, setRewardsPoolBalance] = useState<bigint | null>(
+    null
+  );
+  const [rewardsPoolBalanceLoaded, setRewardsPoolBalanceLoaded] =
+    useState(false);
+  const [marketLiquidityPools, setMarketLiquidityPools] = useState<
+    MarketLiquidityPool[]
+  >([]);
+  const [marketLiquidityLoaded, setMarketLiquidityLoaded] = useState(
+    NETWORK !== 'mainnet'
+  );
+
+  const getTrackedBalance = (account: string): bigint | null =>
+    account === REWARDS_CONTRACT
+      ? rewardsPoolBalance
+      : (liveAccountBalances[account] ?? null);
+
+  const isTrackedBalanceLoaded = (account: string): boolean =>
+    account === REWARDS_CONTRACT
+      ? rewardsPoolBalanceLoaded
+      : liveAccountBalancesLoaded;
+
+  const totalSocialInPools = marketLiquidityPools.reduce(
+    (total, pool) => total + pool.socialAmountRaw,
+    0n
+  );
+
+  const liveTrackedTotal = LIVE_ALLOCATION_ACCOUNTS.reduce((total, item) => {
+    const balance = getTrackedBalance(item.account);
+    return total + (balance ?? 0n);
+  }, 0n);
+
+  const liveDistribution = LIVE_ALLOCATION_ACCOUNTS.map((item) => {
+    const balance = getTrackedBalance(item.account);
+    const pctOfSupply =
+      balance !== null && currentSupplyYocto !== null && currentSupplyYocto > 0n
+        ? Number((balance * 10000n) / currentSupplyYocto) / 100
+        : 0;
+
+    return {
+      ...item,
+      balance,
+      balanceDisplay:
+        balance !== null ? formatWholeTokenAmount(balance.toString()) : '--',
+      pctOfSupplyDisplay:
+        balance !== null &&
+        currentSupplyYocto !== null &&
+        currentSupplyYocto > 0n
+          ? formatPercent(balance, currentSupplyYocto)
+          : '0.0',
+      pctOfSupply,
+    };
+  });
+
+  const untrackedBalance =
+    currentSupplyYocto !== null && currentSupplyYocto > liveTrackedTotal
+      ? currentSupplyYocto - liveTrackedTotal
+      : 0n;
+
+  const barDistribution = [
+    ...liveDistribution,
+    {
+      label: 'Other Holders',
+      account: 'other-holders',
+      accent: 'slate' as PortalAccent,
+      desc: 'Current supply held outside the tracked protocol allocation accounts.',
+      balance: untrackedBalance,
+      balanceDisplay: formatWholeTokenAmount(untrackedBalance.toString()),
+      pctOfSupplyDisplay:
+        currentSupplyYocto !== null && currentSupplyYocto > 0n
+          ? formatPercent(untrackedBalance, currentSupplyYocto)
+          : '0.0',
+      pctOfSupply:
+        currentSupplyYocto !== null && currentSupplyYocto > 0n
+          ? Number((untrackedBalance * 10000n) / currentSupplyYocto) / 100
+          : 0,
+    },
+  ];
 
   const activeDistributionIndex =
     selectedDistributionIndex ?? hoveredDistributionIndex;
   const activeDistribution =
     activeDistributionIndex !== null
-      ? TOKEN_DISTRIBUTION[activeDistributionIndex]
+      ? barDistribution[activeDistributionIndex]
       : null;
 
   useEffect(() => {
@@ -234,6 +453,7 @@ export default function TransparencyPage() {
               ? INITIAL_SUPPLY_YOCTO - currentSupplyYocto
               : 0n;
 
+          setCurrentSupplyYocto(currentSupplyYocto);
           setCurrentSupplyDisplay(formatWholeTokenAmount(totalSupply));
           setBurnedDisplay(formatWholeTokenAmount(burnedYocto.toString()));
         }
@@ -258,6 +478,111 @@ export default function TransparencyPage() {
       })
       .catch(() => {})
       .finally(() => setHolderCountLoaded(true));
+
+    Promise.all(
+      LIVE_ALLOCATION_ACCOUNTS.map(async ({ account }) => {
+        if (account === REWARDS_CONTRACT) {
+          return [account, null] as const;
+        }
+
+        const balance = await viewContractAtOnNetwork<string>(
+          NETWORK,
+          TOKEN_CONTRACT,
+          'ft_balance_of',
+          { account_id: account }
+        ).catch(() => null);
+
+        return [account, balance ? BigInt(balance) : null] as const;
+      })
+    )
+      .then((entries) => {
+        setLiveAccountBalances(Object.fromEntries(entries));
+      })
+      .catch(() => {})
+      .finally(() => setLiveAccountBalancesLoaded(true));
+
+    viewContractAtOnNetwork<RewardsContractInfoView>(
+      NETWORK,
+      REWARDS_CONTRACT,
+      'get_contract_info',
+      {}
+    )
+      .then((contractInfo) => {
+        if (contractInfo?.pool_balance) {
+          setRewardsPoolBalance(BigInt(contractInfo.pool_balance));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setRewardsPoolBalanceLoaded(true));
+
+    if (NETWORK === 'mainnet') {
+      Promise.all(
+        MARKET_LIQUIDITY_POOLS.map(async ({ href, poolId }) => {
+          const pool = await viewContractAtOnNetwork<RefPoolView>(
+            'mainnet',
+            RHEA_CONTRACT,
+            'get_pool',
+            { pool_id: poolId }
+          ).catch(() => null);
+
+          if (!pool?.token_account_ids?.length || !pool.amounts?.length) {
+            return null;
+          }
+
+          const socialIndex = pool.token_account_ids.findIndex(
+            (accountId) => accountId === RHEA_SOCIAL_TOKEN
+          );
+          if (socialIndex === -1) {
+            return null;
+          }
+
+          const pairedIndex = pool.token_account_ids.findIndex(
+            (_, index) => index !== socialIndex
+          );
+          if (pairedIndex === -1) {
+            return null;
+          }
+
+          const pairedTokenId = pool.token_account_ids[pairedIndex];
+          const pairedMetadata =
+            await viewContractAtOnNetwork<TokenMetadataView>(
+              'mainnet',
+              pairedTokenId,
+              'ft_metadata',
+              {}
+            ).catch(() => null);
+          const pairedIcon =
+            pairedMetadata?.icon ??
+            (await fetchFallbackTokenIcon(pairedTokenId));
+
+          return {
+            href,
+            lpShares: formatTokenAmount(pool.shares_total_supply ?? '0', 24, 2),
+            pairedAmount: formatTokenAmount(
+              pool.amounts[pairedIndex] ?? '0',
+              pairedMetadata?.decimals ?? 6,
+              3
+            ),
+            pairedIcon,
+            pairedSymbol: pairedMetadata?.symbol ?? 'Token',
+            poolId,
+            socialAmount: formatTokenAmount(
+              pool.amounts[socialIndex] ?? '0',
+              18,
+              3
+            ),
+            socialAmountRaw: BigInt(pool.amounts[socialIndex] ?? '0'),
+          } satisfies MarketLiquidityPool;
+        })
+      )
+        .then((pools) => {
+          setMarketLiquidityPools(
+            pools.filter((pool) => pool !== null) as MarketLiquidityPool[]
+          );
+        })
+        .catch(() => {})
+        .finally(() => setMarketLiquidityLoaded(true));
+    }
   }, []);
 
   useEffect(() => {
@@ -301,93 +626,88 @@ export default function TransparencyPage() {
 
   return (
     <PageShell className="max-w-5xl">
-      {/* ── Hero ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative mb-10 px-2 py-4 text-center md:py-6"
+      <SecondaryPageHeader
+        badge="Network Transparency"
+        badgeAccent="blue"
+        glowAccents={['blue', 'purple']}
+        className="mb-10"
+        contentClassName="max-w-3xl"
+        childrenClassName="justify-center"
+        title="See how SOCIAL flows across the network"
+        description="Track where tokens live, how they are allocated, and how the protocol evolves over time."
       >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-40 opacity-70 blur-3xl"
-          style={{
-            background:
-              'radial-gradient(circle at 50% 20%, rgba(96,165,250,0.18), transparent 45%), radial-gradient(circle at 75% 25%, rgba(192,132,252,0.12), transparent 38%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto max-w-3xl">
-          <h1 className="mb-3 text-4xl font-bold tracking-[-0.03em] md:text-5xl">
-            Fixed supply
-            <br />
-            <span className="portal-green-text">Visible allocation</span>
-          </h1>
-          <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-            1 billion initial supply — every major allocation mapped to an
-            on-chain account or published reserve plan.
+        <div className="max-w-full">
+          <SurfacePanel
+            radius="xl"
+            tone="soft"
+            padding="none"
+            className="inline-flex max-w-full items-center gap-2 px-3 py-2 text-sm text-muted-foreground backdrop-blur-sm"
+          >
+            {tokenIconSrc ? (
+              <img
+                src={tokenIconSrc}
+                alt={tokenSymbol}
+                className="h-6 w-6 rounded-full object-cover"
+                onError={() => setTokenIconSrc(null)}
+              />
+            ) : (
+              <PortalBadge
+                accent="blue"
+                size="icon"
+                weight="semibold"
+                className="h-6 w-6 text-[11px]"
+              >
+                {tokenSymbol.slice(0, 1)}
+              </PortalBadge>
+            )}
+            <PortalBadge
+              accent="slate"
+              size="sm"
+              casing="uppercase"
+              tracking="tight"
+            >
+              {tokenSymbol}
+            </PortalBadge>
+            <a
+              href={`${NEARBLOCKS_BASE_URL}/address/${TOKEN_CONTRACT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="truncate font-mono text-xs portal-link"
+            >
+              {TOKEN_CONTRACT}
+            </a>
+            <button
+              type="button"
+              onClick={handleCopyTokenContract}
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/20 text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground"
+              title={copiedTokenContract ? 'Copied!' : 'Copy token contract'}
+              aria-label={
+                copiedTokenContract
+                  ? 'Copied token contract'
+                  : 'Copy token contract'
+              }
+            >
+              {copiedTokenContract ? (
+                <Check className="portal-green-icon h-3.5 w-3.5" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </button>
+            <a
+              href={`${NEARBLOCKS_BASE_URL}/address/${TOKEN_CONTRACT}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/20 text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground"
+              aria-label="Open token contract on Nearblocks"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </SurfacePanel>
+          <p className="mt-3 text-center text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            NEP-141 · 18 Decimals · Burnable
           </p>
-
-          {/* Token Contract Badge */}
-          <div className="mt-6 flex justify-center">
-            <div className="max-w-full">
-              <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-border/50 bg-background/70 px-3 py-2 text-sm text-muted-foreground backdrop-blur-sm">
-                {tokenIconSrc ? (
-                  <img
-                    src={tokenIconSrc}
-                    alt={tokenSymbol}
-                    className="h-5 w-5 rounded-full object-cover"
-                    onError={() => setTokenIconSrc(null)}
-                  />
-                ) : (
-                  <span className="portal-blue-badge flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold">
-                    {tokenSymbol.slice(0, 1)}
-                  </span>
-                )}
-                <span className="rounded-full border border-border/50 bg-muted/20 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/80">
-                  {tokenSymbol}
-                </span>
-                <a
-                  href={`${NEARBLOCKS_BASE_URL}/address/${TOKEN_CONTRACT}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate font-mono text-xs portal-link"
-                >
-                  {TOKEN_CONTRACT}
-                </a>
-                <button
-                  onClick={handleCopyTokenContract}
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/20 text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground"
-                  title={
-                    copiedTokenContract ? 'Copied!' : 'Copy token contract'
-                  }
-                  aria-label={
-                    copiedTokenContract
-                      ? 'Copied token contract'
-                      : 'Copy token contract'
-                  }
-                >
-                  {copiedTokenContract ? (
-                    <Check className="portal-green-icon h-3.5 w-3.5" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                </button>
-                <a
-                  href={`${NEARBLOCKS_BASE_URL}/address/${TOKEN_CONTRACT}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/20 text-muted-foreground transition-colors hover:border-border hover:bg-muted/40 hover:text-foreground"
-                  aria-label="Open token contract on Nearblocks"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
-              <p className="mt-3 text-center text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                NEP-141 · 18 Decimals · Burnable
-              </p>
-            </div>
-          </div>
         </div>
-      </motion.div>
+      </SecondaryPageHeader>
 
       {/* ── Key Stats ── */}
       <motion.div
@@ -396,42 +716,34 @@ export default function TransparencyPage() {
         transition={{ duration: 0.5, delay: 0.08 }}
         className="mb-8"
       >
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="grid gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Current Supply
-            </span>
+        <SectionHeader badge="Supply Overview" className="mb-4" />
+        <StatStrip>
+          <StatStripCell label="Total Supply" showDivider>
             <a
               href={TOKEN_NEARBLOCKS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-base font-bold portal-link md:text-lg"
+              className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-sm font-bold portal-link md:text-base"
             >
               {renderStatValue(currentSupplyDisplay, supplyLoaded)}
             </a>
-          </div>
-          <div className="grid gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Burned
-            </span>
+          </StatStripCell>
+          <StatStripCell label="Burned" showDivider>
             <a
               href={TOKEN_NEARBLOCKS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-base font-bold portal-link md:text-lg"
+              className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-sm font-bold portal-link md:text-base"
             >
               {renderStatValue(burnedDisplay, supplyLoaded)}
             </a>
-          </div>
-          <div className="grid gap-2">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Unique Holders
-            </span>
+          </StatStripCell>
+          <StatStripCell label="Unique Holders">
             <a
               href={TOKEN_HOLDERS_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-base font-bold portal-link md:text-lg"
+              className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-sm font-bold portal-link md:text-base"
             >
               {!holderCountLoaded ? (
                 <PulsingDots size="sm" className="text-muted-foreground" />
@@ -441,8 +753,8 @@ export default function TransparencyPage() {
                 <span aria-label="Unavailable">--</span>
               )}
             </a>
-          </div>
-        </div>
+          </StatStripCell>
+        </StatStrip>
       </motion.div>
 
       {/* ── Distribution Card ── */}
@@ -451,170 +763,277 @@ export default function TransparencyPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5 }}
-        className="mb-8 rounded-[1.75rem] border border-border/50 bg-background/40 p-5 md:p-8"
+        className="mb-8"
       >
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/50 bg-muted/20 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              <PieChart className="h-3.5 w-3.5" />
-              Token Distribution
-            </div>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] md:text-3xl">
-              Where the supply is allocated
-            </h2>
-          </div>
-        </div>
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="none"
+          className="p-5 md:p-8"
+        >
+          <SectionHeader badge="Live Allocation" />
 
-        {/* Interactive Distribution Bar */}
-        <div className="relative mb-5 pt-10">
-          {activeDistribution ? (
-            <div className="absolute inset-x-0 top-0 z-10 flex justify-center pointer-events-none">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/95 px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{
-                    backgroundColor: portalColors[activeDistribution.accent],
-                  }}
-                />
-                <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/85">
-                  {activeDistribution.label}
-                </span>
-                <span className="rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                  {activeDistribution.tokens} · {activeDistribution.pct}%
-                </span>
-              </div>
-            </div>
-          ) : null}
-
-          <div
-            ref={distributionInteractionRef}
-            className="overflow-hidden rounded-full bg-border/30"
-            onMouseLeave={() => {
-              if (selectedDistributionIndex === null) {
-                setHoveredDistributionIndex(null);
-              }
-            }}
-          >
-            <div className="flex h-[18px] items-center gap-px">
-              {TOKEN_DISTRIBUTION.map((d, index) => (
-                <button
-                  key={d.label}
-                  type="button"
-                  style={{
-                    width: `${d.pct}%`,
-                    backgroundColor: portalColors[d.accent],
-                    minWidth: '8px',
-                  }}
-                  onMouseEnter={() => {
-                    if (selectedDistributionIndex === null) {
-                      setHoveredDistributionIndex(index);
-                    }
-                  }}
-                  onFocus={() => {
-                    if (selectedDistributionIndex === null) {
-                      setHoveredDistributionIndex(index);
-                    }
-                  }}
-                  onClick={() => {
-                    setSelectedDistributionIndex((current) =>
-                      current === index ? null : index
-                    );
-                    setHoveredDistributionIndex(index);
-                  }}
-                  onBlur={() =>
-                    setHoveredDistributionIndex((current) => {
-                      if (selectedDistributionIndex !== null) {
-                        return current;
-                      }
-                      return current === index ? null : current;
-                    })
-                  }
-                  aria-label={`${d.label}: ${d.tokens}, ${d.pct}% of supply`}
-                  aria-pressed={selectedDistributionIndex === index}
-                  className={`first:rounded-l-full last:rounded-r-full focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all duration-200 ${
-                    selectedDistributionIndex === index
-                      ? 'h-[18px] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]'
-                      : 'h-4'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-          <span className="rounded-full border border-border/50 bg-muted/20 px-2.5 py-1 uppercase tracking-[0.14em]">
-            Custody First
-          </span>
-          <span>contracts run live pools</span>
-          <span className="hidden text-border/80 md:inline">/</span>
-          <span>treasury stages reserves</span>
-          <span className="hidden text-border/80 md:inline">/</span>
-          <span>vesting locks timed allocations</span>
-        </div>
-
-        {/* Distribution Details Grid */}
-        <div className="border-t border-border/40 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] md:gap-x-6 lg:gap-x-8">
-          {TOKEN_DISTRIBUTION.map((d, index) => {
-            const link = getDistributionLink(d.note);
-            const account = d.note.split(' · ')[0];
-            const detail = d.note.includes(' · ')
-              ? d.note.split(' · ').slice(1).join(' · ')
-              : null;
-
-            return (
-              <div
-                key={d.label}
-                className={`border-b border-border/40 py-3 ${
-                  index >= TOKEN_DISTRIBUTION.length - 2 ? 'md:border-b-0' : ''
-                } ${index === TOKEN_DISTRIBUTION.length - 1 ? 'border-b-0' : ''}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                    style={{ backgroundColor: portalColors[d.accent] }}
+          {/* Interactive Distribution Bar */}
+          <div className="relative mb-5 pt-10">
+            {activeDistribution ? (
+              <div className="absolute inset-x-0 top-0 z-10 flex justify-center pointer-events-none">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/50 bg-background/95 px-3 py-1.5 shadow-lg shadow-black/10 backdrop-blur-sm">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor: portalColors[activeDistribution.accent],
+                    }}
                   />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <p className="text-sm font-semibold text-foreground">
-                        {d.label}
-                      </p>
-                      <span className="font-mono text-xs text-foreground/80">
-                        {d.tokens}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {d.pct}%
-                      </span>
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                      {link ? (
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 break-all font-mono text-xs portal-link"
-                        >
-                          {account}
-                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {account}
-                        </span>
-                      )}
-                      {detail ? (
-                        <span className="text-xs text-muted-foreground">
-                          {detail}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
+                  <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-foreground/85">
+                    {activeDistribution.label}
+                  </span>
+                  <span className="rounded-full border border-border/50 bg-muted/30 px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                    {activeDistribution.balanceDisplay} ·{' '}
+                    {activeDistribution.pctOfSupplyDisplay}%
+                  </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ) : null}
+
+            <div
+              ref={distributionInteractionRef}
+              className="overflow-hidden rounded-full bg-border/30"
+              onMouseLeave={() => {
+                if (selectedDistributionIndex === null) {
+                  setHoveredDistributionIndex(null);
+                }
+              }}
+            >
+              <div className="flex h-[18px] items-center gap-px">
+                {barDistribution.map((d, index) => (
+                  <button
+                    key={d.label}
+                    type="button"
+                    style={{
+                      width: `${d.pctOfSupply}%`,
+                      backgroundColor: portalColors[d.accent],
+                      minWidth: d.balance && d.balance > 0n ? '8px' : '0px',
+                    }}
+                    onMouseEnter={() => {
+                      if (selectedDistributionIndex === null) {
+                        setHoveredDistributionIndex(index);
+                      }
+                    }}
+                    onFocus={() => {
+                      if (selectedDistributionIndex === null) {
+                        setHoveredDistributionIndex(index);
+                      }
+                    }}
+                    onClick={() => {
+                      setSelectedDistributionIndex((current) =>
+                        current === index ? null : index
+                      );
+                      setHoveredDistributionIndex(index);
+                    }}
+                    onBlur={() =>
+                      setHoveredDistributionIndex((current) => {
+                        if (selectedDistributionIndex !== null) {
+                          return current;
+                        }
+                        return current === index ? null : current;
+                      })
+                    }
+                    aria-label={`${d.label}: ${d.balanceDisplay} SOCIAL, ${d.pctOfSupplyDisplay}% of current supply`}
+                    aria-pressed={selectedDistributionIndex === index}
+                    className={`first:rounded-l-full last:rounded-r-full focus-visible:relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all duration-200 ${
+                      selectedDistributionIndex === index
+                        ? 'h-[18px] shadow-[0_0_0_1px_rgba(255,255,255,0.45)]'
+                        : 'h-4'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 border-t border-fade-section pt-8">
+            <div className="divide-y divide-fade-section">
+              {LIVE_ALLOCATION_ACCOUNTS.map((item) => {
+                const link = getAccountLink(item.account);
+                const distributionEntry = liveDistribution.find(
+                  (entry) => entry.account === item.account
+                );
+                const pctOfSupplyDisplay = isTrackedBalanceLoaded(item.account)
+                  ? (distributionEntry?.pctOfSupplyDisplay ?? '0.0')
+                  : '...';
+                const balanceDisplay = isTrackedBalanceLoaded(item.account)
+                  ? (distributionEntry?.balanceDisplay ?? '--')
+                  : '...';
+
+                return (
+                  <div key={item.account} className="py-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                        style={{ backgroundColor: portalColors[item.accent] }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-4">
+                          <p className="text-sm font-semibold tracking-[-0.02em] text-foreground">
+                            {item.label}
+                          </p>
+                          <span className="whitespace-nowrap text-xs text-muted-foreground">
+                            <span className="font-mono text-foreground/80">
+                              {pctOfSupplyDisplay}%
+                            </span>{' '}
+                            of current supply
+                          </span>
+                        </div>
+                        <p className="mt-1.5 text-sm text-muted-foreground">
+                          Live{' '}
+                          <span className="font-mono font-semibold tracking-tight text-foreground/85">
+                            {balanceDisplay} SOCIAL
+                          </span>
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {link ? (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 break-all font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                              {item.account}
+                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                            </a>
+                          ) : (
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {item.account}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </SurfacePanel>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={isInView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.5, delay: 0.05 }}
+        className="mb-8"
+      >
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="none"
+          className="p-5 md:p-8"
+        >
+          <SectionHeader badge="Market Liquidity" />
+
+          <StatStrip groupClassName="mt-4">
+            <StatStripCell label="SOCIAL In Pools" showDivider>
+              <span className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-sm font-bold portal-link md:text-base">
+                {!marketLiquidityLoaded ? (
+                  <PulsingDots size="sm" className="text-muted-foreground" />
+                ) : marketLiquidityPools.length > 0 ? (
+                  formatTokenAmount(totalSocialInPools.toString(), 18, 3)
+                ) : (
+                  <span aria-label="Unavailable">--</span>
+                )}
+              </span>
+            </StatStripCell>
+            <StatStripCell label="Tracked Pools" showDivider>
+              <span className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-sm font-bold portal-link md:text-base">
+                {!marketLiquidityLoaded ? (
+                  <PulsingDots size="sm" className="text-muted-foreground" />
+                ) : marketLiquidityPools.length > 0 ? (
+                  marketLiquidityPools.length.toString()
+                ) : (
+                  <span aria-label="Unavailable">--</span>
+                )}
+              </span>
+            </StatStripCell>
+            <StatStripCell label="Source">
+              <span className="inline-flex min-h-7 items-center justify-center gap-1 font-mono text-sm font-bold portal-link md:text-base">
+                Ref v2
+              </span>
+            </StatStripCell>
+          </StatStrip>
+
+          <div className="mt-8 divide-y divide-fade-section">
+            {MARKET_LIQUIDITY_POOLS.map((config) => {
+              const pool = marketLiquidityPools.find(
+                (entry) => entry.poolId === config.poolId
+              );
+
+              return (
+                <div key={config.poolId} className="py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="relative h-7 w-9 flex-none">
+                            <MiniTokenIcon
+                              src={tokenIconSrc}
+                              label={tokenSymbol}
+                              className="absolute left-0 top-0 z-10 h-5 w-5 scale-105 shadow-sm ring-2 ring-background"
+                            />
+                            <MiniTokenIcon
+                              src={pool?.pairedIcon}
+                              label={pool?.pairedSymbol ?? 'Token'}
+                              className="absolute left-[16px] top-[8px] z-0 h-5 w-5 shadow-sm ring-2 ring-background"
+                            />
+                          </div>
+                          <p className="truncate text-sm font-semibold leading-none text-foreground">
+                            {`${tokenSymbol}-${pool?.pairedSymbol ?? config.label.split('-')[1] ?? 'Token'}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 leading-none">
+                          <span>SOCIAL</span>
+                          <span className="font-mono text-foreground/80">
+                            {!marketLiquidityLoaded
+                              ? '...'
+                              : (pool?.socialAmount ?? '--')}
+                          </span>
+                        </span>
+                        <span className="inline-flex items-center gap-1 leading-none">
+                          {!marketLiquidityLoaded
+                            ? '...'
+                            : pool
+                              ? `${pool.pairedAmount} ${pool.pairedSymbol}`
+                              : '--'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 leading-none">
+                          <span>LP</span>
+                          <span className="font-mono text-foreground/80">
+                            {!marketLiquidityLoaded
+                              ? '...'
+                              : (pool?.lpShares ?? '--')}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <a
+                      href={config.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 whitespace-nowrap text-xs uppercase tracking-[0.16em] portal-link"
+                    >
+                      Open Pool
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </SurfacePanel>
       </motion.div>
 
       {/* ── Token Utility ── */}
@@ -622,100 +1041,70 @@ export default function TransparencyPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="mb-8 rounded-[1.75rem] border border-border/50 bg-background/40 p-5 md:p-8"
+        className="mb-8"
       >
-        <div className="mb-5 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <Layers className="portal-green-icon h-4 w-4" />
-          How SOCIAL Is Used
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {TOKEN_UTILITY.map((u) => {
-            const content = (
-              <>
-                <div className="flex items-start gap-4">
-                  <div
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl border"
-                    style={portalFrameStyle(u.accent)}
-                  >
-                    <u.icon
-                      className="h-4 w-4"
-                      style={{ color: portalColors[u.accent] }}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="mb-1 text-sm font-semibold">{u.label}</h3>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="none"
+          className="p-5 md:p-8"
+        >
+          <SectionHeader badge="Utility" />
+          <InsetDividerGroup
+            contentClassName="divide-y divide-fade-detail"
+            showTopDivider
+          >
+            {TOKEN_UTILITY.map((u) => {
+              const content = (
+                <>
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                      {u.eyebrow}
+                    </p>
+                    <div className="mb-1.5 flex items-center gap-2.5">
+                      <u.icon
+                        className="h-3.5 w-3.5 flex-shrink-0"
+                        style={{ color: portalColors[u.accent] }}
+                      />
+                      <h3 className="text-[15px] font-semibold tracking-[-0.02em]">
+                        {u.label}
+                      </h3>
+                      {u.href ? (
+                        <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 text-foreground/55 transition-transform group-hover:translate-x-0.5 group-hover:text-foreground/80" />
+                      ) : null}
+                    </div>
+                    <p className="max-w-[40ch] text-sm leading-relaxed text-muted-foreground">
                       {u.desc}
                     </p>
                   </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-4 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                  <span>{u.ctaLabel}</span>
-                  {u.href ? (
-                    <ArrowRight className="h-3.5 w-3.5 text-foreground/70 transition-transform group-hover:translate-x-0.5" />
-                  ) : (
-                    <span className="rounded-full border border-border/50 bg-muted/20 px-2 py-1 text-[10px] tracking-[0.14em]">
-                      Soon
-                    </span>
-                  )}
-                </div>
-              </>
-            );
+                </>
+              );
 
-            if (u.href) {
+              if (u.href) {
+                return (
+                  <Link
+                    key={u.label}
+                    href={u.href}
+                    className="group block py-4.5 first:pt-0 last:pb-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background md:py-5"
+                  >
+                    <div className="transition-colors group-hover:text-foreground">
+                      {content}
+                    </div>
+                  </Link>
+                );
+              }
+
               return (
-                <Link
+                <div
                   key={u.label}
-                  href={u.href}
-                  className="group flex h-full flex-col justify-between rounded-[1.25rem] border border-border/50 bg-background/30 p-5 transition-all hover:border-border hover:bg-background/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="py-4.5 first:pt-0 last:pb-0 md:py-5"
                 >
                   {content}
-                </Link>
+                </div>
               );
-            }
-
-            return (
-              <div
-                key={u.label}
-                className="flex h-full flex-col justify-between rounded-[1.25rem] border border-border/50 bg-background/30 p-5"
-              >
-                {content}
-              </div>
-            );
-          })}
-        </div>
-      </motion.div>
-
-      {/* ── Trust Principles ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={isInView ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.5, delay: 0.15 }}
-      >
-        <div className="grid gap-0 border-y border-border/40 md:grid-cols-3">
-          {TRUST_PRINCIPLES.map((p, index) => (
-            <div
-              key={p.title}
-              className={`relative px-0 py-5 ${
-                index < TRUST_PRINCIPLES.length - 1
-                  ? 'border-b border-border/40 md:border-b-0 md:pr-6'
-                  : 'md:pl-6'
-              } ${index === 1 ? 'md:px-6' : ''}`}
-            >
-              <p.icon
-                className="mb-3 h-4 w-4"
-                style={{ color: portalColors[p.accent] }}
-              />
-              <h3 className="mb-1 text-sm font-semibold">{p.title}</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {p.desc}
-              </p>
-              {index < TRUST_PRINCIPLES.length - 1 && (
-                <span className="absolute bottom-5 right-0 top-5 hidden w-px bg-border/40 md:block" />
-              )}
-            </div>
-          ))}
-        </div>
+            })}
+          </InsetDividerGroup>
+        </SurfacePanel>
       </motion.div>
     </PageShell>
   );

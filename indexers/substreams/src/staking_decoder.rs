@@ -1,7 +1,8 @@
 //! Staking event decoder
 //!
-//! Decodes NEP-297 events from staking.onsocial contract logs.
-//! Events: STAKE_LOCK, STAKE_EXTEND, STAKE_UNLOCK, REWARDS_RELEASED,
+//! Decodes NEP-297 events from staking and boost contract logs.
+//! Events: STAKE_LOCK / BOOST_LOCK, STAKE_EXTEND / BOOST_EXTEND,
+//!         STAKE_UNLOCK / BOOST_UNLOCK, REWARDS_RELEASED,
 //!         REWARDS_CLAIM, CREDITS_PURCHASE, SCHEDULED_FUND, INFRA_WITHDRAW,
 //!         OWNER_CHANGED, CONTRACT_UPGRADE, STORAGE_DEPOSIT,
 //!         UNLOCK_FAILED, CLAIM_FAILED, WITHDRAW_INFRA_FAILED
@@ -51,24 +52,24 @@ pub fn decode_staking_event(
 
 fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
     match event_type {
-        "STAKE_LOCK" => Some((
+        "STAKE_LOCK" | "BOOST_LOCK" => Some((
             true,
             Payload::StakeLock(StakeLock {
                 amount: str_field(data, "amount"),
                 months: u64_field(data, "months"),
-                effective_stake: str_field(data, "effective_stake"),
+                effective_stake: str_field_alias(data, &["effective_boost", "effective_stake"]),
             }),
         )),
 
-        "STAKE_EXTEND" => Some((
+        "STAKE_EXTEND" | "BOOST_EXTEND" => Some((
             true,
             Payload::StakeExtend(StakeExtend {
                 new_months: u64_field(data, "new_months"),
-                new_effective: str_field(data, "new_effective"),
+                new_effective: str_field_alias(data, &["new_effective_boost", "new_effective"]),
             }),
         )),
 
-        "STAKE_UNLOCK" => Some((
+        "STAKE_UNLOCK" | "BOOST_UNLOCK" => Some((
             true,
             Payload::StakeUnlock(StakeUnlock {
                 amount: str_field(data, "amount"),
@@ -168,6 +169,13 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
 fn str_field(data: &Value, key: &str) -> String {
     data.get(key)
         .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn str_field_alias(data: &Value, keys: &[&str]) -> String {
+    keys.iter()
+        .find_map(|key| data.get(*key).and_then(|v| v.as_str()))
         .unwrap_or("")
         .to_string()
 }

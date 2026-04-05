@@ -18,8 +18,6 @@ permissions:
   id-token: write
 
 env:
-  ENABLE_DEPLOY_TELEGRAM_UPDATE: 'false'
-
 jobs:
   deploy:
     name: Deploy spkg to Hetzner
@@ -273,33 +271,3 @@ jobs:
 
             echo ""
             echo "✅ Deploy complete — $ACTIVE/$TOTAL sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
-
-      - name: Notify Telegram
-        if: ${{ always() && env.ENABLE_DEPLOY_TELEGRAM_UPDATE == 'true' }}
-        run: |
-          STATUS="${{ job.status }}"
-          SHA="${{ steps.sha.outputs.short }}"
-          VER="${{ steps.ver.outputs.version }}"
-          TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
-          CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
-          TOPIC_ID="${{ secrets.TELEGRAM_OPS_TOPIC_ID }}"
-          [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ] && exit 0
-
-          if [ "$STATUS" = "success" ]; then
-            EMOJI="✅"; MSG="Substreams ${VER} deploy succeeded"
-          else
-            EMOJI="❌"; MSG="Substreams ${VER} deploy FAILED"
-          fi
-
-          TEXT="$EMOJI *$MSG* — \`$SHA\`
-          [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-
-          PAYLOAD="{\"chat_id\":\"$CHAT_ID\",\"text\":\"$TEXT\",\"parse_mode\":\"Markdown\""
-          if [ -n "$TOPIC_ID" ]; then
-            PAYLOAD="$PAYLOAD,\"message_thread_id\":$TOPIC_ID"
-          fi
-          PAYLOAD="$PAYLOAD}"
-
-          curl -sf -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
-            -H 'Content-Type: application/json' \
-            -d "$PAYLOAD" || true

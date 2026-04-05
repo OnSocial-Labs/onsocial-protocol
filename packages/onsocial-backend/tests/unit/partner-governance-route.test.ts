@@ -777,6 +777,310 @@ describe('GET /v1/governance/feed scoped results', () => {
       'boost.onsocial.testnet'
     );
   });
+
+  // -----------------------------------------------------------------------
+  // Rejected DAO proposal + reopen / reapply lifecycle
+  // -----------------------------------------------------------------------
+
+  function makeDaoRejectedPartnerProposal(
+    id: number,
+    appId: string,
+    label: string
+  ) {
+    return {
+      id,
+      proposer: 'guardian.onsocial.testnet',
+      description: `Register community app ${label} (${appId}) on rewards.onsocial.testnet.`,
+      kind: {
+        FunctionCall: {
+          receiver_id: 'rewards.onsocial.testnet',
+          actions: [
+            {
+              method_name: 'register_app',
+              args: Buffer.from(
+                JSON.stringify({ config: { app_id: appId, label } })
+              ).toString('base64'),
+            },
+          ],
+        },
+      },
+      status: 'Rejected',
+      submission_time: '1773316924632618708',
+    };
+  }
+
+  it('shows rejected DAO proposal with reopen button when DB status is rejected', async () => {
+    // DB: app is rejected with governance fields still set
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_community_03',
+          label: 'Test Community 03',
+          status: 'rejected',
+          wallet_id: 'test03.onsocial.testnet',
+          description: 'Community app',
+          created_at: '2026-01-01',
+          governance_proposal_id: 21,
+          governance_proposal_status: 'rejected',
+          governance_proposal_description: 'Register test community 03',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: null,
+          governance_proposal_tx_hash: 'tx-123',
+          governance_proposal_submitted_at: '2026-03-26T00:00:00.000Z',
+        },
+      ])
+    );
+    // DAO scan returns same rejected proposal
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(21))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          makeDaoRejectedPartnerProposal(
+            21,
+            'test_community_03',
+            'Test Community 03'
+          ),
+        ])
+      );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
+
+    expect(res.status).toBe(200);
+    // Only the DB item survives (DAO duplicate is deduped by proposal_id)
+    expect(res.body.applications).toHaveLength(1);
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        app_id: 'test_community_03',
+        status: 'rejected',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 21,
+          status: 'rejected',
+        }),
+      })
+    );
+  });
+
+  it('hides reopen button when DB status is reopened (guardian already reopened)', async () => {
+    // DB: guardian reopened → status is 'reopened', governance fields cleared
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_community_03',
+          label: 'Test Community 03',
+          status: 'reopened',
+          wallet_id: 'test03.onsocial.testnet',
+          description: 'Community app',
+          created_at: '2026-01-01',
+          governance_proposal_id: null,
+          governance_proposal_status: null,
+          governance_proposal_description: null,
+          governance_proposal_dao: null,
+          governance_proposal_payload: null,
+          governance_proposal_tx_hash: null,
+          governance_proposal_submitted_at: null,
+        },
+      ])
+    );
+    // DAO scan still returns the old rejected proposal
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(21))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          makeDaoRejectedPartnerProposal(
+            21,
+            'test_community_03',
+            'Test Community 03'
+          ),
+        ])
+      );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
+
+    expect(res.status).toBe(200);
+    // DB item (governance_proposal: null) + DAO item (mutated to reopened)
+    const items = res.body.applications.filter(
+      (a: { app_id: string }) => a.app_id === 'test_community_03'
+    );
+    // DAO item is kept and status propagated to 'reopened'
+    const daoItem = items.find(
+      (a: { governance_proposal: { proposal_id: number } | null }) =>
+        a.governance_proposal?.proposal_id === 21
+    );
+    expect(daoItem).toBeDefined();
+    expect(daoItem.status).toBe('reopened');
+    expect(daoItem.governance_proposal.status).toBe('Rejected');
+  });
+
+  it('hides reopen button when partner has reapplied (status ready_for_governance)', async () => {
+    // DB: partner reapplied after reopen → status is 'ready_for_governance'
+    // The feed SQL does NOT return ready_for_governance rows, so the DB
+    // item is absent from partnerItems. The dedup must do a secondary
+    // lookup to discover the app has progressed past rejection.
+    mockQuery.mockResolvedValueOnce(makeRows([])); // feed SQL: no matching rows
+    // DAO scan returns old rejected proposal
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(21))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          makeDaoRejectedPartnerProposal(
+            21,
+            'test_community_03',
+            'Test Community 03'
+          ),
+        ])
+      );
+    // Secondary DB lookup for unmatched DAO app_ids
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        { app_id: 'test_community_03', status: 'ready_for_governance' },
+      ])
+    );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    // DAO-scanned item's status is propagated to 'reopened' even though
+    // the DB status is 'ready_for_governance' — hides the reopen button
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        app_id: 'test_community_03',
+        status: 'reopened',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 21,
+          status: 'Rejected',
+        }),
+      })
+    );
+  });
+
+  it('hides reopen button when partner has re-submitted a new proposal', async () => {
+    // DB: partner reapplied AND submitted a new proposal → status is
+    // 'proposal_submitted' with a NEW governance_proposal_id (30)
+    mockQuery.mockResolvedValueOnce(
+      makeRows([
+        {
+          app_id: 'test_community_03',
+          label: 'Test Community 03',
+          status: 'proposal_submitted',
+          wallet_id: 'test03.onsocial.testnet',
+          description: 'Community app v2',
+          created_at: '2026-04-01',
+          governance_proposal_id: 30,
+          governance_proposal_status: 'submitted',
+          governance_proposal_description: 'Register test community 03 v2',
+          governance_proposal_dao: 'governance.onsocial.testnet',
+          governance_proposal_payload: null,
+          governance_proposal_tx_hash: 'tx-456',
+          governance_proposal_submitted_at: '2026-04-01T00:00:00.000Z',
+        },
+      ])
+    );
+    // DAO scan returns BOTH the old rejected #21 and new in-progress #30
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(30))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          makeDaoRejectedPartnerProposal(
+            21,
+            'test_community_03',
+            'Test Community 03'
+          ),
+          {
+            id: 30,
+            proposer: 'guardian.onsocial.testnet',
+            description:
+              'Register community app Test Community 03 (test_community_03) on rewards.onsocial.testnet.',
+            kind: {
+              FunctionCall: {
+                receiver_id: 'rewards.onsocial.testnet',
+                actions: [
+                  {
+                    method_name: 'register_app',
+                    args: Buffer.from(
+                      JSON.stringify({
+                        config: {
+                          app_id: 'test_community_03',
+                          label: 'Test Community 03',
+                        },
+                      })
+                    ).toString('base64'),
+                  },
+                ],
+              },
+            },
+            status: 'InProgress',
+            submission_time: '1774560384669834575',
+          },
+        ])
+      );
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
+
+    expect(res.status).toBe(200);
+    const items = res.body.applications.filter(
+      (a: { app_id: string }) => a.app_id === 'test_community_03'
+    );
+    // DB item has proposal_id 30 → dedup skips DAO #30 (exact match)
+    // DAO #21 is deduped by app_id match → DB item carries a governance
+    // proposal (id 30), so DAO #21 is also skipped
+    // Only the DB item with proposal #30 survives
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        status: 'proposal_submitted',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 30,
+          status: 'submitted',
+        }),
+      })
+    );
+  });
+
+  it('keeps rejected DAO proposal visible when app has no DB entry at all', async () => {
+    // No DB row (DAO-only proposal, not submitted through application flow)
+    mockQuery.mockResolvedValueOnce(makeRows([])); // feed SQL: empty
+    mockFetch
+      .mockResolvedValueOnce(mockRpcViewResult(21))
+      .mockResolvedValueOnce(
+        mockRpcViewResult([
+          makeDaoRejectedPartnerProposal(
+            21,
+            'test_community_03',
+            'Test Community 03'
+          ),
+        ])
+      );
+    // Secondary lookup returns nothing — no DB entry
+    mockQuery.mockResolvedValueOnce(makeRows([]));
+
+    const res = await request(buildApp()).get(
+      '/v1/governance/feed?scope=partners'
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.applications).toHaveLength(1);
+    // Status stays 'rejected' — reopen button will show (correct, since
+    // this app was rejected on-chain and hasn't been reopened)
+    expect(res.body.applications[0]).toEqual(
+      expect.objectContaining({
+        app_id: 'test_community_03',
+        status: 'rejected',
+        governance_proposal: expect.objectContaining({
+          proposal_id: 21,
+          status: 'Rejected',
+        }),
+      })
+    );
+  });
 });
 
 describe('GET /v1/governance/feed', () => {

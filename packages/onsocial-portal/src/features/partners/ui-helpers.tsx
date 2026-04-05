@@ -8,6 +8,7 @@ import {
   Download,
   type LucideIcon,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { portalColors } from '@/lib/portal-colors';
 
 export function CopyButton({
@@ -27,6 +28,7 @@ export function CopyButton({
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
       className={`p-1.5 rounded-md bg-muted/50 hover:bg-muted/80 transition-colors text-muted-foreground hover:text-foreground ${extraClass ?? 'absolute top-3 right-3'}`}
       title="Copy to clipboard"
@@ -60,13 +62,14 @@ export function DownloadButton({
   };
 
   return (
-    <button
+    <Button
+      type="button"
       onClick={handleDownload}
-      className="portal-blue-surface inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium"
+      className="h-auto gap-1.5 px-3 py-1.5 text-xs"
     >
       <Download className="w-3.5 h-3.5" />
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -79,7 +82,7 @@ export function CodeBlock({
 }) {
   return (
     <div className="relative group">
-      <pre className="bg-muted/40 rounded-xl p-4 overflow-x-auto text-sm font-mono text-muted-foreground border border-border/50">
+      <pre className="bg-muted/40 rounded-[1rem] p-4 overflow-x-auto text-sm font-mono text-muted-foreground border border-border/50">
         <code className={`language-${language}`}>{code}</code>
       </pre>
       <CopyButton text={code} />
@@ -101,14 +104,26 @@ export function StepIndicator({
   current: number;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className="flex items-center justify-center">
       {steps.map((step, index) => {
         const color = STEP_COLORS[index % 3];
         const active = index <= current;
         return (
-          <div key={index} className="flex items-center gap-2">
+          <div key={index} className="flex items-center">
+            {index > 0 && (
+              <div
+                className={`mx-1.5 h-px w-10 sm:w-16 md:w-20 transition-colors ${
+                  index <= current - 1 ? '' : 'bg-border/50'
+                }`}
+                style={
+                  index <= current - 1
+                    ? { backgroundColor: STEP_COLORS[(index - 1) % 3] }
+                    : undefined
+                }
+              />
+            )}
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full border bg-background/60 transition-all ${
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-background/60 transition-all md:h-10 md:w-10 ${
                 active
                   ? 'border-border shadow-sm'
                   : 'border-border/50 text-muted-foreground'
@@ -116,19 +131,11 @@ export function StepIndicator({
               style={active ? { color, borderColor: `${color}40` } : undefined}
             >
               {index < current ? (
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle2 className="h-[1.125rem] w-[1.125rem] md:h-5 md:w-5" />
               ) : (
-                <step.icon className="w-5 h-5" />
+                <step.icon className="h-[1.125rem] w-[1.125rem] md:h-5 md:w-5" />
               )}
             </div>
-            {index < steps.length - 1 && (
-              <div
-                className={`h-px w-10 md:w-16 transition-colors ${
-                  index < current ? '' : 'bg-border/50'
-                }`}
-                style={index < current ? { backgroundColor: color } : undefined}
-              />
-            )}
           </div>
         );
       })}

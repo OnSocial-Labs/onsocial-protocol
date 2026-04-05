@@ -123,9 +123,12 @@
     --portal-slate-frame-bg: rgb(107 114 128 / 0.08);
     --portal-slate-bg: rgb(107 114 128 / 0.06);
     --portal-red: #f87171;
+    --portal-red-border: rgb(248 113 113 / 0.48);
+    --portal-red-border-strong: rgb(248 113 113 / 0.65);
     --portal-red-frame-border: rgb(248 113 113 / 0.35);
     --portal-red-frame-bg: rgb(248 113 113 / 0.08);
     --portal-red-bg: rgb(248 113 113 / 0.06);
+    --portal-red-shadow: rgb(248 113 113 / 0.24);
     --portal-red-toast-bg: rgb(254 242 242);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -196,9 +199,12 @@
     --portal-slate-frame-bg: rgb(107 114 128 / 0.08);
     --portal-slate-bg: rgb(107 114 128 / 0.06);
     --portal-red: #f87171;
+    --portal-red-border: rgb(248 113 113 / 0.48);
+    --portal-red-border-strong: rgb(248 113 113 / 0.65);
     --portal-red-frame-border: rgb(248 113 113 / 0.35);
     --portal-red-frame-bg: rgb(248 113 113 / 0.08);
     --portal-red-bg: rgb(248 113 113 / 0.06);
+    --portal-red-shadow: rgb(248 113 113 / 0.26);
     --portal-red-toast-bg: rgb(26 16 16);
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 95%;
@@ -328,10 +334,22 @@
   color: var(--portal-purple);
 }
 
+.portal-pink-badge {
+  border-color: var(--portal-pink-frame-border);
+  background-color: var(--portal-pink-bg);
+  color: var(--portal-pink);
+}
+
 .portal-amber-badge {
   border-color: var(--portal-amber-frame-border);
   background-color: var(--portal-amber-bg);
   color: var(--portal-amber);
+}
+
+.portal-slate-badge {
+  border-color: var(--portal-slate-frame-border);
+  background-color: var(--portal-slate-bg);
+  color: var(--portal-slate);
 }
 
 .portal-red-badge {
@@ -503,6 +521,15 @@
     0 10px 24px -18px var(--portal-green-shadow);
 }
 
+.portal-neutral-toast {
+  border-color: hsl(var(--border) / 0.9);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow:
+    0 20px 48px -24px rgb(15 23 42 / 0.14),
+    0 10px 24px -18px rgb(15 23 42 / 0.12);
+}
+
 .portal-red-toast {
   border-color: var(--portal-red-frame-border);
   background-color: var(--portal-red-toast-bg);
@@ -546,6 +573,169 @@
 /* Smooth scroll */
 html.lenis {
   height: auto;
+}
+
+/* ── Mobile-first utilities ── */
+
+@utility text-fluid-hero {
+  font-size: clamp(1.75rem, 5vw, 3rem);
+  line-height: 1.1;
+}
+
+@utility text-fluid-heading {
+  font-size: clamp(1.25rem, 4vw, 2rem);
+  line-height: 1.2;
+}
+
+@utility text-fluid-subheading {
+  font-size: clamp(1rem, 3vw, 1.5rem);
+  line-height: 1.3;
+}
+
+@utility text-fluid-body {
+  font-size: clamp(0.875rem, 2.5vw, 1.125rem);
+  line-height: 1.6;
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility safe-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@utility touch-target {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 50% auto auto 50%;
+    min-height: 44px;
+    min-width: 44px;
+    width: 100%;
+    height: 100%;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@utility scrollable-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* ── Gradient-fade divider system ──────────────────────────────── */
+/* Central definition: change these three gradients to restyle     */
+/* every divider in the app at once.                               */
+/*                                                                 */
+/* Horizontal: border-t / border-b / border-y + border-fade-*     */
+/* Vertical:   border-l / border-r   + border-fade-v-*            */
+/* Lists:      divide-y              + divide-fade-*               */
+/* Standalone: h-px element          + divider-section/detail/item */
+
+/* Force Tailwind to generate these utilities (scanner can't auto-detect them) */
+@source inline("divider-section divider-detail divider-item divider-v-section divider-v-detail border-fade-v-section border-fade-v-detail after:divider-section after:divider-v-section md:divider-v-detail xl:after:divider-v-section");
+
+:root {
+  /* horizontal gradients (left → right) */
+  --divider-h-section: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.7),
+    transparent
+  );
+  --divider-h-detail: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.5),
+    transparent
+  );
+  --divider-h-item: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.3),
+    transparent
+  );
+  /* vertical gradients (top → bottom) */
+  --divider-v-section: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--border) / 0.7),
+    transparent
+  );
+  --divider-v-detail: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--border) / 0.5),
+    transparent
+  );
+  --divider-v-item: linear-gradient(
+    to bottom,
+    transparent,
+    hsl(var(--border) / 0.3),
+    transparent
+  );
+}
+
+/* border-image utilities — use with border-t/b/y/l/r as normal */
+@utility border-fade-section {
+  border-image: var(--divider-h-section) 1;
+}
+@utility border-fade-detail {
+  border-image: var(--divider-h-detail) 1;
+}
+@utility border-fade-item {
+  border-image: var(--divider-h-item) 1;
+}
+
+/* vertical border-image — use with border-l/r */
+@utility border-fade-v-section {
+  border-image: var(--divider-v-section) 1;
+}
+@utility border-fade-v-detail {
+  border-image: var(--divider-v-detail) 1;
+}
+
+/* divide-fade — apply to divide-y/x containers */
+@utility divide-fade-section {
+  & > :not(:last-child) {
+    border-image: var(--divider-h-section) 1;
+  }
+}
+@utility divide-fade-detail {
+  & > :not(:last-child) {
+    border-image: var(--divider-h-detail) 1;
+  }
+}
+@utility divide-fade-item {
+  & > :not(:last-child) {
+    border-bottom: 1px solid transparent;
+    border-image: var(--divider-h-item) 1;
+  }
+}
+
+/* standalone divider elements (h-px or w-px) */
+@utility divider-section {
+  background-image: var(--divider-h-section);
+}
+@utility divider-detail {
+  background-image: var(--divider-h-detail);
+}
+@utility divider-item {
+  background-image: var(--divider-h-item);
+}
+@utility divider-v-section {
+  background-image: var(--divider-v-section);
+}
+@utility divider-v-detail {
+  background-image: var(--divider-v-detail);
 }
 
 .lenis.lenis-smooth {

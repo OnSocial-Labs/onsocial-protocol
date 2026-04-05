@@ -28,23 +28,12 @@ export const portalFrameBackgrounds = {
   red: 'var(--portal-red-frame-bg)',
 } as const;
 
-export const portalSurfaceBackgrounds = {
-  blue: 'var(--portal-blue-bg)',
-  green: 'var(--portal-green-bg)',
-  purple: 'var(--portal-purple-bg)',
-  amber: 'var(--portal-amber-bg)',
-  pink: 'var(--portal-pink-bg)',
-  slate: 'var(--portal-slate-bg)',
-  red: 'var(--portal-red-bg)',
-} as const;
-
 export const portalSurfaceClasses = {
   blue: 'portal-blue-surface',
   green: 'portal-green-surface',
   purple: 'portal-purple-surface',
   amber: 'portal-amber-surface',
-  pink: '',
-  slate: '',
+  slate: 'portal-slate-surface',
   red: 'portal-red-surface',
 } as const;
 
@@ -53,12 +42,12 @@ export const portalPanelClasses = {
   green: 'portal-green-panel',
   purple: 'portal-purple-panel',
   amber: 'portal-amber-panel',
-  pink: '',
-  slate: '',
   red: 'portal-red-panel',
 } as const;
 
 export type PortalAccent = keyof typeof portalColors;
+export type PortalSurfaceAccent = keyof typeof portalSurfaceClasses;
+export type PortalPanelAccent = keyof typeof portalPanelClasses;
 
 export function portalFrameStyle(accent: PortalAccent) {
   return {
@@ -67,18 +56,10 @@ export function portalFrameStyle(accent: PortalAccent) {
   };
 }
 
-export function portalBadgeStyle(accent: PortalAccent) {
-  return {
-    borderColor: portalFrameBorders[accent],
-    backgroundColor: portalSurfaceBackgrounds[accent],
-    color: portalColors[accent],
-  };
-}
-
-export function portalSurfaceClass(accent: PortalAccent) {
+export function portalSurfaceClass(accent: PortalSurfaceAccent) {
   return portalSurfaceClasses[accent];
 }
 
-export function portalPanelClass(accent: PortalAccent) {
+export function portalPanelClass(accent: PortalPanelAccent) {
   return portalPanelClasses[accent];
 }

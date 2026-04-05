@@ -1,7 +1,6 @@
 import { Clock, Key, Users } from 'lucide-react';
-import { ACTIVE_BACKEND_URL } from '@/lib/portal-config';
 
-export const BACKEND_URL = ACTIVE_BACKEND_URL;
+export const PARTNERS_API_BASE = '/api/partners';
 
 export const AUDIENCE_BANDS = ['<1k', '1k-10k', '10k-50k', '50k+'] as const;
 
@@ -42,17 +41,17 @@ export const STEPS = [
     icon: Users,
     title: 'Apply',
     description:
-      'Public project details, an audience band, and a shared starting draft.',
+      'Share your program, community size, and starting terms for review.',
   },
   {
     icon: Clock,
     title: 'Propose',
-    description: 'The final DAO proposal opens from the connected wallet.',
+    description: 'Open the on-chain proposal from the connected wallet.',
   },
   {
     icon: Key,
     title: 'Integrate',
     description:
-      'Once the proposal is live on-chain, the API key becomes available.',
+      'Once approved on-chain, your program can go live with API access.',
   },
 ] as const;

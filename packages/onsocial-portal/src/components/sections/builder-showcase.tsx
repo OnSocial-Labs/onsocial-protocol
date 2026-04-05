@@ -4,6 +4,9 @@ import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import Link from 'next/link';
 import { Palette, Ticket, Users, Building2, ArrowUpRight } from 'lucide-react';
+import { SectionHeader } from '@/components/layout/section-header';
+import { PortalBadge } from '@/components/ui/portal-badge';
+import { SurfacePanel } from '@/components/ui/surface-panel';
 import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
 const USE_CASES = [
@@ -52,14 +55,15 @@ export function BuilderShowcase() {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
-          className="text-center max-w-2xl mx-auto mb-16"
+          className="mb-16"
         >
-          <h2 className="text-4xl md:text-5xl font-bold tracking-[-0.03em] mb-4">
-            What You Can Build
-          </h2>
-          <p className="text-lg text-muted-foreground">
-            Real use cases powered by OnSocial&apos;s live infrastructure
-          </p>
+          <SectionHeader
+            align="center"
+            size="display"
+            contentClassName="max-w-2xl"
+            title="What You Can Build"
+            description="Real use cases powered by OnSocial's live infrastructure."
+          />
         </motion.div>
 
         <div className="grid md:grid-cols-2 gap-4 max-w-4xl mx-auto">
@@ -72,7 +76,13 @@ export function BuilderShowcase() {
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.4, delay: index * 0.08 }}
               >
-                <div className="border border-border/50 rounded-2xl p-8 hover:border-border transition-colors bg-muted/30 h-full">
+                <SurfacePanel
+                  radius="xl"
+                  tone="muted"
+                  padding="spacious"
+                  interactive
+                  className="h-full"
+                >
                   <div className="flex items-start justify-between mb-4">
                     <Icon
                       className="w-8 h-8"
@@ -94,15 +104,12 @@ export function BuilderShowcase() {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {useCase.apis.map((api) => (
-                      <span
-                        key={api}
-                        className="text-xs px-2.5 py-1 rounded-full border border-border/50 text-muted-foreground"
-                      >
+                      <PortalBadge key={api} accent="slate" size="xs">
                         {api}
-                      </span>
+                      </PortalBadge>
                     ))}
                   </div>
-                </div>
+                </SurfacePanel>
               </motion.div>
             );
           })}

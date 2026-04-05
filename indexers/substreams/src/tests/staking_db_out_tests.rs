@@ -71,6 +71,65 @@ fn test_write_staking_event_columns() {
 }
 
 #[test]
+fn test_write_boost_event_columns() {
+    let mut tables = Tables::new();
+    let event = make_event(
+        "BOOST_LOCK",
+        "alice.near",
+        Payload::StakeLock(StakeLock {
+            amount: "75000000000000000000".to_string(),
+            months: 48,
+            effective_stake: "112500000000000000000".to_string(),
+        }),
+    );
+
+    write_staking_event(&mut tables, &event);
+    let changes = tables.to_database_changes();
+
+    assert_eq!(count_table_rows(&changes, "staking_events"), 1);
+    assert_eq!(
+        find_field(&changes, "staking_events", "event_type"),
+        Some("BOOST_LOCK")
+    );
+    assert_eq!(
+        find_field(&changes, "staking_events", "effective_stake"),
+        Some("112500000000000000000")
+    );
+}
+
+#[test]
+fn test_update_staker_state_boost_lock_vs_unlock() {
+    let mut accum = HashMap::new();
+    let lock_event = make_event(
+        "BOOST_LOCK",
+        "alice.near",
+        Payload::StakeLock(StakeLock {
+            amount: "100".to_string(),
+            months: 12,
+            effective_stake: "120".to_string(),
+        }),
+    );
+    accumulate_staker_state(&mut accum, &lock_event);
+
+    assert_eq!(accum.get("alice.near").unwrap().last_event_type, "BOOST_LOCK");
+
+    let mut accum2 = HashMap::new();
+    let unlock_event = make_event(
+        "BOOST_UNLOCK",
+        "alice.near",
+        Payload::StakeUnlock(StakeUnlock {
+            amount: "100".to_string(),
+        }),
+    );
+    accumulate_staker_state(&mut accum2, &unlock_event);
+
+    let state = accum2.get("alice.near").unwrap();
+    assert_eq!(state.last_event_type, "BOOST_UNLOCK");
+    assert_eq!(state.locked_amount.as_deref(), Some("0"));
+    assert_eq!(state.effective_stake.as_deref(), Some("0"));
+}
+
+#[test]
 fn test_update_staker_state_lock_vs_unlock() {
     // STAKE_LOCK creates staker_state with locked amounts
     let mut accum = HashMap::new();

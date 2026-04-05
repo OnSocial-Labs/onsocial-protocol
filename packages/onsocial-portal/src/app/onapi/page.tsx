@@ -13,9 +13,12 @@ import {
   Layers,
 } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
-import { Button } from '@/components/ui/button';
+import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
+import { SectionHeader } from '@/components/layout/section-header';
+import { PortalBadge } from '@/components/ui/portal-badge';
+import { Button, buttonArrowRightClass } from '@/components/ui/button';
+import { SurfacePanel } from '@/components/ui/surface-panel';
 import {
-  portalBadgeStyle,
   portalColors,
   portalFrameStyle,
   type PortalAccent,
@@ -24,22 +27,22 @@ import {
 const CREDIT_FLOW = [
   {
     step: '01',
-    title: 'Purchase credits',
-    desc: 'Buy credits with SOCIAL.',
+    title: 'Purchase Credits',
+    desc: 'Buy credits using SOCIAL.',
     accent: 'green' as PortalAccent,
     icon: Coins,
   },
   {
     step: '02',
-    title: 'Fund the shared rail',
-    desc: '60% funds infrastructure. 40% flows to staking rewards.',
+    title: 'Power the Network',
+    desc: '60% supports infrastructure. 40% contributes to the participation pool.',
     accent: 'blue' as PortalAccent,
     icon: Server,
   },
   {
     step: '03',
-    title: 'Use one gateway',
-    desc: 'Unlock deeper queries and smoother app flows from one access layer.',
+    title: 'Use the Gateway',
+    desc: 'Access deeper queries and run faster, more reliable apps through a single endpoint.',
     accent: 'purple' as PortalAccent,
     icon: Zap,
   },
@@ -62,7 +65,7 @@ const API_TIERS = [
   {
     name: 'Pro',
     price: '$49',
-    priceNote: '/mo in $SOCIAL',
+    priceNote: '/ month (in SOCIAL)',
     rateLimit: '600 req/min',
     queryDepth: 8,
     complexity: 1000,
@@ -74,7 +77,7 @@ const API_TIERS = [
   {
     name: 'Scale',
     price: '$199',
-    priceNote: '/mo in $SOCIAL',
+    priceNote: '/ month (in SOCIAL)',
     rateLimit: '3,000 req/min',
     queryDepth: 12,
     complexity: 5000,
@@ -91,29 +94,13 @@ export default function OnApiPage() {
 
   return (
     <PageShell className="max-w-5xl">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative mb-8 px-2 py-4 text-center md:py-6"
-      >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-44 opacity-80 blur-3xl"
-          style={{
-            background:
-              'radial-gradient(circle at 22% 18%, rgba(74,222,128,0.16), transparent 34%), radial-gradient(circle at 52% 20%, rgba(96,165,250,0.18), transparent 38%), radial-gradient(circle at 82% 24%, rgba(192,132,252,0.16), transparent 32%)',
-          }}
-        />
-        <div className="relative z-10 mx-auto max-w-4xl">
-          <h1 className="mx-auto max-w-3xl text-center text-4xl font-bold tracking-[-0.03em] md:text-6xl">
-            OnApi credits for simpler access
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-center text-base text-muted-foreground md:text-lg">
-            Pay in SOCIAL for gateway access, richer queries, and smoother app
-            flows.
-          </p>
-        </div>
-      </motion.div>
+      <SecondaryPageHeader
+        badge="Gateway Access"
+        badgeAccent="blue"
+        glowAccents={['green', 'blue', 'purple']}
+        title="Simple access to OnSocial data and actions"
+        description="Use SOCIAL to power reads, advanced queries, and seamless application flows."
+      />
 
       <section ref={ref} className="mb-8">
         <motion.div
@@ -122,27 +109,19 @@ export default function OnApiPage() {
           transition={{ duration: 0.5 }}
           className="py-1"
         >
-          <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-            <div>
-              <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                How credits work
-              </span>
-              <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
-                Clear split. One rail
-              </h2>
-            </div>
-            <p className="max-w-xl text-sm text-muted-foreground md:text-right">
-              One credit rail funds infrastructure and staking rewards.
-            </p>
-          </div>
+          <SectionHeader
+            badge="Credits"
+            title="One system. Clear split."
+            className="mb-6"
+          />
 
-          <div className="grid gap-6 border-t border-border/50 pt-6 md:grid-cols-3 md:gap-8">
+          <div className="grid gap-6 border-t border-fade-section pt-6 md:grid-cols-3 md:gap-8">
             {CREDIT_FLOW.map((item) => {
               const Icon = item.icon;
               return (
                 <div
                   key={item.step}
-                  className="border-l border-border/50 pl-5 md:pl-6"
+                  className="border-l border-fade-v-section pl-5 md:pl-6"
                 >
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <div
@@ -177,25 +156,24 @@ export default function OnApiPage() {
         transition={{ duration: 0.5, delay: 0.08 }}
         className="mb-8"
       >
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Tier comparison
-            </span>
-            <h2 className="mt-2 text-2xl font-bold tracking-[-0.03em] md:text-3xl">
-              Choose the tier you need.
-            </h2>
-          </div>
-          <p className="max-w-xl text-sm text-muted-foreground md:text-right">
-            Start on Free, then step up when your app needs more headroom.
-          </p>
-        </div>
+        <SectionHeader
+          badge="Access Tiers"
+          title="Choose the access level your app needs"
+        />
+
+        <p className="mb-5 max-w-xl text-sm text-muted-foreground">
+          Paid tiers define planned limits. Availability will be announced as
+          they go live.
+        </p>
 
         <div className="grid gap-3 md:grid-cols-3">
           {API_TIERS.map((tier) => (
-            <div
+            <SurfacePanel
               key={tier.name}
-              className="relative flex h-full flex-col overflow-hidden rounded-[1.6rem] border border-border/50 bg-background/45 p-5 md:p-6"
+              radius="xl"
+              tone="soft"
+              padding="roomy"
+              className="relative flex h-full flex-col overflow-hidden"
             >
               <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-28 opacity-70 blur-2xl"
@@ -226,14 +204,14 @@ export default function OnApiPage() {
                       />
                     )}
                   </div>
-                  <span
-                    className="rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em]"
-                    style={portalBadgeStyle(
-                      tier.available ? 'green' : tier.accent
-                    )}
+                  <PortalBadge
+                    accent={tier.available ? 'green' : tier.accent}
+                    size="sm"
+                    casing="uppercase"
+                    tracking="normal"
                   >
-                    {tier.available ? 'Live now' : 'Coming soon'}
-                  </span>
+                    {tier.available ? 'Live now' : 'Planned'}
+                  </PortalBadge>
                 </div>
 
                 <h3 className="text-xl font-bold tracking-[-0.03em] md:text-2xl">
@@ -248,7 +226,7 @@ export default function OnApiPage() {
                   </span>
                 </div>
 
-                <div className="mt-5 space-y-3 border-t border-border/50 pt-4">
+                <div className="mt-5 space-y-3 border-t border-fade-section pt-4">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="text-muted-foreground">Rate limit</span>
                     <span className="font-medium">{tier.rateLimit}</span>
@@ -293,18 +271,20 @@ export default function OnApiPage() {
                 >
                   {tier.available ? (
                     <>
-                      Use free tier
-                      <ArrowRight className="h-4 w-4" />
+                      Use Free Tier
+                      <ArrowRight
+                        className={`h-4 w-4 ${buttonArrowRightClass}`}
+                      />
                     </>
                   ) : (
                     <>
-                      Planned tier
+                      Planned
                       <ArrowUpRight className="h-4 w-4" />
                     </>
                   )}
                 </Button>
               </div>
-            </div>
+            </SurfacePanel>
           ))}
         </div>
       </motion.section>
@@ -313,17 +293,17 @@ export default function OnApiPage() {
         initial={{ opacity: 0 }}
         animate={isInView ? { opacity: 1 } : {}}
         transition={{ duration: 0.5, delay: 0.18 }}
-        className="rounded-[1.5rem] border border-border/50 bg-background/40 p-4 md:p-5"
       >
-        <div className="flex items-start gap-3 text-sm text-muted-foreground">
-          <Info className="portal-blue-icon mt-0.5 h-4 w-4 flex-shrink-0" />
-          <p className="leading-6">
-            Free tier is available now. Pro and Scale tiers launch when credit
-            purchasing is integrated with the gateway. Pricing remains
-            SOCIAL-denominated and settles at market rate via Ref Finance
-            oracle.
-          </p>
-        </div>
+        <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
+          <div className="flex items-start gap-3 text-sm text-muted-foreground">
+            <Info className="portal-blue-icon mt-0.5 h-4 w-4 flex-shrink-0" />
+            <p className="leading-6">
+              Free tier is available now. Pro and Scale tiers will launch once
+              credit purchasing is integrated with the gateway. Pricing remains
+              SOCIAL-denominated and settles dynamically at market rate.
+            </p>
+          </div>
+        </SurfacePanel>
       </motion.div>
     </PageShell>
   );

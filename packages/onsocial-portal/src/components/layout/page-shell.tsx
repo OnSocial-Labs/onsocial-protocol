@@ -5,6 +5,7 @@ const pageShellClasses = {
   prose: 'max-w-2xl',
   form: 'max-w-3xl',
   standard: 'max-w-3xl',
+  section: 'max-w-6xl',
   wide: '',
 } as const;
 

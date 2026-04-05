@@ -1,45 +1,39 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ChevronDown,
-  Globe,
-  Zap,
-  CheckCircle2,
-  XCircle,
-  FileCode2,
-} from 'lucide-react';
+import { Globe, FileCode2 } from 'lucide-react';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
+import { SurfacePanel } from '@/components/ui/surface-panel';
+import { section } from '@/lib/section-styles';
 import {
+  BOOST_CONTRACT,
   CORE_CONTRACT,
   REWARDS_CONTRACT,
   SCARCES_CONTRACT,
-  STAKING_CONTRACT,
   TOKEN_CONTRACT,
   VESTING_CONTRACT,
   viewAccount,
   viewContractAt,
 } from '@/lib/near-rpc';
+import { portalColors } from '@/lib/portal-colors';
 import { ACTIVE_API_URL } from '@/lib/portal-config';
 
-interface HealthData {
-  gatewayServices: string[] | null;
-  gatewayVersion: string | null;
-  gateway: { status: 'up' | 'down'; responseTime: number } | null;
-  graph: { status: 'up' | 'down'; responseTime: number } | null;
-  storage: { status: 'up' | 'down'; responseTime: number } | null;
-  relayer: { status: 'up' | 'down'; responseTime: number } | null;
-}
+/* ── Types ── */
 
-type ContractHealthStatus = 'up' | 'degraded' | 'down';
+interface ServiceHealth {
+  name: string;
+  status: 'up' | 'down' | null;
+  responseTime?: number;
+}
 
 interface ContractHealth {
   name: string;
   accountId: string;
-  status: ContractHealthStatus;
+  status: 'up' | 'degraded' | 'down';
   responseTime: number;
-  detail: string;
 }
+
+/* ── Contract probes ── */
 
 const CONTRACT_PROBES = [
   {
@@ -49,9 +43,9 @@ const CONTRACT_PROBES = [
       viewContractAt<{ version: string }>(CORE_CONTRACT, 'get_version', {}),
   },
   {
-    name: 'Staking',
-    accountId: STAKING_CONTRACT,
-    probe: () => viewContractAt(STAKING_CONTRACT, 'get_stats', {}),
+    name: 'Boost',
+    accountId: BOOST_CONTRACT,
+    probe: () => viewContractAt(BOOST_CONTRACT, 'get_stats', {}),
   },
   {
     name: 'Token',
@@ -75,499 +69,261 @@ const CONTRACT_PROBES = [
   },
 ] as const;
 
-export function SystemStatus() {
-  const [health, setHealth] = useState<HealthData>({
-    gatewayServices: null,
-    gatewayVersion: null,
-    gateway: null,
-    graph: null,
-    storage: null,
-    relayer: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [servicesOpen, setServicesOpen] = useState(false);
-  const [contractsOpen, setContractsOpen] = useState(false);
-  const [contractsLoading, setContractsLoading] = useState(false);
-  const [contracts, setContracts] = useState<ContractHealth[] | null>(null);
-  const [contractsCheckedAt, setContractsCheckedAt] = useState<number | null>(
-    null
+/* ── Helpers ── */
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), ms)
+    ),
+  ]);
+}
+
+function dotColor(
+  status: string | null | undefined,
+  responseTime?: number
+): string {
+  if (!status || status === 'down') return 'bg-[var(--portal-red)]';
+  if (status === 'degraded') return 'bg-[var(--portal-amber)]';
+  if (responseTime === undefined) return 'bg-muted-foreground';
+  if (responseTime <= 300) return 'bg-[var(--portal-green)]';
+  if (responseTime <= 1000) return 'bg-[var(--portal-amber)]';
+  return 'bg-[var(--portal-red)]';
+}
+
+function latencyColor(responseTime?: number): string {
+  if (responseTime === undefined) return 'text-muted-foreground';
+  if (responseTime <= 300) return 'portal-green-text';
+  if (responseTime <= 1000) return 'portal-amber-text';
+  return 'portal-red-text';
+}
+
+/* ── Row component ── */
+
+function StatusRow({
+  name,
+  secondary,
+  status,
+  responseTime,
+  loading: isLoading,
+}: {
+  name: string;
+  secondary?: string;
+  status: string | null | undefined;
+  responseTime?: number;
+  loading?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${isLoading ? 'bg-muted-foreground/40 animate-pulse' : dotColor(status, responseTime)}`}
+        />
+        <div className="min-w-0">
+          <span className="text-sm font-medium">{name}</span>
+          {secondary ? (
+            <p className="truncate text-[11px] text-muted-foreground">
+              {secondary}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <span
+        className={`shrink-0 text-xs font-mono tabular-nums ${isLoading ? 'text-muted-foreground/40' : latencyColor(responseTime)}`}
+      >
+        {isLoading || responseTime === undefined ? '—' : `${responseTime}ms`}
+      </span>
+    </div>
   );
+}
 
-  const checkHealth = useCallback(async () => {
+/* ── Main component ── */
+
+export function SystemStatus() {
+  const [services, setServices] = useState<ServiceHealth[]>([
+    { name: 'Gateway', status: null },
+    { name: 'Graph', status: null },
+    { name: 'Storage', status: null },
+    { name: 'Relay', status: null },
+  ]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [contracts, setContracts] = useState<ContractHealth[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(true);
+
+  const checkServices = useCallback(async () => {
     const apiUrl = ACTIVE_API_URL;
+    const paths = [
+      '/health',
+      '/graph/health',
+      '/storage/health',
+      '/relay/health',
+    ];
+    const names = ['Gateway', 'Graph', 'Storage', 'Relay'];
 
-    const results: HealthData = {
-      gatewayServices: null,
-      gatewayVersion: null,
-      gateway: null,
-      graph: null,
-      storage: null,
-      relayer: null,
-    };
+    const results = await Promise.all(
+      paths.map(async (path, i) => {
+        const start = performance.now();
+        try {
+          const res = await fetch(`${apiUrl}${path}`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          return {
+            name: names[i],
+            status: (res.ok ? 'up' : 'down') as 'up' | 'down',
+            responseTime: Math.round(performance.now() - start),
+          };
+        } catch {
+          return {
+            name: names[i],
+            status: 'down' as const,
+            responseTime: undefined,
+          };
+        }
+      })
+    );
 
-    // Check gateway
-    try {
-      const start = performance.now();
-      const res = await fetch(`${apiUrl}/health`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      const elapsed = Math.round(performance.now() - start);
-      if (res.ok) {
-        const data = await res.json();
-        results.gateway = { status: 'up', responseTime: elapsed };
-        results.gatewayVersion = data.version ?? null;
-        results.gatewayServices = Array.isArray(data.services)
-          ? data.services
-          : null;
-      } else {
-        results.gateway = { status: 'down', responseTime: elapsed };
-      }
-    } catch {
-      results.gateway = { status: 'down', responseTime: 0 };
-    }
-
-    // Check graph health
-    try {
-      const start = performance.now();
-      const res = await fetch(`${apiUrl}/graph/health`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      results.graph = {
-        status: res.ok ? 'up' : 'down',
-        responseTime: Math.round(performance.now() - start),
-      };
-    } catch {
-      results.graph = { status: 'down', responseTime: 0 };
-    }
-
-    // Check storage health
-    try {
-      const start = performance.now();
-      const res = await fetch(`${apiUrl}/storage/health`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      results.storage = {
-        status: res.ok ? 'up' : 'down',
-        responseTime: Math.round(performance.now() - start),
-      };
-    } catch {
-      results.storage = { status: 'down', responseTime: 0 };
-    }
-
-    // Check relayer via gateway relay health
-    try {
-      const start = performance.now();
-      const res = await fetch(`${apiUrl}/relay/health`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      const elapsed = Math.round(performance.now() - start);
-      results.relayer = {
-        status: res.ok ? 'up' : 'down',
-        responseTime: elapsed,
-      };
-    } catch {
-      results.relayer = { status: 'down', responseTime: 0 };
-    }
-
-    setHealth(results);
-    setLoading(false);
+    setServices(results);
+    setServicesLoading(false);
   }, []);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- data-fetching pattern
-    checkHealth();
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
-  }, [checkHealth]);
-
-  const checkContracts = useCallback(
-    async (force = false) => {
-      const isFresh =
-        !force &&
-        contracts &&
-        contractsCheckedAt &&
-        Date.now() - contractsCheckedAt < 60_000;
-
-      if (isFresh) return;
-
-      setContractsLoading(true);
-
-      const results = await Promise.all(
-        CONTRACT_PROBES.map(async ({ name, accountId, probe }) => {
-          const start = performance.now();
-
+  const checkContracts = useCallback(async () => {
+    const results = await Promise.all(
+      CONTRACT_PROBES.map(async ({ name, accountId, probe }) => {
+        const start = performance.now();
+        try {
+          const result = await withTimeout(probe(), 8000);
+          const elapsed = Math.round(performance.now() - start);
+          return {
+            name,
+            accountId,
+            status: (result === null ? 'degraded' : 'up') as 'up' | 'degraded',
+            responseTime: elapsed,
+          };
+        } catch {
+          const elapsed = Math.round(performance.now() - start);
           try {
-            await viewAccount(accountId);
+            await withTimeout(viewAccount(accountId), 5000);
+            return {
+              name,
+              accountId,
+              status: 'degraded' as const,
+              responseTime: elapsed,
+            };
           } catch {
             return {
               name,
               accountId,
               status: 'down' as const,
-              responseTime: Math.round(performance.now() - start),
-              detail: 'Account unavailable',
-            };
-          }
-
-          try {
-            const probeResult = await probe();
-            const elapsed = Math.round(performance.now() - start);
-
-            if (probeResult === null) {
-              return {
-                name,
-                accountId,
-                status: 'degraded' as const,
-                responseTime: elapsed,
-                detail: 'Account online · empty probe',
-              };
-            }
-
-            return {
-              name,
-              accountId,
-              status: 'up' as const,
               responseTime: elapsed,
-              detail: 'View OK',
-            };
-          } catch {
-            return {
-              name,
-              accountId,
-              status: 'degraded' as const,
-              responseTime: Math.round(performance.now() - start),
-              detail: 'Account online · probe failed',
             };
           }
-        })
-      );
+        }
+      })
+    );
 
-      setContracts(results);
-      setContractsCheckedAt(Date.now());
-      setContractsLoading(false);
-    },
-    [contracts, contractsCheckedAt]
-  );
+    setContracts(results);
+    setContractsLoading(false);
+  }, []);
 
-  const toggleContractsOpen = useCallback(() => {
-    setContractsOpen((open) => {
-      const nextOpen = !open;
-      if (nextOpen) {
-        void checkContracts();
-      }
-      return nextOpen;
-    });
+  useEffect(() => {
+    void checkServices();
+    const interval = setInterval(checkServices, 30_000);
+    return () => clearInterval(interval);
+  }, [checkServices]);
+
+  useEffect(() => {
+    void checkContracts();
+    const interval = setInterval(checkContracts, 60_000);
+    return () => clearInterval(interval);
   }, [checkContracts]);
 
-  const services = [
-    {
-      name: 'Gateway API',
-      description: 'Gateway root health',
-      icon: Globe,
-      status: health.gateway?.status,
-      responseTime: health.gateway?.responseTime,
-    },
-    {
-      name: 'Gasless Relayer',
-      description: '2-instance HA · GCP KMS signing',
-      icon: Zap,
-      status: health.relayer?.status,
-      responseTime: health.relayer?.responseTime,
-    },
-    {
-      name: 'Contracts',
-      description: 'Direct NEAR RPC probes',
-      icon: FileCode2,
-      status: contracts
-        ? contracts.every((contract) => contract.status === 'up')
-          ? 'up'
-          : 'down'
-        : undefined,
-      responseTime: undefined,
-      summary: contractsLoading
-        ? 'Checking'
-        : contracts
-          ? contracts.every((contract) => contract.status === 'up')
-            ? 'All probes passing'
-            : 'Some probes degraded'
-          : 'Expand below',
-    },
-  ];
+  const allUp =
+    !servicesLoading &&
+    services.every((s) => s.status === 'up') &&
+    !contractsLoading &&
+    contracts.every((c) => c.status === 'up');
 
-  const overallHealthy =
-    !loading &&
-    health.gateway?.status === 'up' &&
-    health.graph?.status === 'up' &&
-    health.storage?.status === 'up' &&
-    health.relayer?.status === 'up';
+  const isLoading = servicesLoading && contractsLoading;
 
-  const headline = loading
-    ? 'Checking gateway, relay, storage, and contracts'
-    : overallHealthy
-      ? 'All systems operational'
-      : 'Some services may be degraded';
-
-  const getServiceSummary = (service: (typeof services)[number]) => {
-    if (loading) return 'Checking';
-    if (service.summary) return service.summary;
-    if (service.status !== 'up') return 'Unavailable';
-    if (service.responseTime === undefined) return 'Online';
-    return `${service.responseTime}ms`;
-  };
-
-  const contractsHealthy =
-    contracts?.every((contract) => contract.status === 'up') ?? false;
-
-  const contractSummary = contractsLoading
-    ? 'Checking contracts'
-    : contracts
-      ? contractsHealthy
-        ? 'All contract probes passing'
-        : 'Some contract probes degraded'
-      : 'Expand to check contracts';
-
-  const serviceDetails = [
-    {
-      name: 'Gateway',
-      path: '/health',
-      status: health.gateway?.status,
-      responseTime: health.gateway?.responseTime,
-      detail: health.gatewayVersion
-        ? `v${health.gatewayVersion}`
-        : 'Root health',
-    },
-    {
-      name: 'Graph',
-      path: '/graph/health',
-      status: health.graph?.status,
-      responseTime: health.graph?.responseTime,
-      detail: 'Hasura connectivity',
-    },
-    {
-      name: 'Storage',
-      path: '/storage/health',
-      status: health.storage?.status,
-      responseTime: health.storage?.responseTime,
-      detail: 'Lighthouse gateway',
-    },
-    {
-      name: 'Relay',
-      path: '/relay/health',
-      status: health.relayer?.status,
-      responseTime: health.relayer?.responseTime,
-      detail: 'Meta-tx relay health',
-    },
-  ];
-
-  const serviceSummary = loading
-    ? 'Checking services'
-    : serviceDetails.every((service) => service.status === 'up')
-      ? 'All gateway services healthy'
-      : 'Some gateway services degraded';
-
-  const getContractTone = (status: ContractHealthStatus) => {
-    if (status === 'up') return 'portal-green-icon';
-    if (status === 'degraded') return 'portal-amber-icon';
-    return 'text-destructive';
-  };
-
-  const getEndpointTone = (status?: 'up' | 'down') => {
-    if (status === 'up') return 'portal-green-icon';
-    if (status === 'down') return 'text-destructive';
-    return 'text-muted-foreground';
-  };
+  const headlineDot = isLoading
+    ? 'bg-muted-foreground/40 animate-pulse'
+    : allUp
+      ? 'bg-[var(--portal-green)] animate-pulse'
+      : 'bg-[var(--portal-amber)]';
 
   return (
-    <section id="status" className="py-10 relative">
-      <div className="container mx-auto px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="rounded-[1.75rem] border border-border/50 bg-muted/20 px-5 py-5 md:px-6">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4 min-w-0">
-                <div className="pt-0.5">
-                  {loading ? (
-                    <PulsingDots size="sm" className="text-muted-foreground" />
-                  ) : overallHealthy ? (
-                    <CheckCircle2 className="portal-green-icon w-4 h-4" />
-                  ) : (
-                    <XCircle className="portal-amber-icon w-4 h-4" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-1">
-                    Live infrastructure
-                  </p>
-                  <p className="text-base md:text-lg font-semibold tracking-[-0.02em]">
-                    {headline}
-                  </p>
-                </div>
-              </div>
+    <section id="status" className={`${section.py} relative`}>
+      <div className={section.container}>
+        <h2 className={section.heading}>
+          <span className="inline-flex items-center gap-2.5">
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${headlineDot}`}
+              aria-hidden="true"
+            />
+            {isLoading ? 'Checking' : allUp ? 'All Operational' : 'Degraded'}
+          </span>
+        </h2>
 
-              <div className="flex flex-col gap-4 lg:min-w-[520px]">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {services.map((service) => {
-                    const Icon = service.icon;
-
-                    return (
-                      <div
-                        key={service.name}
-                        className="flex items-center gap-3 rounded-2xl border border-border/40 px-3 py-3"
-                      >
-                        <Icon className="w-4 h-4 text-muted-foreground" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {service.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {getServiceSummary(service)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="rounded-2xl border border-border/40 bg-background/40">
-                  <button
-                    type="button"
-                    onClick={() => setServicesOpen((open) => !open)}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-background/50"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <Globe className="h-4 w-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">Services</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {serviceSummary}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronDown
-                      className={`h-4 w-4 text-muted-foreground transition-transform ${servicesOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-
-                  {servicesOpen && (
-                    <div className="border-t border-border/40 px-4 py-3">
-                      <div className="space-y-2">
-                        {serviceDetails.map((service) => (
-                          <div
-                            key={service.name}
-                            className="flex flex-col gap-1 rounded-xl border border-border/30 px-3 py-3 md:flex-row md:items-center md:justify-between"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium">
-                                  {service.name}
-                                </span>
-                                <span
-                                  className={`h-2 w-2 rounded-full ${getEndpointTone(service.status)}`}
-                                />
-                              </div>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {service.path}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground md:text-sm">
-                              <span>
-                                {loading ? 'Checking' : service.detail}
-                              </span>
-                              <span className="font-mono text-foreground/80">
-                                {loading || service.responseTime === undefined
-                                  ? '--'
-                                  : `${service.responseTime}ms`}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-
-                        {health.gatewayServices &&
-                          health.gatewayServices.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
-                              <span className="uppercase tracking-[0.14em] text-muted-foreground/80">
-                                Registered
-                              </span>
-                              {health.gatewayServices.map((service) => (
-                                <span
-                                  key={service}
-                                  className="rounded-full border border-border/40 px-2.5 py-1"
-                                >
-                                  {service}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-border/40 bg-background/40">
-                  <button
-                    type="button"
-                    onClick={toggleContractsOpen}
-                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-background/50"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <FileCode2 className="h-4 w-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">Contracts</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {contractSummary}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronDown
-                      className={`h-4 w-4 text-muted-foreground transition-transform ${contractsOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-
-                  {contractsOpen && (
-                    <div className="border-t border-border/40 px-4 py-3">
-                      {contractsLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <PulsingDots
-                            size="sm"
-                            className="text-muted-foreground"
-                          />
-                          Checking direct NEAR RPC probes
-                        </div>
-                      ) : contracts ? (
-                        <div className="space-y-2">
-                          {contracts.map((contract) => (
-                            <div
-                              key={contract.name}
-                              className="flex flex-col gap-1 rounded-xl border border-border/30 px-3 py-3 md:flex-row md:items-center md:justify-between"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium">
-                                    {contract.name}
-                                  </span>
-                                  <span
-                                    className={`h-2 w-2 rounded-full ${getContractTone(contract.status)}`}
-                                  />
-                                </div>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {contract.accountId}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground md:text-sm">
-                                <span>{contract.detail}</span>
-                                <span className="font-mono text-foreground/80">
-                                  {contract.responseTime}ms
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              </div>
+        <SurfacePanel
+          radius="xl"
+          tone="soft"
+          padding="none"
+          className="overflow-hidden"
+        >
+          <div className={section.card}>
+            <div className="flex flex-col items-center text-center mb-4">
+              <span className="portal-blue-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
+                <Globe className="h-3.5 w-3.5" />
+                Services
+              </span>
             </div>
+            {servicesLoading ? (
+              <div className="flex min-h-16 items-center justify-center">
+                <PulsingDots size="md" />
+              </div>
+            ) : (
+              <div className="divide-fade-item">
+                {services.map((s) => (
+                  <StatusRow
+                    key={s.name}
+                    name={s.name}
+                    status={s.status}
+                    responseTime={s.responseTime}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+
+          <div className="mx-5 h-px divider-section lg:mx-6" />
+
+          <div className={section.card}>
+            <div className="flex flex-col items-center text-center mb-4">
+              <span className="portal-green-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
+                <FileCode2 className="h-3.5 w-3.5" />
+                Contracts
+              </span>
+            </div>
+            {contractsLoading ? (
+              <div className="flex min-h-16 items-center justify-center">
+                <PulsingDots size="md" />
+              </div>
+            ) : (
+              <div className="divide-fade-item">
+                {contracts.map((c) => (
+                  <StatusRow
+                    key={c.name}
+                    name={c.name}
+                    secondary={c.accountId}
+                    status={c.status}
+                    responseTime={c.responseTime}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </SurfacePanel>
       </div>
     </section>
   );

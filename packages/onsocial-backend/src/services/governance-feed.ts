@@ -525,7 +525,8 @@ async function fetchDaoGovernanceFeed(): Promise<{
 
 function dedupePartnerItems(
   dbItems: PublicGovernanceApplication[],
-  daoItems: PublicGovernanceApplication[]
+  daoItems: PublicGovernanceApplication[],
+  dbStatusOverrides?: Map<string, string>
 ) {
   const dbItemsByAppId = new Map(dbItems.map((item) => [item.app_id, item]));
   const existingProposalIds = new Set(
@@ -548,12 +549,23 @@ function dedupePartnerItems(
       if (dbItem.governance_proposal?.proposal_id != null) {
         return false;
       }
-      // DB item was reopened — keep the DAO-scanned historical entry but
-      // propagate the reopened status so the frontend hides the reopen button
-      if (dbItem.status === 'reopened') {
+      // DB item has progressed past rejection — keep the DAO-scanned
+      // historical entry but propagate reopened status so the frontend
+      // hides the reopen button
+      if (dbItem.status !== 'rejected') {
         item.status = 'reopened';
       }
       return true;
+    }
+
+    // No matching DB item in the feed query — check the status override
+    // (covers apps that progressed to ready_for_governance / pending after
+    // being reopened, which the feed SQL intentionally excludes)
+    if (dbStatusOverrides) {
+      const dbStatus = dbStatusOverrides.get(item.app_id);
+      if (dbStatus && dbStatus !== 'rejected') {
+        item.status = 'reopened';
+      }
     }
 
     return true;
@@ -732,8 +744,30 @@ export async function getGovernanceFeedApplications(
       ? await fetchDaoGovernanceFeed()
       : { partnerItems: [], protocolItems: [] };
 
+  // For DAO-scanned partner items that don't appear in the feed SQL
+  // (e.g. app was reopened → partner reapplied → status is now
+  // 'ready_for_governance'), look up their actual DB status so the dedup
+  // can suppress the reopen button on stale rejected DAO proposals.
+  let dbStatusOverrides: Map<string, string> | undefined;
+  if (includePartners && daoFeed.partnerItems.length > 0) {
+    const partnerAppIdSet = new Set(partnerItems.map((item) => item.app_id));
+    const unmatchedDaoAppIds = daoFeed.partnerItems
+      .map((item) => item.app_id)
+      .filter((id) => !partnerAppIdSet.has(id));
+
+    if (unmatchedDaoAppIds.length > 0) {
+      const statusResult = await query(
+        `SELECT app_id, status FROM partner_keys WHERE app_id = ANY($1::text[])`,
+        [unmatchedDaoAppIds]
+      );
+      dbStatusOverrides = new Map(
+        statusResult.rows.map((r) => [String(r.app_id), String(r.status)])
+      );
+    }
+  }
+
   const scannedPartnerItems = includePartners
-    ? dedupePartnerItems(partnerItems, daoFeed.partnerItems)
+    ? dedupePartnerItems(partnerItems, daoFeed.partnerItems, dbStatusOverrides)
     : [];
   const protocolItems = includeProtocol ? daoFeed.protocolItems : [];
 
