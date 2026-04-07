@@ -5,7 +5,8 @@ use crate::{
     events::{EventBatch, EventBuilder},
     state::{ContractStatus, models::SocialPlatform},
 };
-use near_sdk::{AccountId, Gas, NearToken, Promise, env, near, require, serde_json::Value};
+use near_sdk::json_types::Base58CryptoHash;
+use near_sdk::{AccountId, Gas, NearToken, Promise, env, near, serde_json::Value};
 
 use crate::api::guards::ContractGuards;
 
@@ -205,17 +206,11 @@ impl Contract {
         Ok(())
     }
 
-    pub fn update_contract(&self) -> Promise {
-        require!(
-            env::attached_deposit().as_yoctonear() == 1,
-            "Attach 1 yoctoNEAR"
-        );
-        require!(
-            env::predecessor_account_id() == self.platform.manager,
-            "Not manager"
-        );
+    #[handle_result]
+    pub fn update_contract(&self) -> Result<Promise, SocialError> {
+        self.platform.require_manager()?;
         let code = env::input().expect("No input").to_vec();
-        Promise::new(env::current_account_id())
+        Ok(Promise::new(env::current_account_id())
             .deploy_contract(code)
             .function_call(
                 "migrate".to_string(),
@@ -223,7 +218,24 @@ impl Contract {
                 NearToken::from_near(0),
                 GAS_MIGRATE,
             )
-            .as_return()
+            .as_return())
+    }
+
+    #[handle_result]
+    pub fn update_contract_from_hash(
+        &self,
+        code_hash: Base58CryptoHash,
+    ) -> Result<Promise, SocialError> {
+        self.platform.require_manager()?;
+        Ok(Promise::new(env::current_account_id())
+            .use_global_contract(code_hash)
+            .function_call(
+                "migrate".to_string(),
+                vec![],
+                NearToken::from_near(0),
+                GAS_MIGRATE,
+            )
+            .as_return())
     }
 
     #[private]

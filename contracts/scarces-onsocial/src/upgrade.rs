@@ -1,19 +1,14 @@
 use crate::constants::GAS_MIGRATE_TGAS;
 use crate::*;
+use near_sdk::json_types::Base58CryptoHash;
 
 #[near]
 impl Contract {
-    pub fn update_contract(&self) -> Promise {
-        near_sdk::require!(
-            env::attached_deposit().as_yoctonear() == 1,
-            "Attach 1 yoctoNEAR"
-        );
-        near_sdk::require!(
-            env::predecessor_account_id() == self.owner_id,
-            "Only contract owner can upgrade"
-        );
+    #[handle_result]
+    pub fn update_contract(&self) -> Result<Promise, MarketplaceError> {
+        self.check_contract_owner(&env::predecessor_account_id())?;
         let code = env::input().expect("No input").to_vec();
-        Promise::new(env::current_account_id())
+        Ok(Promise::new(env::current_account_id())
             .deploy_contract(code)
             .function_call(
                 "migrate".to_string(),
@@ -21,7 +16,24 @@ impl Contract {
                 NearToken::from_near(0),
                 Gas::from_tgas(GAS_MIGRATE_TGAS),
             )
-            .as_return()
+            .as_return())
+    }
+
+    #[handle_result]
+    pub fn update_contract_from_hash(
+        &self,
+        code_hash: Base58CryptoHash,
+    ) -> Result<Promise, MarketplaceError> {
+        self.check_contract_owner(&env::predecessor_account_id())?;
+        Ok(Promise::new(env::current_account_id())
+            .use_global_contract(code_hash)
+            .function_call(
+                "migrate".to_string(),
+                vec![],
+                NearToken::from_near(0),
+                Gas::from_tgas(GAS_MIGRATE_TGAS),
+            )
+            .as_return())
     }
 
     #[private]
