@@ -17,12 +17,18 @@ interface MobilePageBadgeState {
   badgeAccent: PortalAccent;
 }
 
+interface NavBackState {
+  label: string;
+}
+
 interface MobilePageContextValue {
   pageBadge: MobilePageBadgeState | null;
   handoffProgress: number;
+  navBack: NavBackState | null;
   setPageBadge: (badge: MobilePageBadgeState) => void;
   clearPageBadge: (key: string) => void;
   setHandoffProgress: (progress: number) => void;
+  setNavBack: (state: NavBackState | null) => void;
 }
 
 const MobilePageContext = createContext<MobilePageContextValue | null>(null);
@@ -42,6 +48,12 @@ export function MobilePageProvider({ children }: { children: ReactNode }) {
   const [pageBadgeState, setPageBadgeState] = useState<RoutedBadgeState>(null);
   const [handoffProgressState, setHandoffProgressState] =
     useState<RoutedProgressState>(null);
+  const [navBackState, setNavBackState] = useState<{
+    pathname: string;
+    state: NavBackState;
+  } | null>(null);
+  const navBack =
+    navBackState?.pathname === pathname ? navBackState.state : null;
   const pageBadge =
     pageBadgeState?.pathname === pathname ? pageBadgeState.badge : null;
   const handoffProgress =
@@ -77,19 +89,30 @@ export function MobilePageProvider({ children }: { children: ReactNode }) {
     [pathname]
   );
 
+  const setNavBack = useCallback(
+    (state: NavBackState | null) => {
+      setNavBackState(state ? { pathname, state } : null);
+    },
+    [pathname]
+  );
+
   const value = useMemo(
     () => ({
       pageBadge,
       handoffProgress,
+      navBack,
       setPageBadge,
       clearPageBadge,
       setHandoffProgress,
+      setNavBack,
     }),
     [
       clearPageBadge,
       handoffProgress,
+      navBack,
       pageBadge,
       setHandoffProgress,
+      setNavBack,
       setPageBadge,
     ]
   );

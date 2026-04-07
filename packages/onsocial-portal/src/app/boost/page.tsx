@@ -527,11 +527,11 @@ export default function BoostPage() {
     runTx(
       'stake',
       {
-        submitted: 'Boost update submitted. Confirming on-chain.',
+        submitted: 'Submitting boost…',
         success: isOpeningFirstRelease
-          ? `You activated the first pool release with ${normalizedStakeAmount} SOCIAL.`
-          : `Committed ${normalizedStakeAmount} SOCIAL for ${period.label}`,
-        failure: 'Boost update failed on-chain.',
+          ? `Activated first release with ${normalizedStakeAmount} SOCIAL.`
+          : `Committed ${normalizedStakeAmount} SOCIAL for ${period.label}.`,
+        failure: 'Boost update failed.',
       },
       async () => {
         const result = await wallet.signAndSendTransaction({
@@ -566,9 +566,9 @@ export default function BoostPage() {
     runTx(
       'claim',
       {
-        submitted: 'Collection submitted. Confirming on-chain.',
+        submitted: 'Collecting…',
         success: 'Balance collected!',
-        failure: 'Collection failed on-chain.',
+        failure: 'Collection failed.',
       },
       async () =>
         wallet.signAndSendTransaction({
@@ -593,9 +593,9 @@ export default function BoostPage() {
     runTx(
       'unlock',
       {
-        submitted: 'Release submitted. Confirming on-chain.',
+        submitted: 'Releasing…',
         success: 'Position released and returned!',
-        failure: 'Release failed on-chain.',
+        failure: 'Release failed.',
       },
       async () =>
         wallet.signAndSendTransaction({
@@ -621,9 +621,9 @@ export default function BoostPage() {
     runTx(
       `extend:${months}`,
       {
-        submitted: 'Commitment extension submitted. Confirming on-chain.',
-        success: `Commitment extended to ${lp?.label ?? months + ' months'}`,
-        failure: 'Commitment extension failed on-chain.',
+        submitted: 'Extending…',
+        success: `Extended to ${lp?.label ?? months + ' months'}.`,
+        failure: 'Extension failed.',
       },
       async () => {
         const result = await wallet.signAndSendTransaction({
@@ -651,9 +651,9 @@ export default function BoostPage() {
     runTx(
       'renew',
       {
-        submitted: 'Commitment renewal submitted. Confirming on-chain.',
+        submitted: 'Renewing…',
         success: 'Commitment renewed!',
-        failure: 'Commitment renewal failed on-chain.',
+        failure: 'Renewal failed.',
       },
       async () => {
         const result = await wallet.signAndSendTransaction({
@@ -1392,7 +1392,7 @@ export default function BoostPage() {
           <h2 className="mb-3 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
             How It Works
           </h2>
-          <div className="divide-y divide-fade-detail">
+          <div className="divide-y divide-fade-detail border-t border-fade-detail">
             <BoostMechanicCard
               icon={Zap}
               title="Progressive Distribution"

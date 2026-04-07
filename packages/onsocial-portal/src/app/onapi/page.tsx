@@ -2,308 +2,148 @@
 
 import { useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
-import {
-  ArrowUpRight,
-  Coins,
-  Server,
-  Zap,
-  ArrowRight,
-  CheckCircle2,
-  Info,
-  Layers,
-} from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
-import { PortalBadge } from '@/components/ui/portal-badge';
-import { Button, buttonArrowRightClass } from '@/components/ui/button';
 import { SurfacePanel } from '@/components/ui/surface-panel';
-import {
-  portalColors,
-  portalFrameStyle,
-  type PortalAccent,
-} from '@/lib/portal-colors';
+import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
+import { portalColors, type PortalAccent } from '@/lib/portal-colors';
 
-const CREDIT_FLOW = [
-  {
-    step: '01',
-    title: 'Purchase Credits',
-    desc: 'Buy credits using SOCIAL.',
-    accent: 'green' as PortalAccent,
-    icon: Coins,
-  },
-  {
-    step: '02',
-    title: 'Power the Network',
-    desc: '60% supports infrastructure. 40% contributes to the participation pool.',
-    accent: 'blue' as PortalAccent,
-    icon: Server,
-  },
-  {
-    step: '03',
-    title: 'Use the Gateway',
-    desc: 'Access deeper queries and run faster, more reliable apps through a single endpoint.',
-    accent: 'purple' as PortalAccent,
-    icon: Zap,
-  },
-];
-
-// ─── API Credit Tiers ─────────────────────────────────────────
-const API_TIERS = [
+// ─── Access tiers ─────────────────────────────────────────────
+const TIERS = [
   {
     name: 'Free',
     price: '$0',
     priceNote: 'forever',
-    rateLimit: '60 req/min',
-    queryDepth: 3,
-    complexity: 50,
-    rowLimit: '100',
+    rate: '60 /min',
+    depth: '3',
+    complexity: '50',
+    rows: '100',
     aggregations: false,
     accent: 'green' as PortalAccent,
-    available: true,
+    live: true,
   },
   {
     name: 'Pro',
     price: '$49',
-    priceNote: '/ month (in SOCIAL)',
-    rateLimit: '600 req/min',
-    queryDepth: 8,
-    complexity: 1000,
-    rowLimit: '10,000',
+    priceNote: '/mo',
+    rate: '600 /min',
+    depth: '8',
+    complexity: '1,000',
+    rows: '10,000',
     aggregations: true,
     accent: 'blue' as PortalAccent,
-    available: false,
+    live: false,
   },
   {
     name: 'Scale',
     price: '$199',
-    priceNote: '/ month (in SOCIAL)',
-    rateLimit: '3,000 req/min',
-    queryDepth: 12,
-    complexity: 5000,
-    rowLimit: '50,000',
+    priceNote: '/mo',
+    rate: '3,000 /min',
+    depth: '12',
+    complexity: '5,000',
+    rows: '50,000',
     aggregations: true,
     accent: 'purple' as PortalAccent,
-    available: false,
+    live: false,
   },
 ];
 
 export default function OnApiPage() {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0.1 });
+  const isInView = useInView(ref, { once: true, amount: 0.15 });
 
   return (
     <PageShell className="max-w-5xl">
       <SecondaryPageHeader
-        badge="Gateway Access"
+        badge="OnAPI"
         badgeAccent="blue"
         glowAccents={['green', 'blue', 'purple']}
-        title="Simple access to OnSocial data and actions"
-        description="Use SOCIAL to power reads, advanced queries, and seamless application flows."
+        title="Access OnSocial data and actions"
+        description="A single endpoint for reads, queries, and gasless transactions."
       />
 
-      <section ref={ref} className="mb-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.5 }}
-          className="py-1"
-        >
-          <SectionHeader
-            badge="Credits"
-            title="One system. Clear split."
-            className="mb-6"
-          />
-
-          <div className="grid gap-6 border-t border-fade-section pt-6 md:grid-cols-3 md:gap-8">
-            {CREDIT_FLOW.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.step}
-                  className="border-l border-fade-v-section pl-5 md:pl-6"
-                >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl border"
-                      style={portalFrameStyle(item.accent)}
-                    >
-                      <Icon
-                        className="h-5 w-5"
-                        style={{ color: portalColors[item.accent] }}
-                      />
-                    </div>
-                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                      {item.step}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-semibold md:text-lg">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    {item.desc}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-      </section>
-
-      <motion.section
+      {/* ── Access Tiers ──────────────────────────────────────── */}
+      <motion.div
+        ref={ref}
         initial={{ opacity: 0, y: 20 }}
         animate={isInView ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.5, delay: 0.08 }}
-        className="mb-8"
+        transition={{ duration: 0.5 }}
       >
         <SectionHeader
           badge="Access Tiers"
-          title="Choose the access level your app needs"
+          badgeAccent="blue"
+          align="center"
+          className="mb-4"
         />
 
-        <p className="mb-5 max-w-xl text-sm text-muted-foreground">
-          Paid tiers define planned limits. Availability will be announced as
-          they go live.
-        </p>
-
-        <div className="grid gap-3 md:grid-cols-3">
-          {API_TIERS.map((tier) => (
+        <div className="grid gap-4 md:grid-cols-3">
+          {TIERS.map((tier) => (
             <SurfacePanel
               key={tier.name}
               radius="xl"
               tone="soft"
-              padding="roomy"
-              className="relative flex h-full flex-col overflow-hidden"
+              padding="none"
+              className={
+                tier.live
+                  ? 'border-[var(--portal-green-border)] shadow-[0_0_20px_var(--portal-green-shadow)]'
+                  : 'opacity-50'
+              }
             >
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-28 opacity-70 blur-2xl"
-                style={{
-                  background: `radial-gradient(circle at 20% 15%, ${portalColors[tier.accent]}, transparent 45%)`,
-                }}
-              />
-              <div className="relative z-10">
-                <div className="mb-4 flex items-start justify-between gap-3">
-                  <div
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl border"
-                    style={portalFrameStyle(tier.accent)}
+              <div className="px-5 pt-5 pb-1 md:px-6 md:pt-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h3
+                    className="text-lg font-bold tracking-[-0.02em]"
+                    style={{ color: portalColors[tier.accent] }}
                   >
-                    {tier.accent === 'green' ? (
-                      <Coins
-                        className="h-5 w-5"
-                        style={{ color: portalColors[tier.accent] }}
-                      />
-                    ) : tier.accent === 'blue' ? (
-                      <Server
-                        className="h-5 w-5"
-                        style={{ color: portalColors[tier.accent] }}
-                      />
-                    ) : (
-                      <Layers
-                        className="h-5 w-5"
-                        style={{ color: portalColors[tier.accent] }}
-                      />
-                    )}
-                  </div>
-                  <PortalBadge
-                    accent={tier.available ? 'green' : tier.accent}
-                    size="sm"
-                    casing="uppercase"
-                    tracking="normal"
+                    {tier.name}
+                  </h3>
+                  <span
+                    className="text-[10px] font-medium uppercase tracking-[0.14em]"
+                    style={{
+                      color: tier.live
+                        ? portalColors.green
+                        : 'var(--muted-foreground)',
+                    }}
                   >
-                    {tier.available ? 'Live now' : 'Planned'}
-                  </PortalBadge>
+                    {tier.live ? 'Live' : 'Planned'}
+                  </span>
                 </div>
-
-                <h3 className="text-xl font-bold tracking-[-0.03em] md:text-2xl">
-                  {tier.name}
-                </h3>
-                <div className="mt-3 flex items-end gap-2">
-                  <span className="text-3xl font-bold tracking-[-0.03em] md:text-4xl">
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="text-2xl font-bold tracking-[-0.03em]">
                     {tier.price}
                   </span>
-                  <span className="pb-1 text-sm text-muted-foreground">
+                  <span className="text-xs text-muted-foreground">
                     {tier.priceNote}
                   </span>
                 </div>
-
-                <div className="mt-5 space-y-3 border-t border-fade-section pt-4">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Rate limit</span>
-                    <span className="font-medium">{tier.rateLimit}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Query depth</span>
-                    <span className="font-medium">{tier.queryDepth}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Complexity</span>
-                    <span className="font-medium">
-                      {tier.complexity.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Row limit</span>
-                    <span className="font-medium">{tier.rowLimit}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">Aggregations</span>
-                    <span className="inline-flex items-center gap-1 font-medium">
-                      {tier.aggregations ? (
-                        <>
-                          <CheckCircle2
-                            className="h-4 w-4"
-                            style={{ color: portalColors.green }}
-                          />
-                          Enabled
-                        </>
-                      ) : (
-                        'Not included'
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <Button
-                  disabled={!tier.available}
-                  variant={tier.available ? 'accent' : 'outline'}
-                  size="sm"
-                  className="mt-5 w-full justify-center gap-2"
-                >
-                  {tier.available ? (
-                    <>
-                      Use Free Tier
-                      <ArrowRight
-                        className={`h-4 w-4 ${buttonArrowRightClass}`}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      Planned
-                      <ArrowUpRight className="h-4 w-4" />
-                    </>
-                  )}
-                </Button>
               </div>
+
+              <StatStrip columns={3} className="mt-2">
+                <StatStripCell label="Rate" value={tier.rate} showDivider />
+                <StatStripCell label="Depth" value={tier.depth} showDivider />
+                <StatStripCell label="Complexity" value={tier.complexity} />
+              </StatStrip>
+              <StatStrip columns={2} groupClassName="border-t-0">
+                <StatStripCell label="Rows" value={tier.rows} showDivider />
+                <StatStripCell
+                  label="Aggregations"
+                  value={tier.aggregations ? 'Yes' : 'No'}
+                  valueClassName={
+                    tier.aggregations
+                      ? 'portal-green-text'
+                      : 'text-muted-foreground'
+                  }
+                />
+              </StatStrip>
             </SurfacePanel>
           ))}
         </div>
-      </motion.section>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={isInView ? { opacity: 1 } : {}}
-        transition={{ duration: 0.5, delay: 0.18 }}
-      >
-        <SurfacePanel radius="xl" tone="soft" className="p-4 md:p-5">
-          <div className="flex items-start gap-3 text-sm text-muted-foreground">
-            <Info className="portal-blue-icon mt-0.5 h-4 w-4 flex-shrink-0" />
-            <p className="leading-6">
-              Free tier is available now. Pro and Scale tiers will launch once
-              credit purchasing is integrated with the gateway. Pricing remains
-              SOCIAL-denominated and settles dynamically at market rate.
-            </p>
-          </div>
-        </SurfacePanel>
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          Paid tiers use SOCIAL credits — 60% funds infrastructure, 40% goes
+          to the participation pool.
+        </p>
       </motion.div>
     </PageShell>
   );

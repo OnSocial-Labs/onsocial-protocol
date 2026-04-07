@@ -9,10 +9,11 @@ import {
   Link2,
   Mail,
   RotateCcw,
+  Share2,
   XCircle,
   Vote,
 } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FaXTwitter } from 'react-icons/fa6';
 import { RiTelegram2Line } from 'react-icons/ri';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,7 @@ export function GovernanceLiveSummary({
   rejectVotes,
   removeVotes,
   approveVotes,
+  confirmedAction = null,
 }: {
   liveProposal: GovernanceDaoProposal;
   liveProposalId: number | null;
@@ -91,9 +93,13 @@ export function GovernanceLiveSummary({
   rejectVotes: string;
   removeVotes: string;
   approveVotes: string;
+  confirmedAction?: 'VoteApprove' | 'VoteReject' | 'VoteRemove' | 'Finalize' | null;
 }) {
   const totalWeight = votingProgress.totalWeight ?? 0;
   const isResolved = Boolean(resolvedOutcomeLabel);
+  const pulseApprove = confirmedAction === 'VoteApprove';
+  const pulseReject = confirmedAction === 'VoteReject';
+  const pulseRemove = confirmedAction === 'VoteRemove';
   const approvePercent =
     totalWeight > 0 ? (votingProgress.approvals / totalWeight) * 100 : 0;
   const rejectPercent =
@@ -118,19 +124,19 @@ export function GovernanceLiveSummary({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
           <span
-            className={`inline-flex items-center gap-1 ${getCounterToneClass('approve', approveVotes)}`}
+            className={`inline-flex items-center gap-1 transition-all duration-500 ${getCounterToneClass('approve', approveVotes)} ${pulseApprove ? 'scale-110 brightness-125' : ''}`}
           >
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
             <span className="break-all">{approveVotes}</span>
           </span>
           <span
-            className={`inline-flex items-center gap-1 ${getCounterToneClass('reject', rejectVotes)}`}
+            className={`inline-flex items-center gap-1 transition-all duration-500 ${getCounterToneClass('reject', rejectVotes)} ${pulseReject ? 'scale-110 brightness-125' : ''}`}
           >
             <XCircle className="h-3.5 w-3.5 shrink-0" />
             <span className="break-all">{rejectVotes}</span>
           </span>
           <span
-            className={`inline-flex items-center gap-1 ${getCounterToneClass('remove', removeVotes)}`}
+            className={`inline-flex items-center gap-1 transition-all duration-500 ${getCounterToneClass('remove', removeVotes)} ${pulseRemove ? 'scale-110 brightness-125' : ''}`}
           >
             <Vote className="h-3.5 w-3.5 shrink-0" />
             <span className="break-all">{removeVotes}</span>
@@ -580,6 +586,11 @@ export function ShareProposal({
   label: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [canNativeShare, setCanNativeShare] = useState(false);
+
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== 'undefined' && !!navigator.share);
+  }, []);
 
   const getUrl = useCallback(
     () => `${window.location.origin}/governance/${encodeURIComponent(appId)}`,
@@ -592,6 +603,20 @@ export function ShareProposal({
     setTimeout(() => setCopied(false), 2000);
   }, [getUrl]);
 
+  const shareText = `🗳️ "${label}" is live on OnSocial governance — follow the vote and share your take`;
+
+  const handleNativeShare = useCallback(async () => {
+    try {
+      await navigator.share({
+        title: `OnSocial Proposal: ${label}`,
+        text: shareText,
+        url: getUrl(),
+      });
+    } catch {
+      /* user cancelled */
+    }
+  }, [label, shareText, getUrl]);
+
   const xText = `🗳️ "${label}" is live on @OnSocial governance — follow the vote and share your take`;
   const tgText = `🗳️ New OnSocial proposal: "${label}" — follow the vote and share your take`;
   const emailSubject = `OnSocial Proposal: ${label}`;
@@ -601,42 +626,70 @@ export function ShareProposal({
     <div className="mt-3 flex items-center gap-2 border-t border-fade-detail pt-3">
       <span className="mr-0.5 text-xs text-muted-foreground">Share</span>
 
-      <a
-        href={`https://x.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(getUrl())}`}
-        target="_blank"
-        rel="noreferrer"
-        className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-        title="Share on X"
-      >
-        <FaXTwitter className="h-4 w-4" />
-      </a>
+      {canNativeShare ? (
+        /* ── Mobile / native share sheet ── */
+        <>
+          <button
+            type="button"
+            onClick={handleNativeShare}
+            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+            title="Share proposal"
+          >
+            <Share2 className="h-4 w-4" />
+          </button>
 
-      <a
-        href={`https://t.me/share/url?url=${encodeURIComponent(getUrl())}&text=${encodeURIComponent(tgText)}`}
-        target="_blank"
-        rel="noreferrer"
-        className="text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
-        title="Share on Telegram"
-      >
-        <RiTelegram2Line className="h-4 w-4" />
-      </a>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+            title="Copy link"
+          >
+            <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
+          </button>
+        </>
+      ) : (
+        /* ── Desktop fallback: individual icons ── */
+        <>
+          <a
+            href={`https://x.com/intent/tweet?text=${encodeURIComponent(xText)}&url=${encodeURIComponent(getUrl())}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+            title="Share on X"
+          >
+            <FaXTwitter className="h-4 w-4" />
+          </a>
 
-      <a
-        href={`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
-        className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-        title="Share via email"
-      >
-        <Mail className="h-4 w-4" />
-      </a>
+          <a
+            href={`https://t.me/share/url?url=${encodeURIComponent(getUrl())}&text=${encodeURIComponent(tgText)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground transition-all hover:text-[#26A5E4] hover:brightness-125 hover:scale-110"
+            title="Share on Telegram"
+          >
+            <RiTelegram2Line className="h-4 w-4" />
+          </a>
 
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
-        title="Copy link"
-      >
-        <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
-      </button>
+          <a
+            href={`mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+            title="Share via email"
+          >
+            <Mail className="h-4 w-4" />
+          </a>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="text-muted-foreground transition-all hover:text-foreground hover:brightness-125 hover:scale-110"
+            title="Copy link"
+          >
+            <Link2 className={`h-4 w-4 ${copied ? 'text-green-400' : ''}`} />
+          </button>
+        </>
+      )}
 
       {copied && <span className="text-xs text-green-400">Copied!</span>}
     </div>

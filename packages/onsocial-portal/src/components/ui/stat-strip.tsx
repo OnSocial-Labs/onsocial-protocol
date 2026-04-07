@@ -8,6 +8,8 @@ interface StatStripProps {
   children: React.ReactNode;
   /** Number of columns. Partial last rows are automatically centered. */
   columns?: number;
+  /** Columns on mobile (<768px). Falls back to `columns` when omitted. */
+  mobileColumns?: number;
   className?: string;
   /** Extra classes on the outer wrapper. */
   groupClassName?: string;
@@ -16,6 +18,7 @@ interface StatStripProps {
 export function StatStrip({
   children,
   columns = 3,
+  mobileColumns,
   className,
   groupClassName,
 }: StatStripProps) {
@@ -25,6 +28,7 @@ export function StatStrip({
       <div
         className={cn('flex flex-wrap justify-center text-center', className)}
         style={{ '--stat-cols': columns } as React.CSSProperties}
+        {...(mobileColumns != null && { 'data-mobile-cols': mobileColumns })}
       >
         {children}
       </div>

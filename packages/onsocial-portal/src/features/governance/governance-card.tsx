@@ -157,6 +157,8 @@ function PartnerGovernanceCard({
   const [postActionRefreshUntil, setPostActionRefreshUntil] = useState<
     number | null
   >(null);
+  const [confirmedAction, setConfirmedAction] =
+    useState<GovernanceDaoAction | null>(null);
   const [rawProposalOpen, setRawProposalOpen] = useState(false);
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
@@ -166,6 +168,8 @@ function PartnerGovernanceCard({
     : undefined;
   const daoAccountId = proposal?.dao_account ?? null;
   const liveProposalId = proposal?.proposal_id ?? null;
+  const hasDaoSource = !!daoAccountId && liveProposalId !== null;
+  const [daoSettled, setDaoSettled] = useState(!hasDaoSource);
   const isAppWalletViewer =
     !!accountId &&
     !!app.wallet_id &&
@@ -255,6 +259,7 @@ function PartnerGovernanceCard({
       } finally {
         if (!cancelled) {
           setDaoLoading(false);
+          setDaoSettled(true);
         }
       }
     }
@@ -377,7 +382,7 @@ function PartnerGovernanceCard({
     if (!wallet || !daoAccountId || liveProposalId === null || !liveProposal) {
       setTxResult({
         type: 'error',
-        msg: 'Connect an authorized guardian wallet to continue.',
+        msg: 'Connect a guardian wallet to continue.',
       });
       return;
     }
@@ -405,9 +410,9 @@ function PartnerGovernanceCard({
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: `Your ${formatActionLabel(action)} was submitted. Confirming on-chain.`,
-        successMessage: `Your ${formatActionLabel(action)} was confirmed on-chain.`,
-        failureMessage: `Your ${formatActionLabel(action)} failed on-chain.`,
+        submittedMessage: `${formatActionLabel(action)} submitted…`,
+        successMessage: `${formatActionLabel(action)} confirmed.`,
+        failureMessage: `${formatActionLabel(action)} failed.`,
       });
 
       if (!confirmed) {
@@ -425,16 +430,18 @@ function PartnerGovernanceCard({
       } catch {
         setTxResult({
           type: 'error',
-          msg: 'Governance action confirmed on-chain, but live DAO refresh failed.',
+          msg: 'Action confirmed but DAO state failed to refresh.',
         });
       }
 
+      setConfirmedAction(action);
+      setTimeout(() => setConfirmedAction(null), 3000);
       setPostActionRefreshUntil(Date.now() + POST_ACTION_REFRESH_WINDOW_MS);
     } catch (error) {
       setTxResult({
         type: 'error',
         msg:
-          error instanceof Error ? error.message : 'Governance action failed',
+          error instanceof Error ? error.message : 'Action failed.',
       });
     } finally {
       setActionLoading(null);
@@ -464,8 +471,8 @@ function PartnerGovernanceCard({
       setTxResult({
         type: 'success',
         msg: result.already_reopened
-          ? 'Reapply is already open for this application.'
-          : 'Reapply is open. The applicant can submit again now.',
+          ? 'Already open for reapply.'
+          : 'Reapply opened.',
       });
       await onGovernanceUpdated?.();
     } catch (error) {
@@ -474,7 +481,7 @@ function PartnerGovernanceCard({
         msg:
           error instanceof Error
             ? error.message
-            : 'Failed to reopen application',
+            : 'Reopen failed.',
       });
     } finally {
       setReopenLoading(false);
@@ -514,7 +521,11 @@ function PartnerGovernanceCard({
   const fallbackMetaTime = formatIsoTimestamp(app.reviewed_at);
 
   return (
-    <>
+    <div
+      className={`transition-opacity duration-300 ${
+        daoSettled ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
+    >
       <TransactionFeedbackToast result={txResult} onClose={clearTxResult} />
       <SurfacePanel
         id={app.app_id}
@@ -677,14 +688,32 @@ function PartnerGovernanceCard({
           </div>
         )}
 
-        {daoLoading && liveProposalId !== null && (
-          <p className="mt-4 text-xs text-muted-foreground">
-            Fetching live review status…
-          </p>
-        )}
+        <AnimatePresence initial={false}>
+          {daoLoading && liveProposalId !== null && (
+            <motion.p
+              key="dao-loading"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+              className="mt-4 overflow-hidden text-xs text-muted-foreground"
+            >
+              Fetching live review status…
+            </motion.p>
+          )}
+        </AnimatePresence>
 
-        {!daoLoading && liveProposal && liveStatusStyle && (
-          <div className="mt-4">
+        <AnimatePresence initial={false}>
+          {!daoLoading && liveProposal && liveStatusStyle && (
+            <motion.div
+              key="live-summary"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4">
             <GovernanceLiveSummary
               liveProposal={liveProposal}
               liveProposalId={liveProposalId}
@@ -700,6 +729,7 @@ function PartnerGovernanceCard({
               rejectVotes={rejectVotes}
               removeVotes={removeVotes}
               approveVotes={approveVotes}
+              confirmedAction={confirmedAction}
             />
 
             <GovernanceVoteActivity
@@ -781,8 +811,10 @@ function PartnerGovernanceCard({
                 void handleReopen();
               }}
             />
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {(app.status === 'proposal_submitted' || app.status === 'approved') && (
           <ApprovedConfigPanel
@@ -794,6 +826,6 @@ function PartnerGovernanceCard({
 
         <ShareProposal appId={app.app_id} label={app.label} />
       </SurfacePanel>
-    </>
+    </div>
   );
 }

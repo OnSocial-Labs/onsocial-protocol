@@ -48,11 +48,11 @@ export function TransactionFeedbackToast({
     <AnimatePresence initial={false}>
       {result && (
         <motion.div
-          initial={{ opacity: 0, y: -12, scale: 0.98 }}
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -12, scale: 0.98 }}
+          exit={{ opacity: 0, y: 12, scale: 0.98 }}
           transition={{ duration: 0.2 }}
-          className="pointer-events-none fixed inset-x-6 top-20 z-[2147483647] mx-auto w-auto max-w-md md:inset-x-4 md:top-20 md:w-full md:max-w-xl"
+          className="pointer-events-none fixed inset-x-6 bottom-6 z-[2147483647] mx-auto w-auto max-w-md md:inset-x-4 md:bottom-auto md:top-20 md:w-full md:max-w-xl"
         >
           <div
             className={`pointer-events-auto flex items-center gap-3 rounded-2xl border px-4 py-3 ${

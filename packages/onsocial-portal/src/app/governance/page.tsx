@@ -7,7 +7,6 @@ import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
 import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
 import { SectionHeader } from '@/components/layout/section-header';
 import { Button } from '@/components/ui/button';
-import { PanelSkeleton } from '@/components/ui/skeleton';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { fetchDaoPolicy, fetchGovernanceFeed } from '@/features/governance/api';
 import { GovernanceCard } from '@/features/governance/governance-card';
@@ -36,7 +35,7 @@ function GovernancePageContent() {
   const searchParams = useSearchParams();
   const [apps, setApps] = useState<Application[]>([]);
   const [proposalPeriodNs, setProposalPeriodNs] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeLane, setActiveLane] = useState<GovernanceLane>(() =>
     parseLane(searchParams.get('lane'))
@@ -79,8 +78,10 @@ function GovernancePageContent() {
     };
   }, [activeLane, currentPage, pathname, searchQuery, statusFilter]);
 
+  const hasLoadedApps = useRef(false);
+
   const loadApps = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedApps.current) setLoading(true);
     setError('');
     try {
       const [data, policy] = await Promise.all([
@@ -89,8 +90,9 @@ function GovernancePageContent() {
       ]);
       setApps(data);
       setProposalPeriodNs(policy?.proposal_period ?? null);
+      hasLoadedApps.current = true;
     } catch {
-      setError('Failed to load governance queue.');
+      if (!hasLoadedApps.current) setError('Failed to load governance queue.');
     } finally {
       setLoading(false);
     }
@@ -165,18 +167,7 @@ function GovernancePageContent() {
         </p>
       )}
 
-      {isInitialLoading && (
-        <SurfacePanel
-          radius="xl"
-          tone="soft"
-          padding="roomy"
-          className="overflow-hidden"
-        >
-          <PanelSkeleton minHeight="12rem" detailLines={3} statBlocks={0} />
-        </SurfacePanel>
-      )}
-
-      {!isInitialLoading && !error && apps.length === 0 && (
+      {!loading && !error && apps.length === 0 && (
         <SurfacePanel
           radius="xl"
           tone="soft"
@@ -185,7 +176,7 @@ function GovernancePageContent() {
           No governance items right now.
         </SurfacePanel>
       )}
-      {apps.length > 0 && (
+      {(apps.length > 0 || isInitialLoading) && (
         <>
           <SectionHeader
             badge="Proposals"
@@ -214,33 +205,52 @@ function GovernancePageContent() {
             visibleStatusOptions={visibleStatusOptions}
           />
 
-          <div
-            ref={cardListRef}
-            className="mb-4 flex items-center justify-between gap-3 px-1 text-sm text-muted-foreground"
-          >
-            <p>
-              Showing{' '}
-              <span className="text-foreground">{filteredItems.length}</span> of{' '}
-              <span className="text-foreground">{laneItems.length}</span>{' '}
-              {proposalLabel}
-            </p>
-            {(statusFilter !== 'all' || normalizedQuery) && (
-              <button
-                type="button"
-                onClick={() => {
-                  handleFilterChange(() => {
-                    setStatusFilter('all');
-                    setSearchQuery('');
-                  });
-                }}
-                className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
+          {!isInitialLoading && (
+            <div
+              ref={cardListRef}
+              className="mb-4 flex items-center justify-between gap-3 px-1 text-sm text-muted-foreground"
+            >
+              <p>
+                Showing{' '}
+                <span className="text-foreground">{filteredItems.length}</span>{' '}
+                of <span className="text-foreground">{laneItems.length}</span>{' '}
+                {proposalLabel}
+              </p>
+              {(statusFilter !== 'all' || normalizedQuery) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleFilterChange(() => {
+                      setStatusFilter('all');
+                      setSearchQuery('');
+                    });
+                  }}
+                  className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          )}
 
-          {filteredItems.length === 0 ? (
+          {isInitialLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <SurfacePanel
+                  key={i}
+                  radius="xl"
+                  tone="solid"
+                  borderTone="strong"
+                  padding="roomy"
+                  className="animate-pulse"
+                >
+                  <div className="h-4 w-2/5 rounded bg-muted-foreground/10" />
+                  <div className="mt-3 h-3 w-3/4 rounded bg-muted-foreground/10" />
+                  <div className="mt-6 h-3 w-1/2 rounded bg-muted-foreground/10" />
+                </SurfacePanel>
+              ))}
+            </div>
+          ) : filteredItems.length === 0 ? (
             <SurfacePanel
               radius="xl"
               tone="soft"

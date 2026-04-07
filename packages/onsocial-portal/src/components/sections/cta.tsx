@@ -3,9 +3,9 @@
 import { motion, useInView } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Coins, Handshake } from 'lucide-react';
+import { Coins, Handshake } from 'lucide-react';
 import { useWallet } from '@/contexts/wallet-context';
-import { Button, buttonArrowRightClass } from '@/components/ui/button';
+import { ArrowUpRight } from 'lucide-react';
 import { StatStrip, StatStripCell } from '@/components/ui/stat-strip';
 import { PulsingDots } from '@/components/ui/pulsing-dots';
 import { SurfacePanel } from '@/components/ui/surface-panel';
@@ -244,44 +244,30 @@ export function CTA() {
           Live
         </motion.h2>
         <div className={section.grid}>
-          <SurfacePanel
-            radius="xl"
-            tone="solid"
-            borderTone="strong"
-            padding="none"
-            className="overflow-hidden"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className={section.card}
+          <Link href="/partners" className="group">
+            <SurfacePanel
+              radius="xl"
+              tone="solid"
+              borderTone="strong"
+              padding="none"
+              className="h-full overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-[var(--portal-purple-border-strong)] hover:shadow-[0_0_20px_var(--portal-purple-shadow)]"
             >
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="space-y-1">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={isInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className={section.card}
+              >
+                <div className="flex flex-col items-center text-center gap-1">
                   <span className="portal-purple-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
                     <Handshake className="portal-purple-icon h-3.5 w-3.5" />
-                    Rewards
+                    Collab
+                    <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </span>
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Social activity rewards — live in Telegram, ready to
-                    integrate.
+                    Social activity rewards — in your Telegram group.
                   </p>
                 </div>
-
-                <Button
-                  variant="secondary"
-                  asChild
-                  className="group w-full sm:w-auto shrink-0"
-                >
-                  <Link href="/partners">
-                    Integrate
-                    <ArrowRight
-                      className={`ml-2 h-4 w-4 ${buttonArrowRightClass}`}
-                    />
-                  </Link>
-                </Button>
-              </div>
 
               <div className="pt-4">
                 {rewardsNetworkLoading ? (
@@ -354,42 +340,34 @@ export function CTA() {
                   </div>
                 ) : null}
               </div>
-            </motion.div>
-          </SurfacePanel>
+              </motion.div>
+            </SurfacePanel>
+          </Link>
 
-          <SurfacePanel
-            radius="xl"
-            tone="solid"
-            borderTone="strong"
-            padding="none"
-            className="overflow-hidden"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className={section.card}
+          <Link href="/boost" className="group">
+            <SurfacePanel
+              radius="xl"
+              tone="solid"
+              borderTone="strong"
+              padding="none"
+              className="h-full overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-[var(--portal-blue-border-strong)] hover:shadow-[0_0_20px_var(--portal-blue-shadow)]"
             >
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="space-y-1">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={isInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className={section.card}
+              >
+                <div className="flex flex-col items-center text-center gap-1">
                   <span className="portal-blue-text inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em]">
                     <Coins className="portal-blue-icon h-3.5 w-3.5" />
                     Boost
+                    <ArrowUpRight className="h-3 w-3 opacity-40 transition-all duration-200 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </span>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     Lock SOCIAL to grow influence and collect rewards.
                   </p>
                 </div>
-
-                <Button asChild className="group w-full sm:w-auto shrink-0">
-                  <Link href="/boost">
-                    Open Boost
-                    <ArrowRight
-                      className={`ml-2 h-4 w-4 ${buttonArrowRightClass}`}
-                    />
-                  </Link>
-                </Button>
-              </div>
 
               <div className="pt-4">
                 {boostLoading ? (
@@ -410,8 +388,9 @@ export function CTA() {
                   </StatStrip>
                 )}
               </div>
-            </motion.div>
-          </SurfacePanel>
+              </motion.div>
+            </SurfacePanel>
+          </Link>
         </div>
       </div>
     </section>

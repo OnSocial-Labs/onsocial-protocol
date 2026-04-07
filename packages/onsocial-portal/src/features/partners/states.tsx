@@ -14,7 +14,6 @@ import {
   Eye,
   EyeOff,
   Key,
-  Sparkles,
   MessageSquare,
   RefreshCw,
   Terminal,
@@ -147,18 +146,7 @@ export function PendingState({
   const explorerHref = proposal?.tx_hash
     ? `${ACTIVE_NEAR_EXPLORER_URL}/txns/${proposal.tx_hash}`
     : null;
-  const governanceHref = (() => {
-    if (!isGovernance) {
-      return null;
-    }
-
-    const query =
-      proposal?.proposal_id !== null && proposal?.proposal_id !== undefined
-        ? String(proposal.proposal_id)
-        : appId;
-
-    return `/governance?lane=partners&status=open&q=${encodeURIComponent(query)}`;
-  })();
+  const governanceHref = isGovernance ? `/governance/${encodeURIComponent(appId)}` : null;
 
   return (
     <div className="px-1 py-2 text-center md:px-2 md:py-3">
@@ -228,7 +216,7 @@ export function PendingState({
                 href={governanceHref}
                 className="portal-action-link inline-flex items-center gap-1.5 text-sm"
               >
-                View in governance
+                View DAO proposal
               </Link>
             )}
             {explorerHref && (
@@ -366,7 +354,7 @@ export function GovernanceEligibilityState({
     ? BigInt(eligibility.nearStorageNeeded) > 0n
     : false;
   const proposalSetupSummary = eligibility?.canPropose
-    ? `${delegatedWeight} SOCIAL delegated — you're above the ${requiredWeight} threshold.`
+    ? `${delegatedWeight} SOCIAL delegated — you meet the ${requiredWeight} threshold.`
     : `${requiredWeight} delegated SOCIAL needed to open the proposal.`;
 
   let nextActionTitle = 'Checking things out';
@@ -508,7 +496,7 @@ export function GovernanceEligibilityState({
       <StatStrip groupClassName="mt-2">
         <StatStripCell label="Threshold" showDivider>
           <p className="portal-slate-text font-mono text-sm font-semibold tracking-tight md:text-base">
-            {requiredWeight}
+            {requiredWeight} SOCIAL
           </p>
         </StatStripCell>
         {eligibility && !eligibility.canPropose && (
@@ -525,7 +513,9 @@ export function GovernanceEligibilityState({
               canCoverProposalBond ? 'portal-green-text' : 'portal-amber-text'
             )}
           >
-            {nearBalance} / {proposalBondDisplay} NEAR
+            {canCoverProposalBond
+              ? `${proposalBondDisplay} NEAR`
+              : `${nearBalance} / ${proposalBondDisplay} NEAR`}
           </span>
         </StatStripCell>
       </StatStrip>
@@ -694,6 +684,7 @@ export function ApprovedDashboard({
 }) {
   const { accountId } = useWallet();
   const [tab, setTab] = useState<'bot' | 'sdk'>('bot');
+  const [setupOpen, setSetupOpen] = useState(false);
   const [keyRevealed, setKeyRevealed] = useState(false);
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
   const [rotating, setRotating] = useState(false);
@@ -736,186 +727,182 @@ export function ApprovedDashboard({
   };
 
   return (
-    <div className="space-y-6">
-      <SurfacePanel radius="xl" tone="soft" padding="roomy">
-        <div className="flex items-start gap-4">
-          <div
-            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border"
-            style={portalFrameStyle('green')}
-          >
-            <Key className="portal-green-icon w-5 h-5" />
+    <div>
+      {/* ── Key header ── */}
+      <div className="flex items-start gap-4">
+        <div
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border"
+          style={portalFrameStyle('green')}
+        >
+          <Key className="portal-green-icon w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-semibold tracking-[-0.02em]">SOCIAL key</h3>
+            <Button
+              onClick={() => setShowRotateConfirm(true)}
+              variant="secondary"
+              size="sm"
+              className="gap-1.5 text-xs"
+              title="Rotate API key"
+              disabled={!hasApiKey}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Rotate
+            </Button>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold tracking-[-0.02em]">OnApi key</h3>
-              <Button
-                onClick={() => setShowRotateConfirm(true)}
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 text-xs"
-                title="Rotate API key"
-                disabled={!hasApiKey}
+          <p className="text-xs text-muted-foreground mb-3">
+            App:{' '}
+            <span className="font-mono text-foreground">
+              {registration.appId}
+            </span>
+            {' · '}
+            Label:{' '}
+            <span className="text-foreground">{registration.label}</span>
+          </p>
+          <div className="relative">
+            <code className="portal-green-text block break-all rounded-[1rem] border border-border/50 bg-background/50 px-3 py-2.5 pr-[4.5rem] font-mono text-xs md:px-4 md:py-3 md:text-sm select-none">
+              {hasApiKey && keyRevealed ? registration.apiKey : maskedKey}
+            </code>
+            {hasApiKey && (
+              <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
+                <button
+                  onClick={() => setKeyRevealed((value) => !value)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-muted/50 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                  title={keyRevealed ? 'Hide key' : 'Reveal key'}
+                >
+                  {keyRevealed ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+                <CopyButton
+                  text={registration.apiKey!}
+                  className="inline-flex h-7 w-7 items-center justify-center"
+                />
+              </div>
+            )}
+          </div>
+          <AnimatePresence initial={false} mode="wait">
+            {hasApiKey ? (
+              <motion.p
+                key="api-key-note"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="portal-amber-text mt-2 text-xs"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Rotate
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mb-3">
-              App:{' '}
-              <span className="font-mono text-foreground">
-                {registration.appId}
-              </span>
-              {' · '}
-              Label:{' '}
-              <span className="text-foreground">{registration.label}</span>
-            </p>
-            <div className="relative">
-              <code className="portal-green-text block break-all rounded-[1rem] border border-border/50 bg-background/50 px-4 py-3 pr-20 font-mono text-sm select-none">
-                {hasApiKey && keyRevealed ? registration.apiKey : maskedKey}
-              </code>
-              {hasApiKey && (
-                <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                  <button
-                    onClick={() => setKeyRevealed((value) => !value)}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-muted/50 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
-                    title={keyRevealed ? 'Hide key' : 'Reveal key'}
-                  >
-                    {keyRevealed ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                  <CopyButton
-                    text={registration.apiKey!}
-                    className="inline-flex h-7 w-7 items-center justify-center"
-                  />
-                </div>
-              )}
-            </div>
-            <AnimatePresence initial={false} mode="wait">
-              {hasApiKey ? (
-                <motion.p
-                  key="api-key-note"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="portal-amber-text mt-2 text-xs"
+                Keep this private and store it somewhere safe.
+              </motion.p>
+            ) : (
+              <motion.div
+                key="reveal-key-cta"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="mt-3 flex flex-wrap items-center gap-3"
+              >
+                <Button
+                  onClick={() => {
+                    onRevealKey?.().catch(() => {});
+                  }}
+                  variant="accent"
+                  size="sm"
+                  disabled={revealingKey || !onRevealKey}
+                  loading={revealingKey}
                 >
-                  Keep this private and store it somewhere safe.
-                </motion.p>
-              ) : (
-                <motion.div
-                  key="reveal-key-cta"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="mt-3 flex flex-wrap items-center gap-3"
-                >
-                  <Button
-                    onClick={() => {
-                      onRevealKey?.().catch(() => {});
-                    }}
-                    variant="accent"
-                    size="sm"
-                    disabled={revealingKey || !onRevealKey}
-                    loading={revealingKey}
-                  >
-                    Reveal full key
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Full key access requires wallet confirmation.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <AnimatePresence initial={false}>
-              {actionError ? (
-                <motion.p
-                  key="api-key-action-error"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: 'easeOut' }}
-                  className="portal-red-text mt-3 text-xs"
-                >
-                  {actionError}
-                </motion.p>
-              ) : null}
-            </AnimatePresence>
+                  Reveal full key
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Full key access requires wallet confirmation.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <AnimatePresence initial={false}>
+            {actionError ? (
+              <motion.p
+                key="api-key-action-error"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="portal-red-text mt-3 text-xs"
+              >
+                {actionError}
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
 
-            <AnimatePresence initial={false}>
-              {showRotateConfirm && hasApiKey ? (
-                <motion.div
-                  key="rotate-confirm"
-                  initial={{ opacity: 0, height: 0, y: -6 }}
-                  animate={{ opacity: 1, height: 'auto', y: 0 }}
-                  exit={{ opacity: 0, height: 0, y: -6 }}
-                  transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-                  className="overflow-hidden"
-                >
-                  <div className="portal-amber-panel mt-4 rounded-[1rem] border p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="portal-amber-icon mt-0.5 h-5 w-5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="mb-1 text-sm font-medium">Rotate key?</p>
-                        <p className="mb-3 text-xs text-muted-foreground">
-                          The current key stops working immediately. Update the
-                          bot&apos;s
-                          <code className="portal-blue-text">
-                            {' '}
-                            ONSOCIAL_API_KEY
-                          </code>{' '}
-                          env var with the new value.
+          <AnimatePresence initial={false}>
+            {showRotateConfirm && hasApiKey ? (
+              <motion.div
+                key="rotate-confirm"
+                initial={{ opacity: 0, height: 0, y: -6 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="portal-amber-panel mt-4 rounded-[1rem] border p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="portal-amber-icon mt-0.5 h-5 w-5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="mb-1 text-sm font-medium">Rotate key?</p>
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        The current key stops working immediately. Update the
+                        bot&apos;s
+                        <code className="portal-blue-text">
+                          {' '}
+                          ONSOCIAL_API_KEY
+                        </code>{' '}
+                        env var with the new value.
+                      </p>
+                      {rotateError && (
+                        <p className="portal-red-text mb-3 text-xs">
+                          {rotateError}
                         </p>
-                        {rotateError && (
-                          <p className="portal-red-text mb-3 text-xs">
-                            {rotateError}
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={handleRotate}
-                            disabled={rotating}
-                            size="sm"
-                            className="text-xs font-medium"
-                            loading={rotating}
-                          >
-                            Rotate key
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setShowRotateConfirm(false);
-                              setRotateError('');
-                            }}
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs"
-                            disabled={rotating}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleRotate}
+                          disabled={rotating}
+                          size="sm"
+                          className="text-xs font-medium"
+                          loading={rotating}
+                        >
+                          Rotate key
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setShowRotateConfirm(false);
+                            setRotateError('');
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs"
+                          disabled={rotating}
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </div>
                   </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
-      </SurfacePanel>
+      </div>
 
-      <SurfacePanel radius="xl" tone="soft" padding="roomy">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <Sparkles className="portal-purple-icon h-4 w-4" />
-          <span>App Rules · On-Chain</span>
-        </h3>
+      {/* ── Usage bars (inline) ── */}
+      <div className="mt-5 border-t border-fade-detail pt-5">
         {configLoading && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <PulsingDots size="sm" /> Loading…
+            <PulsingDots size="sm" /> Loading on-chain data…
           </div>
         )}
         {!configLoading && !onChainConfig && (
@@ -927,232 +914,251 @@ export function ApprovedDashboard({
         {!configLoading && onChainConfig && (
           <OnChainConfigSummary config={onChainConfig} />
         )}
-      </SurfacePanel>
+      </div>
 
-      <SurfacePanel radius="xl" tone="soft" padding="roomy">
-        <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Setup Guide
-        </h3>
-        {hasApiKey ? (
-          <>
-            <div className="mb-4 flex max-w-xs gap-1 rounded-full border border-border/50 bg-muted/20 p-1">
-              <Button
-                type="button"
-                onClick={() => setTab('bot')}
-                variant={tab === 'bot' ? 'default' : 'outline'}
-                className="h-auto flex-1 rounded-full px-4 py-2 text-sm"
-              >
-                <Terminal className="w-4 h-4 inline mr-1.5" />
-                Telegram Bot
-              </Button>
-              <Button
-                type="button"
-                onClick={() => setTab('sdk')}
-                variant={tab === 'sdk' ? 'default' : 'outline'}
-                className="h-auto flex-1 rounded-full px-4 py-2 text-sm"
-              >
-                <Code2 className="w-4 h-4 inline mr-1.5" />
-                SDK Only
-              </Button>
-            </div>
+      {/* ── Setup Guide (collapsible) ── */}
+      <div className="mt-5 border-t border-fade-detail pt-4">
+        <button
+          type="button"
+          onClick={() => setSetupOpen((open) => !open)}
+          aria-expanded={setupOpen}
+          className="group -mx-1 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors hover:bg-foreground/[0.03]"
+        >
+          <span className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors group-hover:text-foreground/80">
+            Setup Guide
+          </span>
+          <ChevronDown
+            className={cn(
+              'h-3.5 w-3.5 text-muted-foreground transition-[color,transform] duration-200 group-hover:text-foreground/80',
+              setupOpen && 'rotate-180'
+            )}
+          />
+        </button>
 
-            <AnimatePresence initial={false} mode="wait">
-              <motion.div
-                key={tab}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="space-y-4">
-                  <SetupStepHeader step={1} title="Install" />
-                  <CodeBlock code={installSnippet(tab)} language="bash" />
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <SetupStepHeader
-                    step={2}
-                    title="Add .env"
-                    action={
-                      <DownloadButton
-                        filename=".env"
-                        content={envSnippet(
-                          registration.appId,
-                          registration.apiKey!,
-                          tab
-                        )}
-                        label="Download .env"
-                      />
-                    }
-                  />
-                  <CodeBlock
-                    code={envSnippet(
-                      registration.appId,
-                      registration.apiKey!,
-                      tab,
-                      {
-                        maskApiKey: true,
-                      }
-                    )}
-                    language="bash"
-                  />
-                  {tab === 'bot' && (
-                    <p className="text-xs text-muted-foreground">
-                      A <code className="portal-blue-text">BOT_TOKEN</code>{' '}
-                      comes from{' '}
-                      <a
-                        href="https://t.me/BotFather"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="portal-action-link"
+        <AnimatePresence initial={false}>
+          {setupOpen && (
+            <motion.div
+              key="setup-content"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="pt-4">
+                {hasApiKey ? (
+                  <>
+                    <div className="mb-4 flex max-w-xs gap-1 rounded-full border border-border/50 bg-muted/20 p-1">
+                      <Button
+                        type="button"
+                        onClick={() => setTab('bot')}
+                        variant={tab === 'bot' ? 'default' : 'outline'}
+                        className="h-auto flex-1 rounded-full px-4 py-2 text-sm"
                       >
-                        @BotFather
-                      </a>{' '}
-                      on Telegram.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <SetupStepHeader
-                    step={3}
-                    title={tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'}
-                  />
-                  <CodeBlock
-                    code={tab === 'bot' ? botSnippet() : sdkOnlySnippet()}
-                  />
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <SetupStepHeader step={4} title="Run" />
-                  {tab === 'bot' ? (
-                    <CodeBlock code="npm start" language="bash" />
-                  ) : (
-                    <CodeBlock
-                      code="node --env-file=.env --import tsx app.ts"
-                      language="bash"
-                    />
-                  )}
-                </div>
-
-                {tab === 'bot' && (
-                  <div className="mt-6 border-t border-fade-detail pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="mb-1 text-sm font-medium">
-                          Download starter project
-                        </h4>
-                        <p className="text-xs text-muted-foreground">
-                          package.json + .env + bot.ts, ready for{' '}
-                          <code className="portal-blue-text">
-                            npm install &amp;&amp; npm start
-                          </code>
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <DownloadButton
-                          filename="package.json"
-                          content={packageJsonSnippet()}
-                          label="package.json"
-                        />
-                        <DownloadButton
-                          filename="bot.ts"
-                          content={botSnippet()}
-                          label="bot.ts"
-                        />
-                        <DownloadButton
-                          filename=".env"
-                          content={envSnippet(
-                            registration.appId,
-                            registration.apiKey!,
-                            tab
-                          )}
-                          label=".env"
-                        />
-                      </div>
+                        <Terminal className="w-4 h-4 inline mr-1.5" />
+                        Telegram Bot
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setTab('sdk')}
+                        variant={tab === 'sdk' ? 'default' : 'outline'}
+                        className="h-auto flex-1 rounded-full px-4 py-2 text-sm"
+                      >
+                        <Code2 className="w-4 h-4 inline mr-1.5" />
+                        SDK Only
+                      </Button>
                     </div>
+
+                    <AnimatePresence initial={false} mode="wait">
+                      <motion.div
+                        key={tab}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <div className="space-y-4">
+                          <SetupStepHeader step={1} title="Install" />
+                          <CodeBlock code={installSnippet(tab)} language="bash" />
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                          <SetupStepHeader
+                            step={2}
+                            title="Add .env"
+                            action={
+                              <DownloadButton
+                                filename=".env"
+                                content={envSnippet(
+                                  registration.appId,
+                                  registration.apiKey!,
+                                  tab
+                                )}
+                                label="Download .env"
+                              />
+                            }
+                          />
+                          <CodeBlock
+                            code={envSnippet(
+                              registration.appId,
+                              registration.apiKey!,
+                              tab,
+                              {
+                                maskApiKey: true,
+                              }
+                            )}
+                            language="bash"
+                          />
+                          {tab === 'bot' && (
+                            <p className="text-xs text-muted-foreground">
+                              A <code className="portal-blue-text">BOT_TOKEN</code>{' '}
+                              comes from{' '}
+                              <a
+                                href="https://t.me/BotFather"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="portal-action-link"
+                              >
+                                @BotFather
+                              </a>{' '}
+                              on Telegram.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                          <SetupStepHeader
+                            step={3}
+                            title={tab === 'bot' ? 'Create bot.ts' : 'Use the SDK'}
+                          />
+                          <CodeBlock
+                            code={tab === 'bot' ? botSnippet() : sdkOnlySnippet()}
+                          />
+                        </div>
+
+                        <div className="mt-6 space-y-4">
+                          <SetupStepHeader step={4} title="Run" />
+                          {tab === 'bot' ? (
+                            <CodeBlock code="npm start" language="bash" />
+                          ) : (
+                            <CodeBlock
+                              code="node --env-file=.env --import tsx app.ts"
+                              language="bash"
+                            />
+                          )}
+                        </div>
+
+                        {tab === 'bot' && (
+                          <div className="mt-6 border-t border-fade-detail pt-6">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <h4 className="mb-1 text-sm font-medium">
+                                  Download starter project
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  package.json + .env + bot.ts, ready for{' '}
+                                  <code className="portal-blue-text">
+                                    npm install &amp;&amp; npm start
+                                  </code>
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <DownloadButton
+                                  filename="package.json"
+                                  content={packageJsonSnippet()}
+                                  label="package.json"
+                                />
+                                <DownloadButton
+                                  filename="bot.ts"
+                                  content={botSnippet()}
+                                  label="bot.ts"
+                                />
+                                <DownloadButton
+                                  filename=".env"
+                                  content={envSnippet(
+                                    registration.appId,
+                                    registration.apiKey!,
+                                    tab
+                                  )}
+                                  label=".env"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── Preview (inline within setup, bot tab only) ── */}
+                        {tab === 'bot' && (
+                          <div className="mt-6 border-t border-fade-detail pt-6">
+                            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                              <MessageSquare className="portal-blue-icon mr-1.5 inline h-3.5 w-3.5" />
+                              Preview
+                            </p>
+                            <p className="mb-4 text-xs text-muted-foreground">
+                              How your bot looks in Telegram — fully branded, zero custom code.
+                            </p>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div>
+                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                  /start
+                                </p>
+                                <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
+                                  <p>🤝 OnSocial stands with {registration.label}</p>
+                                  <p className="mt-2">👋 Welcome!</p>
+                                  <p className="mt-2 text-gray-400">
+                                    Earn 0.1 SOCIAL per message (up to 1/day) for being active
+                                    in the group.
+                                  </p>
+                                  <p className="mt-1 text-gray-400">
+                                    Tap below to link your NEAR account and start earning 👇
+                                  </p>
+                                  <div className="mt-3 flex gap-2">
+                                    <PreviewPill accent="blue">🔗 Link Account</PreviewPill>
+                                    <PreviewPill>❓ How it works</PreviewPill>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                  /balance
+                                </p>
+                                <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
+                                  <p>🤝 OnSocial stands with {registration.label}</p>
+                                  <p className="mt-2">
+                                    ⭐ Rewards for{' '}
+                                    <span className="portal-green-text">alice.near</span>
+                                  </p>
+                                  <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
+                                  <p className="portal-green-text text-xs">
+                                    (ready to claim!)
+                                  </p>
+                                  <p className="mt-1 text-gray-400">
+                                    📈 Daily progress: 0.5 / 1 SOCIAL
+                                  </p>
+                                  <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
+                                  <div className="mt-3 flex gap-2">
+                                    <PreviewPill accent="purple">💎 Claim</PreviewPill>
+                                    <PreviewPill>🔄 Refresh</PreviewPill>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+                  </>
+                ) : (
+                  <div className="portal-blue-panel rounded-[1rem] border px-4 py-4 text-sm">
+                    Reveal the full key to unlock the setup guide, .env downloads, and
+                    key rotation.
                   </div>
                 )}
-              </motion.div>
-            </AnimatePresence>
-          </>
-        ) : (
-          <div className="portal-blue-panel rounded-[1rem] border px-4 py-4 text-sm">
-            Reveal the full key to unlock the setup guide, .env downloads, and
-            key rotation.
-          </div>
-        )}
-      </SurfacePanel>
-
-      <AnimatePresence initial={false}>
-        {hasApiKey && tab === 'bot' && (
-          <motion.div
-            key="bot-preview"
-            initial={{ opacity: 0, height: 0, y: 10 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden"
-          >
-            <SurfacePanel radius="xl" tone="soft" padding="roomy">
-              <h3 className="mb-4 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                <MessageSquare className="portal-blue-icon mr-2 inline h-5 w-5" />
-                Preview
-              </h3>
-              <p className="mb-4 text-xs text-muted-foreground">
-                This is how your bot will look in Telegram — fully branded, zero
-                custom code needed.
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <SurfacePanel radius="md" tone="subtle">
-                  <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    /start
-                  </p>
-                  <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
-                    <p>🤝 OnSocial stands with {registration.label}</p>
-                    <p className="mt-2">👋 Welcome!</p>
-                    <p className="mt-2 text-gray-400">
-                      Earn 0.1 SOCIAL per message (up to 1/day) for being active
-                      in the group.
-                    </p>
-                    <p className="mt-1 text-gray-400">
-                      Tap below to link your NEAR account and start earning 👇
-                    </p>
-                    <div className="mt-3 flex gap-2">
-                      <PreviewPill accent="blue">🔗 Link Account</PreviewPill>
-                      <PreviewPill>❓ How it works</PreviewPill>
-                    </div>
-                  </div>
-                </SurfacePanel>
-                <SurfacePanel radius="md" tone="subtle">
-                  <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    /balance
-                  </p>
-                  <div className="rounded-[1rem] border border-white/5 bg-[#151827] p-3 text-sm font-mono leading-relaxed text-gray-200 shadow-inner shadow-black/10 space-y-1">
-                    <p>🤝 OnSocial stands with {registration.label}</p>
-                    <p className="mt-2">
-                      ⭐ Rewards for{' '}
-                      <span className="portal-green-text">alice.near</span>
-                    </p>
-                    <p className="mt-2">💎 Unclaimed: 12.5 SOCIAL</p>
-                    <p className="portal-green-text text-xs">
-                      (ready to claim!)
-                    </p>
-                    <p className="mt-1 text-gray-400">
-                      📈 Daily progress: 0.5 / 1 SOCIAL
-                    </p>
-                    <p className="mt-1">🏆 Total earned: 42 SOCIAL</p>
-                    <div className="mt-3 flex gap-2">
-                      <PreviewPill accent="purple">💎 Claim</PreviewPill>
-                      <PreviewPill>🔄 Refresh</PreviewPill>
-                    </div>
-                  </div>
-                </SurfacePanel>
               </div>
-            </SurfacePanel>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

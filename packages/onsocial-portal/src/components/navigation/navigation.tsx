@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { BrandLogo } from '@/components/brand-logo';
 import { PwaInstallButton } from '@/components/pwa-install-button';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
@@ -78,7 +78,8 @@ export function Navigation() {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
   const visibleNavItems = useMemo(() => navItems, []);
-  const { handoffProgress, pageBadge } = useMobilePageContext();
+  const { handoffProgress, pageBadge, navBack } = useMobilePageContext();
+  const router = useRouter();
   const isOpen = openPathname === pathname;
   const homepageSection = useMemo(
     () =>
@@ -227,7 +228,7 @@ export function Navigation() {
   const mobileBadgeLabel =
     pathname === '/' ? homepageSection.label : pageBadge?.badge;
   const mobileBadgeOpacity =
-    pathname === '/' ? (homepageBadgeVisible ? 1 : 0) : dockedBadgeOpacity;
+    pathname === '/' ? (homepageBadgeVisible ? 1 : 0) : pageBadge ? (effectiveCompactProgress > 0.12 ? 1 : 0.55) : 0;
   const desktopNavGap = interpolate(12, 20, desktopViewportScale);
   const desktopNavFontSize = interpolate(13, 14, desktopViewportScale);
   const desktopActionGap = interpolate(8, 12, desktopViewportScale);
@@ -504,7 +505,17 @@ export function Navigation() {
             borderRadius: `${mobileNavRadius}px`,
           }}
         >
-          {/* Logo */}
+          {/* Logo / Back */}
+          {navBack ? (
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-border/50 bg-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:-translate-x-0.5 motion-reduce:transform-none" />
+              {navBack.label}
+            </button>
+          ) : (
           <Link
             ref={logoRef}
             href="/"
@@ -531,6 +542,7 @@ export function Navigation() {
               <BrandLogo className="h-full w-full" />
             </div>
           </Link>
+          )}
 
           <div className="flex min-w-0 flex-1 justify-center px-3 md:hidden">
             <div
@@ -664,7 +676,7 @@ export function Navigation() {
             style={{ gap: `${desktopActionGap}px` }}
           >
             {showDesktopBadge ? (
-              <div className="flex w-[96px] justify-center">
+              <div className="flex min-w-[96px] max-w-[180px] justify-center">
                 {pathname === '/' ? (
                   <motion.div
                     initial={false}
@@ -683,6 +695,26 @@ export function Navigation() {
                       className="w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 text-[10px]"
                     >
                       {homepageSection.label}
+                    </PortalBadge>
+                  </motion.div>
+                ) : pageBadge ? (
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      opacity: compactProgress > 0.08 ? 1 : 0.55,
+                      y: 0,
+                    }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="w-full"
+                  >
+                    <PortalBadge
+                      accent={pageBadge.badgeAccent}
+                      size="sm"
+                      casing="uppercase"
+                      tracking="normal"
+                      className="w-full justify-center border-white/10 bg-white/6 px-3 py-1.5 text-[10px]"
+                    >
+                      {pageBadge.badge}
                     </PortalBadge>
                   </motion.div>
                 ) : (

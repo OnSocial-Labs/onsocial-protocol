@@ -51,7 +51,7 @@ export function GovernanceRail({
     visibleStatusOptions[0];
 
   return (
-    <div className="sticky top-20 z-20 mb-6 rounded-2xl border border-border/50 bg-background/88 px-3 py-3 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.34)] backdrop-blur-xl md:top-24 md:rounded-[1.5rem] md:px-4 md:py-4">
+    <div className="sticky top-[68px] z-20 mb-6 rounded-2xl border border-border/50 bg-background/88 px-3 py-3 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.34)] backdrop-blur-xl md:top-24 md:rounded-[1.5rem] md:px-4 md:py-4">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
           <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

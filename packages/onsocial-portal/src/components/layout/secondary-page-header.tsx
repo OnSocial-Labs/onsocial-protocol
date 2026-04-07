@@ -1,9 +1,8 @@
 'use client';
 
-import { forwardRef, useEffect, useId, useRef, type ReactNode } from 'react';
+import { forwardRef, useEffect, useId, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useMobilePageContext } from '@/components/providers/mobile-page-context';
-import { PortalBadge } from '@/components/ui/portal-badge';
 import type { PortalAccent } from '@/lib/portal-colors';
 import { fadeUpMotion } from '@/lib/motion';
 import { cn } from '@/lib/utils';
@@ -34,8 +33,8 @@ function buildGlowBackground(accents: PortalAccent[]) {
 interface SecondaryPageHeaderProps {
   badge: ReactNode;
   badgeAccent: PortalAccent;
-  title: ReactNode;
-  description: ReactNode;
+  title?: ReactNode;
+  description?: ReactNode;
   glowAccents?: PortalAccent[];
   align?: 'center' | 'left';
   className?: string;
@@ -70,9 +69,8 @@ export const SecondaryPageHeader = forwardRef<
 ) {
   const centered = align === 'center';
   const badgeKey = useId();
-  const mobileBadgeAnchorRef = useRef<HTMLDivElement | null>(null);
   const reduceMotion = useReducedMotion();
-  const { handoffProgress, setHandoffProgress, setPageBadge, clearPageBadge } =
+  const { setPageBadge, clearPageBadge } =
     useMobilePageContext();
 
   useEffect(() => {
@@ -82,63 +80,6 @@ export const SecondaryPageHeader = forwardRef<
       clearPageBadge(badgeKey);
     };
   }, [badge, badgeAccent, badgeKey, clearPageBadge, setPageBadge]);
-
-  useEffect(() => {
-    const anchor = mobileBadgeAnchorRef.current;
-
-    if (!anchor || typeof window === 'undefined') {
-      setHandoffProgress(0);
-      return;
-    }
-
-    let frameId = 0;
-
-    const updateProgress = () => {
-      if (window.innerWidth >= 768) {
-        setHandoffProgress(0);
-        return;
-      }
-
-      const rect = anchor.getBoundingClientRect();
-      const compactProgress = Math.min(window.scrollY / 48, 1);
-      const navTop = 12 - compactProgress * 7;
-      const navHeight = 64 - compactProgress * 10;
-      const dockCenterY = navTop + navHeight / 2;
-      const sourceCenterY = rect.top + rect.height / 2;
-      const sourceDistance = sourceCenterY - dockCenterY;
-      const startDistance = 82;
-      const endDistance = 18;
-      const progress = Math.min(
-        1,
-        Math.max(
-          0,
-          1 - (sourceDistance - endDistance) / (startDistance - endDistance)
-        )
-      );
-
-      setHandoffProgress(progress);
-    };
-
-    const requestUpdate = () => {
-      cancelAnimationFrame(frameId);
-      frameId = window.requestAnimationFrame(updateProgress);
-    };
-
-    requestUpdate();
-    window.addEventListener('scroll', requestUpdate, { passive: true });
-    window.addEventListener('resize', requestUpdate);
-
-    return () => {
-      cancelAnimationFrame(frameId);
-      window.removeEventListener('scroll', requestUpdate);
-      window.removeEventListener('resize', requestUpdate);
-      setHandoffProgress(0);
-    };
-  }, [setHandoffProgress]);
-
-  const clampedHandoff = Math.min(1, Math.max(0, handoffProgress));
-  const mobileSourceOpacity = reduceMotion ? 1 : 1 - clampedHandoff;
-  const mobileSourceY = reduceMotion ? 0 : -clampedHandoff * 6;
 
   return (
     <motion.div
@@ -150,13 +91,15 @@ export const SecondaryPageHeader = forwardRef<
         className
       )}
     >
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-x-0 top-0 h-44 opacity-75 blur-3xl',
-          glowClassName
-        )}
-        style={{ background: buildGlowBackground(glowAccents) }}
-      />
+      {title ? (
+        <div
+          className={cn(
+            'pointer-events-none absolute inset-x-0 top-0 h-44 opacity-75 blur-3xl',
+            glowClassName
+          )}
+          style={{ background: buildGlowBackground(glowAccents) }}
+        />
+      ) : null}
       <div
         className={cn(
           'relative z-10 mx-auto max-w-4xl',
@@ -164,62 +107,28 @@ export const SecondaryPageHeader = forwardRef<
           contentClassName
         )}
       >
-        <div
-          ref={mobileBadgeAnchorRef}
-          className={cn(
-            'mb-4 flex flex-wrap gap-2',
-            centered ? 'justify-center' : 'justify-start'
-          )}
-        >
-          <div className={cn('hidden md:flex', centered && 'justify-center')}>
-            <PortalBadge
-              accent={badgeAccent}
-              size="sm"
-              casing="uppercase"
-              tracking="normal"
-            >
-              {badge}
-            </PortalBadge>
-          </div>
-          <div
-            className="md:hidden"
-            style={{
-              opacity: mobileSourceOpacity,
-              transform:
-                clampedHandoff > 0
-                  ? `translateY(${Math.round(mobileSourceY)}px)`
-                  : undefined,
-              pointerEvents: clampedHandoff > 0.9 ? 'none' : 'auto',
-            }}
+        {title ? (
+          <h1
+            className={cn(
+              'max-w-3xl text-4xl font-bold tracking-[-0.035em] text-balance md:text-5xl',
+              centered && 'mx-auto',
+              titleClassName
+            )}
           >
-            <PortalBadge
-              accent={badgeAccent}
-              size="sm"
-              casing="uppercase"
-              tracking="normal"
-            >
-              {badge}
-            </PortalBadge>
-          </div>
-        </div>
-        <h1
-          className={cn(
-            'max-w-3xl text-4xl font-bold tracking-[-0.035em] text-balance md:text-5xl',
-            centered && 'mx-auto',
-            titleClassName
-          )}
-        >
-          {title}
-        </h1>
-        <p
-          className={cn(
-            'mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg',
-            centered && 'mx-auto',
-            descriptionClassName
-          )}
-        >
-          {description}
-        </p>
+            {title}
+          </h1>
+        ) : null}
+        {description ? (
+          <p
+            className={cn(
+              'mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg',
+              centered && 'mx-auto',
+              descriptionClassName
+            )}
+          >
+            {description}
+          </p>
+        ) : null}
         {children ? (
           <div
             className={cn(

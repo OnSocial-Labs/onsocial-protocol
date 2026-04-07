@@ -117,6 +117,8 @@ export function ProtocolGovernanceCard({
   const [postActionRefreshUntil, setPostActionRefreshUntil] = useState<
     number | null
   >(null);
+  const [confirmedAction, setConfirmedAction] =
+    useState<GovernanceDaoAction | null>(null);
   const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(false);
   const { txResult, setTxResult, clearTxResult, trackTransaction } =
     useNearTransactionFeedback(accountId);
@@ -261,7 +263,7 @@ export function ProtocolGovernanceCard({
     if (!wallet || !daoAccountId || liveProposalId === null || !liveProposal) {
       setTxResult({
         type: 'error',
-        msg: 'Connect an authorized guardian wallet to continue.',
+        msg: 'Connect a guardian wallet to continue.',
       });
       return;
     }
@@ -289,9 +291,9 @@ export function ProtocolGovernanceCard({
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: `Your ${formatActionLabel(action)} was submitted. Confirming on-chain.`,
-        successMessage: `Your ${formatActionLabel(action)} was confirmed on-chain.`,
-        failureMessage: `Your ${formatActionLabel(action)} failed on-chain.`,
+        submittedMessage: `${formatActionLabel(action)} submitted…`,
+        successMessage: `${formatActionLabel(action)} confirmed.`,
+        failureMessage: `${formatActionLabel(action)} failed.`,
       });
 
       if (!confirmed) {
@@ -309,16 +311,18 @@ export function ProtocolGovernanceCard({
       } catch {
         setTxResult({
           type: 'error',
-          msg: 'Governance action confirmed on-chain, but live DAO refresh failed.',
+          msg: 'Action confirmed but DAO state failed to refresh.',
         });
       }
 
+      setConfirmedAction(action);
+      setTimeout(() => setConfirmedAction(null), 3000);
       setPostActionRefreshUntil(Date.now() + POST_ACTION_REFRESH_WINDOW_MS);
     } catch (error) {
       setTxResult({
         type: 'error',
         msg:
-          error instanceof Error ? error.message : 'Governance action failed',
+          error instanceof Error ? error.message : 'Action failed.',
       });
     } finally {
       setActionLoading(null);
@@ -478,6 +482,7 @@ export function ProtocolGovernanceCard({
               rejectVotes={rejectVotes}
               removeVotes={removeVotes}
               approveVotes={approveVotes}
+              confirmedAction={confirmedAction}
             />
 
             <GovernanceVoteActivity

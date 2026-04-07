@@ -124,6 +124,11 @@ function formatCooldownRelative(value: string) {
   return `Unlocks in ${totalDays} days`;
 }
 
+function formatCooldownCountdown(value: string) {
+  const full = formatCooldownRelative(value);
+  return full.replace(/^Unlocks in /, '');
+}
+
 function formatCooldownDuration(value: string | null | undefined) {
   const ns = BigInt(value || '0');
 
@@ -276,7 +281,7 @@ export function GovernancePositionPanel() {
     if (!eligibility) {
       return {
         title: 'Manage balance',
-        info: 'Connect a wallet to manage governance balances from one place.',
+        info: 'Connect wallet to manage governance balances.',
         cta: 'Submit',
       };
     }
@@ -465,12 +470,8 @@ export function GovernancePositionPanel() {
     return items;
   }, [actionMode, eligibility, selfDelegatedYocto, withdrawableYocto]);
 
-  const balanceItems = useMemo(() => {
-    const items: Array<{
-      label: string;
-      value: string;
-      valueClassName?: string;
-    }> = [
+  const balanceRow = useMemo(
+    () => [
       {
         label: 'Wallet',
         value: formatSocial(eligibility?.walletBalance ?? '0'),
@@ -480,7 +481,20 @@ export function GovernancePositionPanel() {
         label: 'Delegated',
         value: formatSocial(eligibility?.delegatedWeight ?? '0'),
       },
-    ];
+    ],
+    [
+      eligibility?.walletBalance,
+      eligibility?.voteAmount,
+      eligibility?.delegatedWeight,
+    ]
+  );
+
+  const statusRow = useMemo(() => {
+    const items: Array<{
+      label: string;
+      value: string;
+      valueClassName?: string;
+    }> = [];
 
     if (cooldownLockedYocto > 0n) {
       items.push({
@@ -502,13 +516,31 @@ export function GovernancePositionPanel() {
       });
     }
 
+    items.push({
+      label: 'Threshold',
+      value: `${formatSocial(eligibility?.requiredWeight ?? '0')} SOCIAL`,
+    });
+
+    items.push({
+      label: 'Status',
+      value: eligibility?.canPropose
+        ? 'Eligible'
+        : `${formatSocial(eligibility?.remainingToThreshold ?? '0')} to go`,
+      valueClassName: eligibility?.canPropose
+        ? 'portal-green-text'
+        : 'portal-blue-text',
+    });
+
     return items;
   }, [
     cooldownLockedYocto,
     eligibility?.availableToDelegate,
     eligibility?.availableToWithdraw,
+    eligibility?.canPropose,
     eligibility?.cooldownLockedAmount,
     eligibility?.delegatedWeight,
+    eligibility?.remainingToThreshold,
+    eligibility?.requiredWeight,
     eligibility?.voteAmount,
     eligibility?.walletBalance,
     undelegatedYocto,
@@ -519,7 +551,7 @@ export function GovernancePositionPanel() {
     if (!wallet || !accountId) {
       setTxResult({
         type: 'error',
-        msg: 'Connect a wallet to manage this balance.',
+        msg: 'Connect wallet to continue.',
       });
       return;
     }
@@ -527,7 +559,7 @@ export function GovernancePositionPanel() {
     if (!eligibility?.stakingContractId) {
       setTxResult({
         type: 'error',
-        msg: 'Governance staking is not configured yet.',
+        msg: 'Staking not configured yet.',
       });
       return;
     }
@@ -571,7 +603,7 @@ export function GovernancePositionPanel() {
       let current = (await loadEligibility()) ?? eligibility;
 
       if (!current?.stakingContractId) {
-        throw new Error('No governance staking contract is configured yet.');
+        throw new Error('No staking contract configured.');
       }
 
       if (current.isInCooldown) {
@@ -614,7 +646,7 @@ export function GovernancePositionPanel() {
 
         if (delegationTxHashes.length === 0) {
           throw new Error(
-            'Governance delegation returned no transaction hash.'
+            'Delegation returned no transaction hash.'
           );
         }
 
@@ -622,16 +654,16 @@ export function GovernancePositionPanel() {
           txHashes: delegationTxHashes,
           submittedMessage:
             delegationTxHashes.length > 1
-              ? 'Governance delegation flow submitted. Confirm the wallet approval and on-chain settlement.'
-              : 'Governance delegation submitted. Confirming on-chain.',
+              ? 'Depositing and delegating…'
+              : 'Delegating…',
           successMessage:
             delegationTxHashes.length > 1
-              ? 'Governance deposit and delegation confirmed on-chain.'
-              : 'Governance delegation confirmed on-chain.',
+              ? 'Deposited and delegated.'
+              : 'Delegation confirmed.',
           failureMessage:
             delegationTxHashes.length > 1
-              ? 'Governance deposit or delegation failed on-chain.'
-              : 'Governance delegation failed on-chain.',
+              ? 'Deposit or delegation failed.'
+              : 'Delegation failed.',
         });
 
         if (!delegationConfirmed) {
@@ -651,15 +683,14 @@ export function GovernancePositionPanel() {
       );
 
       if (!delegateTxHash) {
-        throw new Error('Governance delegation returned no transaction hash.');
+        throw new Error('Delegation returned no transaction hash.');
       }
 
       const delegationConfirmed = await trackTransaction({
         txHashes: [delegateTxHash],
-        submittedMessage:
-          'Governance delegation submitted. Confirming on-chain.',
-        successMessage: 'Governance delegation confirmed on-chain.',
-        failureMessage: 'Governance delegation failed on-chain.',
+        submittedMessage: 'Delegating…',
+        successMessage: 'Delegation confirmed.',
+        failureMessage: 'Delegation failed.',
       });
 
       if (!delegationConfirmed) {
@@ -674,7 +705,7 @@ export function GovernancePositionPanel() {
         msg:
           nextError instanceof Error
             ? nextError.message
-            : 'Governance delegation failed.',
+            : 'Delegation failed.',
       });
     } finally {
       setActingMode(null);
@@ -696,7 +727,7 @@ export function GovernancePositionPanel() {
     if (!wallet || !accountId) {
       setTxResult({
         type: 'error',
-        msg: 'Connect a wallet to manage this balance.',
+        msg: 'Connect wallet to continue.',
       });
       return;
     }
@@ -704,7 +735,7 @@ export function GovernancePositionPanel() {
     if (!eligibility?.stakingContractId) {
       setTxResult({
         type: 'error',
-        msg: 'Governance staking is not configured yet.',
+        msg: 'Staking not configured yet.',
       });
       return;
     }
@@ -745,16 +776,15 @@ export function GovernancePositionPanel() {
 
       if (!undelegateTxHash) {
         throw new Error(
-          'Governance undelegation returned no transaction hash.'
+          'Undelegation returned no transaction hash.'
         );
       }
 
       const undelegateConfirmed = await trackTransaction({
         txHashes: [undelegateTxHash],
-        submittedMessage:
-          'Governance undelegation submitted. Confirming on-chain.',
-        successMessage: 'Governance undelegation confirmed on-chain.',
-        failureMessage: 'Governance undelegation failed on-chain.',
+        submittedMessage: 'Undelegating…',
+        successMessage: 'Undelegation confirmed.',
+        failureMessage: 'Undelegation failed.',
       });
 
       if (!undelegateConfirmed) {
@@ -770,7 +800,7 @@ export function GovernancePositionPanel() {
         msg:
           nextError instanceof Error
             ? nextError.message
-            : 'Governance undelegation failed.',
+            : 'Undelegation failed.',
       });
     } finally {
       setActingMode(null);
@@ -792,7 +822,7 @@ export function GovernancePositionPanel() {
     if (!wallet || !accountId) {
       setTxResult({
         type: 'error',
-        msg: 'Connect a wallet to manage this balance.',
+        msg: 'Connect wallet to continue.',
       });
       return;
     }
@@ -800,7 +830,7 @@ export function GovernancePositionPanel() {
     if (!eligibility?.stakingContractId) {
       setTxResult({
         type: 'error',
-        msg: 'Governance staking is not configured yet.',
+        msg: 'Staking not configured yet.',
       });
       return;
     }
@@ -832,15 +862,14 @@ export function GovernancePositionPanel() {
       );
 
       if (!withdrawTxHash) {
-        throw new Error('Governance withdrawal returned no transaction hash.');
+        throw new Error('Withdrawal returned no transaction hash.');
       }
 
       const withdrawConfirmed = await trackTransaction({
         txHashes: [withdrawTxHash],
-        submittedMessage:
-          'Governance withdrawal submitted. Confirming on-chain.',
-        successMessage: 'Available governance SOCIAL withdrawn to your wallet.',
-        failureMessage: 'Governance withdrawal failed on-chain.',
+        submittedMessage: 'Withdrawing…',
+        successMessage: 'SOCIAL withdrawn to wallet.',
+        failureMessage: 'Withdrawal failed.',
       });
 
       if (!withdrawConfirmed) {
@@ -855,7 +884,7 @@ export function GovernancePositionPanel() {
         msg:
           nextError instanceof Error
             ? nextError.message
-            : 'Governance withdrawal failed.',
+            : 'Withdrawal failed.',
       });
     } finally {
       setActingMode(null);
@@ -894,7 +923,7 @@ export function GovernancePositionPanel() {
         <div className="flex items-start justify-between gap-4">
           <div className="max-w-2xl min-w-0">
             <SectionHeader
-              badge="Balances"
+              badge="Position"
               className="mb-0"
               contentClassName="max-w-2xl"
             />
@@ -920,13 +949,13 @@ export function GovernancePositionPanel() {
         </div>
 
         {!accountId ? (
-          <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-fade-detail pt-5">
-            <Button onClick={() => connect()} size="sm">
-              Connect wallet
-            </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-fade-detail pt-3">
+            <p className="text-sm text-muted-foreground">
+              Sign in to view your balances and delegations.
+            </p>
           </div>
         ) : isInitialLoading ? (
-          <div className="mt-5 space-y-4 border-t border-fade-detail pt-5">
+          <div className="mt-3 space-y-4 border-t border-fade-detail pt-3">
             <StatGridSkeleton items={3} />
             <div className="rounded-[1.25rem] border border-border/35 bg-background/20 p-4">
               <div className="flex items-center justify-between gap-4">
@@ -940,57 +969,44 @@ export function GovernancePositionPanel() {
           </div>
         ) : eligibility ? (
           <>
-            <div className="mt-5 pt-5">
-              <StatStrip>
-                {balanceItems.map((item, index) => (
-                  <StatStripCell
-                    key={item.label}
-                    label={item.label}
-                    value={item.value}
-                    valueClassName={item.valueClassName}
-                    showDivider={
-                      (index + 1) % 3 !== 0 && index < balanceItems.length - 1
-                    }
-                    size="md"
-                  />
-                ))}
-              </StatStrip>
-
-              <StatStrip columns={2} className="mt-4">
+            <StatStrip groupClassName="mt-3">
+              {balanceRow.map((item, index) => (
                 <StatStripCell
-                  label="Threshold"
-                  value={`${formatSocial(eligibility.requiredWeight)} SOCIAL`}
-                  showDivider
+                  key={item.label}
+                  label={item.label}
+                  value={item.value}
+                  showDivider={index < balanceRow.length - 1}
                   size="md"
                 />
+              ))}
+            </StatStrip>
+            <StatStrip
+              columns={Math.min(statusRow.length, 3)}
+              groupClassName="border-t-0"
+            >
+              {statusRow.map((item, index) => (
                 <StatStripCell
-                  label="Status"
-                  value={
-                    eligibility.canPropose
-                      ? 'Eligible'
-                      : `${formatSocial(eligibility.remainingToThreshold)} to go`
-                  }
-                  valueClassName={
-                    eligibility.canPropose
-                      ? 'portal-green-text'
-                      : 'portal-blue-text'
-                  }
+                  key={item.label}
+                  label={item.label}
+                  value={item.value}
+                  valueClassName={item.valueClassName}
+                  showDivider={index < statusRow.length - 1}
+                  size="md"
+                />
+              ))}
+            </StatStrip>
+            {eligibility.isInCooldown ? (
+              <StatStrip columns={1} groupClassName="border-t-0">
+                <StatStripCell
+                  label="Unlock"
+                  value={formatCooldownCountdown(
+                    eligibility.nextActionTimestamp
+                  )}
+                  valueClassName="portal-amber-text"
                   size="md"
                 />
               </StatStrip>
-              {eligibility.isInCooldown ? (
-                <StatStrip columns={1} className="mt-2">
-                  <StatStripCell
-                    label="Cooldown"
-                    value={formatCooldownRelative(
-                      eligibility.nextActionTimestamp
-                    )}
-                    valueClassName="portal-amber-text"
-                    size="md"
-                  />
-                </StatStrip>
-              ) : null}
-            </div>
+            ) : null}
 
             <div className="mt-5 border-t border-fade-detail pt-5">
               <div className="flex flex-wrap gap-2">

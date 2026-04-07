@@ -155,7 +155,7 @@ export default function PartnersPage() {
     if (!wallet || !accountId || !currentApp) {
       setTxResult({
         type: 'error',
-        msg: 'Reconnect the approved wallet to reveal the API key',
+        msg: 'Reconnect the approved wallet to reveal the key.',
       });
       return;
     }
@@ -179,17 +179,17 @@ export default function PartnersPage() {
       setStep('approved');
       setTxResult({
         type: 'success',
-        msg: 'API key access confirmed for this wallet.',
+        msg: 'Key access confirmed.',
       });
     } catch (err) {
       setTxResult({
         type: 'error',
         msg:
           err instanceof Error && err.message === 'Action was cancelled'
-            ? 'Wallet confirmation was cancelled.'
+            ? 'Wallet confirmation cancelled.'
             : err instanceof Error
               ? err.message
-              : 'Failed to reveal API key',
+              : 'Failed to reveal key.',
       });
       setStep('approved');
     } finally {
@@ -356,7 +356,7 @@ export default function PartnersPage() {
     if (!wallet || !accountId || !pendingApp?.proposal) {
       setTxResult({
         type: 'error',
-        msg: 'Wallet and governance proposal are required',
+        msg: 'Wallet and proposal are required.',
       });
       return;
     }
@@ -364,7 +364,7 @@ export default function PartnersPage() {
     if (governanceEligibility && !governanceEligibility.canPropose) {
       setTxResult({
         type: 'error',
-        msg: 'This wallet does not yet have enough delegated governance weight to submit the proposal',
+        msg: 'Not enough delegated weight to submit.',
       });
       return;
     }
@@ -399,10 +399,9 @@ export default function PartnersPage() {
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage: 'DAO proposal submitted. Confirming on-chain.',
-        successMessage:
-          'DAO proposal confirmed on-chain. Governance status is refreshing.',
-        failureMessage: 'DAO proposal failed on-chain.',
+        submittedMessage: 'Submitting proposal…',
+        successMessage: 'Proposal confirmed. Refreshing status…',
+        failureMessage: 'Proposal failed.',
       });
 
       if (!confirmed) {
@@ -422,8 +421,8 @@ export default function PartnersPage() {
           type: 'error',
           msg:
             error instanceof Error
-              ? `Proposal confirmed on-chain, but backend recording failed: ${error.message}`
-              : 'Proposal confirmed on-chain, but backend recording failed.',
+              ? `Proposal confirmed, but backend sync failed: ${error.message}`
+              : 'Proposal confirmed, but backend sync failed.',
         });
         return;
       }
@@ -441,7 +440,7 @@ export default function PartnersPage() {
     } catch (err) {
       setTxResult({
         type: 'error',
-        msg: err instanceof Error ? err.message : 'Governance proposal failed',
+        msg: err instanceof Error ? err.message : 'Proposal failed.',
       });
     } finally {
       setProposalSubmitting(false);
@@ -493,7 +492,7 @@ export default function PartnersPage() {
     if (!wallet || !accountId || !initialEligibility?.stakingContractId) {
       setTxResult({
         type: 'error',
-        msg: 'Wallet and governance staking contract are required',
+        msg: 'Wallet and staking contract are required.',
       });
       return;
     }
@@ -504,7 +503,7 @@ export default function PartnersPage() {
     ) {
       setTxResult({
         type: 'error',
-        msg: 'This governance staking account needs more prepaid NEAR storage before another delegation can be recorded.',
+        msg: 'More prepaid NEAR storage needed before another delegation.',
       });
       return;
     }
@@ -521,7 +520,7 @@ export default function PartnersPage() {
     ) {
       setTxResult({
         type: 'error',
-        msg: 'This wallet does not have enough NEAR to register with governance staking yet.',
+        msg: 'Not enough NEAR for governance registration.',
       });
       return;
     }
@@ -605,21 +604,21 @@ export default function PartnersPage() {
           txHashes: delegationTxHashes,
           submittedMessage: plan.depositOnlyDuringCooldown
             ? delegationTxHashes.length > 1
-              ? 'Governance deposit flow submitted. Confirm the wallet approval and on-chain settlement.'
-              : 'Governance deposit submitted. Confirming on-chain.'
+              ? 'Depositing…'
+              : 'Depositing…'
             : delegationTxHashes.length > 1
-              ? 'Governance preparation submitted. Confirm the wallet approval and on-chain settlement.'
-              : 'Governance delegation submitted. Confirming on-chain.',
+              ? 'Preparing governance…'
+              : 'Delegating…',
           successMessage: plan.depositOnlyDuringCooldown
-            ? 'Governance deposit confirmed on-chain. Delegation unlocks after cooldown.'
+            ? 'Deposit confirmed. Delegation unlocks after cooldown.'
             : delegationTxHashes.length > 1
-              ? 'Governance registration, deposit, and delegation confirmed on-chain.'
-              : 'Governance delegation confirmed on-chain.',
+              ? 'Registration, deposit, and delegation confirmed.'
+              : 'Delegation confirmed.',
           failureMessage: plan.depositOnlyDuringCooldown
-            ? 'Governance deposit failed on-chain.'
+            ? 'Deposit failed.'
             : delegationTxHashes.length > 1
-              ? 'Governance preparation failed on-chain.'
-              : 'Governance delegation failed on-chain.',
+              ? 'Governance preparation failed.'
+              : 'Delegation failed.',
         });
 
         if (!delegationConfirmed) {
@@ -647,10 +646,9 @@ export default function PartnersPage() {
 
         const registrationConfirmed = await trackTransaction({
           txHashes: [registerTxHash],
-          submittedMessage:
-            'Governance registration submitted. Confirming on-chain.',
-          successMessage: 'Governance registration confirmed on-chain.',
-          failureMessage: 'Governance registration failed on-chain.',
+          submittedMessage: 'Registering…',
+          successMessage: 'Registration confirmed.',
+          failureMessage: 'Registration failed.',
         });
 
         if (!registrationConfirmed) {
@@ -674,7 +672,7 @@ export default function PartnersPage() {
       setTxResult({
         type: 'error',
         msg:
-          err instanceof Error ? err.message : 'Governance preparation failed',
+          err instanceof Error ? err.message : 'Governance preparation failed.',
       });
     } finally {
       setProposalSubmitting(false);
@@ -697,7 +695,7 @@ export default function PartnersPage() {
     if (!wallet || !accountId || !currentEligibility?.stakingContractId) {
       setTxResult({
         type: 'error',
-        msg: 'Wallet and governance staking contract are required',
+        msg: 'Wallet and staking contract are required.',
       });
       return;
     }
@@ -705,7 +703,7 @@ export default function PartnersPage() {
     if (currentEligibility.isInCooldown) {
       setTxResult({
         type: 'error',
-        msg: 'This governance balance is still in cooldown and cannot be withdrawn yet.',
+        msg: 'Balance is still in cooldown.',
       });
       return;
     }
@@ -735,10 +733,9 @@ export default function PartnersPage() {
 
       const confirmed = await trackTransaction({
         txHashes: [txHash],
-        submittedMessage:
-          'Governance withdrawal submitted. Confirming on-chain.',
-        successMessage: 'Excess staked SOCIAL was withdrawn to your wallet.',
-        failureMessage: 'Governance withdrawal failed on-chain.',
+        submittedMessage: 'Withdrawing excess…',
+        successMessage: 'Excess SOCIAL withdrawn to wallet.',
+        failureMessage: 'Withdrawal failed.',
       });
 
       if (!confirmed) {
@@ -750,7 +747,7 @@ export default function PartnersPage() {
       setTxResult({
         type: 'error',
         msg:
-          err instanceof Error ? err.message : 'Governance withdrawal failed',
+          err instanceof Error ? err.message : 'Withdrawal failed.',
       });
     } finally {
       setProposalSubmitting(false);
@@ -860,6 +857,7 @@ export default function PartnersPage() {
               onSubmit={handleApply}
               initialValues={applicationFormPrefill}
               governanceThresholdDisplay={governanceThresholdDisplay}
+              proposalBondDisplay={governanceProposalBondDisplay}
             />
           )}
           {!loading && step === 'apply' && pageError && (

@@ -16,7 +16,7 @@ function ProgressRow({
 }) {
   return (
     <div>
-      <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
+      <div className="mb-1 flex flex-col gap-0.5 text-xs sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
         <span className="text-muted-foreground">{label}</span>
         <span className="truncate font-mono text-foreground">
           {value}

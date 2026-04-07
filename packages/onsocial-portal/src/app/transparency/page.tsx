@@ -716,7 +716,7 @@ export default function TransparencyPage() {
         transition={{ duration: 0.5, delay: 0.08 }}
         className="mb-8"
       >
-        <SectionHeader badge="Supply Overview" className="mb-4" />
+        <SectionHeader badge="Supply Overview" align="center" className="mb-4" />
         <StatStrip>
           <StatStripCell label="Total Supply" showDivider>
             <a
@@ -771,7 +771,7 @@ export default function TransparencyPage() {
           padding="none"
           className="p-5 md:p-8"
         >
-          <SectionHeader badge="Live Allocation" />
+          <SectionHeader badge="Live Allocation" align="center" />
 
           {/* Interactive Distribution Bar */}
           <div className="relative mb-5 pt-10">
@@ -932,7 +932,7 @@ export default function TransparencyPage() {
           padding="none"
           className="p-5 md:p-8"
         >
-          <SectionHeader badge="Market Liquidity" />
+          <SectionHeader badge="Market Liquidity" align="center" />
 
           <StatStrip groupClassName="mt-4">
             <StatStripCell label="SOCIAL In Pools" showDivider>
@@ -1049,7 +1049,7 @@ export default function TransparencyPage() {
           padding="none"
           className="p-5 md:p-8"
         >
-          <SectionHeader badge="Utility" />
+          <SectionHeader badge="Utility" align="center" />
           <InsetDividerGroup
             contentClassName="divide-y divide-fade-detail"
             showTopDivider

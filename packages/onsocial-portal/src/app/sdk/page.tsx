@@ -52,7 +52,7 @@ export default function SDKPage() {
         transition={{ duration: 0.5, delay: 0.08 }}
         className="mb-8"
       >
-        <SectionHeader badge="SDK" />
+        <SectionHeader badge="SDK" align="center" />
 
         <div className="mt-5 grid gap-3">
           {SDK_PACKAGES.map((pkg) => (
@@ -98,7 +98,7 @@ export default function SDKPage() {
         className="mb-8 grid gap-5"
       >
         <SurfacePanel radius="xl" tone="soft" padding="roomy">
-          <SectionHeader badge="Live Now" className="mb-0" />
+          <SectionHeader badge="Live Now" align="center" className="mb-0" />
           <div className="mt-5 grid gap-3">
             {LIVE_SDK_PACKAGES.map((pkg) => (
               <div
@@ -147,7 +147,7 @@ export default function SDKPage() {
         </SurfacePanel>
 
         <SurfacePanel radius="xl" tone="subtle" padding="roomy">
-          <SectionHeader badge="Source" className="mb-0" />
+          <SectionHeader badge="Source" align="center" className="mb-0" />
           <p className="mt-5 text-sm leading-6 text-muted-foreground">
             The protocol repo includes the portal, live packages, and the
             contracts behind them.

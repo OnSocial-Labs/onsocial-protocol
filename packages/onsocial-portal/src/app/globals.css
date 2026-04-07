@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -736,6 +738,16 @@ html.lenis {
 }
 @utility divider-v-detail {
   background-image: var(--divider-v-detail);
+}
+
+/* ── responsive stat-strip columns ────────────────────────────── */
+@media (max-width: 767px) {
+  [data-mobile-cols='2'] {
+    --stat-cols: 2;
+  }
+  [data-mobile-cols='3'] {
+    --stat-cols: 3;
+  }
 }
 
 .lenis.lenis-smooth {

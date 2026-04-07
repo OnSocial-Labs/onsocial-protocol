@@ -36,7 +36,7 @@ export function useNearTransactionFeedback(
       if (!accountId) {
         setTxResult({
           type: 'error',
-          msg: 'Wallet account is required to confirm this transaction.',
+          msg: 'Connect wallet to continue.',
         });
         return false;
       }
@@ -68,7 +68,7 @@ export function useNearTransactionFeedback(
             msg:
               result.errorMessage ??
               failureMessage ??
-              'Transaction failed on-chain.',
+              'Transaction failed.',
             explorerHref,
           });
           return false;
@@ -86,7 +86,7 @@ export function useNearTransactionFeedback(
           msg:
             error instanceof Error
               ? error.message
-              : (failureMessage ?? 'Transaction confirmation failed.'),
+              : (failureMessage ?? 'Transaction failed.'),
           explorerHref,
         });
         return false;

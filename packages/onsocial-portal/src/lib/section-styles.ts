@@ -11,7 +11,7 @@ export const section = {
   heading:
     'mb-5 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground',
   /** Card grid */
-  grid: 'grid gap-4',
+  grid: 'grid gap-4 md:grid-cols-2',
   /** Card internal padding */
   card: 'px-5 py-6 lg:px-6 lg:py-8',
 } as const;

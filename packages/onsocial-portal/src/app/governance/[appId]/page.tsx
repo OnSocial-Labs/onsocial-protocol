@@ -1,12 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { PageShell } from '@/components/layout/page-shell';
-import { RouteLoadingShell } from '@/components/layout/route-loading-shell';
-import { Button, buttonArrowLeftClass } from '@/components/ui/button';
+import { SecondaryPageHeader } from '@/components/layout/secondary-page-header';
+import { useMobilePageContext } from '@/components/providers/mobile-page-context';
 import { SurfacePanel } from '@/components/ui/surface-panel';
 import { fetchGovernanceFeed } from '@/features/governance/api';
 import { GovernanceCard } from '@/features/governance/governance-card';
@@ -18,16 +16,24 @@ export default function GovernanceProposalPage() {
   const [app, setApp] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const hasLoaded = useRef(false);
+  const { setNavBack } = useMobilePageContext();
+
+  useEffect(() => {
+    setNavBack({ label: 'Back' });
+    return () => setNavBack(null);
+  }, [setNavBack]);
 
   const loadApp = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     setError('');
     try {
       const apps = await fetchGovernanceFeed();
       const found = apps.find((a) => a.app_id === appId) ?? null;
       setApp(found);
+      hasLoaded.current = true;
     } catch {
-      setError('Failed to load proposal.');
+      if (!hasLoaded.current) setError('Failed to load proposal.');
     } finally {
       setLoading(false);
     }
@@ -39,25 +45,29 @@ export default function GovernanceProposalPage() {
 
   return (
     <PageShell className="max-w-4xl">
-      <Button variant="outline" size="sm" asChild className="mb-4">
-        <Link href="/governance">
-          <ArrowLeft className={`h-3.5 w-3.5 ${buttonArrowLeftClass}`} />
-          All proposals
-        </Link>
-      </Button>
-
-      {loading && (
-        <RouteLoadingShell
-          size="wide"
-          panelCount={1}
-          panelMinHeights={['16rem']}
-        />
-      )}
+      <SecondaryPageHeader
+        badge="Proposal"
+        badgeAccent="blue"
+      />
 
       {error && (
         <p className="portal-red-panel portal-red-text rounded-[1rem] border px-4 py-3 text-center text-sm">
           {error}
         </p>
+      )}
+
+      {loading && !app && (
+        <SurfacePanel
+          radius="xl"
+          tone="solid"
+          borderTone="strong"
+          padding="roomy"
+          className="animate-pulse"
+        >
+          <div className="h-4 w-2/5 rounded bg-muted-foreground/10" />
+          <div className="mt-3 h-3 w-3/4 rounded bg-muted-foreground/10" />
+          <div className="mt-6 h-3 w-1/2 rounded bg-muted-foreground/10" />
+        </SurfacePanel>
       )}
 
       {!loading && !error && !app && (

@@ -94,18 +94,18 @@ function PlaygroundContent() {
 
         if (result.txHash && result.actionLabel) {
           setTxHash(result.txHash);
-          setOutput('⏳ Transaction submitted. Confirming on-chain...\n\n');
+          setOutput('⏳ Submitting transaction…\n\n');
 
           const confirmed = await trackTransaction({
             txHashes: [result.txHash],
-            submittedMessage: `${result.actionLabel} submitted. Confirming on-chain.`,
-            successMessage: `${result.actionLabel} confirmed on-chain.`,
-            failureMessage: `${result.actionLabel} failed on-chain.`,
+            submittedMessage: `${result.actionLabel} submitted…`,
+            successMessage: `${result.actionLabel} confirmed.`,
+            failureMessage: `${result.actionLabel} failed.`,
           });
 
           if (!confirmed) {
             setOutput(
-              `❌ ${result.actionLabel} failed on-chain.\n\nCheck the linked transaction for execution details.`
+              `❌ ${result.actionLabel} failed.\n\nCheck the linked transaction for details.`
             );
             return;
           }
@@ -269,7 +269,7 @@ function PlaygroundContent() {
         {/* Sidebar - Examples */}
         <div className="lg:col-span-1">
           <SurfacePanel tone="muted" className="sticky top-24">
-            <SectionHeader badge="Examples" size="compact" className="mb-4" />
+            <SectionHeader badge="Examples" size="compact" align="center" className="mb-4" />
 
             {/* Category Filter */}
             <div className="flex flex-wrap gap-2 mb-4">

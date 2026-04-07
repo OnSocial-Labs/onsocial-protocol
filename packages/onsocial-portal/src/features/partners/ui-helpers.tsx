@@ -113,10 +113,10 @@ export function StepIndicator({
             {index > 0 && (
               <div
                 className={`mx-1.5 h-px w-10 sm:w-16 md:w-20 transition-colors ${
-                  index <= current - 1 ? '' : 'bg-border/50'
+                  index <= current ? '' : 'bg-border/50'
                 }`}
                 style={
-                  index <= current - 1
+                  index <= current
                     ? { backgroundColor: STEP_COLORS[(index - 1) % 3] }
                     : undefined
                 }

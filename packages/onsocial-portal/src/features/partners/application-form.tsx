@@ -205,14 +205,23 @@ function getFieldError(value: string, kind: 'website' | 'telegram' | 'x') {
   }
 }
 
+function compactNumber(value: string | number): string {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${+(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+
 export function ApplicationForm({
   onSubmit,
   initialValues,
   governanceThresholdDisplay,
+  proposalBondDisplay,
 }: {
   onSubmit: (_data: ApplicationFormData) => Promise<void>;
   initialValues?: ApplicationFormPrefill | null;
   governanceThresholdDisplay?: string;
+  proposalBondDisplay?: string;
 }) {
   const { accountId, connect } = useWallet();
   const [label, setLabel] = useState('');
@@ -654,33 +663,44 @@ export function ApplicationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-6">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4 md:space-y-6">
       <SurfacePanel
         radius="xl"
         tone="subtle"
         padding="none"
-        className="p-4 md:p-5"
+        className="px-3 py-3 md:p-5"
       >
         <h2 className="mb-3 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           New Launch
         </h2>
-        <StatStrip>
-          <StatStripCell label="Requirement">
+        <StatStrip columns={2}>
+          <StatStripCell label="Delegate" showDivider>
             <p className="mt-1 truncate font-mono text-sm font-bold text-foreground/80 md:text-base">
               {governanceThresholdDisplay ?? '100'}
+              <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                SOCIAL
+              </span>
             </p>
-            <p className="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/85">
-              delegated SOCIAL
+          </StatStripCell>
+          <StatStripCell label="Bond">
+            <p className="mt-1 truncate font-mono text-sm font-bold text-foreground/80 md:text-base">
+              {proposalBondDisplay ?? '0.1'}
+              <span className="ml-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                NEAR
+              </span>
             </p>
           </StatStripCell>
         </StatStrip>
+        <p className="mt-2.5 text-center text-[11px] text-muted-foreground/70">
+          Submitted as a DAO proposal · requires package integration
+        </p>
       </SurfacePanel>
 
       <SurfacePanel
         radius="xl"
         tone="subtle"
         padding="none"
-        className="p-4 md:p-5"
+        className="px-3 py-3 md:p-5"
       >
         <h3 className="mb-4 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Details
@@ -941,7 +961,7 @@ export function ApplicationForm({
         radius="xl"
         tone="subtle"
         padding="none"
-        className="p-4 md:p-5"
+        className="px-3 py-3 md:p-5"
       >
         <h3 className="mb-4 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Links
@@ -1124,12 +1144,12 @@ export function ApplicationForm({
         radius="xl"
         tone="subtle"
         padding="none"
-        className="p-4 md:p-5"
+        className="px-3 py-3 md:p-5"
       >
         <h3 className="mb-3 text-center text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Launch Terms
         </h3>
-        <StatStrip columns={4}>
+        <StatStrip columns={4} mobileColumns={2}>
           <StatStripCell
             label="Per Action"
             value={PARTNER_PER_USER_TERMS.rewardPerAction}
@@ -1142,17 +1162,17 @@ export function ApplicationForm({
           />
           <StatStripCell
             label="Total Budget"
-            value={Number(
+            value={compactNumber(
               PARTNER_AUDIENCE_BAND_BUDGETS[audienceBand].totalBudget
-            ).toLocaleString()}
+            )}
             valueClassName="portal-blue-text"
             showDivider
           />
           <StatStripCell
             label="Daily Budget"
-            value={Number(
+            value={compactNumber(
               PARTNER_AUDIENCE_BAND_BUDGETS[audienceBand].dailyBudget
-            ).toLocaleString()}
+            )}
             valueClassName="portal-blue-text"
           />
         </StatStrip>

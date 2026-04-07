@@ -21,17 +21,20 @@ export const playgroundExamples: ExampleSnippet[] = [
     code: `// Create or update user profile
 const accountId = "alice.near";
 
-await contract.set({
-  data: {
-    [\`\${accountId}/profile\`]: {
-      name: "Alice Smith",
-      bio: "Web3 developer | OnSocial enthusiast",
-      avatar: "ipfs://QmRBk1234...",
-      links: {
-        twitter: "https://twitter.com/alice",
-        github: "https://github.com/alice"
-      },
-      tags: ["developer", "web3", "near"]
+await contract.execute({
+  request: {
+    action: {
+      type: "set",
+      data: {
+        "profile/name": "Alice Smith",
+        "profile/bio": "Web3 developer | OnSocial enthusiast",
+        "profile/avatar": "ipfs://QmRBk1234...",
+        "profile/links": JSON.stringify({
+          twitter: "https://twitter.com/alice",
+          github: "https://github.com/alice"
+        }),
+        "profile/tags": JSON.stringify(["developer", "web3", "near"])
+      }
     }
   }
 }, { attachedDeposit: "10000000000000000000000" });
@@ -45,18 +48,21 @@ console.log("Profile created successfully!");`,
     category: 'content',
     code: `// Create a new post
 const accountId = "alice.near";
-const timestamp = Date.now();
+const postId = Date.now().toString();
 
-await contract.set({
-  data: {
-    [\`\${accountId}/content/post/\${timestamp}\`]: {
-      content_type: "post",
-      text: "Hello OnSocial! Building the future of Web3 social media 🚀",
-      content_hash: "ipfs://QmRBk5678...",
-      media: ["ipfs://QmImage123..."],
-      tags: ["web3", "social", "near"],
-      access: "public",
-      timestamp
+await contract.execute({
+  request: {
+    action: {
+      type: "set",
+      data: {
+        [\`post/\${postId}\`]: JSON.stringify({
+          text: "Hello OnSocial! Building the future of Web3 social media 🚀",
+          media: ["ipfs://QmImage123..."],
+          tags: ["web3", "social", "near"],
+          access: "public",
+          timestamp: Date.now()
+        })
+      }
     }
   }
 }, { attachedDeposit: "10000000000000000000000" });
@@ -64,39 +70,49 @@ await contract.set({
 console.log("Post created successfully!");`,
   },
   {
-    id: 'follow-user',
-    title: 'Follow a User',
-    description: 'Follow another user to see their content',
+    id: 'stand-with-user',
+    title: 'Stand With a User',
+    description: 'Stand with another user to see their content',
     category: 'social',
-    code: `// Follow a user
+    code: `// Stand with a user
 const accountId = "alice.near";
-const userToFollow = "bob.near";
+const userToStandWith = "bob.near";
 
-await contract.set({
-  data: {
-    [\`\${accountId}/graph/follow/\${userToFollow}\`]: ""
+await contract.execute({
+  request: {
+    action: {
+      type: "set",
+      data: {
+        [\`standing/\${userToStandWith}\`]: JSON.stringify({ since: Date.now() })
+      }
+    }
   }
-}, { attachedDeposit: "1" });
+}, { attachedDeposit: "10000000000000000000000" });
 
-console.log(\`Now following \${userToFollow}!\`);`,
+console.log(\`Now standing with \${userToStandWith}!\`);`,
   },
   {
-    id: 'like-post',
-    title: 'Like a Post',
-    description: 'Like content from another user',
+    id: 'react-to-post',
+    title: 'React to a Post',
+    description: 'React to content from another user',
     category: 'social',
-    code: `// Like a post
+    code: `// React to a post
 const accountId = "alice.near";
 const postOwner = "bob.near";
 const postId = "1234567890";
 
-await contract.set({
-  data: {
-    [\`\${accountId}/graph/like/\${postOwner}/content/post/\${postId}\`]: ""
+await contract.execute({
+  request: {
+    action: {
+      type: "set",
+      data: {
+        [\`reaction/\${postOwner}/post/\${postId}\`]: JSON.stringify({ type: "like" })
+      }
+    }
   }
-}, { attachedDeposit: "1" });
+}, { attachedDeposit: "10000000000000000000000" });
 
-console.log("Post liked!");`,
+console.log("Reacted to post!");`,
   },
   {
     id: 'create-group',
@@ -107,18 +123,13 @@ console.log("Post liked!");`,
 const groupId = "web3-builders";
 const accountId = "alice.near";
 
-await contract.set({
-  data: {
-    [\`groups/\${groupId}/config\`]: {
+await contract.execute({
+  request: {
+    action: {
+      type: "create_group",
+      group_id: groupId,
       name: "Web3 Builders",
-      description: "A community for Web3 developers",
-      owner: accountId,
-      is_private: false,
-      tags: ["web3", "development", "near"]
-    },
-    [\`groups/\${groupId}/branding\`]: {
-      logo: "ipfs://QmLogo123...",
-      banner: "ipfs://QmBanner456..."
+      is_public: true
     }
   }
 }, { attachedDeposit: "50000000000000000000000" });
@@ -134,11 +145,13 @@ console.log("Group created successfully!");`,
 const groupId = "web3-builders";
 const newMember = "charlie.near";
 
-await contract.set({
-  data: {
-    [\`groups/\${groupId}/members/\${newMember}\`]: {
-      role: "member",
-      joined_at: Date.now()
+await contract.execute({
+  request: {
+    action: {
+      type: "add_group_member",
+      group_id: groupId,
+      member_id: newMember,
+      role: "member"
     }
   }
 }, { attachedDeposit: "1" });
@@ -153,16 +166,20 @@ console.log(\`Added \${newMember} to group!\`);`,
     code: `// Post to a group
 const groupId = "web3-builders";
 const accountId = "alice.near";
-const timestamp = Date.now();
+const postId = Date.now().toString();
 
-await contract.set({
-  data: {
-    [\`groups/\${groupId}/posts/\${timestamp}\`]: {
-      author: accountId,
-      text: "Check out this new NEAR feature!",
-      timestamp,
-      tags: ["near", "update"]
-    }
+await contract.execute({
+  request: {
+    action: {
+      type: "set",
+      data: {
+        [\`post/\${postId}\`]: JSON.stringify({
+          text: "Check out this new NEAR feature!",
+          tags: ["near", "update"]
+        })
+      }
+    },
+    target_account: \`groups/\${groupId}\`
   }
 }, { attachedDeposit: "10000000000000000000000" });
 
@@ -229,15 +246,17 @@ console.log(\`Has permission: \${hasPermission}\`);`,
     description: 'Add storage deposit for your account',
     category: 'storage',
     code: `// Deposit storage for account
-const accountId = "alice.near";
 const depositAmount = "100000000000000000000000"; // 0.1 NEAR
 
-await contract.set({
-  data: {
-    "storage/deposit": {
-      account_id: accountId,
-      amount: depositAmount
-    }
+await contract.execute({
+  request: {
+    action: {
+      type: "set",
+      data: {
+        "storage/deposit": ""
+      }
+    },
+    options: { refund_unused_deposit: true }
   }
 }, { attachedDeposit: depositAmount });
 
