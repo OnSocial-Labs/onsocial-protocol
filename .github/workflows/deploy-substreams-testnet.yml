@@ -153,11 +153,11 @@ jobs:
               DB_URL="$DATABASE_URL"
             else
               # Fallback: extract from an existing working systemd unit
+              # DB_URL is on the line AFTER "substreams-sink-sql run \"
               for existing_unit in /etc/systemd/system/onsocial-sink-*.service; do
                 [ -f "$existing_unit" ] || continue
-                EXTRACTED=$(grep 'substreams-sink-sql run' "$existing_unit" \
-                  | sed -n 's/.*substreams-sink-sql run[[:space:]]*\\*[[:space:]]*//p' \
-                  | awk '{print $1}' | head -1)
+                EXTRACTED=$(grep -A1 'substreams-sink-sql run' "$existing_unit" \
+                  | tail -1 | awk '{$1=$1; print $1}' | sed 's/\\$//')
                 if [ -n "$EXTRACTED" ] && [[ "$EXTRACTED" == postgres* ]]; then
                   DB_URL="$EXTRACTED"
                   echo "📝 Extracted DB_URL from $(basename $existing_unit)"
