@@ -114,7 +114,7 @@ async function addProposal(account, daoId, proposal) {
           methodName: 'add_proposal',
           args: Buffer.from(JSON.stringify(proposal)),
           gas: BigInt('300000000000000'),
-          deposit: BigInt('1000000000000000000000000'),
+          deposit: BigInt('100000000000000000000000'),
         },
       },
     ],

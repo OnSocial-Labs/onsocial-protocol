@@ -395,7 +395,6 @@ A new update was just pushed to the main branch.
 
 Commit message: {COMMIT_MESSAGE}
 Commit: {COMMIT_SHA}
-Repo: {REPO_URL}
 Discussions: {DISCUSSIONS_URL}
 Associated PR: {f'#{PR_NUMBER} {PR_TITLE}' if PR_NUMBER and PR_TITLE else 'none'}
 PR labels: {', '.join(sorted(PR_LABELS)) if PR_LABELS else 'none'}
@@ -450,18 +449,19 @@ Never force it, never use puns, memes, or try-hard jokes. \
 About half the posts should have a touch of wit; the other half can be straight.
 
 Link rules:
-- You have several URLs available: the repo URL, the discussions URL, and nearblocks \
-explorer links for any contracts that changed.
+- NEVER include a link to the GitHub repository in any post. The repo is private \
+and the profile bio already links to the project.
+- You have the discussions URL and nearblocks explorer links for any contracts that changed.
 - For the TWEET: do NOT include a URL by default. Only include one if the post \
 references something the reader would specifically want to click (a new release, \
-a specific feature, a discussion thread). When the commit is about a contract \
+a discussion thread). When the commit is about a contract \
 deployment, upgrade, testnet/mainnet activity, or on-chain verification, include \
 the relevant nearblocks explorer link so devs can inspect the contract. \
-Most tweets should have NO link — the profile bio links to the repo.
-- For TELEGRAM: include one URL only if it adds context. Use the repo URL for code changes, \
-the discussions URL for feature or community-facing updates, or the nearblocks link \
+Most tweets should have NO link — the profile bio links to the project.
+- For TELEGRAM: include one URL only if it adds context. Use the discussions URL \
+for feature or community-facing updates, or the nearblocks link \
 for contract deployments and on-chain activity. \
-If the message is self-contained, skip the link.
+Never link to the repo. If the message is self-contained, skip the link.
 
 Examples of tone:
   Bad: "Huge update just dropped! We're thrilled to ship gasless auth!"
@@ -543,15 +543,13 @@ def parse_posts(output: str) -> tuple[str, str]:
 
     # Fallbacks
     if not tweet_text:
-        tweet_text = f"New update to OnSocial Protocol: {COMMIT_MESSAGE[:100]} {REPO_URL}"
+        tweet_text = f"New update to OnSocial Protocol: {COMMIT_MESSAGE[:160]}"
     if not telegram_text:
-        telegram_text = f"OnSocial Protocol update: {COMMIT_MESSAGE}\n\n{REPO_URL}"
+        telegram_text = f"OnSocial Protocol update: {COMMIT_MESSAGE}"
 
     # Enforce hard tweet length limit
     if len(tweet_text) > MAX_TWEET_LENGTH:
-        # Truncate text before the URL, preserving the repo link
-        suffix = f"… {REPO_URL}"
-        tweet_text = tweet_text[: MAX_TWEET_LENGTH - len(suffix)] + suffix
+        tweet_text = tweet_text[: MAX_TWEET_LENGTH - 1] + "…"
         print(f"⚠️  Tweet truncated to {len(tweet_text)} chars (was over {MAX_TWEET_LENGTH})")
 
     return tweet_text, telegram_text
@@ -566,6 +564,8 @@ def contains_forbidden_language(text: str) -> str | None:
         return "first-person or team language"
     if "!" in text:
         return "exclamation mark"
+    if re.search(r"github\.com/", lowered):
+        return "GitHub repo link"
     return None
 
 
