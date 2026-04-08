@@ -177,6 +177,34 @@ jobs:
               else
                 echo "⚠️  No DB_URL found — skipping schema reset (apply manually)"
               fi
+            else
+              # Incremental deploy: apply schemas only for NEW contracts
+              # (tables don't exist yet). Existing contract tables are untouched.
+              if [ -f /root/.onsocial-sink-db-url ]; then
+                DB_URL_CHECK=$(cat /root/.onsocial-sink-db-url)
+              else
+                DB_URL_CHECK="${DATABASE_URL:-}"
+              fi
+              if [ -n "$DB_URL_CHECK" ]; then
+                for variant in "${CONTRACTS[@]}"; do
+                  SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
+                  [ -f "$SCHEMA_FILE" ] || continue
+                  # Check if the primary table for this contract exists
+                  # Core uses 'data_updates', others use '{variant}_events'
+                  if [ "$variant" = "core" ]; then
+                    TABLE_NAME="data_updates"
+                  else
+                    TABLE_NAME="${variant}_events"
+                  fi
+                  EXISTS=$(psql "$DB_URL_CHECK" -tAc \
+                    "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='${TABLE_NAME}'" 2>/dev/null || true)
+                  if [ "$EXISTS" != "1" ]; then
+                    echo "📝 New contract detected: ${variant} — applying schema"
+                    psql "$DB_URL_CHECK" -f "$SCHEMA_FILE"
+                    echo "✓ Applied ${variant}_schema.sql"
+                  fi
+                done
+              fi
             fi
 
             # Remove old versioned spkgs (different version)
@@ -240,8 +268,8 @@ jobs:
             systemctl start $SERVICES
             echo "✓ Sinks started"
 
-            # Health check — wait 20s then verify at least half are active
-            sleep 20
+            # Health check — wait 30s then verify at least half are active
+            sleep 30
             ACTIVE=0
             TOTAL=${#CONTRACTS[@]}
             for s in "${CONTRACTS[@]}"; do
@@ -256,7 +284,7 @@ jobs:
             MIN_ACTIVE=$(( (TOTAL + 1) / 2 ))  # at least half (rounded up)
             if [ "$ACTIVE" -lt "$MIN_ACTIVE" ]; then
               echo ""
-              echo "❌ Only $ACTIVE/$TOTAL sinks active after 20s — rolling back"
+              echo "❌ Only $ACTIVE/$TOTAL sinks active after 30s — rolling back"
               for variant in "${CONTRACTS[@]}"; do
                 PREV="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg.prev"
                 [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"

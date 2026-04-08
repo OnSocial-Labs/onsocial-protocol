@@ -79,7 +79,9 @@ describe('POST /developer/keys', () => {
       tier: 'free',
     });
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
       .post('/developer/keys')
       .send({ label: 'my-key' });
 
@@ -112,7 +114,9 @@ describe('POST /developer/keys', () => {
       message: 'Maximum 5 keys per account',
     });
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    )
       .post('/developer/keys')
       .send({});
 
@@ -121,7 +125,9 @@ describe('POST /developer/keys', () => {
   });
 
   it('rejects API key auth (must use JWT)', async () => {
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'apikey' }))
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    )
       .post('/developer/keys')
       .send({});
 
@@ -131,9 +137,7 @@ describe('POST /developer/keys', () => {
   });
 
   it('returns 401 without auth', async () => {
-    const res = await request(createApp())
-      .post('/developer/keys')
-      .send({});
+    const res = await request(createApp()).post('/developer/keys').send({});
 
     expect(res.status).toBe(401);
   });
@@ -153,8 +157,9 @@ describe('GET /developer/keys', () => {
     ];
     mockListApiKeys.mockResolvedValue(keys);
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
-      .get('/developer/keys');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).get('/developer/keys');
 
     expect(res.status).toBe(200);
     expect(res.body.keys).toEqual(keys);
@@ -162,8 +167,9 @@ describe('GET /developer/keys', () => {
   });
 
   it('rejects API key auth', async () => {
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'apikey' }))
-      .get('/developer/keys');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    ).get('/developer/keys');
 
     expect(res.status).toBe(403);
   });
@@ -179,8 +185,9 @@ describe('DELETE /developer/keys/:prefix', () => {
   it('revokes a key and returns status', async () => {
     mockRevokeApiKey.mockResolvedValue(true);
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
-      .delete('/developer/keys/osk_abc');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).delete('/developer/keys/osk_abc');
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('revoked');
@@ -190,16 +197,18 @@ describe('DELETE /developer/keys/:prefix', () => {
   it('returns 404 when key not found', async () => {
     mockRevokeApiKey.mockResolvedValue(false);
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
-      .delete('/developer/keys/osk_nope');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).delete('/developer/keys/osk_nope');
 
     expect(res.status).toBe(404);
     expect(res.body.error).toMatch(/not found/i);
   });
 
   it('rejects API key auth', async () => {
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'apikey' }))
-      .delete('/developer/keys/osk_abc');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'apikey' })
+    ).delete('/developer/keys/osk_abc');
 
     expect(res.status).toBe(403);
   });
@@ -216,8 +225,9 @@ describe('GET /developer/usage', () => {
     const summary = { today: 100, thisMonth: 2500 };
     mockGetUsageSummary.mockResolvedValue(summary);
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
-      .get('/developer/usage');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).get('/developer/usage');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(summary);
@@ -227,8 +237,9 @@ describe('GET /developer/usage', () => {
   it('returns 500 on service error', async () => {
     mockGetUsageSummary.mockRejectedValue(new Error('redis down'));
 
-    const res = await request(createApp({ accountId: 'alice.testnet', method: 'jwt' }))
-      .get('/developer/usage');
+    const res = await request(
+      createApp({ accountId: 'alice.testnet', method: 'jwt' })
+    ).get('/developer/usage');
 
     expect(res.status).toBe(500);
     expect(res.body.error).toMatch(/usage/i);

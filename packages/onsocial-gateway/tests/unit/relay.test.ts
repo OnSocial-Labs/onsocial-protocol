@@ -59,7 +59,13 @@ function createApp() {
         const payload = jwt.verify(authHeader.slice(7), JWT_SECRET) as {
           sub: string;
         };
-        req.auth = { accountId: payload.sub, method: 'jwt' as const, tier: 'free' as const, iat: 0, exp: 0 };
+        req.auth = {
+          accountId: payload.sub,
+          method: 'jwt' as const,
+          tier: 'free' as const,
+          iat: 0,
+          exp: 0,
+        };
       } catch {
         // leave auth undefined
       }
@@ -294,7 +300,13 @@ describe('POST /relay/delegate', () => {
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => {
-      req.auth = { accountId: 'pro.testnet', method: 'jwt' as const, tier: 'pro' as const, iat: 0, exp: 0 };
+      req.auth = {
+        accountId: 'pro.testnet',
+        method: 'jwt' as const,
+        tier: 'pro' as const,
+        iat: 0,
+        exp: 0,
+      };
       next();
     });
     app.use('/relay', relayRouter);
@@ -315,7 +327,13 @@ describe('POST /relay/delegate', () => {
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => {
-      req.auth = { accountId: 'pro.testnet', method: 'jwt' as const, tier: 'pro' as const, iat: 0, exp: 0 };
+      req.auth = {
+        accountId: 'pro.testnet',
+        method: 'jwt' as const,
+        tier: 'pro' as const,
+        iat: 0,
+        exp: 0,
+      };
       next();
     });
     app.use('/relay', relayRouter);

@@ -41,7 +41,12 @@ function createApp() {
 /** Helper: encode a JSON value as an RPC call_function result. */
 function rpcResult(value: unknown) {
   const bytes = Buffer.from(JSON.stringify(value), 'utf-8');
-  return { result: Array.from(bytes), logs: [], block_height: 1, block_hash: 'abc' };
+  return {
+    result: Array.from(bytes),
+    logs: [],
+    block_height: 1,
+    block_hash: 'abc',
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +78,10 @@ describe('GET /data/get', () => {
     const res = await request(createApp()).get('/data/get?keys=a,b,c');
     expect(res.status).toBe(200);
     const args = JSON.parse(
-      Buffer.from(mockRpcQuery.mock.calls[0][0].args_base64, 'base64').toString()
+      Buffer.from(
+        mockRpcQuery.mock.calls[0][0].args_base64,
+        'base64'
+      ).toString()
     );
     expect(args.keys).toEqual(['a', 'b', 'c']);
   });
@@ -83,7 +91,10 @@ describe('GET /data/get', () => {
 
     await request(createApp()).get('/data/get?keys=k&accountId=bob.testnet');
     const args = JSON.parse(
-      Buffer.from(mockRpcQuery.mock.calls[0][0].args_base64, 'base64').toString()
+      Buffer.from(
+        mockRpcQuery.mock.calls[0][0].args_base64,
+        'base64'
+      ).toString()
     );
     expect(args.account_id).toBe('bob.testnet');
   });
@@ -127,7 +138,9 @@ describe('GET /data/get-one', () => {
     const entry = { key: 'alice/profile/name', value: 'Alice' };
     mockRpcQuery.mockResolvedValue(rpcResult(entry));
 
-    const res = await request(createApp()).get('/data/get-one?key=alice/profile/name');
+    const res = await request(createApp()).get(
+      '/data/get-one?key=alice/profile/name'
+    );
     expect(res.status).toBe(200);
     expect(res.body).toEqual(entry);
 
@@ -144,9 +157,14 @@ describe('GET /data/get-one', () => {
   it('passes accountId to RPC', async () => {
     mockRpcQuery.mockResolvedValue(rpcResult(null));
 
-    await request(createApp()).get('/data/get-one?key=k&accountId=carol.testnet');
+    await request(createApp()).get(
+      '/data/get-one?key=k&accountId=carol.testnet'
+    );
     const args = JSON.parse(
-      Buffer.from(mockRpcQuery.mock.calls[0][0].args_base64, 'base64').toString()
+      Buffer.from(
+        mockRpcQuery.mock.calls[0][0].args_base64,
+        'base64'
+      ).toString()
     );
     expect(args.account_id).toBe('carol.testnet');
   });
@@ -189,7 +207,10 @@ describe('GET /data/keys', () => {
       '/data/keys?prefix=p&fromKey=k5&limit=10&withValues=true'
     );
     const args = JSON.parse(
-      Buffer.from(mockRpcQuery.mock.calls[0][0].args_base64, 'base64').toString()
+      Buffer.from(
+        mockRpcQuery.mock.calls[0][0].args_base64,
+        'base64'
+      ).toString()
     );
     expect(args.from_key).toBe('k5');
     expect(args.limit).toBe(10);
@@ -201,7 +222,10 @@ describe('GET /data/keys', () => {
 
     await request(createApp()).get('/data/keys?prefix=p&limit=500');
     const args = JSON.parse(
-      Buffer.from(mockRpcQuery.mock.calls[0][0].args_base64, 'base64').toString()
+      Buffer.from(
+        mockRpcQuery.mock.calls[0][0].args_base64,
+        'base64'
+      ).toString()
     );
     expect(args.limit).toBe(50);
   });
@@ -230,7 +254,9 @@ describe('GET /data/count', () => {
   it('returns count for a prefix', async () => {
     mockRpcQuery.mockResolvedValue(rpcResult(42));
 
-    const res = await request(createApp()).get('/data/count?prefix=alice/post/');
+    const res = await request(createApp()).get(
+      '/data/count?prefix=alice/post/'
+    );
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ count: 42 });
 
