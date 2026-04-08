@@ -119,6 +119,7 @@ jobs:
           username: root
           key: ${{ steps.ssh.outputs.key }}
           envs: VER,CLEAN_DEPLOY
+          command_timeout: 10m
           script: |
             set -euo pipefail
             SPKG_DIR=/root/onsocial-indexer
@@ -143,20 +144,28 @@ jobs:
             SERVICES=""
             for c in "${CONTRACTS[@]}"; do SERVICES+=" onsocial-sink-$c"; done
 
+            # Read DB_URL once for all operations
+            DB_URL=""
+            [ -f /root/.onsocial-sink-db-url ] && DB_URL=$(cat /root/.onsocial-sink-db-url)
+            if [ -z "$DB_URL" ]; then
+              DB_URL="${DATABASE_URL:-}"
+            fi
+            ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
+
             # Stop sinks (ignore errors for services that don't exist yet)
             systemctl stop $SERVICES 2>/dev/null || true
             echo "✓ Sinks stopped"
 
+            # Track which contracts are brand-new (no prior systemd unit)
+            NEW_CONTRACTS=()
+            for variant in "${CONTRACTS[@]}"; do
+              [ ! -f "/etc/systemd/system/onsocial-sink-${variant}.service" ] && NEW_CONTRACTS+=("$variant")
+            done
+
             # Clean deploy: drop all tables and re-apply schema
             if [ "$CLEAN_DEPLOY" = "true" ]; then
               echo "🧹 Clean deploy requested — dropping tables and cursors"
-              if [ -f /root/.onsocial-sink-db-url ]; then
-                DB_URL=$(cat /root/.onsocial-sink-db-url)
-              else
-                DB_URL="${DATABASE_URL:-}"
-              fi
               if [ -n "$DB_URL" ]; then
-                # Drop all known tables (safe if they don't exist)
                 psql "$DB_URL" -c "
                   DO \$\$ DECLARE t TEXT;
                   BEGIN
@@ -166,7 +175,6 @@ jobs:
                   END \$\$;
                 "
                 echo "✓ Tables dropped"
-                # Re-apply schemas
                 for variant in "${CONTRACTS[@]}"; do
                   SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
                   if [ -f "$SCHEMA_FILE" ]; then
@@ -179,31 +187,25 @@ jobs:
               fi
             else
               # Incremental deploy: apply schemas only for NEW contracts
-              # (tables don't exist yet). Existing contract tables are untouched.
-              if [ -f /root/.onsocial-sink-db-url ]; then
-                DB_URL_CHECK=$(cat /root/.onsocial-sink-db-url)
-              else
-                DB_URL_CHECK="${DATABASE_URL:-}"
-              fi
-              if [ -n "$DB_URL_CHECK" ]; then
+              if [ -n "$DB_URL" ]; then
                 for variant in "${CONTRACTS[@]}"; do
                   SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
                   [ -f "$SCHEMA_FILE" ] || continue
-                  # Check if the primary table for this contract exists
-                  # Core uses 'data_updates', others use '{variant}_events'
                   if [ "$variant" = "core" ]; then
                     TABLE_NAME="data_updates"
                   else
                     TABLE_NAME="${variant}_events"
                   fi
-                  EXISTS=$(psql "$DB_URL_CHECK" -tAc \
+                  EXISTS=$(psql "$DB_URL" -tAc \
                     "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='${TABLE_NAME}'" 2>/dev/null || true)
                   if [ "$EXISTS" != "1" ]; then
                     echo "📝 New contract detected: ${variant} — applying schema"
-                    psql "$DB_URL_CHECK" -f "$SCHEMA_FILE"
+                    psql "$DB_URL" -f "$SCHEMA_FILE"
                     echo "✓ Applied ${variant}_schema.sql"
                   fi
                 done
+              else
+                echo "⚠️  No DB_URL found — skipping incremental schema check"
               fi
             fi
 
@@ -221,23 +223,30 @@ jobs:
               mv "${UPLOAD_DIR}/onsocial-events-${VER}-${variant}.spkg" \
                  "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
             done
-            # Copy schemas for reference
             cp "${UPLOAD_DIR}"/*_schema.sql "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkgs swapped"
 
-            # Create or update systemd service files
-            DB_URL=""
-            [ -f /root/.onsocial-sink-db-url ] && DB_URL=$(cat /root/.onsocial-sink-db-url)
-            ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
+            # For brand-new contracts: run substreams-sink-sql setup to
+            # register cursor + create schema tables before first run
+            if [ ${#NEW_CONTRACTS[@]} -gt 0 ] && [ -n "$DB_URL" ]; then
+              echo "📝 Running sink setup for new contracts: ${NEW_CONTRACTS[*]}"
+              for variant in "${NEW_CONTRACTS[@]}"; do
+                SPKG="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
+                echo "  Setting up ${variant}..."
+                substreams-sink-sql setup "$DB_URL" "$SPKG" 2>&1 || {
+                  echo "  ⚠️  setup returned non-zero for ${variant} (may already exist — continuing)"
+                }
+              done
+              echo "✓ Sink setup complete"
+            fi
 
+            # Create or update systemd service files
             for variant in "${CONTRACTS[@]}"; do
               UNIT="/etc/systemd/system/onsocial-sink-${variant}.service"
               if [ -f "$UNIT" ]; then
-                # Existing unit — just update spkg version
                 sed -i "s|onsocial-events-v[0-9.]*-${variant}.spkg|onsocial-events-${VER}-${variant}.spkg|g" "$UNIT"
               else
-                # New contract — create systemd unit from template
                 echo "📝 Creating new systemd unit: onsocial-sink-${variant}"
                 cat > "$UNIT" <<UNITEOF
             [Unit]
@@ -259,6 +268,7 @@ jobs:
             [Install]
             WantedBy=multi-user.target
             UNITEOF
+                systemctl enable "onsocial-sink-${variant}" 2>/dev/null || true
               fi
             done
             systemctl daemon-reload
@@ -268,23 +278,52 @@ jobs:
             systemctl start $SERVICES
             echo "✓ Sinks started"
 
-            # Health check — wait 30s then verify at least half are active
-            sleep 30
-            ACTIVE=0
+            # Health check — poll every 10s for up to 90s
+            POLL_INTERVAL=10
+            MAX_WAIT=90
+            ELAPSED=0
             TOTAL=${#CONTRACTS[@]}
+
+            while [ $ELAPSED -lt $MAX_WAIT ]; do
+              sleep $POLL_INTERVAL
+              ELAPSED=$((ELAPSED + POLL_INTERVAL))
+              ACTIVE=0
+              for s in "${CONTRACTS[@]}"; do
+                systemctl is-active --quiet "onsocial-sink-$s" && ACTIVE=$((ACTIVE + 1))
+              done
+              echo "  ⏱ ${ELAPSED}s: ${ACTIVE}/${TOTAL} sinks active"
+              [ "$ACTIVE" -eq "$TOTAL" ] && break
+            done
+
+            # Final status report
+            echo ""
+            ACTIVE=0
+            FAILED_SINKS=()
             for s in "${CONTRACTS[@]}"; do
               if systemctl is-active --quiet "onsocial-sink-$s"; then
                 ACTIVE=$((ACTIVE + 1))
                 echo "  ✅ $s: active"
               else
-                echo "  ⚠️  $s: $(systemctl is-active onsocial-sink-$s)"
+                STATE=$(systemctl is-active "onsocial-sink-$s" 2>/dev/null || echo "unknown")
+                echo "  ❌ $s: $STATE"
+                FAILED_SINKS+=("$s")
               fi
             done
 
-            MIN_ACTIVE=$(( (TOTAL + 1) / 2 ))  # at least half (rounded up)
-            if [ "$ACTIVE" -lt "$MIN_ACTIVE" ]; then
+            # Dump journal logs for any failed sinks (last 30 lines each)
+            if [ ${#FAILED_SINKS[@]} -gt 0 ]; then
               echo ""
-              echo "❌ Only $ACTIVE/$TOTAL sinks active after 30s — rolling back"
+              echo "=== Failed sink logs ==="
+              for s in "${FAILED_SINKS[@]}"; do
+                echo "--- onsocial-sink-$s ---"
+                journalctl -u "onsocial-sink-$s" --no-pager -n 30 2>/dev/null || true
+                echo ""
+              done
+            fi
+
+            if [ "$ACTIVE" -lt "$TOTAL" ]; then
+              echo ""
+              echo "❌ Only $ACTIVE/$TOTAL sinks active after ${MAX_WAIT}s — rolling back"
               for variant in "${CONTRACTS[@]}"; do
                 PREV="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg.prev"
                 [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
