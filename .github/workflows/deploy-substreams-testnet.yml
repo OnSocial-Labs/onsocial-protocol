@@ -155,7 +155,9 @@ jobs:
               # Fallback: extract from an existing working systemd unit
               for existing_unit in /etc/systemd/system/onsocial-sink-*.service; do
                 [ -f "$existing_unit" ] || continue
-                EXTRACTED=$(grep -oP '(?<=ExecStart=/usr/local/bin/substreams-sink-sql run \\?\s*)\S+' "$existing_unit" | head -1)
+                EXTRACTED=$(grep 'substreams-sink-sql run' "$existing_unit" \
+                  | sed -n 's/.*substreams-sink-sql run[[:space:]]*\\*[[:space:]]*//p' \
+                  | awk '{print $1}' | head -1)
                 if [ -n "$EXTRACTED" ] && [[ "$EXTRACTED" == postgres* ]]; then
                   DB_URL="$EXTRACTED"
                   echo "📝 Extracted DB_URL from $(basename $existing_unit)"
