@@ -17,7 +17,6 @@ permissions:
   actions: read
   id-token: write
 
-env:
 jobs:
   deploy:
     name: Deploy spkg to Hetzner
