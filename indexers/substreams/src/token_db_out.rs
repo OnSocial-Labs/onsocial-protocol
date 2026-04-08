@@ -19,6 +19,11 @@ pub(crate) struct BalanceAccum {
 
 #[substreams::handlers::map]
 pub fn token_db_out(output: TokenOutput) -> Result<DatabaseChanges, substreams::errors::Error> {
+    Ok(token_db_out_impl(output))
+}
+
+/// Core logic shared by both per-contract and combined db_out.
+pub(crate) fn token_db_out_impl(output: TokenOutput) -> DatabaseChanges {
     let mut tables = Tables::new();
     let mut balance_accum: HashMap<String, BalanceAccum> = HashMap::new();
 
@@ -39,7 +44,7 @@ pub fn token_db_out(output: TokenOutput) -> Result<DatabaseChanges, substreams::
         row.set("updated_at", &state.updated_at);
     }
 
-    Ok(tables.to_database_changes())
+    tables.to_database_changes()
 }
 
 pub(crate) fn write_token_event(tables: &mut Tables, event: &TokenEvent) {

@@ -19,6 +19,7 @@
 mod block_walker;
 mod boost_db_out;
 mod boost_decoder;
+mod combined_db_out;
 mod core_db_out;
 mod core_decoder;
 mod pb;
@@ -32,11 +33,15 @@ mod token_decoder;
 #[cfg(test)]
 mod tests;
 
-use block_walker::{block_context, for_each_event_log, parse_contract_filter};
+use block_walker::{
+    block_context, for_each_event_log, for_each_event_log_multi, parse_contract_filter,
+    parse_multi_contract_filter,
+};
 use boost_decoder::decode_boost_event;
 use core_decoder::decode_onsocial_event;
 use pb::boost::v1::BoostOutput;
-use pb::core::v1::{
+use pb::combined::v1::CombinedOutput;
+use pb::core_onsocial::v1::{
     ContractUpdate, DataUpdate, GroupUpdate, Output, PermissionUpdate, StorageUpdate,
 };
 use pb::rewards::v1::RewardsOutput;
@@ -52,6 +57,105 @@ use token_decoder::decode_token_events;
 // Core-OnSocial Map Module
 // =============================================================================
 
+/// Process a single core-onsocial log line, appending decoded events to the accumulators.
+/// Shared by both `map_core_output` (per-contract) and `map_combined_output`.
+#[allow(clippy::too_many_arguments)]
+fn process_core_log(
+    json_data: &str,
+    receipt_id: &str,
+    log_index: usize,
+    block_height: u64,
+    block_timestamp: u64,
+    data_updates: &mut Vec<DataUpdate>,
+    storage_updates: &mut Vec<StorageUpdate>,
+    group_updates: &mut Vec<GroupUpdate>,
+    contract_updates: &mut Vec<ContractUpdate>,
+    permission_updates: &mut Vec<PermissionUpdate>,
+) {
+    let event = match decode_onsocial_event(json_data) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    if event.standard != "onsocial" || !event.version.starts_with("1.") {
+        return;
+    }
+
+    match event.event.as_str() {
+        "DATA_UPDATE" => {
+            for (i, data) in event.data.iter().enumerate() {
+                if let Some(u) = extract_data_update(
+                    data,
+                    receipt_id,
+                    log_index as u32,
+                    i as u32,
+                    block_height,
+                    block_timestamp,
+                ) {
+                    data_updates.push(u);
+                }
+            }
+        }
+        "STORAGE_UPDATE" => {
+            for (i, data) in event.data.iter().enumerate() {
+                if let Some(u) = extract_storage_update(
+                    data,
+                    receipt_id,
+                    log_index as u32,
+                    i as u32,
+                    block_height,
+                    block_timestamp,
+                ) {
+                    storage_updates.push(u);
+                }
+            }
+        }
+        "GROUP_UPDATE" => {
+            for (i, data) in event.data.iter().enumerate() {
+                if let Some(u) = extract_group_update(
+                    data,
+                    receipt_id,
+                    log_index as u32,
+                    i as u32,
+                    block_height,
+                    block_timestamp,
+                ) {
+                    group_updates.push(u);
+                }
+            }
+        }
+        "CONTRACT_UPDATE" => {
+            for (i, data) in event.data.iter().enumerate() {
+                if let Some(u) = extract_contract_update(
+                    data,
+                    receipt_id,
+                    log_index as u32,
+                    i as u32,
+                    block_height,
+                    block_timestamp,
+                ) {
+                    contract_updates.push(u);
+                }
+            }
+        }
+        "PERMISSION_UPDATE" => {
+            for (i, data) in event.data.iter().enumerate() {
+                if let Some(u) = extract_permission_update(
+                    data,
+                    receipt_id,
+                    log_index as u32,
+                    i as u32,
+                    block_height,
+                    block_timestamp,
+                ) {
+                    permission_updates.push(u);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Core map module - routes onsocial-standard events to typed outputs
 #[substreams::handlers::map]
 fn map_core_output(params: String, block: Block) -> Result<Output, substreams::errors::Error> {
@@ -65,88 +169,18 @@ fn map_core_output(params: String, block: Block) -> Result<Output, substreams::e
     let mut permission_updates = Vec::new();
 
     for_each_event_log(&block, filter.as_deref(), |log| {
-        let event = match decode_onsocial_event(log.json_data) {
-            Ok(e) => e,
-            Err(_) => return,
-        };
-
-        if event.standard != "onsocial" || !event.version.starts_with("1.") {
-            return;
-        }
-
-        match event.event.as_str() {
-            "DATA_UPDATE" => {
-                for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_data_update(
-                        data,
-                        &log.receipt_id,
-                        log.log_index as u32,
-                        i as u32,
-                        ctx.block_height,
-                        ctx.block_timestamp,
-                    ) {
-                        data_updates.push(u);
-                    }
-                }
-            }
-            "STORAGE_UPDATE" => {
-                for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_storage_update(
-                        data,
-                        &log.receipt_id,
-                        log.log_index as u32,
-                        i as u32,
-                        ctx.block_height,
-                        ctx.block_timestamp,
-                    ) {
-                        storage_updates.push(u);
-                    }
-                }
-            }
-            "GROUP_UPDATE" => {
-                for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_group_update(
-                        data,
-                        &log.receipt_id,
-                        log.log_index as u32,
-                        i as u32,
-                        ctx.block_height,
-                        ctx.block_timestamp,
-                    ) {
-                        group_updates.push(u);
-                    }
-                }
-            }
-            "CONTRACT_UPDATE" => {
-                for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_contract_update(
-                        data,
-                        &log.receipt_id,
-                        log.log_index as u32,
-                        i as u32,
-                        ctx.block_height,
-                        ctx.block_timestamp,
-                    ) {
-                        contract_updates.push(u);
-                    }
-                }
-            }
-            "PERMISSION_UPDATE" => {
-                for (i, data) in event.data.iter().enumerate() {
-                    if let Some(u) = extract_permission_update(
-                        data,
-                        &log.receipt_id,
-                        log.log_index as u32,
-                        i as u32,
-                        ctx.block_height,
-                        ctx.block_timestamp,
-                    ) {
-                        permission_updates.push(u);
-                    }
-                }
-            }
-            _ => {}
-        }
+        process_core_log(
+            log.json_data,
+            &log.receipt_id,
+            log.log_index,
+            ctx.block_height,
+            ctx.block_timestamp,
+            &mut data_updates,
+            &mut storage_updates,
+            &mut group_updates,
+            &mut contract_updates,
+            &mut permission_updates,
+        );
     });
 
     Ok(Output {
@@ -292,6 +326,133 @@ fn map_scarces_output(
         block_height: ctx.block_height,
         block_timestamp: ctx.block_timestamp,
         block_hash: ctx.block_hash,
+    })
+}
+
+// =============================================================================
+// Combined Map Module — All contracts in a single stream
+// =============================================================================
+
+/// Combined map module — processes all 5 contracts in a single block pass.
+///
+/// Params format: `core=core.onsocial.testnet&boost=boost.onsocial.testnet&...`
+/// Each key is the contract label used to dispatch to the correct decoder.
+#[substreams::handlers::map]
+fn map_combined_output(
+    params: String,
+    block: Block,
+) -> Result<CombinedOutput, substreams::errors::Error> {
+    let contracts = parse_multi_contract_filter(&params);
+    let ctx = block_context(&block);
+
+    // Core accumulators
+    let mut data_updates = Vec::new();
+    let mut storage_updates = Vec::new();
+    let mut group_updates = Vec::new();
+    let mut contract_updates = Vec::new();
+    let mut permission_updates = Vec::new();
+
+    // Per-contract event accumulators
+    let mut boost_events = Vec::new();
+    let mut rewards_events = Vec::new();
+    let mut token_events = Vec::new();
+    let mut scarces_events = Vec::new();
+
+    for_each_event_log_multi(&block, &contracts, |log| match log.label {
+        "core" => {
+            process_core_log(
+                log.json_data,
+                &log.receipt_id,
+                log.log_index,
+                ctx.block_height,
+                ctx.block_timestamp,
+                &mut data_updates,
+                &mut storage_updates,
+                &mut group_updates,
+                &mut contract_updates,
+                &mut permission_updates,
+            );
+        }
+        "boost" => {
+            if let Some(event) = decode_boost_event(
+                log.json_data,
+                &log.receipt_id,
+                ctx.block_height,
+                ctx.block_timestamp,
+                log.log_index,
+            ) {
+                boost_events.push(event);
+            }
+        }
+        "rewards" => {
+            if let Some(event) = decode_rewards_event(
+                log.json_data,
+                &log.receipt_id,
+                ctx.block_height,
+                ctx.block_timestamp,
+                log.log_index,
+            ) {
+                rewards_events.push(event);
+            }
+        }
+        "token" => {
+            token_events.extend(decode_token_events(
+                log.json_data,
+                &log.receipt_id,
+                ctx.block_height,
+                ctx.block_timestamp,
+                log.log_index,
+            ));
+        }
+        "scarces" => {
+            if let Some(event) = decode_scarces_event(
+                log.json_data,
+                &log.receipt_id,
+                ctx.block_height,
+                ctx.block_timestamp,
+                log.log_index,
+            ) {
+                scarces_events.push(event);
+            }
+        }
+        _ => {}
+    });
+
+    Ok(CombinedOutput {
+        core: Some(Output {
+            data_updates,
+            storage_updates,
+            group_updates,
+            contract_updates,
+            permission_updates,
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            block_hash: ctx.block_hash.clone(),
+        }),
+        boost: Some(BoostOutput {
+            events: boost_events,
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            block_hash: ctx.block_hash.clone(),
+        }),
+        rewards: Some(RewardsOutput {
+            events: rewards_events,
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            block_hash: ctx.block_hash.clone(),
+        }),
+        token: Some(TokenOutput {
+            events: token_events,
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            block_hash: ctx.block_hash.clone(),
+        }),
+        scarces: Some(ScarcesOutput {
+            events: scarces_events,
+            block_height: ctx.block_height,
+            block_timestamp: ctx.block_timestamp,
+            block_hash: ctx.block_hash.clone(),
+        }),
     })
 }
 

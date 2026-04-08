@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package combined.v1;
+
+import "core.proto";
+import "boost.proto";
+import "rewards.proto";
+import "token.proto";
+import "scarces.proto";
+
+// =============================================================================
+// COMBINED OUTPUT - All contract events in a single stream
+// =============================================================================
+// Used by the combined map module to emit all 5 contract outputs in one pass.
+// This allows running a single substreams-sink-sql instance instead of 5,
+// staying within the Scaling plan's 5 concurrent streams limit.
+
+message CombinedOutput {
+  core_onsocial.v1.Output core = 1;
+  boost.v1.BoostOutput boost = 2;
+  rewards.v1.RewardsOutput rewards = 3;
+  token.v1.TokenOutput token = 4;
+  scarces.v1.ScarcesOutput scarces = 5;
+  // Fields 6-8 reserved (previously top-level block metadata, now carried per sub-output)
+  reserved 6, 7, 8;
+}

@@ -23,6 +23,7 @@ protobuf:
     - rewards.proto
     - token.proto
     - scarces.proto
+    - combined.proto
     - sf/substreams/sink/database/v1/database.proto
     - sf/substreams/sink/sql/v1/service.proto
   importPaths:
@@ -180,26 +181,58 @@ modules:
       Converts ScarcesOutput to DatabaseChanges for SQL sink.
       Writes to: scarces_events.
 
+  # =========================================================================
+  # COMBINED (ALL CONTRACTS) MODULES
+  # =========================================================================
+
+  # Combined map — processes all 5 contracts in a single block pass
+  - name: map_combined_output
+    kind: map
+    initialBlock: 233084800
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:combined.v1.CombinedOutput
+    doc: |
+      Processes all OnSocial contracts in a single stream pass.
+      Routes events by receiver_id to the appropriate decoder.
+      Uses 1 concurrent stream instead of 5.
+
+  # Combined database changes — for single-sink deployment
+  - name: combined_db_out
+    kind: map
+    initialBlock: 233084800
+    inputs:
+      - map: map_combined_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts CombinedOutput to DatabaseChanges for SQL sink.
+      Writes to all tables from all 5 contracts in a single transaction.
+
 params:
   map_core_output: "contract_id=core.onsocial.testnet"
   map_boost_output: "contract_id=boost.onsocial.testnet"
   map_rewards_output: "contract_id=rewards.onsocial.testnet"
   map_token_output: "contract_id=token.onsocial.testnet"
   map_scarces_output: "contract_id=scarces.onsocial.testnet"
+  map_combined_output: "core=core.onsocial.testnet&boost=boost.onsocial.testnet&rewards=rewards.onsocial.testnet&token=token.onsocial.testnet&scarces=scarces.onsocial.testnet"
 
 # ---------------------------------------------------------------------------
 # SINK DEPLOYMENT
 # ---------------------------------------------------------------------------
-# Each contract has its own spkg with the correct sink module + schema.
-# Build with: ./pack.sh          (all contracts)
-#             ./pack.sh core     (just core)
-#
-# Run a sink:
+# RECOMMENDED: Use the combined spkg for single-stream deployment:
+#   ./pack.sh combined
 #   substreams-sink-sql run "$DATABASE_URL" \
-#     onsocial-events-v0.8.0-core.spkg \
+#     onsocial-events-v0.9.0-combined.spkg \
 #     -e "$SUBSTREAMS_ENDPOINT" \
-#     -p map_core_output=contract_id=core.onsocial.testnet \
-#     --development-mode --infinite-retry
+#     -p map_combined_output=core=core.onsocial.testnet&boost=boost.onsocial.testnet&... \
+#     --infinite-retry
+#
+# Per-contract spkgs are still supported for debugging or selective indexing:
+#   ./pack.sh core       (just core)
+#   ./pack.sh core token (core + token)
 #
 # Deployment blocks (from NEAR archival RPC):
 #   core.onsocial.testnet     → block 233084800 (Jan 2026)
@@ -209,9 +242,10 @@ params:
 #   scarces.onsocial.testnet  → block 238800000 (Feb 2026)
 #
 # Contract registry for pack.sh:
-#   core    → core_db_out    → core_schema.sql
-#   boost   → boost_db_out   → boost_schema.sql
-#   rewards → rewards_db_out → rewards_schema.sql
-#   token   → token_db_out   → token_schema.sql
-#   scarces → scarces_db_out → scarces_schema.sql
+#   combined → combined_db_out → combined_schema.sql
+#   core     → core_db_out     → core_schema.sql
+#   boost    → boost_db_out    → boost_schema.sql
+#   rewards  → rewards_db_out  → rewards_schema.sql
+#   token    → token_db_out    → token_schema.sql
+#   scarces  → scarces_db_out  → scarces_schema.sql
 # ---------------------------------------------------------------------------

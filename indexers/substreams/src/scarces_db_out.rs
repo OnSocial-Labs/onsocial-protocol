@@ -13,13 +13,18 @@ use substreams_database_change::tables::Tables;
 
 #[substreams::handlers::map]
 pub fn scarces_db_out(output: ScarcesOutput) -> Result<DatabaseChanges, substreams::errors::Error> {
+    Ok(scarces_db_out_impl(output))
+}
+
+/// Core logic shared by both per-contract and combined db_out.
+pub(crate) fn scarces_db_out_impl(output: ScarcesOutput) -> DatabaseChanges {
     let mut tables = Tables::new();
 
     for event in &output.events {
         write_scarces_event(&mut tables, event);
     }
 
-    Ok(tables.to_database_changes())
+    tables.to_database_changes()
 }
 
 pub(crate) fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {

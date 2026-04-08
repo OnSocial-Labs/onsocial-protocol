@@ -24,6 +24,7 @@ cd "$SCRIPT_DIR"
 # To add a new contract, just add a line here.
 # ---------------------------------------------------------------------------
 CONTRACTS=(
+  "combined|combined_db_out|combined_schema.sql"
   "core|core_db_out|core_schema.sql"
   "boost|boost_db_out|boost_schema.sql"
   "rewards|rewards_db_out|rewards_schema.sql"

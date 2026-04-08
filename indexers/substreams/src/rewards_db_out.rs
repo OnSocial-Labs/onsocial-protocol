@@ -21,6 +21,11 @@ pub(crate) struct UserRewardAccum {
 
 #[substreams::handlers::map]
 pub fn rewards_db_out(output: RewardsOutput) -> Result<DatabaseChanges, substreams::errors::Error> {
+    Ok(rewards_db_out_impl(output))
+}
+
+/// Core logic shared by both per-contract and combined db_out.
+pub(crate) fn rewards_db_out_impl(output: RewardsOutput) -> DatabaseChanges {
     let mut tables = Tables::new();
     let mut user_accum: HashMap<String, UserRewardAccum> = HashMap::new();
 
@@ -47,7 +52,7 @@ pub fn rewards_db_out(output: RewardsOutput) -> Result<DatabaseChanges, substrea
         }
     }
 
-    Ok(tables.to_database_changes())
+    tables.to_database_changes()
 }
 
 pub(crate) fn write_rewards_event(tables: &mut Tables, event: &RewardsEvent) {

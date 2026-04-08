@@ -28,6 +28,26 @@ pub fn parse_contract_filter(params: &str) -> Option<String> {
     params.split('=').nth(1).map(|s| s.trim().to_string())
 }
 
+/// Parse multiple contract filters from a combined params string.
+///
+/// Format: `core=core.onsocial.testnet&boost=boost.onsocial.testnet&...`
+/// Returns a Vec of (label, contract_id) pairs.
+pub fn parse_multi_contract_filter(params: &str) -> Vec<(String, String)> {
+    params
+        .split('&')
+        .filter_map(|pair| {
+            let mut parts = pair.splitn(2, '=');
+            let label = parts.next()?.trim().to_string();
+            let contract_id = parts.next()?.trim().to_string();
+            if label.is_empty() || contract_id.is_empty() {
+                None
+            } else {
+                Some((label, contract_id))
+            }
+        })
+        .collect()
+}
+
 /// Extract block metadata from block header.
 pub fn block_context(block: &Block) -> BlockContext {
     BlockContext {
@@ -95,6 +115,77 @@ where
                 let json_data = &log[EVENT_JSON_PREFIX.len()..];
 
                 callback(EventLog {
+                    receipt_id: receipt_id.clone(),
+                    json_data,
+                    log_index,
+                });
+            }
+        }
+    }
+}
+
+/// A single EVENT_JSON log line with its receipt context and the matched contract label.
+pub struct LabeledEventLog<'a> {
+    pub label: &'a str,
+    pub receipt_id: String,
+    pub json_data: &'a str,
+    pub log_index: usize,
+}
+
+/// Iterate all EVENT_JSON log lines from a block, matched against multiple contracts.
+///
+/// `contracts` is a slice of (label, contract_id) pairs.
+/// The callback receives a `LabeledEventLog` containing the label of the matched contract.
+pub fn for_each_event_log_multi<'a, F>(
+    block: &'a Block,
+    contracts: &'a [(String, String)],
+    mut callback: F,
+) where
+    F: FnMut(LabeledEventLog<'a>),
+{
+    // Build a lookup from contract_id → label
+    let contract_map: std::collections::HashMap<&str, &str> = contracts
+        .iter()
+        .map(|(label, id)| (id.as_str(), label.as_str()))
+        .collect();
+
+    for shard in &block.shards {
+        for receipt_execution in &shard.receipt_execution_outcomes {
+            let receipt = match &receipt_execution.receipt {
+                Some(r) => r,
+                None => continue,
+            };
+
+            let outcome = match &receipt_execution.execution_outcome {
+                Some(eo) => match &eo.outcome {
+                    Some(o) => o,
+                    None => continue,
+                },
+                None => continue,
+            };
+
+            let receiver_id = &receipt.receiver_id;
+
+            let label = match contract_map.get(receiver_id.as_str()) {
+                Some(l) => *l,
+                None => continue,
+            };
+
+            let receipt_id = receipt
+                .receipt_id
+                .as_ref()
+                .map(|id| bs58::encode(&id.bytes).into_string())
+                .unwrap_or_default();
+
+            for (log_index, log) in outcome.logs.iter().enumerate() {
+                if !log.starts_with(EVENT_JSON_PREFIX) {
+                    continue;
+                }
+
+                let json_data = &log[EVENT_JSON_PREFIX.len()..];
+
+                callback(LabeledEventLog {
+                    label,
                     receipt_id: receipt_id.clone(),
                     json_data,
                     log_index,

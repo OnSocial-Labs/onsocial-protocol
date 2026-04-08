@@ -2,13 +2,18 @@
 //!
 //! Converts core OnSocial events to DatabaseChanges format for PostgreSQL.
 
-use crate::pb::core::v1::Output;
+use crate::pb::core_onsocial::v1::Output;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
 /// Convert typed Output to DatabaseChanges for SQL sink
 #[substreams::handlers::map]
 pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors::Error> {
+    Ok(core_db_out_impl(output))
+}
+
+/// Core logic shared by both per-contract and combined db_out.
+pub(crate) fn core_db_out_impl(output: Output) -> DatabaseChanges {
     let mut tables = Tables::new();
 
     // Process DataUpdates
@@ -204,5 +209,5 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
         row.set("permission_nonce", update.permission_nonce);
     }
 
-    Ok(tables.to_database_changes())
+    tables.to_database_changes()
 }

@@ -6,6 +6,7 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=proto/rewards.proto");
     println!("cargo:rerun-if-changed=proto/token.proto");
     println!("cargo:rerun-if-changed=proto/scarces.proto");
+    println!("cargo:rerun-if-changed=proto/combined.proto");
 
     prost_build::Config::new().compile_protos(
         &[
@@ -14,6 +15,7 @@ fn main() -> Result<()> {
             "proto/rewards.proto",
             "proto/token.proto",
             "proto/scarces.proto",
+            "proto/combined.proto",
         ],
         &["proto"],
     )?;

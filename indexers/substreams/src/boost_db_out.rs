@@ -24,6 +24,11 @@ pub(crate) struct BoosterStateAccum {
 
 #[substreams::handlers::map]
 pub fn boost_db_out(output: BoostOutput) -> Result<DatabaseChanges, substreams::errors::Error> {
+    Ok(boost_db_out_impl(output))
+}
+
+/// Core logic shared by both per-contract and combined db_out.
+pub(crate) fn boost_db_out_impl(output: BoostOutput) -> DatabaseChanges {
     let mut tables = Tables::new();
     let mut booster_accum: HashMap<String, BoosterStateAccum> = HashMap::new();
 
@@ -59,7 +64,7 @@ pub fn boost_db_out(output: BoostOutput) -> Result<DatabaseChanges, substreams::
         }
     }
 
-    Ok(tables.to_database_changes())
+    tables.to_database_changes()
 }
 
 pub(crate) fn write_boost_event(tables: &mut Tables, event: &BoostEvent) {

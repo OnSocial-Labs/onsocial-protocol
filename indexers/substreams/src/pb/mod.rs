@@ -6,7 +6,7 @@
 #![allow(clippy::enum_variant_names)]
 
 /// Core-onsocial contract events (proto package: core_onsocial.v1)
-pub mod core {
+pub mod core_onsocial {
     pub mod v1 {
         include!(concat!(env!("OUT_DIR"), "/core_onsocial.v1.rs"));
     }
@@ -37,5 +37,12 @@ pub mod token {
 pub mod scarces {
     pub mod v1 {
         include!(concat!(env!("OUT_DIR"), "/scarces.v1.rs"));
+    }
+}
+
+/// Combined output wrapping all contract types
+pub mod combined {
+    pub mod v1 {
+        include!(concat!(env!("OUT_DIR"), "/combined.v1.rs"));
     }
 }

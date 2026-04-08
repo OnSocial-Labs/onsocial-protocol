@@ -92,12 +92,12 @@ jobs:
           VER: ${{ steps.ver.outputs.version }}
         run: |
           mkdir -p $GITHUB_WORKSPACE/spkg-upload
-          cp onsocial-events-${VER}-*.spkg $GITHUB_WORKSPACE/spkg-upload/
-          cp *_schema.sql $GITHUB_WORKSPACE/spkg-upload/
+          cp onsocial-events-${VER}-combined.spkg $GITHUB_WORKSPACE/spkg-upload/
+          cp combined_schema.sql $GITHUB_WORKSPACE/spkg-upload/
           echo "Upload contents:"
           ls -la $GITHUB_WORKSPACE/spkg-upload/
 
-      - name: Upload spkgs and schemas
+      - name: Upload spkg and schema
         uses: appleboy/scp-action@v0.1.7
         with:
           host: 135.181.110.183
@@ -108,8 +108,8 @@ jobs:
           strip_components: 1
           overwrite: true
 
-      # Step 2: Stop sinks, swap spkgs, restart, health-check with rollback
-      - name: Deploy and restart sinks
+      # Step 2: Deploy single combined sink — 1 stream for all 5 contracts
+      - name: Deploy and restart sink
         uses: appleboy/ssh-action@v1
         env:
           VER: ${{ steps.ver.outputs.version }}
@@ -124,27 +124,14 @@ jobs:
             set -euo pipefail
             SPKG_DIR=/root/onsocial-indexer
             UPLOAD_DIR=/tmp/onsocial-spkg-upload
+            SERVICE="onsocial-sink-combined"
+            SPKG_NAME="onsocial-events-${VER}-combined.spkg"
+            NETWORK_SUFFIX="testnet"
 
             echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} (${VER}) ==="
+            echo "Mode: single combined stream (1 sink for all contracts)"
 
-            # Discover contract variants dynamically from uploaded spkg filenames
-            CONTRACTS=()
-            for f in ${UPLOAD_DIR}/onsocial-events-${VER}-*.spkg; do
-              [ -f "$f" ] || continue
-              variant=$(basename "$f" .spkg | sed "s/onsocial-events-${VER}-//")
-              CONTRACTS+=("$variant")
-            done
-            if [ ${#CONTRACTS[@]} -eq 0 ]; then
-              echo "❌ No spkg files found in ${UPLOAD_DIR}"
-              exit 1
-            fi
-            echo "✓ Discovered ${#CONTRACTS[@]} contracts: ${CONTRACTS[*]}"
-
-            # Build space-separated service names for systemctl
-            SERVICES=""
-            for c in "${CONTRACTS[@]}"; do SERVICES+=" onsocial-sink-$c"; done
-
-            # Read DB_URL once for all operations
+            # Read DB_URL
             # Priority: file > env > extract from existing working unit
             DB_URL=""
             if [ -f /root/.onsocial-sink-db-url ]; then
@@ -152,8 +139,6 @@ jobs:
             elif [ -n "${DATABASE_URL:-}" ]; then
               DB_URL="$DATABASE_URL"
             else
-              # Fallback: extract from an existing working systemd unit
-              # DB_URL is on the line AFTER "substreams-sink-sql run \"
               for existing_unit in /etc/systemd/system/onsocial-sink-*.service; do
                 [ -f "$existing_unit" ] || continue
                 EXTRACTED=$(grep -A1 'substreams-sink-sql run' "$existing_unit" \
@@ -172,19 +157,17 @@ jobs:
             fi
             ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
 
-            # Stop sinks (ignore errors for services that don't exist yet)
-            systemctl stop $SERVICES 2>/dev/null || true
+            # Stop existing sinks (combined + any legacy per-contract sinks)
+            systemctl stop $SERVICE 2>/dev/null || true
+            for legacy in onsocial-sink-core onsocial-sink-boost onsocial-sink-rewards onsocial-sink-token onsocial-sink-scarces; do
+              systemctl stop "$legacy" 2>/dev/null || true
+              systemctl disable "$legacy" 2>/dev/null || true
+            done
             echo "✓ Sinks stopped"
 
-            # Track which contracts are brand-new (no prior systemd unit)
-            NEW_CONTRACTS=()
-            for variant in "${CONTRACTS[@]}"; do
-              [ ! -f "/etc/systemd/system/onsocial-sink-${variant}.service" ] && NEW_CONTRACTS+=("$variant")
-            done
-
-            # Clean deploy: drop all tables and re-apply schema
+            # Schema: clean deploy drops everything, incremental checks for data_updates
             if [ "$CLEAN_DEPLOY" = "true" ]; then
-              echo "🧹 Clean deploy requested — dropping tables and cursors"
+              echo "🧹 Clean deploy — dropping all tables"
               psql "$DB_URL" -c "
                 DO \$\$ DECLARE t TEXT;
                 BEGIN
@@ -194,75 +177,41 @@ jobs:
                 END \$\$;
               "
               echo "✓ Tables dropped"
-              for variant in "${CONTRACTS[@]}"; do
-                SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
-                if [ -f "$SCHEMA_FILE" ]; then
-                  psql "$DB_URL" -f "$SCHEMA_FILE"
-                  echo "✓ Applied ${variant}_schema.sql"
-                fi
-              done
+              psql "$DB_URL" -f "${UPLOAD_DIR}/combined_schema.sql"
+              echo "✓ Combined schema applied"
             else
-              # Incremental deploy: apply schemas only for NEW contracts
-              for variant in "${CONTRACTS[@]}"; do
-                SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
-                [ -f "$SCHEMA_FILE" ] || continue
-                if [ "$variant" = "core" ]; then
-                  TABLE_NAME="data_updates"
-                else
-                  TABLE_NAME="${variant}_events"
-                fi
-                EXISTS=$(psql "$DB_URL" -tAc \
-                  "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='${TABLE_NAME}'" 2>/dev/null || true)
-                if [ "$EXISTS" != "1" ]; then
-                  echo "📝 New contract detected: ${variant} — applying schema"
-                  psql "$DB_URL" -f "$SCHEMA_FILE"
-                  echo "✓ Applied ${variant}_schema.sql"
-                fi
-              done
+              # Check if core table exists (if not, apply full schema)
+              EXISTS=$(psql "$DB_URL" -tAc \
+                "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='data_updates'" 2>/dev/null || true)
+              if [ "$EXISTS" != "1" ]; then
+                echo "📝 First deploy — applying combined schema"
+                psql "$DB_URL" -f "${UPLOAD_DIR}/combined_schema.sql"
+                echo "✓ Combined schema applied"
+              fi
             fi
 
-            # Remove old versioned spkgs (different version)
-            find "$SPKG_DIR" -name 'onsocial-events-v*-*.spkg' ! -name "*-${VER}-*" -delete 2>/dev/null || true
-
-            # Backup current spkgs
-            for variant in "${CONTRACTS[@]}"; do
-              CURRENT="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
-              [ -f "$CURRENT" ] && cp "$CURRENT" "${CURRENT}.prev"
-            done
-
-            # Move uploaded spkgs + schemas into place
-            for variant in "${CONTRACTS[@]}"; do
-              mv "${UPLOAD_DIR}/onsocial-events-${VER}-${variant}.spkg" \
-                 "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
-            done
-            cp "${UPLOAD_DIR}"/*_schema.sql "${SPKG_DIR}/" 2>/dev/null || true
+            # Swap spkg
+            [ -f "${SPKG_DIR}/${SPKG_NAME}" ] && cp "${SPKG_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}.prev"
+            mv "${UPLOAD_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}"
+            cp "${UPLOAD_DIR}"/*.sql "${SPKG_DIR}/" 2>/dev/null || true
             rm -rf "$UPLOAD_DIR"
-            echo "✓ Spkgs swapped"
+            echo "✓ Spkg swapped"
 
-            # For brand-new contracts: run substreams-sink-sql setup to
-            # register cursor + create schema tables before first run
-            if [ ${#NEW_CONTRACTS[@]} -gt 0 ] && [ -n "$DB_URL" ]; then
-              echo "📝 Running sink setup for new contracts: ${NEW_CONTRACTS[*]}"
-              for variant in "${NEW_CONTRACTS[@]}"; do
-                SPKG="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
-                echo "  Setting up ${variant}..."
-                substreams-sink-sql setup "$DB_URL" "$SPKG" 2>&1 || {
-                  echo "  ⚠️  setup returned non-zero for ${variant} (may already exist — continuing)"
-                }
-              done
-              echo "✓ Sink setup complete"
-            fi
+            # Run sink setup (registers cursor, validates schema)
+            echo "📝 Running sink setup..."
+            substreams-sink-sql setup "$DB_URL" "${SPKG_DIR}/${SPKG_NAME}" 2>&1 || {
+              echo "  ⚠️ setup returned non-zero (may already exist — continuing)"
+            }
+            echo "✓ Sink setup complete"
 
-            # Create or update systemd service files
-            for variant in "${CONTRACTS[@]}"; do
-              UNIT="/etc/systemd/system/onsocial-sink-${variant}.service"
-              if [ -f "$UNIT" ]; then
-                sed -i "s|onsocial-events-v[0-9.]*-${variant}.spkg|onsocial-events-${VER}-${variant}.spkg|g" "$UNIT"
-              else
-                echo "📝 Creating new systemd unit: onsocial-sink-${variant}"
-                cat > "$UNIT" <<UNITEOF
+            # Build the combined params string
+            PARAMS="core=core.onsocial.${NETWORK_SUFFIX}&boost=boost.onsocial.${NETWORK_SUFFIX}&rewards=rewards.onsocial.${NETWORK_SUFFIX}&token=token.onsocial.${NETWORK_SUFFIX}&scarces=scarces.onsocial.${NETWORK_SUFFIX}"
+
+            # Create or update systemd unit
+            UNIT="/etc/systemd/system/${SERVICE}.service"
+            cat > "$UNIT" <<UNITEOF
             [Unit]
-            Description=OnSocial Substreams Sink - ${variant}
+            Description=OnSocial Substreams Combined Sink
             After=network.target postgresql.service
 
             [Service]
@@ -270,9 +219,10 @@ jobs:
             Environment=SUBSTREAMS_API_TOKEN=
             ExecStart=/usr/local/bin/substreams-sink-sql run \
               ${DB_URL} \
-              ${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg \
+              ${SPKG_DIR}/${SPKG_NAME} \
               -e ${ENDPOINT} \
-              -p map_${variant}_output=contract_id=${variant}.onsocial.testnet \
+              -p map_combined_output=${PARAMS} \
+              --on-module-hash-mistmatch warn \
               --infinite-retry
             Restart=on-failure
             RestartSec=15
@@ -280,72 +230,48 @@ jobs:
             [Install]
             WantedBy=multi-user.target
             UNITEOF
-                systemctl enable "onsocial-sink-${variant}" 2>/dev/null || true
-              fi
-            done
             systemctl daemon-reload
-            echo "✓ Systemd units updated to ${VER}"
+            systemctl enable "$SERVICE" 2>/dev/null || true
+            echo "✓ Systemd unit updated"
 
-            # Restart sinks
-            systemctl start $SERVICES
-            echo "✓ Sinks started"
+            # Start sink
+            systemctl start "$SERVICE"
+            echo "✓ Sink started"
 
-            # Health check — poll every 10s for up to 90s
+            # Health check — poll every 10s for up to 60s
             POLL_INTERVAL=10
-            MAX_WAIT=90
+            MAX_WAIT=60
             ELAPSED=0
-            TOTAL=${#CONTRACTS[@]}
-
             while [ $ELAPSED -lt $MAX_WAIT ]; do
               sleep $POLL_INTERVAL
               ELAPSED=$((ELAPSED + POLL_INTERVAL))
-              ACTIVE=0
-              for s in "${CONTRACTS[@]}"; do
-                systemctl is-active --quiet "onsocial-sink-$s" && ACTIVE=$((ACTIVE + 1))
-              done
-              echo "  ⏱ ${ELAPSED}s: ${ACTIVE}/${TOTAL} sinks active"
-              [ "$ACTIVE" -eq "$TOTAL" ] && break
-            done
-
-            # Final status report
-            echo ""
-            ACTIVE=0
-            FAILED_SINKS=()
-            for s in "${CONTRACTS[@]}"; do
-              if systemctl is-active --quiet "onsocial-sink-$s"; then
-                ACTIVE=$((ACTIVE + 1))
-                echo "  ✅ $s: active"
-              else
-                STATE=$(systemctl is-active "onsocial-sink-$s" 2>/dev/null || echo "unknown")
-                echo "  ❌ $s: $STATE"
-                FAILED_SINKS+=("$s")
+              if systemctl is-active --quiet "$SERVICE"; then
+                echo "  ✅ Combined sink active after ${ELAPSED}s"
+                break
               fi
+              echo "  ⏱ ${ELAPSED}s: waiting..."
             done
 
-            # Dump journal logs for any failed sinks (last 30 lines each)
-            if [ ${#FAILED_SINKS[@]} -gt 0 ]; then
+            if ! systemctl is-active --quiet "$SERVICE"; then
               echo ""
-              echo "=== Failed sink logs ==="
-              for s in "${FAILED_SINKS[@]}"; do
-                echo "--- onsocial-sink-$s ---"
-                journalctl -u "onsocial-sink-$s" --no-pager -n 30 2>/dev/null || true
-                echo ""
-              done
-            fi
-
-            if [ "$ACTIVE" -lt "$TOTAL" ]; then
+              echo "=== Sink logs ==="
+              journalctl -u "$SERVICE" --no-pager -n 50 2>/dev/null || true
               echo ""
-              echo "❌ Only $ACTIVE/$TOTAL sinks active after ${MAX_WAIT}s — rolling back"
-              for variant in "${CONTRACTS[@]}"; do
-                PREV="${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg.prev"
-                [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/onsocial-events-${VER}-${variant}.spkg"
-              done
-              systemctl restart $SERVICES || true
+              echo "❌ Combined sink not active after ${MAX_WAIT}s — rolling back"
+              PREV="${SPKG_DIR}/${SPKG_NAME}.prev"
+              [ -f "$PREV" ] && mv "$PREV" "${SPKG_DIR}/${SPKG_NAME}"
+              systemctl restart "$SERVICE" || true
               exit 1
             fi
 
-            # Cleanup backups on success
-            rm -f ${SPKG_DIR}/*.spkg.prev
+            # Cleanup
+            rm -f "${SPKG_DIR}/${SPKG_NAME}.prev"
+            # Remove old per-contract spkgs
+            find "$SPKG_DIR" -name 'onsocial-events-v*-core.spkg' -o \
+              -name 'onsocial-events-v*-boost.spkg' -o \
+              -name 'onsocial-events-v*-rewards.spkg' -o \
+              -name 'onsocial-events-v*-token.spkg' -o \
+              -name 'onsocial-events-v*-scarces.spkg' | xargs rm -f 2>/dev/null || true
 
             echo ""
-            echo "✅ Deploy complete — $ACTIVE/$TOTAL sinks active (${VER} @ ${{ steps.sha.outputs.short }})"
+            echo "✅ Deploy complete — combined sink active (${VER} @ ${{ steps.sha.outputs.short }})"
