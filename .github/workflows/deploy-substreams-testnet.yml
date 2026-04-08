@@ -310,6 +310,50 @@ jobs:
               exit 1
             fi
 
+            # Post-deploy smoke test: verify sink system tables and contract tables.
+            echo "🧪 Running post-deploy smoke test..."
+            CURSOR_WAIT=0
+            CURSOR_MAX_WAIT=60
+            while [ $CURSOR_WAIT -lt $CURSOR_MAX_WAIT ]; do
+              CURSOR_COUNT=$($PSQL -tAc "SELECT COUNT(*) FROM cursors" 2>/dev/null | tr -d '[:space:]' || true)
+              if [ -n "$CURSOR_COUNT" ] && [ "$CURSOR_COUNT" != "0" ]; then
+                echo "  ✅ cursors rows present: $CURSOR_COUNT"
+                break
+              fi
+              sleep 5
+              CURSOR_WAIT=$((CURSOR_WAIT + 5))
+              echo "  ⏱ waiting for cursors row... ${CURSOR_WAIT}s"
+            done
+
+            if [ -z "${CURSOR_COUNT:-}" ] || [ "$CURSOR_COUNT" = "0" ]; then
+              echo "❌ Smoke test failed: cursors table has no rows"
+              journalctl -u "$SERVICE" --no-pager -n 50 2>/dev/null || true
+              exit 1
+            fi
+
+            MISSING_TABLES=$($PSQL -tAc "
+              SELECT string_agg(name, ',')
+              FROM (
+                SELECT 'data_updates' AS name
+                UNION ALL SELECT 'boost_events'
+                UNION ALL SELECT 'rewards_events'
+                UNION ALL SELECT 'token_events'
+                UNION ALL SELECT 'scarces_events'
+              ) expected
+              WHERE NOT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = expected.name
+              )
+            " 2>/dev/null | tr -d '[:space:]' || true)
+
+            if [ -n "$MISSING_TABLES" ]; then
+              echo "❌ Smoke test failed: missing tables: $MISSING_TABLES"
+              exit 1
+            fi
+
+            echo "✓ Smoke test passed"
+
             # Cleanup
             rm -f "${SPKG_DIR}/${SPKG_NAME}.prev"
             # Remove old per-contract spkgs
