@@ -145,10 +145,28 @@ jobs:
             for c in "${CONTRACTS[@]}"; do SERVICES+=" onsocial-sink-$c"; done
 
             # Read DB_URL once for all operations
+            # Priority: file > env > extract from existing working unit
             DB_URL=""
-            [ -f /root/.onsocial-sink-db-url ] && DB_URL=$(cat /root/.onsocial-sink-db-url)
+            if [ -f /root/.onsocial-sink-db-url ]; then
+              DB_URL=$(cat /root/.onsocial-sink-db-url)
+            elif [ -n "${DATABASE_URL:-}" ]; then
+              DB_URL="$DATABASE_URL"
+            else
+              # Fallback: extract from an existing working systemd unit
+              for existing_unit in /etc/systemd/system/onsocial-sink-*.service; do
+                [ -f "$existing_unit" ] || continue
+                EXTRACTED=$(grep -oP '(?<=ExecStart=/usr/local/bin/substreams-sink-sql run \\?\s*)\S+' "$existing_unit" | head -1)
+                if [ -n "$EXTRACTED" ] && [[ "$EXTRACTED" == postgres* ]]; then
+                  DB_URL="$EXTRACTED"
+                  echo "📝 Extracted DB_URL from $(basename $existing_unit)"
+                  break
+                fi
+              done
+            fi
             if [ -z "$DB_URL" ]; then
-              DB_URL="${DATABASE_URL:-}"
+              echo "❌ No DB_URL found (checked /root/.onsocial-sink-db-url, \$DATABASE_URL, existing units)"
+              echo "   Create /root/.onsocial-sink-db-url with the Postgres connection string"
+              exit 1
             fi
             ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
 
@@ -165,48 +183,40 @@ jobs:
             # Clean deploy: drop all tables and re-apply schema
             if [ "$CLEAN_DEPLOY" = "true" ]; then
               echo "🧹 Clean deploy requested — dropping tables and cursors"
-              if [ -n "$DB_URL" ]; then
-                psql "$DB_URL" -c "
-                  DO \$\$ DECLARE t TEXT;
-                  BEGIN
-                    FOR t IN SELECT tablename FROM pg_tables
-                      WHERE schemaname = 'public' AND tablename != 'schema_migrations'
-                    LOOP EXECUTE 'DROP TABLE IF EXISTS ' || t || ' CASCADE'; END LOOP;
-                  END \$\$;
-                "
-                echo "✓ Tables dropped"
-                for variant in "${CONTRACTS[@]}"; do
-                  SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
-                  if [ -f "$SCHEMA_FILE" ]; then
-                    psql "$DB_URL" -f "$SCHEMA_FILE"
-                    echo "✓ Applied ${variant}_schema.sql"
-                  fi
-                done
-              else
-                echo "⚠️  No DB_URL found — skipping schema reset (apply manually)"
-              fi
+              psql "$DB_URL" -c "
+                DO \$\$ DECLARE t TEXT;
+                BEGIN
+                  FOR t IN SELECT tablename FROM pg_tables
+                    WHERE schemaname = 'public' AND tablename != 'schema_migrations'
+                  LOOP EXECUTE 'DROP TABLE IF EXISTS ' || t || ' CASCADE'; END LOOP;
+                END \$\$;
+              "
+              echo "✓ Tables dropped"
+              for variant in "${CONTRACTS[@]}"; do
+                SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
+                if [ -f "$SCHEMA_FILE" ]; then
+                  psql "$DB_URL" -f "$SCHEMA_FILE"
+                  echo "✓ Applied ${variant}_schema.sql"
+                fi
+              done
             else
               # Incremental deploy: apply schemas only for NEW contracts
-              if [ -n "$DB_URL" ]; then
-                for variant in "${CONTRACTS[@]}"; do
-                  SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
-                  [ -f "$SCHEMA_FILE" ] || continue
-                  if [ "$variant" = "core" ]; then
-                    TABLE_NAME="data_updates"
-                  else
-                    TABLE_NAME="${variant}_events"
-                  fi
-                  EXISTS=$(psql "$DB_URL" -tAc \
-                    "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='${TABLE_NAME}'" 2>/dev/null || true)
-                  if [ "$EXISTS" != "1" ]; then
-                    echo "📝 New contract detected: ${variant} — applying schema"
-                    psql "$DB_URL" -f "$SCHEMA_FILE"
-                    echo "✓ Applied ${variant}_schema.sql"
-                  fi
-                done
-              else
-                echo "⚠️  No DB_URL found — skipping incremental schema check"
-              fi
+              for variant in "${CONTRACTS[@]}"; do
+                SCHEMA_FILE="${UPLOAD_DIR}/${variant}_schema.sql"
+                [ -f "$SCHEMA_FILE" ] || continue
+                if [ "$variant" = "core" ]; then
+                  TABLE_NAME="data_updates"
+                else
+                  TABLE_NAME="${variant}_events"
+                fi
+                EXISTS=$(psql "$DB_URL" -tAc \
+                  "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='${TABLE_NAME}'" 2>/dev/null || true)
+                if [ "$EXISTS" != "1" ]; then
+                  echo "📝 New contract detected: ${variant} — applying schema"
+                  psql "$DB_URL" -f "$SCHEMA_FILE"
+                  echo "✓ Applied ${variant}_schema.sql"
+                fi
+              done
             fi
 
             # Remove old versioned spkgs (different version)
