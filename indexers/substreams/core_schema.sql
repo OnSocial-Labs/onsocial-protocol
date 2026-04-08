@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS data_updates (
   ref_authors TEXT,
   derived_id TEXT,
   derived_type TEXT,
-  writes TEXT
+  writes TEXT,
+  extra_data TEXT
 );
 
 CREATE TABLE IF NOT EXISTS storage_updates (

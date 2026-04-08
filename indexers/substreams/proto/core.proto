@@ -49,7 +49,8 @@ message DataUpdate {
   string group_path = 14;
   bool is_group_content = 15;
   
-  // Social graph (for graph/follow, graph/block)
+  // Social graph target: any {account}/{relationship}/{target.near} path
+  // Extracted when parts[2] contains '.' (NEAR account), or parts[3] for graph/*
   string target_account = 16;
   
   // Reference fields (extracted from value JSON)
@@ -70,6 +71,9 @@ message DataUpdate {
   
   // Batch writes
   string writes = 27;             // JSON array
+  
+  // Full JSON catch-all (ensures no data is ever lost)
+  string extra_data = 28;
 }
 
 // =============================================================================

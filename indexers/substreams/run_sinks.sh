@@ -2,67 +2,89 @@
 # =============================================================================
 # run_sinks.sh — Launch all Substreams SQL sink processes
 # =============================================================================
-# Each contract gets its own sink process writing to the same Postgres DB.
+# Each contract gets its own per-contract spkg and sink process, all writing
+# to the same Postgres database.
 #
 # Usage:
-#   SUBSTREAMS_ENDPOINT=... DATABASE_URL=... ./run_sinks.sh
+#   SUBSTREAMS_ENDPOINT=... DATABASE_URL=... ./run_sinks.sh          # testnet
+#   NEAR_NETWORK=mainnet SUBSTREAMS_ENDPOINT=... ./run_sinks.sh      # mainnet
 #
-# Or with defaults for local development:
-#   ./run_sinks.sh
+# Environment:
+#   SUBSTREAMS_ENDPOINT  (required) e.g. mainnet.near.streamingfast.io:443
+#   DATABASE_URL         (optional) default: postgres://onsocial:onsocial@localhost:5432/onsocial
+#   NEAR_NETWORK         (optional) "testnet" (default) or "mainnet"
 # =============================================================================
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 ENDPOINT="${SUBSTREAMS_ENDPOINT:?Set SUBSTREAMS_ENDPOINT (e.g. mainnet.near.streamingfast.io:443)}"
 DB_URL="${DATABASE_URL:-postgres://onsocial:onsocial@localhost:5432/onsocial}"
-SPKG="${SPKG_PATH:-./onsocial-events-v0.7.0.spkg}"
+NETWORK="${NEAR_NETWORK:-testnet}"
+
+# Extract version from substreams.yaml
+VERSION=$(grep -m1 'version:' "$SCRIPT_DIR/substreams.yaml" | awk '{print $2}')
+
+# Set contract suffix based on network
+if [ "$NETWORK" = "mainnet" ]; then
+  SUFFIX="near"
+else
+  SUFFIX="testnet"
+fi
+
+# ---------------------------------------------------------------------------
+# CONTRACT REGISTRY: "name|map_module|db_module|contract_id"
+# ---------------------------------------------------------------------------
+CONTRACTS=(
+  "core|map_core_output|core_db_out|core.onsocial.${SUFFIX}"
+  "boost|map_boost_output|boost_db_out|boost.onsocial.${SUFFIX}"
+  "rewards|map_rewards_output|rewards_db_out|rewards.onsocial.${SUFFIX}"
+  "token|map_token_output|token_db_out|token.onsocial.${SUFFIX}"
+  "scarces|map_scarces_output|scarces_db_out|scarces.onsocial.${SUFFIX}"
+)
 
 echo "=== OnSocial Substreams Sink Runner ==="
 echo "Endpoint : $ENDPOINT"
 echo "Database : ${DB_URL%%@*}@***"
-echo "Package  : $SPKG"
+echo "Network  : $NETWORK"
+echo "Version  : $VERSION"
 echo ""
 
 # Apply combined schema
 echo ">>> Applying combined schema..."
-psql "$DB_URL" -f "$(dirname "$0")/combined_schema.sql" 2>/dev/null || true
+psql "$DB_URL" -f "$SCRIPT_DIR/combined_schema.sql" 2>/dev/null || true
 echo ""
 
-# Core-onsocial sink
-echo ">>> Starting core-onsocial sink (core_db_out)..."
-substreams-sink-sql run \
-  "$ENDPOINT" \
-  "$SPKG" \
-  "$DB_URL" \
-  --module=core_db_out \
-  --params="map_core_output=contract_id=core.onsocial.testnet" &
-CORE_PID=$!
+# Launch sink for each contract
+PIDS=()
+NAMES=()
+for entry in "${CONTRACTS[@]}"; do
+  IFS='|' read -r name map_module db_module contract_id <<< "$entry"
+  SPKG="$SCRIPT_DIR/onsocial-events-${VERSION}-${name}.spkg"
 
-# Staking-onsocial sink
-echo ">>> Starting staking-onsocial sink (staking_db_out)..."
-substreams-sink-sql run \
-  "$ENDPOINT" \
-  "$SPKG" \
-  "$DB_URL" \
-  --module=staking_db_out \
-  --params="map_staking_output=contract_id=staking.onsocial.testnet" &
-STAKING_PID=$!
+  if [ ! -f "$SPKG" ]; then
+    echo "❌ Package not found: $SPKG"
+    echo "   Run ./pack.sh ${name} first."
+    exit 1
+  fi
 
-# Token-onsocial sink
-echo ">>> Starting token-onsocial sink (token_db_out)..."
-substreams-sink-sql run \
-  "$ENDPOINT" \
-  "$SPKG" \
-  "$DB_URL" \
-  --module=token_db_out \
-  --params="map_token_output=contract_id=token.onsocial.testnet" &
-TOKEN_PID=$!
+  echo ">>> Starting ${name} sink (${db_module}) → ${contract_id}"
+  substreams-sink-sql run \
+    "$DB_URL" \
+    "$SPKG" \
+    -e "$ENDPOINT" \
+    -p "${map_module}=contract_id=${contract_id}" \
+    --infinite-retry &
+  PIDS+=($!)
+  NAMES+=("$name")
+done
 
 echo ""
 echo "=== All sinks running ==="
-echo "  core    PID=$CORE_PID"
-echo "  staking PID=$STAKING_PID"
-echo "  token   PID=$TOKEN_PID"
+for i in "${!NAMES[@]}"; do
+  printf "  %-8s PID=%s\n" "${NAMES[$i]}" "${PIDS[$i]}"
+done
 echo ""
 echo "Press Ctrl+C to stop all sinks."
 
@@ -70,7 +92,9 @@ echo "Press Ctrl+C to stop all sinks."
 cleanup() {
   echo ""
   echo ">>> Stopping sinks..."
-  kill "$CORE_PID" "$STAKING_PID" "$TOKEN_PID" 2>/dev/null || true
+  for pid in "${PIDS[@]}"; do
+    kill "$pid" 2>/dev/null || true
+  done
   wait
   echo ">>> All sinks stopped."
 }

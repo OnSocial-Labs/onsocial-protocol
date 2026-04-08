@@ -1,23 +1,22 @@
-//! Staking event decoder
+//! Boost event decoder
 //!
-//! Decodes NEP-297 events from staking and boost contract logs.
-//! Events: STAKE_LOCK / BOOST_LOCK, STAKE_EXTEND / BOOST_EXTEND,
-//!         STAKE_UNLOCK / BOOST_UNLOCK, REWARDS_RELEASED,
+//! Decodes NEP-297 events from boost-onsocial contract logs.
+//! Events: BOOST_LOCK, BOOST_EXTEND, BOOST_UNLOCK, REWARDS_RELEASED,
 //!         REWARDS_CLAIM, CREDITS_PURCHASE, SCHEDULED_FUND, INFRA_WITHDRAW,
 //!         OWNER_CHANGED, CONTRACT_UPGRADE, STORAGE_DEPOSIT,
 //!         UNLOCK_FAILED, CLAIM_FAILED, WITHDRAW_INFRA_FAILED
 
-use crate::pb::staking::v1::staking_event::Payload;
-use crate::pb::staking::v1::*;
+use crate::pb::boost::v1::boost_event::Payload;
+use crate::pb::boost::v1::*;
 use serde_json::Value;
 
-pub fn decode_staking_event(
+pub fn decode_boost_event(
     json_data: &str,
     receipt_id: &str,
     block_height: u64,
     block_timestamp: u64,
     log_index: usize,
-) -> Option<StakingEvent> {
+) -> Option<BoostEvent> {
     let parsed: Value = serde_json::from_str(json_data).ok()?;
 
     let standard = parsed.get("standard")?.as_str()?;
@@ -38,7 +37,7 @@ pub fn decode_staking_event(
     let id = format!("{}-{}-{}", receipt_id, log_index, event_type);
     let (success, payload) = decode_payload(event_type, data)?;
 
-    Some(StakingEvent {
+    Some(BoostEvent {
         id,
         block_height,
         block_timestamp,
@@ -52,26 +51,26 @@ pub fn decode_staking_event(
 
 fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
     match event_type {
-        "STAKE_LOCK" | "BOOST_LOCK" => Some((
+        "BOOST_LOCK" => Some((
             true,
-            Payload::StakeLock(StakeLock {
+            Payload::BoostLock(BoostLock {
                 amount: str_field(data, "amount"),
                 months: u64_field(data, "months"),
-                effective_stake: str_field_alias(data, &["effective_boost", "effective_stake"]),
+                effective_boost: str_field(data, "effective_boost"),
             }),
         )),
 
-        "STAKE_EXTEND" | "BOOST_EXTEND" => Some((
+        "BOOST_EXTEND" => Some((
             true,
-            Payload::StakeExtend(StakeExtend {
+            Payload::BoostExtend(BoostExtend {
                 new_months: u64_field(data, "new_months"),
-                new_effective: str_field_alias(data, &["new_effective_boost", "new_effective"]),
+                new_effective_boost: str_field(data, "new_effective_boost"),
             }),
         )),
 
-        "STAKE_UNLOCK" | "BOOST_UNLOCK" => Some((
+        "BOOST_UNLOCK" => Some((
             true,
-            Payload::StakeUnlock(StakeUnlock {
+            Payload::BoostUnlock(BoostUnlock {
                 amount: str_field(data, "amount"),
             }),
         )),
@@ -162,20 +161,18 @@ fn decode_payload(event_type: &str, data: &Value) -> Option<(bool, Payload)> {
             }),
         )),
 
-        _ => None,
+        _ => Some((
+            true,
+            Payload::UnknownEvent(UnknownEvent {
+                extra_data: data.to_string(),
+            }),
+        )),
     }
 }
 
 fn str_field(data: &Value, key: &str) -> String {
     data.get(key)
         .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string()
-}
-
-fn str_field_alias(data: &Value, keys: &[&str]) -> String {
-    keys.iter()
-        .find_map(|key| data.get(*key).and_then(|v| v.as_str()))
         .unwrap_or("")
         .to_string()
 }

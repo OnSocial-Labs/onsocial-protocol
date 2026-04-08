@@ -17,13 +17,15 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 mod block_walker;
+mod boost_db_out;
+mod boost_decoder;
 mod core_db_out;
 mod core_decoder;
 mod pb;
+mod rewards_db_out;
+mod rewards_decoder;
 mod scarces_db_out;
 mod scarces_decoder;
-mod staking_db_out;
-mod staking_decoder;
 mod token_db_out;
 mod token_decoder;
 
@@ -31,16 +33,18 @@ mod token_decoder;
 mod tests;
 
 use block_walker::{block_context, for_each_event_log, parse_contract_filter};
+use boost_decoder::decode_boost_event;
 use core_decoder::decode_onsocial_event;
+use pb::boost::v1::BoostOutput;
 use pb::core::v1::{
     ContractUpdate, DataUpdate, GroupUpdate, Output, PermissionUpdate, StorageUpdate,
 };
+use pb::rewards::v1::RewardsOutput;
 use pb::scarces::v1::ScarcesOutput;
-use pb::staking::v1::StakingOutput;
 use pb::token::v1::TokenOutput;
+use rewards_decoder::decode_rewards_event;
 use scarces_decoder::decode_scarces_event;
 use serde_json::Value;
-use staking_decoder::decode_staking_event;
 use substreams_near::pb::sf::near::r#type::v1::Block;
 use token_decoder::decode_token_events;
 
@@ -158,21 +162,21 @@ fn map_core_output(params: String, block: Block) -> Result<Output, substreams::e
 }
 
 // =============================================================================
-// Staking Map Module
+// Boost Map Module
 // =============================================================================
 
-/// Staking map module - outputs typed staking events for DB sink
+/// Boost map module - outputs typed boost events for DB sink
 #[substreams::handlers::map]
-fn map_staking_output(
+fn map_boost_output(
     params: String,
     block: Block,
-) -> Result<StakingOutput, substreams::errors::Error> {
+) -> Result<BoostOutput, substreams::errors::Error> {
     let filter = parse_contract_filter(&params);
     let ctx = block_context(&block);
     let mut events = Vec::new();
 
     for_each_event_log(&block, filter.as_deref(), |log| {
-        if let Some(event) = decode_staking_event(
+        if let Some(event) = decode_boost_event(
             log.json_data,
             &log.receipt_id,
             ctx.block_height,
@@ -183,7 +187,41 @@ fn map_staking_output(
         }
     });
 
-    Ok(StakingOutput {
+    Ok(BoostOutput {
+        events,
+        block_height: ctx.block_height,
+        block_timestamp: ctx.block_timestamp,
+        block_hash: ctx.block_hash,
+    })
+}
+
+// =============================================================================
+// Rewards Map Module
+// =============================================================================
+
+/// Rewards map module - outputs typed rewards events for DB sink
+#[substreams::handlers::map]
+fn map_rewards_output(
+    params: String,
+    block: Block,
+) -> Result<RewardsOutput, substreams::errors::Error> {
+    let filter = parse_contract_filter(&params);
+    let ctx = block_context(&block);
+    let mut events = Vec::new();
+
+    for_each_event_log(&block, filter.as_deref(), |log| {
+        if let Some(event) = decode_rewards_event(
+            log.json_data,
+            &log.receipt_id,
+            ctx.block_height,
+            ctx.block_timestamp,
+            log.log_index,
+        ) {
+            events.push(event);
+        }
+    });
+
+    Ok(RewardsOutput {
         events,
         block_height: ctx.block_height,
         block_timestamp: ctx.block_timestamp,
@@ -287,9 +325,23 @@ fn extract_data_update(
     let group_path = get_string(&data.extra, "group_path");
     let is_group_content = get_bool(&data.extra, "is_group_content").unwrap_or(false);
 
-    // Target account for graph/* paths
+    // Target account for social graph paths.
+    // Generic rule: if parts[2] looks like a NEAR account (contains '.')
+    // for any relationship type (standing, reaction, endorsement, delegate,
+    // mentor, etc.), extract it as target_account.
+    // Special case: graph/follow/{target} at parts[3] for NEAR Social compat.
     let target_account = if path_parts.len() >= 4 && path_parts.get(1) == Some(&"graph") {
-        path_parts.get(3).map(|s| s.to_string())
+        // Legacy NEAR Social DB: {account}/graph/{verb}/{target}
+        path_parts
+            .get(3)
+            .filter(|s| s.contains('.'))
+            .map(|s| s.to_string())
+    } else if path_parts.len() >= 3 {
+        // Generic: {account}/{relationship}/{target}[/...]
+        path_parts
+            .get(2)
+            .filter(|s| s.contains('.'))
+            .map(|s| s.to_string())
     } else {
         None
     };
@@ -331,6 +383,8 @@ fn extract_data_update(
         derived_id: get_string(&data.extra, "id").unwrap_or_default(),
         derived_type: get_string(&data.extra, "type").unwrap_or_default(),
         writes: get_string(&data.extra, "writes").unwrap_or_default(),
+        // Capture all fields as JSON so nothing is ever lost
+        extra_data: serde_json::to_string(&data.extra).unwrap_or_default(),
     })
 }
 

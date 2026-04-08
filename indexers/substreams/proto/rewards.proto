@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package rewards.v1;
+
+// =============================================================================
+// TOP-LEVEL OUTPUT - All rewards contract events per block
+// =============================================================================
+
+message RewardsOutput {
+  repeated RewardsEvent events = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string block_hash = 4;
+}
+
+// =============================================================================
+// REWARDS EVENT - Unified event with typed payload
+// =============================================================================
+
+message RewardsEvent {
+  string id = 1;
+  uint64 block_height = 2;
+  uint64 block_timestamp = 3;
+  string receipt_id = 4;
+  string account_id = 5;
+  string event_type = 6;
+  bool success = 7;
+
+  oneof payload {
+    RewardCredited reward_credited = 10;
+    RewardClaimed reward_claimed = 11;
+    ClaimFailed claim_failed = 12;
+    PoolDeposit pool_deposit = 13;
+    OwnerChanged owner_changed = 14;
+    MaxDailyUpdated max_daily_updated = 15;
+    ExecutorAdded executor_added = 16;
+    ExecutorRemoved executor_removed = 17;
+    CallerAdded caller_added = 18;
+    CallerRemoved caller_removed = 19;
+    ContractUpgrade contract_upgrade = 20;
+    UnknownEvent unknown_event = 30;
+  }
+}
+
+// =============================================================================
+// PAYLOAD MESSAGES
+// =============================================================================
+
+message RewardCredited {
+  string amount = 1;
+  string source = 2;
+  string credited_by = 3;
+  string app_id = 4;
+}
+
+message RewardClaimed {
+  string amount = 1;
+}
+
+message ClaimFailed {
+  string amount = 1;
+}
+
+message PoolDeposit {
+  string amount = 1;
+  string new_balance = 2;
+}
+
+message OwnerChanged {
+  string old_owner = 1;
+  string new_owner = 2;
+}
+
+message MaxDailyUpdated {
+  string old_max = 1;
+  string new_max = 2;
+}
+
+message ExecutorAdded {
+  string executor = 1;
+}
+
+message ExecutorRemoved {
+  string executor = 1;
+}
+
+message CallerAdded {
+  string caller = 1;
+}
+
+message CallerRemoved {
+  string caller = 1;
+}
+
+message ContractUpgrade {
+  string old_version = 1;
+  string new_version = 2;
+}
+
+// Catch-all for unknown/future event types — preserves full JSON payload
+message UnknownEvent {
+  string extra_data = 1;
+}

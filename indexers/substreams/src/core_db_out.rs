@@ -41,6 +41,7 @@ pub fn core_db_out(output: Output) -> Result<DatabaseChanges, substreams::errors
         row.set("derived_id", &update.derived_id);
         row.set("derived_type", &update.derived_type);
         row.set("writes", &update.writes);
+        row.set("extra_data", &update.extra_data);
     }
 
     // Process StorageUpdates

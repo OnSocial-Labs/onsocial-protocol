@@ -22,7 +22,7 @@ pub fn scarces_db_out(output: ScarcesOutput) -> Result<DatabaseChanges, substrea
     Ok(tables.to_database_changes())
 }
 
-fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {
+pub(crate) fn write_scarces_event(tables: &mut Tables, e: &ScarcesEvent) {
     let row = tables.create_row("scarces_events", &e.id);
 
     // Core fields

@@ -16,7 +16,10 @@ CREATE TABLE IF NOT EXISTS token_events (
 
   -- ft_transfer fields
   old_owner_id TEXT,
-  new_owner_id TEXT
+  new_owner_id TEXT,
+
+  -- Full JSON catch-all (ensures unknown event types are never lost)
+  extra_data TEXT
 );
 
 -- Materialized view: last-known activity per account

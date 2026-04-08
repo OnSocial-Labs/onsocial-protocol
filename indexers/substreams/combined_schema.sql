@@ -10,8 +10,14 @@
 -- ===================== CORE-ONSOCIAL =====================
 \i core_schema.sql
 
--- ===================== STAKING-ONSOCIAL ==================
-\i staking_schema.sql
+-- ===================== BOOST-ONSOCIAL ====================
+\i boost_schema.sql
+
+-- ===================== REWARDS-ONSOCIAL ==================
+\i rewards_schema.sql
 
 -- ===================== TOKEN-ONSOCIAL ====================
 \i token_schema.sql
+
+-- ===================== SCARCES-ONSOCIAL ==================
+\i scarces_schema.sql

@@ -12,10 +12,17 @@ pub mod core {
     }
 }
 
-/// Staking contract events
-pub mod staking {
+/// Boost contract events
+pub mod boost {
     pub mod v1 {
-        include!(concat!(env!("OUT_DIR"), "/staking.v1.rs"));
+        include!(concat!(env!("OUT_DIR"), "/boost.v1.rs"));
+    }
+}
+
+/// Rewards contract events
+pub mod rewards {
+    pub mod v1 {
+        include!(concat!(env!("OUT_DIR"), "/rewards.v1.rs"));
     }
 }
 

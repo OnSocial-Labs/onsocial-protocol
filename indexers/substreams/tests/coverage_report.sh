@@ -195,13 +195,100 @@ TOKEN_TOTAL=$TOTAL_OPS
 TOKEN_INDEXED=$INDEXED_OPS
 
 echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}SCARCES — SCARCE_UPDATE Operations${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_OPS=0
+INDEXED_OPS=0
+
+count_op "scarces_events" "mint"
+count_op "scarces_events" "transfer"
+count_op "scarces_events" "burn"
+count_op "scarces_events" "list"
+count_op "scarces_events" "delist"
+count_op "scarces_events" "purchase"
+count_op "scarces_events" "renew"
+count_op "scarces_events" "revoke"
+count_op "scarces_events" "redeem"
+count_op "scarces_events" "approve"
+count_op "scarces_events" "revoke_approval"
+count_op "scarces_events" "revoke_all"
+count_op "scarces_events" "auction_created"
+count_op "scarces_events" "auction_bid"
+count_op "scarces_events" "auction_settled"
+count_op "scarces_events" "auction_cancelled"
+
+SCARCE_UPDATE_TOTAL=$TOTAL_OPS
+SCARCE_UPDATE_INDEXED=$INDEXED_OPS
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}SCARCES — COLLECTION_UPDATE Operations${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_OPS=0
+INDEXED_OPS=0
+
+count_op "scarces_events" "create"
+count_op "scarces_events" "update_price"
+count_op "scarces_events" "update_timing"
+count_op "scarces_events" "delete"
+count_op "scarces_events" "pause"
+count_op "scarces_events" "resume"
+count_op "scarces_events" "cancel"
+count_op "scarces_events" "airdrop"
+count_op "scarces_events" "set_allowlist"
+count_op "scarces_events" "remove_from_allowlist"
+count_op "scarces_events" "set_metadata"
+count_op "scarces_events" "withdraw_refunds"
+
+COLLECTION_UPDATE_TOTAL=$TOTAL_OPS
+COLLECTION_UPDATE_INDEXED=$INDEXED_OPS
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}SCARCES — Other Event Types${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_OPS=0
+INDEXED_OPS=0
+
+# LAZY_LISTING_UPDATE
+count_op "scarces_events" "lazy_create"
+count_op "scarces_events" "lazy_purchase"
+count_op "scarces_events" "lazy_cancel"
+count_op "scarces_events" "lazy_update_price"
+count_op "scarces_events" "lazy_update_expiry"
+# OFFER_UPDATE
+count_op "scarces_events" "offer_make"
+count_op "scarces_events" "offer_accept"
+count_op "scarces_events" "offer_cancel"
+# APP_POOL_UPDATE
+count_op "scarces_events" "register"
+count_op "scarces_events" "fund"
+count_op "scarces_events" "withdraw"
+count_op "scarces_events" "config"
+# STORAGE_UPDATE (scarces)
+count_op "scarces_events" "deposit"
+count_op "scarces_events" "set_cap"
+# CONTRACT_UPDATE (scarces)
+count_op "scarces_events" "upgrade"
+count_op "scarces_events" "fee_config"
+count_op "scarces_events" "ban"
+count_op "scarces_events" "unban"
+
+SCARCES_OTHER_TOTAL=$TOTAL_OPS
+SCARCES_OTHER_INDEXED=$INDEXED_OPS
+
+echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                     COVERAGE SUMMARY                         ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
-ALL_TOTAL=$((DATA_TOTAL + STORAGE_TOTAL + GROUP_TOTAL + PERMISSION_TOTAL + CONTRACT_TOTAL + STAKING_TOTAL + TOKEN_TOTAL))
-ALL_INDEXED=$((DATA_INDEXED + STORAGE_INDEXED + GROUP_INDEXED + PERMISSION_INDEXED + CONTRACT_INDEXED + STAKING_INDEXED + TOKEN_INDEXED))
+ALL_TOTAL=$((DATA_TOTAL + STORAGE_TOTAL + GROUP_TOTAL + PERMISSION_TOTAL + CONTRACT_TOTAL + STAKING_TOTAL + TOKEN_TOTAL + SCARCE_UPDATE_TOTAL + COLLECTION_UPDATE_TOTAL + SCARCES_OTHER_TOTAL))
+ALL_INDEXED=$((DATA_INDEXED + STORAGE_INDEXED + GROUP_INDEXED + PERMISSION_INDEXED + CONTRACT_INDEXED + STAKING_INDEXED + TOKEN_INDEXED + SCARCE_UPDATE_INDEXED + COLLECTION_UPDATE_INDEXED + SCARCES_OTHER_INDEXED))
 
 printf "  DATA_UPDATE:       %2d/%2d operations indexed\n" "$DATA_INDEXED" "$DATA_TOTAL"
 printf "  STORAGE_UPDATE:    %2d/%2d operations indexed\n" "$STORAGE_INDEXED" "$STORAGE_TOTAL"
@@ -210,6 +297,9 @@ printf "  PERMISSION_UPDATE: %2d/%2d operations indexed\n" "$PERMISSION_INDEXED"
 printf "  CONTRACT_UPDATE:   %2d/%2d operations indexed\n" "$CONTRACT_INDEXED" "$CONTRACT_TOTAL"
 printf "  STAKING:           %2d/%2d operations indexed\n" "$STAKING_INDEXED" "$STAKING_TOTAL"
 printf "  TOKEN:             %2d/%2d operations indexed\n" "$TOKEN_INDEXED" "$TOKEN_TOTAL"
+printf "  SCARCE_UPDATE:     %2d/%2d operations indexed\n" "$SCARCE_UPDATE_INDEXED" "$SCARCE_UPDATE_TOTAL"
+printf "  COLLECTION_UPDATE: %2d/%2d operations indexed\n" "$COLLECTION_UPDATE_INDEXED" "$COLLECTION_UPDATE_TOTAL"
+printf "  SCARCES_OTHER:     %2d/%2d operations indexed\n" "$SCARCES_OTHER_INDEXED" "$SCARCES_OTHER_TOTAL"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
@@ -257,6 +347,8 @@ check_test_file "core/test_group.sh" "GROUP_UPDATE tests"
 check_test_file "core/test_permission.sh" "PERMISSION_UPDATE tests"
 check_test_file "core/test_contract.sh" "CONTRACT_UPDATE tests"
 check_test_file "test_health.sh" "Health & connectivity tests"
+check_test_file "scarces/test_scarces_events.sh" "Scarces event read tests"
+check_test_file "scarces/test_scarces_write.sh" "Scarces event write tests"
 check_test_file "staking/test_staking_events.sh" "Staking event tests"
 check_test_file "staking/test_staker_state.sh" "Staker state tests"
 check_test_file "staking/test_credit_purchases.sh" "Credit purchase tests"

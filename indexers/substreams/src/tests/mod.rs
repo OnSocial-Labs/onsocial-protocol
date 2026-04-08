@@ -1,5 +1,9 @@
+mod boost_db_out_tests;
+mod boost_decoder_tests;
 mod core_decoder_tests;
-mod staking_db_out_tests;
-mod staking_decoder_tests;
+mod rewards_db_out_tests;
+mod rewards_decoder_tests;
+mod scarces_db_out_tests;
+mod scarces_decoder_tests;
 mod token_db_out_tests;
 mod token_decoder_tests;

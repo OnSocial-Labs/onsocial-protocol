@@ -28,6 +28,7 @@ message TokenEvent {
     FtMint ft_mint = 10;
     FtBurn ft_burn = 11;
     FtTransfer ft_transfer = 12;
+    UnknownEvent unknown_event = 30;
   }
 }
 
@@ -52,4 +53,9 @@ message FtTransfer {
   string new_owner_id = 2;
   string amount = 3;
   string memo = 4;
+}
+
+// Catch-all for unknown/future event types — preserves full JSON payload
+message UnknownEvent {
+  string extra_data = 1;
 }

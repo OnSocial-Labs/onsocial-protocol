@@ -19,7 +19,7 @@ check_deps
 check_hasura_health || exit 1
 
 mode="${1:-query}"
-contracts="${2:-core staking token}"
+contracts="${2:-core scarces staking token}"
 
 if [ "$mode" = "help" ] || [ "$mode" = "-h" ] || [ "$mode" = "--help" ]; then
     echo "Usage: $0 [mode] [contracts]"
@@ -31,8 +31,7 @@ if [ "$mode" = "help" ] || [ "$mode" = "-h" ] || [ "$mode" = "--help" ]; then
     echo "  all      - Run all tests including writes"
     echo ""
     echo "Contracts (space-separated):"
-    echo "  core     - Core contract tests (data, storage, group, contract, permission)"
-    echo "  staking  - Staking contract tests (events, staker_state, credit_purchases)"
+    echo "  core     - Core contract tests (data, storage, group, contract, permission)"  echo "  scarces  - Scarces contract tests (events, write)"    echo "  staking  - Staking contract tests (events, staker_state, credit_purchases)"
     echo "  token    - Token contract tests (events, balances)"
     echo ""
     echo "Environment variables:"

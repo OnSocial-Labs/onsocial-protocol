@@ -25,13 +25,19 @@ cd "$SCRIPT_DIR"
 # ---------------------------------------------------------------------------
 CONTRACTS=(
   "core|core_db_out|core_schema.sql"
-  "staking|staking_db_out|staking_schema.sql"
+  "boost|boost_db_out|boost_schema.sql"
+  "rewards|rewards_db_out|rewards_schema.sql"
   "token|token_db_out|token_schema.sql"
   "scarces|scarces_db_out|scarces_schema.sql"
 )
 
 # Extract version from substreams.yaml
 VERSION=$(grep -m1 'version:' substreams.yaml | awk '{print $2}')
+CARGO_VERSION="v$(grep -m1 '^version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')"
+if [ "$VERSION" != "$CARGO_VERSION" ]; then
+  echo "❌ Version mismatch: substreams.yaml=${VERSION} Cargo.toml=${CARGO_VERSION}"
+  exit 1
+fi
 echo "📦 Substreams version: ${VERSION}"
 
 # Determine which contracts to build

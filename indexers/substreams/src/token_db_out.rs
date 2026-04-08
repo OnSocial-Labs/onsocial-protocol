@@ -67,6 +67,9 @@ pub(crate) fn write_token_event(tables: &mut Tables, event: &TokenEvent) {
             row.set("amount", &p.amount);
             row.set("memo", &p.memo);
         }
+        Some(Payload::UnknownEvent(p)) => {
+            row.set("extra_data", &p.extra_data);
+        }
         None => {}
     }
 }
@@ -96,6 +99,6 @@ pub(crate) fn accumulate_token_balances(
             touch(&p.old_owner_id, "ft_transfer_out");
             touch(&p.new_owner_id, "ft_transfer_in");
         }
-        None => {}
+        _ => {}
     }
 }

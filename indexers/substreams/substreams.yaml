@@ -1,7 +1,7 @@
 specVersion: v0.1.0
 package:
   name: onsocial_events
-  version: v0.8.0
+  version: v0.9.0
   url: https://github.com/onsocial-protocol/indexers/substreams
   description: High-performance substreams indexer for OnSocial protocol events
   doc: |
@@ -19,7 +19,8 @@ binaries:
 protobuf:
   files:
     - core.proto
-    - staking.proto
+    - boost.proto
+    - rewards.proto
     - token.proto
     - scarces.proto
     - sf/substreams/sink/database/v1/database.proto
@@ -61,34 +62,64 @@ modules:
       contract_updates, permission_updates.
 
   # =========================================================================
-  # STAKING CONTRACT MODULES
+  # BOOST CONTRACT MODULES
   # =========================================================================
 
-  # Staking events - typed output
-  - name: map_staking_output
+  # Boost events - typed output
+  - name: map_boost_output
     kind: map
-    initialBlock: 235546389
+    initialBlock: 238800000
     inputs:
       - params: string
       - source: sf.near.type.v1.Block
     output:
-      type: proto:staking.v1.StakingOutput
+      type: proto:boost.v1.BoostOutput
     doc: |
-      Extracts staking contract events: lock, extend, unlock, rewards,
+      Extracts boost contract events: lock, extend, unlock, rewards,
       credits, funding, infra, ownership, upgrades.
       14 event types with success/failure tracking.
 
-  # Staking database changes - for substreams-sink-sql
-  - name: staking_db_out
+  # Boost database changes - for substreams-sink-sql
+  - name: boost_db_out
     kind: map
-    initialBlock: 235546389
+    initialBlock: 238800000
     inputs:
-      - map: map_staking_output
+      - map: map_boost_output
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges
     doc: |
-      Converts StakingOutput to DatabaseChanges for SQL sink.
-      Writes to: staking_events, staker_state, credit_purchases.
+      Converts BoostOutput to DatabaseChanges for SQL sink.
+      Writes to: boost_events, booster_state, boost_credit_purchases.
+
+  # =========================================================================
+  # REWARDS CONTRACT MODULES
+  # =========================================================================
+
+  # Rewards events - typed output
+  - name: map_rewards_output
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - params: string
+      - source: sf.near.type.v1.Block
+    output:
+      type: proto:rewards.v1.RewardsOutput
+    doc: |
+      Extracts rewards contract events: credit, claim, pool deposits,
+      config changes, executor/caller management.
+      11 event types with success/failure tracking.
+
+  # Rewards database changes - for substreams-sink-sql
+  - name: rewards_db_out
+    kind: map
+    initialBlock: 238800000
+    inputs:
+      - map: map_rewards_output
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
+    doc: |
+      Converts RewardsOutput to DatabaseChanges for SQL sink.
+      Writes to: rewards_events, user_reward_state.
 
   # =========================================================================
   # TOKEN CONTRACT MODULES (NEP-141)
@@ -151,7 +182,8 @@ modules:
 
 params:
   map_core_output: "contract_id=core.onsocial.testnet"
-  map_staking_output: "contract_id=staking.onsocial.testnet"
+  map_boost_output: "contract_id=boost.onsocial.testnet"
+  map_rewards_output: "contract_id=rewards.onsocial.testnet"
   map_token_output: "contract_id=token.onsocial.testnet"
   map_scarces_output: "contract_id=scarces.onsocial.testnet"
 
@@ -172,12 +204,14 @@ params:
 # Deployment blocks (from NEAR archival RPC):
 #   core.onsocial.testnet     → block 233084800 (Jan 2026)
 #   token.onsocial.testnet    → block 234337349 (Jan 2026)
-#   staking.onsocial.testnet  → block 235546389 (Feb 2026)
+#   boost.onsocial.testnet    → block 238800000 (Feb 2026)
+#   rewards.onsocial.testnet  → block 238800000 (Feb 2026)
 #   scarces.onsocial.testnet  → block 238800000 (Feb 2026)
 #
 # Contract registry for pack.sh:
 #   core    → core_db_out    → core_schema.sql
-#   staking → staking_db_out → staking_schema.sql
+#   boost   → boost_db_out   → boost_schema.sql
+#   rewards → rewards_db_out → rewards_schema.sql
 #   token   → token_db_out   → token_schema.sql
 #   scarces → scarces_db_out → scarces_schema.sql
 # ---------------------------------------------------------------------------

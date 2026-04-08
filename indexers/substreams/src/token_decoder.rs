@@ -82,7 +82,9 @@ pub fn decode_token_events(
                     memo,
                 }))
             }
-            _ => None,
+            _ => Some(Payload::UnknownEvent(UnknownEvent {
+                extra_data: data.to_string(),
+            })),
         };
 
         if let Some(payload) = payload {

@@ -1,19 +1,19 @@
-//! Database Changes module for staking events
+//! Database Changes module for boost events
 //!
-//! Converts StakingOutput to DatabaseChanges for substreams-sink-sql.
-//! Writes to: staking_events, staker_state, credit_purchases
+//! Converts BoostOutput to DatabaseChanges for substreams-sink-sql.
+//! Writes to: boost_events, booster_state, boost_credit_purchases
 
-use crate::pb::staking::v1::staking_event::Payload;
-use crate::pb::staking::v1::*;
+use crate::pb::boost::v1::boost_event::Payload;
+use crate::pb::boost::v1::*;
 use std::collections::HashMap;
 use substreams_database_change::pb::database::DatabaseChanges;
 use substreams_database_change::tables::Tables;
 
-/// Accumulated staker state fields (one entry per account per block scope).
+/// Accumulated booster state fields (one entry per account per block scope).
 #[derive(Default)]
-pub(crate) struct StakerStateAccum {
+pub(crate) struct BoosterStateAccum {
     pub(crate) locked_amount: Option<String>,
-    pub(crate) effective_stake: Option<String>,
+    pub(crate) effective_boost: Option<String>,
     pub(crate) lock_months: Option<u64>,
     pub(crate) total_claimed: Option<String>,
     pub(crate) total_credits_purchased: Option<String>,
@@ -23,26 +23,21 @@ pub(crate) struct StakerStateAccum {
 }
 
 #[substreams::handlers::map]
-pub fn staking_db_out(output: StakingOutput) -> Result<DatabaseChanges, substreams::errors::Error> {
+pub fn boost_db_out(output: BoostOutput) -> Result<DatabaseChanges, substreams::errors::Error> {
     let mut tables = Tables::new();
-    let mut staker_accum: HashMap<String, StakerStateAccum> = HashMap::new();
+    let mut booster_accum: HashMap<String, BoosterStateAccum> = HashMap::new();
 
     for event in &output.events {
-        // 1. Write every event to staking_events
-        write_staking_event(&mut tables, event);
+        write_boost_event(&mut tables, event);
+        accumulate_booster_state(&mut booster_accum, event);
 
-        // 2. Accumulate staker_state updates (dedup by account_id)
-        accumulate_staker_state(&mut staker_accum, event);
-
-        // 3. Write credit purchases to dedicated table
         if event.event_type == "CREDITS_PURCHASE" {
             write_credit_purchase(&mut tables, event);
         }
     }
 
-    // 4. Flush one staker_state row per account (upsert: same account can appear across blocks)
-    for (account_id, state) in &staker_accum {
-        let row = tables.upsert_row("staker_state", account_id);
+    for (account_id, state) in &booster_accum {
+        let row = tables.upsert_row("booster_state", account_id);
         row.set("account_id", account_id);
         row.set("last_event_type", &state.last_event_type);
         row.set("last_event_block", &state.last_event_block);
@@ -50,8 +45,8 @@ pub fn staking_db_out(output: StakingOutput) -> Result<DatabaseChanges, substrea
         if let Some(v) = &state.locked_amount {
             row.set("locked_amount", v);
         }
-        if let Some(v) = &state.effective_stake {
-            row.set("effective_stake", v);
+        if let Some(v) = &state.effective_boost {
+            row.set("effective_boost", v);
         }
         if let Some(v) = &state.lock_months {
             row.set("lock_months", *v);
@@ -67,8 +62,8 @@ pub fn staking_db_out(output: StakingOutput) -> Result<DatabaseChanges, substrea
     Ok(tables.to_database_changes())
 }
 
-pub(crate) fn write_staking_event(tables: &mut Tables, event: &StakingEvent) {
-    let row = tables.create_row("staking_events", &event.id);
+pub(crate) fn write_boost_event(tables: &mut Tables, event: &BoostEvent) {
+    let row = tables.create_row("boost_events", &event.id);
 
     row.set("block_height", event.block_height);
     row.set("block_timestamp", event.block_timestamp);
@@ -78,16 +73,16 @@ pub(crate) fn write_staking_event(tables: &mut Tables, event: &StakingEvent) {
     row.set("success", event.success);
 
     match &event.payload {
-        Some(Payload::StakeLock(p)) => {
+        Some(Payload::BoostLock(p)) => {
             row.set("amount", &p.amount);
             row.set("months", p.months);
-            row.set("effective_stake", &p.effective_stake);
+            row.set("effective_boost", &p.effective_boost);
         }
-        Some(Payload::StakeExtend(p)) => {
+        Some(Payload::BoostExtend(p)) => {
             row.set("new_months", p.new_months);
-            row.set("new_effective", &p.new_effective);
+            row.set("new_effective_boost", &p.new_effective_boost);
         }
-        Some(Payload::StakeUnlock(p)) => {
+        Some(Payload::BoostUnlock(p)) => {
             row.set("amount", &p.amount);
         }
         Some(Payload::RewardsReleased(p)) => {
@@ -132,39 +127,42 @@ pub(crate) fn write_staking_event(tables: &mut Tables, event: &StakingEvent) {
         Some(Payload::WithdrawInfraFailed(p)) => {
             row.set("amount", &p.amount);
         }
+        Some(Payload::UnknownEvent(p)) => {
+            row.set("extra_data", &p.extra_data);
+        }
         None => {}
     }
 }
 
-pub(crate) fn accumulate_staker_state(
-    accum: &mut HashMap<String, StakerStateAccum>,
-    event: &StakingEvent,
+pub(crate) fn accumulate_booster_state(
+    accum: &mut HashMap<String, BoosterStateAccum>,
+    event: &BoostEvent,
 ) {
     match &event.payload {
-        Some(Payload::StakeLock(p)) => {
+        Some(Payload::BoostLock(p)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();
             entry.last_event_type = event.event_type.clone();
             entry.last_event_block = event.block_height.to_string();
             entry.updated_at = event.block_timestamp.to_string();
             entry.locked_amount = Some(p.amount.clone());
-            entry.effective_stake = Some(p.effective_stake.clone());
+            entry.effective_boost = Some(p.effective_boost.clone());
             entry.lock_months = Some(p.months);
         }
-        Some(Payload::StakeExtend(p)) => {
+        Some(Payload::BoostExtend(p)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();
             entry.last_event_type = event.event_type.clone();
             entry.last_event_block = event.block_height.to_string();
             entry.updated_at = event.block_timestamp.to_string();
-            entry.effective_stake = Some(p.new_effective.clone());
+            entry.effective_boost = Some(p.new_effective_boost.clone());
             entry.lock_months = Some(p.new_months);
         }
-        Some(Payload::StakeUnlock(_p)) => {
+        Some(Payload::BoostUnlock(_)) => {
             let entry = accum.entry(event.account_id.clone()).or_default();
             entry.last_event_type = event.event_type.clone();
             entry.last_event_block = event.block_height.to_string();
             entry.updated_at = event.block_timestamp.to_string();
             entry.locked_amount = Some("0".to_string());
-            entry.effective_stake = Some("0".to_string());
+            entry.effective_boost = Some("0".to_string());
             entry.lock_months = Some(0);
         }
         Some(Payload::RewardsClaim(p)) => {
@@ -181,16 +179,13 @@ pub(crate) fn accumulate_staker_state(
             entry.updated_at = event.block_timestamp.to_string();
             entry.total_credits_purchased = Some(p.amount.clone());
         }
-        Some(Payload::UnlockFailed(_)) => {
-            // Rollback: state restored in contract, staker_state unchanged
-        }
         _ => {}
     }
 }
 
-pub(crate) fn write_credit_purchase(tables: &mut Tables, event: &StakingEvent) {
+pub(crate) fn write_credit_purchase(tables: &mut Tables, event: &BoostEvent) {
     if let Some(Payload::CreditsPurchase(p)) = &event.payload {
-        let row = tables.create_row("credit_purchases", &event.id);
+        let row = tables.create_row("boost_credit_purchases", &event.id);
         row.set("block_height", event.block_height);
         row.set("block_timestamp", event.block_timestamp);
         row.set("receipt_id", &event.receipt_id);
