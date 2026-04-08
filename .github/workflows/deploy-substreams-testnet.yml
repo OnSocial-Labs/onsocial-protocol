@@ -191,7 +191,10 @@ jobs:
             rm -rf "$UPLOAD_DIR"
             echo "✓ Spkg swapped"
 
-            # Run sink setup (registers cursor, validates schema)
+            # Drop stale cursors table from old per-contract sinks (incompatible schema)
+            $PSQL -c "DROP TABLE IF EXISTS cursors" 2>/dev/null || true
+
+            # Run sink setup (creates cursors table, validates schema)
             echo "📝 Running sink setup..."
             substreams-sink-sql setup "$DB_URL" "${SPKG_DIR}/${SPKG_NAME}" 2>&1 || {
               echo "  ⚠️ setup returned non-zero (may already exist — continuing)"
