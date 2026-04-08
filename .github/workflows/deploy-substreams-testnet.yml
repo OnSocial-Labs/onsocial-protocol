@@ -86,6 +86,14 @@ jobs:
           echo "SSHEOF" >> "$GITHUB_OUTPUT"
           rm -f /tmp/deploy_key
 
+      - name: Fetch Substreams DB URL from Secret Manager
+        id: db
+        run: |
+          DB_URL=$(gcloud secrets versions access latest \
+            --secret="substreams-testnet-db-url")
+          echo "::add-mask::$DB_URL"
+          echo "url=$DB_URL" >> "$GITHUB_OUTPUT"
+
       - name: Prepare upload directory
         working-directory: indexers/substreams
         env:
@@ -114,11 +122,12 @@ jobs:
         env:
           VER: ${{ steps.ver.outputs.version }}
           CLEAN_DEPLOY: ${{ inputs.clean_deploy || 'false' }}
+          SUBSTREAMS_DB_URL: ${{ steps.db.outputs.url }}
         with:
           host: 135.181.110.183
           username: root
           key: ${{ steps.ssh.outputs.key }}
-          envs: VER,CLEAN_DEPLOY
+          envs: VER,CLEAN_DEPLOY,SUBSTREAMS_DB_URL
           command_timeout: 10m
           script: |
             set -euo pipefail
@@ -131,28 +140,10 @@ jobs:
             echo "=== Substreams deploy: ${{ steps.sha.outputs.short }} (${VER}) ==="
             echo "Mode: single combined stream (1 sink for all contracts)"
 
-            # Read DB_URL
-            # Priority: file > env > extract from existing working unit
-            DB_URL=""
-            if [ -f /root/.onsocial-sink-db-url ]; then
-              DB_URL=$(cat /root/.onsocial-sink-db-url)
-            elif [ -n "${DATABASE_URL:-}" ]; then
-              DB_URL="$DATABASE_URL"
-            else
-              for existing_unit in /etc/systemd/system/onsocial-sink-*.service; do
-                [ -f "$existing_unit" ] || continue
-                EXTRACTED=$(grep -A1 'substreams-sink-sql run' "$existing_unit" \
-                  | tail -1 | awk '{$1=$1; print $1}' | sed 's/\\$//')
-                if [ -n "$EXTRACTED" ] && [[ "$EXTRACTED" == postgres* ]]; then
-                  DB_URL="$EXTRACTED"
-                  echo "📝 Extracted DB_URL from $(basename $existing_unit)"
-                  break
-                fi
-              done
-            fi
+            # DB_URL from Google Secret Manager (passed via SUBSTREAMS_DB_URL env)
+            DB_URL="${SUBSTREAMS_DB_URL:-}"
             if [ -z "$DB_URL" ]; then
-              echo "❌ No DB_URL found (checked /root/.onsocial-sink-db-url, \$DATABASE_URL, existing units)"
-              echo "   Create /root/.onsocial-sink-db-url with the Postgres connection string"
+              echo "❌ No DB_URL — ensure 'substreams-testnet-db-url' secret exists in GCP Secret Manager"
               exit 1
             fi
             ENDPOINT="${SUBSTREAMS_ENDPOINT:-near-testnet.streamingfast.io:443}"
