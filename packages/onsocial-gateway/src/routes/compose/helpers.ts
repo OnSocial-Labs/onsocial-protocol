@@ -15,6 +15,25 @@ import {
 } from '../../services/compose/shared.js';
 
 // ---------------------------------------------------------------------------
+// Actor passthrough — resolves the effective actor identity.
+// API-key users can specify actor_id for their end-user.
+// JWT users are always locked to their own identity.
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the effective actor ID for intent auth.
+ * API-key callers may pass `actor_id` in the body to act on behalf of an end-user.
+ */
+export function resolveActorId(req: Request): string {
+  const accountId = req.auth!.accountId;
+  return req.auth!.method === 'apikey' &&
+    typeof req.body?.actor_id === 'string' &&
+    req.body.actor_id
+    ? req.body.actor_id
+    : accountId;
+}
+
+// ---------------------------------------------------------------------------
 // DRY action-handler factory
 // ---------------------------------------------------------------------------
 
@@ -29,10 +48,11 @@ type BuildFn = (body: Record<string, unknown>) => SimpleActionResult;
 export function actionHandlers(buildFn: BuildFn, label: string) {
   const relay = async (req: Request, res: Response): Promise<void> => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
     try {
       const built = buildFn(req.body as Record<string, unknown>);
       const result = await relayExecute(
-        intentAuth(accountId),
+        intentAuth(effectiveActorId),
         built.action,
         built.targetAccount
       );

@@ -144,6 +144,8 @@ export async function authMiddleware(
         iat: Math.floor(record.createdAt / 1000),
         exp: 0, // API keys don't expire via JWT
       };
+      // Attach key prefix for metering (not on the public auth object)
+      (req as unknown as Record<string, unknown>)._keyPrefix = record.keyPrefix;
       next();
       return;
     }

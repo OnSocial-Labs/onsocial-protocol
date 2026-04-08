@@ -14,7 +14,12 @@ import {
   buildCreateCollectionAction,
   ComposeError,
 } from '../../services/compose/index.js';
-import { parseJsonField, parseBool, extractImageFile } from './helpers.js';
+import {
+  parseJsonField,
+  parseBool,
+  extractImageFile,
+  resolveActorId,
+} from './helpers.js';
 
 export const collectionRouter = Router();
 
@@ -129,6 +134,7 @@ collectionRouter.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       if (!validateCreateCollectionBody(req.body, res)) return;
@@ -152,7 +158,7 @@ collectionRouter.post(
       const imageFile = extractImageFile(req.file);
 
       const result = await composeCreateCollection(
-        accountId,
+        effectiveActorId,
         collectionReq,
         imageFile
       );
@@ -202,6 +208,7 @@ collectionRouter.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       if (!validateCreateCollectionBody(req.body, res)) return;
@@ -224,7 +231,7 @@ collectionRouter.post(
       const imageFile = extractImageFile(req.file);
 
       const built = await buildCreateCollectionAction(
-        accountId,
+        effectiveActorId,
         collectionReq,
         imageFile
       );

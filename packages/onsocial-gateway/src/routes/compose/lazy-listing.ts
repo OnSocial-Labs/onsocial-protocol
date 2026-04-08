@@ -23,7 +23,12 @@ import {
   buildPurchaseLazyListingAction,
   ComposeError,
 } from '../../services/compose/index.js';
-import { parseJsonField, parseBool, extractImageFile } from './helpers.js';
+import {
+  parseJsonField,
+  parseBool,
+  extractImageFile,
+  resolveActorId,
+} from './helpers.js';
 
 export const lazyListingRouter = Router();
 
@@ -48,6 +53,7 @@ lazyListingRouter.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       const {
@@ -89,7 +95,7 @@ lazyListingRouter.post(
       const imageFile = extractImageFile(req.file);
 
       const result = await composeLazyList(
-        accountId,
+        effectiveActorId,
         {
           title,
           priceNear,
@@ -151,6 +157,7 @@ lazyListingRouter.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       const {
@@ -192,7 +199,7 @@ lazyListingRouter.post(
       const imageFile = extractImageFile(req.file);
 
       const built = await buildLazyListAction(
-        accountId,
+        effectiveActorId,
         {
           title,
           priceNear,
@@ -256,6 +263,7 @@ lazyListingRouter.post(
   '/cancel-lazy-list',
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       const { listingId, targetAccount } = req.body;
@@ -269,7 +277,7 @@ lazyListingRouter.post(
         '../../services/compose/shared.js'
       );
       const relay = await relayExecute(
-        intentAuth(accountId),
+        intentAuth(effectiveActorId),
         built.action,
         built.targetAccount
       );

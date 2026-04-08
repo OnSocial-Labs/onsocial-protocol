@@ -6,11 +6,13 @@ import { pinoHttp } from 'pino-http';
 import { config } from './config/index.js';
 import { logger } from './logger.js';
 import { authMiddleware, rateLimitMiddleware } from './middleware/index.js';
+import { meteringMiddleware } from './middleware/metering.js';
 import { authRouter } from './routes/auth.js';
 import { developerRouter } from './routes/developer.js';
 import { graphRouter } from './routes/graph.js';
 import { relayRouter } from './routes/relay.js';
 import { composeRouter } from './routes/compose/index.js';
+import { dataRouter } from './routes/data.js';
 import { storageRouter } from './services/storage/index.js';
 
 const app = express();
@@ -37,7 +39,15 @@ app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     version: '0.4.0',
-    services: ['auth', 'developer', 'graph', 'storage', 'relay', 'compose'],
+    services: [
+      'auth',
+      'developer',
+      'graph',
+      'storage',
+      'relay',
+      'compose',
+      'data',
+    ],
   });
 });
 
@@ -78,6 +88,9 @@ app.use(authMiddleware);
 // Rate limiting (tier-based: free 60/min, pro 600/min, scale 3000/min)
 app.use(rateLimitMiddleware);
 
+// Usage metering (fire-and-forget: records after response is sent)
+app.use(meteringMiddleware);
+
 // Routes — 3 proxies + auth + developer keys
 app.use('/auth', authRouter);
 app.use('/developer', developerRouter);
@@ -85,6 +98,7 @@ app.use('/graph', graphRouter);
 app.use('/storage', storageRouter);
 app.use('/relay', relayRouter);
 app.use('/compose', composeRouter);
+app.use('/data', dataRouter);
 
 // 404 handler
 app.use((_req, res) => {

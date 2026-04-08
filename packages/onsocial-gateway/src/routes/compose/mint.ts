@@ -14,7 +14,7 @@ import {
   buildMintAction,
   ComposeError,
 } from '../../services/compose/index.js';
-import { parseJsonField, extractImageFile } from './helpers.js';
+import { parseJsonField, extractImageFile, resolveActorId } from './helpers.js';
 
 export const mintRouter = Router();
 
@@ -43,6 +43,7 @@ mintRouter.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       const {
@@ -80,7 +81,7 @@ mintRouter.post(
       const imageFile = extractImageFile(req.file);
 
       const result = await composeMint(
-        accountId,
+        effectiveActorId,
         {
           title,
           ...(description && { description }),
@@ -149,6 +150,7 @@ mintRouter.post(
   upload.single('image'),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       const {
@@ -186,7 +188,7 @@ mintRouter.post(
       const imageFile = extractImageFile(req.file);
 
       const built = await buildMintAction(
-        accountId,
+        effectiveActorId,
         {
           title,
           ...(description && { description }),

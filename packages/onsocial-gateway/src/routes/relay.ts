@@ -30,7 +30,7 @@ relayRouter.post(
   '/execute',
   requireAuth,
   async (req: Request, res: Response) => {
-    const { action, options, target_account } = req.body;
+    const { action, options, target_account, actor_id } = req.body;
     const accountId = req.auth!.accountId;
 
     if (!action || !action.type) {
@@ -38,15 +38,23 @@ relayRouter.post(
       return;
     }
 
+    // Actor passthrough: API-key users can specify an end-user identity.
+    // JWT users are always locked to their own identity (the JWT proves who they are).
+    // The contract enforces permission checks on actor_id regardless.
+    const effectiveActorId =
+      req.auth!.method === 'apikey' && typeof actor_id === 'string' && actor_id
+        ? actor_id
+        : accountId;
+
     // target_account defaults to JWT user; callers may override for cross-account
     // writes (e.g. grantee writing to owner's path). actor_id always stays locked
     // to the JWT identity — the contract enforces permission checks.
     const contractRequest = {
-      target_account: target_account || accountId,
+      target_account: target_account || effectiveActorId,
       action,
       auth: {
         type: 'intent',
-        actor_id: accountId,
+        actor_id: effectiveActorId,
         intent: {},
       },
       ...(options && { options }),

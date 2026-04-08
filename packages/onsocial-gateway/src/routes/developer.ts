@@ -18,6 +18,7 @@ import {
   revokeApiKey,
   type ApiKeyError,
 } from '../services/apikeys/index.js';
+import { getUsageSummary } from '../services/metering/index.js';
 
 export const developerRouter = Router();
 
@@ -92,5 +93,21 @@ developerRouter.delete('/keys/:prefix', async (req: Request, res: Response) => {
     res.json({ status: 'revoked' });
   } else {
     res.status(404).json({ error: 'Key not found' });
+  }
+});
+
+/**
+ * Get usage statistics for the authenticated developer.
+ *
+ * Returns: { today, thisMonth, byEndpoint, byActor, byStatus }
+ */
+developerRouter.get('/usage', async (req: Request, res: Response) => {
+  const accountId = req.auth!.accountId;
+  try {
+    const summary = await getUsageSummary(accountId);
+    res.json(summary);
+  } catch (error) {
+    req.log.error({ error }, 'Failed to fetch usage summary');
+    res.status(500).json({ error: 'Failed to fetch usage statistics' });
   }
 });

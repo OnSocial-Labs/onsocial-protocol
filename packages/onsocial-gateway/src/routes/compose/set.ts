@@ -14,7 +14,7 @@ import {
   buildSetAction,
   ComposeError,
 } from '../../services/compose/index.js';
-import { collectFiles } from './helpers.js';
+import { collectFiles, resolveActorId } from './helpers.js';
 
 export const setRouter = Router();
 
@@ -52,6 +52,7 @@ const upload = multer({
 // ---------------------------------------------------------------------------
 setRouter.post('/set', upload.any(), async (req: Request, res: Response) => {
   const accountId = req.auth!.accountId;
+  const effectiveActorId = resolveActorId(req);
 
   try {
     const path = req.body.path;
@@ -81,7 +82,7 @@ setRouter.post('/set', upload.any(), async (req: Request, res: Response) => {
     const files = collectFiles(req.files as Express.Multer.File[] | undefined);
 
     const result = await composeSet(
-      accountId,
+      effectiveActorId,
       { path, value, mediaField, targetAccount },
       files
     );
@@ -125,6 +126,7 @@ setRouter.post(
   upload.any(),
   async (req: Request, res: Response) => {
     const accountId = req.auth!.accountId;
+    const effectiveActorId = resolveActorId(req);
 
     try {
       const path = req.body.path;
@@ -158,7 +160,7 @@ setRouter.post(
       );
 
       const built = await buildSetAction(
-        accountId,
+        effectiveActorId,
         { path, value, mediaField, targetAccount },
         files
       );
