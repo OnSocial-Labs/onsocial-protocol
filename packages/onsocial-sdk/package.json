@@ -1,0 +1,57 @@
+{
+  "name": "@onsocial/sdk",
+  "version": "0.1.0",
+  "description": "OnSocial Protocol SDK — social graph, scarces (NFTs), rewards, storage, and GraphQL queries",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./advanced": {
+      "import": "./dist/advanced/index.js",
+      "types": "./dist/advanced/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src",
+    "format": "prettier --write .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "license": "MIT",
+  "author": "OnSocial Labs <dev@onsocial.id> (https://onsocial.id)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OnSocial-Labs/onsocial-protocol.git",
+    "directory": "packages/onsocial-sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "onsocial",
+    "near",
+    "social",
+    "web3",
+    "sdk",
+    "nft",
+    "scarces",
+    "rewards",
+    "gasless"
+  ]
+}
