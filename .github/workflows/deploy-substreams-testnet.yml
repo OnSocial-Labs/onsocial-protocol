@@ -156,10 +156,13 @@ jobs:
             done
             echo "✓ Sinks stopped"
 
+            # Helper: psql via Docker container (client not installed on host)
+            PSQL="docker exec -i postgres psql -U onsocial -d onsocial_indexer"
+
             # Schema: clean deploy drops everything, incremental checks for data_updates
             if [ "$CLEAN_DEPLOY" = "true" ]; then
               echo "🧹 Clean deploy — dropping all tables"
-              psql "$DB_URL" -c "
+              $PSQL -c "
                 DO \$\$ DECLARE t TEXT;
                 BEGIN
                   FOR t IN SELECT tablename FROM pg_tables
@@ -168,15 +171,15 @@ jobs:
                 END \$\$;
               "
               echo "✓ Tables dropped"
-              psql "$DB_URL" -f "${UPLOAD_DIR}/combined_schema.sql"
+              $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
               echo "✓ Combined schema applied"
             else
               # Check if core table exists (if not, apply full schema)
-              EXISTS=$(psql "$DB_URL" -tAc \
+              EXISTS=$($PSQL -tAc \
                 "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='data_updates'" 2>/dev/null || true)
               if [ "$EXISTS" != "1" ]; then
                 echo "📝 First deploy — applying combined schema"
-                psql "$DB_URL" -f "${UPLOAD_DIR}/combined_schema.sql"
+                $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
                 echo "✓ Combined schema applied"
               fi
             fi
