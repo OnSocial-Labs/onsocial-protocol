@@ -159,7 +159,63 @@ jobs:
             # Helper: psql via Docker container (client not installed on host)
             PSQL="docker exec -i postgres psql -U onsocial -d onsocial_indexer"
 
-            # Schema: clean deploy drops everything, incremental checks for data_updates
+            # Legacy schema migration: early deployments only had core/token tables,
+            # and later core schema revisions added columns without ALTER migrations.
+            # Bring those tables up to the current shape before applying indexes.
+            $PSQL <<'SQLEOF'
+            ALTER TABLE IF EXISTS data_updates
+              ADD COLUMN IF NOT EXISTS extra_data TEXT;
+
+            ALTER TABLE IF EXISTS storage_updates
+              ADD COLUMN IF NOT EXISTS available_balance TEXT,
+              ADD COLUMN IF NOT EXISTS previous_pool_balance TEXT,
+              ADD COLUMN IF NOT EXISTS new_pool_balance TEXT,
+              ADD COLUMN IF NOT EXISTS bytes TEXT,
+              ADD COLUMN IF NOT EXISTS remaining_allowance TEXT,
+              ADD COLUMN IF NOT EXISTS pool_account TEXT,
+              ADD COLUMN IF NOT EXISTS max_bytes TEXT,
+              ADD COLUMN IF NOT EXISTS new_shared_bytes TEXT,
+              ADD COLUMN IF NOT EXISTS new_used_bytes TEXT,
+              ADD COLUMN IF NOT EXISTS pool_available_bytes TEXT,
+              ADD COLUMN IF NOT EXISTS used_bytes TEXT;
+
+            ALTER TABLE IF EXISTS group_updates
+              ADD COLUMN IF NOT EXISTS member_nonce BIGINT,
+              ADD COLUMN IF NOT EXISTS member_nonce_path TEXT,
+              ADD COLUMN IF NOT EXISTS pool_key TEXT,
+              ADD COLUMN IF NOT EXISTS amount TEXT,
+              ADD COLUMN IF NOT EXISTS previous_pool_balance TEXT,
+              ADD COLUMN IF NOT EXISTS new_pool_balance TEXT,
+              ADD COLUMN IF NOT EXISTS quota_bytes TEXT,
+              ADD COLUMN IF NOT EXISTS quota_used TEXT,
+              ADD COLUMN IF NOT EXISTS daily_limit TEXT,
+              ADD COLUMN IF NOT EXISTS previously_enabled BOOLEAN,
+              ADD COLUMN IF NOT EXISTS sequence_number BIGINT,
+              ADD COLUMN IF NOT EXISTS title TEXT,
+              ADD COLUMN IF NOT EXISTS auto_vote BOOLEAN,
+              ADD COLUMN IF NOT EXISTS created_at BIGINT,
+              ADD COLUMN IF NOT EXISTS locked_member_count INTEGER,
+              ADD COLUMN IF NOT EXISTS locked_deposit TEXT,
+              ADD COLUMN IF NOT EXISTS expires_at BIGINT,
+              ADD COLUMN IF NOT EXISTS tally_path TEXT,
+              ADD COLUMN IF NOT EXISTS counter_path TEXT,
+              ADD COLUMN IF NOT EXISTS should_execute BOOLEAN,
+              ADD COLUMN IF NOT EXISTS should_reject BOOLEAN,
+              ADD COLUMN IF NOT EXISTS voted_at BIGINT,
+              ADD COLUMN IF NOT EXISTS voting_period BIGINT,
+              ADD COLUMN IF NOT EXISTS participation_quorum INTEGER,
+              ADD COLUMN IF NOT EXISTS approval_threshold INTEGER,
+              ADD COLUMN IF NOT EXISTS permission_key TEXT,
+              ADD COLUMN IF NOT EXISTS permission_value TEXT,
+              ADD COLUMN IF NOT EXISTS permission_target TEXT,
+              ADD COLUMN IF NOT EXISTS name TEXT,
+              ADD COLUMN IF NOT EXISTS is_public BOOLEAN,
+              ADD COLUMN IF NOT EXISTS creator_role TEXT,
+              ADD COLUMN IF NOT EXISTS storage_allocation TEXT;
+            SQLEOF
+
+            # Schema: clean deploy drops everything; otherwise always apply the
+            # current combined schema so new contract tables/indexes are present.
             if [ "$CLEAN_DEPLOY" = "true" ]; then
               echo "🧹 Clean deploy — dropping all tables"
               $PSQL -c "
@@ -171,18 +227,11 @@ jobs:
                 END \$\$;
               "
               echo "✓ Tables dropped"
-              $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
-              echo "✓ Combined schema applied"
-            else
-              # Check if core table exists (if not, apply full schema)
-              EXISTS=$($PSQL -tAc \
-                "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='data_updates'" 2>/dev/null || true)
-              if [ "$EXISTS" != "1" ]; then
-                echo "📝 First deploy — applying combined schema"
-                $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
-                echo "✓ Combined schema applied"
-              fi
             fi
+
+            echo "📝 Applying combined schema"
+            $PSQL < "${UPLOAD_DIR}/combined_schema.sql"
+            echo "✓ Combined schema applied"
 
             # Swap spkg
             [ -f "${SPKG_DIR}/${SPKG_NAME}" ] && cp "${SPKG_DIR}/${SPKG_NAME}" "${SPKG_DIR}/${SPKG_NAME}.prev"
